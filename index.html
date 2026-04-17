@@ -15,7 +15,7 @@
     --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
     --green-100: #d0e9d4; --green-50: #edf6ee;
     --gold-700: #7a5c0a; --gold-600: #a07a12; --gold-500: #c9991e;
-    --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-200: #f8e19e; --gold-100: #fdf2d0;
+    --gold-400: #e0b840; --gold-300: #f0cc6a;
     --cream: #faf8f3; --white: #ffffff;
     --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
     --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
@@ -47,6 +47,31 @@
   .auth-error { font-size: 13px; color: var(--red-500); margin-bottom: 10px; min-height: 18px; }
   #recaptcha-container { display: flex; justify-content: center; margin-bottom: 12px; }
 
+  /* SELLER VERIFICATION MODAL */
+  .verify-backdrop { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 1rem; }
+  .verify-backdrop.open { display: flex; }
+  .verify-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 540px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
+  .verify-header { background: var(--green-900); padding: 1.5rem 1.5rem 1rem; text-align: center; }
+  .verify-badge { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+  .verify-header h2 { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--white); margin-bottom: 0.25rem; }
+  .verify-header p { font-size: 13px; color: rgba(255,255,255,0.6); }
+  .verify-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--gray-200); border-top: 1px solid var(--gray-200); }
+  .verify-step { background: var(--white); padding: 1rem; text-align: center; }
+  .verify-step-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+  .verify-step-label { font-size: 11px; font-weight: 600; color: var(--gray-500); }
+  .verify-step-val { font-size: 12px; font-weight: 700; color: var(--green-600); margin-top: 2px; }
+  .verify-body { padding: 1.5rem; }
+  .verify-body h3 { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-bottom: 0.75rem; }
+  .terms-box { background: var(--gray-100); border-radius: var(--radius-md); padding: 1rem; height: 180px; overflow-y: auto; font-size: 12.5px; color: var(--gray-700); line-height: 1.7; border: 1px solid var(--gray-200); margin-bottom: 1rem; }
+  .terms-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; margin-top: 12px; color: var(--gray-900); }
+  .terms-box h4:first-child { margin-top: 0; }
+  .terms-check { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 1rem; cursor: pointer; }
+  .terms-check input { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: var(--green-600); flex-shrink: 0; }
+  .terms-check span { font-size: 13px; color: var(--gray-700); line-height: 1.5; }
+  .terms-check span strong { color: var(--green-600); }
+  .verify-footer { display: flex; gap: 10px; padding: 0 1.5rem 1.5rem; }
+  .verified-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-100); color: var(--green-700); border-radius: 50px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+
   /* NAV */
   nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; height: var(--nav-h); background: var(--green-900); display: flex; align-items: center; padding: 0 2rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
   .nav-logo { font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; margin-right: 2.5rem; flex-shrink: 0; }
@@ -61,11 +86,11 @@
   .nav-links a:hover, .nav-links a.active { color: var(--white); background: rgba(255,255,255,0.1); }
   .nav-links a.active { color: var(--gold-300); }
   .nav-actions { display: flex; gap: 10px; align-items: center; margin-left: auto; flex-shrink: 0; }
-  .btn-sell { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 8px 22px; font-family: var(--font-body); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: var(--transition); }
-  .btn-sell:hover { background: var(--gold-300); }
+  .btn-sell-nav { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 8px 22px; font-family: var(--font-body); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+  .btn-sell-nav:hover { background: var(--gold-300); }
   .btn-icon { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
   .btn-icon:hover { color: var(--white); background: rgba(255,255,255,0.1); }
-  .user-badge { background: var(--gold-400); color: var(--green-900); border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .user-badge { background: var(--gold-400); color: var(--green-900); border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; display: none; }
 
   /* CAT BAR */
   .cat-bar { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); display: flex; align-items: center; padding: 0 2rem; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -240,6 +265,7 @@
   .sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color: var(--green-500); }
   .sell-form textarea { height: 80px; resize: vertical; }
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
 
   /* FOOTER */
   footer { background: var(--green-950); color: rgba(255,255,255,0.5); padding: 3rem 2rem 2rem; margin-top: 3rem; }
@@ -253,7 +279,7 @@
   .footer-bottom { border-top: 1px solid rgba(255,255,255,0.07); padding-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; max-width: 1240px; margin: 0 auto; }
   .footer-bottom p { font-size: 12px; }
 
-  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--green-700); color: white; padding: 14px 28px; border-radius: 50px; font-weight: 600; font-size: 15px; z-index: 300; box-shadow: 0 8px 32px rgba(0,0,0,0.2); animation: slideUp 0.25s ease; }
+  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--green-700); color: white; padding: 14px 28px; border-radius: 50px; font-weight: 600; font-size: 15px; z-index: 400; box-shadow: 0 8px 32px rgba(0,0,0,0.2); animation: slideUp 0.25s ease; }
 
   .search-overlay { display: none; position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.5); align-items: flex-start; justify-content: center; padding-top: 80px; }
   .search-overlay.open { display: flex; }
@@ -282,8 +308,8 @@
     <div class="auth-sub">The Golf Marketplace</div>
     <div id="authStep1">
       <div class="auth-title">Sign in to TeeBox</div>
-      <div class="auth-desc">Enter your phone number to receive a verification code.</div>
-      <input class="auth-input" type="tel" id="phoneInput" placeholder="+1 (555) 000-0000" />
+      <div class="auth-desc">Enter your phone number in international format (e.g. +17085551234) to receive a verification code.</div>
+      <input class="auth-input" type="tel" id="phoneInput" placeholder="+1 (000) 000-0000" />
       <div id="recaptcha-container"></div>
       <div class="auth-error" id="authError1"></div>
       <button class="auth-btn" id="sendCodeBtn" onclick="sendCode()">Send Verification Code</button>
@@ -295,6 +321,73 @@
       <div class="auth-error" id="authError2"></div>
       <button class="auth-btn" id="verifyBtn" onclick="verifyCode()">Verify & Enter TeeBox</button>
       <br/><button class="auth-back" onclick="backToPhone()">← Change number</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELLER VERIFICATION MODAL -->
+<div class="verify-backdrop" id="verifyBackdrop">
+  <div class="verify-modal">
+    <div class="verify-header">
+      <span class="verify-badge">🏌️</span>
+      <h2>Become a TeeBox Seller</h2>
+      <p>Read and agree to our seller terms to start listing</p>
+    </div>
+    <div class="verify-steps">
+      <div class="verify-step">
+        <span class="verify-step-icon">📱</span>
+        <div class="verify-step-label">Phone</div>
+        <div class="verify-step-val">✅ Verified</div>
+      </div>
+      <div class="verify-step">
+        <span class="verify-step-icon">📋</span>
+        <div class="verify-step-label">Terms</div>
+        <div class="verify-step-val" id="termsStepVal">Pending</div>
+      </div>
+      <div class="verify-step">
+        <span class="verify-step-icon">🏅</span>
+        <div class="verify-step-label">Status</div>
+        <div class="verify-step-val">Instant</div>
+      </div>
+    </div>
+    <div class="verify-body">
+      <h3>Seller Terms of Service</h3>
+      <div class="terms-box">
+        <h4>1. Seller Eligibility</h4>
+        You must be at least 18 years old to sell on TeeBox. By agreeing to these terms you confirm that you are legally allowed to sell the items you list and that you have full ownership or authority to sell them.
+
+        <h4>2. Item Authenticity</h4>
+        All items listed on TeeBox must be genuine and accurately described. Listing counterfeit, replica, or misrepresented golf equipment is strictly prohibited and will result in immediate account termination and potential legal action. Every item sold through TeeBox is subject to our authentication process.
+
+        <h4>3. Accurate Listings</h4>
+        You agree to provide accurate descriptions, correct condition ratings, and honest photos of all items you list. Misrepresenting an item's condition, brand, model, or specifications is grounds for removal and suspension.
+
+        <h4>4. Shipping Obligations</h4>
+        Once a sale is confirmed, you agree to ship the item to TeeBox's authentication facility within 2 business days using the provided prepaid shipping label. Failure to ship on time may result in order cancellation and seller penalties.
+
+        <h4>5. Fees</h4>
+        TeeBox charges a seller transaction fee on each completed sale. The current fee structure is displayed in your seller dashboard. Fees are deducted automatically from your payout. TeeBox reserves the right to adjust fees with 30 days notice.
+
+        <h4>6. Payouts</h4>
+        Seller payouts are issued within 3 business days after the buyer receives and the item passes authentication. Payouts are sent via direct bank transfer. You are responsible for providing accurate banking information.
+
+        <h4>7. Prohibited Items</h4>
+        The following are not permitted on TeeBox: stolen goods, items under legal dispute, items with removed or altered serial numbers, and any non-golf related merchandise.
+
+        <h4>8. Account Suspension</h4>
+        TeeBox reserves the right to suspend or terminate seller accounts for violations of these terms, fraudulent activity, excessive cancellations, or poor seller performance metrics.
+
+        <h4>9. Governing Law</h4>
+        These terms are governed by the laws of the State of Illinois. Any disputes will be resolved through binding arbitration.
+      </div>
+      <label class="terms-check">
+        <input type="checkbox" id="termsCheckbox" onchange="onTermsCheck()" />
+        <span>I have read and agree to the <strong>TeeBox Seller Terms of Service</strong>. I understand that listing counterfeit or misrepresented items will result in account termination.</span>
+      </label>
+      <div class="verify-footer">
+        <button class="btn-full ghost" onclick="closeVerifyModal()">Cancel</button>
+        <button class="btn-full green" id="becomeSellerBtn" onclick="becomeSeller()" disabled style="opacity:0.5">Agree & Become a Seller</button>
+      </div>
     </div>
   </div>
 </div>
@@ -316,8 +409,8 @@
   <div class="nav-actions">
     <button class="btn-icon">🔔</button>
     <button class="btn-icon">🛒</button>
-    <div id="userBadge" class="user-badge" style="display:none" onclick="signOut()"></div>
-    <button class="btn-sell" onclick="openSellModal()">Sell Now</button>
+    <div id="userBadge" class="user-badge" onclick="signOut()"></div>
+    <button class="btn-sell-nav" onclick="handleSellClick()">Sell Now</button>
   </div>
 </nav>
 
@@ -341,7 +434,7 @@
         <p class="hero-sub">Buy and sell authenticated golf gear at live market prices. From Tour-worn clubs to limited edition footwear — everything golf, all in one place.</p>
         <div class="hero-ctas">
           <button class="btn-primary" onclick="openModal('buy')">Shop Now</button>
-          <button class="btn-outline" onclick="openSellModal()">Start Selling</button>
+          <button class="btn-outline" onclick="handleSellClick()">Start Selling</button>
         </div>
         <div class="hero-stats">
           <div><div class="hero-stat-n">240K+</div><div class="hero-stat-l">Active Listings</div></div>
@@ -432,7 +525,7 @@
       <div class="modal-input-row"><label>Your Price</label><input type="number" id="modalPrice" placeholder="Enter amount…" /></div>
       <div class="modal-input-row"><label>Condition</label><select><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option></select></div>
     </div>
-    <div class="modal-footer"><button class="btn-full ghost" onclick="closeModalDirect()">Cancel</button><button class="btn-full green" id="modalActionBtn" onclick="confirmAction()">Confirm Bid</button></div>
+    <div class="modal-footer"><button class="btn-full ghost" onclick="closeModalDirect()">Cancel</button><button class="btn-full green" onclick="confirmAction()">Confirm Bid</button></div>
   </div>
 </div>
 
@@ -441,6 +534,7 @@
   <div class="sell-modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" onclick="closeSellModalDirect()">✕</button></div>
     <div class="sell-form">
+      <div class="seller-verified-bar">✅ Verified Seller — Your listings go live instantly</div>
       <div class="form-row"><label>Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" /></div>
       <div class="form-row"><label>Brand</label><input type="text" id="sellBrand" placeholder="e.g. TaylorMade" /></div>
       <div class="form-row-2">
@@ -448,7 +542,7 @@
         <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" placeholder="0.00" /></div>
       </div>
       <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
-      <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item…"></textarea></div>
+      <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" onclick="closeSellModalDirect()">Cancel</button>
         <button class="btn-full green" onclick="submitListing()">Submit Listing</button>
@@ -469,7 +563,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
   import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
@@ -485,22 +579,41 @@
   const db = getFirestore(app);
   let confirmationResult = null;
   let currentUser = null;
+  let isVerifiedSeller = false;
 
-  onAuthStateChanged(auth, user => {
+  onAuthStateChanged(auth, async user => {
     currentUser = user;
     if (user) {
       document.getElementById('authScreen').classList.add('hidden');
       const badge = document.getElementById('userBadge');
       badge.style.display = 'block';
       badge.textContent = '📱 ' + (user.phoneNumber || 'User');
+      await checkSellerStatus(user.uid);
       loadListings();
     } else {
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBadge').style.display = 'none';
+      isVerifiedSeller = false;
       window.PRODUCTS = [...window.DEFAULT_PRODUCTS];
       buildProducts(); buildTrending();
     }
   });
+
+  async function checkSellerStatus(uid) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists() && snap.data().sellerVerified) {
+        isVerifiedSeller = true;
+        window.IS_VERIFIED_SELLER = true;
+      } else {
+        isVerifiedSeller = false;
+        window.IS_VERIFIED_SELLER = false;
+      }
+    } catch(e) {
+      isVerifiedSeller = false;
+      window.IS_VERIFIED_SELLER = false;
+    }
+  }
 
   window.sendCode = async function() {
     const phone = document.getElementById('phoneInput').value.trim();
@@ -548,6 +661,51 @@
     if (confirm('Sign out of TeeBox?')) await fbSignOut(auth);
   };
 
+  // ── SELLER VERIFICATION ──
+  window.handleSellClick = function() {
+    if (!currentUser) { document.getElementById('authScreen').classList.remove('hidden'); return; }
+    if (window.IS_VERIFIED_SELLER) { openSellModal(); return; }
+    document.getElementById('verifyBackdrop').classList.add('open');
+  };
+
+  window.onTermsCheck = function() {
+    const checked = document.getElementById('termsCheckbox').checked;
+    const btn = document.getElementById('becomeSellerBtn');
+    const stepVal = document.getElementById('termsStepVal');
+    btn.disabled = !checked;
+    btn.style.opacity = checked ? '1' : '0.5';
+    stepVal.textContent = checked ? '✅ Agreed' : 'Pending';
+  };
+
+  window.becomeSeller = async function() {
+    if (!currentUser) return;
+    const btn = document.getElementById('becomeSellerBtn');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    try {
+      await setDoc(doc(db, 'users', currentUser.uid), {
+        phone: currentUser.phoneNumber,
+        sellerVerified: true,
+        sellerVerifiedAt: serverTimestamp(),
+        termsAgreed: true,
+        termsAgreedAt: serverTimestamp()
+      }, { merge: true });
+      isVerifiedSeller = true;
+      window.IS_VERIFIED_SELLER = true;
+      document.getElementById('verifyBackdrop').classList.remove('open');
+      showToast('🏅 You are now a verified TeeBox seller!');
+      setTimeout(() => openSellModal(), 600);
+    } catch(e) {
+      showToast('Error verifying. Please try again.');
+      btn.disabled = false; btn.textContent = 'Agree & Become a Seller';
+    }
+  };
+
+  window.closeVerifyModal = function() {
+    document.getElementById('verifyBackdrop').classList.remove('open');
+    document.getElementById('termsCheckbox').checked = false;
+    onTermsCheck();
+  };
+
   async function loadListings() {
     try {
       const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
@@ -562,6 +720,7 @@
 
   window.submitListing = async function() {
     if (!currentUser) { showToast('Please sign in to list items.'); return; }
+    if (!window.IS_VERIFIED_SELLER) { showToast('Please complete seller verification first.'); return; }
     const title = document.getElementById('sellTitle').value.trim();
     const brand = document.getElementById('sellBrand').value.trim();
     const cat = document.getElementById('sellCat').value;
@@ -573,10 +732,11 @@
       await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price, bid: Math.round(price * 0.9),
         condition, desc, change: 0, volume: 0, emoji: '🏌️', badge: 'new',
-        sellerId: currentUser.uid, createdAt: serverTimestamp()
+        sellerId: currentUser.uid, sellerPhone: currentUser.phoneNumber,
+        createdAt: serverTimestamp()
       });
       closeSellModalDirect();
-      showToast('✅ Listing submitted!');
+      showToast('✅ Listing submitted successfully!');
       loadListings();
     } catch(e) { showToast('Error submitting. Try again.'); }
   };
@@ -599,6 +759,7 @@ const DEFAULT_PRODUCTS = [
 ];
 window.DEFAULT_PRODUCTS = DEFAULT_PRODUCTS;
 window.PRODUCTS = [...DEFAULT_PRODUCTS];
+window.IS_VERIFIED_SELLER = false;
 
 const TICKER_ITEMS = [
   { name:'TaylorMade Qi10 Max', price:'$2,850', chg:'+12.4%', up:true },
@@ -608,7 +769,7 @@ const TICKER_ITEMS = [
   { name:'Malbon Crewneck', price:'$110', chg:'+22.0%', up:true },
   { name:'G/FORE Sequin Polo', price:'$95', chg:'+35.7%', up:true },
   { name:'adidas Tour360', price:'$195', chg:'+5.0%', up:true },
-  { name:'Vessel Player III Bag', price:'$360', chg:'-1.2%', up:false },
+  { name:'Vessel Bag', price:'$360', chg:'-1.2%', up:false },
 ];
 
 const DROPS = [
@@ -622,18 +783,18 @@ let currentMode = 'buy';
 
 function buildTicker() {
   const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
-  document.getElementById('tickerTrack').innerHTML = doubled.map(t => `<div class="ticker-item"><span class="ticker-name">${t.name}</span><span class="ticker-price">${t.price}</span><span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${t.chg}</span></div>`).join('');
+  document.getElementById('tickerTrack').innerHTML = doubled.map(t=>`<div class="ticker-item"><span class="ticker-name">${t.name}</span><span class="ticker-price">${t.price}</span><span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${t.chg}</span></div>`).join('');
 }
 
 function buildTrending() {
-  const sorted = [...window.PRODUCTS].sort((a,b) => (b.volume||0)-(a.volume||0)).slice(0,7);
+  const sorted = [...window.PRODUCTS].sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,7);
   const maxVol = Math.max(...sorted.map(p=>p.volume||0),1);
   document.getElementById('trendingTable').innerHTML = `<thead><tr><th>#</th><th>Item</th><th>Last Sale</th><th>Change</th><th>Volume</th><th>Activity</th></tr></thead><tbody>${sorted.map((p,i)=>`<tr onclick="openProductModal('${p.id}')"><td><div class="trend-rank">${i+1}</div></td><td><div class="trend-item"><span class="trend-emoji">${p.emoji||'🏌️'}</span><div><div class="trend-info-name">${p.name}</div><div class="trend-info-meta">${p.brand} · ${p.cat}</div></div></div></td><td><span class="trend-price">$${(p.ask||0).toLocaleString()}</span></td><td><span class="trend-chg" style="${(p.change||0)>0?'background:var(--up-bg);color:var(--up-green)':'background:var(--dn-bg);color:var(--dn-red)'}">${(p.change||0)>0?'+':''}${p.change||0}%</span></td><td><span class="trend-vol">${p.volume||0} sales</span></td><td><div class="trend-bar-wrap"><div class="trend-bar"><div class="trend-bar-fill" style="width:${Math.round((p.volume||0)/maxVol*100)}%"></div></div></div></td></tr>`).join('')}</tbody>`;
 }
 
 function buildProducts(filter='all') {
-  let list = filter==='all' ? window.PRODUCTS : window.PRODUCTS.filter(p=>p.cat===filter);
-  document.getElementById('productGrid').innerHTML = list.map(p=>`<div class="product-card" onclick="openProductModal('${p.id}')"><div class="product-img-wrap"><span style="font-size:3.2rem">${p.emoji||'🏌️'}</span>${p.badge?`<span class="product-badge badge-${p.badge}">${p.badge==='hot'?'🔥 Hot':'New'}</span>`:''}<button class="fav-btn" onclick="toggleFav(event,'${p.id}')">${fav.has(p.id)?'❤️':'🤍'}</button></div><div class="product-body"><div class="product-brand">${p.brand}</div><div class="product-name">${p.name}</div><div class="product-market"><div class="market-col"><label>Bid</label><div class="market-bid">$${(p.bid||0).toLocaleString()}</div></div><div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${(p.ask||0).toLocaleString()}</div></div><span class="product-change" style="${(p.change||0)>0?'background:var(--up-bg);color:var(--up-green)':'background:var(--dn-bg);color:var(--dn-red)'}">${(p.change||0)>0?'+':''}${p.change||0}%</span></div><div class="product-btns"><button class="btn-buy" onclick="event.stopPropagation();openProductModal('${p.id}','buy')">Buy Now</button><button class="btn-sell-sm" onclick="event.stopPropagation();openProductModal('${p.id}','sell')">Sell</button></div></div></div>`).join('');
+  let list = filter==='all'?window.PRODUCTS:window.PRODUCTS.filter(p=>p.cat===filter);
+  document.getElementById('productGrid').innerHTML = list.map(p=>`<div class="product-card" onclick="openProductModal('${p.id}')"><div class="product-img-wrap"><span style="font-size:3.2rem">${p.emoji||'🏌️'}</span>${p.badge?`<span class="product-badge badge-${p.badge}">${p.badge==='hot'?'🔥 Hot':'New'}</span>`:''}<button class="fav-btn" onclick="toggleFav(event,'${p.id}')">${fav.has(p.id)?'❤️':'🤍'}</button></div><div class="product-body"><div class="product-brand">${p.brand}</div><div class="product-name">${p.name}</div><div class="product-market"><div class="market-col"><label>Bid</label><div class="market-bid">$${(p.bid||0).toLocaleString()}</div></div><div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${(p.ask||0).toLocaleString()}</div></div><span class="product-change" style="${(p.change||0)>0?'background:var(--up-bg);color:var(--up-green)':'background:var(--dn-bg);color:var(--dn-red)'}">${(p.change||0)>0?'+':''}${p.change||0}%</span></div><div class="product-btns"><button class="btn-buy" onclick="event.stopPropagation();openProductModal('${p.id}','buy')">Buy Now</button><button class="btn-sell-sm" onclick="event.stopPropagation();handleSellClick()">Sell</button></div></div></div>`).join('');
 }
 
 function buildDrops() {
@@ -687,7 +848,7 @@ function openSearch() {
 }
 function closeSearch(e) { if(e.target===document.getElementById('searchOverlay')) document.getElementById('searchOverlay').classList.remove('open'); }
 function filterSearch(q) {
-  const results = q ? window.PRODUCTS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.brand.toLowerCase().includes(q.toLowerCase())) : window.PRODUCTS.slice(0,6);
+  const results = q?window.PRODUCTS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.brand.toLowerCase().includes(q.toLowerCase())):window.PRODUCTS.slice(0,6);
   document.getElementById('searchResults').innerHTML = results.map(p=>`<div class="search-result-item" onclick="document.getElementById('searchOverlay').classList.remove('open');setTimeout(()=>openProductModal('${p.id}'),100)"><span class="search-res-emoji">${p.emoji||'🏌️'}</span><div><div class="search-res-name">${p.name}</div><div class="search-res-cat">${p.brand} · ${p.cat}</div></div><span class="search-res-price">$${(p.ask||0).toLocaleString()}</span></div>`).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
 }
 
@@ -699,7 +860,11 @@ function showToast(msg) {
 }
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') { document.getElementById('searchOverlay').classList.remove('open'); closeModalDirect(); closeSellModalDirect(); }
+  if(e.key==='Escape') {
+    document.getElementById('searchOverlay').classList.remove('open');
+    closeModalDirect(); closeSellModalDirect();
+    document.getElementById('verifyBackdrop').classList.remove('open');
+  }
 });
 
 buildTicker(); buildTrending(); buildProducts(); buildDrops();
