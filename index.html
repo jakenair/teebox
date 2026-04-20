@@ -584,7 +584,7 @@
         </div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-actions">
-          <button class="btn-buy-now" onclick="closeDetailModalDirect();openModal('buy')">Buy Now at Ask</button>
+          <button class="btn-buy-now" id="detailBuyNowBtn" onclick="closeDetailModalDirect();openCheckout(currentDetailId)">Buy Now at Ask</button>
           <button class="btn-place-bid" onclick="closeDetailModalDirect();openModal('buy')">Place a Bid</button>
         </div>
       </div>
@@ -636,6 +636,128 @@
     <div class="search-results-list" id="searchResults"></div>
   </div>
 </div>
+
+<!-- STRIPE CHECKOUT MODAL -->
+<div class="modal-backdrop" id="checkoutBackdrop" onclick="closeCheckout(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Complete Purchase</span>
+      <button class="modal-close" onclick="closeCheckoutDirect()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-product">
+        <div class="modal-emoji" id="checkoutEmoji">🏌️</div>
+        <div class="modal-info">
+          <h3 id="checkoutName">Item</h3>
+          <p id="checkoutMeta"></p>
+        </div>
+      </div>
+      <div style="background:var(--gray-100);border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:600;color:var(--gray-700);">Total</span>
+        <span style="font-family:var(--font-display);font-size:1.4rem;font-weight:700;color:var(--gray-900);" id="checkoutTotal">$0</span>
+      </div>
+      <div class="modal-input-row">
+        <label>Card Details</label>
+        <div id="card-element" style="border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:12px 14px;background:var(--white);"></div>
+        <div id="card-errors" style="color:var(--red-500);font-size:13px;margin-top:6px;min-height:18px;"></div>
+      </div>
+      <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--green-700);margin-bottom:0.5rem;">
+        🔒 Payments are secured by Stripe. TeeBox never stores your card details.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-full ghost" onclick="closeCheckoutDirect()">Cancel</button>
+      <button class="btn-full green" id="payBtn" onclick="confirmPayment()">Pay Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- STRIPE -->
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+const STRIPE_PK = 'mk_1TNLBFACdHwBgjjdzCDAzKJp';
+const CLOUD_FUNCTION_URL = 'https://us-central1-teebox-market.cloudfunctions.net/createPaymentIntent';
+let stripeInstance = null;
+let cardElement = null;
+let checkoutProduct = null;
+
+function initStripe() {
+  if (!stripeInstance) {
+    stripeInstance = Stripe(STRIPE_PK);
+    const elements = stripeInstance.elements();
+    cardElement = elements.create('card', {
+      style: {
+        base: { fontSize: '15px', color: '#1c1c18', fontFamily: 'DM Sans, system-ui, sans-serif', '::placeholder': { color: '#a8a89e' } },
+        invalid: { color: '#c0392b' }
+      }
+    });
+    cardElement.mount('#card-element');
+    cardElement.on('change', e => {
+      document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
+    });
+  }
+}
+
+window.openCheckout = function(productId) {
+  const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
+  if (!p) return;
+  if (!window.CURRENT_USER) { showToast('Please sign in to purchase.'); return; }
+  checkoutProduct = p;
+  const emojiEl = document.getElementById('checkoutEmoji');
+  if (p.photos && p.photos.length > 0) {
+    emojiEl.innerHTML = `<img src="${p.photos[0]}" style="width:100%;height:100%;object-fit:cover;" />`;
+  } else {
+    emojiEl.textContent = p.emoji || '🏌️';
+  }
+  document.getElementById('checkoutName').textContent = p.name;
+  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}`;
+  document.getElementById('checkoutTotal').textContent = '$' + (p.ask || 0).toLocaleString();
+  document.getElementById('card-errors').textContent = '';
+  document.getElementById('payBtn').disabled = false;
+  document.getElementById('payBtn').textContent = 'Pay Now';
+  document.getElementById('checkoutBackdrop').classList.add('open');
+  setTimeout(initStripe, 100);
+};
+
+window.closeCheckout = function(e) {
+  if (e.target === document.getElementById('checkoutBackdrop')) closeCheckoutDirect();
+};
+window.closeCheckoutDirect = function() {
+  document.getElementById('checkoutBackdrop').classList.remove('open');
+};
+
+window.confirmPayment = async function() {
+  if (!checkoutProduct || !cardElement || !window.CURRENT_USER) return;
+  const btn = document.getElementById('payBtn');
+  btn.disabled = true; btn.textContent = 'Processing…';
+  try {
+    const res = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: checkoutProduct.ask,
+        listingId: String(checkoutProduct.id),
+        buyerId: window.CURRENT_USER.uid
+      })
+    });
+    const { clientSecret, error } = await res.json();
+    if (error) throw new Error(error);
+    const result = await stripeInstance.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardElement }
+    });
+    if (result.error) {
+      document.getElementById('card-errors').textContent = result.error.message;
+      btn.disabled = false; btn.textContent = 'Pay Now';
+    } else {
+      closeCheckoutDirect();
+      showToast('✅ Payment successful! Your order is confirmed.');
+    }
+  } catch(err) {
+    document.getElementById('card-errors').textContent = err.message || 'Payment failed. Please try again.';
+    btn.disabled = false; btn.textContent = 'Pay Now';
+  }
+};
+</script>
 
 <!-- FIREBASE -->
 <script type="module">
@@ -953,9 +1075,11 @@ function filterCat(el,cat) {
 function toggleFav(e,id) { e.stopPropagation(); fav.has(id)?fav.delete(id):fav.add(id); buildProducts(); }
 
 // ── DETAIL MODAL ──
+let currentDetailId = null;
 function openDetailModal(id) {
   const p = window.PRODUCTS.find(x=>String(x.id)===String(id));
   if (!p) return;
+  currentDetailId = id;
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
