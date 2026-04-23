@@ -771,6 +771,7 @@
 
 <!-- STRIPE -->
 <script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 const STRIPE_PK = 'pk_test_51TNLBCACdHwBgjjdr9bh2msyvaBe21US8OeHxxSzVVzPlJzDEFyTfStKekQu13Mq6tjX1TQIxi4N3nWVG21DzB0O00L0YuqqAj';
 const CLOUD_FUNCTION_URL = 'https://us-central1-teebox-market.cloudfunctions.net/createPaymentIntent';
@@ -1264,6 +1265,8 @@ async function loadShopData() {
     window.SHOP_DATA = { listings, orders };
     renderShopStats();
     renderShopTables();
+    wireRevenueRangeButtons();
+    renderRevenueChart('7');
   } catch (err) {
     console.error('Error loading shop data:', err);
     showToast('Could not load shop data.');
@@ -1374,11 +1377,99 @@ function maskBuyerId(id) {
   if (!id) return '????';
   return id.slice(-4).toUpperCase();
 }
+
 function closeShopDashboard() {
   document.getElementById('shopDashboard').classList.remove('open');
   document.body.style.overflow = '';
 }
+let revenueChartInstance = null;
 
+function renderRevenueChart(rangeDays) {
+  const canvas = document.getElementById('revenueChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const { orders } = window.SHOP_DATA;
+  const now = new Date();
+  const startDate = rangeDays === 'all'
+    ? (orders.length ? (orders[0].createdAt?.toDate ? orders[0].createdAt.toDate() : new Date(orders[0].createdAt)) : new Date(now.getTime() - 7*86400000))
+    : new Date(now.getTime() - parseInt(rangeDays)*86400000);
+
+  const days = Math.max(1, Math.ceil((now - startDate) / 86400000));
+  const buckets = {};
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(startDate.getTime() + i*86400000);
+    const key = d.toISOString().slice(0,10);
+    buckets[key] = 0;
+  }
+
+  orders.forEach(o => {
+    if (!o.createdAt) return;
+    const d = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+    if (d < startDate) return;
+    const key = d.toISOString().slice(0,10);
+    if (key in buckets) buckets[key] += (o.amount || 0);
+  });
+
+  const labels = Object.keys(buckets).map(k => {
+    const d = new Date(k);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  });
+  const data = Object.values(buckets);
+
+  if (revenueChartInstance) revenueChartInstance.destroy();
+
+  revenueChartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Revenue',
+        data,
+        borderColor: '#2d5438',
+        backgroundColor: 'rgba(45, 84, 56, 0.08)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true,
+        pointRadius: data.some(v => v > 0) ? 3 : 0,
+        pointBackgroundColor: '#2d5438'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => '$' + ctx.parsed.y.toLocaleString()
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => '$' + v.toLocaleString() }
+        },
+        x: {
+          ticks: { maxTicksLimit: 8 }
+        }
+      }
+    }
+  });
+}
+
+function wireRevenueRangeButtons() {
+  const wrap = document.getElementById('dashRange');
+  if (!wrap || wrap.dataset.wired) return;
+  wrap.dataset.wired = '1';
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      wrap.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRevenueChart(btn.dataset.range);
+    });
+  });
+}
 function switchDashTab(tab) {
   document.querySelectorAll('.dash-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('dashTabActive').style.display = tab === 'active' ? 'block' : 'none';
