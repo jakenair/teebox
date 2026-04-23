@@ -354,6 +354,36 @@
 
   @media (max-width: 900px) { .hero-inner { grid-template-columns: 1fr; } .drops-grid { grid-template-columns: 1fr 1fr; } .how-grid { grid-template-columns: 1fr; } .footer-inner { grid-template-columns: 1fr 1fr; } .detail-body { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .nav-links { display: none; } .drops-grid { grid-template-columns: 1fr; } .product-grid { grid-template-columns: repeat(2,1fr); } .footer-inner { grid-template-columns: 1fr; } }
+/* SHOP DASHBOARD */
+  #shopDashboard { display: none; position: fixed; inset: 0; z-index: 200; background: var(--cream); overflow-y: auto; }
+  #shopDashboard.open { display: block; }
+  .dash-header { background: var(--green-900); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+  .dash-header h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; }
+  .dash-header p { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+  .dash-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: var(--transition); }
+  .dash-close:hover { background: rgba(255,255,255,0.2); }
+  .dash-body { max-width: 1240px; margin: 0 auto; padding: 2rem; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.25rem; }
+  .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-top: 0.25rem; }
+  .stat-sub { font-size: 12px; color: var(--gray-500); margin-top: 0.25rem; }
+  .dash-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .dash-section h2 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; }
+  .dash-tabs { display: flex; gap: 2px; background: var(--gray-100); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1rem; width: fit-content; }
+  .dash-tab { background: none; border: none; padding: 8px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 6px; transition: var(--transition); }
+  .dash-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .dash-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); font-size: 14px; }
+  .dash-table { width: 100%; border-collapse: collapse; }
+  .dash-table th { text-align: left; font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--gray-200); }
+  .dash-table td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid var(--gray-200); }
+  .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table .item-cell { display: flex; align-items: center; gap: 12px; }
+  .dash-table .item-emoji { font-size: 1.5rem; }
+  .dash-range { display: flex; gap: 4px; background: var(--gray-100); padding: 3px; border-radius: var(--radius-md); }
+  .dash-range button { background: none; border: none; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 5px; transition: var(--transition); }
+  .dash-range button.active { background: var(--white); color: var(--green-700); }
+  .chart-wrap { height: 240px; margin-top: 1rem; }
 </style>
 </head>
 <body>
@@ -424,7 +454,73 @@
     </div>
   </div>
 </div>
+<!-- SHOP DASHBOARD -->
+<div id="shopDashboard">
+  <div class="dash-header">
+    <div>
+      <h1>My Shop</h1>
+      <p id="dashSubtitle">Your seller dashboard</p>
+    </div>
+    <button class="dash-close" onclick="closeShopDashboard()">×</button>
+  </div>
+  <div class="dash-body">
 
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" id="statRevenue">$0</div>
+        <div class="stat-sub" id="statRevenueSub">All time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Items Sold</div>
+        <div class="stat-value" id="statSold">0</div>
+        <div class="stat-sub" id="statSoldSub">All time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Listings</div>
+        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-sub">Currently for sale</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg. Sale Price</div>
+        <div class="stat-value" id="statAvg">$0</div>
+        <div class="stat-sub">Per item sold</div>
+      </div>
+    </div>
+
+    <!-- REVENUE CHART -->
+    <div class="dash-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <h2 style="margin:0;">Revenue Over Time</h2>
+        <div class="dash-range" id="dashRange">
+          <button data-range="7" class="active">7d</button>
+          <button data-range="30">30d</button>
+          <button data-range="90">90d</button>
+          <button data-range="all">All</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="revenueChart"></canvas>
+      </div>
+    </div>
+
+    <!-- LISTINGS + ORDERS TABS -->
+    <div class="dash-section">
+      <div class="dash-tabs">
+        <button class="dash-tab active" data-tab="active" onclick="switchDashTab('active')">Active Listings</button>
+        <button class="dash-tab" data-tab="sold" onclick="switchDashTab('sold')">Sold Items</button>
+      </div>
+      <div id="dashTabActive">
+        <div class="dash-empty">Loading your listings…</div>
+      </div>
+      <div id="dashTabSold" style="display:none;">
+        <div class="dash-empty">Loading your sales…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
 <!-- NAV -->
 <nav>
   <a class="nav-logo" href="#"><span>Tee</span>Box</a>
@@ -437,6 +533,7 @@
     <a href="#">Trending</a>
     <a href="#">Drops</a>
     <a href="#">Portfolio</a>
+    <a href="#" onclick="openShopDashboard()">My Shop</a>
     <a href="#">Community</a>
   </div>
   <div class="nav-actions">
@@ -1142,7 +1239,22 @@ function confirmAction() {
   showToast(`✅ ${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted!`);
 }
 window.confirmAction = confirmAction;
+function openShopDashboard() {
+  if (!window.CURRENT_USER) { showToast('Please sign in to view your shop.'); return; }
+  document.getElementById('shopDashboard').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
 
+function closeShopDashboard() {
+  document.getElementById('shopDashboard').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function switchDashTab(tab) {
+  document.querySelectorAll('.dash-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('dashTabActive').style.display = tab === 'active' ? 'block' : 'none';
+  document.getElementById('dashTabSold').style.display = tab === 'sold' ? 'block' : 'none';
+}
 function openSellModal() {
   document.getElementById('uploadPreviews').innerHTML = '';
   document.getElementById('uploadCount').textContent = '';
