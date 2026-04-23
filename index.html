@@ -1239,12 +1239,49 @@ function confirmAction() {
   showToast(`✅ ${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted!`);
 }
 window.confirmAction = confirmAction;
-function openShopDashboard() {
+async function openShopDashboard() {
   if (!window.CURRENT_USER) { showToast('Please sign in to view your shop.'); return; }
   document.getElementById('shopDashboard').classList.add('open');
   document.body.style.overflow = 'hidden';
+  await loadShopData();
+}
+window.SHOP_DATA = { listings: [], orders: [] };
+
+async function loadShopData() {
+  try {
+    const { collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const uid = window.CURRENT_USER.uid;
+
+    // Fetch the seller's listings
+    const listingsQ = query(collection(db, 'listings'), where('sellerId', '==', uid));
+    const listingsSnap = await getDocs(listingsQ);
+    const listings = listingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Fetch the seller's orders
+    const ordersQ = query(collection(db, 'orders'), where('sellerId', '==', uid));
+    const ordersSnap = await getDocs(ordersQ);
+    const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    window.SHOP_DATA = { listings, orders };
+    renderShopStats();
+  } catch (err) {
+    console.error('Error loading shop data:', err);
+    showToast('Could not load shop data.');
+  }
 }
 
+function renderShopStats() {
+  const { listings, orders } = window.SHOP_DATA;
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const itemsSold = orders.length;
+  const activeListings = listings.filter(l => l.status !== 'sold').length;
+  const avgSale = itemsSold > 0 ? totalRevenue / itemsSold : 0;
+
+  document.getElementById('statRevenue').textContent = '$' + totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  document.getElementById('statSold').textContent = itemsSold;
+  document.getElementById('statActive').textContent = activeListings;
+  document.getElementById('statAvg').textContent = '$' + avgSale.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
 function closeShopDashboard() {
   document.getElementById('shopDashboard').classList.remove('open');
   document.body.style.overflow = '';
