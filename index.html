@@ -1263,6 +1263,7 @@ async function loadShopData() {
 
     window.SHOP_DATA = { listings, orders };
     renderShopStats();
+    renderShopTables();
   } catch (err) {
     console.error('Error loading shop data:', err);
     showToast('Could not load shop data.');
@@ -1280,6 +1281,98 @@ function renderShopStats() {
   document.getElementById('statSold').textContent = itemsSold;
   document.getElementById('statActive').textContent = activeListings;
   document.getElementById('statAvg').textContent = '$' + avgSale.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+function renderShopTables() {
+  const { listings, orders } = window.SHOP_DATA;
+  const active = listings.filter(l => l.status !== 'sold');
+  const soldListingsById = {};
+  listings.filter(l => l.status === 'sold').forEach(l => { soldListingsById[l.id] = l; });
+
+  // ACTIVE LISTINGS TABLE
+  const activeEl = document.getElementById('dashTabActive');
+  if (active.length === 0) {
+    activeEl.innerHTML = '<div class="dash-empty">No active listings yet. Click Sell Now to create one.</div>';
+  } else {
+    activeEl.innerHTML = `
+      <table class="dash-table">
+        <thead>
+          <tr><th>Item</th><th>Category</th><th>Condition</th><th>Price</th><th>Listed</th></tr>
+        </thead>
+        <tbody>
+          ${active.map(l => `
+            <tr>
+              <td>
+                <div class="item-cell">
+                  <span class="item-emoji">${l.emoji || '🏌️'}</span>
+                  <div>
+                    <div style="font-weight:600">${escapeHtml(l.title || 'Untitled')}</div>
+                    <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(l.brand || '')}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="text-transform:capitalize">${escapeHtml(l.cat || '—')}</td>
+              <td>${escapeHtml(l.condition || '—')}</td>
+              <td style="font-weight:600">$${(l.ask || 0).toLocaleString()}</td>
+              <td style="color:var(--gray-500)">${formatListedDate(l.createdAt)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // SOLD ITEMS TABLE
+  const soldEl = document.getElementById('dashTabSold');
+  if (orders.length === 0) {
+    soldEl.innerHTML = '<div class="dash-empty">No sales yet. When a buyer completes a purchase, it will show up here.</div>';
+  } else {
+    soldEl.innerHTML = `
+      <table class="dash-table">
+        <thead>
+          <tr><th>Item</th><th>Buyer</th><th>Sale Price</th><th>Sold On</th></tr>
+        </thead>
+        <tbody>
+          ${orders.map(o => {
+            const listing = soldListingsById[o.listingId] || {};
+            return `
+              <tr>
+                <td>
+                  <div class="item-cell">
+                    <span class="item-emoji">${listing.emoji || '📦'}</span>
+                    <div>
+                      <div style="font-weight:600">${escapeHtml(listing.title || 'Item #' + (o.listingId || '—'))}</div>
+                      <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(listing.brand || '')}</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
+                <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
+                <td style="color:var(--gray-500)">${formatListedDate(o.createdAt)}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function formatListedDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return diffDays + ' days ago';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function maskBuyerId(id) {
+  if (!id) return '????';
+  return id.slice(-4).toUpperCase();
 }
 function closeShopDashboard() {
   document.getElementById('shopDashboard').classList.remove('open');
