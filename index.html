@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.stripe.com https://*.cloudfunctions.net https://firebaseinstallations.googleapis.com; frame-src https://js.stripe.com https://*.firebaseapp.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <title>TeeBox — The Golf Marketplace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -440,6 +442,38 @@
 </head>
 <body>
 
+<!-- SECURITY HELPERS (escape functions + URL allowlist) -->
+<script>
+  window.safeText = function(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c];
+    });
+  };
+  window.safeAttr = window.safeText;
+  window.safeId = function(s) {
+    return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 128);
+  };
+  window.safeImgUrl = function(u) {
+    if (!u) return '';
+    var s = String(u);
+    if (/^https:\/\/firebasestorage\.googleapis\.com\//.test(s)) return s;
+    if (/^https:\/\/[a-z0-9-]+\.firebasestorage\.app\//.test(s)) return s;
+    if (/^blob:/.test(s)) return s;
+    return '';
+  };
+
+  // Click delegation for `data-action` attributes. Dynamically-rendered
+  // blocks (product grid, trending, search results) use this instead of
+  // inline onclick="…" so we can eventually drop 'unsafe-inline' from CSP.
+  window.__actions = window.__actions || {};
+  document.addEventListener('click', function(ev) {
+    var t = ev.target.closest && ev.target.closest('[data-action]');
+    if (!t) return;
+    var fn = window.__actions[t.dataset.action];
+    if (typeof fn === 'function') fn(t, ev);
+  });
+</script>
+
 <!-- AUTH -->
 <div id="authScreen">
   <div class="auth-box">
@@ -862,7 +896,9 @@
 
 <!-- STRIPE -->
 <script src="https://js.stripe.com/v3/"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+        integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"
+        crossorigin="anonymous"></script>
 <script>
 const STRIPE_PK = 'pk_test_51TNLBCACdHwBgjjdr9bh2msyvaBe21US8OeHxxSzVVzPlJzDEFyTfStKekQu13Mq6tjX1TQIxi4N3nWVG21DzB0O00L0YuqqAj';
 const CLOUD_FUNCTION_URL = 'https://us-central1-teebox-market.cloudfunctions.net/createPaymentIntent';
@@ -893,8 +929,12 @@ window.openCheckout = function(productId) {
   if (!window.CURRENT_USER) { showToast('Please sign in to purchase.'); return; }
   checkoutProduct = p;
   const emojiEl = document.getElementById('checkoutEmoji');
-  if (p.photos && p.photos.length > 0) {
-    emojiEl.innerHTML = `<img src="${p.photos[0]}" style="width:100%;height:100%;object-fit:cover;" />`;
+  emojiEl.textContent = '';
+  if (p.photos && p.photos.length > 0 && window.safeImgUrl(p.photos[0])) {
+    const img = document.createElement('img');
+    img.src = window.safeImgUrl(p.photos[0]);
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+    emojiEl.appendChild(img);
   } else {
     emojiEl.textContent = p.emoji || '🏌️';
   }
@@ -920,13 +960,15 @@ window.confirmPayment = async function() {
   const btn = document.getElementById('payBtn');
   btn.disabled = true; btn.textContent = 'Processing…';
   try {
+    const idToken = await window.CURRENT_USER.getIdToken();
     const res = await fetch(CLOUD_FUNCTION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + idToken
+      },
       body: JSON.stringify({
-        amount: checkoutProduct.ask,
-        listingId: String(checkoutProduct.id),
-        buyerId: window.CURRENT_USER.uid
+        listingId: String(checkoutProduct.id)
       })
     });
     const { clientSecret, error } = await res.json();
@@ -954,6 +996,7 @@ window.confirmPayment = async function() {
   import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
@@ -968,6 +1011,7 @@ window.confirmPayment = async function() {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const storage = getStorage(app);
+  const fns = getFunctions(app);
   let confirmationResult = null;
   let currentUser = null;
 
@@ -1055,15 +1099,17 @@ window.confirmPayment = async function() {
     const btn = document.getElementById('becomeSellerBtn');
     btn.disabled = true; btn.textContent = 'Verifying…';
     try {
-      await setDoc(doc(db, 'users', window.CURRENT_USER.uid), {
-        phone: window.CURRENT_USER.phoneNumber,
-        sellerVerified: true, sellerVerifiedAt: serverTimestamp(), termsAgreed: true
-      }, { merge: true });
+      const verify = httpsCallable(fns, 'requestSellerVerification');
+      await verify({ termsAgreed: true });
       window.IS_VERIFIED_SELLER = true;
       document.getElementById('verifyBackdrop').classList.remove('open');
       showToast('🏅 You are now a verified TeeBox seller!');
       setTimeout(() => openSellModal(), 600);
-    } catch { showToast('Error. Please try again.'); btn.disabled = false; btn.textContent = 'Agree & Become a Seller'; }
+    } catch (e) {
+      console.error('Seller verification failed:', e);
+      showToast('Error. Please try again.');
+      btn.disabled = false; btn.textContent = 'Agree & Become a Seller';
+    }
   };
 
   window.closeVerifyModal = function() {
@@ -1151,9 +1197,9 @@ window.confirmPayment = async function() {
     try {
       const docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price, bid: Math.round(price*0.9),
-        condition, desc, change: 0, volume: 0, emoji: '🏌️', badge: 'new',
+        condition, desc, emoji: '🏌️', badge: 'new',
         photos: [], sellerId: window.CURRENT_USER.uid,
-        sellerPhone: window.CURRENT_USER.phoneNumber, createdAt: serverTimestamp()
+        status: 'active', createdAt: serverTimestamp()
       });
       const photoUrls = await uploadPhotos(docRef.id);
       if (photoUrls.length > 0) {
@@ -1210,50 +1256,124 @@ const DROPS = [
 const fav = new Set();
 let currentMode = 'buy';
 
-function imgOrEmoji(p, cls='') {
-  if (p.photos && p.photos.length > 0) return `<img src="${p.photos[0]}" alt="${p.name}" ${cls?`class="${cls}"`:''} />`;
-  return `<span class="${cls||'product-img-emoji'}">${p.emoji||'🏌️'}</span>`;
+function imgOrEmojiHtml(p, cls='') {
+  const url = window.safeImgUrl(p.photos && p.photos[0]);
+  if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
+  return `<span class="${window.safeAttr(cls||'product-img-emoji')}">${window.safeText(p.emoji||'🏌️')}</span>`;
 }
+
+// Register handlers used by the `data-action` delegator in <head>.
+window.__actions = window.__actions || {};
+window.__actions['open-detail'] = function(el) {
+  openDetailModal(el.dataset.productId);
+};
+window.__actions['toggle-fav'] = function(el, ev) {
+  toggleFav(ev, el.dataset.productId);
+};
+window.__actions['handle-sell'] = function() {
+  if (typeof handleSellClick === 'function') handleSellClick();
+};
+window.__actions['open-detail-from-search'] = function(el) {
+  document.getElementById('searchOverlay').classList.remove('open');
+  setTimeout(() => openDetailModal(el.dataset.productId), 100);
+};
 
 function buildTicker() {
   const doubled = [...TICKER_ITEMS,...TICKER_ITEMS];
-  document.getElementById('tickerTrack').innerHTML = doubled.map(t=>`<div class="ticker-item"><span class="ticker-name">${t.name}</span><span class="ticker-price">${t.price}</span><span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${t.chg}</span></div>`).join('');
+  document.getElementById('tickerTrack').innerHTML = doubled.map(t=>
+    `<div class="ticker-item">`+
+      `<span class="ticker-name">${window.safeText(t.name)}</span>`+
+      `<span class="ticker-price">${window.safeText(t.price)}</span>`+
+      `<span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${window.safeText(t.chg)}</span>`+
+    `</div>`).join('');
 }
 
 function buildTrending() {
   const sorted = [...window.PRODUCTS].sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,7);
   const maxVol = Math.max(...sorted.map(p=>p.volume||0),1);
-  document.getElementById('trendingTable').innerHTML = `<thead><tr><th>#</th><th>Item</th><th>Last Sale</th><th>Change</th><th>Volume</th><th>Activity</th></tr></thead><tbody>${sorted.map((p,i)=>`<tr onclick="openDetailModal('${p.id}')"><td><div class="trend-rank">${i+1}</div></td><td><div class="trend-item"><div class="trend-thumb">${p.photos&&p.photos.length>0?`<img src="${p.photos[0]}" />`:(p.emoji||'🏌️')}</div><div><div class="trend-info-name">${p.name}</div><div class="trend-info-meta">${p.brand} · ${p.cat}</div></div></div></td><td><span class="trend-price">$${(p.ask||0).toLocaleString()}</span></td><td><span class="trend-chg" style="${(p.change||0)>0?'background:var(--up-bg);color:var(--up-green)':'background:var(--dn-bg);color:var(--dn-red)'}">${(p.change||0)>0?'+':''}${p.change||0}%</span></td><td><span class="trend-vol">${p.volume||0} sales</span></td><td><div class="trend-bar-wrap"><div class="trend-bar"><div class="trend-bar-fill" style="width:${Math.round((p.volume||0)/maxVol*100)}%"></div></div></div></td></tr>`).join('')}</tbody>`;
+  const rows = sorted.map((p,i)=>{
+    const id = window.safeId(p.id);
+    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const thumb = url
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      : window.safeText(p.emoji||'🏌️');
+    const change = Number(p.change||0);
+    const changeStyle = change>0
+      ? 'background:var(--up-bg);color:var(--up-green)'
+      : 'background:var(--dn-bg);color:var(--dn-red)';
+    return `<tr data-action="open-detail" data-product-id="${window.safeAttr(id)}" style="cursor:pointer">`+
+      `<td><div class="trend-rank">${i+1}</div></td>`+
+      `<td><div class="trend-item"><div class="trend-thumb">${thumb}</div>`+
+        `<div><div class="trend-info-name">${window.safeText(p.name)}</div>`+
+        `<div class="trend-info-meta">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div></div></td>`+
+      `<td><span class="trend-price">$${Number(p.ask||0).toLocaleString()}</span></td>`+
+      `<td><span class="trend-chg" style="${changeStyle}">${change>0?'+':''}${change}%</span></td>`+
+      `<td><span class="trend-vol">${Number(p.volume||0)} sales</span></td>`+
+      `<td><div class="trend-bar-wrap"><div class="trend-bar"><div class="trend-bar-fill" style="width:${Math.round(Number(p.volume||0)/maxVol*100)}%"></div></div></div></td>`+
+    `</tr>`;
+  }).join('');
+  document.getElementById('trendingTable').innerHTML =
+    `<thead><tr><th>#</th><th>Item</th><th>Last Sale</th><th>Change</th><th>Volume</th><th>Activity</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function buildProducts(filter='all') {
   let list = filter==='all'?window.PRODUCTS:window.PRODUCTS.filter(p=>p.cat===filter);
-  document.getElementById('productGrid').innerHTML = list.map(p=>`
-    <div class="product-card ${p.status === 'sold' ? 'sold' : ''}" onclick="openDetailModal('${p.id}')">
-      <div class="product-img-wrap">${p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : ''}
-        ${p.photos&&p.photos.length>0?`<img src="${p.photos[0]}" alt="${p.name}" />`:`<span class="product-img-emoji">${p.emoji||'🏌️'}</span>`}
-        ${p.badge?`<span class="product-badge badge-${p.badge}">${p.badge==='hot'?'🔥 Hot':'New'}</span>`:''}
-        <button class="fav-btn" onclick="toggleFav(event,'${p.id}')">${fav.has(p.id)?'❤️':'🤍'}</button>
-        ${p.photos&&p.photos.length>1?`<span class="photo-count-badge">📷 ${p.photos.length}</span>`:''}
-      </div>
-      <div class="product-body">
-        <div class="product-brand">${p.brand}</div>
-        <div class="product-name">${p.name}</div>
-        <div class="product-market">
-          <div class="market-col"><label>Bid</label><div class="market-bid">$${(p.bid||0).toLocaleString()}</div></div>
-          <div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${(p.ask||0).toLocaleString()}</div></div>
-          <span class="product-change" style="${(p.change||0)>0?'background:var(--up-bg);color:var(--up-green)':'background:var(--dn-bg);color:var(--dn-red)'}">${(p.change||0)>0?'+':''}${p.change||0}%</span>
-        </div>
-        <div class="product-btns">
-          <button class="btn-buy" onclick="event.stopPropagation();openDetailModal('${p.id}')">Buy Now</button>
-          <button class="btn-sell-sm" onclick="event.stopPropagation();handleSellClick()">Sell</button>
-        </div>
-      </div>
-    </div>`).join('');
+  document.getElementById('productGrid').innerHTML = list.map(p=>{
+    const id = window.safeId(p.id);
+    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const mainImg = url
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      : `<span class="product-img-emoji">${window.safeText(p.emoji||'🏌️')}</span>`;
+    const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
+    const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
+    const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'🔥 Hot':'New'}</span>` : '';
+    const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">📷 ${Number(p.photos.length)}</span>` : '';
+    const change = Number(p.change||0);
+    const changeStyle = change>0
+      ? 'background:var(--up-bg);color:var(--up-green)'
+      : 'background:var(--dn-bg);color:var(--dn-red)';
+    const idAttr = window.safeAttr(id);
+    return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" data-action="open-detail" data-product-id="${idAttr}">`+
+      `<div class="product-img-wrap">${soldBadge}`+
+        `${mainImg}`+
+        `${badge}`+
+        `<button class="fav-btn" data-action="toggle-fav" data-product-id="${idAttr}">${fav.has(p.id)?'❤️':'🤍'}</button>`+
+        `${photoCount}`+
+      `</div>`+
+      `<div class="product-body">`+
+        `<div class="product-brand">${window.safeText(p.brand)}</div>`+
+        `<div class="product-name">${window.safeText(p.name)}</div>`+
+        `<div class="product-market">`+
+          `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
+          `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
+          `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>`+
+        `</div>`+
+        `<div class="product-btns">`+
+          `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
+          `<button class="btn-sell-sm" data-action="handle-sell">Sell</button>`+
+        `</div>`+
+      `</div>`+
+    `</div>`;
+  }).join('');
 }
 
 function buildDrops() {
-  document.getElementById('dropsGrid').innerHTML = DROPS.map(d=>`<div class="drop-card"><div class="drop-banner"><span class="drop-emoji">${d.emoji}</span><span class="drop-countdown">⏱ ${d.countdown}</span></div><div class="drop-body"><div class="drop-label">${d.label}</div><div class="drop-name">${d.name}</div><div class="drop-desc">${d.desc}</div><div class="drop-footer"><div><div class="drop-price-lbl">Starting At</div><div class="drop-price">${d.price}</div></div><button class="drop-btn">${d.btnTxt}</button></div></div></div>`).join('');
+  document.getElementById('dropsGrid').innerHTML = DROPS.map(d=>
+    `<div class="drop-card">`+
+      `<div class="drop-banner">`+
+        `<span class="drop-emoji">${window.safeText(d.emoji)}</span>`+
+        `<span class="drop-countdown">⏱ ${window.safeText(d.countdown)}</span>`+
+      `</div>`+
+      `<div class="drop-body">`+
+        `<div class="drop-label">${window.safeText(d.label)}</div>`+
+        `<div class="drop-name">${window.safeText(d.name)}</div>`+
+        `<div class="drop-desc">${window.safeText(d.desc)}</div>`+
+        `<div class="drop-footer">`+
+          `<div><div class="drop-price-lbl">Starting At</div><div class="drop-price">${window.safeText(d.price)}</div></div>`+
+          `<button class="drop-btn">${window.safeText(d.btnTxt)}</button>`+
+        `</div>`+
+      `</div>`+
+    `</div>`).join('');
 }
 
 function filterCat(el,cat) {
@@ -1276,23 +1396,46 @@ function openDetailModal(id) {
   document.getElementById('detailBid').textContent = '$'+(p.bid||0).toLocaleString();
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
-  const photos = p.photos && p.photos.length > 0 ? p.photos : [];
+  const photos = (p.photos && p.photos.length > 0 ? p.photos : [])
+    .map(window.safeImgUrl)
+    .filter(Boolean);
   const mainPhoto = document.getElementById('detailMainPhoto');
   const thumbs = document.getElementById('detailThumbs');
+  mainPhoto.textContent = '';
+  thumbs.textContent = '';
   if (photos.length > 0) {
-    mainPhoto.innerHTML = `<img src="${photos[0]}" alt="${p.name}" />`;
-    thumbs.innerHTML = photos.map((url,i)=>`<div class="thumb ${i===0?'active':''}" onclick="setMainPhoto('${url}',this)"><img src="${url}" /></div>`).join('');
+    const mainImg = document.createElement('img');
+    mainImg.src = photos[0];
+    mainImg.alt = p.name || '';
+    mainPhoto.appendChild(mainImg);
+    photos.forEach((url, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb' + (i === 0 ? ' active' : '');
+      const timg = document.createElement('img');
+      timg.src = url;
+      thumb.appendChild(timg);
+      thumb.addEventListener('click', () => window.setMainPhoto(url, thumb));
+      thumbs.appendChild(thumb);
+    });
   } else {
-    mainPhoto.innerHTML = `<span class="main-photo-emoji">${p.emoji||'🏌️'}</span>`;
-    thumbs.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'main-photo-emoji';
+    span.textContent = p.emoji || '🏌️';
+    mainPhoto.appendChild(span);
   }
   document.getElementById('detailBackdrop').classList.add('open');
 }
 
 window.setMainPhoto = function(url, el) {
-  document.getElementById('detailMainPhoto').innerHTML = `<img src="${url}" />`;
+  const safeUrl = window.safeImgUrl(url);
+  if (!safeUrl) return;
+  const main = document.getElementById('detailMainPhoto');
+  main.textContent = '';
+  const img = document.createElement('img');
+  img.src = safeUrl;
+  main.appendChild(img);
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
+  if (el && el.classList) el.classList.add('active');
 };
 
 window.openDetailModal = openDetailModal;
@@ -1307,8 +1450,13 @@ function openProductModal(id,mode='buy') {
   currentMode = mode;
   document.getElementById('modalTitle').textContent = mode==='buy'?'Buy / Place Bid':'Sell / Set Ask';
   const emojiEl = document.getElementById('modalEmoji');
-  if (p.photos && p.photos.length > 0) {
-    emojiEl.innerHTML = `<img src="${p.photos[0]}" alt="${p.name}" />`;
+  emojiEl.textContent = '';
+  const url = window.safeImgUrl(p.photos && p.photos[0]);
+  if (url) {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = p.name || '';
+    emojiEl.appendChild(img);
   } else {
     emojiEl.textContent = p.emoji||'🏌️';
   }
@@ -1918,12 +2066,18 @@ function openSearch() {
 function closeSearch(e) { if(e.target===document.getElementById('searchOverlay')) document.getElementById('searchOverlay').classList.remove('open'); }
 function filterSearch(q) {
   const results = q?window.PRODUCTS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.brand.toLowerCase().includes(q.toLowerCase())):window.PRODUCTS.slice(0,6);
-  document.getElementById('searchResults').innerHTML = results.map(p=>`
-    <div class="search-result-item" onclick="document.getElementById('searchOverlay').classList.remove('open');setTimeout(()=>openDetailModal('${p.id}'),100)">
-      <div class="search-res-img">${p.photos&&p.photos.length>0?`<img src="${p.photos[0]}" />`:(p.emoji||'🏌️')}</div>
-      <div><div class="search-res-name">${p.name}</div><div class="search-res-cat">${p.brand} · ${p.cat}</div></div>
-      <span class="search-res-price">$${(p.ask||0).toLocaleString()}</span>
-    </div>`).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
+  document.getElementById('searchResults').innerHTML = results.map(p=>{
+    const id = window.safeId(p.id);
+    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const img = url
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      : window.safeText(p.emoji||'🏌️');
+    return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
+      `<div class="search-res-img">${img}</div>`+
+      `<div><div class="search-res-name">${window.safeText(p.name)}</div><div class="search-res-cat">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div>`+
+      `<span class="search-res-price">$${Number(p.ask||0).toLocaleString()}</span>`+
+    `</div>`;
+  }).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
 }
 
 function showToast(msg) {
