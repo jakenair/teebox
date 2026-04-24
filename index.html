@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.stripe.com https://*.cloudfunctions.net https://firebaseinstallations.googleapis.com; frame-src https://js.stripe.com https://*.firebaseapp.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.stripe.com https://*.cloudfunctions.net https://firebaseinstallations.googleapis.com; frame-src https://js.stripe.com https://*.firebaseapp.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <title>TeeBox — The Golf Marketplace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -485,15 +485,15 @@
       <input class="auth-input" type="tel" id="phoneInput" placeholder="+1 (000) 000-0000" />
       <div id="recaptcha-container"></div>
       <div class="auth-error" id="authError1"></div>
-      <button class="auth-btn" id="sendCodeBtn" onclick="sendCode()">Send Verification Code</button>
+      <button class="auth-btn" id="sendCodeBtn" data-action="send-code">Send Verification Code</button>
     </div>
     <div id="authStep2" style="display:none">
       <div class="auth-title">Enter your code</div>
       <div class="auth-desc" id="codeSentDesc">We sent a 6-digit code to your phone.</div>
       <input class="auth-input" type="text" id="codeInput" placeholder="000000" maxlength="6" />
       <div class="auth-error" id="authError2"></div>
-      <button class="auth-btn" id="verifyBtn" onclick="verifyCode()">Verify & Enter TeeBox</button>
-      <br/><button class="auth-back" onclick="backToPhone()">← Change number</button>
+      <button class="auth-btn" id="verifyBtn" data-action="verify-code">Verify & Enter TeeBox</button>
+      <br/><button class="auth-back" data-action="back-to-phone">← Change number</button>
     </div>
   </div>
 </div>
@@ -530,12 +530,12 @@
         These terms are governed by the laws of the State of Illinois.
       </div>
       <label class="terms-check">
-        <input type="checkbox" id="termsCheckbox" onchange="onTermsCheck()" />
+        <input type="checkbox" id="termsCheckbox" />
         <span>I have read and agree to the <strong>TeeBox Seller Terms of Service</strong>.</span>
       </label>
       <div class="verify-footer">
-        <button class="btn-full ghost" onclick="closeVerifyModal()">Cancel</button>
-        <button class="btn-full green" id="becomeSellerBtn" onclick="becomeSeller()" disabled style="opacity:0.5">Agree & Become a Seller</button>
+        <button class="btn-full ghost" data-action="close-verify">Cancel</button>
+        <button class="btn-full green" id="becomeSellerBtn" data-action="become-seller" disabled style="opacity:0.5">Agree & Become a Seller</button>
       </div>
     </div>
   </div>
@@ -547,7 +547,7 @@
       <h1>My Shop</h1>
       <p id="dashSubtitle">Your seller dashboard</p>
     </div>
-    <button class="dash-close" onclick="closeShopDashboard()">×</button>
+    <button class="dash-close" data-action="close-shop-dashboard">×</button>
   </div>
   <div class="dash-body">
 
@@ -594,8 +594,8 @@
     <!-- LISTINGS + ORDERS TABS -->
     <div class="dash-section">
       <div class="dash-tabs">
-        <button class="dash-tab active" data-tab="active" onclick="switchDashTab('active')">Active Listings</button>
-        <button class="dash-tab" data-tab="sold" onclick="switchDashTab('sold')">Sold Items</button>
+        <button class="dash-tab active" data-tab="active" data-action="switch-dash-tab">Active Listings</button>
+        <button class="dash-tab" data-tab="sold" data-action="switch-dash-tab">Sold Items</button>
       </div>
       <div id="dashTabActive">
         <div class="dash-empty">Loading your listings…</div>
@@ -608,11 +608,11 @@
   </div>
 </div>
 <!-- INBOX MODAL -->
-<div id="inboxBackdrop" onclick="if(event.target===this)closeInbox()">
+<div id="inboxBackdrop" data-close-on-backdrop="close-inbox">
   <div class="inbox-modal">
     <div class="inbox-header">
       <h2>Messages</h2>
-      <button class="inbox-close" onclick="closeInbox()">×</button>
+      <button class="inbox-close" data-action="close-inbox">×</button>
     </div>
     <div class="inbox-body" id="inboxBody">
       <div class="inbox-empty">Loading…</div>
@@ -620,7 +620,7 @@
   </div>
 </div>
 <!-- CHAT MODAL -->
-<div id="chatBackdrop" onclick="if(event.target===this)closeChat()">
+<div id="chatBackdrop" data-close-on-backdrop="close-chat">
   <div class="chat-modal">
     <div class="chat-header">
       <div class="chat-header-info">
@@ -630,7 +630,7 @@
           <div class="chat-header-sub" id="chatSub">—</div>
         </div>
       </div>
-      <button class="chat-close" onclick="closeChat()">×</button>
+      <button class="chat-close" data-action="close-chat">×</button>
     </div>
     <div class="chat-warning">
       🔒 Keep deals on TeeBox — off-platform purchases aren't protected by our guarantee.
@@ -639,8 +639,8 @@
       <div class="chat-empty">Loading messages…</div>
     </div>
     <div class="chat-input-row">
-      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000" onkeydown="if(event.key==='Enter')sendMessage()">
-      <button class="chat-send" id="chatSendBtn" onclick="sendMessage()">Send</button>
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000">
+      <button class="chat-send" id="chatSendBtn" data-action="send-message">Send</button>
     </div>
   </div>
 </div>
@@ -649,34 +649,34 @@
   <a class="nav-logo" href="#"><span>Tee</span>Box</a>
   <div class="nav-search">
     <span class="nav-search-icon">⌕</span>
-    <input type="text" placeholder="Search clubs, shoes, memorabilia…" readonly onclick="openSearch()" />
+    <input type="text" placeholder="Search clubs, shoes, memorabilia…" readonly data-action="open-search" />
   </div>
   <div class="nav-links">
     <a href="#" class="active">Marketplace</a>
     <a href="#">Trending</a>
     <a href="#">Drops</a>
     <a href="#">Portfolio</a>
-    <a href="#" onclick="openShopDashboard()">My Shop</a>
-    <a href="#" onclick="openInbox()">Messages</a>
+    <a href="#" data-action="open-shop-dashboard">My Shop</a>
+    <a href="#" data-action="open-inbox">Messages</a>
     <a href="#">Community</a>
   </div>
   <div class="nav-actions">
     <button class="btn-icon">🔔</button>
     <button class="btn-icon">🛒</button>
-    <div id="userBadge" class="user-badge" onclick="signOut()"></div>
-    <button class="btn-sell-nav" onclick="handleSellClick()">Sell Now</button>
+    <div id="userBadge" class="user-badge" data-action="sign-out"></div>
+    <button class="btn-sell-nav" data-action="handle-sell">Sell Now</button>
   </div>
 </nav>
 
 <!-- CAT BAR -->
 <div class="cat-bar">
-  <button class="cat-pill active" onclick="filterCat(this,'all')">All</button>
-  <button class="cat-pill" onclick="filterCat(this,'shoes')">👟 Shoes</button>
-  <button class="cat-pill" onclick="filterCat(this,'clubs')">🏌️ Clubs</button>
-  <button class="cat-pill" onclick="filterCat(this,'apparel')">👕 Apparel</button>
-  <button class="cat-pill" onclick="filterCat(this,'memorabilia')">🏆 Memorabilia</button>
-  <button class="cat-pill" onclick="filterCat(this,'accessories')">🎒 Accessories</button>
-  <button class="cat-pill" onclick="filterCat(this,'bags')">🧳 Bags</button>
+  <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="shoes">👟 Shoes</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="clubs">🏌️ Clubs</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="apparel">👕 Apparel</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="memorabilia">🏆 Memorabilia</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="accessories">🎒 Accessories</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="bags">🧳 Bags</button>
 </div>
 
 <main>
@@ -687,8 +687,8 @@
         <h1 class="hero-title">The World's Premier<br/><em>Golf Marketplace</em></h1>
         <p class="hero-sub">Buy and sell authenticated golf gear at live market prices. From Tour-worn clubs to limited edition footwear — everything golf, all in one place.</p>
         <div class="hero-ctas">
-          <button class="btn-primary" onclick="openModal('buy')">Shop Now</button>
-          <button class="btn-outline" onclick="handleSellClick()">Start Selling</button>
+          <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
+          <button class="btn-outline" data-action="handle-sell">Start Selling</button>
         </div>
         <div class="hero-stats">
           <div><div class="hero-stat-n">240K+</div><div class="hero-stat-l">Active Listings</div></div>
@@ -697,19 +697,19 @@
         </div>
       </div>
       <div class="hero-featured">
-        <div class="feat-card feat-card-big" onclick="openModal('buy')">
+        <div class="feat-card feat-card-big" data-action="open-modal-buy">
           <span class="feat-img">🏌️</span>
           <div class="feat-label">🔥 Hot Drop</div>
           <div class="feat-name">TaylorMade Qi10 Max Driver — Tour Issue</div>
           <div class="feat-price-row"><span class="feat-price">$2,850</span><span class="feat-change up">+12.4%</span></div>
         </div>
-        <div class="feat-card" onclick="openModal('buy')">
+        <div class="feat-card" data-action="open-modal-buy">
           <span class="feat-img">👟</span>
           <div class="feat-label">New</div>
           <div class="feat-name">Nike Air Zoom Infinity Tour 4</div>
           <div class="feat-price-row"><span class="feat-price">$320</span><span class="feat-change up">+8.1%</span></div>
         </div>
-        <div class="feat-card" onclick="openModal('buy')">
+        <div class="feat-card" data-action="open-modal-buy">
           <span class="feat-img">🏆</span>
           <div class="feat-label">Rare</div>
           <div class="feat-name">Tiger Woods Signed Masters Flag</div>
@@ -767,9 +767,9 @@
 </footer>
 
 <!-- BUY MODAL -->
-<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" onclick="closeModalDirect()">✕</button></div>
+<div class="modal-backdrop" id="modalBackdrop" data-close-on-backdrop="close-modal-direct">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" data-action="close-modal-direct">✕</button></div>
     <div class="modal-body">
       <div class="modal-product"><div class="modal-emoji" id="modalEmoji">🏌️</div><div class="modal-info"><h3 id="modalItemName">Item</h3><p id="modalItemMeta"></p></div></div>
       <div class="bid-ask-grid">
@@ -779,16 +779,16 @@
       <div class="modal-input-row"><label>Your Price</label><input type="number" id="modalPrice" placeholder="Enter amount…" /></div>
       <div class="modal-input-row"><label>Condition</label><select><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option></select></div>
     </div>
-    <div class="modal-footer"><button class="btn-full ghost" onclick="closeModalDirect()">Cancel</button><button class="btn-full green" onclick="confirmAction()">Confirm Bid</button></div>
+    <div class="modal-footer"><button class="btn-full ghost" data-action="close-modal-direct">Cancel</button><button class="btn-full green" data-action="confirm-action">Confirm Bid</button></div>
   </div>
 </div>
 
 <!-- PRODUCT DETAIL MODAL -->
-<div class="detail-backdrop" id="detailBackdrop" onclick="closeDetailModal(event)">
-  <div class="detail-modal" onclick="event.stopPropagation()">
+<div class="detail-backdrop" id="detailBackdrop" data-close-on-backdrop="close-detail-direct">
+  <div class="detail-modal">
     <div class="detail-header">
       <span class="detail-title" id="detailTitle">Product Details</span>
-      <button class="modal-close" onclick="closeDetailModalDirect()">✕</button>
+      <button class="modal-close" data-action="close-detail-direct">✕</button>
     </div>
     <div class="detail-body">
       <div class="detail-gallery">
@@ -805,9 +805,9 @@
         </div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-actions">
-          <button class="btn-buy-now" id="detailBuyNowBtn" onclick="closeDetailModalDirect();openCheckout(currentDetailId)">Buy Now at Ask</button>
-          <button class="btn-place-bid" onclick="closeDetailModalDirect();openModal('buy')">Place a Bid</button>
-          <button class="btn-message-seller" onclick="closeDetailModalDirect();openChatForListing(currentDetailId)">💬 Message Seller</button>
+          <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
+          <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
+          <button class="btn-message-seller" data-action="detail-message-seller">💬 Message Seller</button>
         </div>
       </div>
     </div>
@@ -815,9 +815,9 @@
 </div>
 
 <!-- SELL MODAL -->
-<div class="sell-modal-backdrop" id="sellModalBackdrop" onclick="closeSellModal(event)">
-  <div class="sell-modal" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" onclick="closeSellModalDirect()">✕</button></div>
+<div class="sell-modal-backdrop" id="sellModalBackdrop" data-close-on-backdrop="close-sell-direct">
+  <div class="sell-modal">
+    <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" data-action="close-sell-direct">✕</button></div>
     <div class="sell-form">
       <div class="seller-verified-bar">✅ Verified Seller — Your listings go live instantly</div>
 
@@ -826,12 +826,12 @@
         <label>Photos (up to 10) — first photo is your main listing image</label>
         <div class="upload-previews" id="uploadPreviews"></div>
         <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
-        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('photoInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
           <span class="upload-zone-icon">📷</span>
           <div class="upload-zone-text">Click to upload or drag & drop</div>
           <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
         </div>
-        <input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="onPhotoSelect(event)" />
+        <input type="file" id="photoInput" accept="image/*" multiple style="display:none" />
         <div class="upload-count" id="uploadCount"></div>
       </div>
 
@@ -844,27 +844,27 @@
       <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
       <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
-        <button class="btn-full ghost" onclick="closeSellModalDirect()">Cancel</button>
-        <button class="btn-full green" id="submitListingBtn" onclick="submitListing()">Submit Listing</button>
+        <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
+        <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- SEARCH -->
-<div class="search-overlay" id="searchOverlay" onclick="closeSearch(event)">
-  <div class="search-box" onclick="event.stopPropagation()">
-    <div class="search-box-input"><span>⌕</span><input type="text" id="searchInput" placeholder="Search…" oninput="filterSearch(this.value)" /></div>
+<div class="search-overlay" id="searchOverlay" data-close-on-backdrop="close-search">
+  <div class="search-box">
+    <div class="search-box-input"><span>⌕</span><input type="text" id="searchInput" placeholder="Search…" /></div>
     <div class="search-results-list" id="searchResults"></div>
   </div>
 </div>
 
 <!-- STRIPE CHECKOUT MODAL -->
-<div class="modal-backdrop" id="checkoutBackdrop" onclick="closeCheckout(event)">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+<div class="modal-backdrop" id="checkoutBackdrop" data-close-on-backdrop="close-checkout-direct">
+  <div class="modal" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Complete Purchase</span>
-      <button class="modal-close" onclick="closeCheckoutDirect()">✕</button>
+      <button class="modal-close" data-action="close-checkout-direct">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-product">
@@ -888,8 +888,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-full ghost" onclick="closeCheckoutDirect()">Cancel</button>
-      <button class="btn-full green" id="payBtn" onclick="confirmPayment()">Pay Now</button>
+      <button class="btn-full ghost" data-action="close-checkout-direct">Cancel</button>
+      <button class="btn-full green" id="payBtn" data-action="confirm-payment">Pay Now</button>
     </div>
   </div>
 </div>
@@ -1142,7 +1142,7 @@ window.confirmPayment = async function() {
       return `<div class="upload-preview">
         <img src="${url}" />
         ${i===0?'<div class="upload-main-badge">MAIN</div>':''}
-        <button class="upload-preview-remove" onclick="removePhoto(${i})">✕</button>
+        <button class="upload-preview-remove" data-action="remove-photo" data-idx="${i}">✕</button>
       </div>`;
     }).join('');
     count.textContent = selectedFiles.length > 0 ? `${selectedFiles.length}/10 photos selected` : '';
@@ -1745,7 +1745,7 @@ function renderInbox(convs) {
     const isUnread = isConvUnread(c, myUid);
     if (isUnread) unreadCount++;
     return `
-    <div class="inbox-item ${isUnread ? 'unread' : ''}" onclick="openChatFromConversation('${c.id}')">
+    <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
       <div class="inbox-item-emoji">${escapeInboxText(c.listingEmoji || '💬')}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
@@ -2107,6 +2107,72 @@ setInterval(()=>{
   });
   buildTrending();
 },4000);
+
+// ─────────────────────────────────────────────────────────────
+// Wire all data-action / data-event handlers in one place so the
+// HTML can be free of inline on*= attributes (CSP-friendly).
+// ─────────────────────────────────────────────────────────────
+window.__actions = window.__actions || {};
+const A = window.__actions;
+A['send-code']               = () => sendCode();
+A['verify-code']             = () => verifyCode();
+A['back-to-phone']           = () => backToPhone();
+A['terms-check']             = () => onTermsCheck();
+A['close-verify']            = () => closeVerifyModal();
+A['become-seller']           = () => becomeSeller();
+A['close-shop-dashboard']    = () => closeShopDashboard();
+A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+A['close-inbox']             = () => closeInbox();
+A['close-chat']              = () => closeChat();
+A['send-message']            = () => sendMessage();
+A['open-search']             = () => openSearch();
+A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
+A['open-shop-dashboard']     = () => openShopDashboard();
+A['open-inbox']              = () => openInbox();
+A['sign-out']                = () => signOut();
+A['handle-sell']             = () => handleSellClick();
+A['open-modal-buy']          = () => openModal('buy');
+A['filter-cat']              = (el) => filterCat(el, el.dataset.cat);
+A['close-modal-direct']      = () => closeModalDirect();
+A['confirm-action']          = () => confirmAction();
+A['close-detail-direct']     = () => closeDetailModalDirect();
+A['detail-buy-now']          = () => { closeDetailModalDirect(); openCheckout(currentDetailId); };
+A['detail-place-bid']        = () => { closeDetailModalDirect(); openModal('buy'); };
+A['detail-message-seller']   = () => { closeDetailModalDirect(); openChatForListing(currentDetailId); };
+A['close-sell-direct']       = () => closeSellModalDirect();
+A['submit-listing']          = () => submitListing();
+A['close-checkout-direct']   = () => closeCheckoutDirect();
+A['confirm-payment']         = () => confirmPayment();
+A['open-photo-input']        = () => document.getElementById('photoInput').click();
+A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
+A['open-conv']               = (el) => openChatFromConversation(el.dataset.convId);
+
+// Backdrop click-to-close: an element marked data-close-on-backdrop
+// fires the named action only when the click hits the backdrop itself.
+document.querySelectorAll('[data-close-on-backdrop]').forEach((el) => {
+  el.addEventListener('click', (ev) => {
+    if (ev.target !== el) return;
+    const name = el.dataset.closeOnBackdrop;
+    const fn = A[name];
+    if (typeof fn === 'function') fn(el, ev);
+  });
+});
+
+// Non-click events that need explicit listeners.
+const photoInput = document.getElementById('photoInput');
+if (photoInput) photoInput.addEventListener('change', (e) => onPhotoSelect(e));
+const termsBox = document.getElementById('termsCheckbox');
+if (termsBox) termsBox.addEventListener('change', () => onTermsCheck());
+const searchIn = document.getElementById('searchInput');
+if (searchIn) searchIn.addEventListener('input', (e) => filterSearch(e.target.value));
+const chatIn = document.getElementById('chatInput');
+if (chatIn) chatIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+const uploadZone = document.getElementById('uploadZone');
+if (uploadZone) {
+  uploadZone.addEventListener('dragover', (e) => onDragOver(e));
+  uploadZone.addEventListener('dragleave', () => onDragLeave());
+  uploadZone.addEventListener('drop', (e) => onDrop(e));
+}
 </script>
 </body>
 </html>
