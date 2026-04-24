@@ -410,6 +410,12 @@
   .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-message-seller { background: var(--white); color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: var(--radius-md); padding: 10px 20px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; margin-top: 8px; }
   .btn-message-seller:hover { background: var(--green-50); }
+  .nav-badge { display: none; background: var(--gold); color: var(--green-900); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 4px; vertical-align: middle; }
+  .nav-badge.active { display: inline-block; }
+  .inbox-item.unread .inbox-item-title { font-weight: 700; }
+  .inbox-item.unread .inbox-item-preview { color: var(--green-900); font-weight: 600; }
+  .inbox-item-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-left: auto; margin-right: 8px; display: none; }
+  .inbox-item.unread .inbox-item-dot { display: block; }
   /* INBOX */
   #inboxBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 240; align-items: center; justify-content: center; padding: 1rem; }
   #inboxBackdrop.open { display: flex; }
@@ -1480,7 +1486,9 @@ async function sendMessage() {
     await updateDoc(doc(firestoreDb, 'conversations', currentChat.conversationId), {
       lastMessageAt: serverTimestamp(),
       lastMessageText: text.slice(0, 100),
-    });
+      lastMessageSenderId: window.CURRENT_USER.uid,
+      [`lastRead.${window.CURRENT_USER.uid}`]: serverTimestamp(),
+    }); 
     input.value = '';
     await loadMessages();
   } catch (err) {
@@ -1510,6 +1518,34 @@ function escapeInboxText(str) {
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+async function refreshUnreadBadge() {
+  if (!window.CURRENT_USER) { updateUnreadBadge(0); return; }
+  try {
+    const { getFirestore, collection, query, where, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    const q = query(
+      collection(firestoreDb, 'conversations'),
+      where('participants', 'array-contains', window.CURRENT_USER.uid)
+    );
+    const snap = await getDocs(q);
+    const myUid = window.CURRENT_USER.uid;
+    let count = 0;
+    snap.docs.forEach(d => {
+      if (isConvUnread(d.data(), myUid)) count++;
+    });
+    updateUnreadBadge(count);
+  } catch (err) {
+    console.error('Error refreshing unread badge:', err);
+  }
+}
+
+// Refresh badge when user signs in and every 60 seconds
+window.addEventListener('load', () => {
+  const checkAndRefresh = () => { if (window.CURRENT_USER) refreshUnreadBadge(); };
+  setTimeout(checkAndRefresh, 2000);
+  setInterval(checkAndRefresh, 60000);
+});
 async function openInbox() {
   if (!window.CURRENT_USER) {
     showToast('Please sign in to view your messages.');
@@ -1549,18 +1585,42 @@ function renderInbox(convs) {
   const body = document.getElementById('inboxBody');
   if (convs.length === 0) {
     body.innerHTML = '<div class="inbox-empty">No conversations yet.</div>';
+    updateUnreadBadge(0);
     return;
   }
-  body.innerHTML = convs.map(c => `
-    <div class="inbox-item" onclick="openChatFromConversation('${c.id}')">
+  const myUid = window.CURRENT_USER.uid;
+  let unreadCount = 0;
+  body.innerHTML = convs.map(c => {
+    const isUnread = isConvUnread(c, myUid);
+    if (isUnread) unreadCount++;
+    return `
+    <div class="inbox-item ${isUnread ? 'unread' : ''}" onclick="openChatFromConversation('${c.id}')">
       <div class="inbox-item-emoji">${escapeInboxText(c.listingEmoji || '💬')}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
         <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
       </div>
+      <div class="inbox-item-dot"></div>
       <div class="inbox-item-time">${formatRelativeTime(c.lastMessageAt)}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+  updateUnreadBadge(unreadCount);
+}
+
+function isConvUnread(conv, myUid) {
+  if (!conv.lastMessageSenderId || conv.lastMessageSenderId === myUid) return false;
+  const myLastRead = conv.lastRead && conv.lastRead[myUid];
+  if (!myLastRead) return true;
+  const lastMsg = conv.lastMessageAt;
+  if (!lastMsg || !lastMsg.toMillis || !myLastRead.toMillis) return false;
+  return lastMsg.toMillis() > myLastRead.toMillis();
+}
+
+function updateUnreadBadge(count) {
+  const badge = document.getElementById('unreadBadge');
+  if (!badge) return;
+  badge.textContent = count;
+  badge.classList.toggle('active', count > 0);
 }
 
 async function openChatFromConversation(conversationId) {
@@ -1585,6 +1645,13 @@ async function openChatFromConversation(conversationId) {
 
     const otherUserId = conv.participants.find(p => p !== window.CURRENT_USER.uid);
     currentChat = { conversationId, listing, otherUserId };
+    // Mark conversation as read
+    try {
+      const { updateDoc, serverTimestamp: sts } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      await updateDoc(doc(firestoreDb, 'conversations', conversationId), {
+        [`lastRead.${window.CURRENT_USER.uid}`]: sts(),
+      });
+    } catch (e) { console.error('Could not mark read:', e); }
     closeInbox();
     openChatUI();
     loadMessages();
