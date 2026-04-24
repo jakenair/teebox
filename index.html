@@ -137,6 +137,9 @@
   /* PRODUCT GRID */
   .product-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 18px; }
   .product-card { background: var(--white); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--gray-200); cursor: pointer; transition: var(--transition); }
+  .product-card.sold { opacity: 0.6; }
+  .product-card.sold .product-image { filter: grayscale(0.5); }
+  .sold-badge { position: absolute; top: 12px; right: 12px; background: #c0392b; color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.5px; z-index: 2; }
   .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
   .product-img-wrap { background: var(--gray-100); position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
@@ -1226,8 +1229,8 @@ function buildTrending() {
 function buildProducts(filter='all') {
   let list = filter==='all'?window.PRODUCTS:window.PRODUCTS.filter(p=>p.cat===filter);
   document.getElementById('productGrid').innerHTML = list.map(p=>`
-    <div class="product-card" onclick="openDetailModal('${p.id}')">
-      <div class="product-img-wrap">
+    <div class="product-card ${p.status === 'sold' ? 'sold' : ''}" onclick="openDetailModal('${p.id}')">
+      <div class="product-img-wrap">${p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : ''}
         ${p.photos&&p.photos.length>0?`<img src="${p.photos[0]}" alt="${p.name}" />`:`<span class="product-img-emoji">${p.emoji||'🏌️'}</span>`}
         ${p.badge?`<span class="product-badge badge-${p.badge}">${p.badge==='hot'?'🔥 Hot':'New'}</span>`:''}
         <button class="fav-btn" onclick="toggleFav(event,'${p.id}')">${fav.has(p.id)?'❤️':'🤍'}</button>
