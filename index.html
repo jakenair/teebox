@@ -384,6 +384,32 @@
   .dash-range button { background: none; border: none; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 5px; transition: var(--transition); }
   .dash-range button.active { background: var(--white); color: var(--green-700); }
   .chart-wrap { height: 240px; margin-top: 1rem; }
+/* CHAT / MESSAGING */
+  #chatBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250; align-items: center; justify-content: center; padding: 1rem; }
+  #chatBackdrop.open { display: flex; }
+  .chat-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 520px; height: 80vh; max-height: 700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
+  .chat-header { background: var(--green-900); color: var(--white); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .chat-header-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .chat-header-emoji { font-size: 1.75rem; flex-shrink: 0; }
+  .chat-header-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-header-sub { font-size: 12px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: var(--transition); }
+  .chat-close:hover { background: rgba(255,255,255,0.2); }
+  .chat-warning { background: #fef9e7; color: #856404; font-size: 12px; padding: 10px 16px; border-bottom: 1px solid #f0e5c0; flex-shrink: 0; }
+  .chat-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; background: var(--gray-50); }
+  .chat-empty { text-align: center; color: var(--gray-500); font-size: 13px; padding: 2rem 1rem; margin: auto; }
+  .msg { max-width: 75%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+  .msg-mine { align-self: flex-end; background: var(--green-700); color: var(--white); border-bottom-right-radius: 4px; }
+  .msg-theirs { align-self: flex-start; background: var(--white); color: var(--gray-900); border: 1px solid var(--gray-200); border-bottom-left-radius: 4px; }
+  .msg-time { font-size: 10px; color: var(--gray-500); align-self: center; margin: 6px 0; }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--gray-200); background: var(--white); flex-shrink: 0; }
+  .chat-input { flex: 1; border: 1px solid var(--gray-200); border-radius: 20px; padding: 10px 16px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition); }
+  .chat-input:focus { border-color: var(--green-700); }
+  .chat-send { background: var(--green-700); color: var(--white); border: none; border-radius: 20px; padding: 0 20px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+  .chat-send:hover { background: var(--green-800); }
+  .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-message-seller { background: var(--white); color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: var(--radius-md); padding: 10px 20px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; margin-top: 8px; }
+  .btn-message-seller:hover { background: var(--green-50); }
 </style>
 </head>
 <body>
@@ -519,6 +545,31 @@
       </div>
     </div>
 
+  </div>
+</div>
+<!-- CHAT MODAL -->
+<div id="chatBackdrop" onclick="if(event.target===this)closeChat()">
+  <div class="chat-modal">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <span class="chat-header-emoji" id="chatEmoji">💬</span>
+        <div style="min-width:0;">
+          <div class="chat-header-title" id="chatTitle">Conversation</div>
+          <div class="chat-header-sub" id="chatSub">—</div>
+        </div>
+      </div>
+      <button class="chat-close" onclick="closeChat()">×</button>
+    </div>
+    <div class="chat-warning">
+      🔒 Keep deals on TeeBox — off-platform purchases aren't protected by our guarantee.
+    </div>
+    <div class="chat-body" id="chatBody">
+      <div class="chat-empty">Loading messages…</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000" onkeydown="if(event.key==='Enter')sendMessage()">
+      <button class="chat-send" id="chatSendBtn" onclick="sendMessage()">Send</button>
+    </div>
   </div>
 </div>
 <!-- NAV -->
@@ -683,6 +734,7 @@
         <div class="detail-actions">
           <button class="btn-buy-now" id="detailBuyNowBtn" onclick="closeDetailModalDirect();openCheckout(currentDetailId)">Buy Now at Ask</button>
           <button class="btn-place-bid" onclick="closeDetailModalDirect();openModal('buy')">Place a Bid</button>
+          <button class="btn-message-seller" onclick="closeDetailModalDirect();openChatForListing(currentDetailId)">💬 Message Seller</button>
         </div>
       </div>
     </div>
@@ -1240,6 +1292,168 @@ function confirmAction() {
   showToast(`✅ ${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted!`);
 }
 window.confirmAction = confirmAction;
+// ═══════════════════════════════════════════════════════════
+// MESSAGING
+// ═══════════════════════════════════════════════════════════
+let currentChat = { conversationId: null, listing: null, otherUserId: null };
+
+async function openChatForListing(listingId) {
+  if (!window.CURRENT_USER) {
+    showToast('Please sign in to message the seller.');
+    return;
+  }
+
+  // Get the listing — check Firestore first, fall back to hardcoded products
+  let listing = null;
+  try {
+    const { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+
+    // Try to load from Firestore
+    const listingSnap = await getDoc(doc(firestoreDb, 'listings', listingId));
+    if (listingSnap.exists()) {
+      listing = { id: listingSnap.id, ...listingSnap.data() };
+    } else {
+      // Fall back to hardcoded product list
+      const p = (window.PRODUCTS || []).find(pr => String(pr.id) === String(listingId));
+      if (p) listing = { id: p.id, title: p.title, brand: p.brand, emoji: p.emoji, sellerId: null };
+    }
+
+    if (!listing) {
+      showToast('Listing not found.');
+      return;
+    }
+
+    if (!listing.sellerId) {
+      showToast('This is a demo listing — messaging will work once sellers list real items.');
+      return;
+    }
+
+    if (listing.sellerId === window.CURRENT_USER.uid) {
+      showToast("You can't message yourself about your own listing.");
+      return;
+    }
+
+    // Find existing conversation or create one
+    const convsRef = collection(firestoreDb, 'conversations');
+    const q = query(convsRef,
+      where('listingId', '==', listing.id),
+      where('participants', 'array-contains', window.CURRENT_USER.uid),
+      limit(1));
+    const existing = await getDocs(q);
+
+    let conversationId;
+    if (!existing.empty && existing.docs[0].data().participants.includes(listing.sellerId)) {
+      conversationId = existing.docs[0].id;
+    } else {
+      const newConv = await addDoc(convsRef, {
+        listingId: listing.id,
+        listingTitle: listing.title || '',
+        listingEmoji: listing.emoji || '💬',
+        participants: [window.CURRENT_USER.uid, listing.sellerId],
+        buyerId: window.CURRENT_USER.uid,
+        sellerId: listing.sellerId,
+        createdAt: serverTimestamp(),
+        lastMessageAt: serverTimestamp(),
+      });
+      conversationId = newConv.id;
+    }
+
+    currentChat = { conversationId, listing, otherUserId: listing.sellerId };
+    openChatUI();
+    await loadMessages();
+  } catch (err) {
+    console.error('Error opening chat:', err);
+    showToast('Could not open chat.');
+  }
+}
+
+function openChatUI() {
+  document.getElementById('chatEmoji').textContent = currentChat.listing.emoji || '💬';
+  document.getElementById('chatTitle').textContent = currentChat.listing.title || 'Conversation';
+  document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
+  document.getElementById('chatInput').value = '';
+  document.getElementById('chatBody').innerHTML = '<div class="chat-empty">Loading messages…</div>';
+  document.getElementById('chatBackdrop').classList.add('open');
+  setTimeout(() => document.getElementById('chatInput').focus(), 100);
+}
+
+function closeChat() {
+  document.getElementById('chatBackdrop').classList.remove('open');
+  currentChat = { conversationId: null, listing: null, otherUserId: null };
+}
+
+async function loadMessages() {
+  if (!currentChat.conversationId) return;
+  try {
+    const { getFirestore, collection, query, orderBy, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    const msgsQ = query(
+      collection(firestoreDb, 'conversations', currentChat.conversationId, 'messages'),
+      orderBy('createdAt', 'asc')
+    );
+    const snap = await getDocs(msgsQ);
+    renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (err) {
+    console.error('Error loading messages:', err);
+    document.getElementById('chatBody').innerHTML =
+      '<div class="chat-empty">Could not load messages.</div>';
+  }
+}
+
+function renderMessages(messages) {
+  const body = document.getElementById('chatBody');
+  if (messages.length === 0) {
+    body.innerHTML = '<div class="chat-empty">No messages yet. Say hi!</div>';
+    return;
+  }
+  const myUid = window.CURRENT_USER.uid;
+  body.innerHTML = messages.map(m => {
+    const mine = m.senderId === myUid;
+    const cls = mine ? 'msg msg-mine' : 'msg msg-theirs';
+    const safe = (m.text || '').replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    return `<div class="${cls}">${safe}</div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentChat.conversationId) return;
+
+  const sendBtn = document.getElementById('chatSendBtn');
+  sendBtn.disabled = true;
+  try {
+    const { getFirestore, collection, addDoc, doc, updateDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    await addDoc(
+      collection(firestoreDb, 'conversations', currentChat.conversationId, 'messages'),
+      {
+        senderId: window.CURRENT_USER.uid,
+        text: text,
+        createdAt: serverTimestamp(),
+      }
+    );
+    // Bump conversation's lastMessageAt
+    await updateDoc(doc(firestoreDb, 'conversations', currentChat.conversationId), {
+      lastMessageAt: serverTimestamp(),
+      lastMessageText: text.slice(0, 100),
+    });
+    input.value = '';
+    await loadMessages();
+  } catch (err) {
+    console.error('Error sending message:', err);
+    showToast('Could not send message.');
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
 async function openShopDashboard() {
   if (!window.CURRENT_USER) { showToast('Please sign in to view your shop.'); return; }
   document.getElementById('shopDashboard').classList.add('open');
