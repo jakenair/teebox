@@ -9,7 +9,7 @@ admin.initializeApp();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 
-const PLATFORM_FEE_PERCENT = 0.095;
+const PLATFORM_FEE_PERCENT = 0.065;
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
