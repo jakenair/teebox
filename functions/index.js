@@ -116,19 +116,40 @@ exports.createPaymentIntent = onRequest(
       const sellerPayoutCents = reservation.priceCents - platformFeeCents;
 
       const stripeClient = stripe(stripeSecret.value());
-      const paymentIntent = await stripeClient.paymentIntents.create({
-        amount: reservation.priceCents,
-        currency: "usd",
-        automatic_payment_methods: {enabled: true},
-        description: `teebox — ${reservation.title}`,
-        metadata: {
-          listingId,
-          buyerId,
-          sellerId: reservation.sellerId || "",
-          platformFeeCents: String(platformFeeCents),
-          sellerPayoutCents: String(sellerPayoutCents),
+
+      // Truncate description to Stripe's 1000-char limit, defensively.
+      const description = `teebox — ${reservation.title}`.slice(0, 200);
+
+      // Idempotency: same buyer + listing + 5-minute bucket → same PI.
+      // Stops a duplicate-charge race if the client retries Pay Now.
+      const idempotencyKey = `pi_${listingId}_${buyerId}_${Math.floor(
+        Date.now() / (5 * 60 * 1000)
+      )}`;
+
+      const paymentIntent = await stripeClient.paymentIntents.create(
+        {
+          amount: reservation.priceCents,
+          currency: "usd",
+          automatic_payment_methods: {enabled: true},
+          // Explicit policy. 'automatic' = Stripe Radar decides per
+          // transaction. Switch to 'any' for marketplace-wide 3DS
+          // enforcement once Radar tells us false-positives are low.
+          payment_method_options: {
+            card: {request_three_d_secure: "automatic"},
+          },
+          description,
+          // Up to 22 chars, what the buyer sees on their card statement.
+          statement_descriptor_suffix: "TEEBOX",
+          metadata: {
+            listingId,
+            buyerId,
+            sellerId: reservation.sellerId || "",
+            platformFeeCents: String(platformFeeCents),
+            sellerPayoutCents: String(sellerPayoutCents),
+          },
         },
-      });
+        {idempotencyKey}
+      );
 
       await listingRef.update({pendingPaymentIntentId: paymentIntent.id});
 

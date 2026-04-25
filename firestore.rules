@@ -113,6 +113,39 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // PROFILES — public read, owner write. Schema-validated. Avatars
+    // live in Storage at avatars/{uid}/...
+    //
+    // Strict field whitelist to prevent shenanigans (no
+    // sellerId/createdAt/etc.).
+    // ─────────────────────────────────────────────
+    match /profiles/{userId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && appCheckOk()
+        && isValidProfile(request.resource.data, true);
+
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && appCheckOk()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+             ['displayName','bio','avatarUrl','location','handicap','updatedAt'])
+        && isValidProfile(request.resource.data, false);
+
+      allow delete: if false;
+    }
+
+    function isValidProfile(d, isCreate) {
+      return (!('displayName' in d.keys()) || (d.displayName is string && d.displayName.size() <= 60))
+        && (!('bio' in d.keys())         || (d.bio is string && d.bio.size() <= 600))
+        && (!('avatarUrl' in d.keys())   || (d.avatarUrl is string && d.avatarUrl.size() <= 1024))
+        && (!('location' in d.keys())    || (d.location is string && d.location.size() <= 80))
+        && (!('handicap' in d.keys())    || (d.handicap is number && d.handicap >= -10 && d.handicap <= 54));
+    }
+
+    // ─────────────────────────────────────────────
     // ORDERS — buyer or seller can read. Client cannot write; orders are
     // created by the Stripe webhook (Admin SDK).
     // ─────────────────────────────────────────────
