@@ -32,6 +32,24 @@
   body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
   .detail-seller { padding: 0.75rem 0; border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); margin: 0.75rem 0 1rem; }
+  .detail-bids { margin: 0.75rem 0; }
+  .detail-bids h4 { font-size: 12px; text-transform: uppercase; color: var(--gray-500); margin-bottom: 6px; letter-spacing: 0.6px; }
+  .bid-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; border-bottom: 1px dashed var(--gray-200); }
+  .bid-row:last-child { border-bottom: none; }
+  .bid-amt { font-weight: 700; color: var(--green-600); font-family: var(--font-display); }
+  .bid-status { font-size: 11px; text-transform: uppercase; color: var(--gray-500); }
+  .bid-withdraw { margin-left:auto; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 50px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
+  .bid-withdraw:hover { background: var(--red-100); border-color: var(--red-500); color: var(--red-500); }
+  .modal-fineprint { font-size: 11px; color: var(--gray-500); margin-top: -0.5rem; margin-bottom: 0.75rem; }
+  #reviewStars .star-pick[data-active="1"] { color: var(--gold-400); }
+  #reviewStars .star-pick[data-active="0"] { color: var(--gray-300); }
+  .stars { display: inline-flex; gap: 1px; color: var(--gold-400); font-size: 1em; vertical-align: middle; }
+  .stars .ico { width: 1em; height: 1em; }
+  .review-row { padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+  .review-row:last-child { border-bottom: none; }
+  .review-meta { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .review-comment { font-size: 13.5px; color: var(--gray-700); margin-top: 4px; }
+  .ico.ico-fill { fill: currentColor; stroke: none; }
 
   /* Profile modal */
   .profile-header { display: flex; gap: 1.25rem; align-items: center; margin-bottom: 1.5rem; }
@@ -649,6 +667,32 @@
     </div>
   </div>
 </div>
+<!-- REVIEW PROMPT MODAL -->
+<div class="modal-backdrop info-backdrop" id="reviewBackdrop">
+  <div class="info-modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Rate your seller</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p class="info-meta" id="reviewSub">Order</p>
+      <p>How was the transaction? Your review helps other buyers.</p>
+      <div id="reviewStars" data-value="0" style="display:flex;gap:6px;font-size:1.5rem;color:var(--gold-400);margin:0.5rem 0 1rem">
+        <button class="star-pick" type="button" data-active="0" style="background:none;border:0;cursor:pointer;color:inherit;padding:0;line-height:0" data-ico="star"></button>
+        <button class="star-pick" type="button" data-active="0" style="background:none;border:0;cursor:pointer;color:inherit;padding:0;line-height:0" data-ico="star"></button>
+        <button class="star-pick" type="button" data-active="0" style="background:none;border:0;cursor:pointer;color:inherit;padding:0;line-height:0" data-ico="star"></button>
+        <button class="star-pick" type="button" data-active="0" style="background:none;border:0;cursor:pointer;color:inherit;padding:0;line-height:0" data-ico="star"></button>
+        <button class="star-pick" type="button" data-active="0" style="background:none;border:0;cursor:pointer;color:inherit;padding:0;line-height:0" data-ico="star"></button>
+      </div>
+      <textarea id="reviewComment" maxlength="2000" placeholder="Optional comment for other buyers…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;min-height:90px;font-family:var(--font-body);font-size:14px;outline:none"></textarea>
+      <div class="profile-actions">
+        <button class="btn-full ghost" data-action="close-info">Skip</button>
+        <button class="btn-full green" data-action="submit-review">Submit Review</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- PROFILE MODAL -->
 <div class="modal-backdrop info-backdrop" id="profileBackdrop" data-close-on-backdrop="close-profile">
   <div class="info-modal" id="profileModalInner">
@@ -888,6 +932,7 @@
     <a href="#">Drops</a>
     <a href="#" data-action="open-about">About</a>
     <a href="#" data-action="open-shop-dashboard">My Shop</a>
+    <a href="#" data-action="open-watchlist">Watchlist</a>
     <a href="#" data-action="open-inbox">Messages</a>
     <a href="#" data-action="open-profile-self">Profile</a>
   </div>
@@ -1006,8 +1051,8 @@
         <div class="ba-box bid"><div class="ba-lbl">Highest Bid</div><div class="ba-price" id="modalBid">$0</div><div class="ba-note">active bids</div></div>
         <div class="ba-box ask"><div class="ba-lbl">Lowest Ask</div><div class="ba-price" id="modalAsk">$0</div><div class="ba-note">sellers</div></div>
       </div>
-      <div class="modal-input-row"><label>Your Price</label><input type="number" id="modalPrice" placeholder="Enter amount…" /></div>
-      <div class="modal-input-row"><label>Condition</label><select><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option></select></div>
+      <div class="modal-input-row"><label>Your Bid (USD)</label><input type="number" id="modalPrice" placeholder="Enter amount…" min="1" step="1" /></div>
+      <div class="modal-fineprint">Bids are visible to the seller. Withdraw any time before they accept.</div>
     </div>
     <div class="modal-footer"><button class="btn-full ghost" data-action="close-modal-direct">Cancel</button><button class="btn-full green" data-action="confirm-action">Confirm Bid</button></div>
   </div>
@@ -1035,6 +1080,9 @@
         </div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
+        <div class="detail-bids" id="detailBids"></div>
+        <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
+        <div id="detailReviews"></div>
         <div class="detail-actions">
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
           <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
@@ -1277,6 +1325,9 @@ window.confirmPayment = async function() {
       badge.textContent = user.phoneNumber || 'Account';
       await checkSellerStatus(user.uid);
       loadListings();
+      // Hydrate watchlist & maybe prompt for any unreviewed orders.
+      if (window.hydrateWatchlist) window.hydrateWatchlist();
+      setTimeout(() => { if (window.maybePromptReview) window.maybePromptReview(); }, 2000);
     } else {
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBadge').style.display = 'none';
@@ -1549,9 +1600,6 @@ window.__actions = window.__actions || {};
 window.__actions['open-detail'] = function(el) {
   openDetailModal(el.dataset.productId);
 };
-window.__actions['toggle-fav'] = function(el, ev) {
-  toggleFav(ev, el.dataset.productId);
-};
 window.__actions['handle-sell'] = function() {
   if (typeof handleSellClick === 'function') handleSellClick();
 };
@@ -1619,7 +1667,7 @@ function buildProducts(filter='all') {
       `<div class="product-img-wrap">${soldBadge}`+
         `${mainImg}`+
         `${badge}`+
-        `<button class="fav-btn" data-action="toggle-fav" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
+        `<button class="fav-btn" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
@@ -1690,6 +1738,27 @@ function openDetailModal(id) {
       }
     });
   }
+
+  // Bids (only when the user is signed in and this is a real listing)
+  const bidsEl = document.getElementById('detailBids');
+  bidsEl.innerHTML = '';
+  if (p.sellerId && window.CURRENT_USER) {
+    loadBidsForListing(String(p.id)).then(bids => {
+      if (!bids.length) return;
+      const isSeller = window.CURRENT_USER.uid === p.sellerId;
+      const heading = isSeller ? 'Bids on this listing' : 'Your bid';
+      const rows = bids.map(b => {
+        const own = b.buyerId === window.CURRENT_USER.uid;
+        const withdraw = own && b.status === 'open'
+          ? `<button class="bid-withdraw" data-action="withdraw-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}">Withdraw</button>`
+          : '';
+        return `<div class="bid-row"><span class="bid-amt">$${Number((b.amountCents||0)/100).toLocaleString()}</span> <span class="bid-status">${window.safeText(b.status)}</span>${withdraw}</div>`;
+      }).join('');
+      bidsEl.innerHTML = `<h4>${heading}</h4>${rows}`;
+    });
+  }
+  // Sale-history sparkline
+  loadSparkline(p);
   const photos = (p.photos && p.photos.length > 0 ? p.photos : [])
     .map(window.safeImgUrl)
     .filter(Boolean);
@@ -1764,18 +1833,121 @@ function openProductModal(id,mode='buy') {
   document.getElementById('modalBackdrop').classList.add('open');
 }
 
-function openModal(mode) { openProductModal(1,mode); }
+function openModal(mode) {
+  // Use the listing currently in the detail modal if there is one;
+  // otherwise fall back to the first product (used by hero "Shop Now").
+  const id = currentDetailId || (window.PRODUCTS && window.PRODUCTS[0] && window.PRODUCTS[0].id);
+  openProductModal(id, mode);
+}
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop')) closeModalDirect(); }
 function closeModalDirect() { document.getElementById('modalBackdrop').classList.remove('open'); }
 window.closeModalDirect = closeModalDirect;
 
-function confirmAction() {
-  const price = document.getElementById('modalPrice').value;
-  if (!price) { alert('Please enter a price.'); return; }
-  closeModalDirect();
-  showToast(`${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted.`);
+async function confirmAction() {
+  const priceRaw = document.getElementById('modalPrice').value;
+  const price = parseFloat(priceRaw);
+  if (!Number.isFinite(price) || price <= 0) {
+    showToast('Enter a valid price.');
+    return;
+  }
+
+  const id = currentDetailId;
+  const product = id ? window.PRODUCTS.find(x => String(x.id) === String(id)) : null;
+
+  // Hardcoded demo product (numeric id) — can't bid on something
+  // that's not in Firestore. Old behavior preserved.
+  const isRealListing = product && typeof product.id === 'string' && product.sellerId;
+
+  if (!isRealListing) {
+    closeModalDirect();
+    showToast('Bids are only available on real listings.');
+    return;
+  }
+
+  if (!window.CURRENT_USER) {
+    showToast('Sign in to place a bid.');
+    return;
+  }
+  if (product.sellerId === window.CURRENT_USER.uid) {
+    showToast("You can't bid on your own listing.");
+    return;
+  }
+
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await addDoc(collection(db, 'bids'), {
+      listingId: String(product.id),
+      buyerId: window.CURRENT_USER.uid,
+      sellerId: product.sellerId,
+      amountCents: Math.round(price * 100),
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+    closeModalDirect();
+    showToast(`Bid of $${price.toLocaleString()} submitted.`);
+    // Refresh detail modal so the new bid shows up.
+    openDetailModal(id);
+  } catch (e) {
+    console.error('placeBid failed:', e);
+    showToast('Could not place bid.');
+  }
 }
 window.confirmAction = confirmAction;
+
+async function loadBidsForListing(listingId) {
+  try {
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    // Anyone can read bids where they're the buyer/seller. Public count
+    // requires a denormalized counter — not yet implemented; for v1 we
+    // only fetch bids relevant to the signed-in user.
+    if (!window.CURRENT_USER) return [];
+    const q1 = query(
+      collection(db, 'bids'),
+      where('listingId', '==', listingId),
+      where('buyerId', '==', window.CURRENT_USER.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20),
+    );
+    const q2 = query(
+      collection(db, 'bids'),
+      where('listingId', '==', listingId),
+      where('sellerId', '==', window.CURRENT_USER.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20),
+    );
+    const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    const seen = new Set();
+    const out = [];
+    [...s1.docs, ...s2.docs].forEach(d => {
+      if (seen.has(d.id)) return;
+      seen.add(d.id);
+      out.push({ id: d.id, ...d.data() });
+    });
+    return out.sort((a, b) => (b.amountCents || 0) - (a.amountCents || 0));
+  } catch (e) {
+    console.error('loadBidsForListing failed:', e);
+    return [];
+  }
+}
+
+async function withdrawBid(bidId) {
+  try {
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await deleteDoc(doc(db, 'bids', bidId));
+    showToast('Bid withdrawn.');
+    if (currentDetailId) openDetailModal(currentDetailId);
+  } catch (e) {
+    console.error('withdrawBid failed:', e);
+    showToast('Could not withdraw bid.');
+  }
+}
+window.withdrawBid = withdrawBid;
 // ═══════════════════════════════════════════════════════════
 // MESSAGING
 // ═══════════════════════════════════════════════════════════
@@ -2408,6 +2580,243 @@ setInterval(()=>{
 },4000);
 
 // ─────────────────────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────────────────────
+const REVIEW_AGG_CACHE = new Map();
+
+async function loadSellerReviews(sellerId) {
+  if (!sellerId) return { count: 0, avg: 0, items: [] };
+  if (REVIEW_AGG_CACHE.has(sellerId)) return REVIEW_AGG_CACHE.get(sellerId);
+  try {
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(query(
+      collection(db, 'reviews'),
+      where('sellerId', '==', sellerId),
+      orderBy('createdAt', 'desc'),
+      limit(50),
+    ));
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const count = items.length;
+    const avg = count ? items.reduce((s, r) => s + (r.rating || 0), 0) / count : 0;
+    const agg = { count, avg, items };
+    REVIEW_AGG_CACHE.set(sellerId, agg);
+    return agg;
+  } catch (e) {
+    console.error('loadSellerReviews failed:', e);
+    return { count: 0, avg: 0, items: [] };
+  }
+}
+
+function starsHtml(rating, max = 5) {
+  const r = Math.max(0, Math.min(max, Number(rating) || 0));
+  let out = '';
+  for (let i = 1; i <= max; i++) {
+    out += i <= Math.round(r) ? window.ICONS.star.replace('class="ico"', 'class="ico ico-fill"') : window.ICONS.star;
+  }
+  return `<span class="stars" aria-label="${r} out of ${max}">${out}</span>`;
+}
+
+let pendingReviewOrderId = null;
+let pendingReviewSellerId = null;
+
+window.maybePromptReview = async function maybePromptReview() {
+  if (!window.CURRENT_USER) return;
+  try {
+    const { getFirestore, collection, query, where, getDocs, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const ords = await getDocs(query(
+      collection(db, 'orders'),
+      where('buyerId', '==', window.CURRENT_USER.uid)
+    ));
+    for (const o of ords.docs) {
+      const od = o.data();
+      // Only prompt for paid orders that don't have a review yet.
+      if (od.status !== 'paid') continue;
+      const rev = await getDoc(doc(db, 'reviews', o.id));
+      if (!rev.exists()) {
+        pendingReviewOrderId = o.id;
+        pendingReviewSellerId = od.sellerId;
+        showReviewPrompt(od);
+        return; // one prompt per visit
+      }
+    }
+  } catch (e) {
+    // Silent — review prompt is best-effort.
+  }
+};
+
+function showReviewPrompt(order) {
+  const back = document.getElementById('reviewBackdrop');
+  if (!back) return;
+  const sub = document.getElementById('reviewSub');
+  if (sub) sub.textContent = 'Order ' + (order.listingId || '').slice(0, 6);
+  back.classList.add('open');
+  // Reset star rating
+  document.querySelectorAll('#reviewStars .star-pick').forEach(b => b.dataset.active = '0');
+  const ta = document.getElementById('reviewComment');
+  if (ta) ta.value = '';
+}
+
+function setStarRating(n) {
+  document.querySelectorAll('#reviewStars .star-pick').forEach((b, i) => {
+    b.dataset.active = (i < n) ? '1' : '0';
+  });
+  document.getElementById('reviewStars').dataset.value = String(n);
+}
+window.setStarRating = setStarRating;
+
+async function submitReview() {
+  if (!window.CURRENT_USER || !pendingReviewOrderId || !pendingReviewSellerId) return;
+  const rating = Number(document.getElementById('reviewStars').dataset.value || 0);
+  if (rating < 1 || rating > 5) {
+    showToast('Pick a rating from 1 to 5 stars.');
+    return;
+  }
+  const comment = (document.getElementById('reviewComment').value || '').trim().slice(0, 2000);
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await setDoc(doc(db, 'reviews', pendingReviewOrderId), {
+      buyerId: window.CURRENT_USER.uid,
+      sellerId: pendingReviewSellerId,
+      rating,
+      comment: comment || '',
+      createdAt: serverTimestamp(),
+    });
+    REVIEW_AGG_CACHE.delete(pendingReviewSellerId);
+    document.getElementById('reviewBackdrop').classList.remove('open');
+    showToast('Thanks for the review.');
+  } catch (e) {
+    console.error('submitReview failed:', e);
+    showToast('Could not submit review.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// WATCHLIST
+// ─────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  if (!window.CURRENT_USER) return {};
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+    return (snap.exists() && snap.data().watchlist) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+async function toggleWatch(productId) {
+  if (!window.CURRENT_USER) {
+    showToast('Sign in to save items.');
+    return;
+  }
+  const watch = await loadWatchlist();
+  const id = String(productId);
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp, deleteField } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    if (watch[id]) {
+      await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+        { watchlist: { [id]: deleteField() } }, { merge: true });
+      fav.delete(productId);
+      showToast('Removed from watchlist.');
+    } else {
+      await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+        { watchlist: { [id]: { addedAt: serverTimestamp() } } }, { merge: true });
+      fav.add(productId);
+      showToast('Saved to watchlist.');
+    }
+    buildProducts();
+  } catch (e) {
+    console.error('toggleWatch failed:', e);
+    showToast('Could not update watchlist.');
+  }
+}
+
+async function openWatchlist() {
+  if (!window.CURRENT_USER) {
+    showToast('Sign in to view your watchlist.');
+    return;
+  }
+  const watch = await loadWatchlist();
+  const ids = Object.keys(watch);
+  const items = ids.map(id => window.PRODUCTS.find(p => String(p.id) === id)).filter(Boolean);
+  // Reuse the search overlay to display
+  document.getElementById('searchOverlay').classList.add('open');
+  const results = document.getElementById('searchResults');
+  if (!items.length) {
+    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400)">Your watchlist is empty. Tap the heart on any listing to save it.</div>';
+    return;
+  }
+  results.innerHTML = items.map(p => {
+    const id = window.safeId(p.id);
+    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const img = url
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      : `<span class="placeholder-art" style="width:100%;height:100%;border-radius:6px">${window.CATEGORY_ICON(p.cat)}</span>`;
+    return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
+      `<div class="search-res-img">${img}</div>`+
+      `<div><div class="search-res-name">${window.safeText(p.name)}</div><div class="search-res-cat">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div>`+
+      `<span class="search-res-price">$${Number(p.ask||0).toLocaleString()}</span>`+
+    `</div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRICE HISTORY SPARKLINE
+// ─────────────────────────────────────────────────────────────
+let sparklineChart = null;
+async function loadSparkline(p) {
+  const canvas = document.getElementById('detailSparkline');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const model = (p && (p.brand || '') + ' ' + (p.name || '')).trim();
+  if (!model) { canvas.style.display = 'none'; return; }
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const slug = model.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80);
+    const snap = await getDoc(doc(db, 'priceHistory', slug));
+    const data = snap.exists() ? (snap.data().sales || []) : [];
+    if (data.length < 2) { canvas.style.display = 'none'; return; }
+    canvas.style.display = 'block';
+    if (sparklineChart) sparklineChart.destroy();
+    const sorted = [...data].sort((a, b) => (a.t || 0) - (b.t || 0));
+    sparklineChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: sorted.map(s => new Date(s.t).toLocaleDateString(undefined, {month:'short', day:'numeric'})),
+        datasets: [{
+          data: sorted.map(s => s.priceCents / 100),
+          borderColor: 'var(--green-600)',
+          backgroundColor: 'rgba(45,84,56,0.08)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '$' + c.parsed.y.toLocaleString() } } },
+        scales: { x: { display: false }, y: { display: false } },
+      },
+    });
+  } catch (e) {
+    canvas.style.display = 'none';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // PROFILES
 // ─────────────────────────────────────────────────────────────
 const PROFILE_CACHE = new Map();
@@ -2452,11 +2861,12 @@ async function openProfile(uid) {
   document.getElementById('profileModalTitle').textContent =
     (window.CURRENT_USER && window.CURRENT_USER.uid === uid) ? 'Your Profile' : 'Profile';
 
-  const [profile, listings] = await Promise.all([
+  const [profile, listings, reviews] = await Promise.all([
     loadProfile(uid),
     loadProfileListings(uid),
+    loadSellerReviews(uid),
   ]);
-  renderProfileView(profile, listings);
+  renderProfileView(profile, listings, reviews);
 }
 
 async function loadProfileListings(uid) {
@@ -2475,13 +2885,14 @@ async function loadProfileListings(uid) {
   }
 }
 
-function renderProfileView(profile, listings) {
+function renderProfileView(profile, listings, reviews) {
   const isMe = window.CURRENT_USER && window.CURRENT_USER.uid === profile.id;
   const active = listings.filter(l => l.status !== 'sold');
   const sold = listings.filter(l => l.status === 'sold');
   const joined = profile.createdAt && profile.createdAt.toDate
     ? profile.createdAt.toDate().toLocaleDateString(undefined, { month:'long', year:'numeric' })
     : null;
+  reviews = reviews || { count: 0, avg: 0, items: [] };
   const handicap = (typeof profile.handicap === 'number')
     ? `<div class="profile-stat"><span class="profile-stat-n">${Number(profile.handicap)}</span><span class="profile-stat-l">Handicap</span></div>`
     : '';
@@ -2523,6 +2934,7 @@ function renderProfileView(profile, listings) {
       <div class="profile-stat-row">
         <div class="profile-stat"><span class="profile-stat-n">${active.length}</span><span class="profile-stat-l">Active</span></div>
         <div class="profile-stat"><span class="profile-stat-n">${sold.length}</span><span class="profile-stat-l">Sold</span></div>
+        <div class="profile-stat"><span class="profile-stat-n">${reviews.count ? reviews.avg.toFixed(1) : '—'}</span><span class="profile-stat-l">Rating (${reviews.count})</span></div>
         ${handicap}
         ${location}
       </div>
@@ -2535,8 +2947,23 @@ function renderProfileView(profile, listings) {
       <div class="profile-listings">${listingsHtml}</div>
     </div>
 
+    ${reviews.count ? renderProfileReviews(reviews.items) : ''}
+
     ${editBtn}
   `;
+}
+
+function renderProfileReviews(items) {
+  const rows = items.slice(0, 10).map(r => {
+    const d = r.createdAt && r.createdAt.toDate ? r.createdAt.toDate() : null;
+    const when = d ? d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '';
+    return `<div class="review-row">
+      ${starsHtml(r.rating)}
+      <div class="review-meta">${window.safeText(when)}</div>
+      ${r.comment ? `<div class="review-comment">${window.safeText(r.comment)}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="profile-section"><h4>Reviews</h4>${rows}</div>`;
 }
 
 async function renderProfileEditor() {
@@ -2665,6 +3092,10 @@ A['close-chat']              = () => closeChat();
 A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
+A['withdraw-bid']            = (el) => withdrawBid(el.dataset.bidId);
+A['toggle-watch']            = (el, ev) => { ev.stopPropagation(); toggleWatch(el.dataset.productId); };
+A['submit-review']            = () => submitReview();
+A['open-watchlist']          = () => openWatchlist();
 A['open-profile-self']       = () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid);
 A['open-profile']            = (el) => openProfile(el.dataset.uid);
 A['close-profile']           = () => document.getElementById('profileBackdrop').classList.remove('open');
@@ -2732,6 +3163,24 @@ const navSearch = document.getElementById('navSearchIcon');
 if (navSearch) navSearch.innerHTML = window.ICONS.search;
 const navInbox = document.getElementById('navInboxIcon');
 if (navInbox) navInbox.innerHTML = window.ICONS.message;
+
+// Wire star-rating picker (1..5)
+document.querySelectorAll('#reviewStars .star-pick').forEach((btn, i) => {
+  btn.addEventListener('click', () => setStarRating(i + 1));
+});
+
+// Hydrate the watchlist set from Firestore so hearts are rendered
+// correctly on first paint.
+async function hydrateWatchlist() {
+  if (!window.CURRENT_USER) return;
+  const wl = await loadWatchlist();
+  Object.keys(wl).forEach(id => {
+    const num = Number(id);
+    fav.add(Number.isFinite(num) ? num : id);
+  });
+  buildProducts();
+}
+window.hydrateWatchlist = hydrateWatchlist;
 
 // Non-click events that need explicit listeners.
 const photoInput = document.getElementById('photoInput');

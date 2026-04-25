@@ -266,6 +266,38 @@ async function handlePaymentSucceeded(pi) {
     }
   });
 
+  // After the order/listing transaction commits, append the sale to
+  // the public priceHistory document for this model so the detail
+  // sparkline can render. Best-effort, non-fatal.
+  try {
+    if (listingRef) {
+      const lsnap = await listingRef.get();
+      if (lsnap.exists) {
+        const ld = lsnap.data();
+        const model = `${ld.brand || ""} ${ld.title || ""}`.trim();
+        if (model) {
+          const slug = model
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .slice(0, 80);
+          const histRef = db.collection("priceHistory").doc(slug);
+          await db.runTransaction(async (tx) => {
+            const snap = await tx.get(histRef);
+            const sales = (snap.exists ? snap.data().sales || [] : []).slice(-119);
+            sales.push({t: Date.now(), priceCents: pi.amount});
+            tx.set(
+              histRef,
+              {model, sales, updatedAt: admin.firestore.FieldValue.serverTimestamp()},
+              {merge: true}
+            );
+          });
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn("priceHistory rollup failed:", err.message);
+  }
+
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
 
@@ -295,6 +327,73 @@ async function releaseListingOnFailure(pi) {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// moderateImage (callable, STUB)
+//   Wraps Google Cloud Vision SafeSearch. Returns {safe: true|false}
+//   so the client can refuse to attach a flagged image.
+//
+// To activate:
+//   1. gcloud services enable vision.googleapis.com --project teebox-market
+//   2. cd functions && npm install @google-cloud/vision
+//   3. Uncomment the import + the body below.
+//   4. Redeploy.
+// ─────────────────────────────────────────────────────────────
+exports.moderateImage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  // const { ImageAnnotatorClient } = require("@google-cloud/vision");
+  // const client = new ImageAnnotatorClient();
+  // const url = request.data && request.data.url;
+  // if (!url || typeof url !== "string") {
+  //   throw new HttpsError("invalid-argument", "url required");
+  // }
+  // const [result] = await client.safeSearchDetection(url);
+  // const ss = result.safeSearchAnnotation || {};
+  // const bad = ["LIKELY", "VERY_LIKELY"];
+  // const safe = !(bad.includes(ss.adult) || bad.includes(ss.violence) ||
+  //                bad.includes(ss.racy)  || bad.includes(ss.medical));
+  // return { safe, signals: ss };
+  return {safe: true, stub: true};
+});
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnNewMessage (Firestore trigger, STUB)
+//   Sends a transactional email to the recipient on every new
+//   /conversations/{cid}/messages/{mid} create.
+//
+// To activate:
+//   1. Sign up for Resend (https://resend.com), grab an API key.
+//   2. firebase functions:secrets:set RESEND_API_KEY  (paste key)
+//   3. cd functions && npm install resend
+//   4. Uncomment the import + body and add `secrets: [RESEND_KEY]`
+//      to the export options.
+//   5. Redeploy.
+// ─────────────────────────────────────────────────────────────
+// const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+// const RESEND_KEY = defineSecret("RESEND_API_KEY");
+//
+// exports.notifyOnNewMessage = onDocumentCreated(
+//   { document: "conversations/{cid}/messages/{mid}", secrets: [RESEND_KEY] },
+//   async (event) => {
+//     const msg = event.data.data();
+//     const conv = (await admin.firestore()
+//       .doc(`conversations/${event.params.cid}`).get()).data();
+//     const recipientUid = conv.participants.find(p => p !== msg.senderId);
+//     if (!recipientUid) return;
+//     const recipient = await admin.auth().getUser(recipientUid);
+//     if (!recipient.email) return;  // phone-only accounts have no email
+//     const { Resend } = require("resend");
+//     const resend = new Resend(RESEND_KEY.value());
+//     await resend.emails.send({
+//       from: "TeeBox <noreply@teeboxmarket.com>",
+//       to: recipient.email,
+//       subject: "New message about " + (conv.listingTitle || "your listing"),
+//       text: msg.text.slice(0, 500) + "\n\nReply at https://teeboxmarket.com",
+//     });
+//   }
+// );
 
 // ─────────────────────────────────────────────────────────────
 // requestSellerVerification (callable)

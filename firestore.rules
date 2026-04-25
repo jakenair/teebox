@@ -102,14 +102,88 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist']);
 
       allow update: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist']);
 
       allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // BIDS — bid offers a buyer makes on a listing.
+    //   read:   buyer of the bid OR seller of the referenced listing
+    //   create: signed-in, buyerId == self, NOT the seller, amount cap
+    //   update: server-only (status flips via Cloud Function)
+    //   delete: bidder may withdraw an open bid; otherwise no
+    // ─────────────────────────────────────────────
+    match /bids/{bidId} {
+      allow read: if request.auth != null
+        && (resource.data.buyerId == request.auth.uid
+            || resource.data.sellerId == request.auth.uid);
+
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.keys().hasAll(
+             ['listingId','buyerId','sellerId','amountCents','status','createdAt'])
+        && request.resource.data.listingId is string
+        && request.resource.data.listingId.size() > 0
+        && request.resource.data.listingId.size() <= 128
+        && exists(/databases/$(database)/documents/listings/$(request.resource.data.listingId))
+        && request.resource.data.sellerId
+             == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.sellerId
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.amountCents is int
+        && request.resource.data.amountCents > 0
+        && request.resource.data.amountCents < 100000000
+        && request.resource.data.status == 'open';
+
+      allow update: if false;
+
+      allow delete: if request.auth != null
+        && resource.data.buyerId == request.auth.uid
+        && resource.data.status == 'open';
+    }
+
+    // ─────────────────────────────────────────────
+    // REVIEWS — buyer's review of a seller after a paid order.
+    //   id == orderId (one review per order, idempotent).
+    //   read:   public
+    //   create: signed-in, buyerId of the matching order, valid 1-5 rating
+    //   update/delete: never (immutable record)
+    // ─────────────────────────────────────────────
+    match /reviews/{orderId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.buyerId == request.auth.uid
+        && exists(/databases/$(database)/documents/orders/$(orderId))
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+        && request.resource.data.sellerId
+             == get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId
+        && request.resource.data.keys().hasAll(['buyerId','sellerId','rating','createdAt'])
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && (!('comment' in request.resource.data.keys())
+            || (request.resource.data.comment is string
+                && request.resource.data.comment.size() <= 2000));
+
+      allow update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // PRICE HISTORY — denormalized rollup of past completed sales per
+    // model, written by the Stripe webhook (Admin SDK). Public read so
+    // anyone can see the sparkline on a listing detail.
+    // ─────────────────────────────────────────────
+    match /priceHistory/{model} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // ─────────────────────────────────────────────
