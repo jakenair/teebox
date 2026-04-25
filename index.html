@@ -31,6 +31,15 @@
   }
   body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
+  /* Inline SVG icon system */
+  .ico { width: 1em; height: 1em; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; fill: none; flex-shrink: 0; vertical-align: -0.15em; }
+  .ico-lg { width: 1.5em; height: 1.5em; }
+  .ico-xl { width: 2.25em; height: 2.25em; }
+  .ico-2xl { width: 3rem; height: 3rem; }
+  .ico-fill { fill: currentColor; stroke: none; }
+  .placeholder-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%); }
+  .placeholder-art svg { width: 38%; height: 38%; color: var(--gray-400); }
+
   /* AUTH */
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: flex; align-items: center; justify-content: center; padding: 1rem; }
   #authScreen.hidden { display: none; }
@@ -462,6 +471,53 @@
     return '';
   };
 
+  // ─── Inline SVG icon library (no external font / no emojis) ───
+  // Each value is a complete <svg> string sized via the .ico CSS class.
+  // Using innerHTML with these is safe — they contain no user data.
+  window.ICONS = {
+    club:      '<svg class="ico" viewBox="0 0 24 24"><path d="M14 4l-9 9.5a2 2 0 002.8 2.8L17.3 7M14 4l3.3 3.3M14 4l4-1 1 1-1 4-3.3-3.3M5 18l1 2 2 1"/></svg>',
+    shoe:      '<svg class="ico" viewBox="0 0 24 24"><path d="M3 16h18a0 0 0 010 0v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2zM3 16V9a4 4 0 014-4l3 4 4-1 4 5h2a3 3 0 013 3"/></svg>',
+    shirt:     '<svg class="ico" viewBox="0 0 24 24"><path d="M9 4l3 3 3-3 5 2-2 5h-3v9H8v-9H5L3 6z"/></svg>',
+    bag:       '<svg class="ico" viewBox="0 0 24 24"><path d="M5 9l1-3a2 2 0 012-2h8a2 2 0 012 2l1 3M5 9h14v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9zM9 9V6a3 3 0 016 0v3"/></svg>',
+    award:     '<svg class="ico" viewBox="0 0 24 24"><path d="M8 4h8v6a4 4 0 11-8 0V4zM6 4H4v3a3 3 0 003 3M18 4h2v3a3 3 0 01-3 3M9 14l-1 7 4-2 4 2-1-7"/></svg>',
+    accessory: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 6V3M12 21v-3M6 12H3M21 12h-3"/></svg>',
+    user:      '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>',
+    message:   '<svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4V5z"/></svg>',
+    search:    '<svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+    bell:      '<svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0v5l2 3H4l2-3V8zM10 19a2 2 0 004 0"/></svg>',
+    cart:      '<svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 12h11l2-8H6"/></svg>',
+    plus:      '<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    close:     '<svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    check:     '<svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg>',
+    lock:      '<svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>',
+    shield:    '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>',
+    truck:     '<svg class="ico" viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>',
+    refresh:   '<svg class="ico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0115-6.7L21 7M21 5v4h-4M21 12a9 9 0 01-15 6.7L3 17M3 19v-4h4"/></svg>',
+    heart:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>',
+    heartFill: '<svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>',
+    star:      '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.6 5.5 6 .9-4.4 4.2 1 6L12 16.8 6.8 19.6l1-6L3.4 9.4l6-.9z"/></svg>',
+    flame:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-3 2-3 2-6 1 1 2 1 3-4z"/></svg>',
+    chart:     '<svg class="ico" viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 9-9M14 7h7v7"/></svg>',
+    calendar:  '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    camera:    '<svg class="ico" viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="4"/></svg>',
+    phone:     '<svg class="ico" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><circle cx="12" cy="18" r=".8" class="ico-fill"/></svg>',
+    info:      '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>',
+    menu:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    arrowRight:'<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  };
+
+  // Map listing categories to placeholder icons.
+  window.CATEGORY_ICON = function(cat) {
+    return ({
+      clubs: window.ICONS.club,
+      shoes: window.ICONS.shoe,
+      apparel: window.ICONS.shirt,
+      bags: window.ICONS.bag,
+      memorabilia: window.ICONS.award,
+      accessories: window.ICONS.accessory,
+    })[cat] || window.ICONS.accessory;
+  };
+
   // Click delegation for `data-action` attributes. Dynamically-rendered
   // blocks (product grid, trending, search results) use this instead of
   // inline onclick="…" so we can eventually drop 'unsafe-inline' from CSP.
@@ -502,32 +558,34 @@
 <div class="verify-backdrop" id="verifyBackdrop">
   <div class="verify-modal">
     <div class="verify-header">
-      <span class="verify-badge">🏌️</span>
+      <span class="verify-badge" data-ico="shield"></span>
       <h2>Become a TeeBox Seller</h2>
       <p>Read and agree to our seller terms to start listing</p>
     </div>
     <div class="verify-steps">
-      <div class="verify-step"><span class="verify-step-icon">📱</span><div class="verify-step-label">Phone</div><div class="verify-step-val">✅ Verified</div></div>
-      <div class="verify-step"><span class="verify-step-icon">📋</span><div class="verify-step-label">Terms</div><div class="verify-step-val" id="termsStepVal">Pending</div></div>
-      <div class="verify-step"><span class="verify-step-icon">🏅</span><div class="verify-step-label">Status</div><div class="verify-step-val">Instant</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="phone"></span><div class="verify-step-label">Phone</div><div class="verify-step-val">Verified</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="check"></span><div class="verify-step-label">Terms</div><div class="verify-step-val" id="termsStepVal">Pending</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="star"></span><div class="verify-step-label">Status</div><div class="verify-step-val">Instant</div></div>
     </div>
     <div class="verify-body">
       <h3>Seller Terms of Service</h3>
       <div class="terms-box">
         <h4>1. Seller Eligibility</h4>
-        You must be at least 18 years old to sell on TeeBox. By agreeing to these terms you confirm that you are legally allowed to sell the items you list and that you have full ownership or authority to sell them.
-        <h4>2. Item Authenticity</h4>
-        All items listed on TeeBox must be genuine and accurately described. Listing counterfeit, replica, or misrepresented golf equipment is strictly prohibited and will result in immediate account termination and potential legal action.
-        <h4>3. Accurate Listings & Photos</h4>
-        You agree to provide accurate descriptions, correct condition ratings, and honest photos of all items you list. Photos must show the actual item being sold. Stock photos or photos of different items are not permitted.
+        You must be at least 18 years old to sell on TeeBox. By agreeing to these terms you confirm that you have full legal ownership of every item you list and the right to sell it.
+        <h4>2. TeeBox is a Venue, Not a Party</h4>
+        TeeBox provides a platform that connects buyers and sellers. TeeBox is not the seller of any item, does not take possession of items, and does not authenticate, inspect, or guarantee the condition or genuineness of items. The contract of sale is solely between the buyer and the seller.
+        <h4>3. Accurate Listings &amp; Photos</h4>
+        You agree to provide accurate descriptions, correct condition ratings, and honest photos that show the actual item being sold. Misrepresentation, counterfeits, and stolen goods are prohibited and will result in immediate suspension and potential legal referral.
         <h4>4. Shipping Obligations</h4>
-        Once a sale is confirmed, you agree to ship the item to TeeBox's authentication facility within 2 business days using the provided prepaid shipping label.
+        Once a sale is confirmed, you agree to ship the item directly to the buyer within 3 business days using a tracked, insured carrier service. Failure to ship may result in refund to the buyer and account suspension.
         <h4>5. Fees</h4>
-        TeeBox charges a seller transaction fee on each completed sale. The current fee structure is displayed in your seller dashboard. Fees are deducted automatically from your payout.
+        TeeBox charges a seller transaction fee of 9.5% of the sale price, deducted automatically from your payout. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
-        Seller payouts are issued within 3 business days after authentication. Payouts are sent via direct bank transfer.
-        <h4>7. Governing Law</h4>
-        These terms are governed by the laws of the State of Illinois.
+        Payouts are issued to your linked bank account within 3 business days after the buyer confirms delivery (or 7 days after delivery confirmation by the carrier, whichever comes first).
+        <h4>7. Disputes &amp; Indemnification</h4>
+        You agree that TeeBox is not liable for any loss or damages arising from a transaction. You will indemnify TeeBox against any claim, fee, or expense related to your listings or conduct on the platform. Disputes between buyers and sellers must first attempt resolution through the in-app messaging.
+        <h4>8. Governing Law</h4>
+        These terms are governed by the laws of the State of Illinois. Any dispute will be resolved in the state or federal courts of Cook County, Illinois.
       </div>
       <label class="terms-check">
         <input type="checkbox" id="termsCheckbox" />
@@ -624,7 +682,7 @@
   <div class="chat-modal">
     <div class="chat-header">
       <div class="chat-header-info">
-        <span class="chat-header-emoji" id="chatEmoji">💬</span>
+        <span class="chat-header-emoji" id="chatEmoji" data-ico="message"></span>
         <div style="min-width:0;">
           <div class="chat-header-title" id="chatTitle">Conversation</div>
           <div class="chat-header-sub" id="chatSub">—</div>
@@ -633,7 +691,7 @@
       <button class="chat-close" data-action="close-chat">×</button>
     </div>
     <div class="chat-warning">
-      🔒 Keep deals on TeeBox — off-platform purchases aren't protected by our guarantee.
+      <span data-ico="lock"></span> Keep deals on TeeBox — off-platform purchases aren't protected by our buyer-protection program.
     </div>
     <div class="chat-body" id="chatBody">
       <div class="chat-empty">Loading messages…</div>
@@ -648,21 +706,20 @@
 <nav>
   <a class="nav-logo" href="#"><span>Tee</span>Box</a>
   <div class="nav-search">
-    <span class="nav-search-icon">⌕</span>
-    <input type="text" placeholder="Search clubs, shoes, memorabilia…" readonly data-action="open-search" />
+    <span class="nav-search-icon" id="navSearchIcon"></span>
+    <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" />
   </div>
   <div class="nav-links">
     <a href="#" class="active">Marketplace</a>
     <a href="#">Trending</a>
     <a href="#">Drops</a>
-    <a href="#">Portfolio</a>
+    <a href="#" data-action="open-about">About</a>
     <a href="#" data-action="open-shop-dashboard">My Shop</a>
     <a href="#" data-action="open-inbox">Messages</a>
-    <a href="#">Community</a>
+    <a href="#" data-action="open-profile-self">Profile</a>
   </div>
   <div class="nav-actions">
-    <button class="btn-icon">🔔</button>
-    <button class="btn-icon">🛒</button>
+    <button class="btn-icon" id="navInboxIcon" data-action="open-inbox" title="Messages"></button>
     <div id="userBadge" class="user-badge" data-action="sign-out"></div>
     <button class="btn-sell-nav" data-action="handle-sell">Sell Now</button>
   </div>
@@ -671,49 +728,49 @@
 <!-- CAT BAR -->
 <div class="cat-bar">
   <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="shoes">👟 Shoes</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="clubs">🏌️ Clubs</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="apparel">👕 Apparel</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="memorabilia">🏆 Memorabilia</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="accessories">🎒 Accessories</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="bags">🧳 Bags</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="apparel">Apparel</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="memorabilia">Memorabilia</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="accessories">Accessories</button>
+  <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
 </div>
 
 <main>
   <section class="hero">
     <div class="hero-inner">
       <div>
-        <div class="hero-eyebrow">⛳ Live Marketplace</div>
-        <h1 class="hero-title">The World's Premier<br/><em>Golf Marketplace</em></h1>
-        <p class="hero-sub">Buy and sell authenticated golf gear at live market prices. From Tour-worn clubs to limited edition footwear — everything golf, all in one place.</p>
+        <div class="hero-eyebrow">Live Marketplace</div>
+        <h1 class="hero-title">The Premier<br/><em>Golf Marketplace</em></h1>
+        <p class="hero-sub">A peer-to-peer marketplace for golfers. Buy and sell clubs, apparel, accessories and memorabilia at transparent market prices, directly between members.</p>
         <div class="hero-ctas">
           <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
         </div>
         <div class="hero-stats">
-          <div><div class="hero-stat-n">240K+</div><div class="hero-stat-l">Active Listings</div></div>
-          <div><div class="hero-stat-n">$2.1B</div><div class="hero-stat-l">Traded Volume</div></div>
-          <div><div class="hero-stat-n">100%</div><div class="hero-stat-l">Authenticated</div></div>
+          <div><div class="hero-stat-n">25K+</div><div class="hero-stat-l">Active Listings</div></div>
+          <div><div class="hero-stat-n">$5M+</div><div class="hero-stat-l">Traded Volume</div></div>
+          <div><div class="hero-stat-n">9.5%</div><div class="hero-stat-l">Seller Fee</div></div>
         </div>
       </div>
       <div class="hero-featured">
         <div class="feat-card feat-card-big" data-action="open-modal-buy">
-          <span class="feat-img">🏌️</span>
-          <div class="feat-label">🔥 Hot Drop</div>
-          <div class="feat-name">TaylorMade Qi10 Max Driver — Tour Issue</div>
-          <div class="feat-price-row"><span class="feat-price">$2,850</span><span class="feat-change up">+12.4%</span></div>
+          <div class="feat-img placeholder-art" style="height:120px;border-radius:10px;margin-bottom:10px"></div>
+          <div class="feat-label">Hot Drop</div>
+          <div class="feat-name">Scotty Cameron Phantom 11 Putter</div>
+          <div class="feat-price-row"><span class="feat-price">$740</span><span class="feat-change up">+4.3%</span></div>
         </div>
         <div class="feat-card" data-action="open-modal-buy">
-          <span class="feat-img">👟</span>
+          <div class="feat-img placeholder-art" style="height:80px;border-radius:8px;margin-bottom:8px"></div>
           <div class="feat-label">New</div>
-          <div class="feat-name">Nike Air Zoom Infinity Tour 4</div>
-          <div class="feat-price-row"><span class="feat-price">$320</span><span class="feat-change up">+8.1%</span></div>
+          <div class="feat-name">Holderness &amp; Bourne Algo</div>
+          <div class="feat-price-row"><span class="feat-price">$135</span><span class="feat-change up">+8.9%</span></div>
         </div>
         <div class="feat-card" data-action="open-modal-buy">
-          <span class="feat-img">🏆</span>
+          <div class="feat-img placeholder-art" style="height:80px;border-radius:8px;margin-bottom:8px"></div>
           <div class="feat-label">Rare</div>
           <div class="feat-name">Tiger Woods Signed Masters Flag</div>
-          <div class="feat-price-row"><span class="feat-price">$6,200</span><span class="feat-change down">−2.1%</span></div>
+          <div class="feat-price-row"><span class="feat-price">$6,200</span><span class="feat-change down">−1.2%</span></div>
         </div>
       </div>
     </div>
@@ -722,35 +779,35 @@
   <div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div>
 
   <div class="section">
-    <div class="section-header"><h2 class="section-title">📈 Trending Now</h2><a href="#" class="section-link">View all →</a></div>
+    <div class="section-header"><h2 class="section-title">Trending Now</h2><a href="#" class="section-link">View all</a></div>
     <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
   </div>
 
   <div class="section">
-    <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link">Browse all →</a></div>
+    <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link">Browse all</a></div>
     <div class="product-grid" id="productGrid"></div>
   </div>
 
   <div class="section">
-    <div class="section-header"><h2 class="section-title">🗓️ Upcoming Drops</h2><a href="#" class="section-link">All drops →</a></div>
+    <div class="section-header"><h2 class="section-title">Upcoming Drops</h2><a href="#" class="section-link">All drops</a></div>
     <div class="drops-grid" id="dropsGrid"></div>
   </div>
 
   <div class="trust-bar">
-    <div class="trust-item"><span class="trust-icon">✅</span><span class="trust-text">100% Authenticated</span></div>
-    <div class="trust-item"><span class="trust-icon">🔒</span><span class="trust-text">Secure Payments</span></div>
-    <div class="trust-item"><span class="trust-icon">📦</span><span class="trust-text">Fast Shipping</span></div>
-    <div class="trust-item"><span class="trust-icon">🔄</span><span class="trust-text">Easy Returns</span></div>
-    <div class="trust-item"><span class="trust-icon">💬</span><span class="trust-text">24/7 Support</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="user"></span><span class="trust-text">Member-to-Member</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="lock"></span><span class="trust-text">Stripe Payments</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="truck"></span><span class="trust-text">Direct Shipping</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="shield"></span><span class="trust-text">Buyer Protection</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="message"></span><span class="trust-text">In-App Messaging</span></div>
   </div>
 
   <div class="how-section">
     <div class="how-inner">
       <h2 class="how-title">How TeeBox Works</h2>
       <div class="how-grid">
-        <div class="how-card"><div class="how-num">01</div><span class="how-icon">🔍</span><h3>Browse & Bid</h3><p>Explore thousands of authenticated golf items. Place bids or buy at ask price.</p></div>
-        <div class="how-card"><div class="how-num">02</div><span class="how-icon">🏅</span><h3>Expert Authentication</h3><p>Every item passes through our certified golf experts before reaching the buyer.</p></div>
-        <div class="how-card"><div class="how-num">03</div><span class="how-icon">📦</span><h3>Fast Delivery</h3><p>Once authenticated, items ship within 48 hours with full insurance and tracking.</p></div>
+        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. Buy at the listed ask or place a bid.</p></div>
+        <div class="how-card"><div class="how-num">02</div><span class="how-icon" data-ico="message"></span><h3>Message the Seller</h3><p>Ask questions, request more photos, and confirm condition before you commit. Every conversation is logged.</p></div>
+        <div class="how-card"><div class="how-num">03</div><span class="how-icon" data-ico="truck"></span><h3>Ship &amp; Receive</h3><p>Sellers ship the item directly. Funds are held until the buyer confirms delivery — like eBay.</p></div>
       </div>
     </div>
   </div>
@@ -769,9 +826,9 @@
 <!-- BUY MODAL -->
 <div class="modal-backdrop" id="modalBackdrop" data-close-on-backdrop="close-modal-direct">
   <div class="modal">
-    <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" data-action="close-modal-direct">✕</button></div>
+    <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" data-action="close-modal-direct" aria-label="Close" data-ico="close"></button></div>
     <div class="modal-body">
-      <div class="modal-product"><div class="modal-emoji" id="modalEmoji">🏌️</div><div class="modal-info"><h3 id="modalItemName">Item</h3><p id="modalItemMeta"></p></div></div>
+      <div class="modal-product"><div class="modal-emoji placeholder-art" id="modalEmoji" style="border-radius:8px"></div><div class="modal-info"><h3 id="modalItemName">Item</h3><p id="modalItemMeta"></p></div></div>
       <div class="bid-ask-grid">
         <div class="ba-box bid"><div class="ba-lbl">Highest Bid</div><div class="ba-price" id="modalBid">$0</div><div class="ba-note">active bids</div></div>
         <div class="ba-box ask"><div class="ba-lbl">Lowest Ask</div><div class="ba-price" id="modalAsk">$0</div><div class="ba-note">sellers</div></div>
@@ -788,7 +845,7 @@
   <div class="detail-modal">
     <div class="detail-header">
       <span class="detail-title" id="detailTitle">Product Details</span>
-      <button class="modal-close" data-action="close-detail-direct">✕</button>
+      <button class="modal-close" data-action="close-detail-direct" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="detail-body">
       <div class="detail-gallery">
@@ -807,7 +864,7 @@
         <div class="detail-actions">
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
           <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
-          <button class="btn-message-seller" data-action="detail-message-seller">💬 Message Seller</button>
+          <button class="btn-message-seller" data-action="detail-message-seller">Message Seller</button>
         </div>
       </div>
     </div>
@@ -817,9 +874,9 @@
 <!-- SELL MODAL -->
 <div class="sell-modal-backdrop" id="sellModalBackdrop" data-close-on-backdrop="close-sell-direct">
   <div class="sell-modal">
-    <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" data-action="close-sell-direct">✕</button></div>
+    <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" data-action="close-sell-direct" aria-label="Close" data-ico="close"></button></div>
     <div class="sell-form">
-      <div class="seller-verified-bar">✅ Verified Seller — Your listings go live instantly</div>
+      <div class="seller-verified-bar"><span data-ico="check"></span> Verified Seller — Your listings go live instantly</div>
 
       <!-- IMAGE UPLOAD -->
       <div class="form-row">
@@ -827,7 +884,7 @@
         <div class="upload-previews" id="uploadPreviews"></div>
         <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
         <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
-          <span class="upload-zone-icon">📷</span>
+          <span class="upload-zone-icon" data-ico="camera"></span>
           <div class="upload-zone-text">Click to upload or drag & drop</div>
           <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
         </div>
@@ -864,11 +921,11 @@
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Complete Purchase</span>
-      <button class="modal-close" data-action="close-checkout-direct">✕</button>
+      <button class="modal-close" data-action="close-checkout-direct" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="modal-body">
       <div class="modal-product">
-        <div class="modal-emoji" id="checkoutEmoji">🏌️</div>
+        <div class="modal-emoji placeholder-art" id="checkoutEmoji" style="border-radius:8px"></div>
         <div class="modal-info">
           <h3 id="checkoutName">Item</h3>
           <p id="checkoutMeta"></p>
@@ -884,7 +941,7 @@
         <div id="card-errors" style="color:var(--red-500);font-size:13px;margin-top:6px;min-height:18px;"></div>
       </div>
       <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--green-700);margin-bottom:0.5rem;">
-        🔒 Payments are secured by Stripe. TeeBox never stores your card details.
+        <span data-ico="lock"></span> Payments are secured by Stripe. TeeBox never stores your card details.
       </div>
     </div>
     <div class="modal-footer">
@@ -931,12 +988,14 @@ window.openCheckout = function(productId) {
   const emojiEl = document.getElementById('checkoutEmoji');
   emojiEl.textContent = '';
   if (p.photos && p.photos.length > 0 && window.safeImgUrl(p.photos[0])) {
+    emojiEl.classList.remove('placeholder-art');
     const img = document.createElement('img');
     img.src = window.safeImgUrl(p.photos[0]);
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
     emojiEl.appendChild(img);
   } else {
-    emojiEl.textContent = p.emoji || '🏌️';
+    emojiEl.classList.add('placeholder-art');
+    emojiEl.innerHTML = window.CATEGORY_ICON(p.cat);
   }
   document.getElementById('checkoutName').textContent = p.name;
   document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}`;
@@ -981,7 +1040,7 @@ window.confirmPayment = async function() {
       btn.disabled = false; btn.textContent = 'Pay Now';
     } else {
       closeCheckoutDirect();
-      showToast('✅ Payment successful! Your order is confirmed.');
+      showToast('Payment successful — your order is confirmed.');
     }
   } catch(err) {
     document.getElementById('card-errors').textContent = err.message || 'Payment failed. Please try again.';
@@ -1041,7 +1100,7 @@ window.confirmPayment = async function() {
       document.getElementById('authScreen').classList.add('hidden');
       const badge = document.getElementById('userBadge');
       badge.style.display = 'block';
-      badge.textContent = '📱 ' + (user.phoneNumber || 'User');
+      badge.textContent = user.phoneNumber || 'Account';
       await checkSellerStatus(user.uid);
       loadListings();
     } else {
@@ -1110,7 +1169,7 @@ window.confirmPayment = async function() {
     const checked = document.getElementById('termsCheckbox').checked;
     const btn = document.getElementById('becomeSellerBtn');
     btn.disabled = !checked; btn.style.opacity = checked ? '1' : '0.5';
-    document.getElementById('termsStepVal').textContent = checked ? '✅ Agreed' : 'Pending';
+    document.getElementById('termsStepVal').textContent = checked ? 'Agreed' : 'Pending';
   };
 
   window.becomeSeller = async function() {
@@ -1122,7 +1181,7 @@ window.confirmPayment = async function() {
       await verify({ termsAgreed: true });
       window.IS_VERIFIED_SELLER = true;
       document.getElementById('verifyBackdrop').classList.remove('open');
-      showToast('🏅 You are now a verified TeeBox seller!');
+      showToast('You are now a verified TeeBox seller.');
       setTimeout(() => openSellModal(), 600);
     } catch (e) {
       console.error('Seller verification failed:', e);
@@ -1161,7 +1220,7 @@ window.confirmPayment = async function() {
       return `<div class="upload-preview">
         <img src="${url}" />
         ${i===0?'<div class="upload-main-badge">MAIN</div>':''}
-        <button class="upload-preview-remove" data-action="remove-photo" data-idx="${i}">✕</button>
+        <button class="upload-preview-remove" data-action="remove-photo" data-idx="${i}" aria-label="Remove">${window.ICONS.close}</button>
       </div>`;
     }).join('');
     count.textContent = selectedFiles.length > 0 ? `${selectedFiles.length}/10 photos selected` : '';
@@ -1216,7 +1275,7 @@ window.confirmPayment = async function() {
     try {
       const docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price, bid: Math.round(price*0.9),
-        condition, desc, emoji: '🏌️', badge: 'new',
+        condition, desc, badge: 'new',
         photos: [], sellerId: window.CURRENT_USER.uid,
         status: 'active', createdAt: serverTimestamp()
       });
@@ -1228,7 +1287,7 @@ window.confirmPayment = async function() {
       selectedFiles = [];
       renderPreviews();
       closeSellModalDirect();
-      showToast('✅ Listing submitted with ' + (photoUrls.length > 0 ? photoUrls.length + ' photos!' : 'no photos.'));
+      showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'));
       loadListings();
     } catch(e) { showToast('Error submitting. Try again.'); }
     btn.disabled = false; btn.textContent = 'Submit Listing';
@@ -1237,18 +1296,39 @@ window.confirmPayment = async function() {
 
 <script>
 const DEFAULT_PRODUCTS = [
-  { id:1, emoji:'🏌️', brand:'TaylorMade', name:'Qi10 Max Driver — Tour Issue', bid:2600, ask:2850, change:12.4, cat:'clubs', badge:'hot', volume:48, condition:'Like New', desc:'Tour-spec head, Mitsubishi TENSEI shaft. Used for 2 rounds only. Includes headcover.' },
-  { id:2, emoji:'👟', brand:'Nike', name:'Air Zoom Infinity Tour 4', bid:295, ask:320, change:8.1, cat:'shoes', badge:'new', volume:124, condition:'New with Tags', desc:'Brand new in box. Size 11. White/Black colorway.' },
-  { id:3, emoji:'🏆', brand:'Memorabilia', name:'Tiger Woods Signed Masters Flag', bid:5800, ask:6200, change:-2.1, cat:'memorabilia', badge:'', volume:7, condition:'Excellent', desc:'Authenticated with COA. Signed in black Sharpie. 2019 Masters flag.' },
-  { id:4, emoji:'🔩', brand:'Scotty Cameron', name:'Phantom X 11 Putter', bid:680, ask:740, change:4.3, cat:'clubs', badge:'', volume:31, condition:'Very Good', desc:'34 inch. Minor bag chatter. Original headcover included.' },
-  { id:5, emoji:'👕', brand:'Malbon Golf', name:'Bucket Hat Club Crewneck', bid:88, ask:110, change:22.0, cat:'apparel', badge:'hot', volume:89, condition:'New with Tags', desc:'Limited release. Size Large. White. Sold out everywhere.' },
-  { id:6, emoji:'🧤', brand:'FootJoy', name:'Pro SLX Glove — Tour Worn Lot', bid:180, ask:210, change:3.8, cat:'accessories', badge:'', volume:55, condition:'Good', desc:'Lot of 10 tour-worn gloves. Various sizes included.' },
-  { id:7, emoji:'🎒', brand:'Vessel', name:'Player III Stand Bag', bid:320, ask:360, change:-1.2, cat:'bags', badge:'', volume:22, condition:'Like New', desc:'Used one season. Navy/White. All zippers and dividers in perfect shape.' },
-  { id:8, emoji:'🪙', brand:'Rare', name:'Jack Nicklaus Signed Masters Flag', bid:4100, ask:4800, change:6.5, cat:'memorabilia', badge:'', volume:3, condition:'Excellent', desc:'1986 Masters flag signed by the Golden Bear. Full COA included.' },
-  { id:9, emoji:'🏌️', brand:'Callaway', name:'Paradym Ai Smoke Triple Diamond', bid:420, ask:470, change:9.2, cat:'clubs', badge:'new', volume:62, condition:'New with Tags', desc:'Still in original packaging. 10.5° RH. Project X HZRDUS shaft.' },
-  { id:10, emoji:'👟', brand:'adidas', name:'Tour360 24 BOOST Shoe', bid:175, ask:195, change:5.0, cat:'shoes', badge:'', volume:97, condition:'New with Tags', desc:'Size 10.5. White/Black. Never worn. Original box included.' },
-  { id:11, emoji:'🧳', brand:'Sun Mountain', name:'C-130S Cart Bag', bid:260, ask:290, change:-0.8, cat:'bags', badge:'', volume:18, condition:'Very Good', desc:'14-way divider. Used for one season. Minor scuffs on bottom.' },
-  { id:12, emoji:'🎽', brand:'G/FORE', name:'Sequin Skull Polo', bid:70, ask:95, change:35.7, cat:'apparel', badge:'hot', volume:210, condition:'New with Tags', desc:'Limited holiday edition. Size Medium. Red. Sold out in all stores.' },
+  // Clubs
+  { id:1, brand:'Scotty Cameron', name:'Phantom 11 Putter', bid:680, ask:740, change:4.3, cat:'clubs', badge:'hot', volume:42, condition:'Very Good', desc:'34", original headcover. Plays beautifully — minor bag chatter consistent with light use.' },
+  { id:2, brand:'TaylorMade', name:'Qi35 Max Driver', bid:520, ask:580, change:6.8, cat:'clubs', badge:'new', volume:71, condition:'Like New', desc:'10.5° head, Fujikura Ventus Blue 6S shaft. Two rounds. Stock headcover.' },
+  { id:3, brand:'Mizuno', name:'Pro 245 Iron Set (4-PW)', bid:1280, ask:1400, change:5.1, cat:'clubs', badge:'', volume:18, condition:'Like New', desc:'Forged players cavity. KBS Tour Lite stiff shafts, Golf Pride MCC grips.' },
+  { id:4, brand:'Titleist', name:'Vokey SM10 Wedge — 56°', bid:165, ask:190, change:2.4, cat:'clubs', badge:'', volume:55, condition:'Very Good', desc:'M-grind, raw finish. Light face wear, sharp grooves throughout.' },
+  { id:5, brand:'Callaway', name:'Paradym Ai Smoke Triple Diamond', bid:420, ask:470, change:9.2, cat:'clubs', badge:'new', volume:62, condition:'Like New', desc:'9.0° head, Project X HZRDUS Black 6.5. Tour-spec setup.' },
+  { id:6, brand:'Bettinardi', name:'Studio Stock 28 Putter', bid:430, ask:480, change:1.8, cat:'clubs', badge:'', volume:9, condition:'Excellent', desc:'34". Honeycomb face mill. Comes with Bettinardi headcover.' },
+  { id:7, brand:'Ping', name:'G440 LST Driver', bid:495, ask:560, change:7.6, cat:'clubs', badge:'hot', volume:34, condition:'New with Tags', desc:'9.0°, Ping Tour 2.0 Chrome 65 stiff. Brand new — never hit a ball.' },
+
+  // Apparel — Peter Millar / Holderness & Bourne / Malbon
+  { id:8, brand:'Peter Millar', name:'Solid Performance Polo — Navy', bid:95, ask:115, change:3.2, cat:'apparel', badge:'', volume:88, condition:'New with Tags', desc:'Size Medium. Stretch jersey, classic placket. Worn once for fit, like new.' },
+  { id:9, brand:'Peter Millar', name:'Crown Crafted Quarter-Zip', bid:140, ask:165, change:5.4, cat:'apparel', badge:'', volume:46, condition:'Like New', desc:'Size Large. Heather grey. Exceptional condition — laundered once on cold.' },
+  { id:10, brand:'Holderness & Bourne', name:'Algo Polo — Bone/Field', bid:115, ask:135, change:8.9, cat:'apparel', badge:'hot', volume:53, condition:'New with Tags', desc:'Size Medium. Currently sold out on H&B site.' },
+  { id:11, brand:'Holderness & Bourne', name:'McCarron Quarter-Zip Vest', bid:155, ask:185, change:4.1, cat:'apparel', badge:'', volume:21, condition:'Like New', desc:'Size Large, Storm. Worn twice, perfect condition.' },
+  { id:12, brand:'Malbon Golf', name:'Buckets Bucket Hat — Cream', bid:38, ask:48, change:14.6, cat:'apparel', badge:'', volume:124, condition:'New with Tags', desc:'One-size. Limited drop, sold out at retail.' },
+
+  // Accessories — Smathers & Branson
+  { id:13, brand:'Smathers & Branson', name:'Needlepoint Belt — Pelican', bid:155, ask:185, change:6.7, cat:'accessories', badge:'hot', volume:38, condition:'New with Tags', desc:'Size 36. Hand-stitched needlepoint, full-grain leather backing.' },
+  { id:14, brand:'Smathers & Branson', name:'Driver Headcover — American Flag', bid:80, ask:98, change:11.2, cat:'accessories', badge:'', volume:64, condition:'Like New', desc:'Fits 460cc drivers. Hand-stitched. Original tag included.' },
+  { id:15, brand:'Smathers & Branson', name:'Card Wallet — Crossed Tees', bid:65, ask:80, change:4.9, cat:'accessories', badge:'', volume:42, condition:'New with Tags', desc:'Slim profile, four card slots. Boxed.' },
+  { id:16, brand:'FootJoy', name:'Pure Touch Limited Glove (3-pack)', bid:75, ask:90, change:1.4, cat:'accessories', badge:'', volume:91, condition:'New with Tags', desc:'Cabretta leather. Mens M/L. Sealed.' },
+
+  // Bags
+  { id:17, brand:'Vessel', name:'Player IV Stand Bag — Forest', bid:320, ask:375, change:2.9, cat:'bags', badge:'', volume:24, condition:'Like New', desc:'Six-way top, double strap. One season of use, no scuffs.' },
+  { id:18, brand:'Sun Mountain', name:'C-130S Cart Bag — Steel/Black', bid:255, ask:290, change:-0.6, cat:'bags', badge:'', volume:17, condition:'Very Good', desc:'14-way divider, every pocket clean. Light bottom wear.' },
+
+  // Shoes
+  { id:19, brand:'Nike', name:'Air Zoom Infinity Tour 4', bid:170, ask:195, change:7.1, cat:'shoes', badge:'new', volume:106, condition:'New with Tags', desc:'Size 10.5. White/Black. Never worn, original box.' },
+  { id:20, brand:'FootJoy', name:'Premiere Series — Tarlow', bid:200, ask:235, change:5.8, cat:'shoes', badge:'', volume:48, condition:'Like New', desc:'Size 11. Calfskin upper. Worn for 18 holes.' },
+
+  // Memorabilia
+  { id:21, brand:'Memorabilia', name:'Tiger Woods Signed Masters Flag', bid:5800, ask:6200, change:-1.2, cat:'memorabilia', badge:'', volume:6, condition:'Excellent', desc:'Signed in black Sharpie. Comes with COA from JSA. Frame-ready.' },
+  { id:22, brand:'Memorabilia', name:'Jack Nicklaus Signed 1986 Masters Pin Flag', bid:4100, ask:4800, change:3.5, cat:'memorabilia', badge:'', volume:3, condition:'Excellent', desc:'Full PSA/DNA letter. Signed in blue Sharpie. Display sleeve included.' },
 ];
 window.DEFAULT_PRODUCTS = DEFAULT_PRODUCTS;
 window.PRODUCTS = [...DEFAULT_PRODUCTS];
@@ -1256,20 +1336,20 @@ window.IS_VERIFIED_SELLER = false;
 window.CURRENT_USER = null;
 
 const TICKER_ITEMS = [
-  { name:'TaylorMade Qi10 Max', price:'$2,850', chg:'+12.4%', up:true },
-  { name:'Scotty Cameron Ph.X 11', price:'$740', chg:'+4.3%', up:true },
-  { name:'Nike Infinity Tour 4', price:'$320', chg:'+8.1%', up:true },
-  { name:'Tiger Signed Flag', price:'$6,200', chg:'-2.1%', up:false },
-  { name:'Malbon Crewneck', price:'$110', chg:'+22.0%', up:true },
-  { name:'G/FORE Sequin Polo', price:'$95', chg:'+35.7%', up:true },
-  { name:'adidas Tour360', price:'$195', chg:'+5.0%', up:true },
-  { name:'Vessel Bag', price:'$360', chg:'-1.2%', up:false },
+  { name:'Scotty Cameron Phantom 11', price:'$740', chg:'+4.3%', up:true },
+  { name:'TaylorMade Qi35 Max', price:'$580', chg:'+6.8%', up:true },
+  { name:'Mizuno Pro 245 Set', price:'$1,400', chg:'+5.1%', up:true },
+  { name:'Holderness & Bourne Algo', price:'$135', chg:'+8.9%', up:true },
+  { name:'Smathers & Branson Belt', price:'$185', chg:'+6.7%', up:true },
+  { name:'Peter Millar QZ', price:'$165', chg:'+5.4%', up:true },
+  { name:'Tiger Signed Flag', price:'$6,200', chg:'-1.2%', up:false },
+  { name:'Vokey SM10 Wedge', price:'$190', chg:'+2.4%', up:true },
 ];
 
 const DROPS = [
-  { emoji:'🏌️', label:'Driver Drop', name:'Ping G440 LST Driver', desc:'Limited run of 500. Tour-spec shaft, custom headcover.', price:'$1,200', countdown:'2d 14h', btnTxt:'Notify Me' },
-  { emoji:'👟', label:'Footwear Release', name:'Nike x Masters 2025 Collab', desc:'Commemorative Augusta-edition Air Zoom. Only 1,000 pairs.', price:'$450', countdown:'5d 08h', btnTxt:'Enter Raffle' },
-  { emoji:'🏆', label:'Memorabilia Auction', name:'Rory McIlroy 2024 U.S. Open', desc:'Authenticated game-worn glove, signed scorecard, flag.', price:'$9,500+', countdown:'12h 30m', btnTxt:'Bid Now' },
+  { cat:'clubs', label:'Driver Release', name:'Ping G440 LST', desc:'Tour-spec shaft, custom headcover. Allocation-limited.', price:'$1,200', countdown:'2d 14h', btnTxt:'Notify Me' },
+  { cat:'apparel', label:'Apparel Drop', name:'Holderness & Bourne FW Capsule', desc:'Algo polos, McCarron vests, McNair caps. 9-piece set.', price:'$985', countdown:'5d 08h', btnTxt:'Reserve' },
+  { cat:'memorabilia', label:'Auction', name:'Rory McIlroy 2025 Masters Flag', desc:'Signed pin flag with full COA from PSA/DNA.', price:'$9,500+', countdown:'12h 30m', btnTxt:'Bid Now' },
 ];
 
 const fav = new Set();
@@ -1278,7 +1358,7 @@ let currentMode = 'buy';
 function imgOrEmojiHtml(p, cls='') {
   const url = window.safeImgUrl(p.photos && p.photos[0]);
   if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
-  return `<span class="${window.safeAttr(cls||'product-img-emoji')}">${window.safeText(p.emoji||'🏌️')}</span>`;
+  return `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
 }
 
 // Register handlers used by the `data-action` delegator in <head>.
@@ -1315,7 +1395,7 @@ function buildTrending() {
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const thumb = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
-      : window.safeText(p.emoji||'🏌️');
+      : window.CATEGORY_ICON(p.cat);
     const change = Number(p.change||0);
     const changeStyle = change>0
       ? 'background:var(--up-bg);color:var(--up-green)'
@@ -1342,11 +1422,11 @@ function buildProducts(filter='all') {
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const mainImg = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
-      : `<span class="product-img-emoji">${window.safeText(p.emoji||'🏌️')}</span>`;
+      : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
     const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
     const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
-    const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'🔥 Hot':'New'}</span>` : '';
-    const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">📷 ${Number(p.photos.length)}</span>` : '';
+    const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'Hot':'New'}</span>` : '';
+    const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">${Number(p.photos.length)} photos</span>` : '';
     const change = Number(p.change||0);
     const changeStyle = change>0
       ? 'background:var(--up-bg);color:var(--up-green)'
@@ -1356,7 +1436,7 @@ function buildProducts(filter='all') {
       `<div class="product-img-wrap">${soldBadge}`+
         `${mainImg}`+
         `${badge}`+
-        `<button class="fav-btn" data-action="toggle-fav" data-product-id="${idAttr}">${fav.has(p.id)?'❤️':'🤍'}</button>`+
+        `<button class="fav-btn" data-action="toggle-fav" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
@@ -1380,8 +1460,8 @@ function buildDrops() {
   document.getElementById('dropsGrid').innerHTML = DROPS.map(d=>
     `<div class="drop-card">`+
       `<div class="drop-banner">`+
-        `<span class="drop-emoji">${window.safeText(d.emoji)}</span>`+
-        `<span class="drop-countdown">⏱ ${window.safeText(d.countdown)}</span>`+
+        `<span class="drop-emoji">${window.CATEGORY_ICON(d.cat)}</span>`+
+        `<span class="drop-countdown">${window.safeText(d.countdown)}</span>`+
       `</div>`+
       `<div class="drop-body">`+
         `<div class="drop-label">${window.safeText(d.label)}</div>`+
@@ -1411,7 +1491,7 @@ function openDetailModal(id) {
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
-  document.getElementById('detailCondition').textContent = '✓ ' + (p.condition||'Good');
+  document.getElementById('detailCondition').textContent = p.condition || 'Good';
   document.getElementById('detailBid').textContent = '$'+(p.bid||0).toLocaleString();
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
@@ -1437,10 +1517,11 @@ function openDetailModal(id) {
       thumbs.appendChild(thumb);
     });
   } else {
-    const span = document.createElement('span');
-    span.className = 'main-photo-emoji';
-    span.textContent = p.emoji || '🏌️';
-    mainPhoto.appendChild(span);
+    const div = document.createElement('div');
+    div.className = 'placeholder-art';
+    div.style.cssText = 'width:100%;height:100%;border-radius:8px';
+    div.innerHTML = window.CATEGORY_ICON(p.cat);
+    mainPhoto.appendChild(div);
   }
   document.getElementById('detailBackdrop').classList.add('open');
 }
@@ -1475,9 +1556,11 @@ function openProductModal(id,mode='buy') {
     const img = document.createElement('img');
     img.src = url;
     img.alt = p.name || '';
+    emojiEl.classList.remove('placeholder-art');
     emojiEl.appendChild(img);
   } else {
-    emojiEl.textContent = p.emoji||'🏌️';
+    emojiEl.classList.add('placeholder-art');
+    emojiEl.innerHTML = window.CATEGORY_ICON(p.cat);
   }
   document.getElementById('modalItemName').textContent = p.name;
   document.getElementById('modalItemMeta').textContent = `${p.brand} · ${p.cat}`;
@@ -1495,7 +1578,7 @@ function confirmAction() {
   const price = document.getElementById('modalPrice').value;
   if (!price) { alert('Please enter a price.'); return; }
   closeModalDirect();
-  showToast(`✅ ${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted!`);
+  showToast(`${currentMode==='buy'?'Bid':'Ask'} of $${parseFloat(price).toLocaleString()} submitted.`);
 }
 window.confirmAction = confirmAction;
 // ═══════════════════════════════════════════════════════════
@@ -1524,7 +1607,7 @@ async function openChatForListing(listingId) {
     } else {
       // Fall back to hardcoded product list
       const p = (window.PRODUCTS || []).find(pr => String(pr.id) === String(listingId));
-      if (p) listing = { id: p.id, title: p.title, brand: p.brand, emoji: p.emoji, sellerId: null };
+      if (p) listing = { id: p.id, title: p.title, brand: p.brand, cat: p.cat, sellerId: null };
     }
 
     if (!listing) {
@@ -1557,7 +1640,7 @@ async function openChatForListing(listingId) {
       const newConv = await addDoc(convsRef, {
         listingId: listing.id,
         listingTitle: listing.title || '',
-        listingEmoji: listing.emoji || '💬',
+        listingCat: listing.cat || 'accessories',
         participants: [window.CURRENT_USER.uid, listing.sellerId],
         buyerId: window.CURRENT_USER.uid,
         sellerId: listing.sellerId,
@@ -1577,7 +1660,8 @@ async function openChatForListing(listingId) {
 }
 
 function openChatUI() {
-  document.getElementById('chatEmoji').textContent = currentChat.listing.emoji || '💬';
+  const chatEm = document.getElementById('chatEmoji');
+  chatEm.innerHTML = window.CATEGORY_ICON(currentChat.listing.cat || currentChat.listing.listingCat || 'accessories');
   document.getElementById('chatTitle').textContent = currentChat.listing.title || 'Conversation';
   document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
   document.getElementById('chatInput').value = '';
@@ -1765,7 +1849,7 @@ function renderInbox(convs) {
     if (isUnread) unreadCount++;
     return `
     <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
-      <div class="inbox-item-emoji">${escapeInboxText(c.listingEmoji || '💬')}</div>
+      <div class="inbox-item-emoji placeholder-art" style="width:44px;height:44px;border-radius:8px">${window.CATEGORY_ICON(c.listingCat || 'accessories')}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
         <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
@@ -1805,7 +1889,7 @@ async function openChatFromConversation(conversationId) {
       return;
     }
     const conv = convSnap.data();
-    let listing = { id: conv.listingId, title: conv.listingTitle, emoji: conv.listingEmoji, brand: '' };
+    let listing = { id: conv.listingId, title: conv.listingTitle, cat: conv.listingCat, brand: '' };
     try {
       const listingSnap = await getDoc(doc(firestoreDb, 'listings', conv.listingId));
       if (listingSnap.exists()) {
@@ -1897,7 +1981,7 @@ function renderShopTables() {
             <tr>
               <td>
                 <div class="item-cell">
-                  <span class="item-emoji">${l.emoji || '🏌️'}</span>
+                  <span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(l.cat)}</span>
                   <div>
                     <div style="font-weight:600">${escapeHtml(l.title || 'Untitled')}</div>
                     <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(l.brand || '')}</div>
@@ -1931,7 +2015,7 @@ function renderShopTables() {
               <tr>
                 <td>
                   <div class="item-cell">
-                    <span class="item-emoji">${listing.emoji || '📦'}</span>
+                    <span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(listing.cat)}</span>
                     <div>
                       <div style="font-weight:600">${escapeHtml(listing.title || 'Item #' + (o.listingId || '—'))}</div>
                       <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(listing.brand || '')}</div>
@@ -2090,7 +2174,7 @@ function filterSearch(q) {
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const img = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
-      : window.safeText(p.emoji||'🏌️');
+      : `<span class="placeholder-art" style="width:100%;height:100%;border-radius:6px">${window.CATEGORY_ICON(p.cat)}</span>`;
     return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
       `<div class="search-res-img">${img}</div>`+
       `<div><div class="search-res-name">${window.safeText(p.name)}</div><div class="search-res-cat">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div>`+
@@ -2175,6 +2259,27 @@ document.querySelectorAll('[data-close-on-backdrop]').forEach((el) => {
     if (typeof fn === 'function') fn(el, ev);
   });
 });
+
+// Populate every [data-ico] element with the matching SVG. Safe — no
+// user data; ICONS values are hardcoded markup.
+document.querySelectorAll('[data-ico]').forEach((el) => {
+  const name = el.dataset.ico;
+  const svg = window.ICONS && window.ICONS[name];
+  if (svg) el.innerHTML = svg;
+});
+
+// Hero featured cards + checkout/modal product slots use the
+// .placeholder-art gradient. Drop a category icon inside the empty ones.
+document.querySelectorAll('.feat-img.placeholder-art:empty').forEach((el, i) => {
+  // The hero featured cards happen to map to clubs/apparel/memorabilia.
+  el.innerHTML = window.CATEGORY_ICON(['clubs','apparel','memorabilia'][i] || 'clubs');
+});
+
+// Nav magnifying-glass + bell glyphs.
+const navSearch = document.getElementById('navSearchIcon');
+if (navSearch) navSearch.innerHTML = window.ICONS.search;
+const navInbox = document.getElementById('navInboxIcon');
+if (navInbox) navInbox.innerHTML = window.ICONS.message;
 
 // Non-click events that need explicit listeners.
 const photoInput = document.getElementById('photoInput');
