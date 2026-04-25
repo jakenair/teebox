@@ -3,6 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // App Check guard. Currently a no-op: App Check is not yet
+    // configured in the Firebase console. After enabling App Check
+    // (see the comment block in index.html that initializes
+    // ReCaptchaEnterpriseProvider), change this to:
+    //     return request.app != null;
+    // and redeploy. Every write rule below already calls this
+    // function, so flipping it on closes the door without any
+    // further rule edits.
+    function appCheckOk() {
+      return true;
+    }
+
     // ─────────────────────────────────────────────
     // LISTINGS
     //   read:   public
@@ -18,14 +30,17 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if request.auth != null
+        && appCheckOk()
         && request.resource.data.sellerId == request.auth.uid
         && isValidListingCreate(request.resource.data);
 
       allow update: if request.auth != null
+        && appCheckOk()
         && resource.data.sellerId == request.auth.uid
         && isValidListingUpdate(request.resource.data, resource.data);
 
       allow delete: if request.auth != null
+        && appCheckOk()
         && resource.data.sellerId == request.auth.uid
         && resource.data.get('status', 'active') != 'sold';
     }
@@ -85,10 +100,12 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
 
       allow create: if request.auth != null && request.auth.uid == userId
+        && appCheckOk()
         && request.resource.data.keys().hasOnly(
              ['phone','termsAgreed','termsAgreedAt','displayName']);
 
       allow update: if request.auth != null && request.auth.uid == userId
+        && appCheckOk()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ['phone','termsAgreed','termsAgreedAt','displayName']);
 
@@ -121,6 +138,7 @@ service cloud.firestore {
                   && request.auth.uid in resource.data.participants;
 
       allow create: if request.auth != null
+        && appCheckOk()
         && request.resource.data.participants is list
         && request.resource.data.participants.size() == 2
         && request.auth.uid in request.resource.data.participants
@@ -147,6 +165,7 @@ service cloud.firestore {
                 && request.resource.data.lastMessageText.size() <= 200));
 
       allow update: if request.auth != null
+        && appCheckOk()
         && request.auth.uid in resource.data.participants
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ['lastMessageAt','lastMessageText','lastMessageSenderId','lastRead'])
@@ -175,6 +194,7 @@ service cloud.firestore {
         allow read: if request.auth != null
                     && request.auth.uid in conv().participants;
         allow create: if request.auth != null
+          && appCheckOk()
           && request.auth.uid == request.resource.data.senderId
           && request.auth.uid in conv().participants
           && request.resource.data.keys().hasAll(['senderId','text','createdAt'])
