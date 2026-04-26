@@ -21,7 +21,12 @@
   <img src="/icon.svg" alt="TeeBox" />
   <h1>You're offline</h1>
   <p>TeeBox needs an internet connection to load listings, messages, and payments. Reconnect and try again.</p>
-  <button onclick="location.reload()">Retry</button>
+  <button id="retryBtn" type="button">Retry</button>
 </div>
+<script>
+  // CSP-friendly retry: re-fetch when we're back online or on click.
+  document.getElementById('retryBtn').addEventListener('click', () => location.reload());
+  window.addEventListener('online', () => location.reload());
+</script>
 </body>
 </html>
