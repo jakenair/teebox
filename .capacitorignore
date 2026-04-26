@@ -1,0 +1,23 @@
+# Files NOT to copy into the native iOS / Android app on `npx cap sync`.
+# Anything in here stays out of the bundled webview.
+
+.git
+.github
+.vscode
+.firebase
+.firebaserc
+firebase.json
+firestore.rules
+storage.rules
+functions
+node_modules
+package*.json
+capacitor.config.ts
+.capacitorignore
+ios
+android
+resources
+LAUNCH.md
+README.md
+.DS_Store
+*.log
