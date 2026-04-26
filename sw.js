@@ -1,0 +1,107 @@
+// TeeBox service worker — app-shell caching + offline fallback.
+// Bump CACHE_VERSION to invalidate the old cache after a deploy.
+const CACHE_VERSION = 'teebox-v1-2026-04-26';
+const SHELL = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/icon.svg',
+  '/favicon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+  '/offline.html',
+];
+
+// API hosts that must always go to the network (no cache, no offline).
+const NETWORK_ONLY_HOSTS = [
+  'firestore.googleapis.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com',
+  'firebaseinstallations.googleapis.com',
+  'firebasestorage.googleapis.com',
+  'api.stripe.com',
+  'm.stripe.com',
+  'm.stripe.network',
+  'q.stripe.com',
+  'r.stripe.com',
+  'js.stripe.com',
+];
+
+// Install: precache the app shell.
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_VERSION).then((cache) =>
+      cache.addAll(SHELL).catch((err) => {
+        // Some shell items (e.g. /offline.html) may not exist yet on
+        // first deploy — that's fine.
+        console.warn('[sw] shell precache partial:', err);
+      })
+    )
+  );
+  self.skipWaiting();
+});
+
+// Activate: drop any older caches.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+// Fetch strategy:
+//   - Same-origin GET → stale-while-revalidate
+//   - Cross-origin to network-only hosts → bypass entirely
+//   - Other cross-origin GETs → network-first, fall back to cache
+//   - Non-GET → bypass entirely (Firestore/Stripe POSTs)
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  if (NETWORK_ONLY_HOSTS.some((h) => url.host === h || url.host.endsWith('.' + h))) {
+    return; // Let the request proceed without SW interference.
+  }
+
+  // Same-origin: stale-while-revalidate
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.open(CACHE_VERSION).then((cache) =>
+        cache.match(req).then((cached) => {
+          const network = fetch(req)
+            .then((resp) => {
+              if (resp && resp.status === 200 && resp.type !== 'opaque') {
+                cache.put(req, resp.clone()).catch(() => {});
+              }
+              return resp;
+            })
+            .catch(() => cached || cache.match('/offline.html'));
+          return cached || network;
+        })
+      )
+    );
+    return;
+  }
+
+  // Cross-origin static (fonts, CDN scripts): network-first, fall back to cache.
+  event.respondWith(
+    fetch(req)
+      .then((resp) => {
+        if (resp && resp.status === 200 && resp.type !== 'opaque') {
+          const copy = resp.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy)).catch(() => {});
+        }
+        return resp;
+      })
+      .catch(() => caches.match(req))
+  );
+});
+
+// Listen for "skip waiting" message from the page so an update can
+// activate immediately without a reload.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});

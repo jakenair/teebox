@@ -3,8 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
 <title>TeeBox — The Golf Marketplace</title>
 <!--
   ANALYTICS — currently disabled. To activate:
@@ -104,6 +117,70 @@
   .info-list { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
   .info-list li { margin-bottom: 0.5rem; }
   .info-meta { font-size: 12px; color: var(--gray-500); margin-top: 0.5rem; }
+
+  /* Install banner + offline indicator */
+  .install-banner { position: fixed; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); background: var(--green-900); color: var(--white); border-radius: var(--radius-lg); box-shadow: 0 12px 36px rgba(0,0,0,0.4); padding: 12px 16px; display: flex; align-items: center; gap: 12px; z-index: 350; animation: slideUp 0.3s cubic-bezier(.4,0,.2,1); }
+  .install-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+  .install-banner-text strong { font-size: 14px; }
+  .install-banner-text span { font-size: 12.5px; color: rgba(255,255,255,0.7); }
+  .install-banner-btn { background: var(--gold-400); color: var(--green-900); border: none; padding: 8px 18px; border-radius: 50px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .install-banner-btn:hover { background: var(--gold-300); }
+  .install-banner-x { background: transparent; border: none; color: rgba(255,255,255,0.5); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .install-banner-x:hover { color: var(--white); }
+  .offline-banner { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; background: var(--red-500); color: var(--white); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; text-align: center; z-index: 700; box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
+
+  /* Bottom tab nav (mobile only) */
+  .bottom-nav { display: none; }
+  @media (max-width: 900px) {
+    .bottom-nav {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--white); border-top: 1px solid var(--gray-200);
+      padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+      z-index: 110;
+      box-shadow: 0 -2px 18px rgba(0,0,0,0.06);
+    }
+    .bottom-nav-item { background: none; border: 0; cursor: pointer; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--gray-500); font-family: inherit; font-size: 10.5px; font-weight: 600; transition: color 0.15s ease; }
+    .bottom-nav-item .ico { width: 22px; height: 22px; }
+    .bottom-nav-item.active { color: var(--green-700); }
+    .bottom-nav-item.sell { color: var(--gold-500); }
+    .bottom-nav-item.sell .ico { stroke-width: 2; }
+    .bottom-nav-item.sell.active { color: var(--gold-600); }
+    body.has-bottom-nav { padding-bottom: 70px; }
+    body.has-bottom-nav nav { display: none; }
+    body.has-bottom-nav .cat-bar { top: 0; }
+    body.has-bottom-nav main { margin-top: 44px; }
+    /* Push the install banner up above the bottom-nav so they don't stack */
+    body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
+  }
+
+  /* Tap polish + overscroll lockdown */
+  html { -webkit-text-size-adjust: 100%; }
+  body { overscroll-behavior-y: contain; }
+  button, .product-card, .cat-pill, [data-action] { -webkit-tap-highlight-color: transparent; }
+  button, [data-action] { transition: transform 0.06s ease, background 0.18s ease, opacity 0.18s ease; }
+  button:active, [data-action]:active { transform: scale(0.97); }
+  .ripple { position: relative; overflow: hidden; }
+  /* Disable selection on chrome elements */
+  nav, .cat-bar, .bottom-nav, .modal-header, .nav-search-icon { user-select: none; -webkit-user-select: none; }
+
+  /* Standalone (PWA) tweaks: hide elements that don't make sense in app */
+  @media (display-mode: standalone) {
+    body { background: var(--cream); }
+    /* Add a bit of top padding so content doesn't sit under iOS status bar */
+    nav { padding-top: env(safe-area-inset-top); height: calc(var(--nav-h) + env(safe-area-inset-top)); }
+    .cat-bar { top: calc(var(--nav-h) + env(safe-area-inset-top)); }
+  }
+
+  /* Smoother modal entrance */
+  .info-backdrop, .modal-backdrop, .verify-backdrop, .sell-modal-backdrop, .detail-backdrop, #shopDashboard, #inboxBackdrop, #chatBackdrop {
+    transition: opacity 0.2s ease;
+  }
+  .info-modal, .modal, .verify-modal, .sell-modal, .detail-modal, .chat-modal {
+    animation: slideUp 0.24s cubic-bezier(.4,0,.2,1);
+  }
+  .lightbox.open .lightbox-img { animation: zoomIn 0.18s ease; }
+  @keyframes zoomIn { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
   /* Saved searches + orders */
   .ss-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
@@ -635,6 +712,38 @@
 </style>
 </head>
 <body>
+
+<!-- BOTTOM TAB NAV (mobile only) -->
+<nav class="bottom-nav" aria-label="Mobile primary">
+  <button class="bottom-nav-item active" data-tab="home" data-action="bn-home" type="button">
+    <span data-ico="search"></span>Browse
+  </button>
+  <button class="bottom-nav-item" data-tab="search" data-action="open-search" type="button">
+    <span data-ico="search"></span>Search
+  </button>
+  <button class="bottom-nav-item sell" data-tab="sell" data-action="handle-sell" type="button">
+    <span data-ico="plus"></span>Sell
+  </button>
+  <button class="bottom-nav-item" data-tab="inbox" data-action="open-inbox" type="button">
+    <span data-ico="message"></span>Inbox
+  </button>
+  <button class="bottom-nav-item" data-tab="account" data-action="open-profile-self" type="button">
+    <span data-ico="user"></span>Account
+  </button>
+</nav>
+
+<!-- INSTALL BANNER (shown when the browser allows install + we're not already installed) -->
+<div id="installBanner" class="install-banner" hidden>
+  <div class="install-banner-text">
+    <strong>Install TeeBox</strong>
+    <span>Add to your home screen for one-tap access.</span>
+  </div>
+  <button id="installBtn" type="button" class="install-banner-btn">Install</button>
+  <button id="installDismiss" type="button" class="install-banner-x" aria-label="Dismiss">×</button>
+</div>
+
+<!-- OFFLINE BANNER (shown when navigator goes offline) -->
+<div id="offlineBanner" class="offline-banner" hidden>You're offline — some features won't work until you reconnect.</div>
 
 <!-- SECURITY HELPERS (escape functions + URL allowlist) -->
 <script>
@@ -3400,6 +3509,114 @@ document.addEventListener('keydown',e=>{
 });
 
 buildTicker(); buildTrending(); buildProducts(); buildDrops();
+
+// ─────────────────────────────────────────────────────────────
+// PWA bootstrapping: service worker, install prompt, offline
+// indicator, mobile bottom-nav, launch-shortcut handler
+// ─────────────────────────────────────────────────────────────
+
+// 1. Always opt the body into the bottom-nav class. CSS handles the
+//    breakpoint — so it's a no-op on desktop but flips the layout
+//    cleanly on phones/tablets.
+document.body.classList.add('has-bottom-nav');
+
+// 2. Register the service worker. Bumping CACHE_VERSION in /sw.js
+//    forces a refresh on next visit.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then((reg) => {
+        // If a new SW is waiting, ask it to activate immediately so the
+        // user gets the latest UI on the next visit.
+        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        reg.addEventListener('updatefound', () => {
+          const newSw = reg.installing;
+          if (!newSw) return;
+          newSw.addEventListener('statechange', () => {
+            if (newSw.state === 'installed' && navigator.serviceWorker.controller) {
+              newSw.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      })
+      .catch((err) => console.warn('SW register failed', err));
+  });
+}
+
+// 3. Install banner: capture beforeinstallprompt and surface our own
+//    button. Hide if already installed (display-mode: standalone) OR
+//    the user already dismissed in this session.
+let __deferredPrompt = null;
+const __installBanner  = document.getElementById('installBanner');
+const __installBtn     = document.getElementById('installBtn');
+const __installDismiss = document.getElementById('installDismiss');
+
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true; // iOS
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  __deferredPrompt = e;
+  if (!isStandalone() && !sessionStorage.getItem('install-dismissed')) {
+    if (__installBanner) __installBanner.hidden = false;
+  }
+});
+
+if (__installBtn) __installBtn.addEventListener('click', async () => {
+  if (!__deferredPrompt) return;
+  __installBanner.hidden = true;
+  __deferredPrompt.prompt();
+  const choice = await __deferredPrompt.userChoice;
+  __deferredPrompt = null;
+  if (choice.outcome !== 'accepted') {
+    sessionStorage.setItem('install-dismissed', '1');
+  }
+});
+
+if (__installDismiss) __installDismiss.addEventListener('click', () => {
+  __installBanner.hidden = true;
+  sessionStorage.setItem('install-dismissed', '1');
+});
+
+window.addEventListener('appinstalled', () => {
+  if (__installBanner) __installBanner.hidden = true;
+});
+
+// 4. Online / offline banner
+const __offlineBanner = document.getElementById('offlineBanner');
+function updateOnline() {
+  if (!__offlineBanner) return;
+  __offlineBanner.hidden = navigator.onLine;
+}
+window.addEventListener('online',  updateOnline);
+window.addEventListener('offline', updateOnline);
+updateOnline();
+
+// 5. Bottom-nav action: Browse → close any open modals + scroll up.
+window.__actions = window.__actions || {};
+window.__actions['bn-home'] = () => {
+  ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('open'); });
+  document.getElementById('shopDashboard').classList.remove('open');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === 'home'));
+};
+
+// 6. Launch shortcuts (PWA manifest "shortcuts" feature): /?launch=sell
+//    /?launch=inbox /?launch=watchlist
+const __params = new URLSearchParams(location.search);
+const __launch = __params.get('launch');
+if (__launch) {
+  setTimeout(() => {
+    if (__launch === 'sell')      window.handleSellClick && window.handleSellClick();
+    if (__launch === 'inbox')     window.openInbox && window.openInbox();
+    if (__launch === 'watchlist') window.openWatchlist && window.openWatchlist();
+    // Clean URL so refresh doesn't re-trigger.
+    history.replaceState({}, '', location.pathname);
+  }, 800);
+}
 
 // ─────────────────────────────────────────────────────────────
 // REVIEWS

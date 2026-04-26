@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Maskable variant: full-bleed background, content inset to the
+     "safe zone" (40% radius from center) so Android can crop without
+     losing the icon. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b1a0e"/>
+  <defs>
+    <radialGradient id="b" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#f0cc6a"/>
+      <stop offset="60%" stop-color="#e0b840"/>
+      <stop offset="100%" stop-color="#a07a12"/>
+    </radialGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4d8a5e"/>
+      <stop offset="100%" stop-color="#22402b"/>
+    </linearGradient>
+  </defs>
+  <!-- Inset content into the safe zone (~205x205 around center) -->
+  <g transform="translate(256 256) scale(0.62) translate(-256 -256)">
+    <circle cx="256" cy="172" r="74" fill="url(#b)"/>
+    <g fill="#7a5c0a" opacity="0.32">
+      <circle cx="226" cy="148" r="4.5"/><circle cx="256" cy="138" r="4.5"/>
+      <circle cx="286" cy="148" r="4.5"/><circle cx="216" cy="178" r="4.5"/>
+      <circle cx="248" cy="178" r="4.5"/><circle cx="280" cy="178" r="4.5"/>
+      <circle cx="232" cy="208" r="4.5"/><circle cx="262" cy="208" r="4.5"/>
+      <circle cx="290" cy="208" r="4.5"/>
+    </g>
+    <circle cx="226" cy="142" r="22" fill="#f0cc6a" opacity="0.45"/>
+    <path d="M 162 256 Q 256 295 350 256 L 322 300 L 190 300 Z" fill="url(#t)"/>
+    <path d="M 162 256 Q 256 295 350 256" fill="none" stroke="#9fcfa9" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+    <path d="M 204 300 L 256 416 L 308 300 Z" fill="url(#t)"/>
+    <path d="M 220 300 L 256 408 L 244 300 Z" fill="#4d8a5e" opacity="0.55"/>
+  </g>
+</svg>

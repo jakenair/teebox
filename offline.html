@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1a0e" />
+<title>Offline · TeeBox</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<style>
+  body { margin: 0; min-height: 100vh; background: #0b1a0e; color: #faf8f3; font-family: 'DM Sans', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+  .wrap { max-width: 420px; }
+  img { width: 88px; height: 88px; margin-bottom: 1.25rem; }
+  h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 2rem; font-weight: 900; margin: 0 0 0.75rem; color: #f0cc6a; }
+  p { font-size: 14.5px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 1.5rem; }
+  button { background: #e0b840; color: #0b1a0e; border: none; padding: 12px 28px; border-radius: 50px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+  button:hover { background: #f0cc6a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img src="/icon.svg" alt="TeeBox" />
+  <h1>You're offline</h1>
+  <p>TeeBox needs an internet connection to load listings, messages, and payments. Reconnect and try again.</p>
+  <button onclick="location.reload()">Retry</button>
+</div>
+</body>
+</html>
