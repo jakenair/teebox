@@ -97,6 +97,15 @@
   .info-list li { margin-bottom: 0.5rem; }
   .info-meta { font-size: 12px; color: var(--gray-500); margin-top: 0.5rem; }
 
+  /* Skeleton loaders */
+  .sk { background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: sk-shimmer 1.4s infinite; border-radius: var(--radius-sm); display: block; }
+  .sk-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); overflow: hidden; padding: 0; }
+  .sk-img { aspect-ratio: 4/3; }
+  .sk-line { height: 12px; margin: 6px 14px; }
+  .sk-line.short { width: 40%; }
+  .sk-line.long { width: 80%; }
+  @keyframes sk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
   /* Inline SVG icon system */
   .ico { width: 1em; height: 1em; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; fill: none; flex-shrink: 0; vertical-align: -0.15em; }
   .ico-lg { width: 1.5em; height: 1.5em; }
@@ -168,7 +177,15 @@
   .btn-sell-nav:hover { background: var(--gold-300); }
   .btn-icon { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
   .btn-icon:hover { color: var(--white); background: rgba(255,255,255,0.1); }
-  .user-badge { background: var(--gold-400); color: var(--green-900); border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; display: none; }
+  .user-badge { background: var(--gold-400); color: var(--green-900); border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; font-family: var(--font-body); display: none; }
+  .user-menu-wrap { position: relative; }
+  .user-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 200px; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: 6px; display: none; z-index: 120; }
+  .user-menu.open { display: block; }
+  .user-menu-item { display: block; padding: 8px 12px; font-size: 13.5px; color: var(--gray-700); text-decoration: none; border-radius: var(--radius-sm); transition: var(--transition); }
+  .user-menu-item:hover { background: var(--gray-100); color: var(--gray-900); }
+  .user-menu-item.danger { color: var(--red-500); }
+  .user-menu-item.danger:hover { background: var(--red-100); color: var(--red-500); }
+  .user-menu-divider { height: 1px; background: var(--gray-200); margin: 6px 0; }
 
   /* CAT BAR */
   .cat-bar { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); display: flex; align-items: center; padding: 0 2rem; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -434,8 +451,52 @@
   .search-res-cat { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
   .search-res-price { margin-left: auto; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 
-  @media (max-width: 900px) { .hero-inner { grid-template-columns: 1fr; } .drops-grid { grid-template-columns: 1fr 1fr; } .how-grid { grid-template-columns: 1fr; } .footer-inner { grid-template-columns: 1fr 1fr; } .detail-body { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .nav-links { display: none; } .drops-grid { grid-template-columns: 1fr; } .product-grid { grid-template-columns: repeat(2,1fr); } .footer-inner { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .hero-inner { grid-template-columns: 1fr; gap: 2rem; }
+    .drops-grid { grid-template-columns: 1fr 1fr; }
+    .how-grid { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .detail-body { grid-template-columns: 1fr; }
+    nav { padding: 0 1rem; }
+    .nav-search { max-width: 280px; }
+    .nav-logo { margin-right: 1rem; }
+    .nav-links { display: none; }
+    .verify-modal, .info-modal, .sell-modal, .modal { max-width: calc(100vw - 1.5rem); }
+    .verify-steps { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr !important; }
+    .profile-listings { grid-template-columns: repeat(2,1fr); }
+  }
+  @media (max-width: 600px) {
+    body { font-size: 14px; }
+    nav { padding: 0 0.75rem; }
+    .nav-search { display: none; }
+    .nav-actions { gap: 6px; }
+    .btn-sell-nav { padding: 6px 14px; font-size: 12.5px; }
+    .cat-bar { padding: 0 0.75rem; }
+    .hero { padding: 2rem 1rem 2.5rem; }
+    .hero-title { font-size: clamp(1.7rem, 6vw, 2.4rem); }
+    .hero-stats { grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .hero-featured { grid-template-columns: 1fr; }
+    .feat-card-big { padding: 1rem; }
+    .section { padding: 1.5rem 1rem; }
+    .section-title { font-size: 1.2rem !important; }
+    .drops-grid { grid-template-columns: 1fr; }
+    .product-grid { grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .product-name { font-size: 13px; }
+    .market-bid, .market-ask { font-size: 0.95rem; }
+    .product-btns { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 1rem; }
+    .trending-table thead th:nth-child(5), .trending-table thead th:nth-child(6),
+    .trending-table tbody td:nth-child(5), .trending-table tbody td:nth-child(6) { display: none; }
+    .auth-box { padding: 1.5rem; }
+    .verify-footer, .modal-footer, .profile-actions { flex-direction: column; }
+    .info-body { padding: 1.25rem 1rem 1.5rem; }
+    .detail-body { padding: 1rem; }
+    .detail-actions { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr !important; }
+    #checkoutBackdrop .modal { max-width: calc(100vw - 1rem); }
+    .chat-modal, .inbox-modal { max-width: calc(100vw - 1rem); height: 90vh; }
+  }
 /* SHOP DASHBOARD */
   #shopDashboard { display: none; position: fixed; inset: 0; z-index: 200; background: var(--cream); overflow-y: auto; }
   #shopDashboard.open { display: block; }
@@ -938,7 +999,17 @@
   </div>
   <div class="nav-actions">
     <button class="btn-icon" id="navInboxIcon" data-action="open-inbox" title="Messages"></button>
-    <div id="userBadge" class="user-badge" data-action="sign-out"></div>
+    <div class="user-menu-wrap" id="userMenuWrap">
+      <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button"></button>
+      <div class="user-menu" id="userMenu">
+        <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
+        <a href="#" data-action="open-shop-dashboard" class="user-menu-item">My Shop</a>
+        <a href="#" data-action="open-watchlist" class="user-menu-item">Watchlist</a>
+        <a href="#" data-action="open-inbox" class="user-menu-item">Messages</a>
+        <div class="user-menu-divider"></div>
+        <a href="#" data-action="sign-out" class="user-menu-item danger">Sign out</a>
+      </div>
+    </div>
     <button class="btn-sell-nav" data-action="handle-sell">Sell Now</button>
   </div>
 </nav>
@@ -966,8 +1037,8 @@
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
         </div>
         <div class="hero-stats">
-          <div><div class="hero-stat-n">25K+</div><div class="hero-stat-l">Active Listings</div></div>
-          <div><div class="hero-stat-n">$5M+</div><div class="hero-stat-l">Traded Volume</div></div>
+          <div><div class="hero-stat-n" id="heroStatListings">—</div><div class="hero-stat-l">Active Listings</div></div>
+          <div><div class="hero-stat-n" id="heroStatVolume">—</div><div class="hero-stat-l">Traded Volume</div></div>
           <div><div class="hero-stat-n">6.5%</div><div class="hero-stat-l">Seller Fee</div></div>
         </div>
       </div>
@@ -1486,13 +1557,19 @@ window.confirmPayment = async function() {
   }
 
   async function loadListings() {
+    if (typeof showProductSkeleton === 'function') showProductSkeleton(8);
     try {
       const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
       const items = snap.docs.map(d => ({ id: d.id, name: d.data().title, ...d.data() }));
-      window.PRODUCTS = [...items, ...window.DEFAULT_PRODUCTS];
-    } catch { window.PRODUCTS = [...window.DEFAULT_PRODUCTS]; }
-    buildProducts(); buildTrending();
+      // Show real Firestore listings to signed-in users; show the demo
+      // catalog as a teaser only when nobody is signed in. This stops
+      // logged-in shoppers from clicking into demo cards that 404.
+      window.PRODUCTS = window.CURRENT_USER
+        ? items
+        : [...items, ...window.DEFAULT_PRODUCTS];
+    } catch { window.PRODUCTS = window.CURRENT_USER ? [] : [...window.DEFAULT_PRODUCTS]; }
+    buildProducts(); buildTrending(); updateLiveStats();
   }
 
   window.submitListing = async function() {
@@ -1619,31 +1696,46 @@ function buildTicker() {
 }
 
 function buildTrending() {
-  const sorted = [...window.PRODUCTS].sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,7);
-  const maxVol = Math.max(...sorted.map(p=>p.volume||0),1);
-  const rows = sorted.map((p,i)=>{
+  // "Trending" used to sort by a fake `volume` field. Now it just shows
+  // the most recent real listings. If there aren't any (e.g., signed-out
+  // visitor with no real catalog) hide the section entirely instead of
+  // padding it with demos.
+  const real = (window.PRODUCTS || []).filter(p => typeof p.id === 'string');
+  const tableEl = document.getElementById('trendingTable');
+  const sectionEl = tableEl && tableEl.closest('.section');
+  if (!real.length) {
+    if (sectionEl) sectionEl.style.display = 'none';
+    return;
+  }
+  if (sectionEl) sectionEl.style.display = '';
+
+  const sorted = [...real]
+    .sort((a, b) => {
+      const at = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+      const bt = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+      return bt - at;
+    })
+    .slice(0, 7);
+
+  const rows = sorted.map((p, i) => {
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const thumb = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
       : window.CATEGORY_ICON(p.cat);
-    const change = Number(p.change||0);
-    const changeStyle = change>0
-      ? 'background:var(--up-bg);color:var(--up-green)'
-      : 'background:var(--dn-bg);color:var(--dn-red)';
+    const isSold = p.status === 'sold';
+    const statusBadge = isSold ? '<span class="trend-chg" style="background:var(--gray-200);color:var(--gray-700)">Sold</span>' : '<span class="trend-chg" style="background:var(--up-bg);color:var(--up-green)">Active</span>';
     return `<tr data-action="open-detail" data-product-id="${window.safeAttr(id)}" style="cursor:pointer">`+
       `<td><div class="trend-rank">${i+1}</div></td>`+
       `<td><div class="trend-item"><div class="trend-thumb">${thumb}</div>`+
-        `<div><div class="trend-info-name">${window.safeText(p.name)}</div>`+
+        `<div><div class="trend-info-name">${window.safeText(p.name || p.title)}</div>`+
         `<div class="trend-info-meta">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div></div></td>`+
       `<td><span class="trend-price">$${Number(p.ask||0).toLocaleString()}</span></td>`+
-      `<td><span class="trend-chg" style="${changeStyle}">${change>0?'+':''}${change}%</span></td>`+
-      `<td><span class="trend-vol">${Number(p.volume||0)} sales</span></td>`+
-      `<td><div class="trend-bar-wrap"><div class="trend-bar"><div class="trend-bar-fill" style="width:${Math.round(Number(p.volume||0)/maxVol*100)}%"></div></div></div></td>`+
+      `<td>${statusBadge}</td>`+
     `</tr>`;
   }).join('');
-  document.getElementById('trendingTable').innerHTML =
-    `<thead><tr><th>#</th><th>Item</th><th>Last Sale</th><th>Change</th><th>Volume</th><th>Activity</th></tr></thead><tbody>${rows}</tbody>`;
+  tableEl.innerHTML =
+    `<thead><tr><th>#</th><th>Item</th><th>Price</th><th>Status</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function buildProducts(filter='all') {
@@ -1723,9 +1815,28 @@ function openDetailModal(id) {
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
   document.getElementById('detailCondition').textContent = p.condition || 'Good';
-  document.getElementById('detailBid').textContent = '$'+(p.bid||0).toLocaleString();
+  // Real listings: show "—" until we resolve the actual highest bid.
+  // Demo listings (numeric ids): show whatever bid/ask was on the demo
+  // record, since they have no real Firestore-backed price data.
+  const isReal = typeof p.id === 'string' && p.sellerId;
+  document.getElementById('detailBid').textContent = isReal ? '—' : '$'+(p.bid||0).toLocaleString();
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
+
+  // Reflect listing status in the action buttons.
+  const buyBtn  = document.getElementById('detailBuyNowBtn');
+  const placeBidBtn = document.querySelector('.btn-place-bid');
+  const msgBtn  = document.querySelector('.btn-message-seller');
+  const isSold     = p.status === 'sold';
+  const isPending  = p.status === 'pending';
+  const lockable = [buyBtn, placeBidBtn].filter(Boolean);
+  lockable.forEach(b => {
+    b.disabled = isSold || isPending;
+    b.style.opacity = (isSold || isPending) ? '0.45' : '';
+    b.style.cursor  = (isSold || isPending) ? 'not-allowed' : '';
+  });
+  if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : 'Buy Now at Ask');
+  if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
   // Render seller link if this is a real (Firestore) listing
   const sellerEl = document.getElementById('detailSeller');
   sellerEl.innerHTML = '';
@@ -1744,6 +1855,11 @@ function openDetailModal(id) {
   bidsEl.innerHTML = '';
   if (p.sellerId && window.CURRENT_USER) {
     loadBidsForListing(String(p.id)).then(bids => {
+      // Update the "Highest Bid" headline for users who can see bids.
+      if (bids.length) {
+        const top = bids[0].amountCents || 0;
+        document.getElementById('detailBid').textContent = '$' + Number(top/100).toLocaleString();
+      }
       if (!bids.length) return;
       const isSeller = window.CURRENT_USER.uid === p.sellerId;
       const heading = isSeller ? 'Bids on this listing' : 'Your bid';
@@ -2205,7 +2321,7 @@ async function loadInbox() {
 function renderInbox(convs) {
   const body = document.getElementById('inboxBody');
   if (convs.length === 0) {
-    body.innerHTML = '<div class="inbox-empty">No conversations yet.</div>';
+    body.innerHTML = '<div class="inbox-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">Your inbox is empty</div>Browse listings and tap <strong>Message Seller</strong> on anything you have a question about. Conversations show up here.</div>';
     updateUnreadBadge(0);
     return;
   }
@@ -2336,7 +2452,7 @@ function renderShopTables() {
   // ACTIVE LISTINGS TABLE
   const activeEl = document.getElementById('dashTabActive');
   if (active.length === 0) {
-    activeEl.innerHTML = '<div class="dash-empty">No active listings yet. Click Sell Now to create one.</div>';
+    activeEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No active listings yet</div>Tap <strong>Sell Now</strong> in the nav to post your first item. Listings go live immediately for verified sellers.</div>';
   } else {
     activeEl.innerHTML = `
       <table class="dash-table">
@@ -2368,7 +2484,7 @@ function renderShopTables() {
   // SOLD ITEMS TABLE
   const soldEl = document.getElementById('dashTabSold');
   if (orders.length === 0) {
-    soldEl.innerHTML = '<div class="dash-empty">No sales yet. When a buyer completes a purchase, it will show up here.</div>';
+    soldEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No sales yet</div>Once a buyer pays, the order shows up here with the buyer ID, sale price, and date. You\'ll be paid out after the buyer confirms delivery.</div>';
   } else {
     soldEl.innerHTML = `
       <table class="dash-table">
@@ -2550,6 +2666,49 @@ function filterSearch(q) {
   }).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
 }
 
+function showProductSkeleton(n = 8) {
+  const grid = document.getElementById('productGrid');
+  if (!grid) return;
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    html += `<div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div><div class="sk sk-line short"></div></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function fmtCount(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+
+async function updateLiveStats() {
+  const setListings = document.getElementById('heroStatListings');
+  const setVolume   = document.getElementById('heroStatVolume');
+  if (!setListings || !setVolume) return;
+  // Listings count = real items in the products array, capped at 0.
+  const realCount = (window.PRODUCTS || []).filter(p => typeof p.id === 'string').length;
+  setListings.textContent = realCount > 0 ? fmtCount(realCount) : '0';
+
+  // Volume = sum of all completed-sale prices in priceHistory.
+  // Public collection — read once on page load, no auth needed.
+  try {
+    const { getFirestore, collection, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(collection(db, 'priceHistory'));
+    let totalCents = 0;
+    snap.docs.forEach(d => {
+      (d.data().sales || []).forEach(s => { totalCents += (s.priceCents || 0); });
+    });
+    const dollars = totalCents / 100;
+    setVolume.textContent = dollars >= 1000 ? '$' + fmtCount(dollars) : '$' + dollars.toLocaleString();
+  } catch {
+    setVolume.textContent = '$0';
+  }
+}
+window.updateLiveStats = updateLiveStats;
+
 function showToast(msg) {
   const t = document.createElement('div');
   t.className='toast'; t.textContent=msg;
@@ -2568,16 +2727,6 @@ document.addEventListener('keydown',e=>{
 });
 
 buildTicker(); buildTrending(); buildProducts(); buildDrops();
-
-setInterval(()=>{
-  window.PRODUCTS.forEach(p=>{
-    const d=(Math.random()-0.49)*0.5;
-    p.change=parseFloat(((p.change||0)+d).toFixed(1));
-    p.ask=Math.max(10,Math.round((p.ask||100)*(1+d*0.001)));
-    p.bid=Math.round(p.ask*0.91);
-  });
-  buildTrending();
-},4000);
 
 // ─────────────────────────────────────────────────────────────
 // REVIEWS
@@ -3092,6 +3241,7 @@ A['close-chat']              = () => closeChat();
 A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
+A['toggle-user-menu']        = () => document.getElementById('userMenu').classList.toggle('open');
 A['withdraw-bid']            = (el) => withdrawBid(el.dataset.bidId);
 A['toggle-watch']            = (el, ev) => { ev.stopPropagation(); toggleWatch(el.dataset.productId); };
 A['submit-review']            = () => submitReview();
@@ -3167,6 +3317,14 @@ if (navInbox) navInbox.innerHTML = window.ICONS.message;
 // Wire star-rating picker (1..5)
 document.querySelectorAll('#reviewStars .star-pick').forEach((btn, i) => {
   btn.addEventListener('click', () => setStarRating(i + 1));
+});
+
+// Close the user menu when clicking outside it.
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('userMenu');
+  const wrap = document.getElementById('userMenuWrap');
+  if (!menu || !wrap || !menu.classList.contains('open')) return;
+  if (!wrap.contains(ev.target)) menu.classList.remove('open');
 });
 
 // Hydrate the watchlist set from Firestore so hearts are rendered
