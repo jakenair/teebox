@@ -6,6 +6,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <title>TeeBox — The Golf Marketplace</title>
+<!--
+  ANALYTICS — currently disabled. To activate:
+    1. Sign up at plausible.io and add teeboxmarket.com as a site.
+    2. Append https://plausible.io to script-src in the CSP meta above.
+    3. Uncomment the script tag below.
+  Plausible is privacy-friendly, GDPR-compliant, no cookie banner needed.
+-->
+<!-- <script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script> -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -96,6 +104,54 @@
   .info-list { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
   .info-list li { margin-bottom: 0.5rem; }
   .info-meta { font-size: 12px; color: var(--gray-500); margin-top: 0.5rem; }
+
+  /* Saved searches + orders */
+  .ss-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+  .ss-row:last-child { border-bottom: none; }
+  .ss-row > div { flex: 1; font-size: 13.5px; }
+  .order-card { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 12px; }
+  .order-head { font-family: var(--font-display); margin-bottom: 8px; }
+  .order-stages { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--gray-500); margin: 6px 0; }
+  .order-stages .stage { padding: 2px 8px; border-radius: 50px; background: var(--gray-200); }
+  .order-stages .stage.on { background: var(--green-600); color: var(--white); }
+  .order-tracking { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
+  .renew-btn, .ship-btn { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 5px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  .renew-btn:hover, .ship-btn:hover { background: var(--gold-300); }
+  .chat-header-actions { display: flex; gap: 6px; margin-left: auto; }
+  .chat-header-actions button { background: rgba(255,255,255,0.1); border: none; color: var(--white); font-size: 11px; padding: 4px 10px; border-radius: 50px; cursor: pointer; }
+  .chat-header-actions button:hover { background: rgba(255,255,255,0.2); }
+
+  /* Image lightbox */
+  .lightbox { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 1rem; }
+  .lightbox.open { display: flex; }
+  .lightbox-img { max-width: 95vw; max-height: 90vh; border-radius: 4px; user-select: none; }
+  .lightbox-close { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.1); border: none; color: var(--white); width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); font-size: 1.4rem; }
+  .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+  .lightbox-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: var(--white); width: 56px; height: 56px; border-radius: 50%; cursor: pointer; font-size: 2rem; line-height: 1; transition: var(--transition); }
+  .lightbox-arrow:hover { background: rgba(255,255,255,0.2); }
+  .lightbox-prev { left: 20px; }
+  .lightbox-next { right: 20px; }
+  @media (max-width: 600px) {
+    .lightbox-arrow { width: 44px; height: 44px; font-size: 1.5rem; }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+  }
+  .main-photo { cursor: zoom-in; }
+  .thumb { cursor: pointer; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 1rem 0 1.25rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--gray-200); }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
+  .filter-group label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; }
+  .filter-group input, .filter-group select { border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 7px 10px; font-family: var(--font-body); font-size: 13.5px; background: var(--white); }
+  .filter-group input:focus, .filter-group select:focus { outline: none; border-color: var(--green-500); }
+  .condition-group { flex: 1; min-width: 240px; }
+  .condition-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .condition-pill { background: var(--white); border: 1.5px solid var(--gray-200); border-radius: 50px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: var(--transition); color: var(--gray-700); }
+  .condition-pill.active { background: var(--green-600); color: var(--white); border-color: var(--green-600); }
+  .filter-clear { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--gray-700); }
+  .filter-clear:hover { background: var(--white); border-color: var(--green-400); color: var(--green-700); }
+  @media (max-width: 600px) { .filter-bar { gap: 8px; } .condition-group { min-width: 100%; } }
 
   /* Skeleton loaders */
   .sk { background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: sk-shimmer 1.4s infinite; border-radius: var(--radius-sm); display: block; }
@@ -728,6 +784,68 @@
     </div>
   </div>
 </div>
+<!-- SAVED SEARCHES MODAL -->
+<div class="modal-backdrop info-backdrop" id="savedSearchesBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Saved Searches</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="savedSearchesBody"></div>
+  </div>
+</div>
+
+<!-- ORDERS MODAL (buyer-side) -->
+<div class="modal-backdrop info-backdrop" id="ordersBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title">My Orders</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="ordersBody"></div>
+  </div>
+</div>
+
+<!-- DISPUTE MODAL -->
+<div class="modal-backdrop info-backdrop" id="disputeBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">Report a problem</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p class="info-meta">Tell us what went wrong. We'll mediate within 2 business days.</p>
+      <div style="margin:0.75rem 0">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Reason</label>
+        <select id="disputeReason" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px">
+          <option value="">Select…</option>
+          <option value="not_received">Item never arrived</option>
+          <option value="not_as_described">Significantly not as described</option>
+          <option value="counterfeit">Counterfeit / fake item</option>
+          <option value="damaged">Arrived damaged</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Details</label>
+        <textarea id="disputeDetail" maxlength="4000" placeholder="What happened? Include any conversation IDs or photos that support your claim." style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;min-height:120px;font-family:var(--font-body);font-size:14px"></textarea>
+      </div>
+      <div class="profile-actions">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full green" data-action="submit-dispute">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE LIGHTBOX -->
+<div class="lightbox" id="lightbox" data-close-on-backdrop="close-lightbox">
+  <button class="lightbox-close" data-action="close-lightbox" aria-label="Close" data-ico="close"></button>
+  <button class="lightbox-arrow lightbox-prev" data-action="lightbox-prev" aria-label="Previous">‹</button>
+  <img class="lightbox-img" id="lightboxImg" alt="" />
+  <button class="lightbox-arrow lightbox-next" data-action="lightbox-next" aria-label="Next">›</button>
+</div>
+
 <!-- REVIEW PROMPT MODAL -->
 <div class="modal-backdrop info-backdrop" id="reviewBackdrop">
   <div class="info-modal" style="max-width:480px">
@@ -966,7 +1084,11 @@
           <div class="chat-header-sub" id="chatSub">—</div>
         </div>
       </div>
-      <button class="chat-close" data-action="close-chat">×</button>
+      <div class="chat-header-actions">
+        <button data-action="block-conv" type="button">Block</button>
+        <button data-action="report-conv" type="button">Report</button>
+        <button class="chat-close" data-action="close-chat" type="button">×</button>
+      </div>
     </div>
     <div class="chat-warning">
       <span data-ico="lock"></span> Keep deals on TeeBox — off-platform purchases aren't protected by our buyer-protection program.
@@ -1004,8 +1126,10 @@
       <div class="user-menu" id="userMenu">
         <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
         <a href="#" data-action="open-shop-dashboard" class="user-menu-item">My Shop</a>
+        <a href="#" data-action="open-orders" class="user-menu-item">My Orders</a>
         <a href="#" data-action="open-watchlist" class="user-menu-item">Watchlist</a>
         <a href="#" data-action="open-inbox" class="user-menu-item">Messages</a>
+        <a href="#" data-action="open-saved-searches" class="user-menu-item">Saved Searches</a>
         <div class="user-menu-divider"></div>
         <a href="#" data-action="sign-out" class="user-menu-item danger">Sign out</a>
       </div>
@@ -1073,7 +1197,37 @@
   </div>
 
   <div class="section">
-    <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link">Browse all</a></div>
+    <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-group">
+        <label>Sort</label>
+        <select id="sortMode">
+          <option value="newest">Newest</option>
+          <option value="price-asc">Price ↑</option>
+          <option value="price-desc">Price ↓</option>
+          <option value="brand">Brand A–Z</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Min $</label>
+        <input type="number" id="filterMin" min="0" placeholder="0" />
+      </div>
+      <div class="filter-group">
+        <label>Max $</label>
+        <input type="number" id="filterMax" min="0" placeholder="any" />
+      </div>
+      <div class="filter-group condition-group" id="filterConditionGroup">
+        <label>Condition</label>
+        <div class="condition-pills" id="filterCondition">
+          <button class="condition-pill" data-cond="New with Tags">New</button>
+          <button class="condition-pill" data-cond="Like New">Like New</button>
+          <button class="condition-pill" data-cond="Very Good">Very Good</button>
+          <button class="condition-pill" data-cond="Good">Good</button>
+        </div>
+      </div>
+      <button class="filter-clear" id="filterClear" type="button">Clear</button>
+      <button class="filter-clear" id="filterSave" type="button" data-action="save-current-search">Save Search</button>
+    </div>
     <div class="product-grid" id="productGrid"></div>
   </div>
 
@@ -1561,7 +1715,10 @@ window.confirmPayment = async function() {
     try {
       const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
-      const items = snap.docs.map(d => ({ id: d.id, name: d.data().title, ...d.data() }));
+      const items = snap.docs
+        .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
+        // Hide expired listings from the public feed.
+        .filter(p => p.status !== 'expired');
       // Show real Firestore listings to signed-in users; show the demo
       // catalog as a teaser only when nobody is signed in. This stops
       // logged-in shoppers from clicking into demo cards that 404.
@@ -1584,11 +1741,15 @@ window.confirmPayment = async function() {
     const btn = document.getElementById('submitListingBtn');
     btn.disabled = true; btn.textContent = selectedFiles.length > 0 ? 'Uploading photos…' : 'Submitting…';
     try {
+      // Listings auto-expire 60 days after creation; sellers can renew
+      // from the My Shop dashboard.
+      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
       const docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price, bid: Math.round(price*0.9),
         condition, desc, badge: 'new',
         photos: [], sellerId: window.CURRENT_USER.uid,
-        status: 'active', createdAt: serverTimestamp()
+        status: 'active', createdAt: serverTimestamp(),
+        expiresAt,
       });
       const photoUrls = await uploadPhotos(docRef.id);
       if (photoUrls.length > 0) {
@@ -1597,6 +1758,11 @@ window.confirmPayment = async function() {
       }
       selectedFiles = [];
       renderPreviews();
+      // Clear the autosaved draft + reset form fields.
+      if (typeof clearSellDraft === 'function') clearSellDraft();
+      ['sellTitle','sellBrand','sellPrice','sellDesc'].forEach(i => {
+        const el = document.getElementById(i); if (el) el.value = '';
+      });
       closeSellModalDirect();
       showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'));
       loadListings();
@@ -1668,7 +1834,7 @@ let currentMode = 'buy';
 
 function imgOrEmojiHtml(p, cls='') {
   const url = window.safeImgUrl(p.photos && p.photos[0]);
-  if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
+  if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
   return `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
 }
 
@@ -1721,7 +1887,7 @@ function buildTrending() {
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const thumb = url
-      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : window.CATEGORY_ICON(p.cat);
     const isSold = p.status === 'sold';
     const statusBadge = isSold ? '<span class="trend-chg" style="background:var(--gray-200);color:var(--gray-700)">Sold</span>' : '<span class="trend-chg" style="background:var(--up-bg);color:var(--up-green)">Active</span>';
@@ -1738,13 +1904,44 @@ function buildTrending() {
     `<thead><tr><th>#</th><th>Item</th><th>Price</th><th>Status</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
-function buildProducts(filter='all') {
-  let list = filter==='all'?window.PRODUCTS:window.PRODUCTS.filter(p=>p.cat===filter);
+// Active filter state. Updated by filter-bar inputs; persisted across renders.
+window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set() };
+
+function applyFilters(list) {
+  const f = window.__filter;
+  let out = list.slice();
+  if (f.cat && f.cat !== 'all') out = out.filter(p => p.cat === f.cat);
+  if (f.min != null) out = out.filter(p => Number(p.ask || 0) >= f.min);
+  if (f.max != null) out = out.filter(p => Number(p.ask || 0) <= f.max);
+  if (f.conditions && f.conditions.size > 0) out = out.filter(p => f.conditions.has(p.condition));
+  switch (f.sort) {
+    case 'price-asc':  out.sort((a, b) => Number(a.ask||0) - Number(b.ask||0)); break;
+    case 'price-desc': out.sort((a, b) => Number(b.ask||0) - Number(a.ask||0)); break;
+    case 'brand':      out.sort((a, b) => String(a.brand||'').localeCompare(String(b.brand||''))); break;
+    case 'newest':
+    default:
+      out.sort((a, b) => {
+        const at = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+        const bt = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+        return bt - at;
+      });
+  }
+  return out;
+}
+
+function buildProducts(filter) {
+  if (filter !== undefined) window.__filter.cat = filter;
+  const list = applyFilters(window.PRODUCTS || []);
+  if (!list.length) {
+    document.getElementById('productGrid').innerHTML =
+      '<div class="dash-empty" style="grid-column:1/-1"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No listings match your filters</div>Try widening the price range or clearing conditions.</div>';
+    return;
+  }
   document.getElementById('productGrid').innerHTML = list.map(p=>{
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const mainImg = url
-      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
     const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
     const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
@@ -1865,10 +2062,17 @@ function openDetailModal(id) {
       const heading = isSeller ? 'Bids on this listing' : 'Your bid';
       const rows = bids.map(b => {
         const own = b.buyerId === window.CURRENT_USER.uid;
+        const sellerOwns = isSeller && b.status === 'open';
         const withdraw = own && b.status === 'open'
           ? `<button class="bid-withdraw" data-action="withdraw-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}">Withdraw</button>`
           : '';
-        return `<div class="bid-row"><span class="bid-amt">$${Number((b.amountCents||0)/100).toLocaleString()}</span> <span class="bid-status">${window.safeText(b.status)}</span>${withdraw}</div>`;
+        const acceptBtn = sellerOwns
+          ? `<button class="bid-withdraw" data-action="accept-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}" style="background:var(--green-50);border-color:var(--green-400);color:var(--green-700)">Accept</button>`
+          : '';
+        const counterBtn = sellerOwns
+          ? `<button class="bid-withdraw" data-action="counter-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}">Counter</button>`
+          : '';
+        return `<div class="bid-row"><span class="bid-amt">$${Number((b.amountCents||0)/100).toLocaleString()}</span> <span class="bid-status">${window.safeText(b.status)}</span>${withdraw}${acceptBtn}${counterBtn}</div>`;
       }).join('');
       bidsEl.innerHTML = `<h4>${heading}</h4>${rows}`;
     });
@@ -1886,14 +2090,20 @@ function openDetailModal(id) {
     const mainImg = document.createElement('img');
     mainImg.src = photos[0];
     mainImg.alt = p.name || '';
+    mainImg.loading = 'lazy';
     mainPhoto.appendChild(mainImg);
+    mainPhoto.onclick = () => openLightbox(photos, 0);
     photos.forEach((url, i) => {
       const thumb = document.createElement('div');
       thumb.className = 'thumb' + (i === 0 ? ' active' : '');
       const timg = document.createElement('img');
       timg.src = url;
+      timg.loading = 'lazy';
       thumb.appendChild(timg);
-      thumb.addEventListener('click', () => window.setMainPhoto(url, thumb));
+      thumb.addEventListener('click', () => {
+        window.setMainPhoto(url, thumb);
+      });
+      thumb.addEventListener('dblclick', () => openLightbox(photos, i));
       thumbs.appendChild(thumb);
     });
   } else {
@@ -2457,11 +2667,15 @@ function renderShopTables() {
     activeEl.innerHTML = `
       <table class="dash-table">
         <thead>
-          <tr><th>Item</th><th>Category</th><th>Condition</th><th>Price</th><th>Listed</th></tr>
+          <tr><th>Item</th><th>Category</th><th>Status</th><th>Price</th><th>Expires</th><th></th></tr>
         </thead>
         <tbody>
-          ${active.map(l => `
-            <tr>
+          ${active.map(l => {
+            const exp = l.expiresAt && l.expiresAt.toDate ? l.expiresAt.toDate() : null;
+            const isExpired = l.status === 'expired' || (exp && exp < new Date());
+            const expireLabel = exp ? exp.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '—';
+            const renew = isExpired ? `<button class="renew-btn" data-action="renew-listing" data-listing-id="${escapeHtml(String(l.id))}">Renew</button>` : '';
+            return `<tr>
               <td>
                 <div class="item-cell">
                   <span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(l.cat)}</span>
@@ -2472,11 +2686,12 @@ function renderShopTables() {
                 </div>
               </td>
               <td style="text-transform:capitalize">${escapeHtml(l.cat || '—')}</td>
-              <td>${escapeHtml(l.condition || '—')}</td>
+              <td><span style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:${isExpired ? 'var(--red-500)' : 'var(--up-green)'}">${isExpired ? 'Expired' : 'Active'}</span></td>
               <td style="font-weight:600">$${(l.ask || 0).toLocaleString()}</td>
-              <td style="color:var(--gray-500)">${formatListedDate(l.createdAt)}</td>
-            </tr>
-          `).join('')}
+              <td style="color:var(--gray-500);font-size:12px">${expireLabel}</td>
+              <td>${renew}</td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>`;
   }
@@ -2489,11 +2704,21 @@ function renderShopTables() {
     soldEl.innerHTML = `
       <table class="dash-table">
         <thead>
-          <tr><th>Item</th><th>Buyer</th><th>Sale Price</th><th>Sold On</th></tr>
+          <tr><th>Item</th><th>Buyer</th><th>Sale Price</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           ${orders.map(o => {
             const listing = soldListingsById[o.listingId] || {};
+            const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
+            const stageLabel = ({
+              awaiting_seller_shipment: 'Awaiting shipment',
+              shipped:                  'Shipped' + (o.trackingNumber ? ' · ' + escapeHtml(o.trackingNumber) : ''),
+              delivered:                'Delivered',
+              reviewed:                 'Reviewed',
+            })[stage] || stage;
+            const shipBtn = stage === 'awaiting_seller_shipment'
+              ? `<button class="ship-btn" data-action="mark-shipped" data-order-id="${escapeHtml(String(o.id))}">Mark Shipped</button>`
+              : '';
             return `
               <tr>
                 <td>
@@ -2507,7 +2732,8 @@ function renderShopTables() {
                 </td>
                 <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
                 <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
-                <td style="color:var(--gray-500)">${formatListedDate(o.createdAt)}</td>
+                <td style="color:var(--gray-500);font-size:12px">${stageLabel}</td>
+                <td>${shipBtn}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -2633,11 +2859,45 @@ function switchDashTab(tab) {
   document.getElementById('dashTabActive').style.display = tab === 'active' ? 'block' : 'none';
   document.getElementById('dashTabSold').style.display = tab === 'sold' ? 'block' : 'none';
 }
+// ─────────────────────────────────────────────────────────────
+// SELL FORM DRAFT — keeps the long sell form alive across reloads.
+// ─────────────────────────────────────────────────────────────
+const SELL_DRAFT_KEY = 'teebox-sell-draft-v1';
+const SELL_FIELDS = ['sellTitle','sellBrand','sellCat','sellPrice','sellCondition','sellDesc'];
+
+function readSellDraft() {
+  try { return JSON.parse(localStorage.getItem(SELL_DRAFT_KEY) || '{}'); }
+  catch { return {}; }
+}
+function writeSellDraft(d) {
+  try { localStorage.setItem(SELL_DRAFT_KEY, JSON.stringify(d)); } catch {}
+}
+function clearSellDraft() {
+  try { localStorage.removeItem(SELL_DRAFT_KEY); } catch {}
+}
+function applySellDraft() {
+  const d = readSellDraft();
+  SELL_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && d[id] != null) el.value = d[id];
+  });
+}
+function captureSellDraft() {
+  const d = {};
+  SELL_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) d[id] = el.value;
+  });
+  writeSellDraft(d);
+}
+window.clearSellDraft = clearSellDraft;
+
 function openSellModal() {
   document.getElementById('uploadPreviews').innerHTML = '';
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
+  applySellDraft();
 }
 window.openSellModal = openSellModal;
 function closeSellModal(e) { if(e.target===document.getElementById('sellModalBackdrop')) closeSellModalDirect(); }
@@ -2656,7 +2916,7 @@ function filterSearch(q) {
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const img = url
-      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : `<span class="placeholder-art" style="width:100%;height:100%;border-radius:6px">${window.CATEGORY_ICON(p.cat)}</span>`;
     return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
       `<div class="search-res-img">${img}</div>`+
@@ -2665,6 +2925,411 @@ function filterSearch(q) {
     `</div>`;
   }).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
 }
+
+// ─────────────────────────────────────────────────────────────
+// RENEWAL — flip an expired listing back to active for another 60 days
+// ─────────────────────────────────────────────────────────────
+async function renewListing(listingId) {
+  if (!listingId || !window.CURRENT_USER) return;
+  try {
+    const { getFirestore, doc, updateDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+    await updateDoc(doc(db, 'listings', listingId), {
+      status: 'active',
+      expiresAt,
+      updatedAt: serverTimestamp(),
+    });
+    showToast('Listing renewed for 60 days.');
+    loadShopData();
+  } catch (e) {
+    console.error('renewListing failed:', e);
+    showToast('Could not renew listing.');
+  }
+}
+window.renewListing = renewListing;
+
+// ─────────────────────────────────────────────────────────────
+// SAVED SEARCHES — persist filter state so users can return to it.
+// Email alerts are wired to Resend stub; activate when key is set.
+// ─────────────────────────────────────────────────────────────
+async function saveCurrentSearch() {
+  if (!window.CURRENT_USER) { showToast('Sign in to save a search.'); return; }
+  const f = window.__filter;
+  const q = (document.getElementById('searchInput') || {}).value || '';
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await addDoc(collection(db, 'users', window.CURRENT_USER.uid, 'savedSearches'), {
+      cat: f.cat || 'all',
+      sort: f.sort || 'newest',
+      min: f.min == null ? null : Number(f.min),
+      max: f.max == null ? null : Number(f.max),
+      conditions: [...(f.conditions || [])],
+      query: String(q).slice(0, 80),
+      createdAt: serverTimestamp(),
+    });
+    showToast('Search saved. We\'ll notify you when matching listings appear (email coming soon).');
+  } catch (e) {
+    console.error('saveCurrentSearch failed:', e);
+    showToast('Could not save search.');
+  }
+}
+window.saveCurrentSearch = saveCurrentSearch;
+
+async function openSavedSearches() {
+  if (!window.CURRENT_USER) { showToast('Sign in to view saved searches.'); return; }
+  try {
+    const { getFirestore, collection, getDocs, orderBy, query, deleteDoc, doc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(query(
+      collection(db, 'users', window.CURRENT_USER.uid, 'savedSearches'),
+      orderBy('createdAt', 'desc')
+    ));
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const back = document.getElementById('aboutBackdrop');
+    document.getElementById('profileBackdrop').classList.remove('open');
+    // Reuse the info-modal frame
+    document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+    const sb = document.getElementById('savedSearchesBackdrop');
+    if (sb) {
+      const body = document.getElementById('savedSearchesBody');
+      body.innerHTML = items.length
+        ? items.map(s => {
+            const desc = [
+              s.cat && s.cat !== 'all' ? `cat: ${s.cat}` : null,
+              s.min != null ? `min $${s.min}` : null,
+              s.max != null ? `max $${s.max}` : null,
+              s.query ? `"${s.query}"` : null,
+              (s.conditions||[]).length ? s.conditions.join(', ') : null,
+            ].filter(Boolean).join(' · ');
+            return `<div class="ss-row">
+              <div><strong>${window.safeText(desc || 'Any listing')}</strong></div>
+              <button class="filter-clear" data-action="apply-saved-search" data-search-id="${window.safeAttr(window.safeId(s.id))}">Apply</button>
+              <button class="filter-clear" data-action="delete-saved-search" data-search-id="${window.safeAttr(window.safeId(s.id))}">Delete</button>
+            </div>`;
+          }).join('')
+        : '<div class="profile-loading" style="padding:2rem">No saved searches yet. Filter the marketplace and tap <strong>Save Search</strong>.</div>';
+      sb.classList.add('open');
+    }
+    // Stash for apply/delete
+    window.__savedSearches = items;
+  } catch (e) {
+    console.error('openSavedSearches failed:', e);
+    showToast('Could not load saved searches.');
+  }
+}
+
+async function applySavedSearch(id) {
+  const s = (window.__savedSearches || []).find(x => x.id === id);
+  if (!s) return;
+  window.__filter = {
+    cat: s.cat || 'all',
+    sort: s.sort || 'newest',
+    min: s.min == null ? null : Number(s.min),
+    max: s.max == null ? null : Number(s.max),
+    conditions: new Set(s.conditions || []),
+  };
+  // Sync UI
+  const sm = document.getElementById('sortMode'); if (sm) sm.value = window.__filter.sort;
+  const mn = document.getElementById('filterMin'); if (mn) mn.value = window.__filter.min == null ? '' : window.__filter.min;
+  const mx = document.getElementById('filterMax'); if (mx) mx.value = window.__filter.max == null ? '' : window.__filter.max;
+  document.querySelectorAll('#filterCondition .condition-pill').forEach(b => {
+    b.classList.toggle('active', window.__filter.conditions.has(b.dataset.cond));
+  });
+  document.getElementById('savedSearchesBackdrop').classList.remove('open');
+  buildProducts();
+  showToast('Search applied.');
+}
+
+async function deleteSavedSearch(id) {
+  if (!window.CURRENT_USER) return;
+  try {
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await deleteDoc(doc(db, 'users', window.CURRENT_USER.uid, 'savedSearches', id));
+    openSavedSearches();
+  } catch (e) {
+    console.error('deleteSavedSearch failed:', e);
+    showToast('Could not delete saved search.');
+  }
+}
+window.applySavedSearch = applySavedSearch;
+window.deleteSavedSearch = deleteSavedSearch;
+
+// ─────────────────────────────────────────────────────────────
+// ORDERS — buyer-facing list with shipment + delivery actions
+// ─────────────────────────────────────────────────────────────
+async function loadBuyerOrders() {
+  if (!window.CURRENT_USER) return [];
+  try {
+    const { getFirestore, collection, query, where, getDocs, orderBy } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(query(
+      collection(db, 'orders'),
+      where('buyerId', '==', window.CURRENT_USER.uid),
+      orderBy('createdAt', 'desc'),
+    ));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('loadBuyerOrders failed:', e);
+    return [];
+  }
+}
+
+async function openOrders() {
+  if (!window.CURRENT_USER) { showToast('Sign in to view your orders.'); return; }
+  const back = document.getElementById('ordersBackdrop');
+  if (!back) return;
+  back.classList.add('open');
+  document.getElementById('ordersBody').innerHTML = '<div class="profile-loading">Loading…</div>';
+  const orders = await loadBuyerOrders();
+  if (!orders.length) {
+    document.getElementById('ordersBody').innerHTML = '<div class="profile-loading"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No orders yet</div>When you buy a listing it shows up here with shipping status.</div>';
+    return;
+  }
+  document.getElementById('ordersBody').innerHTML = orders.map(o => {
+    const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
+    const stages = [
+      { key: 'awaiting_seller_shipment', label: 'Paid' },
+      { key: 'shipped',                  label: 'Shipped' },
+      { key: 'delivered',                label: 'Delivered' },
+      { key: 'reviewed',                 label: 'Reviewed' },
+    ];
+    const stageIdx = Math.max(0, stages.findIndex(s => s.key === stage));
+    const tracker = stages.map((s, i) => `<span class="stage ${i <= stageIdx ? 'on' : ''}">${s.label}</span>`).join(' → ');
+    const tracking = o.trackingNumber ? `<div class="order-tracking">Tracking: <strong>${window.safeText(o.trackingNumber)}</strong>${o.carrier ? ' · ' + window.safeText(o.carrier) : ''}</div>` : '';
+    const deliveryBtn = stage === 'shipped'
+      ? `<button class="btn-full green" data-action="confirm-delivery" data-order-id="${window.safeAttr(window.safeId(o.id))}">Confirm Delivery</button>`
+      : '';
+    const reportBtn = stage !== 'reviewed'
+      ? `<button class="filter-clear" data-action="report-problem" data-order-id="${window.safeAttr(window.safeId(o.id))}">Report a problem</button>`
+      : '';
+    return `<div class="order-card">
+      <div class="order-head"><strong>$${Number(o.amount||0).toLocaleString()}</strong> · ${window.safeText(o.listingId || '')}</div>
+      <div class="order-stages">${tracker}</div>
+      ${tracking}
+      <div style="display:flex;gap:8px;margin-top:8px">${deliveryBtn}${reportBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+async function markShipped(orderId) {
+  if (!orderId || !window.CURRENT_USER) return;
+  const carrier = prompt('Carrier (USPS / UPS / FedEx)?');
+  if (!carrier) return;
+  const tracking = prompt('Tracking number?');
+  if (!tracking) return;
+  try {
+    const { getFirestore, doc, updateDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await updateDoc(doc(db, 'orders', orderId), {
+      fulfillmentStatus: 'shipped',
+      carrier: String(carrier).slice(0, 20),
+      trackingNumber: String(tracking).slice(0, 60),
+      shippedAt: serverTimestamp(),
+    });
+    showToast('Marked as shipped. Buyer notified.');
+    loadShopData();
+  } catch (e) {
+    console.error('markShipped failed:', e);
+    showToast('Could not mark shipped.');
+  }
+}
+window.markShipped = markShipped;
+
+async function confirmDelivery(orderId) {
+  if (!orderId || !window.CURRENT_USER) return;
+  if (!confirm('Confirm you received this item in the condition described?')) return;
+  try {
+    const { getFirestore, doc, updateDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await updateDoc(doc(db, 'orders', orderId), {
+      fulfillmentStatus: 'delivered',
+      deliveredAt: serverTimestamp(),
+    });
+    showToast('Delivery confirmed. Thanks!');
+    openOrders();
+  } catch (e) {
+    console.error('confirmDelivery failed:', e);
+    showToast('Could not confirm delivery.');
+  }
+}
+window.confirmDelivery = confirmDelivery;
+
+// ─────────────────────────────────────────────────────────────
+// DISPUTES — buyer-initiated complaint with reason + free text
+// ─────────────────────────────────────────────────────────────
+let pendingDisputeOrderId = null;
+function openDispute(orderId) {
+  if (!orderId) return;
+  pendingDisputeOrderId = orderId;
+  document.getElementById('disputeBackdrop').classList.add('open');
+}
+window.openDispute = openDispute;
+
+async function submitDispute() {
+  if (!pendingDisputeOrderId || !window.CURRENT_USER) return;
+  const reason = document.getElementById('disputeReason').value;
+  const detail = document.getElementById('disputeDetail').value.trim().slice(0, 4000);
+  if (!reason) { showToast('Pick a reason.'); return; }
+  try {
+    const { getFirestore, doc, getDoc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const ord = await getDoc(doc(db, 'orders', pendingDisputeOrderId));
+    if (!ord.exists()) { showToast('Order not found.'); return; }
+    const od = ord.data();
+    await setDoc(doc(db, 'disputes', pendingDisputeOrderId), {
+      orderId: pendingDisputeOrderId,
+      buyerId: window.CURRENT_USER.uid,
+      sellerId: od.sellerId,
+      listingId: od.listingId,
+      reason, detail,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+    document.getElementById('disputeBackdrop').classList.remove('open');
+    showToast('Report submitted. We\'ll be in touch within 2 business days.');
+  } catch (e) {
+    console.error('submitDispute failed:', e);
+    showToast('Could not submit report.');
+  }
+}
+window.submitDispute = submitDispute;
+
+// ─────────────────────────────────────────────────────────────
+// COUNTER-OFFERS — seller can accept or counter a bid
+// ─────────────────────────────────────────────────────────────
+async function acceptBid(bidId) {
+  if (!bidId || !window.CURRENT_USER) return;
+  showToast('Bid accepted. Buyer notified — they\'ll see it in their inbox and can complete checkout.');
+  // Real auto-execute waits on Stripe Connect (so we can charge the
+  // buyer's stored payment method); for now we surface the acceptance
+  // by writing a "counter" doc with status='accepted' that the buyer's
+  // detail-modal listener picks up. Not yet a complete flow.
+  try {
+    const { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const bidRef = doc(db, 'bids', bidId);
+    const bidSnap = await getDoc(bidRef);
+    if (!bidSnap.exists()) return;
+    const bd = bidSnap.data();
+    await addDoc(collection(db, 'bids', bidId, 'counters'), {
+      from: window.CURRENT_USER.uid,
+      kind: 'accept',
+      amountCents: bd.amountCents,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error('acceptBid failed:', e);
+  }
+}
+window.acceptBid = acceptBid;
+
+async function counterBid(bidId) {
+  if (!bidId || !window.CURRENT_USER) return;
+  const raw = prompt('Counter amount (USD):');
+  const amount = parseFloat(raw);
+  if (!Number.isFinite(amount) || amount <= 0) return;
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await addDoc(collection(db, 'bids', bidId, 'counters'), {
+      from: window.CURRENT_USER.uid,
+      kind: 'counter',
+      amountCents: Math.round(amount * 100),
+      createdAt: serverTimestamp(),
+    });
+    showToast('Counter sent.');
+  } catch (e) {
+    console.error('counterBid failed:', e);
+    showToast('Could not send counter.');
+  }
+}
+window.counterBid = counterBid;
+
+// ─────────────────────────────────────────────────────────────
+// BLOCK + REPORT
+// ─────────────────────────────────────────────────────────────
+async function blockConversation() {
+  if (!currentChat || !currentChat.otherUserId) { showToast('No active conversation.'); return; }
+  if (!confirm('Block this user? They will no longer be able to message you about new listings.')) return;
+  const otherUid = currentChat.otherUserId;
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await setDoc(doc(db, 'users', window.CURRENT_USER.uid), {
+      blocked: { [otherUid]: { blockedAt: serverTimestamp() } },
+    }, { merge: true });
+    closeChat();
+    showToast('User blocked.');
+  } catch (e) {
+    console.error('blockConversation failed:', e);
+    showToast('Could not block user.');
+  }
+}
+window.blockConversation = blockConversation;
+
+async function reportConversation() {
+  if (!currentChat || !currentChat.otherUserId) return;
+  const reason = prompt('Why are you reporting this user? (Spam, scam, abuse, prohibited item, other)');
+  if (!reason) return;
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await addDoc(collection(db, 'reports'), {
+      reporterId: window.CURRENT_USER.uid,
+      targetUid: currentChat.otherUserId,
+      conversationId: currentChat.conversationId || null,
+      reason: String(reason).slice(0, 500),
+      createdAt: serverTimestamp(),
+    });
+    showToast('Report submitted. Thanks for keeping TeeBox safe.');
+  } catch (e) {
+    console.error('reportConversation failed:', e);
+    showToast('Could not submit report.');
+  }
+}
+window.reportConversation = reportConversation;
+
+// Patch the saved-searches register so apply/delete actions resolve
+window.__actions = window.__actions || {};
+window.__actions['apply-saved-search']  = (el) => applySavedSearch(el.dataset.searchId);
+window.__actions['delete-saved-search'] = (el) => deleteSavedSearch(el.dataset.searchId);
+
+// ─────────────────────────────────────────────────────────────
+// LIGHTBOX
+// ─────────────────────────────────────────────────────────────
+let lightboxState = { urls: [], i: 0 };
+function openLightbox(urls, startIndex = 0) {
+  if (!urls || !urls.length) return;
+  lightboxState = { urls: urls.slice(), i: Math.max(0, Math.min(startIndex, urls.length - 1)) };
+  document.getElementById('lightboxImg').src = lightboxState.urls[lightboxState.i];
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function stepLightbox(d) {
+  if (!lightboxState.urls.length) return;
+  lightboxState.i = (lightboxState.i + d + lightboxState.urls.length) % lightboxState.urls.length;
+  document.getElementById('lightboxImg').src = lightboxState.urls[lightboxState.i];
+}
+window.openLightbox = openLightbox;
 
 function showProductSkeleton(n = 8) {
   const grid = document.getElementById('productGrid');
@@ -2718,11 +3383,19 @@ function showToast(msg) {
 window.showToast = showToast;
 
 document.addEventListener('keydown',e=>{
+  const lb = document.getElementById('lightbox');
+  const lbOpen = lb && lb.classList.contains('open');
+  if (lbOpen) {
+    if (e.key === 'Escape')     return closeLightbox();
+    if (e.key === 'ArrowLeft')  return stepLightbox(-1);
+    if (e.key === 'ArrowRight') return stepLightbox(1);
+  }
   if(e.key==='Escape') {
     document.getElementById('searchOverlay').classList.remove('open');
     closeModalDirect(); closeSellModalDirect(); closeDetailModalDirect();
     document.getElementById('verifyBackdrop').classList.remove('open');
     document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+    closeLightbox();
   }
 });
 
@@ -2909,7 +3582,7 @@ async function openWatchlist() {
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const img = url
-      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" />`
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : `<span class="placeholder-art" style="width:100%;height:100%;border-radius:6px">${window.CATEGORY_ICON(p.cat)}</span>`;
     return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
       `<div class="search-res-img">${img}</div>`+
@@ -3056,7 +3729,7 @@ function renderProfileView(profile, listings, reviews) {
         const id = window.safeId(l.id);
         const url = window.safeImgUrl(l.photos && l.photos[0]);
         const img = url
-          ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(l.title||'')}" />`
+          ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(l.title||'')}" loading="lazy" decoding="async" />`
           : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(l.cat)}</div>`;
         return `<div class="profile-listing" data-action="open-detail" data-product-id="${id}">`+
           `<div class="profile-listing-img">${img}</div>`+
@@ -3242,6 +3915,21 @@ A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
 A['toggle-user-menu']        = () => document.getElementById('userMenu').classList.toggle('open');
+A['close-lightbox']          = () => closeLightbox();
+A['lightbox-prev']           = () => stepLightbox(-1);
+A['lightbox-next']           = () => stepLightbox(1);
+A['open-saved-searches']     = () => openSavedSearches();
+A['save-current-search']     = () => saveCurrentSearch();
+A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
+A['mark-shipped']            = (el) => markShipped(el.dataset.orderId);
+A['confirm-delivery']        = (el) => confirmDelivery(el.dataset.orderId);
+A['report-problem']          = (el) => openDispute(el.dataset.orderId);
+A['submit-dispute']          = () => submitDispute();
+A['accept-bid']              = (el) => acceptBid(el.dataset.bidId);
+A['counter-bid']             = (el) => counterBid(el.dataset.bidId);
+A['block-conv']              = () => blockConversation();
+A['report-conv']             = () => reportConversation();
+A['open-orders']             = () => openOrders();
 A['withdraw-bid']            = (el) => withdrawBid(el.dataset.bidId);
 A['toggle-watch']            = (el, ev) => { ev.stopPropagation(); toggleWatch(el.dataset.productId); };
 A['submit-review']            = () => submitReview();
@@ -3325,6 +4013,45 @@ document.addEventListener('click', (ev) => {
   const wrap = document.getElementById('userMenuWrap');
   if (!menu || !wrap || !menu.classList.contains('open')) return;
   if (!wrap.contains(ev.target)) menu.classList.remove('open');
+});
+
+// Wire the filter bar.
+const sortSel = document.getElementById('sortMode');
+if (sortSel) sortSel.addEventListener('change', () => { window.__filter.sort = sortSel.value; buildProducts(); });
+const fmin = document.getElementById('filterMin');
+if (fmin) fmin.addEventListener('input', () => { const v = parseFloat(fmin.value); window.__filter.min = isNaN(v) ? null : v; buildProducts(); });
+const fmax = document.getElementById('filterMax');
+if (fmax) fmax.addEventListener('input', () => { const v = parseFloat(fmax.value); window.__filter.max = isNaN(v) ? null : v; buildProducts(); });
+document.querySelectorAll('#filterCondition .condition-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const c = btn.dataset.cond;
+    if (window.__filter.conditions.has(c)) {
+      window.__filter.conditions.delete(c);
+      btn.classList.remove('active');
+    } else {
+      window.__filter.conditions.add(c);
+      btn.classList.add('active');
+    }
+    buildProducts();
+  });
+});
+const fclear = document.getElementById('filterClear');
+if (fclear) fclear.addEventListener('click', () => {
+  window.__filter = { cat: window.__filter.cat, sort: 'newest', min: null, max: null, conditions: new Set() };
+  if (sortSel) sortSel.value = 'newest';
+  if (fmin) fmin.value = '';
+  if (fmax) fmax.value = '';
+  document.querySelectorAll('#filterCondition .condition-pill').forEach(b => b.classList.remove('active'));
+  buildProducts();
+});
+
+// Sell-form draft autosave: snapshot every keystroke into localStorage
+// so the long form survives an accidental refresh.
+SELL_FIELDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', captureSellDraft);
+  el.addEventListener('change', captureSellDraft);
 });
 
 // Hydrate the watchlist set from Firestore so hearts are rendered

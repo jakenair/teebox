@@ -1,4 +1,5 @@
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
@@ -327,6 +328,38 @@ async function releaseListingOnFailure(pi) {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// expireListings (scheduled, daily 03:00 America/Chicago)
+//   Flips active listings whose expiresAt < now to status='expired'.
+//   Sellers can renew from their dashboard.
+// ─────────────────────────────────────────────────────────────
+exports.expireListings = onSchedule(
+  {schedule: "every day 03:00", timeZone: "America/Chicago"},
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const snap = await db
+      .collection("listings")
+      .where("status", "==", "active")
+      .where("expiresAt", "<", now)
+      .limit(500)
+      .get();
+    if (snap.empty) {
+      logger.info("expireListings: nothing to expire");
+      return;
+    }
+    const batch = db.batch();
+    snap.docs.forEach((d) => {
+      batch.update(d.ref, {
+        status: "expired",
+        expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    logger.info(`expireListings: flipped ${snap.size} listing(s) to expired`);
+  }
+);
 
 // ─────────────────────────────────────────────────────────────
 // moderateImage (callable, STUB)

@@ -46,7 +46,7 @@ service cloud.firestore {
     }
 
     function isValidListingCreate(d) {
-      return d.keys().hasAll(['sellerId','title','brand','cat','ask','bid','condition','createdAt','status'])
+      return d.keys().hasAll(['sellerId','title','brand','cat','ask','bid','condition','createdAt','status','expiresAt'])
         && d.status == 'active'
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.brand is string && d.brand.size() > 0 && d.brand.size() <= 60
@@ -70,11 +70,15 @@ service cloud.firestore {
     }
 
     function isValidListingUpdate(next, prev) {
-      return prev.get('status', 'active') == 'active'
+      return (prev.get('status', 'active') == 'active' || prev.get('status', 'active') == 'expired')
         && next.sellerId == prev.sellerId
-        && next.get('status', 'active') == prev.get('status', 'active')
+        // Sellers may flip an expired listing back to active when they
+        // touch `expiresAt` (renewal). All other status transitions are
+        // server-only.
+        && (next.get('status', 'active') == prev.get('status', 'active')
+            || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'active'))
         && next.diff(prev).affectedKeys().hasOnly(
-             ['title','brand','cat','ask','bid','condition','desc','photos','emoji','badge','updatedAt'])
+             ['title','brand','cat','ask','bid','condition','desc','photos','emoji','badge','updatedAt','expiresAt','status'])
         && (!('title' in next.keys()) || (next.title is string && next.title.size() > 0 && next.title.size() <= 120))
         && (!('brand' in next.keys()) || (next.brand is string && next.brand.size() > 0 && next.brand.size() <= 60))
         && (!('cat' in next.keys()) || (next.cat is string && next.cat.size() <= 40))
@@ -102,14 +106,70 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
 
       allow update: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
 
       allow delete: if false;
+
+      // Saved searches subcollection — fully owned by the user.
+      match /savedSearches/{ssId} {
+        allow read, create, delete: if request.auth != null && request.auth.uid == userId;
+        allow update: if false;
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // ORDERS — buyer/seller can read; client cannot create (Stripe
+    // webhook only). Buyer can confirm delivery; seller can mark
+    // shipped + add tracking. Anything else is server-only.
+    // (Rule defined below in the original ORDERS block — see update
+    // permissions added there.)
+    // ─────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────
+    // DISPUTES — id == orderId. Buyer of the order can create.
+    //   read:   buyer or seller of the dispute
+    //   write:  buyer creates once
+    // ─────────────────────────────────────────────
+    match /disputes/{orderId} {
+      allow read: if request.auth != null
+        && (resource.data.buyerId == request.auth.uid
+            || resource.data.sellerId == request.auth.uid);
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.buyerId == request.auth.uid
+        && exists(/databases/$(database)/documents/orders/$(orderId))
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+        && request.resource.data.sellerId
+             == get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId
+        && request.resource.data.keys().hasAll(['buyerId','sellerId','reason','status','createdAt'])
+        && request.resource.data.status == 'open'
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 60
+        && (!('detail' in request.resource.data.keys())
+            || (request.resource.data.detail is string && request.resource.data.detail.size() <= 4000));
+      allow update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // REPORTS — fire-and-forget abuse reports for the admin queue.
+    //   Anyone signed in can create; nobody can read/update/delete
+    //   from the client (admin reads via Admin SDK).
+    // ─────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasAll(['reporterId','targetUid','reason','createdAt'])
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 500;
     }
 
     // ─────────────────────────────────────────────
@@ -146,6 +206,23 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && resource.data.buyerId == request.auth.uid
         && resource.data.status == 'open';
+
+      // Counter-offer subcollection — buyer or seller of the parent
+      // bid can append, immutable thereafter.
+      match /counters/{counterId} {
+        function bid() { return get(/databases/$(database)/documents/bids/$(bidId)).data; }
+        allow read: if request.auth != null
+          && (request.auth.uid == bid().buyerId || request.auth.uid == bid().sellerId);
+        allow create: if request.auth != null
+          && appCheckOk()
+          && request.resource.data.from == request.auth.uid
+          && (request.auth.uid == bid().buyerId || request.auth.uid == bid().sellerId)
+          && request.resource.data.kind in ['accept','counter','reject']
+          && request.resource.data.amountCents is int
+          && request.resource.data.amountCents > 0
+          && request.resource.data.amountCents < 100000000;
+        allow update, delete: if false;
+      }
     }
 
     // ─────────────────────────────────────────────
@@ -227,7 +304,29 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && (resource.data.buyerId == request.auth.uid
                       || resource.data.sellerId == request.auth.uid);
-      allow write: if false;
+      // Client cannot create or delete orders. The Stripe webhook owns
+      // creation. Buyer + seller may transition fulfillmentStatus along
+      // a strict path:
+      //   awaiting_seller_shipment → shipped (seller adds tracking)
+      //   shipped → delivered      (buyer confirms)
+      //   delivered → reviewed     (set when buyer leaves a review;
+      //                             written by review path elsewhere)
+      allow update: if request.auth != null
+        && appCheckOk()
+        && (
+          (request.auth.uid == resource.data.sellerId
+            && resource.data.fulfillmentStatus == 'awaiting_seller_shipment'
+            && request.resource.data.fulfillmentStatus == 'shipped'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                 ['fulfillmentStatus','carrier','trackingNumber','shippedAt']))
+          ||
+          (request.auth.uid == resource.data.buyerId
+            && resource.data.fulfillmentStatus == 'shipped'
+            && request.resource.data.fulfillmentStatus == 'delivered'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                 ['fulfillmentStatus','deliveredAt']))
+        );
+      allow create, delete: if false;
     }
 
     // ─────────────────────────────────────────────
