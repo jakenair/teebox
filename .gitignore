@@ -95,3 +95,4 @@ ios/build/
 
 # dataconnect generated files
 .dataconnect
+.claude/
