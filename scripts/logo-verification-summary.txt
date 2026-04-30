@@ -1,0 +1,195 @@
+TeeBox logo verification summary
+Generated: 2026-04-30 (post-strict-classifier run)
+
+Total courses in bingo-courses.js:        177
+Starting PNG count (before Step 1):        75
+PNGs deleted in Step 1:                    30
+PNGs surviving Step 1:                     45
+Wikipedia attempts (Step 2):               60
+Wikipedia successes (Step 2):               0
+Final PNG count:                           45
+SVG-fallback count:                       132   (177 - 45)
+Real-logo coverage:                       25.4%
+
+────────────────────────────────────────────────────────────────────────────
+STEP 1 — DELETIONS (30)
+────────────────────────────────────────────────────────────────────────────
+
+Reason: too small (< 5000 bytes) — almost certainly Google favicon /
+        placeholder fetch, not a usable logo:
+
+  - augusta-national             (2223 b)
+  - bandon-dunes                 (2390 b)
+  - cabot-citrus-farms           (1267 b)
+  - cabot-cliffs                 (1267 b)
+  - cabot-links                  (1267 b)
+  - cape-kidnappers              (3939 b)
+  - castle-pines                 (1670 b)
+  - erin-hills                   (2715 b)
+  - fontainebleau                (2594 b)
+  - inverness                    (3607 b)
+  - los-angeles-cc-north         (3555 b)
+  - machrihanish                 (1554 b)
+  - mission-hills-shenzhen       (4145 b)
+  - oakmont                      (3545 b)
+  - pebble-beach                 (3969 b)
+  - portmarnock                  (2279 b)
+  - prairie-dunes                (1688 b)
+  - prestwick                    (1584 b)
+  - royal-cinque-ports           (4119 b)
+  - seminole                     (1980 b)
+  - shadow-creek                 (2807 b)
+  - spyglass-hill                (3969 b)
+  - st-georges-hill              (4119 b)
+  - sunningdale-old              (2820 b)
+  - victoria-golf-club           (4119 b)
+  - winged-foot-west             (3395 b)
+
+Reason: hash collision (unexpected duplicate group, drop-all policy):
+
+  - barnbougle-dunes             (group of 2 with barnbougle-lost-farm)
+  - barnbougle-lost-farm         (group of 2 with barnbougle-dunes)
+  - forest-dunes                 (group of 2 with the-loop)
+  - the-loop                     (group of 2 with forest-dunes)
+
+Note: the original PNG set already happened to NOT contain duplicate-hash
+files for the bandon-* / streamsong-* / cabot-* / tpc-* / gleneagles-*
+resort families (the small ones were caught by the size filter; the larger
+streamsong-blue and tpc-sawgrass survived as single distinct logos).
+
+────────────────────────────────────────────────────────────────────────────
+STEP 2 — WIKIPEDIA REFETCH (60 attempts, 0 accepted)
+────────────────────────────────────────────────────────────────────────────
+
+The MediaWiki pageimages API returns the top-of-infobox image. For golf
+courses this is almost always a course PHOTO (aerial shot, clubhouse, a
+single hole) rather than the club's logo. To avoid contaminating the
+asset set with photos misrepresented as logos, we required one of these
+strong-signal cues for acceptance:
+
+  - URL ends in .svg or contains ".svg/" mid-path (Wikipedia thumb of an
+    SVG source — almost always a logo on Wikipedia)
+  - URL contains the word "logo", "crest", "emblem", "badge", "wordmark",
+    or "insignia"
+
+None of the 60 candidates produced an image meeting either cue. Every hit
+was either a course photo (clubhouse / hole / aerial) or no Wikipedia page
+match for any of the four title variants tried.
+
+Skipped/rejected breakdown (60):
+
+  - photo url (returned but rejected as photo): 27
+  - no wikipedia page hit (no thumb on any of 4 title variants): 33
+
+Per-course detail:
+
+  ✗ augusta-national       — photo: AugustaNationalMastersLogoFlowers.jpg
+  ✗ pine-valley            — photo: PineValley17th.jpg
+  ✗ cypress-point          — photo: View_From_Clubhouse_to_16
+  ✗ pebble-beach           — photo: Pebble_Beach_Golf_Links_hole_7.jpg
+  ✗ shinnecock-hills       — photo: Shinnecock_Hills_GC_01.jpg
+  ✗ oakmont                — photo: OakmontCountryClub.jpg
+  ✗ national-golf-links    — no wikipedia page hit
+  ✗ fishers-island         — photo: Fishers_Island_HD_4-2024.jpg
+  ✗ sand-hills             — no wikipedia page hit
+  ✗ bandon-dunes           — no wikipedia page hit
+  ✗ chicago-golf-club      — photo: Wheaton_chicagogolf.jpg
+  ✗ winged-foot-west       — no wikipedia page hit
+  ✗ seminole               — photo: Seminole_mother_and_children (wrong topic — Seminole tribe page)
+  ✗ los-angeles-cc-north   — no wikipedia page hit
+  ✗ olympic-club-lake      — no wikipedia page hit
+  ✗ bethpage-black         — no wikipedia page hit
+  ✗ pinehurst-no-2         — photo: Pinehurst_No._4
+  ✗ whistling-straits      — photo: WhistlingStraitsClubhouse.JPG
+  ✗ erin-hills             — no wikipedia page hit
+  ✗ kiawah-ocean           — no wikipedia page hit
+  ✗ harbour-town           — photo: Harbour_Town_Golf_Hilton_Head
+  ✗ cabot-citrus-farms     — no wikipedia page hit
+  ✗ inverness              — photo: Inverness_Club_from_Dorr.jpg
+  ✗ crystal-downs          — photo: 9th_Green_at_Crystal_Downs.JPG
+  ✗ prairie-dunes          — no wikipedia page hit
+  ✗ quaker-ridge           — photo: Map_of_New_Rochelle (wrong topic)
+  ✗ wade-hampton           — no wikipedia page hit
+  ✗ whispering-pines       — no wikipedia page hit
+  ✗ castle-pines           — photo: Castle_Pines_Village_Colorado.JPG
+  ✗ shadow-creek           — no wikipedia page hit
+  ✗ friars-head            — no wikipedia page hit
+  ✗ somerset-hills         — photo: Somerset_Hills_NJ_035.png (wrong topic)
+  ✗ maidstone              — photo: The_Maidstone_Club_in_East_Hampton.jpg
+  ✗ turnberry-ailsa        — no wikipedia page hit
+  ✗ cruden-bay             — photo: View_of_Cruden_Bay_from_the_estuary
+  ✗ machrihanish           — photo: The_Machrihanish_Golf_Club-geograph
+  ✗ machrihanish-dunes     — no wikipedia page hit
+  ✗ castle-stuart          — photo: Castle_Stuart.jpg
+  ✗ royal-county-down      — photo: Royal_County_Down-geograph
+  ✗ portmarnock            — photo: Aerial_View_of_Portmarnock_Golf_Club
+  ✗ sunningdale-old        — no wikipedia page hit
+  ✗ royal-liverpool        — photo: Clubhouse_of_the_Royal_Liverpool
+  ✗ swinley-forest         — photo: Bodens_Ride_South_Ascot
+  ✗ walton-heath-old       — no wikipedia page hit
+  ✗ les-bordes             — no wikipedia page hit
+  ✗ barnbougle-dunes       — photo: Barnbougle1018.jpg
+  ✗ barnbougle-lost-farm   — photo: Barnbougle1018.jpg (same image as barnbougle-dunes)
+  ✗ tara-iti               — no wikipedia page hit
+  ✗ cape-kidnappers        — photo: Cape_Kidnappers.jpg
+  ✗ cabot-cliffs           — no wikipedia page hit
+  ✗ cabot-links            — no wikipedia page hit
+  ✗ st-georges-canada      — photo: St_George's_Golf_and_Country_Club_2025.jpg
+  ✗ hamilton-gcc           — no wikipedia page hit
+  ✗ hirono                 — no wikipedia page hit
+  ✗ kawana-fuji            — no wikipedia page hit
+  ✗ tokyo-gc               — no wikipedia page hit
+  ✗ chambers-bay           — photo: Chambers_Bay_Golf_Course
+  ✗ black-mesa             — no wikipedia page hit
+  ✗ wolf-creek             — no wikipedia page hit
+  ✗ old-sandwich           — no wikipedia page hit
+
+────────────────────────────────────────────────────────────────────────────
+FINAL PNG SET (45 surviving real-logo candidates)
+────────────────────────────────────────────────────────────────────────────
+
+  • arcadia-bluffs              (99,678 b)
+  • aronimink                   (11,349 b)
+  • ballybunion-old              (6,039 b)
+  • baltusrol-lower             (11,091 b)
+  • bayonne                     (61,798 b)
+  • cape-wickham                 (7,515 b)
+  • carnoustie                  (38,737 b)
+  • cherry-hills                 (6,213 b)
+  • colonial                    (15,086 b)
+  • congressional-blue          (15,086 b)
+  • detroit-golf-club           (15,086 b)
+  • east-lake                   (10,688 b)
+  • european-club                (6,772 b)
+  • kingsbarns                  (20,295 b)
+  • kingston-heath              (20,207 b)
+  • lahinch                     (44,003 b)
+  • medinah-3                   (41,708 b)
+  • merion-east                 (25,539 b)
+  • morfontaine                  (9,852 b)
+  • muirfield                    (9,213 b)
+  • new-south-wales              (8,170 b)
+  • north-berwick                (8,660 b)
+  • oak-hill-east               (26,042 b)
+  • oakland-hills-south         (44,233 b)
+  • quail-hollow                (15,086 b)
+  • riviera                      (5,955 b)
+  • royal-aberdeen              (32,038 b)
+  • royal-birkdale              (20,654 b)
+  • royal-dornoch                (6,775 b)
+  • royal-lytham                 (5,058 b)
+  • royal-melbourne-west        (11,643 b)
+  • royal-porthcawl             (15,086 b)
+  • royal-portrush-dunluce      (15,466 b)
+  • royal-st-davids             (15,086 b)
+  • royal-st-georges             (5,579 b)
+  • royal-troon                  (5,778 b)
+  • royal-west-norfolk          (15,086 b)
+  • san-francisco-gc             (9,004 b)
+  • southern-hills              (15,086 b)
+  • st-andrews-old              (12,655 b)
+  • streamsong-blue              (9,670 b)
+  • tobacco-road                (27,862 b)
+  • tpc-sawgrass                (25,823 b)
+  • tralee                       (7,237 b)
+  • valderrama                  (13,101 b)
