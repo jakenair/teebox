@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -36,13 +36,19 @@
 <meta name="twitter:image" content="https://teeboxmarket.com/icon-512.png" />
 <title>TeeBox — The Golf Marketplace</title>
 <!--
-  ANALYTICS — currently disabled. To activate:
-    1. Sign up at plausible.io and add teeboxmarket.com as a site.
-    2. Append https://plausible.io to script-src in the CSP meta above.
-    3. Uncomment the script tag below.
-  Plausible is privacy-friendly, GDPR-compliant, no cookie banner needed.
+  ANALYTICS — Plausible. Privacy-friendly, GDPR-compliant, no cookie banner.
+  Sign up at plausible.io and add teeboxmarket.com as a site.
+  Falls through silently if the user is on adblock — that's fine.
 -->
-<!-- <script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script> -->
+<script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script>
+
+<!--
+  Smart App Banner — shown to iOS Safari users, points to the App Store.
+  Auto-installs the app once Apple Review approves Build 12 / 13. Replace
+  APP_STORE_ID with the numeric ID from App Store Connect → App Information
+  → Apple ID once available; until then this tag is harmless.
+-->
+<meta name="apple-itunes-app" content="app-argument=https://teeboxmarket.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -110,6 +116,9 @@
   .offer-row .offer-meta { min-width: 0; }
   .offer-row .offer-title { font-weight: 600; font-size: 13.5px; color: var(--gray-900); }
   .offer-row .offer-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .offer-time-chip { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-left: 4px; vertical-align: middle; background: var(--gray-100); color: var(--gray-700); }
+  .offer-time-chip.urgent { background: rgba(212, 91, 60, 0.12); color: #b04428; animation: chipPulse 2s ease-in-out infinite; }
+  @keyframes chipPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
   .offer-row .offer-msg { font-size: 12.5px; color: var(--gray-700); margin-top: 4px; font-style: italic; }
   .offer-row .offer-amt { font-family: var(--font-display); font-weight: 700; font-size: 16px; color: var(--gray-900); }
   .offer-row .offer-pct-off { color: var(--up-green, var(--green-700)); font-size: 12px; font-weight: 600; }
@@ -766,6 +775,12 @@
   .sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color: var(--green-500); }
   .sell-form textarea { height: 80px; resize: vertical; }
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .price-suggest { margin-top: -6px; margin-bottom: 12px; padding: 10px 12px; background: rgba(31, 72, 39, 0.06); border-left: 3px solid var(--green-700); border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-700); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .price-suggest strong { color: var(--green-900); font-weight: 700; }
+  .price-suggest button { background: var(--gold-500); color: var(--green-950); border: none; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-body); margin-left: auto; }
+  .price-suggest button:hover { background: var(--gold-400); }
+  .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
+  .auth-photo-notice strong { color: #b04428; font-size: 13px; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
 
   /* IMAGE UPLOAD */
@@ -982,6 +997,22 @@
   .bingo-share-btn:hover { background: var(--gold-400); }
   .bingo-share-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .bingo-body { flex: 1; padding: 1.25rem; max-width: 560px; width: 100%; margin: 0 auto; }
+  .bingo-leaderboard { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); }
+  .bingo-lb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; gap: 12px; flex-wrap: wrap; }
+  .bingo-lb-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--green-900); margin: 0; }
+  .bingo-lb-prize { font-size: 11px; font-weight: 700; color: var(--gold-700, #8a6f2e); background: rgba(197, 162, 83, 0.14); padding: 4px 10px; border-radius: 999px; }
+  .bingo-lb-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--gray-100); border-radius: var(--radius-md); margin-bottom: 0.75rem; }
+  .bingo-lb-tab { border: none; background: transparent; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--gray-500); border-radius: calc(var(--radius-md) - 3px); cursor: pointer; font-family: var(--font-body); }
+  .bingo-lb-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .bingo-lb-list { display: flex; flex-direction: column; gap: 4px; }
+  .bingo-lb-row { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--white); }
+  .bingo-lb-row.you { background: rgba(197, 162, 83, 0.1); border: 1px solid var(--gold-500); }
+  .bingo-lb-rank { font-family: var(--font-display); font-weight: 700; color: var(--green-700); font-size: 14px; text-align: center; }
+  .bingo-lb-rank.gold { color: #b8902a; }
+  .bingo-lb-name { font-size: 13px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bingo-lb-score { font-size: 13px; font-weight: 700; color: var(--green-700); }
+  .bingo-lb-streak { font-size: 11px; color: var(--gray-500); font-weight: 600; }
+  .bingo-lb-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: 13px; }
   .bingo-sub { font-size: 14px; color: var(--gray-500); line-height: 1.5; margin-bottom: 1.1rem; text-align: center; }
   .bingo-statrow { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 1.1rem; box-shadow: var(--shadow-card); }
   .bingo-stat { display: flex; flex-direction: column; gap: 2px; }
@@ -1860,6 +1891,21 @@
       <button class="bingo-footer-share" id="bingoShareBtn" data-action="bingo-share" type="button" disabled>Share Result</button>
       <p class="bingo-footer-msg" id="bingoFooterMsg">Tap a tile to make your guess.</p>
     </div>
+
+    <!-- WEEKLY LEADERBOARD -->
+    <div class="bingo-leaderboard" id="bingoLeaderboard">
+      <div class="bingo-lb-header">
+        <h3 class="bingo-lb-title">This week's top players</h3>
+        <span class="bingo-lb-prize">🏆 #1 wins $25 TeeBox credit</span>
+      </div>
+      <div class="bingo-lb-tabs">
+        <button class="bingo-lb-tab active" data-action="bingo-lb-tab" data-tab="week" type="button">This week</button>
+        <button class="bingo-lb-tab" data-action="bingo-lb-tab" data-tab="today" type="button">Today</button>
+      </div>
+      <div class="bingo-lb-list" id="bingoLbList">
+        <div class="bingo-lb-empty">Loading leaderboard…</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2135,6 +2181,11 @@
         <div class="form-row"><label>Category</label><select id="sellCat"><option value="clubs">Clubs</option><option value="shoes">Shoes</option><option value="apparel">Apparel</option><option value="memorabilia">Memorabilia</option><option value="accessories">Accessories</option><option value="bags">Bags</option></select></div>
         <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" placeholder="0.00" /></div>
       </div>
+      <div id="priceSuggest" class="price-suggest" style="display:none"></div>
+      <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
+        <strong>🛡️ High-value verification</strong>
+        <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
+      </div>
       <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
       <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
@@ -2174,6 +2225,16 @@
       <div style="background:var(--gray-100);border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:14px;font-weight:600;color:var(--gray-700);">Total</span>
         <span style="font-family:var(--font-display);font-size:1.4rem;font-weight:700;color:var(--gray-900);" id="checkoutTotal">$0</span>
+      </div>
+      <!-- One-tap wallet button (Apple Pay / Google Pay / Link). Only shows
+           when the device + browser supports it. Requires the domain to be
+           registered in Stripe Dashboard → Settings → Payment methods →
+           Apple Pay → Add new domain (uploads a verification file at
+           /.well-known/apple-developer-merchantid-domain-association). -->
+      <div id="payment-request-button" style="margin-bottom: 12px;"></div>
+      <div id="payment-request-divider" style="display:none; text-align:center; font-size:11px; color:var(--gray-500); text-transform:uppercase; letter-spacing:1px; margin: 8px 0 12px; position:relative;">
+        <span style="background:var(--white); padding: 0 12px; position:relative; z-index:1;">or pay with card</span>
+        <hr style="position:absolute; top:50%; left:0; right:0; border:none; border-top: 1px solid var(--gray-200); margin:0;" />
       </div>
       <div class="modal-input-row">
         <label>Card Details</label>
@@ -2220,6 +2281,87 @@ function initStripe() {
   }
 }
 
+let paymentRequestButton = null;
+async function setupPaymentRequest(product) {
+  if (!stripeInstance || !product) return;
+  const amountCents = Math.round(Number(product.ask || 0) * 100);
+  if (amountCents <= 0) return;
+  try {
+    const pr = stripeInstance.paymentRequest({
+      country: 'US',
+      currency: 'usd',
+      total: {
+        label: product.name || 'TeeBox order',
+        amount: amountCents,
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    });
+    const canMake = await pr.canMakePayment();
+    const slot = document.getElementById('payment-request-button');
+    const divider = document.getElementById('payment-request-divider');
+    if (!canMake) {
+      if (slot) slot.style.display = 'none';
+      if (divider) divider.style.display = 'none';
+      return;
+    }
+    // Tear down any previous mount.
+    if (paymentRequestButton) {
+      try { paymentRequestButton.unmount(); } catch (_e) {}
+    }
+    const elements = stripeInstance.elements();
+    paymentRequestButton = elements.create('paymentRequestButton', {
+      paymentRequest: pr,
+      style: { paymentRequestButton: { theme: 'dark', height: '44px' } },
+    });
+    paymentRequestButton.mount('#payment-request-button');
+    if (slot) slot.style.display = '';
+    if (divider) divider.style.display = '';
+    pr.on('paymentmethod', async (ev) => {
+      try {
+        // Create the PaymentIntent server-side first.
+        const idToken = await window.CURRENT_USER.getIdToken();
+        const res = await fetch(CLOUD_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + idToken,
+          },
+          body: JSON.stringify({ listingId: String(product.id) }),
+        });
+        if (!res.ok) {
+          let detail = '';
+          try { detail = (await res.json()).error || ''; } catch {}
+          ev.complete('fail');
+          document.getElementById('card-errors').textContent = detail || 'Payment failed.';
+          return;
+        }
+        const { clientSecret } = await res.json();
+        const { error: confErr } = await stripeInstance.confirmCardPayment(
+          clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false }
+        );
+        if (confErr) {
+          ev.complete('fail');
+          document.getElementById('card-errors').textContent = confErr.message;
+          return;
+        }
+        ev.complete('success');
+        closeCheckoutDirect();
+        if (window.showToast) showToast('Payment successful — your order is confirmed.', 'success');
+        if (window.loadListings) try { await window.loadListings(); } catch (_e) {}
+      } catch (err) {
+        ev.complete('fail');
+        document.getElementById('card-errors').textContent = (err && err.message) || 'Payment failed.';
+      }
+    });
+  } catch (err) {
+    // Wallet button is best-effort. Card form still works.
+    console.warn('paymentRequest setup failed', err);
+  }
+}
+
 window.openCheckout = function(productId) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
   if (!p) return;
@@ -2244,7 +2386,10 @@ window.openCheckout = function(productId) {
   document.getElementById('payBtn').disabled = false;
   document.getElementById('payBtn').textContent = 'Pay Now';
   document.getElementById('checkoutBackdrop').classList.add('open');
-  setTimeout(initStripe, 100);
+  setTimeout(() => {
+    initStripe();
+    setupPaymentRequest(p);
+  }, 100);
 };
 
 window.closeCheckout = function(e) {
@@ -2362,6 +2507,10 @@ window.confirmPayment = async function() {
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
       if (window.hydrateWatchlist) window.hydrateWatchlist();
       setTimeout(() => { if (window.maybePromptReview) window.maybePromptReview(); }, 2000);
+      // Best-effort FCM push subscription (web only — iOS native uses APNs
+      // already wired in AppDelegate). Asks for permission once we know the
+      // user signed in. If they decline we never re-prompt this session.
+      setTimeout(() => { try { window.maybeRegisterPush && window.maybeRegisterPush(); } catch(_e){} }, 4000);
     } else {
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBadge').style.display = 'none';
@@ -2637,6 +2786,60 @@ window.confirmPayment = async function() {
     document.getElementById('verifyBackdrop').classList.add('open');
   };
 
+  // ──────────────────────────────────────────────────────────
+  // Web Push (FCM)
+  //   Asks the user for notification permission, gets an FCM token,
+  //   stores it under users/{uid}/fcmTokens/{token}. The
+  //   pushNotificationDispatch Cloud Function picks up tokens from
+  //   that subcollection when sending.
+  //   VAPID_KEY: from Firebase Console → Cloud Messaging → Web Push
+  //   certificates → Generate key pair. Replace the placeholder below.
+  // ──────────────────────────────────────────────────────────
+  const VAPID_KEY = 'REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY';
+  window.maybeRegisterPush = async function() {
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      if (!('Notification' in window)) return;
+      if (!window.CURRENT_USER) return;
+      if (VAPID_KEY === 'REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY') return; // not configured yet
+      // iOS PWA standalone supports Notification only in iOS 16.4+
+      if (Notification.permission === 'denied') return;
+      if (sessionStorage.getItem('teebox.push.declined') === '1') return;
+      if (Notification.permission === 'default') {
+        const p = await Notification.requestPermission();
+        if (p !== 'granted') {
+          sessionStorage.setItem('teebox.push.declined', '1');
+          return;
+        }
+      }
+      const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {scope: '/firebase-cloud-messaging-push-scope'});
+      const { getMessaging, getToken, onMessage } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-messaging.js");
+      const messaging = getMessaging(app);
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: swReg,
+      });
+      if (!token) return;
+      const { setDoc, doc, serverTimestamp } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      await setDoc(
+        doc(db, 'users', window.CURRENT_USER.uid, 'fcmTokens', token),
+        { createdAt: serverTimestamp(), platform: 'web', userAgent: navigator.userAgent.slice(0, 200) },
+        { merge: true }
+      );
+      onMessage(messaging, (payload) => {
+        // Foreground messages — show a toast since the SW notification
+        // is suppressed when the page has focus.
+        const t = (payload.notification && payload.notification.title) || 'New notification';
+        if (window.showToast) window.showToast(t, 'info');
+      });
+    } catch (err) {
+      // Push is best-effort. Log but never throw.
+      console.warn('push register failed', err && err.code || err);
+    }
+  };
+
   window.onTermsCheck = function() {
     const checked = document.getElementById('termsCheckbox').checked;
     const btn = document.getElementById('becomeSellerBtn');
@@ -2752,6 +2955,11 @@ window.confirmPayment = async function() {
     const desc = document.getElementById('sellDesc').value.trim();
     if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
     if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
+    const isHighValue = price >= 300;
+    if (isHighValue && selectedFiles.length < 2) {
+      showToast('Listings over $300 require at least 2 photos including a verification photo.');
+      return;
+    }
     const btn = document.getElementById('submitListingBtn');
     btn.disabled = true; btn.textContent = selectedFiles.length > 0 ? 'Uploading photos…' : 'Submitting…';
     try {
@@ -2764,6 +2972,11 @@ window.confirmPayment = async function() {
         photos: [], sellerId: window.CURRENT_USER.uid,
         status: 'active', createdAt: serverTimestamp(),
         expiresAt,
+        // High-value listings (>= $300) get a flag so admin can manually
+        // review the verification photo. requiresAuth=true tells the
+        // marketplace UI to show a "Verification photo included" badge.
+        requiresAuth: isHighValue,
+        authReviewState: isHighValue ? 'pending' : 'na',
       });
       const photoUrls = await uploadPhotos(docRef.id);
       if (photoUrls.length > 0) {
@@ -3051,10 +3264,47 @@ function toggleFav(e,id) { e.stopPropagation(); fav.has(id)?fav.delete(id):fav.a
 
 // ── DETAIL MODAL ──
 let currentDetailId = null;
+function injectListingJsonLd(p) {
+  // Schema.org Product + Offer markup. Helps Google show rich snippets +
+  // makes us eligible for the Shopping graph. Removed when modal closes
+  // so we never have two listings worth of LD on the page at once.
+  try {
+    const old = document.getElementById('ldListing');
+    if (old) old.remove();
+    const photo0 = (p.photos && p.photos[0]) || (p.photo) || null;
+    const ld = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": String(p.name || p.title || 'Listing'),
+      "description": String(p.desc || '').slice(0, 500),
+      "brand": p.brand ? { "@type": "Brand", "name": String(p.brand) } : undefined,
+      "category": p.cat || undefined,
+      "image": photo0 ? [String(photo0)] : undefined,
+      "offers": {
+        "@type": "Offer",
+        "url": "https://teeboxmarket.com/?listing=" + encodeURIComponent(String(p.id)),
+        "priceCurrency": "USD",
+        "price": String(Number(p.ask || 0)),
+        "availability": p.status === 'sold' ? "https://schema.org/SoldOut" : (p.status === 'pending' ? "https://schema.org/PreOrder" : "https://schema.org/InStock"),
+        "itemCondition": "https://schema.org/UsedCondition"
+      }
+    };
+    const s = document.createElement('script');
+    s.type = 'application/ld+json';
+    s.id   = 'ldListing';
+    s.textContent = JSON.stringify(ld);
+    document.head.appendChild(s);
+  } catch (_e) { /* JSON-LD is best-effort */ }
+}
+function removeListingJsonLd() {
+  const old = document.getElementById('ldListing');
+  if (old) old.remove();
+}
 function openDetailModal(id) {
   const p = window.PRODUCTS.find(x=>String(x.id)===String(id));
   if (!p) return;
   currentDetailId = id;
+  injectListingJsonLd(p);
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -3199,7 +3449,7 @@ window.setMainPhoto = function(url, el) {
 window.openDetailModal = openDetailModal;
 
 function closeDetailModal(e) { if(e.target===document.getElementById('detailBackdrop')) closeDetailModalDirect(); }
-function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); }
+function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); removeListingJsonLd(); }
 window.closeDetailModalDirect = closeDetailModalDirect;
 
 function openProductModal(id,mode='buy') {
@@ -4177,8 +4427,80 @@ function openSellModal() {
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
   applySellDraft();
+  // Wire price-suggest debounce once. Reads from sellTitle + sellBrand,
+  // queries Firestore for sold listings of the same brand+title, and
+  // shows a suggested band in the .price-suggest panel.
+  if (!window.__priceSuggestWired) {
+    window.__priceSuggestWired = true;
+    let t;
+    const refresh = () => {
+      clearTimeout(t);
+      t = setTimeout(() => suggestPrice().catch(()=>{}), 350);
+    };
+    ['sellTitle', 'sellBrand'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', refresh);
+    });
+    const priceEl = document.getElementById('sellPrice');
+    if (priceEl) priceEl.addEventListener('input', () => {
+      const v = parseFloat(priceEl.value || '0');
+      const notice = document.getElementById('authPhotoNotice');
+      if (!notice) return;
+      notice.style.display = v >= 300 ? '' : 'none';
+      const handleSpan = document.getElementById('authHandleHint');
+      if (handleSpan && window.CURRENT_USER) {
+        const dn = (window.CURRENT_PROFILE && window.CURRENT_PROFILE.displayName) || (window.CURRENT_USER.email || '').split('@')[0];
+        if (dn) handleSpan.textContent = `"${dn}"`;
+      }
+    });
+  }
 }
 window.openSellModal = openSellModal;
+
+async function suggestPrice() {
+  const titleEl = document.getElementById('sellTitle');
+  const brandEl = document.getElementById('sellBrand');
+  const priceEl = document.getElementById('sellPrice');
+  const panel   = document.getElementById('priceSuggest');
+  if (!panel) return;
+  const title = (titleEl && titleEl.value || '').trim().toLowerCase();
+  const brand = (brandEl && brandEl.value || '').trim();
+  if (!brand || title.length < 4) { panel.style.display = 'none'; return; }
+  try {
+    const { getFirestore, collection, query, where, limit, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    // Pull up to 50 same-brand sold/active listings; filter title-similarity client-side.
+    const snap = await getDocs(query(
+      collection(db, 'listings'),
+      where('brand', '==', brand),
+      limit(50),
+    ));
+    const tokens = title.split(/\s+/).filter(t => t.length > 2);
+    const hits = [];
+    snap.forEach(d => {
+      const l = d.data();
+      const lt = String(l.title || '').toLowerCase();
+      const overlap = tokens.filter(t => lt.includes(t)).length;
+      if (overlap >= Math.min(2, tokens.length) && Number(l.ask) > 0) {
+        hits.push(Number(l.ask));
+      }
+    });
+    if (hits.length < 3) { panel.style.display = 'none'; return; }
+    hits.sort((a, b) => a - b);
+    const median = hits[Math.floor(hits.length / 2)];
+    const low  = hits[Math.floor(hits.length * 0.25)];
+    const high = hits[Math.floor(hits.length * 0.75)];
+    panel.innerHTML =
+      `💡 <span>Comparable listings: <strong>$${low}–$${high}</strong> · median <strong>$${median}</strong> (${hits.length} listings)</span>` +
+      `<button type="button" data-action="apply-suggest-price" data-price="${median}">Use $${median}</button>`;
+    panel.style.display = '';
+  } catch (e) {
+    // Best-effort — never block the listing flow.
+    panel.style.display = 'none';
+  }
+}
+window.suggestPrice = suggestPrice;
 function closeSellModal(e) { if(e.target===document.getElementById('sellModalBackdrop')) closeSellModalDirect(); }
 function closeSellModalDirect() { document.getElementById('sellModalBackdrop').classList.remove('open'); }
 window.closeSellModalDirect = closeSellModalDirect;
@@ -4656,7 +4978,7 @@ async function submitOffer() {
     const { getFirestore, collection, addDoc, serverTimestamp, Timestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
     await addDoc(collection(db, 'offers'), {
       buyerId: window.CURRENT_USER.uid,
       sellerId: p.sellerId,
@@ -4668,7 +4990,7 @@ async function submitOffer() {
       createdAt: serverTimestamp(),
     });
     document.getElementById('makeOfferBackdrop').classList.remove('open');
-    showToast('Offer sent to seller. They have 72 hours to respond.', 'success');
+    showToast('Offer sent to seller. They have 48 hours to respond.', 'success');
   } catch (e) {
     console.error('submitOffer failed:', e);
     showToast('Could not send offer.');
@@ -4770,11 +5092,14 @@ async function renderSellerOffers() {
     const id = window.safeAttr(window.safeId(o.id));
     const lid = window.safeAttr(window.safeId(o.listingId));
     const buy = window.safeAttr(window.safeId(o.buyerId));
+    const expMs = o.expiresAt ? ((o.expiresAt.toMillis ? o.expiresAt.toMillis() : new Date(o.expiresAt).getTime()) - Date.now()) : 0;
+    const urgent = expMs > 0 && expMs < 12 * 3600 * 1000;
+    const chipClass = urgent ? 'offer-time-chip urgent' : 'offer-time-chip';
     return `<div class="offer-row" data-offer-id="${id}">
       <div class="offer-img">${img}</div>
       <div class="offer-meta">
         <div class="offer-title">${window.safeText(listing.title || 'Listing')}</div>
-        <div class="offer-sub">From ${window.safeText(buyerName)} · ${window.safeText(timeRemaining(o.expiresAt))}</div>
+        <div class="offer-sub">From ${window.safeText(buyerName)} <span class="${chipClass}">${window.safeText(timeRemaining(o.expiresAt))}</span></div>
         ${o.message ? `<div class="offer-msg">"${window.safeText(o.message)}"</div>` : ''}
       </div>
       <div style="text-align:right">
@@ -5594,15 +5919,20 @@ document.querySelectorAll('.bottom-nav-item').forEach(btn => {
   });
 });
 
-// 6. Launch shortcuts + deep links from brand SEO pages.
+// 6. Launch shortcuts + deep links from brand SEO pages + path-style routes.
 //    PWA manifest shortcuts: /?launch=sell /?launch=inbox /?launch=watchlist
 //    Brand SEO links:        /?brand=scotty-cameron /?listing=<id> /?action=sell
+//    Public seller pages:    /seller/<uid>  (Firebase rewrite → /)
 const __params = new URLSearchParams(location.search);
 const __launch = __params.get('launch');
 const __action = __params.get('action');
 const __brandQ = __params.get('brand');
 const __listingQ = __params.get('listing');
-if (__launch || __action || __brandQ || __listingQ) {
+const __sellerQ  = __params.get('seller');
+// Detect /seller/<uid> path-style route — Firebase rewrites + GitHub Pages
+// 404 to /index.html, so we just read the path.
+const __sellerPath = (location.pathname.match(/^\/seller\/([A-Za-z0-9_\-]+)\/?$/) || [])[1];
+if (__launch || __action || __brandQ || __listingQ || __sellerQ || __sellerPath) {
   setTimeout(() => {
     if (__launch === 'sell' || __action === 'sell') {
       window.handleSellClick && window.handleSellClick();
@@ -5621,7 +5951,11 @@ if (__launch || __action || __brandQ || __listingQ) {
         filterSearch(term);
       }
     }
-    history.replaceState({}, '', location.pathname);
+    const sellerUid = __sellerPath || __sellerQ;
+    if (sellerUid) {
+      window.openProfile && window.openProfile(sellerUid);
+    }
+    if (!__sellerPath) history.replaceState({}, '', location.pathname);
   }, 800);
 }
 
@@ -7238,12 +7572,85 @@ if (uploadZone) {
     }
     document.body.style.overflow = 'hidden';
     render();
+    loadLeaderboard(currentLbTab);
 
     // Reflect bottom-nav active state
     document.querySelectorAll('.bottom-nav-item').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === 'bingo');
     });
   }
+  let currentLbTab = 'week';
+  async function loadLeaderboard(scope) {
+    currentLbTab = scope || 'week';
+    const list = document.getElementById('bingoLbList');
+    if (!list) return;
+    document.querySelectorAll('.bingo-lb-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === currentLbTab);
+    });
+    list.innerHTML = '<div class="bingo-lb-empty">Loading…</div>';
+    try {
+      const { getFirestore, collection, query, where, orderBy, limit, getDocs } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const db = getFirestore();
+      // Build the date filter: today's UTC date string for "today",
+      // last 7 UTC days for "week".
+      const dates = [];
+      const today = new Date();
+      const days = currentLbTab === 'today' ? 1 : 7;
+      for (let i = 0; i < days; i++) {
+        const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
+        dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`);
+      }
+      // Firestore "in" query: max 30 values, but we cap at 7. Read all
+      // gameScores in those dates, sort client-side by score desc.
+      const snap = await getDocs(query(
+        collection(db, 'gameScores'),
+        where('date', 'in', dates),
+        orderBy('correctCount', 'desc'),
+        limit(50),
+      ));
+      const rows = [];
+      const seenUid = new Set();
+      snap.forEach(d => {
+        const r = d.data();
+        // Show each user only once per scope (their best score).
+        if (seenUid.has(r.uid)) return;
+        seenUid.add(r.uid);
+        rows.push(r);
+      });
+      if (!rows.length) {
+        list.innerHTML = '<div class="bingo-lb-empty">No completed scores yet — be the first.</div>';
+        return;
+      }
+      const me = window.CURRENT_USER && window.CURRENT_USER.uid;
+      // Resolve display names in parallel (best-effort).
+      const profilesByUid = {};
+      await Promise.all(rows.slice(0, 9).map(async r => {
+        if (!profilesByUid[r.uid]) {
+          try { profilesByUid[r.uid] = await loadProfile(r.uid); }
+          catch (_e) { profilesByUid[r.uid] = null; }
+        }
+      }));
+      list.innerHTML = rows.slice(0, 9).map((r, i) => {
+        const rank = i + 1;
+        const rankClass = rank === 1 ? 'gold' : '';
+        const youClass = (me && r.uid === me) ? 'you' : '';
+        const name = (profilesByUid[r.uid] && profilesByUid[r.uid].displayName) || ('Player ' + (r.uid || '').slice(-4).toUpperCase());
+        const streakStr = r.streak ? `${r.streak}🔥` : '';
+        const rankStr = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
+        return `<div class="bingo-lb-row ${youClass}">
+          <div class="bingo-lb-rank ${rankClass}">${rankStr}</div>
+          <div class="bingo-lb-name">${window.safeText(name)}</div>
+          <div class="bingo-lb-score">${r.correctCount || 0}/9</div>
+          <div class="bingo-lb-streak">${streakStr}</div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      console.warn('leaderboard load failed', err);
+      list.innerHTML = '<div class="bingo-lb-empty">Could not load leaderboard.</div>';
+    }
+  }
+  window.loadLeaderboard = loadLeaderboard;
   function closeBingo() {
     const screen = document.getElementById('bingoScreen');
     if (screen) {
@@ -7668,6 +8075,12 @@ if (uploadZone) {
   window.__actions = window.__actions || {};
   const A = window.__actions;
   A['open-bingo']           = () => openBingo();
+  A['bingo-lb-tab']         = (el) => loadLeaderboard(el.dataset.tab);
+  A['apply-suggest-price']  = (el) => {
+    const p = Number(el.dataset.price || 0);
+    const inp = document.getElementById('sellPrice');
+    if (inp && p > 0) inp.value = String(p);
+  };
   A['close-bingo']          = () => closeBingo();
   A['bingo-guess']          = (el) => {
     const idx = Number(el && el.dataset && el.dataset.idx);

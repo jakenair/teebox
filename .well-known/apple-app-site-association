@@ -1,0 +1,22 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "L434SWLF3L.com.teeboxmarket.app",
+        "paths": [
+          "/",
+          "/listing/*",
+          "/seller/*",
+          "/brand/*",
+          "/bingo*",
+          "NOT /privacy*",
+          "NOT /terms*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["L434SWLF3L.com.teeboxmarket.app"]
+  }
+}

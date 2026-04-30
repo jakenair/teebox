@@ -23,13 +23,18 @@
     "public": ".",
     "ignore": [
       "firebase.json",
-      "**/.*",
       "**/node_modules/**",
+      "**/.git/**",
+      "**/.DS_Store",
       "functions/**",
       "*.rules",
       "README.md"
     ],
     "cleanUrls": true,
+    "rewrites": [
+      { "source": "/seller/**", "destination": "/index.html" },
+      { "source": "/listing/**", "destination": "/index.html" }
+    ],
     "headers": [
       {
         "source": "**",
@@ -40,6 +45,18 @@
           { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
           { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
           { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+        ]
+      },
+      {
+        "source": "/.well-known/apple-app-site-association",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" }
+        ]
+      },
+      {
+        "source": "/apple-app-site-association",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" }
         ]
       }
     ]

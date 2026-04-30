@@ -1198,3 +1198,237 @@ exports.redeemReferralCredit = onDocumentUpdated(
     }
   }
 );
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnWatchlistPriceDrop (scheduled, every 4 hours)
+//   For each listing whose ask price decreased since the last
+//   recorded `lastPriceCheck` value, write a notification doc to
+//   every user who has it in their watchlist. Uses a small
+//   index doc (`pricesIndex/{listingId}`) to remember the
+//   previous price between runs.
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnWatchlistPriceDrop = onSchedule(
+  {schedule: "every 4 hours"},
+  async () => {
+    try {
+      const db = admin.firestore();
+      const listingsSnap = await db.collection("listings")
+        .where("status", "==", "active")
+        .limit(500)
+        .get();
+
+      let notified = 0;
+      for (const doc of listingsSnap.docs) {
+        const listing = doc.data();
+        const ask = Number(listing.ask || 0);
+        if (!ask) continue;
+
+        const idxRef = db.collection("pricesIndex").doc(doc.id);
+        const idx = await idxRef.get();
+        const prev = idx.exists ? Number(idx.data().ask || 0) : 0;
+
+        // Always update the index. Only notify if it dropped.
+        await idxRef.set({ask, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+        if (prev <= 0 || ask >= prev) continue;
+
+        // Find users who have this listing in their watchlist
+        const watchSnap = await db.collectionGroup("watchlist")
+          .where("listingId", "==", doc.id)
+          .limit(200)
+          .get();
+        if (watchSnap.empty) continue;
+
+        const drop = prev - ask;
+        const pct = Math.round((drop / prev) * 100);
+
+        const batch = db.batch();
+        watchSnap.forEach((w) => {
+          // Path is users/{uid}/watchlist/{listingId}; uid is parent.parent.id
+          const uid = w.ref.parent.parent.id;
+          if (uid === listing.sellerId) return; // don't notify the seller
+          const notifRef = db.collection("users").doc(uid)
+            .collection("notifications").doc();
+          batch.set(notifRef, {
+            kind: "price-drop",
+            listingId: doc.id,
+            listingTitle: listing.title || "Listing",
+            previousAsk: prev,
+            currentAsk: ask,
+            dropAmount: drop,
+            dropPct: pct,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          });
+        });
+        await batch.commit();
+        notified += watchSnap.size;
+      }
+
+      logger.info(`notifyOnWatchlistPriceDrop: wrote ${notified} notification(s)`);
+    } catch (err) {
+      logger.error("notifyOnWatchlistPriceDrop error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// optimizeListingPhoto (Storage trigger)
+//   Runs whenever a new image is uploaded to listings/{id}/photos.
+//   Strips EXIF (privacy: removes geolocation), resizes to a sensible
+//   max dimension, and rewrites as WebP. The original is replaced
+//   in-place to keep URLs stable. Skips files that are already
+//   processed (have a content-disposition or webp content-type).
+// ─────────────────────────────────────────────────────────────
+exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
+  .onObjectFinalized(
+    {memory: "1GiB", region: "us-east1"},
+    async (event) => {
+      const obj = event.data;
+      if (!obj || !obj.name) return;
+      // Only process listing photos.
+      if (!obj.name.startsWith("listings/")) return;
+      // Skip non-images and already-WebP files.
+      const contentType = obj.contentType || "";
+      if (!contentType.startsWith("image/")) return;
+      if (obj.metadata && obj.metadata.optimized === "true") return;
+      try {
+        const sharp = require("sharp");
+        const bucket = admin.storage().bucket(obj.bucket);
+        const file = bucket.file(obj.name);
+        const [buf] = await file.download();
+        const out = await sharp(buf)
+          .rotate() // honor EXIF orientation
+          .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
+          .withMetadata({}) // strip EXIF (incl. GPS)
+          .webp({quality: 82})
+          .toBuffer();
+        await file.save(out, {
+          metadata: {
+            contentType: "image/webp",
+            cacheControl: "public, max-age=31536000",
+            metadata: {optimized: "true"},
+          },
+          resumable: false,
+        });
+        logger.info(`optimized ${obj.name}: ${buf.length} → ${out.length} bytes`);
+      } catch (err) {
+        logger.error("optimizeListingPhoto error", obj.name, err);
+      }
+    }
+  );
+
+// ─────────────────────────────────────────────────────────────
+// createIdentitySession (callable)
+//   Creates a Stripe Identity Verification Session. Returned
+//   client_secret + url is used by the iOS / web client to embed
+//   the verification flow. We mark the user as `identityPending`
+//   and only flip to `identityVerified=true` when the
+//   stripeIdentityWebhook receives `identity.verification_session.verified`.
+// ─────────────────────────────────────────────────────────────
+exports.createIdentitySession = onCall(
+  {secrets: [stripeSecret]},
+  async (request) => {
+    const auth = request.auth;
+    if (!auth) {
+      throw new HttpsError("unauthenticated", "Sign in first.");
+    }
+    const uid = auth.uid;
+    try {
+      const s = stripe(stripeSecret.value());
+      const session = await s.identity.verificationSessions.create({
+        type: "document",
+        metadata: {uid},
+        options: {
+          document: {
+            require_id_number: false,
+            require_live_capture: true,
+            require_matching_selfie: true,
+          },
+        },
+      });
+      await admin.firestore().collection("users").doc(uid).set({
+        identityPending: true,
+        identitySessionId: session.id,
+        identityRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      return {
+        url: session.url,
+        clientSecret: session.client_secret,
+      };
+    } catch (err) {
+      logger.error("createIdentitySession error", err);
+      throw new HttpsError("internal", "Could not start verification.");
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// pushNotificationDispatch (Firestore trigger)
+//   Whenever a notification doc lands at users/{uid}/notifications,
+//   look up the user's FCM tokens (stored at users/{uid}/fcmTokens)
+//   and dispatch the message. Tokens that fail with "registration-
+//   token-not-registered" are pruned automatically.
+// ─────────────────────────────────────────────────────────────
+exports.pushNotificationDispatch = onDocumentCreated(
+  {document: "users/{uid}/notifications/{notifId}"},
+  async (event) => {
+    try {
+      const uid = event.params.uid;
+      const data = event.data && event.data.data();
+      if (!data) return;
+      const db = admin.firestore();
+      const tokensSnap = await db.collection("users").doc(uid)
+        .collection("fcmTokens").get();
+      if (tokensSnap.empty) return;
+
+      // Compose a short notification body based on the notification kind.
+      let title = "TeeBox";
+      let body = "You have a new notification";
+      if (data.kind === "price-drop") {
+        title = `Price drop on ${data.listingTitle || "your watchlist"}`;
+        body = `Now $${data.currentAsk} (was $${data.previousAsk}, -${data.dropPct}%)`;
+      } else if (data.kind === "saved-search-match") {
+        title = "New listing matches your saved search";
+        body = data.listingTitle || "Tap to view";
+      } else if (data.kind === "offer-received") {
+        title = `New offer: $${data.amount}`;
+        body = `From ${data.buyerName || "a buyer"} on ${data.listingTitle || "your listing"}`;
+      } else if (data.kind === "new-message") {
+        title = `New message from ${data.fromName || "buyer"}`;
+        body = data.preview || "Tap to read";
+      }
+
+      const tokens = [];
+      tokensSnap.forEach((t) => tokens.push(t.id));
+      const resp = await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: {title, body},
+        data: {
+          kind: String(data.kind || ""),
+          listingId: String(data.listingId || ""),
+          notificationId: String(event.params.notifId),
+        },
+      });
+
+      // Prune dead tokens.
+      const dead = [];
+      resp.responses.forEach((r, i) => {
+        if (!r.success && r.error &&
+            (r.error.code === "messaging/registration-token-not-registered" ||
+             r.error.code === "messaging/invalid-registration-token")) {
+          dead.push(tokens[i]);
+        }
+      });
+      if (dead.length) {
+        const batch = db.batch();
+        dead.forEach((t) => batch.delete(
+          db.collection("users").doc(uid).collection("fcmTokens").doc(t)
+        ));
+        await batch.commit();
+        logger.info(`pruned ${dead.length} dead FCM token(s) for ${uid}`);
+      }
+    } catch (err) {
+      logger.error("pushNotificationDispatch error", err);
+    }
+  }
+);

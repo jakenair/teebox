@@ -15,6 +15,7 @@
   "dependencies": {
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.0",
+    "sharp": "^0.34.0",
     "stripe": "^22.0.2"
   },
   "devDependencies": {
