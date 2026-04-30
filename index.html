@@ -3641,7 +3641,7 @@ window.setMainPhoto = function(url, el) {
 window.openDetailModal = openDetailModal;
 
 function closeDetailModal(e) { if(e.target===document.getElementById('detailBackdrop')) closeDetailModalDirect(); }
-function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); removeListingJsonLd(); }
+function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); removeListingJsonLd(); currentDetailId = null; }
 window.closeDetailModalDirect = closeDetailModalDirect;
 
 function openProductModal(id,mode='buy') {
@@ -6904,8 +6904,16 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     `;
   }
 
+  // Apple Review 5.1.1(v): account deletion must be reachable from
+  // inside the app via an obvious path. The desktop user-menu has it,
+  // but the mobile profile tab (the path the reviewer takes) needs it
+  // too. Sign out + Delete account live next to Edit Profile here.
   const editBtn = isMe
-    ? `<div class="profile-actions"><button class="btn-full green" data-action="edit-profile">Edit Profile</button></div>`
+    ? `<div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+         <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
+         <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
+         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
+       </div>`
     : '';
 
   document.getElementById('profileBody').innerHTML = `
