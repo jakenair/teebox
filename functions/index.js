@@ -19,6 +19,10 @@ const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
   "https://www.teeboxmarket.com",
+  "https://teebox-market.web.app",
+  "https://teebox-market.firebaseapp.com",
+  "capacitor://localhost",
+  "http://localhost",
 ];
 
 class HttpError extends Error {

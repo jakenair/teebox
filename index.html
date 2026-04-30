@@ -5572,16 +5572,33 @@ document.querySelectorAll('.bottom-nav-item').forEach(btn => {
   });
 });
 
-// 6. Launch shortcuts (PWA manifest "shortcuts" feature): /?launch=sell
-//    /?launch=inbox /?launch=watchlist
+// 6. Launch shortcuts + deep links from brand SEO pages.
+//    PWA manifest shortcuts: /?launch=sell /?launch=inbox /?launch=watchlist
+//    Brand SEO links:        /?brand=scotty-cameron /?listing=<id> /?action=sell
 const __params = new URLSearchParams(location.search);
 const __launch = __params.get('launch');
-if (__launch) {
+const __action = __params.get('action');
+const __brandQ = __params.get('brand');
+const __listingQ = __params.get('listing');
+if (__launch || __action || __brandQ || __listingQ) {
   setTimeout(() => {
-    if (__launch === 'sell')      window.handleSellClick && window.handleSellClick();
+    if (__launch === 'sell' || __action === 'sell') {
+      window.handleSellClick && window.handleSellClick();
+    }
     if (__launch === 'inbox')     window.openInbox && window.openInbox();
     if (__launch === 'watchlist') (window.openWatchlist || openWatchlistWithDropBadges)();
-    // Clean URL so refresh doesn't re-trigger.
+    if (__listingQ) {
+      window.openDetailModal && window.openDetailModal(__listingQ);
+    } else if (__brandQ) {
+      // Brand slugs come from /brand/<slug> SEO pages — feed the slug into the
+      // global search so the user lands on a pre-filtered marketplace.
+      const term = __brandQ.replace(/-/g, ' ');
+      const si = document.getElementById('searchInput');
+      if (si && typeof filterSearch === 'function') {
+        si.value = term;
+        filterSearch(term);
+      }
+    }
     history.replaceState({}, '', location.pathname);
   }, 800);
 }

@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /functions/
 
-Sitemap: https://teebox-market.web.app/sitemap.xml
+Sitemap: https://teeboxmarket.com/sitemap.xml
