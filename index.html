@@ -43,12 +43,13 @@
 <script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script>
 
 <!--
-  Smart App Banner — shown to iOS Safari users, points to the App Store.
-  Auto-installs the app once Apple Review approves Build 12 / 13. Replace
-  APP_STORE_ID with the numeric ID from App Store Connect → App Information
-  → Apple ID once available; until then this tag is harmless.
+  Smart App Banner — shown to iOS Safari users with a one-tap install.
+  app-id is the App Store Connect "Apple ID" (numeric). app-argument is
+  the URL passed to the iOS app when the banner's Open button is tapped
+  after install — used by the Universal Links handler to route the user
+  to the right screen.
 -->
-<meta name="apple-itunes-app" content="app-argument=https://teeboxmarket.com/">
+<meta name="apple-itunes-app" content="app-id=6763954448, app-argument=https://teeboxmarket.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
