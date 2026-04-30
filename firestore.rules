@@ -311,10 +311,13 @@ service cloud.firestore {
       // ─────────────────────────────────────────────
       match /helpfulVotes/{userId} {
         allow read: if true;
-        allow create, update: if request.auth != null
+        // Votes are immutable once cast — prevents spam-flip cost attack.
+        // To change a vote, user must delete then re-create.
+        allow create: if request.auth != null
           && request.auth.uid == userId
           && appCheckOk()
           && request.resource.data.vote in ['yes','no'];
+        allow update: if false;
         allow delete: if request.auth != null && request.auth.uid == userId;
       }
     }
@@ -614,13 +617,14 @@ service cloud.firestore {
             && (request.resource.data.status == 'countered'
                 || !('counterAmount' in request.resource.data.diff(resource.data).affectedKeys())))
           ||
-          // Buyer can edit their offer message while still pending.
+          // Buyer can set message ONCE if not previously set (prevents
+          // spam-edit cost attack). To change, buyer must withdraw + re-create.
           (request.auth.uid == resource.data.buyerId
             && request.resource.data.status == 'pending'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['message'])
-            && (!('message' in request.resource.data.keys())
-                || (request.resource.data.message is string
-                    && request.resource.data.message.size() <= 500)))
+            && !('message' in resource.data.keys())
+            && request.resource.data.message is string
+            && request.resource.data.message.size() <= 500)
         );
 
       allow delete: if false;
@@ -675,12 +679,9 @@ service cloud.firestore {
             || (request.resource.data.streak is int
                 && request.resource.data.streak >= 0));
 
-      allow update: if request.auth != null
-        && appCheckOk()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['streak'])
-        && request.resource.data.streak is int
-        && request.resource.data.streak >= 0;
+      // Streak is server-computed via Cloud Functions — clients can't update
+      // their own score after creation. Prevents spam-update cost attack.
+      allow update: if false;
 
       allow delete: if false;
     }

@@ -1,17 +1,15 @@
 slug,course_name,wikipedia_url,image_url,author,license,date_sourced,status
-augusta-national,Augusta National Golf Club,https://en.wikipedia.org/wiki/Augusta_National_Golf_Club,https://commons.wikimedia.org/wiki/File:Antonio_Murdaca_(17050741607).jpg,Ryan Schreiber,CC BY 2.0,2026-04-30,sourced
-pine-valley,Pine Valley Golf Club,https://en.wikipedia.org/wiki/Pine_Valley_Golf_Club,https://commons.wikimedia.org/wiki/File:PineValley17th.jpg,Frjlove (talk),Public domain,2026-04-30,sourced
+pine-valley,Pine Valley Golf Club,https://www.pinevalleygolfclub.com/,,,,2026-04-30,icon_rejected
 cypress-point,Cypress Point Club,https://en.wikipedia.org/wiki/Cypress_Point_Club,https://commons.wikimedia.org/wiki/File:View_From_Clubhouse_to_16_-_Flickr_-_schnaars.jpg,"schnaars from San Jose, CA",CC BY-SA 2.0,2026-04-30,sourced
 pebble-beach,Pebble Beach Golf Links,https://en.wikipedia.org/wiki/Pebble_Beach_Golf_Links,"https://commons.wikimedia.org/wiki/File:Pebble_Beach_Golf_Links,_hole_7.jpg",Metallion,CC BY-SA 3.0,2026-04-30,sourced
 shinnecock-hills,Shinnecock Hills Golf Club,https://en.wikipedia.org/wiki/Shinnecock_Hills_Golf_Club,https://commons.wikimedia.org/wiki/File:Shinnecock_Hills_GC_01.jpg,Peetlesnumber1,CC BY-SA 4.0,2026-04-30,sourced
 oakmont,Oakmont Country Club,https://en.wikipedia.org/wiki/Oakmont_Country_Club,https://commons.wikimedia.org/wiki/File:OakmontCountryClub.jpg,Lee Paxton,CC BY-SA 4.0,2026-04-30,sourced
 national-golf-links,National Golf Links of America,https://en.wikipedia.org/wiki/National_Golf_Links_of_America,https://commons.wikimedia.org/wiki/File:National-golf.jpg,Americasroof at en.wikipedia,CC BY-SA 3.0,2026-04-30,sourced
-sand-hills,Sand Hills Golf Club,https://en.wikipedia.org/wiki/Sand_Hills_Golf_Club,,,,2026-04-30,no_candidate_images
 bandon-dunes,Bandon Dunes Resort,https://en.wikipedia.org/wiki/Bandon_Dunes_Golf_Resort,https://commons.wikimedia.org/wiki/File:View_of_lodge_and_clubhouse_from_18th_fairway_-_Bandon_Dunes.jpg,Mwlloyd1216,CC BY-SA 4.0,2026-04-30,sourced
 chicago-golf-club,Chicago Golf Club,https://en.wikipedia.org/wiki/Chicago_Golf_Club,https://commons.wikimedia.org/wiki/File:Wheaton_chicagogolf.jpg,USGS,Public domain,2026-04-30,sourced
 winged-foot-west,Winged Foot Golf Club (West),https://en.wikipedia.org/wiki/Winged_Foot_Golf_Club,https://commons.wikimedia.org/wiki/File:Winged_Foot_Golf_Club_main_entrance.jpg,,CC BY-SA 3.0,2026-04-30,sourced
-seminole,Seminole Golf Club,https://en.wikipedia.org/wiki/Seminole_Golf_Club,,,,2026-04-30,no_candidate_images
-los-angeles-cc-north,Los Angeles Country Club (North),https://en.wikipedia.org/wiki/Los_Angeles_Country_Club,,,,2026-04-30,no_candidate_images
+seminole,Seminole Golf Club,https://www.seminolegolfclub.com/,https://www.seminolegolfclub.com/apple-touch-icon.png,,Trademark of Seminole Golf Club,2026-04-30,favicon_scraped
+los-angeles-cc-north,Los Angeles Country Club (North),https://www.thelacc.org/?p=home&e=6&gotofile=%2ffiles%2fNorthCourse_Commemorative_Edition.pdf,https://www.thelacc.org/apple-touch-icon.png,,Trademark of Los Angeles Country Club (North),2026-04-30,favicon_scraped
 olympic-club-lake,The Olympic Club (Lake),https://en.wikipedia.org/wiki/Olympic_Club,"https://commons.wikimedia.org/wiki/File:Nahl_Bros._1855,_The_Olympic_Club.jpg",Hugo Wilhelm Arthur Nahl / Charles Christian Nahl,Public domain,2026-04-30,sourced
 bethpage-black,Bethpage State Park (Black),https://en.wikipedia.org/wiki/Bethpage_State_Park,https://commons.wikimedia.org/wiki/File:Bethpage-golf1.jpg,Americasroof,CC BY-SA 3.0,2026-04-30,sourced
 pinehurst-no-2,Pinehurst No. 2,https://en.wikipedia.org/wiki/Pinehurst_Resort,https://commons.wikimedia.org/wiki/File:Pinehurst_No._4_(4599083949).jpg,"Dan Perry from Atlanta, USA",CC BY 2.0,2026-04-30,sourced
@@ -22,10 +20,7 @@ inverness,Inverness Club,https://en.wikipedia.org/wiki/Inverness_Club,https://co
 crystal-downs,Crystal Downs Country Club,"https://en.wikipedia.org/wiki/Crystal_Downs_Country_Club,_Michigan",https://commons.wikimedia.org/wiki/File:9th_Green_at_Crystal_Downs.JPG,Matthewwlloyd,CC BY 3.0,2026-04-30,sourced
 prairie-dunes,Prairie Dunes Country Club,https://en.wikipedia.org/wiki/Prairie_Dunes_Country_Club,,,,2026-04-30,no_candidate_images
 quaker-ridge,Quaker Ridge Golf Club,https://en.wikipedia.org/wiki/Quaker_Ridge_Golf_Club,https://commons.wikimedia.org/wiki/File:ScarsdaleNY_QuakerRidgeGolfClub1.jpg,Magicpiano,CC BY-SA 4.0,2026-04-30,sourced
-wade-hampton,Wade Hampton Golf Club,https://en.wikipedia.org/wiki/Wade_Hampton,,,,2026-04-30,no_candidate_images
-whispering-pines,Whispering Pines Golf Club,https://en.wikipedia.org/wiki/Whispering_Pines,,,,2026-04-30,no_candidate_images
 castle-pines,Castle Pines Golf Club,"https://en.wikipedia.org/wiki/Castle_Pines_Village,_Colorado","https://commons.wikimedia.org/wiki/File:Castle_Pines_Village,_Colorado.JPG",Jeffrey Beall,CC BY 4.0,2026-04-30,sourced
-shadow-creek,Shadow Creek,https://en.wikipedia.org/wiki/Shadow_Creek,,,,2026-04-30,no_candidate_images
 somerset-hills,Somerset Hills Country Club,https://en.wikipedia.org/wiki/Somerset_Hills,https://commons.wikimedia.org/wiki/File:Map_Somerset_Hills.jpg,Brooksbetz,CC BY-SA 4.0,2026-04-30,sourced
 friars-head,Friar's Head,https://en.wikipedia.org/wiki/List_of_golf_courses_designed_by_Coore_%26_Crenshaw,,,,2026-04-30,no_candidate_images
 turnberry-ailsa,Trump Turnberry (Ailsa),https://en.wikipedia.org/wiki/Trump_Turnberry,https://commons.wikimedia.org/wiki/File:Trump_Turnberry_Golf_Course_-_geograph.org.uk_-_5177081.jpg,Billy McCrorie,CC BY-SA 2.0,2026-04-30,sourced
@@ -42,7 +37,7 @@ walton-heath-old,Walton Heath Golf Club (Old),https://en.wikipedia.org/wiki/Walt
 les-bordes,Les Bordes Golf Club,https://en.wikipedia.org/wiki/Les_Bordes,,,,2026-04-30,no_candidate_images
 barnbougle-dunes,Barnbougle Dunes,https://en.wikipedia.org/wiki/Barnbougle_Dunes,https://commons.wikimedia.org/wiki/File:Barnbougle1018.jpg,Johnorchard,CC BY-SA 4.0,2026-04-30,sourced
 barnbougle-lost-farm,Barnbougle Lost Farm,https://en.wikipedia.org/wiki/Barnbougle_Dunes,https://commons.wikimedia.org/wiki/File:Barnbougle1018.jpg,Johnorchard,CC BY-SA 4.0,2026-04-30,sourced
-tara-iti,Tara Iti Golf Club,,,,,2026-04-30,no_wikipedia_article
+tara-iti,Tara Iti Golf Club,https://taraiti.com/,https://taraiti.com/wp-content/uploads/2023/10/fallback.jpg,,Trademark of Tara Iti Golf Club,2026-04-30,favicon_scraped
 cape-kidnappers,Cape Kidnappers,https://en.wikipedia.org/wiki/Cape_Kidnappers,https://commons.wikimedia.org/wiki/File:Cape_Kidnappers.jpg,ShakyIsles,CC BY-SA 4.0,2026-04-30,sourced
 cabot-cliffs,Cabot Cliffs,https://en.wikipedia.org/wiki/Cabot_Links,,,,2026-04-30,no_images_on_page
 cabot-links,Cabot Links,https://en.wikipedia.org/wiki/Cabot_Links,,,,2026-04-30,no_images_on_page
@@ -139,3 +134,4 @@ stanwich,The Stanwich Club,https://en.wikipedia.org/wiki/Connecticut_Open_(golf)
 philadelphia-cricket,Philadelphia Cricket Club (Wissahickon),https://en.wikipedia.org/wiki/Philadelphia_Cricket_Club,https://commons.wikimedia.org/wiki/File:Philadelphia_Cricket_Club.jpg,Unknown authorUnknown author,Public domain,2026-04-30,sourced
 crooked-stick,Crooked Stick Golf Club,https://en.wikipedia.org/wiki/Crooked_Stick_Golf_Club,,,,2026-04-30,no_images_on_page
 yale,Yale Golf Course,https://en.wikipedia.org/wiki/Yale_Golf_Course,https://commons.wikimedia.org/wiki/File:View_from_1st_tee_Yale_Golf_Course.jpg,Blakebrantley642,CC BY-SA 4.0,2026-04-30,sourced
+augusta-national,Augusta National Golf Club,https://www.augustanationalgolfclub.com/,,,,2026-04-30,blocked_by_robots

@@ -58,6 +58,24 @@
         "headers": [
           { "key": "Content-Type", "value": "application/json" }
         ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, s-maxage=600, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css|woff2|png|jpg|jpeg|gif|svg|webp|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=2592000, s-maxage=31536000" }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        ]
       }
     ]
   }
