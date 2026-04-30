@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-04-29-r4';
+const CACHE_VERSION = 'teebox-v1-2026-04-29-r5';
 const SHELL = [
   '/',
   '/index.html',
@@ -54,7 +54,11 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch strategy:
-//   - Same-origin GET → stale-while-revalidate
+//   - Same-origin HTML navigation → network-first (fall back to cache when
+//     offline). HTML must be fresh on every load or PWA users stay pinned to
+//     stale UI when we ship — exactly the bug we hit shipping v1.1.
+//   - Other same-origin GETs (JS, CSS, images, JSON, manifest) →
+//     stale-while-revalidate for speed.
 //   - Cross-origin to network-only hosts → bypass entirely
 //   - Other cross-origin GETs → network-first, fall back to cache
 //   - Non-GET → bypass entirely (Firestore/Stripe POSTs)
@@ -74,7 +78,31 @@ self.addEventListener('fetch', (event) => {
     return; // let the browser handle it
   }
 
-  // Same-origin: stale-while-revalidate
+  // Same-origin HTML navigation → network-first.
+  const isHtmlNav =
+    req.mode === 'navigate' ||
+    (req.destination === 'document') ||
+    (url.origin === self.location.origin && /\.html?$/.test(url.pathname));
+  if (url.origin === self.location.origin && isHtmlNav) {
+    event.respondWith(
+      fetch(req)
+        .then((resp) => {
+          if (resp && resp.status === 200 && resp.type !== 'opaque') {
+            const copy = resp.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy)).catch(() => {});
+          }
+          return resp;
+        })
+        .catch(() =>
+          caches.open(CACHE_VERSION).then((cache) =>
+            cache.match(req).then((cached) => cached || cache.match('/offline.html'))
+          )
+        )
+    );
+    return;
+  }
+
+  // Same-origin (non-HTML): stale-while-revalidate
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.open(CACHE_VERSION).then((cache) =>

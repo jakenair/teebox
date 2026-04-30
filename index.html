@@ -1287,13 +1287,16 @@
       </div>
 
       <div id="authEmailMode">
+        <div class="auth-mode-toggle auth-emailmode-toggle">
+          <button type="button" class="auth-mode-btn active" data-emailmode="signin" data-action="set-email-mode">Sign In</button>
+          <button type="button" class="auth-mode-btn" data-emailmode="signup" data-action="set-email-mode">Create Account</button>
+        </div>
         <div class="auth-title" id="emailTitle">Sign in to TeeBox</div>
         <div class="auth-desc" id="emailDesc">Enter your email and password to continue.</div>
         <input class="auth-input email-input" type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" />
         <input class="auth-input email-input" type="password" id="passwordInput" placeholder="Password (8+ characters)" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
         <div class="auth-error" id="authErrorEmail"></div>
         <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
-        <button type="button" class="auth-link" id="toggleEmailModeBtn" data-action="toggle-email-mode">New to TeeBox? Create an account</button>
         <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
       </div>
 
@@ -2543,15 +2546,25 @@ window.confirmPayment = async function() {
     const e2 = document.getElementById('authErrorEmail'); if (e2) e2.textContent = '';
   };
 
-  window.toggleEmailMode = function() {
-    emailMode = emailMode === 'signin' ? 'signup' : 'signin';
+  function applyEmailMode() {
     const isSignIn = emailMode === 'signin';
     document.getElementById('emailSubmitBtn').textContent = isSignIn ? 'Sign In' : 'Create Account';
-    document.getElementById('toggleEmailModeBtn').textContent = isSignIn ? 'New to TeeBox? Create an account' : 'Already have an account? Sign in';
     document.getElementById('emailTitle').textContent = isSignIn ? 'Sign in to TeeBox' : 'Create your account';
     document.getElementById('emailDesc').textContent = isSignIn ? 'Enter your email and password to continue.' : 'Pick a strong password (8+ characters).';
     document.getElementById('passwordInput').setAttribute('autocomplete', isSignIn ? 'current-password' : 'new-password');
     document.getElementById('authErrorEmail').textContent = '';
+    document.querySelectorAll('.auth-emailmode-toggle .auth-mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.emailmode === emailMode);
+    });
+  }
+  window.setEmailMode = function(mode) {
+    if (mode !== 'signin' && mode !== 'signup') return;
+    emailMode = mode;
+    applyEmailMode();
+  };
+  window.toggleEmailMode = function() {
+    emailMode = emailMode === 'signin' ? 'signup' : 'signin';
+    applyEmailMode();
   };
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -5424,9 +5437,15 @@ buildTicker(); buildTrending(); buildProducts(); buildDrops();
 //    cleanly on phones/tablets.
 document.body.classList.add('has-bottom-nav');
 
-// 2. Register the service worker. Bumping CACHE_VERSION in /sw.js
-//    forces a refresh on next visit.
+// 2. Register the service worker. When a new SW takes control we reload
+//    once so the user sees the latest UI without having to manually refresh.
 if ('serviceWorker' in navigator) {
+  let __swReloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (__swReloading) return;
+    __swReloading = true;
+    window.location.reload();
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then((reg) => {
@@ -5442,6 +5461,9 @@ if ('serviceWorker' in navigator) {
             }
           });
         });
+        // Poll for an update every 5 minutes — covers users who keep
+        // a tab open all day.
+        setInterval(() => { reg.update().catch(() => {}); }, 5 * 60 * 1000);
       })
       .catch((err) => console.warn('SW register failed', err));
   });
@@ -6645,6 +6667,7 @@ A['verify-code']             = () => verifyCode();
 A['back-to-phone']           = () => backToPhone();
 A['set-auth-mode']           = (el) => setAuthMode(el);
 A['toggle-email-mode']       = () => toggleEmailMode();
+A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['submit-email']            = () => submitEmail();
 A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => becomeSeller();
