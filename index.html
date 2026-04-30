@@ -3673,9 +3673,23 @@ function openProductModal(id,mode='buy') {
 }
 
 function openModal(mode) {
-  // Use the listing currently in the detail modal if there is one;
-  // otherwise fall back to the first product (used by hero "Shop Now").
+  // "Buy" mode is also wired to the hero "Shop Now" button + footer link.
+  // When invoked from the hero with no detail modal open, treat it as a
+  // navigation intent rather than a quick-bid: scroll the marketplace
+  // grid into view. This avoids the dead-tap bug where Shop Now did
+  // nothing if PRODUCTS was empty (Apple Review 2.1.0 rejection 2026-04).
+  if (mode === 'buy' && !currentDetailId) {
+    const grid = document.getElementById('productGrid');
+    if (grid) {
+      grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
   const id = currentDetailId || (window.PRODUCTS && window.PRODUCTS[0] && window.PRODUCTS[0].id);
+  if (!id) {
+    if (window.showToast) showToast('No listings yet — be the first to sell on TeeBox.', 'info');
+    return;
+  }
   openProductModal(id, mode);
 }
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop')) closeModalDirect(); }
