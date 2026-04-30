@@ -1,90 +1,272 @@
-Total courses: 93
-Mapped to domains: 76
-Unmapped (will use SVG lettermark): 17
+Total courses: 183
+Mapped to domains: 153
+Unmapped (will use SVG lettermark): 30
 
-[augusta-national] OK Google (2.2 KB) <- masters.com
-[pine-valley] FAIL no logo found <- pinevalley.org  (clearbit=fetch failed, google=404)
-[pebble-beach] FAIL no logo found <- pebblebeach.com  (clearbit=fetch failed, google=200)
-[shinnecock-hills] FAIL no logo found <- shinnecockhills.com  (clearbit=fetch failed, google=404)
-[oakmont] OK Google (3.5 KB) <- oakmont-countryclub.org
-[merion-east] OK Google (24.9 KB) <- meriongolfclub.com
-[pacific-dunes] OK Google (2.3 KB) <- bandondunesgolf.com
-[bandon-dunes] OK Google (2.3 KB) <- bandondunesgolf.com
-[old-macdonald] OK Google (2.3 KB) <- bandondunesgolf.com
-[bandon-trails] OK Google (2.3 KB) <- bandondunesgolf.com
-[sheep-ranch] OK Google (2.3 KB) <- bandondunesgolf.com
-[winged-foot-west] OK Google (3.3 KB) <- wfgc.org
-[seminole] OK Google (1.9 KB) <- seminolegolfclub.org
-[los-angeles-cc-north] OK Google (3.5 KB) <- thelacc.org
-[riviera] OK Google (5.8 KB) <- therivieracountryclub.com
-[oakland-hills-south] OK Google (43.2 KB) <- oaklandhillscc.com
-[olympic-club-lake] FAIL no logo found <- olyclub.com  (clearbit=fetch failed, google=404)
-[san-francisco-gc] OK Google (8.8 KB) <- sfgc.org
-[baltusrol-lower] OK Google (10.8 KB) <- baltusrol.org
-[bethpage-black] OK Google (3.2 KB) <- parks.ny.gov
-[pinehurst-no-2] FAIL no logo found <- pinehurst.com  (clearbit=fetch failed, google=404)
-[whistling-straits] OK Google (2.7 KB) <- americanclubresort.com
-[erin-hills] OK Google (2.7 KB) <- erinhills.com
-[tpc-sawgrass] OK Google (25.2 KB) <- tpc.com
-[kiawah-ocean] OK Google (5.3 KB) <- kiawahresort.com
-[harbour-town] OK Google (4.0 KB) <- seapines.com
-[tobacco-road] OK Google (27.2 KB) <- tobaccoroadgolf.com
-[streamsong-red] OK Google (9.4 KB) <- streamsongresort.com
-[streamsong-blue] OK Google (9.4 KB) <- streamsongresort.com
-[streamsong-black] OK Google (9.4 KB) <- streamsongresort.com
-[cabot-citrus-farms] OK Google (1.2 KB) <- cabotcitrusfarms.com
-[inverness] OK Google (3.5 KB) <- invernessclub.com
-[prairie-dunes] OK Google (1.6 KB) <- prairiedunes.com
-[oak-hill-east] OK Google (25.4 KB) <- oakhillcc.com
-[medinah-3] OK Google (40.7 KB) <- medinahcc.org
-[quaker-ridge] FAIL no logo found <- quakerridgegc.org  (clearbit=fetch failed, google=404)
-[east-lake] OK Google (10.4 KB) <- eastlakegolfclub.com
-[castle-pines] OK Google (1.6 KB) <- castlepinesgolfclub.com
-[shadow-creek] OK Google (2.7 KB) <- shadowcreek.com
-[st-andrews-old] OK Google (12.4 KB) <- standrews.com
-[muirfield] OK Google (9.0 KB) <- muirfield.org.uk
-[royal-dornoch] OK Google (6.6 KB) <- royaldornoch.com
-[turnberry-ailsa] FAIL no logo found <- trumpgolfscotland.com  (clearbit=fetch failed, google=200)
-[carnoustie] OK Google (37.8 KB) <- carnoustiegolflinks.com
-[north-berwick] OK Google (8.5 KB) <- northberwickgolfclub.com
-[kingsbarns] OK Google (19.8 KB) <- kingsbarns.com
-[cruden-bay] FAIL no logo found <- crudenbaygolfclub.co.uk  (clearbit=fetch failed, google=200)
-[machrihanish] OK Google (1.5 KB) <- machgolf.com
-[machrihanish-dunes] FAIL no logo found <- machrihanishdunes.com  (clearbit=fetch failed, google=200)
-[castle-stuart] FAIL no logo found <- castlestuartgolf.com  (clearbit=fetch failed, google=404)
-[royal-troon] OK Google (5.6 KB) <- royaltroon.com
-[royal-county-down] FAIL no logo found <- royalcountydown.org  (clearbit=fetch failed, google=200)
-[royal-portrush-dunluce] OK Google (15.1 KB) <- royalportrushgolfclub.com
-[ballybunion-old] OK Google (5.9 KB) <- ballybuniongolfclub.com
-[lahinch] OK Google (43.0 KB) <- lahinchgolf.com
-[portmarnock] OK Google (2.2 KB) <- portmarnockgolfclub.ie
-[european-club] OK Google (6.6 KB) <- theeuropeanclub.com
-[royal-st-georges] OK Google (5.4 KB) <- royalstgeorges.com
-[sunningdale-old] OK Google (2.8 KB) <- sunningdale-golfclub.co.uk
-[royal-birkdale] OK Google (20.2 KB) <- royalbirkdale.com
-[royal-lytham] OK Google (4.9 KB) <- royallytham.org
-[royal-liverpool] FAIL no logo found <- royalliverpoolgolf.com  (clearbit=fetch failed, google=404)
-[walton-heath-old] FAIL no logo found <- waltonheath.com  (clearbit=fetch failed, google=200)
-[morfontaine] OK Google (9.6 KB) <- golfdemorfontaine.fr
-[valderrama] OK Google (12.8 KB) <- valderrama.com
-[royal-melbourne-west] OK Google (11.4 KB) <- royalmelbourne.com.au
-[kingston-heath] OK Google (19.7 KB) <- kingstonheath.melbourne
-[barnbougle-dunes] OK Google (9.2 KB) <- barnbougle.com.au
-[barnbougle-lost-farm] OK Google (9.2 KB) <- barnbougle.com.au
-[cape-wickham] OK Google (7.3 KB) <- capewickham.com.au
-[new-south-wales] OK Google (8.0 KB) <- nswgolfclub.com.au
-[tara-iti] FAIL no logo found <- taraiti.com  (clearbit=fetch failed, google=404)
-[cape-kidnappers] OK Google (3.8 KB) <- capekidnappers.com
-[cabot-cliffs] OK Google (1.2 KB) <- cabotcapebreton.com
-[cabot-links] OK Google (1.2 KB) <- cabotcapebreton.com
-[hamilton-gcc] FAIL no logo found <- hamiltongolf.com  (clearbit=fetch failed, google=404)
+[augusta-national] -- already have PNG (2.2 KB), skipping
+[pine-valley] FAIL no logo found <- pinevalley.org  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[pebble-beach] -- already have PNG (3.9 KB), skipping
+[shinnecock-hills] FAIL no logo found <- shinnecockhills.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[oakmont] -- already have PNG (3.5 KB), skipping
+[merion-east] -- already have PNG (24.9 KB), skipping
+[pacific-dunes] -- already have PNG (2.3 KB), skipping
+[bandon-dunes] -- already have PNG (2.3 KB), skipping
+[old-macdonald] -- already have PNG (2.3 KB), skipping
+[bandon-trails] -- already have PNG (2.3 KB), skipping
+[sheep-ranch] -- already have PNG (2.3 KB), skipping
+[winged-foot-west] -- already have PNG (3.3 KB), skipping
+[seminole] -- already have PNG (1.9 KB), skipping
+[los-angeles-cc-north] -- already have PNG (3.5 KB), skipping
+[riviera] -- already have PNG (5.8 KB), skipping
+[oakland-hills-south] -- already have PNG (43.2 KB), skipping
+[olympic-club-lake] FAIL no logo found <- olyclub.com  (google=404, clearbit=fetch failed, direct=404, apple=404)
+[san-francisco-gc] -- already have PNG (8.8 KB), skipping
+[baltusrol-lower] -- already have PNG (10.8 KB), skipping
+[bethpage-black] -- already have PNG (3.2 KB), skipping
+[pinehurst-no-2] FAIL no logo found <- pinehurst.com  (google=404, clearbit=fetch failed, direct=200, apple=200)
+[whistling-straits] -- already have PNG (2.7 KB), skipping
+[erin-hills] -- already have PNG (2.7 KB), skipping
+[tpc-sawgrass] -- already have PNG (25.2 KB), skipping
+[kiawah-ocean] -- already have PNG (5.3 KB), skipping
+[harbour-town] -- already have PNG (4.0 KB), skipping
+[tobacco-road] -- already have PNG (27.2 KB), skipping
+[streamsong-red] -- already have PNG (9.4 KB), skipping
+[streamsong-blue] -- already have PNG (9.4 KB), skipping
+[streamsong-black] -- already have PNG (9.4 KB), skipping
+[cabot-citrus-farms] FAIL no logo found <- cabotcitrusfarms.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[inverness] -- already have PNG (3.5 KB), skipping
+[prairie-dunes] -- already have PNG (1.6 KB), skipping
+[oak-hill-east] -- already have PNG (25.4 KB), skipping
+[medinah-3] -- already have PNG (40.7 KB), skipping
+[quaker-ridge] FAIL no logo found <- quakerridgegc.org  (google=404, clearbit=fetch failed, direct=404, apple=404)
+[east-lake] -- already have PNG (10.4 KB), skipping
+[castle-pines] -- already have PNG (1.6 KB), skipping
+[shadow-creek] -- already have PNG (2.7 KB), skipping
+[st-andrews-old] -- already have PNG (12.4 KB), skipping
+[muirfield] -- already have PNG (9.0 KB), skipping
+[royal-dornoch] -- already have PNG (6.6 KB), skipping
+[turnberry-ailsa] FAIL no logo found <- trumpgolfscotland.com  (google=200, clearbit=fetch failed, direct=403, apple=403)
+[carnoustie] -- already have PNG (37.8 KB), skipping
+[north-berwick] -- already have PNG (8.5 KB), skipping
+[kingsbarns] -- already have PNG (19.8 KB), skipping
+[cruden-bay] FAIL no logo found <- crudenbaygolfclub.co.uk  (google=200, clearbit=fetch failed, direct=200, apple=404)
+[machrihanish] -- already have PNG (1.5 KB), skipping
+[machrihanish-dunes] FAIL no logo found <- machrihanishdunes.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[castle-stuart] FAIL no logo found <- castlestuartgolf.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[royal-troon] -- already have PNG (5.6 KB), skipping
+[royal-county-down] FAIL no logo found <- royalcountydown.org  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[royal-portrush-dunluce] -- already have PNG (15.1 KB), skipping
+[ballybunion-old] -- already have PNG (5.9 KB), skipping
+[lahinch] -- already have PNG (43.0 KB), skipping
+[portmarnock] -- already have PNG (2.2 KB), skipping
+[european-club] -- already have PNG (6.6 KB), skipping
+[royal-st-georges] -- already have PNG (5.4 KB), skipping
+[sunningdale-old] -- already have PNG (2.8 KB), skipping
+[royal-birkdale] -- already have PNG (20.2 KB), skipping
+[royal-lytham] -- already have PNG (4.9 KB), skipping
+[royal-liverpool] FAIL no logo found <- royalliverpoolgolf.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[walton-heath-old] FAIL no logo found <- waltonheath.com  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[morfontaine] -- already have PNG (9.6 KB), skipping
+[valderrama] -- already have PNG (12.8 KB), skipping
+[royal-melbourne-west] -- already have PNG (11.4 KB), skipping
+[kingston-heath] -- already have PNG (19.7 KB), skipping
+[barnbougle-dunes] -- already have PNG (9.2 KB), skipping
+[barnbougle-lost-farm] -- already have PNG (9.2 KB), skipping
+[cape-wickham] -- already have PNG (7.3 KB), skipping
+[new-south-wales] -- already have PNG (8.0 KB), skipping
+[tara-iti] FAIL no logo found <- taraiti.com  (google=404, clearbit=fetch failed, direct=200, apple=200)
+[cape-kidnappers] -- already have PNG (3.8 KB), skipping
+[cabot-cliffs] FAIL no logo found <- cabotcapebreton.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[cabot-links] FAIL no logo found <- cabotcapebreton.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[hamilton-gcc] FAIL no logo found <- hamiltongolf.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[chambers-bay] FAIL no logo found <- chambersbaygolf.com  (google=200, clearbit=fetch failed, direct=200, apple=404)
+[wolf-creek] FAIL no logo found <- golfwolfcreek.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[bayonne] -- already have PNG (60.3 KB), skipping
+[old-sandwich] FAIL no logo found <- oldsandwich.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[quail-hollow] -- already have PNG (14.7 KB), skipping
+[wild-horse] FAIL no logo found <- playwildhorse.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[old-town-club] FAIL no logo found <- oldtownclub.org  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[tpc-scottsdale] FAIL no logo found <- tpc.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[tpc-river-highlands] FAIL no logo found <- tpc.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[detroit-golf-club] -- already have PNG (14.7 KB), skipping
+[colonial] -- already have PNG (14.7 KB), skipping
+[muirfield-village] FAIL no logo found <- memorialtournament.com  (google=404, clearbit=fetch failed, direct=404, apple=404)
+[sand-valley] FAIL no logo found <- sandvalley.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[mammoth-dunes] FAIL no logo found <- sandvalley.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[sedge-valley] FAIL no logo found <- sandvalley.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[forest-dunes] -- already have PNG (10.9 KB), skipping
+[the-loop] -- already have PNG (10.9 KB), skipping
+[arcadia-bluffs] -- already have PNG (97.3 KB), skipping
+[spyglass-hill] -- already have PNG (3.9 KB), skipping
+[monterey-peninsula-shore] -- already have PNG (14.7 KB), skipping
+[pasatiempo] FAIL no logo found <- pasatiempo.com  (google=404, clearbit=fetch failed, direct=404, apple=404)
+[congressional-blue] -- already have PNG (14.7 KB), skipping
+[plainfield] FAIL no logo found <- plainfieldcc.com  (google=200, clearbit=fetch failed, direct=200, apple=403)
+[aronimink] -- already have PNG (11.1 KB), skipping
+[cherry-hills] -- already have PNG (6.1 KB), skipping
+[southern-hills] -- already have PNG (14.7 KB), skipping
+[firestone-south] FAIL no logo found <- firestonecountryclub.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[olympia-fields-north] FAIL no logo found <- ofcc.info  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[tpc-southwind] FAIL no logo found <- tpc.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[austin-cc] FAIL no logo found <- austincountryclub.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[congaree] FAIL no logo found <- congareegolf.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[royal-porthcawl] -- already have PNG (14.7 KB), skipping
+[royal-ashdown-forest] FAIL no logo found <- royalashdown.co.uk  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[rye] FAIL no logo found <- ryegolfclub.co.uk  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[st-georges-hill] -- already have PNG (4.0 KB), skipping
+[royal-cinque-ports] -- already have PNG (4.0 KB), skipping
+[royal-west-norfolk] -- already have PNG (14.7 KB), skipping
+[royal-aberdeen] -- already have PNG (31.3 KB), skipping
+[trump-international-scotland] FAIL no logo found <- trumpgolfscotland.com  (google=200, clearbit=fetch failed, direct=403, apple=403)
+[gleneagles-kings] FAIL no logo found <- gleneagles.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[gleneagles-pga-centenary] FAIL no logo found <- gleneagles.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[prestwick] -- already have PNG (1.5 KB), skipping
+[royal-st-davids] -- already have PNG (14.7 KB), skipping
+[old-head] FAIL no logo found <- oldhead.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[waterville] FAIL no logo found <- watervillegolflinks.ie  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[tralee] -- already have PNG (7.1 KB), skipping
+[royal-dublin] FAIL no logo found <- theroyaldublingolfclub.com  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[county-sligo] FAIL no logo found <- countysligogolfclub.ie  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[enniscrone] FAIL no logo found <- enniscronegolf.com  (google=200, clearbit=fetch failed, direct=200, apple=404)
+[royal-portrush-valley] FAIL no logo found <- royalportrushgolfclub.com  (google=200, clearbit=fetch failed, direct=204, apple=404)
+[falsterbo] FAIL no logo found <- fgk.se  (google=404, clearbit=fetch failed, direct=200, apple=404)
+[halmstad] FAIL no logo found <- hgk.se  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[sotogrande] FAIL no logo found <- sotogrande.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[la-reserva-sotogrande] FAIL no logo found <- lareservaclubsotogrande.com  (google=200, clearbit=fetch failed, direct=200, apple=200)
+[real-san-sebastian] FAIL no logo found <- rgcss.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[le-touquet-la-mer] FAIL no logo found <- opengolfclub.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[domaine-de-belesbat] FAIL no logo found <- belesbat.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[fontainebleau] -- already have PNG (2.5 KB), skipping
+[pevero] FAIL no logo found <- golfclubpevero.com  (google=404, clearbit=fetch failed, direct=404, apple=404)
+[hokkaido-classic] FAIL no logo found <- hokkaido-classic.co.jp  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[yas-links] FAIL no logo found <- yaslinks.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[doha-golf-club] FAIL no logo found <- dohagolfclub.com  (google=200, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[emirates-majlis] FAIL no logo found <- dubaigolf.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[mission-hills-shenzhen] -- already have PNG (4.0 KB), skipping
+[diamante-dunes] FAIL no logo found <- diamantecabo.com  (google=404, clearbit=fetch failed, direct=200, apple=200)
+[cabot-saint-lucia] FAIL no logo found <- cabotsaintlucia.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[casa-de-campo-teeth] FAIL no logo found <- casadecampo.com.do  (google=404, clearbit=fetch failed, direct=200, apple=200)
+[punta-espada] FAIL no logo found <- capcanaheritage.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[royal-melbourne-east] FAIL no logo found <- royalmelbourne.com.au  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[victoria-golf-club] -- already have PNG (4.0 KB), skipping
+[metropolitan-melbourne] FAIL no logo found <- metropolitangolf.com.au  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[te-arai-south] FAIL no logo found <- tearailinks.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[te-arai-north] FAIL no logo found <- tearailinks.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[paraparaumu-beach] FAIL no logo found <- paraparaumubeachgolfclub.co.nz  (google=200, clearbit=fetch failed, direct=403, apple=403)
+[highlands-links] FAIL no logo found <- cbhighlandslinks.com  (google=404, clearbit=fetch failed, direct=fetch failed, apple=fetch failed)
+[jasper-park] FAIL no logo found <- fairmont.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
+[banff-springs] FAIL no logo found <- fairmont.com  (google=200, clearbit=fetch failed, direct=404, apple=404)
 
 ────────── SUMMARY ──────────
-Total courses:           93
-Mapped to domains:       76
-Unmapped (SVG only):     17
-Already had PNG (skip):  0
+Total courses:           183
+Mapped to domains:       153
+Unmapped (SVG only):     30
+Already had PNG (skip):  83
+Fetched via Google512:   0
 Fetched via Clearbit:    0
-Fetched via Google:      61
-Failed:                  15
-Total real PNGs now:     61 / 93
+Fetched via direct:      0
+Failed:                  70
+Total real PNGs now:     83 / 183
+
+Failed lookups (will use SVG lettermark):
+  pine-valley                      <- pinevalley.org
+  shinnecock-hills                 <- shinnecockhills.com
+  olympic-club-lake                <- olyclub.com
+  pinehurst-no-2                   <- pinehurst.com
+  cabot-citrus-farms               <- cabotcitrusfarms.com
+  quaker-ridge                     <- quakerridgegc.org
+  turnberry-ailsa                  <- trumpgolfscotland.com
+  cruden-bay                       <- crudenbaygolfclub.co.uk
+  machrihanish-dunes               <- machrihanishdunes.com
+  castle-stuart                    <- castlestuartgolf.com
+  royal-county-down                <- royalcountydown.org
+  royal-liverpool                  <- royalliverpoolgolf.com
+  walton-heath-old                 <- waltonheath.com
+  tara-iti                         <- taraiti.com
+  cabot-cliffs                     <- cabotcapebreton.com
+  cabot-links                      <- cabotcapebreton.com
+  hamilton-gcc                     <- hamiltongolf.com
+  chambers-bay                     <- chambersbaygolf.com
+  wolf-creek                       <- golfwolfcreek.com
+  old-sandwich                     <- oldsandwich.com
+  wild-horse                       <- playwildhorse.com
+  old-town-club                    <- oldtownclub.org
+  tpc-scottsdale                   <- tpc.com
+  tpc-river-highlands              <- tpc.com
+  muirfield-village                <- memorialtournament.com
+  sand-valley                      <- sandvalley.com
+  mammoth-dunes                    <- sandvalley.com
+  sedge-valley                     <- sandvalley.com
+  pasatiempo                       <- pasatiempo.com
+  plainfield                       <- plainfieldcc.com
+  firestone-south                  <- firestonecountryclub.com
+  olympia-fields-north             <- ofcc.info
+  tpc-southwind                    <- tpc.com
+  austin-cc                        <- austincountryclub.com
+  congaree                         <- congareegolf.com
+  royal-ashdown-forest             <- royalashdown.co.uk
+  rye                              <- ryegolfclub.co.uk
+  trump-international-scotland     <- trumpgolfscotland.com
+  gleneagles-kings                 <- gleneagles.com
+  gleneagles-pga-centenary         <- gleneagles.com
+  old-head                         <- oldhead.com
+  waterville                       <- watervillegolflinks.ie
+  royal-dublin                     <- theroyaldublingolfclub.com
+  county-sligo                     <- countysligogolfclub.ie
+  enniscrone                       <- enniscronegolf.com
+  royal-portrush-valley            <- royalportrushgolfclub.com
+  falsterbo                        <- fgk.se
+  halmstad                         <- hgk.se
+  sotogrande                       <- sotogrande.com
+  la-reserva-sotogrande            <- lareservaclubsotogrande.com
+  real-san-sebastian               <- rgcss.com
+  le-touquet-la-mer                <- opengolfclub.com
+  domaine-de-belesbat              <- belesbat.com
+  pevero                           <- golfclubpevero.com
+  hokkaido-classic                 <- hokkaido-classic.co.jp
+  yas-links                        <- yaslinks.com
+  doha-golf-club                   <- dohagolfclub.com
+  emirates-majlis                  <- dubaigolf.com
+  diamante-dunes                   <- diamantecabo.com
+  cabot-saint-lucia                <- cabotsaintlucia.com
+  casa-de-campo-teeth              <- casadecampo.com.do
+  punta-espada                     <- capcanaheritage.com
+  royal-melbourne-east             <- royalmelbourne.com.au
+  metropolitan-melbourne           <- metropolitangolf.com.au
+  te-arai-south                    <- tearailinks.com
+  te-arai-north                    <- tearailinks.com
+  paraparaumu-beach                <- paraparaumubeachgolfclub.co.nz
+  highlands-links                  <- cbhighlandslinks.com
+  jasper-park                      <- fairmont.com
+  banff-springs                    <- fairmont.com
+
+Unmapped (no domain configured, SVG only):
+  cypress-point
+  national-golf-links
+  fishers-island
+  sand-hills
+  chicago-golf-club
+  crystal-downs
+  wade-hampton
+  whispering-pines
+  friars-head
+  somerset-hills
+  maidstone
+  swinley-forest
+  les-bordes
+  st-georges-canada
+  hirono
+  kawana-fuji
+  tokyo-gc
+  black-mesa
+  yeamans-hall
+  camargo-club
+  sleepy-hollow
+  garden-city
+  wolf-point
+  ohoopee-match
+  gozzer-ranch
+  club-zur-vahr
+  naruo
+  country-club-bogota
+  ellerston
+  national-golf-club-canada

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="DGC crest">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#376043"/>
+      <stop offset="100%" stop-color="#0b3d1a"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="126" fill="#caa75a"/>
+  <circle cx="128" cy="128" r="118" fill="url(#g)"/>
+  <circle cx="128" cy="128" r="118" fill="none" stroke="#ead7a1" stroke-width="1.2" opacity="0.65"/>
+  <circle cx="128" cy="128" r="104" fill="none" stroke="#ead7a1" stroke-width="1" opacity="0.45"/>
+  <text x="128" y="144" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="80" fill="#f4ecd6" letter-spacing="2">DGC</text>
+  <g opacity="0.85">
+    <line x1="86" y1="178" x2="118" y2="178" stroke="#caa75a" stroke-width="0.9"/>
+    <line x1="138" y1="178" x2="170" y2="178" stroke="#caa75a" stroke-width="0.9"/>
+    <text x="128" y="184" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14" fill="#f4ecd6" letter-spacing="2">EST. 1996</text>
+  </g>
+  <circle cx="128" cy="58" r="2.5" fill="#caa75a"/>
+  <circle cx="128" cy="206" r="2.5" fill="#caa75a"/>
+</svg>
