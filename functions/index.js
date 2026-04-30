@@ -1,5 +1,9 @@
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
@@ -465,3 +469,728 @@ exports.requestSellerVerification = onCall(async (request) => {
 
   return {verified: true};
 });
+
+// ─────────────────────────────────────────────────────────────
+// deleteUserAccount (callable)
+//   Apple guideline 5.1.1(vi) — apps that allow account creation
+//   must offer an in-app account-deletion path. This function:
+//     1. Marks the seller's listings as removed (preserves
+//        order/dispute history for the other party)
+//     2. Anonymizes the public profile and private user doc
+//     3. Deletes the Firebase Auth record so the phone number is
+//        freed and the user is signed out everywhere
+//   Uses the admin SDK so it bypasses Firestore rules and works
+//   without a recent re-authentication on the client.
+// ─────────────────────────────────────────────────────────────
+exports.deleteUserAccount = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  const uid = request.auth.uid;
+  const db = admin.firestore();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const listingsSnap = await db.collection("listings")
+    .where("sellerId", "==", uid)
+    .get();
+  if (!listingsSnap.empty) {
+    const batch = db.batch();
+    listingsSnap.forEach((doc) => {
+      batch.update(doc.ref, {
+        status: "removed",
+        removedAt: now,
+        removedReason: "seller_account_deleted",
+      });
+    });
+    await batch.commit();
+  }
+
+  await db.doc(`profiles/${uid}`).set({
+    displayName: "Deleted user",
+    bio: "",
+    location: "",
+    handicap: null,
+    avatarUrl: null,
+    deleted: true,
+    deletedAt: now,
+  }, {merge: true});
+
+  await db.doc(`users/${uid}`).set({
+    phone: null,
+    displayName: "Deleted user",
+    deleted: true,
+    deletedAt: now,
+    sellerVerified: false,
+  }, {merge: true});
+
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (err) {
+    logger.warn(`Auth delete failed for ${uid}: ${err.message}`);
+    throw new HttpsError("internal", "Could not finalize account deletion");
+  }
+
+  logger.info(`User account ${uid} deleted at user request`);
+  return {deleted: true};
+});
+
+// ─────────────────────────────────────────────────────────────
+// exchangeIdTokenForCustomToken
+//   Bridges native iOS Firebase auth (via @capacitor-firebase/authentication
+//   plugin) to the Web SDK auth state used by Firestore/Storage on the same
+//   page. The native plugin signs in via APNs silent push (no reCAPTCHA),
+//   then the client sends us its native ID token; we mint a custom token
+//   for the same UID, and the client signs the Web SDK in with that.
+// ─────────────────────────────────────────────────────────────
+exports.exchangeIdTokenForCustomToken = onCall(async (request) => {
+  const idToken = request.data && request.data.idToken;
+  if (!idToken) {
+    throw new HttpsError("invalid-argument", "idToken required");
+  }
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(idToken);
+  } catch (err) {
+    logger.warn(`Token exchange — bad idToken: ${err.message}`);
+    throw new HttpsError("unauthenticated", "Invalid ID token");
+  }
+  const additionalClaims = {};
+  if (decoded.phone_number) additionalClaims.phone_number = decoded.phone_number;
+  const customToken = await admin.auth().createCustomToken(decoded.uid, additionalClaims);
+  return {customToken};
+});
+
+// ─────────────────────────────────────────────────────────────
+// onReviewCreated (Firestore trigger)
+//   When a buyer leaves a review at reviews/{orderId}, recompute
+//   seller aggregates (count, avg rating, 5-star %) on the
+//   seller's public profile so listing/profile cards can render
+//   them without an N+1 read.
+// ─────────────────────────────────────────────────────────────
+exports.onReviewCreated = onDocumentCreated(
+  "reviews/{orderId}",
+  async (event) => {
+    try {
+      const review = event.data && event.data.data();
+      if (!review) {
+        logger.warn("onReviewCreated: empty review payload");
+        return;
+      }
+      const sellerId = review.sellerId;
+      if (!sellerId) {
+        logger.warn(
+          `onReviewCreated: review ${event.params.orderId} has no sellerId`
+        );
+        return;
+      }
+
+      const db = admin.firestore();
+      const snap = await db
+        .collection("reviews")
+        .where("sellerId", "==", sellerId)
+        .get();
+
+      let total = 0;
+      let fiveStars = 0;
+      const reviewCount = snap.size;
+      snap.forEach((d) => {
+        const r = d.data();
+        const rating = Number(r.rating) || 0;
+        total += rating;
+        if (rating >= 5) fiveStars += 1;
+      });
+
+      const avgRating = reviewCount > 0
+        ? Math.round((total / reviewCount) * 10) / 10
+        : 0;
+      const fiveStarPct = reviewCount > 0
+        ? Math.round((fiveStars / reviewCount) * 100)
+        : 0;
+
+      await db.doc(`profiles/${sellerId}`).set(
+        {
+          reviewCount,
+          avgRating,
+          fiveStarPct,
+          // Wired later once we track seller message-response timing.
+          responseRate: null,
+          lastReviewAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+
+      logger.info(
+        `onReviewCreated: profile ${sellerId} -> ${reviewCount} reviews, ` +
+          `avg ${avgRating}, 5-star ${fiveStarPct}%`
+      );
+    } catch (err) {
+      logger.error("onReviewCreated error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// incrementListingView (callable)
+//   Bumps listings/{listingId}.views, throttled to one count per
+//   user per listing per 24h via a marker doc in listingViews.
+//   Returns the fresh view count so the caller can render it.
+// ─────────────────────────────────────────────────────────────
+exports.incrementListingView = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  const uid = request.auth.uid;
+  const data = request.data || {};
+  const listingId = data.listingId;
+  if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
+    throw new HttpsError("invalid-argument", "listingId required");
+  }
+
+  const db = admin.firestore();
+  const listingRef = db.collection("listings").doc(listingId);
+  const markerRef = db.collection("listingViews").doc(`${listingId}_${uid}`);
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+  try {
+    const markerSnap = await markerRef.get();
+    const lastViewedMs = markerSnap.exists
+      ? markerSnap.data().lastViewedAt?.toMillis?.() ?? 0
+      : 0;
+    const withinWindow = now - lastViewedMs < TWENTY_FOUR_HOURS_MS;
+
+    if (!withinWindow) {
+      await listingRef.update({
+        views: admin.firestore.FieldValue.increment(1),
+      });
+      await markerRef.set(
+        {
+          listingId,
+          uid,
+          lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+    }
+
+    const fresh = await listingRef.get();
+    const views = fresh.exists ? Number(fresh.data().views) || 0 : 0;
+    return {views};
+  } catch (err) {
+    logger.error("incrementListingView error", err);
+    throw new HttpsError("internal", "Could not record listing view");
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// incrementListingMessage (Firestore trigger)
+//   Counts inbound buyer interest. Bumps
+//   listings/{listingId}.messageCount when a non-seller posts a
+//   new message in a conversation tied to a listing.
+// ─────────────────────────────────────────────────────────────
+exports.incrementListingMessage = onDocumentCreated(
+  "messages/{messageId}",
+  async (event) => {
+    try {
+      const msg = event.data && event.data.data();
+      if (!msg) return;
+
+      const db = admin.firestore();
+      let listingId = msg.listingId || null;
+      let sellerId = msg.sellerId || null;
+
+      // Fall back to the parent conversation doc if the message
+      // doesn't carry the listingId/sellerId itself.
+      const conversationId = msg.conversationId;
+      if ((!listingId || !sellerId) && conversationId) {
+        const convSnap = await db
+          .collection("conversations")
+          .doc(conversationId)
+          .get();
+        if (convSnap.exists) {
+          const conv = convSnap.data();
+          listingId = listingId || conv.listingId || null;
+          sellerId = sellerId || conv.sellerId || null;
+        }
+      }
+
+      if (!listingId) {
+        logger.info(
+          `incrementListingMessage: ${event.params.messageId} has no listingId, skipping`
+        );
+        return;
+      }
+
+      const senderId = msg.senderId || msg.fromUid || null;
+      if (sellerId && senderId && senderId === sellerId) {
+        // Seller's own outbound message; not a fresh inbound interest signal.
+        return;
+      }
+
+      await db.collection("listings").doc(listingId).update({
+        messageCount: admin.firestore.FieldValue.increment(1),
+      });
+    } catch (err) {
+      logger.error("incrementListingMessage error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// aggregateSellerStats (Firestore trigger)
+//   When an order transitions to fulfillmentStatus='delivered',
+//   roll up sales count + revenue onto the seller's profile.
+//   Idempotent on the before/after diff so re-writes don't
+//   double-count.
+// ─────────────────────────────────────────────────────────────
+exports.aggregateSellerStats = onDocumentUpdated(
+  "orders/{orderId}",
+  async (event) => {
+    try {
+      const before = event.data && event.data.before && event.data.before.data();
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!before || !after) return;
+
+      const wasDelivered = before.fulfillmentStatus === "delivered";
+      const isDelivered = after.fulfillmentStatus === "delivered";
+      if (wasDelivered || !isDelivered) return;
+
+      const sellerId = after.sellerId;
+      if (!sellerId) {
+        logger.warn(
+          `aggregateSellerStats: order ${event.params.orderId} has no sellerId`
+        );
+        return;
+      }
+
+      const amount = Number(after.amount) || 0;
+      const db = admin.firestore();
+      await db.doc(`profiles/${sellerId}`).set(
+        {
+          salesCount: admin.firestore.FieldValue.increment(1),
+          totalRevenue: admin.firestore.FieldValue.increment(amount),
+          lastSaleAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+
+      logger.info(
+        `aggregateSellerStats: seller ${sellerId} +1 sale, +$${amount}`
+      );
+    } catch (err) {
+      logger.error("aggregateSellerStats error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// generateDailyBingoPuzzle (scheduled, daily 00:00 UTC)
+//   Picks 9 random course IDs from the Logo Bingo course pool
+//   and writes them to dailyGames/{YYYY-MM-DD}. Idempotent: if
+//   today's doc already exists, the function exits without
+//   overwriting it. Course pool is baked in here (mirrors
+//   /bingo-courses.js) so the function has no client coupling.
+// ─────────────────────────────────────────────────────────────
+const BINGO_COURSE_POOL = [
+  "augusta-national", "pine-valley", "cypress-point", "pebble-beach",
+  "shinnecock-hills", "oakmont", "merion-east", "national-golf-links",
+  "fishers-island", "sand-hills", "pacific-dunes", "bandon-dunes",
+  "old-macdonald", "bandon-trails", "sheep-ranch", "chicago-golf-club",
+  "winged-foot-west", "seminole", "los-angeles-cc-north", "riviera",
+  "oakland-hills-south", "olympic-club-lake", "san-francisco-gc",
+  "baltusrol-lower", "bethpage-black", "pinehurst-no-2", "whistling-straits",
+  "erin-hills", "tpc-sawgrass", "kiawah-ocean", "harbour-town", "tobacco-road",
+  "streamsong-red", "streamsong-blue", "streamsong-black", "cabot-citrus-farms",
+  "inverness", "crystal-downs", "prairie-dunes", "oak-hill-east", "medinah-3",
+  "quaker-ridge", "wade-hampton", "east-lake", "whispering-pines",
+  "castle-pines", "shadow-creek", "friars-head", "somerset-hills", "maidstone",
+  "st-andrews-old", "muirfield", "royal-dornoch", "turnberry-ailsa",
+  "carnoustie", "north-berwick", "kingsbarns", "cruden-bay", "machrihanish",
+  "machrihanish-dunes", "castle-stuart", "royal-troon", "royal-county-down",
+  "royal-portrush-dunluce", "ballybunion-old", "lahinch", "portmarnock",
+  "european-club", "royal-st-georges", "sunningdale-old", "royal-birkdale",
+  "royal-lytham", "royal-liverpool", "swinley-forest", "walton-heath-old",
+  "morfontaine", "les-bordes", "valderrama", "royal-melbourne-west",
+  "kingston-heath", "barnbougle-dunes", "barnbougle-lost-farm", "cape-wickham",
+  "new-south-wales", "tara-iti", "cape-kidnappers", "cabot-cliffs",
+  "cabot-links", "st-georges-canada", "hamilton-gcc", "hirono", "kawana-fuji",
+  "tokyo-gc",
+];
+
+function pickNRandom(arr, n) {
+  // Fisher-Yates partial shuffle, n items.
+  const copy = arr.slice();
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(Math.random() * (copy.length - i));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
+function todayUtcDateKey() {
+  // YYYY-MM-DD in UTC.
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+exports.generateDailyBingoPuzzle = onSchedule(
+  {schedule: "every day 00:00", timeZone: "UTC"},
+  async () => {
+    try {
+      const db = admin.firestore();
+      const dateKey = todayUtcDateKey();
+      const ref = db.collection("dailyGames").doc(dateKey);
+      const existing = await ref.get();
+      if (existing.exists) {
+        logger.info(
+          `generateDailyBingoPuzzle: ${dateKey} already exists, skipping`
+        );
+        return;
+      }
+      const courses = pickNRandom(BINGO_COURSE_POOL, 9);
+      await ref.set({
+        date: dateKey,
+        courses,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info(
+        `generateDailyBingoPuzzle: wrote ${dateKey} with 9 courses`
+      );
+    } catch (err) {
+      logger.error("generateDailyBingoPuzzle error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnSavedSearchMatch (Firestore trigger)
+//   On every new active listing, scan savedSearches with
+//   notifyOnNew==true and create an in-app notification doc for
+//   each saved search whose query criteria match. Push delivery
+//   wires up later — this just records the match.
+// ─────────────────────────────────────────────────────────────
+const SAVED_SEARCH_SCAN_CAP = 200;
+
+function listingMatchesSavedSearch(listing, query) {
+  if (!query || typeof query !== "object") return false;
+
+  if (query.category) {
+    const lc = String(listing.category || "").toLowerCase();
+    if (lc !== String(query.category).toLowerCase()) return false;
+  }
+
+  if (query.brand) {
+    const lb = String(listing.brand || "").toLowerCase();
+    if (lb !== String(query.brand).toLowerCase()) return false;
+  }
+
+  if (query.condition) {
+    const lcond = String(listing.condition || "").toLowerCase();
+    if (lcond !== String(query.condition).toLowerCase()) return false;
+  }
+
+  const ask = Number(listing.ask);
+  if (Number.isFinite(Number(query.priceMin))) {
+    if (!Number.isFinite(ask) || ask < Number(query.priceMin)) return false;
+  }
+  if (Number.isFinite(Number(query.priceMax))) {
+    if (!Number.isFinite(ask) || ask > Number(query.priceMax)) return false;
+  }
+
+  return true;
+}
+
+exports.notifyOnSavedSearchMatch = onDocumentCreated(
+  "listings/{listingId}",
+  async (event) => {
+    try {
+      const listing = event.data && event.data.data();
+      if (!listing) return;
+      if (listing.status !== "active") return;
+
+      const listingId = event.params.listingId;
+      const db = admin.firestore();
+
+      const searchesSnap = await db
+        .collection("savedSearches")
+        .where("notifyOnNew", "==", true)
+        .limit(SAVED_SEARCH_SCAN_CAP + 1)
+        .get();
+
+      if (searchesSnap.size > SAVED_SEARCH_SCAN_CAP) {
+        logger.warn(
+          `notifyOnSavedSearchMatch: more than ${SAVED_SEARCH_SCAN_CAP} ` +
+            `saved searches with notifyOnNew=true; skipping listing ${listingId}`
+        );
+        return;
+      }
+
+      let matched = 0;
+      const writes = [];
+      searchesSnap.forEach((doc) => {
+        const search = doc.data();
+        const userId = search.userId;
+        if (!userId) return;
+        // Don't self-notify the seller for their own listing.
+        if (userId === listing.sellerId) return;
+
+        if (!listingMatchesSavedSearch(listing, search.query)) return;
+
+        const notifRef = db.collection("notifications").doc();
+        writes.push(
+          notifRef.set({
+            userId,
+            type: "saved-search-match",
+            listingId,
+            searchId: doc.id,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          })
+        );
+        matched += 1;
+      });
+
+      await Promise.all(writes);
+      if (matched > 0) {
+        logger.info(
+          `notifyOnSavedSearchMatch: listing ${listingId} matched ${matched} ` +
+            `saved search(es)`
+        );
+      }
+    } catch (err) {
+      logger.error("notifyOnSavedSearchMatch error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// expireOldOffers (scheduled, hourly)
+//   Flips offers with status=='pending' and expiresAt < now to
+//   status='expired'. Batches in chunks of 100 to stay well
+//   under Firestore's 500-op batch limit.
+// ─────────────────────────────────────────────────────────────
+exports.expireOldOffers = onSchedule(
+  {schedule: "every 1 hours"},
+  async () => {
+    try {
+      const db = admin.firestore();
+      const now = admin.firestore.Timestamp.now();
+      const snap = await db
+        .collection("offers")
+        .where("status", "==", "pending")
+        .where("expiresAt", "<", now)
+        .get();
+
+      if (snap.empty) {
+        logger.info("expireOldOffers: nothing to expire");
+        return;
+      }
+
+      const docs = snap.docs;
+      const CHUNK = 100;
+      let expired = 0;
+      for (let i = 0; i < docs.length; i += CHUNK) {
+        const slice = docs.slice(i, i + CHUNK);
+        const batch = db.batch();
+        slice.forEach((d) => {
+          batch.update(d.ref, {
+            status: "expired",
+            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+        await batch.commit();
+        expired += slice.length;
+      }
+
+      logger.info(`expireOldOffers: expired ${expired} pending offer(s)`);
+    } catch (err) {
+      logger.error("expireOldOffers error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// generateReferralCode (callable)
+//   Mints (or returns) a stable 6-char alphanumeric referral code
+//   for the signed-in user. Reserves the code under
+//   referrals/{code} so future redeemers can look the referrer up
+//   by code. Retries up to 5 times on collision.
+// ─────────────────────────────────────────────────────────────
+const REFERRAL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function randomReferralCode() {
+  let s = "";
+  for (let i = 0; i < 6; i++) {
+    s += REFERRAL_ALPHABET.charAt(
+      Math.floor(Math.random() * REFERRAL_ALPHABET.length)
+    );
+  }
+  return s;
+}
+
+exports.generateReferralCode = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  const uid = request.auth.uid;
+  const db = admin.firestore();
+
+  try {
+    const userRef = db.doc(`users/${uid}`);
+    const userSnap = await userRef.get();
+    const existing =
+      userSnap.exists && userSnap.data().referralCode
+        ? String(userSnap.data().referralCode)
+        : null;
+    if (existing) {
+      return {
+        code: existing,
+        shareUrl: `https://teebox-market.web.app/?ref=${existing}`,
+      };
+    }
+
+    let code = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = randomReferralCode();
+      const refRef = db.doc(`referrals/${candidate}`);
+      try {
+        const claimed = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(refRef);
+          if (snap.exists) return false;
+          tx.set(refRef, {
+            userId: uid,
+            code: candidate,
+            usedBy: [],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return true;
+        });
+        if (claimed) {
+          code = candidate;
+          break;
+        }
+      } catch (txErr) {
+        logger.warn(
+          `generateReferralCode: tx attempt ${attempt} failed: ${txErr.message}`
+        );
+      }
+    }
+
+    if (!code) {
+      logger.error(
+        `generateReferralCode: could not mint unique code for ${uid} after 5 tries`
+      );
+      throw new HttpsError("internal", "Could not generate referral code");
+    }
+
+    await userRef.set({referralCode: code}, {merge: true});
+
+    return {
+      code,
+      shareUrl: `https://teebox-market.web.app/?ref=${code}`,
+    };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    logger.error("generateReferralCode error", err);
+    throw new HttpsError("internal", "Could not generate referral code");
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// redeemReferralCredit (Firestore trigger)
+//   When an order transitions to fulfillmentStatus=='delivered'
+//   and the buyer has a referredBy code AND this is their first
+//   delivered order, credit BOTH the buyer and the referrer with
+//   $10 (users/{uid}.credits +10) and append the buyer to
+//   referrals/{code}.usedBy.
+//   Idempotent: only fires on the delivered transition itself.
+// ─────────────────────────────────────────────────────────────
+const REFERRAL_CREDIT_USD = 10;
+
+exports.redeemReferralCredit = onDocumentUpdated(
+  "orders/{orderId}",
+  async (event) => {
+    try {
+      const before = event.data && event.data.before && event.data.before.data();
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!before || !after) return;
+
+      const wasDelivered = before.fulfillmentStatus === "delivered";
+      const isDelivered = after.fulfillmentStatus === "delivered";
+      if (wasDelivered || !isDelivered) return;
+
+      const buyerId = after.buyerId;
+      if (!buyerId) return;
+
+      const db = admin.firestore();
+      const buyerRef = db.doc(`users/${buyerId}`);
+      const buyerSnap = await buyerRef.get();
+      if (!buyerSnap.exists) return;
+      const buyer = buyerSnap.data();
+      const referralCode = buyer.referredBy;
+      if (!referralCode) return; // skip silently — no referral attached
+
+      // First-delivered-order check: count prior delivered orders for buyer.
+      const priorSnap = await db
+        .collection("orders")
+        .where("buyerId", "==", buyerId)
+        .where("fulfillmentStatus", "==", "delivered")
+        .get();
+
+      // The current order is now in this set (Firestore reads see it post-update).
+      // So "first delivered" means exactly 1 delivered order for this buyer.
+      const deliveredCount = priorSnap.size;
+      if (deliveredCount !== 1) {
+        logger.info(
+          `redeemReferralCredit: buyer ${buyerId} has ${deliveredCount} ` +
+            `delivered order(s); skipping (not first)`
+        );
+        return;
+      }
+
+      const refRef = db.doc(`referrals/${referralCode}`);
+      const refSnap = await refRef.get();
+      if (!refSnap.exists) {
+        logger.warn(
+          `redeemReferralCredit: referral code ${referralCode} not found ` +
+            `for buyer ${buyerId}`
+        );
+        return;
+      }
+      const referrerId = refSnap.data().userId;
+      if (!referrerId || referrerId === buyerId) {
+        logger.warn(
+          `redeemReferralCredit: invalid referrerId for code ${referralCode}`
+        );
+        return;
+      }
+
+      const referrerRef = db.doc(`users/${referrerId}`);
+      const batch = db.batch();
+      batch.set(
+        buyerRef,
+        {credits: admin.firestore.FieldValue.increment(REFERRAL_CREDIT_USD)},
+        {merge: true}
+      );
+      batch.set(
+        referrerRef,
+        {credits: admin.firestore.FieldValue.increment(REFERRAL_CREDIT_USD)},
+        {merge: true}
+      );
+      batch.update(refRef, {
+        usedBy: admin.firestore.FieldValue.arrayUnion(buyerId),
+      });
+      await batch.commit();
+
+      logger.info(
+        `redeemReferralCredit: +$${REFERRAL_CREDIT_USD} to buyer ${buyerId} ` +
+          `and referrer ${referrerId} (code ${referralCode})`
+      );
+    } catch (err) {
+      logger.error("redeemReferralCredit error", err);
+    }
+  }
+);

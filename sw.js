@@ -1,9 +1,10 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-04-26';
+const CACHE_VERSION = 'teebox-v1-2026-04-29-r3';
 const SHELL = [
   '/',
   '/index.html',
+  '/bingo-courses.js',
   '/manifest.webmanifest',
   '/icon.svg',
   '/favicon.svg',
@@ -66,6 +67,13 @@ self.addEventListener('fetch', (event) => {
     return; // Let the request proceed without SW interference.
   }
 
+  // Same-origin /assets/logos/* — bypass SW cache entirely. These swap out as
+  // we commission real brand logos; we don't want users pinned to a stale
+  // copy. Browser HTTP cache still applies.
+  if (url.pathname.startsWith('/assets/logos/')) {
+    return; // let the browser handle it
+  }
+
   // Same-origin: stale-while-revalidate
   if (url.origin === self.location.origin) {
     event.respondWith(
@@ -84,6 +92,14 @@ self.addEventListener('fetch', (event) => {
       )
     );
     return;
+  }
+
+  // Cross-origin: skip caching for image hosts entirely. Demo Unsplash photos
+  // are remoted by URL hash; if Unsplash ever swaps the underlying image we
+  // don't want to pin users to a stale cached copy. Browser HTTP cache still
+  // applies as a normal CDN would.
+  if (req.destination === 'image') {
+    return; // browser handles via standard HTTP cache
   }
 
   // Cross-origin static (fonts, CDN scripts): network-first, fall back to cache.

@@ -66,7 +66,12 @@ service cloud.firestore {
         && !('orderId' in d.keys())
         && !('pendingBuyer' in d.keys())
         && !('pendingUntil' in d.keys())
-        && !('pendingPaymentIntentId' in d.keys());
+        && !('pendingPaymentIntentId' in d.keys())
+        // Analytics counters are server-owned (Cloud Functions only).
+        // Clients cannot seed or overwrite them on create.
+        && !('views' in d.keys())
+        && !('watchlistCount' in d.keys())
+        && !('messageCount' in d.keys());
     }
 
     function isValidListingUpdate(next, prev) {
@@ -77,6 +82,9 @@ service cloud.firestore {
         // server-only.
         && (next.get('status', 'active') == prev.get('status', 'active')
             || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'active'))
+        // Analytics counters (views/watchlistCount/messageCount) are
+        // intentionally excluded from this whitelist — they're written
+        // by Cloud Functions only.
         && next.diff(prev).affectedKeys().hasOnly(
              ['title','brand','cat','ask','bid','condition','desc','photos','emoji','badge','updatedAt','expiresAt','status'])
         && (!('title' in next.keys()) || (next.title is string && next.title.size() > 0 && next.title.size() <= 120))
@@ -226,23 +234,39 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
-    // REVIEWS — buyer's review of a seller after a paid order.
-    //   id == orderId (one review per order, idempotent).
+    // REVIEWS — two-way review system after a paid order.
+    //   Doc id is `{orderId}_buyer` (buyer reviews seller) or
+    //   `{orderId}_seller` (seller reviews buyer). One per role per
+    //   order, idempotent. The `role` field must match the id suffix.
+    //
     //   read:   public
-    //   create: signed-in, buyerId of the matching order, valid 1-5 rating
+    //   create: signed-in, party of the matching order matching the
+    //           role; valid 1-5 rating; role is 'buyer' or 'seller'.
     //   update/delete: never (immutable record)
     // ─────────────────────────────────────────────
-    match /reviews/{orderId} {
+    match /reviews/{reviewId} {
       allow read: if true;
 
       allow create: if request.auth != null
         && appCheckOk()
-        && request.resource.data.buyerId == request.auth.uid
-        && exists(/databases/$(database)/documents/orders/$(orderId))
-        && get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+        && request.resource.data.keys().hasAll(['buyerId','sellerId','rating','role','orderId','createdAt'])
+        && request.resource.data.role in ['buyer','seller']
+        && reviewId == request.resource.data.orderId + '_' + request.resource.data.role
+        && exists(/databases/$(database)/documents/orders/$(request.resource.data.orderId))
+        && request.resource.data.buyerId
+             == get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.buyerId
         && request.resource.data.sellerId
-             == get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId
-        && request.resource.data.keys().hasAll(['buyerId','sellerId','rating','createdAt'])
+             == get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.sellerId
+        // Buyer-role review is authored by the buyer; seller-role
+        // review is authored by the seller. Authorship is enforced by
+        // the role suffix in the id, not a separate authorId field.
+        && (
+          (request.resource.data.role == 'buyer'
+            && request.resource.data.buyerId == request.auth.uid)
+          ||
+          (request.resource.data.role == 'seller'
+            && request.resource.data.sellerId == request.auth.uid)
+        )
         && request.resource.data.rating is int
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
@@ -251,6 +275,36 @@ service cloud.firestore {
                 && request.resource.data.comment.size() <= 2000));
 
       allow update, delete: if false;
+
+      // ─────────────────────────────────────────────
+      // HELPFUL VOTES (subcollection) — TODO: Wave 2B added this; needs
+      // admin review. Each user gets one doc keyed by their uid; vote
+      // value is 'yes' | 'no'. Public read so anyone can render the
+      // count. Owner-only write.
+      // ─────────────────────────────────────────────
+      match /helpfulVotes/{userId} {
+        allow read: if true;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && appCheckOk()
+          && request.resource.data.vote in ['yes','no'];
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // NOTIFICATIONS — in-app notifications (price drops, offers, etc.)
+    // Read by recipient only. Writes are server-only (Cloud Function);
+    // a client can mark its own notification as read (`read: true`).
+    // ─────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+      allow create: if false; // server only
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','readAt']);
+      allow delete: if false;
     }
 
     // ─────────────────────────────────────────────
@@ -267,8 +321,12 @@ service cloud.firestore {
     // PROFILES — public read, owner write. Schema-validated. Avatars
     // live in Storage at avatars/{uid}/...
     //
-    // Strict field whitelist to prevent shenanigans (no
-    // sellerId/createdAt/etc.).
+    // Strict field whitelist to prevent shenanigans. The aggregate
+    // analytics fields (reviewCount, avgRating, fiveStarPct,
+    // salesCount, totalRevenue, lastSaleAt, lastReviewAt) are
+    // server-owned: they're written by Cloud Functions via the Admin
+    // SDK, never by the client. Same for pinnedListingId pin/unpin if
+    // we ever wire it through a callable — for now it's user-editable.
     // ─────────────────────────────────────────────
     match /profiles/{userId} {
       allow read: if true;
@@ -276,13 +334,17 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        && request.resource.data.keys().hasOnly(
+             ['displayName','bio','avatarUrl','location','handicap',
+              'golfBag','pinnedListingId','updatedAt'])
         && isValidProfile(request.resource.data, true);
 
       allow update: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['displayName','bio','avatarUrl','location','handicap','updatedAt'])
+             ['displayName','bio','avatarUrl','location','handicap',
+              'golfBag','pinnedListingId','updatedAt'])
         && isValidProfile(request.resource.data, false);
 
       allow delete: if false;
@@ -293,7 +355,11 @@ service cloud.firestore {
         && (!('bio' in d.keys())         || (d.bio is string && d.bio.size() <= 600))
         && (!('avatarUrl' in d.keys())   || (d.avatarUrl is string && d.avatarUrl.size() <= 1024))
         && (!('location' in d.keys())    || (d.location is string && d.location.size() <= 80))
-        && (!('handicap' in d.keys())    || (d.handicap is number && d.handicap >= -10 && d.handicap <= 54));
+        && (!('handicap' in d.keys())    || (d.handicap is number && d.handicap >= -10 && d.handicap <= 54))
+        && (!('golfBag' in d.keys())     || (d.golfBag is list
+                                              && d.golfBag.size() <= 14))
+        && (!('pinnedListingId' in d.keys()) || (d.pinnedListingId is string
+                                                  && d.pinnedListingId.size() <= 64));
     }
 
     // ─────────────────────────────────────────────
@@ -410,6 +476,186 @@ service cloud.firestore {
           && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
+    }
+
+    // ─────────────────────────────────────────────
+    // SAVED SEARCHES (top-level) — saved filter sets owners get
+    // notified about when new matching listings appear. Distinct from
+    // the legacy /users/{uid}/savedSearches subcollection above; this
+    // top-level collection is the v1.1 home, scoped by userId field.
+    //   read/write: owner only (userId == auth.uid)
+    //   delete:     owner only
+    // ─────────────────────────────────────────────
+    match /savedSearches/{searchId} {
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId','name','query','notifyOnNew','createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.notifyOnNew is bool
+        && request.resource.data.query is map
+        && (!('category' in request.resource.data.query.keys())
+            || (request.resource.data.query.category is string
+                && request.resource.data.query.category.size() <= 40))
+        && (!('brand' in request.resource.data.query.keys())
+            || (request.resource.data.query.brand is string
+                && request.resource.data.query.brand.size() <= 60))
+        && (!('priceMin' in request.resource.data.query.keys())
+            || (request.resource.data.query.priceMin is number
+                && request.resource.data.query.priceMin >= 0))
+        && (!('priceMax' in request.resource.data.query.keys())
+            || (request.resource.data.query.priceMax is number
+                && request.resource.data.query.priceMax >= 0))
+        && (!('condition' in request.resource.data.query.keys())
+            || (request.resource.data.query.condition is string
+                && request.resource.data.query.condition.size() <= 40));
+
+      allow update: if request.auth != null
+        && appCheckOk()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+             ['name','query','notifyOnNew','updatedAt'])
+        && (!('name' in request.resource.data.keys())
+            || (request.resource.data.name is string
+                && request.resource.data.name.size() > 0
+                && request.resource.data.name.size() <= 80))
+        && (!('notifyOnNew' in request.resource.data.keys())
+            || request.resource.data.notifyOnNew is bool);
+
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ─────────────────────────────────────────────
+    // OFFERS — make-an-offer feature. Buyer pitches a price; seller
+    // accepts/declines/counters. Once created, offers are immutable
+    // history (status walks forward, body never deleted).
+    //   read:   buyer or seller of the offer
+    //   create: any auth user as buyer; status must start 'pending'
+    //   update: seller can transition status to accepted/declined/
+    //           countered (and set counterAmount). Buyer can edit
+    //           their own `message` while still pending.
+    //   delete: never (expiry is encoded as status='expired' by a
+    //           Cloud Function, not by deletion)
+    // ─────────────────────────────────────────────
+    match /offers/{offerId} {
+      allow read: if request.auth != null
+                  && (resource.data.buyerId == request.auth.uid
+                      || resource.data.sellerId == request.auth.uid);
+
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.keys().hasAll(
+             ['buyerId','sellerId','listingId','amount','status','createdAt','expiresAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.listingId is string
+        && request.resource.data.listingId.size() > 0
+        && request.resource.data.listingId.size() <= 128
+        && exists(/databases/$(database)/documents/listings/$(request.resource.data.listingId))
+        && request.resource.data.sellerId
+             == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.sellerId
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.amount < 1000000
+        && (!('message' in request.resource.data.keys())
+            || (request.resource.data.message is string
+                && request.resource.data.message.size() <= 500))
+        && !('counterAmount' in request.resource.data.keys());
+
+      allow update: if request.auth != null
+        && appCheckOk()
+        && resource.data.status == 'pending'
+        && (
+          // Seller transitions: accepted | declined | countered.
+          (request.auth.uid == resource.data.sellerId
+            && request.resource.data.status in ['accepted','declined','countered']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                 ['status','counterAmount','respondedAt'])
+            && (!('counterAmount' in request.resource.data.keys())
+                || (request.resource.data.counterAmount is number
+                    && request.resource.data.counterAmount > 0
+                    && request.resource.data.counterAmount < 1000000))
+            // counterAmount only legal when status == 'countered'.
+            && (request.resource.data.status == 'countered'
+                || !('counterAmount' in request.resource.data.diff(resource.data).affectedKeys())))
+          ||
+          // Buyer can edit their offer message while still pending.
+          (request.auth.uid == resource.data.buyerId
+            && request.resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['message'])
+            && (!('message' in request.resource.data.keys())
+                || (request.resource.data.message is string
+                    && request.resource.data.message.size() <= 500)))
+        );
+
+      allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // REFERRALS — one doc per referral code. Doc id IS the code.
+    // Public read so anyone can validate a code at signup. Creates
+    // and updates are server-only (Cloud Function mints codes and
+    // appends to `usedBy`).
+    // ─────────────────────────────────────────────
+    match /referrals/{referralCode} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // DAILY GAMES — Logo Bingo daily puzzle. Doc id is YYYY-MM-DD so
+    // every player on a given day gets the same 9 courses. Public
+    // read; created by a scheduled Cloud Function only.
+    // ─────────────────────────────────────────────
+    match /dailyGames/{date} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // GAME SCORES — Logo Bingo leaderboard. Doc id is `{date}_{uid}`
+    // so each user gets one score per daily puzzle. Public read so
+    // top-N leaderboard queries work. Streak field is the only thing
+    // a client may rewrite (and only their own doc) — Cloud Functions
+    // perform the authoritative streak math server-side.
+    // ─────────────────────────────────────────────
+    match /gameScores/{scoreId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && appCheckOk()
+        && request.resource.data.userId == request.auth.uid
+        && scoreId == request.resource.data.date + '_' + request.auth.uid
+        && request.resource.data.keys().hasAll(
+             ['userId','date','correctCount','attempts','completedAt'])
+        && request.resource.data.date is string
+        && request.resource.data.date.size() == 10
+        && request.resource.data.correctCount is int
+        && request.resource.data.correctCount >= 0
+        && request.resource.data.correctCount <= 9
+        && request.resource.data.attempts is int
+        && request.resource.data.attempts >= 0
+        && request.resource.data.attempts <= 1000
+        && (!('streak' in request.resource.data.keys())
+            || (request.resource.data.streak is int
+                && request.resource.data.streak >= 0));
+
+      allow update: if request.auth != null
+        && appCheckOk()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['streak'])
+        && request.resource.data.streak is int
+        && request.resource.data.streak >= 0;
+
+      allow delete: if false;
     }
 
     // ─────────────────────────────────────────────

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /functions/
+
+Sitemap: https://teebox-market.web.app/sitemap.xml

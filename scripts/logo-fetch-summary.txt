@@ -1,0 +1,90 @@
+Total courses: 93
+Mapped to domains: 76
+Unmapped (will use SVG lettermark): 17
+
+[augusta-national] OK Google (2.2 KB) <- masters.com
+[pine-valley] FAIL no logo found <- pinevalley.org  (clearbit=fetch failed, google=404)
+[pebble-beach] FAIL no logo found <- pebblebeach.com  (clearbit=fetch failed, google=200)
+[shinnecock-hills] FAIL no logo found <- shinnecockhills.com  (clearbit=fetch failed, google=404)
+[oakmont] OK Google (3.5 KB) <- oakmont-countryclub.org
+[merion-east] OK Google (24.9 KB) <- meriongolfclub.com
+[pacific-dunes] OK Google (2.3 KB) <- bandondunesgolf.com
+[bandon-dunes] OK Google (2.3 KB) <- bandondunesgolf.com
+[old-macdonald] OK Google (2.3 KB) <- bandondunesgolf.com
+[bandon-trails] OK Google (2.3 KB) <- bandondunesgolf.com
+[sheep-ranch] OK Google (2.3 KB) <- bandondunesgolf.com
+[winged-foot-west] OK Google (3.3 KB) <- wfgc.org
+[seminole] OK Google (1.9 KB) <- seminolegolfclub.org
+[los-angeles-cc-north] OK Google (3.5 KB) <- thelacc.org
+[riviera] OK Google (5.8 KB) <- therivieracountryclub.com
+[oakland-hills-south] OK Google (43.2 KB) <- oaklandhillscc.com
+[olympic-club-lake] FAIL no logo found <- olyclub.com  (clearbit=fetch failed, google=404)
+[san-francisco-gc] OK Google (8.8 KB) <- sfgc.org
+[baltusrol-lower] OK Google (10.8 KB) <- baltusrol.org
+[bethpage-black] OK Google (3.2 KB) <- parks.ny.gov
+[pinehurst-no-2] FAIL no logo found <- pinehurst.com  (clearbit=fetch failed, google=404)
+[whistling-straits] OK Google (2.7 KB) <- americanclubresort.com
+[erin-hills] OK Google (2.7 KB) <- erinhills.com
+[tpc-sawgrass] OK Google (25.2 KB) <- tpc.com
+[kiawah-ocean] OK Google (5.3 KB) <- kiawahresort.com
+[harbour-town] OK Google (4.0 KB) <- seapines.com
+[tobacco-road] OK Google (27.2 KB) <- tobaccoroadgolf.com
+[streamsong-red] OK Google (9.4 KB) <- streamsongresort.com
+[streamsong-blue] OK Google (9.4 KB) <- streamsongresort.com
+[streamsong-black] OK Google (9.4 KB) <- streamsongresort.com
+[cabot-citrus-farms] OK Google (1.2 KB) <- cabotcitrusfarms.com
+[inverness] OK Google (3.5 KB) <- invernessclub.com
+[prairie-dunes] OK Google (1.6 KB) <- prairiedunes.com
+[oak-hill-east] OK Google (25.4 KB) <- oakhillcc.com
+[medinah-3] OK Google (40.7 KB) <- medinahcc.org
+[quaker-ridge] FAIL no logo found <- quakerridgegc.org  (clearbit=fetch failed, google=404)
+[east-lake] OK Google (10.4 KB) <- eastlakegolfclub.com
+[castle-pines] OK Google (1.6 KB) <- castlepinesgolfclub.com
+[shadow-creek] OK Google (2.7 KB) <- shadowcreek.com
+[st-andrews-old] OK Google (12.4 KB) <- standrews.com
+[muirfield] OK Google (9.0 KB) <- muirfield.org.uk
+[royal-dornoch] OK Google (6.6 KB) <- royaldornoch.com
+[turnberry-ailsa] FAIL no logo found <- trumpgolfscotland.com  (clearbit=fetch failed, google=200)
+[carnoustie] OK Google (37.8 KB) <- carnoustiegolflinks.com
+[north-berwick] OK Google (8.5 KB) <- northberwickgolfclub.com
+[kingsbarns] OK Google (19.8 KB) <- kingsbarns.com
+[cruden-bay] FAIL no logo found <- crudenbaygolfclub.co.uk  (clearbit=fetch failed, google=200)
+[machrihanish] OK Google (1.5 KB) <- machgolf.com
+[machrihanish-dunes] FAIL no logo found <- machrihanishdunes.com  (clearbit=fetch failed, google=200)
+[castle-stuart] FAIL no logo found <- castlestuartgolf.com  (clearbit=fetch failed, google=404)
+[royal-troon] OK Google (5.6 KB) <- royaltroon.com
+[royal-county-down] FAIL no logo found <- royalcountydown.org  (clearbit=fetch failed, google=200)
+[royal-portrush-dunluce] OK Google (15.1 KB) <- royalportrushgolfclub.com
+[ballybunion-old] OK Google (5.9 KB) <- ballybuniongolfclub.com
+[lahinch] OK Google (43.0 KB) <- lahinchgolf.com
+[portmarnock] OK Google (2.2 KB) <- portmarnockgolfclub.ie
+[european-club] OK Google (6.6 KB) <- theeuropeanclub.com
+[royal-st-georges] OK Google (5.4 KB) <- royalstgeorges.com
+[sunningdale-old] OK Google (2.8 KB) <- sunningdale-golfclub.co.uk
+[royal-birkdale] OK Google (20.2 KB) <- royalbirkdale.com
+[royal-lytham] OK Google (4.9 KB) <- royallytham.org
+[royal-liverpool] FAIL no logo found <- royalliverpoolgolf.com  (clearbit=fetch failed, google=404)
+[walton-heath-old] FAIL no logo found <- waltonheath.com  (clearbit=fetch failed, google=200)
+[morfontaine] OK Google (9.6 KB) <- golfdemorfontaine.fr
+[valderrama] OK Google (12.8 KB) <- valderrama.com
+[royal-melbourne-west] OK Google (11.4 KB) <- royalmelbourne.com.au
+[kingston-heath] OK Google (19.7 KB) <- kingstonheath.melbourne
+[barnbougle-dunes] OK Google (9.2 KB) <- barnbougle.com.au
+[barnbougle-lost-farm] OK Google (9.2 KB) <- barnbougle.com.au
+[cape-wickham] OK Google (7.3 KB) <- capewickham.com.au
+[new-south-wales] OK Google (8.0 KB) <- nswgolfclub.com.au
+[tara-iti] FAIL no logo found <- taraiti.com  (clearbit=fetch failed, google=404)
+[cape-kidnappers] OK Google (3.8 KB) <- capekidnappers.com
+[cabot-cliffs] OK Google (1.2 KB) <- cabotcapebreton.com
+[cabot-links] OK Google (1.2 KB) <- cabotcapebreton.com
+[hamilton-gcc] FAIL no logo found <- hamiltongolf.com  (clearbit=fetch failed, google=404)
+
+────────── SUMMARY ──────────
+Total courses:           93
+Mapped to domains:       76
+Unmapped (SVG only):     17
+Already had PNG (skip):  0
+Fetched via Clearbit:    0
+Fetched via Google:      61
+Failed:                  15
+Total real PNGs now:     61 / 93
