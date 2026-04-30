@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-04-30-r15';
+const CACHE_VERSION = 'teebox-v1-2026-04-30-r16';
 const SHELL = [
   '/',
   '/index.html',
