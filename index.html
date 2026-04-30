@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
@@ -19,8 +19,8 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
 <!-- SEO + social link previews -->
-<meta name="description" content="The peer-to-peer marketplace for golfers. Buy and sell drivers, irons, putters, apparel, and accessories from real sellers — Scotty Cameron, TaylorMade, Mizuno, Peter Millar, Holderness &amp; Bourne, Smathers &amp; Branson, and more. 6.5% seller fee." />
-<meta name="keywords" content="golf marketplace, buy golf clubs, sell golf clubs, used golf equipment, scotty cameron, taylormade, peter millar, holderness and bourne, smathers and branson, golf gear" />
+<meta name="description" content="The peer-to-peer marketplace for golfers. Buy and sell drivers, irons, putters, apparel, and accessories directly between members. Secured payments, real-time inventory, and a flat 6.5% seller fee." />
+<meta name="keywords" content="golf marketplace, peer to peer golf, buy golf clubs, sell golf clubs, used golf equipment, golf apparel, golf accessories, golf gear" />
 <link rel="canonical" href="https://teeboxmarket.com/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="TeeBox" />
@@ -157,6 +157,14 @@
   .profile-meta { font-size: 13px; color: var(--gray-500); }
   .profile-section { margin-top: 1.25rem; }
   .profile-section h4 { font-size: 13px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.5rem; }
+  /* Mobile account hub: list of links to My Shop, Orders, Watchlist, etc. */
+  .account-hub-list { display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
+  .account-hub-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 500; color: var(--gray-900); text-align: left; transition: background 0.15s ease; width: 100%; }
+  .account-hub-item:last-child { border-bottom: 0; }
+  .account-hub-item:active { background: var(--gray-100); }
+  .account-hub-icon { font-size: 18px; line-height: 1; flex-shrink: 0; width: 24px; text-align: center; }
+  .account-hub-label { flex: 1; }
+  .account-hub-chev { color: var(--gray-400); font-size: 22px; line-height: 1; }
   .profile-bio { font-size: 14px; line-height: 1.6; color: var(--gray-700); white-space: pre-wrap; }
   .profile-stat-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
   .profile-stat { display: flex; flex-direction: column; gap: 2px; }
@@ -285,6 +293,30 @@
   .install-banner-x:active { transform: scale(0.92); }
   .offline-banner { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; background: var(--red-500); color: var(--white); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; text-align: center; z-index: 700; box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
 
+  /* Mobile-only top header (defaults hidden — shown by body.has-bottom-nav rule below). */
+  .mobile-top-bar { display: none; }
+  .mobile-top-logo { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; line-height: 1; }
+  .mobile-top-logo span { color: var(--white); }
+  .mobile-top-actions { display: flex; align-items: center; gap: 8px; }
+  .mobile-top-bingo { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-500); color: var(--green-900); border: 0; border-radius: 999px; padding: 7px 14px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .mobile-top-bingo:active { transform: scale(0.97); }
+  .mobile-top-icon { position: relative; background: transparent; border: 0; padding: 6px; color: var(--white); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .mobile-top-icon .ico { width: 22px; height: 22px; }
+  .mobile-top-icon .unread-badge { position: absolute; top: 4px; right: 4px; }
+  .mobile-nav-toggle { background: transparent; border: 0; color: var(--white); font-size: 22px; line-height: 1; padding: 6px 8px; cursor: pointer; font-weight: 700; }
+  .mobile-nav-toggle:active { opacity: 0.7; }
+  /* Slide-in drawer with menu links — full set of desktop nav destinations. */
+  .mobile-nav-drawer { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.5); }
+  .mobile-nav-drawer.open { display: block; animation: backdropFade 0.18s ease; }
+  .mobile-nav-drawer-inner { position: absolute; top: 0; right: 0; bottom: 0; width: min(86vw, 340px); background: var(--white); padding: calc(env(safe-area-inset-top) + 8px) 0 calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.16); animation: drawerSlideIn 0.22s cubic-bezier(.32,.72,0,1); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px 14px; border-bottom: 1px solid var(--gray-100); }
+  .mobile-nav-drawer-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; color: var(--gray-900); }
+  .mobile-nav-drawer-close { background: transparent; border: 0; font-size: 28px; line-height: 1; color: var(--gray-500); cursor: pointer; padding: 4px 8px; }
+  .mobile-nav-link { display: block; padding: 14px 20px; font-size: 15px; font-weight: 500; color: var(--gray-900); text-decoration: none; border-bottom: 1px solid var(--gray-100); }
+  .mobile-nav-link:active { background: var(--gray-100); }
+  @keyframes drawerSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  @keyframes backdropFade { from { opacity: 0; } to { opacity: 1; } }
+
   /* Bottom tab nav (mobile only) */
   .bottom-nav { display: none; }
   @media (max-width: 900px) {
@@ -302,10 +334,30 @@
     .bottom-nav-item.sell { color: var(--gold-500); }
     .bottom-nav-item.sell .ico { stroke-width: 2; }
     .bottom-nav-item.sell.active { color: var(--gold-600); }
-    body.has-bottom-nav { padding-bottom: 70px; }
+    body.has-bottom-nav { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     body.has-bottom-nav nav { display: none; }
-    body.has-bottom-nav .cat-bar { top: 0; }
-    body.has-bottom-nav main { margin-top: 44px; }
+    /* Mobile top bar shows in place of the hidden desktop nav. */
+    body.has-bottom-nav .mobile-top-bar {
+      display: flex;
+      position: fixed; top: 0; left: 0; right: 0;
+      align-items: center; justify-content: space-between;
+      padding: calc(env(safe-area-inset-top) + 8px) 14px 10px;
+      background: var(--green-800);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      z-index: 120;
+      gap: 10px;
+    }
+    /* The status-bar inset region above the top-bar can show body color
+       in WKWebView. Force it to match the top-bar's green. */
+    body.has-bottom-nav { background: var(--green-800); }
+    body.has-bottom-nav main { background: var(--cream); }
+    /* Cat-bar sits directly under the mobile top bar. */
+    body.has-bottom-nav .cat-bar {
+      top: calc(env(safe-area-inset-top) + 52px);
+      padding-top: 6px;
+      background: var(--cream);
+    }
+    body.has-bottom-nav main { margin-top: calc(44px + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
   }
@@ -1095,8 +1147,13 @@
   .bingo-cell:hover:not([data-state="correct"]):not([data-state="revealed"]) { border-color: var(--green-400); transform: scale(1.02); box-shadow: 0 6px 18px rgba(45,84,56,0.14); }
   .bingo-cell:active:not([data-state="correct"]):not([data-state="revealed"]) { transform: scale(0.98); }
   .bingo-cell-num { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: var(--white); background: var(--green-700); padding: 2px 7px; border-radius: 50px; letter-spacing: 0.4px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-  .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; }
+  .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; overflow: hidden; }
+  /* Logos (small flat brand marks) display as-is, contained. Photos (Wikipedia
+     clubhouse/aerial) get the cover/saturate treatment via the .bingo-cell-photo
+     class added at runtime when an image's aspect ratio looks photographic. */
   .bingo-cell-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  .bingo-cell-logo.bingo-cell-photo { padding: 0; border-radius: var(--radius-md); }
+  .bingo-cell-logo.bingo-cell-photo img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; filter: saturate(0.78) contrast(1.04) brightness(0.94); border-radius: var(--radius-md); }
   .bingo-cell-name { font-size: 11.5px; font-weight: 600; color: var(--gray-700); line-height: 1.2; margin-top: 4px; word-break: break-word; }
   .bingo-cell-mark { position: absolute; top: 6px; right: 8px; font-size: 14px; font-weight: 700; }
   .bingo-cell[data-state="correct"] { background: var(--green-50); border: 2px solid var(--green-600); }
@@ -1712,7 +1769,7 @@
     </div>
     <div class="info-body">
       <h3>The peer-to-peer marketplace for golfers.</h3>
-      <p>TeeBox is a place to buy and sell premium golf gear directly between members. We focus on the categories you actually care about — clubs from the top brands, premium apparel from Peter Millar and Holderness &amp; Bourne, needlepoint accessories from Smathers &amp; Branson, headcovers, balls, and bags.</p>
+      <p>TeeBox is a place to buy and sell golf gear directly between members. We focus on the categories you actually care about — clubs, apparel, headcovers, accessories, balls, and bags — with real peer-to-peer pricing and a flat 6.5% seller fee.</p>
 
       <h4>How it works</h4>
       <ol class="info-list">
@@ -2002,6 +2059,43 @@
   </div>
 </div>
 
+<!-- MOBILE TOP HEADER (visible only when bottom-nav is active) -->
+<header class="mobile-top-bar" aria-label="App header">
+  <a class="mobile-top-logo" href="#" data-action="bn-home"><span>Tee</span>Box</a>
+  <div class="mobile-top-actions">
+    <button class="mobile-top-bingo" data-action="open-bingo" type="button" aria-label="Open Logo Bingo">
+      <span aria-hidden="true">🎯</span><span>Bingo</span>
+    </button>
+    <button class="mobile-top-icon" data-action="open-inbox" type="button" aria-label="Inbox">
+      <span data-ico="message"></span><span class="unread-badge" aria-hidden="true"></span>
+    </button>
+    <button class="mobile-nav-toggle" data-action="toggle-mobile-nav" type="button" aria-label="Open menu" aria-expanded="false">
+      <span aria-hidden="true">☰</span>
+    </button>
+  </div>
+</header>
+
+<!-- MOBILE NAV DRAWER (slides in from the right) -->
+<div class="mobile-nav-drawer" id="mobileNavDrawer" data-action="close-mobile-nav" aria-hidden="true">
+  <nav class="mobile-nav-drawer-inner" aria-label="App menu" onclick="event.stopPropagation()">
+    <div class="mobile-nav-drawer-head">
+      <span class="mobile-nav-drawer-title">Menu</span>
+      <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
+    </div>
+    <a href="#" class="mobile-nav-link" data-action="bn-home">Marketplace</a>
+    <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">Trending</a>
+    <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">Drops</a>
+    <a href="#" class="mobile-nav-link" data-action="open-about">About</a>
+    <a href="#" class="mobile-nav-link" data-action="open-shop-dashboard">My Shop</a>
+    <a href="#" class="mobile-nav-link" data-action="open-watchlist">Watchlist</a>
+    <a href="#" class="mobile-nav-link" data-action="open-orders">My Orders</a>
+    <a href="#" class="mobile-nav-link" data-action="open-my-offers">My Offers</a>
+    <a href="#" class="mobile-nav-link" data-action="open-saved-searches">Saved Searches</a>
+    <a href="#" class="mobile-nav-link" data-action="open-inbox">Messages</a>
+    <a href="#" class="mobile-nav-link" data-action="open-profile-self">Profile</a>
+  </nav>
+</div>
+
 <!-- NAV -->
 <nav>
   <a class="nav-logo" href="#"><span>Tee</span>Box</a>
@@ -2063,7 +2157,7 @@
       <div>
         <div class="hero-eyebrow">Live Marketplace</div>
         <h1 class="hero-title">The Premier<br/><em>Golf Marketplace</em></h1>
-        <p class="hero-sub">A peer-to-peer marketplace for golfers. Premium clubs, Smathers &amp; Branson belts, Peter Millar polos, Holderness &amp; Bourne, headcovers, balls, and the rest of the gear that makes the game feel right.</p>
+        <p class="hero-sub">The peer-to-peer marketplace for golfers. Buy and sell clubs, apparel, accessories, and the rest of the gear that makes the game feel right — directly between members, with secured payments and a flat 6.5% seller fee.</p>
         <div class="hero-ctas">
           <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
@@ -2157,7 +2251,7 @@
 
 <footer>
   <div class="footer-inner">
-    <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The marketplace for premium golf gear. Clubs, Smathers &amp; Branson, Peter Millar, Holderness &amp; Bourne, and the rest of the good stuff — directly between members.</p></div>
+    <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The peer-to-peer marketplace for golfers. Clubs, apparel, accessories — directly between members, with secured payments and a flat 6.5% seller fee.</p></div>
     <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#drops">Drops</a><a href="#trending">Trending</a></div>
     <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
     <div class="footer-col"><h4>Company</h4><a href="#" data-action="open-about">About</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
@@ -2641,6 +2735,7 @@ window.confirmPayment = async function() {
   // ──────────────────────────────────────────────────────────
   const Cap = (typeof window !== 'undefined') ? window.Capacitor : null;
   const IS_NATIVE = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
+  if (IS_NATIVE && document.body) document.body.classList.add('is-native');
   const FBAuthPlugin = (Cap && Cap.Plugins) ? Cap.Plugins.FirebaseAuthentication : null;
   let nativeVerificationId = null;
 
@@ -3149,9 +3244,24 @@ let TICKER_ITEMS = [];
 
 // Refresh the ticker derivation from current PRODUCTS. Called whenever
 // loadListings finishes so the ticker reflects real, live inventory.
+// Default ticker shown before any listings exist — keeps the stock-market
+// feel on first paint and on a brand-new marketplace with zero inventory.
+const DEFAULT_TICKER = [
+  { name: 'Drivers',     price: '$385', chg: '+4.2%',  up: true  },
+  { name: 'Irons',       price: '$720', chg: '-1.8%',  up: false },
+  { name: 'Putters',     price: '$245', chg: '+6.5%',  up: true  },
+  { name: 'Wedges',      price: '$135', chg: '+2.1%',  up: true  },
+  { name: 'Polos',       price: '$98',  chg: '-0.7%',  up: false },
+  { name: 'Headcovers',  price: '$68',  chg: '+3.4%',  up: true  },
+  { name: 'Belts',       price: '$155', chg: '+1.2%',  up: true  },
+  { name: 'Bags',        price: '$295', chg: '-2.4%',  up: false },
+  { name: 'Shoes',       price: '$175', chg: '+5.0%',  up: true  },
+  { name: 'Balls',       price: '$48',  chg: '+0.9%',  up: true  },
+];
+
 function deriveTickerFromProducts() {
   const products = (window.PRODUCTS || []).filter(p => p.status !== 'sold' && Number(p.ask) > 0);
-  if (!products.length) { TICKER_ITEMS = []; return; }
+  if (!products.length) { TICKER_ITEMS = DEFAULT_TICKER.slice(); return; }
   // Group by brand, take median ask for each.
   const byBrand = {};
   products.forEach(p => {
@@ -3212,15 +3322,11 @@ window.__actions['open-detail-from-search'] = function(el) {
 function buildTicker() {
   const track = document.getElementById('tickerTrack');
   const wrap = track && track.closest('.ticker-wrap');
-  if (!TICKER_ITEMS.length) {
-    // No real data yet — hide the strip entirely instead of leaving an
-    // empty bar that just dead-air's the layout.
-    if (wrap) wrap.style.display = 'none';
-    if (track) track.innerHTML = '';
-    return;
-  }
+  // Fall back to default categories on first paint or empty marketplace
+  // so the stock-market strip is always visible and animating.
+  const items = TICKER_ITEMS.length ? TICKER_ITEMS : DEFAULT_TICKER;
   if (wrap) wrap.style.display = '';
-  const doubled = [...TICKER_ITEMS,...TICKER_ITEMS];
+  const doubled = [...items, ...items];
   track.innerHTML = doubled.map(t=>
     `<div class="ticker-item">`+
       `<span class="ticker-name">${window.safeText(t.name)}</span>`+
@@ -6904,12 +7010,47 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     `;
   }
 
-  // Apple Review 5.1.1(v): account deletion must be reachable from
-  // inside the app via an obvious path. The desktop user-menu has it,
-  // but the mobile profile tab (the path the reviewer takes) needs it
-  // too. Sign out + Delete account live next to Edit Profile here.
+  // Mobile account hub: every destination in the desktop user-menu
+  // (My Shop, Orders, Watchlist, Offers, Saved Searches, About) plus
+  // the Apple Review 5.1.1(v) Delete Account path. Only renders for
+  // the signed-in user viewing their own profile.
   const editBtn = isMe
-    ? `<div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+    ? `<div class="profile-section profile-account-hub">
+         <h4>Your account</h4>
+         <div class="account-hub-list">
+           <button class="account-hub-item" data-action="open-shop-dashboard" type="button">
+             <span class="account-hub-icon">🏪</span>
+             <span class="account-hub-label">My Shop</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-orders" type="button">
+             <span class="account-hub-icon">📦</span>
+             <span class="account-hub-label">My Orders</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-watchlist" type="button">
+             <span class="account-hub-icon">❤️</span>
+             <span class="account-hub-label">Watchlist</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-my-offers" type="button">
+             <span class="account-hub-icon">🤝</span>
+             <span class="account-hub-label">My Offers</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-saved-searches" type="button">
+             <span class="account-hub-icon">🔔</span>
+             <span class="account-hub-label">Saved Searches</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-about" type="button">
+             <span class="account-hub-icon">ℹ️</span>
+             <span class="account-hub-label">About TeeBox</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+         </div>
+       </div>
+       <div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
          <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
          <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
          <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
@@ -7280,6 +7421,30 @@ A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
 A['toggle-user-menu']        = () => document.getElementById('userMenu').classList.toggle('open');
+A['toggle-mobile-nav']       = () => {
+  const d = document.getElementById('mobileNavDrawer');
+  if (!d) return;
+  const opening = !d.classList.contains('open');
+  d.classList.toggle('open', opening);
+  d.setAttribute('aria-hidden', opening ? 'false' : 'true');
+  const btn = document.querySelector('.mobile-nav-toggle');
+  if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  document.body.style.overflow = opening ? 'hidden' : '';
+};
+A['close-mobile-nav']        = () => {
+  const d = document.getElementById('mobileNavDrawer');
+  if (!d) return;
+  d.classList.remove('open');
+  d.setAttribute('aria-hidden', 'true');
+  const btn = document.querySelector('.mobile-nav-toggle');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+};
+A['close-mobile-nav-and-go'] = (el) => {
+  A['close-mobile-nav']();
+  const anchor = el && el.getAttribute('data-anchor');
+  if (anchor) { const t = document.getElementById(anchor); if (t) t.scrollIntoView({behavior:'smooth', block:'start'}); }
+};
 A['close-lightbox']          = () => closeLightbox();
 A['lightbox-prev']           = () => stepLightbox(-1);
 A['lightbox-next']           = () => stepLightbox(1);
@@ -7416,6 +7581,22 @@ document.addEventListener('click', (ev) => {
   if (!wrap.contains(ev.target)) menu.classList.remove('open');
 });
 
+// Auto-close the mobile nav drawer when any link inside it is tapped.
+// Runs after the action handler so the destination opens before the close.
+document.addEventListener('click', (ev) => {
+  const link = ev.target.closest('.mobile-nav-link');
+  if (!link) return;
+  const drawer = document.getElementById('mobileNavDrawer');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  setTimeout(() => {
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    const btn = document.querySelector('.mobile-nav-toggle');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }, 80);
+});
+
 // Wire the filter bar.
 const sortSel = document.getElementById('sortMode');
 if (sortSel) sortSel.addEventListener('change', () => { window.__filter.sort = sortSel.value; buildProducts(); });
@@ -7547,16 +7728,24 @@ if (uploadZone) {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  // Pick 9 deterministic courses for the given date string.
+  // Pick 9 deterministic courses for the given date string. Same 9 worldwide
+  // on the same date. Uses a canonical pre-shuffled ordering and walks it 9
+  // tiles at a time so no course repeats within a ~20-day cycle (185/9).
   function dailySeed(dateStr) {
-    const rng = mulberry32(hashStr('teebox-bingo-v1:' + dateStr));
-    const pool = COURSES.slice();      // shallow copy; never mutate the import
-    // Fisher–Yates shuffle, then take first 9
+    // Stable canonical ordering — bumping the seed string reshuffles the cycle.
+    const rngOrder = mulberry32(hashStr('teebox-bingo-canon-v2'));
+    const pool = COURSES.slice();
     for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
+      const j = Math.floor(rngOrder() * (i + 1));
       const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
     }
-    return pool.slice(0, 9);
+    // Days since a fixed UTC epoch → window index. Wraps around after one cycle.
+    const today = new Date(dateStr + 'T00:00:00Z');
+    const epoch = new Date('2026-01-01T00:00:00Z');
+    const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
+    const windowCount = Math.max(1, Math.floor(pool.length / 9));
+    const start = (daysSince % windowCount) * 9;
+    return pool.slice(start, start + 9);
   }
 
   // ── Fuzzy match: normalize, then check `name`, `shortName`, `aliases` ──
@@ -7733,33 +7922,26 @@ if (uploadZone) {
     // on top of emoji span — only inserted if the resource resolves.
     //
     // Probe order:
-    //   1. /assets/logos/{id}.png  — commissioned/real logos when available
-    //   2. /assets/logos/{id}.svg  — generated lettermark crest fallback
-    //   3. emoji from course.logo  — last resort if both 404
+    //   1. /assets/logos/{id}.png  — real logo or Wikipedia course photo
+    //   2. emoji from course.logo  — ⛳ fallback when no PNG exists
     grid.querySelectorAll('.bingo-cell-logo').forEach((el) => {
       const id = el.dataset.logoId;
       const course = game.courses.find(c => c.id === id);
       if (!course) return;
-      const baseUrl = courseLogoUrl(course); // configured logoUrl OR /assets/logos/{id}.png
-      if (!baseUrl) return;
-
-      // Build the probe chain: configured/png first, then svg fallback.
-      const candidates = [baseUrl];
-      if (baseUrl.endsWith('.png')) candidates.push(baseUrl.replace(/\.png$/, '.svg'));
-
-      let i = 0;
-      const tryNext = () => {
-        if (i >= candidates.length) return; // give up → keep emoji
-        const url = candidates[i++];
-        const probe = new Image();
-        probe.onload = () => {
-          // Only swap if the cell hasn't been re-rendered out from under us
-          if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
-        };
-        probe.onerror = tryNext;
-        probe.src = url;
+      const url = courseLogoUrl(course);
+      if (!url) return;
+      const probe = new Image();
+      probe.onload = () => {
+        if (!el.isConnected) return;
+        // Photo treatment: PNGs sourced from Wikipedia are 256x256 (square) but
+        // contain photographic content that fills the frame. Real brand-mark
+        // logos have transparent areas and don't fill. Use a heuristic — if
+        // both dimensions are >= 200, it's a photo; apply cover+saturate.
+        const isPhoto = probe.naturalWidth >= 200 && probe.naturalHeight >= 200;
+        el.classList.toggle('bingo-cell-photo', isPhoto);
+        el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
       };
-      tryNext();
+      probe.src = url;
     });
 
     // Stat row
@@ -7955,9 +8137,17 @@ if (uploadZone) {
     if (pill) pill.textContent = `Tile #${idx + 1} · Attempt ${cell.attempts + 1}`;
     if (hint) {
       hint.classList.remove('error');
-      hint.textContent = cell.attempts === 0
-        ? 'One retry on a wrong guess — then the answer is revealed.'
-        : 'Last try — wrong answer reveals the course.';
+      // Progressive hints: location after wrong #1, architect after wrong #2.
+      // Pulled from bingo-courses.js metadata so each course gives unique tells.
+      if (cell.attempts === 0) {
+        hint.textContent = 'One retry on a wrong guess — then the answer is revealed.';
+      } else if (cell.attempts === 1 && course.location) {
+        hint.innerHTML = `<strong>Hint:</strong> Located in ${window.safeText(course.location)}. Last try.`;
+      } else if (cell.attempts === 1 && course.architect) {
+        hint.innerHTML = `<strong>Hint:</strong> Designed by ${window.safeText(course.architect)}. Last try.`;
+      } else {
+        hint.textContent = 'Last try — wrong answer reveals the course.';
+      }
     }
     if (ac) { ac.innerHTML = ''; ac.classList.remove('open'); }
     if (back) {
