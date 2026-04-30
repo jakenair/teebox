@@ -4,7 +4,7 @@
   "description": "TeeBox — peer-to-peer marketplace for golfers",
   "private": true,
   "scripts": {
-    "build:web": "rm -rf dist && mkdir -p dist && cp index.html bingo-courses.js sw.js manifest.webmanifest offline.html favicon.svg icon.svg icon-maskable.svg icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/ && cp -R assets dist/assets && echo '✓ web bundle written to dist/'",
+    "build:web": "rm -rf dist && mkdir -p dist && cp index.html bingo-courses.js sw.js manifest.webmanifest offline.html privacy.html favicon.svg icon.svg icon-maskable.svg icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/ && cp -R assets dist/assets && cp -R brand dist/brand && echo '✓ web bundle written to dist/'",
     "cap:sync": "npm run build:web && npx cap sync",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
