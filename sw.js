@@ -1,10 +1,11 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-04-30-r11';
+const CACHE_VERSION = 'teebox-v1-2026-04-30-r12';
 const SHELL = [
   '/',
   '/index.html',
   '/bingo-courses.js',
+  '/firebase-messaging-sw.js',
   '/manifest.webmanifest',
   '/icon.svg',
   '/favicon.svg',
@@ -12,6 +13,7 @@ const SHELL = [
   '/icon-512.png',
   '/apple-touch-icon.png',
   '/offline.html',
+  '/404.html',
 ];
 
 // API hosts that must always go to the network (no cache, no offline).

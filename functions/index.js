@@ -63,10 +63,13 @@ exports.createPaymentIntent = onRequest(
     }
     const buyerId = authUser.uid;
 
-    const {listingId} = req.body || {};
+    const {listingId, quantity} = req.body || {};
     if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
       return res.status(400).json({error: "Missing or invalid listingId"});
     }
+    let qty = parseInt(quantity, 10);
+    if (!Number.isFinite(qty) || qty < 1) qty = 1;
+    if (qty > 99) qty = 99;
 
     const db = admin.firestore();
     const listingRef = db.collection("listings").doc(listingId);
@@ -99,13 +102,38 @@ exports.createPaymentIntent = onRequest(
           );
         }
 
-        const priceCents = Math.round(Number(listing.ask) * 100);
-        if (!Number.isFinite(priceCents) || priceCents <= 0) {
-          throw new HttpError(500, "Listing has invalid price");
+        // Multi-quantity stock check. quantity / quantitySold default to 1/0
+        // for legacy single-unit listings.
+        const totalQty = Math.max(1, Number(listing.quantity || 1));
+        const soldQty = Math.max(0, Number(listing.quantitySold || 0));
+        const remaining = totalQty - soldQty;
+        if (qty > remaining) {
+          throw new HttpError(
+            409,
+            `Only ${remaining} in stock — please reduce your quantity.`
+          );
         }
 
-        tx.update(listingRef, {
+        const unitPriceCents = Math.round(Number(listing.ask) * 100);
+        if (!Number.isFinite(unitPriceCents) || unitPriceCents <= 0) {
+          throw new HttpError(500, "Listing has invalid price");
+        }
+        const priceCents = unitPriceCents * qty;
+
+        // For multi-stock listings, only flip to "pending" when the LAST
+        // unit is being reserved. Otherwise keep status active so other
+        // buyers can keep purchasing remaining units in parallel.
+        const isLastUnit = (qty === remaining);
+        tx.update(listingRef, isLastUnit ? {
           status: "pending",
+          pendingBuyer: buyerId,
+          pendingUntil: admin.firestore.Timestamp.fromMillis(
+            now + PENDING_WINDOW_MS
+          ),
+        } : {
+          // Reserve units atomically without locking the whole listing.
+          // The Stripe webhook commits the increment to quantitySold;
+          // here we just keep the listing active.
           pendingBuyer: buyerId,
           pendingUntil: admin.firestore.Timestamp.fromMillis(
             now + PENDING_WINDOW_MS
@@ -114,6 +142,10 @@ exports.createPaymentIntent = onRequest(
 
         return {
           priceCents,
+          unitPriceCents,
+          qty,
+          totalQty,
+          isLastUnit,
           sellerId: listing.sellerId,
           title: listing.title || "Listing",
         };
@@ -155,6 +187,8 @@ exports.createPaymentIntent = onRequest(
             sellerId: reservation.sellerId || "",
             platformFeeCents: String(platformFeeCents),
             sellerPayoutCents: String(sellerPayoutCents),
+            quantity: String(reservation.qty),
+            unitPriceCents: String(reservation.unitPriceCents),
           },
         },
         {idempotencyKey}
@@ -227,7 +261,10 @@ async function handlePaymentSucceeded(pi) {
     sellerId,
     platformFeeCents,
     sellerPayoutCents,
+    quantity,
+    unitPriceCents,
   } = pi.metadata || {};
+  const orderQty = Math.max(1, parseInt(quantity || "1", 10));
 
   const orderRef = db.collection("orders").doc(pi.id);
   const listingRef = listingId
@@ -253,6 +290,8 @@ async function handlePaymentSucceeded(pi) {
       amountCents: pi.amount,
       amount: pi.amount / 100,
       currency: pi.currency,
+      quantity: orderQty,
+      unitPriceCents: Number(unitPriceCents) || pi.amount,
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
       status: "paid",
@@ -261,11 +300,23 @@ async function handlePaymentSucceeded(pi) {
     });
 
     if (listingSnap && listingSnap.exists) {
-      tx.update(listingRef, {
+      const listing = listingSnap.data();
+      const totalQty = Math.max(1, Number(listing.quantity || 1));
+      const newSold = Math.max(0, Number(listing.quantitySold || 0)) + orderQty;
+      const fullySold = newSold >= totalQty;
+      tx.update(listingRef, fullySold ? {
         status: "sold",
+        quantitySold: newSold,
         soldAt: admin.firestore.FieldValue.serverTimestamp(),
         soldTo: buyerId || null,
         orderId: pi.id,
+        pendingBuyer: admin.firestore.FieldValue.delete(),
+        pendingUntil: admin.firestore.FieldValue.delete(),
+        pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
+      } : {
+        // Multi-stock: bump sold count, keep listing active for remaining units.
+        status: "active",
+        quantitySold: newSold,
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),

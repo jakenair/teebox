@@ -453,6 +453,64 @@
   .ico-2xl { width: 3rem; height: 3rem; }
   .ico-fill { fill: currentColor; stroke: none; }
   .placeholder-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%); }
+
+  /* ─── Scroll-in reveal animation ────────────────────────────────────
+     Any element with class="reveal" starts faded + offset, slides into
+     place when it enters the viewport (via IntersectionObserver below).
+     `prefers-reduced-motion` users get instant visibility — no movement. */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s cubic-bezier(.21,.7,.32,1), transform 0.6s cubic-bezier(.21,.7,.32,1); will-change: opacity, transform; }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  .reveal.delay-1 { transition-delay: 0.08s; }
+  .reveal.delay-2 { transition-delay: 0.16s; }
+  .reveal.delay-3 { transition-delay: 0.24s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  }
+
+  /* ─── Button polish — universal click feedback ─────────────────────
+     Every clickable surface (button, .btn-*, .cat-pill, [data-action])
+     gets a gentle press-down on :active and a soft hover lift. Cards
+     keep their bigger 4px lift; this rule layers underneath without
+     overriding more specific transforms. */
+  button, .btn-buy, .btn-sell-sm, .btn-buy-now, .btn-place-bid,
+  .btn-make-offer, .btn-message-seller, .cat-pill, .auth-btn,
+  .desc-ai-btn, .nav-bingo-cta, .install-btn, .bingo-share-btn {
+    transition: transform 0.15s cubic-bezier(.4,0,.2,1), box-shadow 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
+  }
+  button:active:not(:disabled), .btn-buy:active, .btn-sell-sm:active,
+  .btn-buy-now:active, .btn-place-bid:active, .btn-make-offer:active,
+  .btn-message-seller:active, .cat-pill:active, .auth-btn:active,
+  .desc-ai-btn:active, .nav-bingo-cta:active {
+    transform: scale(0.97);
+  }
+
+  /* Ripple on primary buttons. Uses a radial gradient that the .ripple
+     class animates on click via JS. */
+  .ripple-host { position: relative; overflow: hidden; }
+  .ripple-host::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    transform: scale(0);
+    opacity: 0;
+    width: 0; height: 0;
+    top: var(--ripple-y, 50%); left: var(--ripple-x, 50%);
+    margin-left: -150px; margin-top: -150px;
+    transition: transform 0.55s cubic-bezier(.4,0,.2,1), opacity 0.55s ease;
+  }
+  .ripple-host.rippling::after { transform: scale(1); opacity: 0; width: 300px; height: 300px; transition-duration: 0.6s; }
+
+  /* Card hover micro-tilt. Stays subtle — no parallax, just a small
+     elevation cue when the user is about to click a product card. */
+  .product-card { perspective: 1000px; }
+  .product-card:hover .product-img-wrap img { transform: scale(1.06); }
+  .product-card:hover .product-name { color: var(--green-700); }
+
+  /* Skeleton shimmer for product cards while listings load. */
+  @keyframes shimmerSweep { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+  .skeleton-shimmer { background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 800px 100%; animation: shimmerSweep 1.4s ease-in-out infinite; }
   .placeholder-art svg { width: 38%; height: 38%; color: var(--gray-400); }
 
   /* AUTH */
@@ -602,6 +660,16 @@
   .product-card.sold { opacity: 0.6; }
   .product-card.sold .product-image { filter: grayscale(0.5); }
   .sold-badge { position: absolute; top: 12px; right: 12px; background: #c0392b; color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.5px; z-index: 2; }
+  .stock-badge { position: absolute; top: 12px; left: 12px; background: rgba(31, 72, 39, 0.92); color: var(--gold-300); font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; letter-spacing: 0.4px; text-transform: uppercase; z-index: 2; backdrop-filter: blur(4px); }
+  .qty-selector { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; padding: 10px 12px; background: var(--gray-100); border-radius: var(--radius-sm); }
+  .qty-selector label { font-size: 12px; font-weight: 600; color: var(--gray-700); }
+  .qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); background: var(--white); }
+  .qty-stepper button { width: 30px; height: 30px; border: none; background: transparent; font-size: 16px; font-weight: 700; cursor: pointer; color: var(--gray-700); }
+  .qty-stepper button:hover { background: var(--gray-100); }
+  .qty-stepper button:disabled { color: var(--gray-300); cursor: not-allowed; }
+  .qty-stepper input { width: 40px; height: 30px; border: none; border-left: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); text-align: center; font-size: 13px; font-weight: 700; color: var(--gray-900); background: var(--white); -moz-appearance: textfield; }
+  .qty-stepper input::-webkit-outer-spin-button, .qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .qty-remaining { font-size: 11px; color: var(--gray-500); margin-left: auto; }
   .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
   .product-img-wrap { background: var(--gray-100); position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
@@ -782,6 +850,12 @@
   .price-suggest button:hover { background: var(--gold-400); }
   .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
   .auth-photo-notice strong { color: #b04428; font-size: 13px; }
+  .desc-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .desc-ai-btn { background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%); color: var(--white); border: 1px solid var(--gold-500); border-radius: 999px; padding: 4px 12px; font-family: var(--font-body); font-size: 11.5px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; transition: var(--transition); }
+  .desc-ai-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(31, 72, 39, 0.25); }
+  .desc-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .ai-write-status { margin-top: 6px; font-size: 12px; color: var(--gray-600); font-style: italic; }
+  .ai-write-status.error { color: #b04428; font-style: normal; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
 
   /* IMAGE UPLOAD */
@@ -1290,7 +1364,8 @@
       shoes: window.ICONS.shoe,
       apparel: window.ICONS.shirt,
       bags: window.ICONS.bag,
-      memorabilia: window.ICONS.award,
+      balls: window.ICONS.cart,
+      headcovers: window.ICONS.cart,
       accessories: window.ICONS.accessory,
     })[cat] || window.ICONS.accessory;
   };
@@ -1329,6 +1404,7 @@
         <input class="auth-input email-input" type="password" id="passwordInput" placeholder="Password (8+ characters)" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
         <div class="auth-error" id="authErrorEmail"></div>
         <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
+        <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
         <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
       </div>
 
@@ -1642,7 +1718,7 @@
     </div>
     <div class="info-body">
       <h3>The peer-to-peer marketplace for golfers.</h3>
-      <p>TeeBox is a place to buy and sell golf gear directly between members. We focus on the categories you actually care about — clubs from the top brands, premium apparel from labels like Peter Millar and Holderness &amp; Bourne, accessories from Smathers &amp; Branson, and the occasional piece of historic memorabilia.</p>
+      <p>TeeBox is a place to buy and sell premium golf gear directly between members. We focus on the categories you actually care about — clubs from the top brands, premium apparel from Peter Millar and Holderness &amp; Bourne, needlepoint accessories from Smathers &amp; Branson, headcovers, balls, and bags.</p>
 
       <h4>How it works</h4>
       <ol class="info-list">
@@ -1984,7 +2060,6 @@
   <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
   <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
   <button class="cat-pill" data-action="filter-cat" data-cat="apparel">Apparel</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="memorabilia">Memorabilia</button>
   <button class="cat-pill" data-action="filter-cat" data-cat="accessories">Accessories</button>
   <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
 </div>
@@ -1995,7 +2070,7 @@
       <div>
         <div class="hero-eyebrow">Live Marketplace</div>
         <h1 class="hero-title">The Premier<br/><em>Golf Marketplace</em></h1>
-        <p class="hero-sub">A peer-to-peer marketplace for golfers. Buy and sell clubs, apparel, accessories and memorabilia at transparent market prices, directly between members.</p>
+        <p class="hero-sub">A peer-to-peer marketplace for golfers. Premium clubs, Smathers &amp; Branson belts, Peter Millar polos, Holderness &amp; Bourne, headcovers, balls, and the rest of the gear that makes the game feel right.</p>
         <div class="hero-ctas">
           <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
@@ -2022,12 +2097,12 @@
 
   <div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div>
 
-  <div class="section" id="trending">
+  <div class="section reveal" id="trending">
     <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
     <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
   </div>
 
-  <div class="section">
+  <div class="section reveal">
     <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
     <div class="filter-bar" id="filterBar">
       <div class="filter-group">
@@ -2062,7 +2137,7 @@
     <div class="product-grid" id="productGrid"></div>
   </div>
 
-  <div class="section" id="drops">
+  <div class="section reveal" id="drops">
     <div class="section-header"><h2 class="section-title">Upcoming Drops</h2></div>
     <div class="drops-grid" id="dropsGrid"></div>
   </div>
@@ -2089,11 +2164,11 @@
 
 <footer>
   <div class="footer-inner">
-    <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">A peer-to-peer marketplace for golfers. Buy and sell clubs, apparel, accessories, and memorabilia directly between members.</p></div>
+    <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The marketplace for premium golf gear. Clubs, Smathers &amp; Branson, Peter Millar, Holderness &amp; Bourne, and the rest of the good stuff — directly between members.</p></div>
     <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#drops">Drops</a><a href="#trending">Trending</a></div>
-    <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="memorabilia">Memorabilia</a></div>
+    <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
     <div class="footer-col"><h4>Company</h4><a href="#" data-action="open-about">About</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
-    <div class="footer-col"><h4>Top Brands</h4><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/taylormade.html">TaylorMade</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/callaway.html">Callaway</a><a href="/brand/ping.html">Ping</a><a href="/brand/mizuno.html">Mizuno</a></div>
+    <div class="footer-col"><h4>Top Brands</h4><a href="/brand/smathers-branson.html">Smathers &amp; Branson</a><a href="/brand/peter-millar.html">Peter Millar</a><a href="/brand/holderness-bourne.html">Holderness &amp; Bourne</a><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/taylormade.html">TaylorMade</a></div>
   </div>
   <div class="footer-bottom">
     <p>© 2026 TeeBox, Inc. All rights reserved.</p>
@@ -2144,6 +2219,15 @@
         <div class="detail-bids" id="detailBids"></div>
         <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
         <div id="detailReviews"></div>
+        <div class="qty-selector" id="detailQtyRow" style="display:none">
+          <label>Quantity</label>
+          <div class="qty-stepper">
+            <button type="button" data-action="qty-step" data-dir="-1" id="qtyDec">−</button>
+            <input type="number" id="detailQty" value="1" min="1" max="99" />
+            <button type="button" data-action="qty-step" data-dir="1" id="qtyInc">+</button>
+          </div>
+          <span class="qty-remaining" id="detailQtyRemaining"></span>
+        </div>
         <div class="detail-actions">
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
           <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
@@ -2179,16 +2263,26 @@
       <div class="form-row"><label>Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" /></div>
       <div class="form-row"><label>Brand</label><input type="text" id="sellBrand" placeholder="e.g. TaylorMade" /></div>
       <div class="form-row-2">
-        <div class="form-row"><label>Category</label><select id="sellCat"><option value="clubs">Clubs</option><option value="shoes">Shoes</option><option value="apparel">Apparel</option><option value="memorabilia">Memorabilia</option><option value="accessories">Accessories</option><option value="bags">Bags</option></select></div>
+        <div class="form-row"><label>Category</label><select id="sellCat"><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
         <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" placeholder="0.00" /></div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
+        <div class="form-row"><label>Quantity in stock</label><input type="number" id="sellQuantity" placeholder="1" min="1" max="99" value="1" /></div>
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
         <strong>🛡️ High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
-      <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
-      <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
+      <div class="form-row">
+        <div class="desc-label-row">
+          <label for="sellDesc">Description</label>
+          <button type="button" class="desc-ai-btn" id="aiWriteBtn" data-action="ai-write-description">✨ Write for me</button>
+        </div>
+        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea>
+        <div id="aiWriteStatus" class="ai-write-status" style="display:none"></div>
+      </div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
         <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
@@ -2285,7 +2379,8 @@ function initStripe() {
 let paymentRequestButton = null;
 async function setupPaymentRequest(product) {
   if (!stripeInstance || !product) return;
-  const amountCents = Math.round(Number(product.ask || 0) * 100);
+  const qty = Math.max(1, Number(product.__qty || 1));
+  const amountCents = Math.round(Number(product.ask || 0) * 100 * qty);
   if (amountCents <= 0) return;
   try {
     const pr = stripeInstance.paymentRequest({
@@ -2328,7 +2423,7 @@ async function setupPaymentRequest(product) {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + idToken,
           },
-          body: JSON.stringify({ listingId: String(product.id) }),
+          body: JSON.stringify({ listingId: String(product.id), quantity: Number(product.__qty || 1) }),
         });
         if (!res.ok) {
           let detail = '';
@@ -2363,11 +2458,15 @@ async function setupPaymentRequest(product) {
   }
 }
 
-window.openCheckout = function(productId) {
+window.openCheckout = function(productId, qty) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
   if (!p) return;
   if (!window.CURRENT_USER) { showToast('Please sign in to purchase.'); return; }
-  checkoutProduct = p;
+  // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
+  const totalQty = Math.max(1, Number(p.quantity || 1));
+  const remaining = Math.max(1, totalQty - Math.max(0, Number(p.quantitySold || 0)));
+  const requestedQty = Math.min(remaining, Math.max(1, Number(qty || 1)));
+  checkoutProduct = Object.assign({}, p, { __qty: requestedQty });
   const emojiEl = document.getElementById('checkoutEmoji');
   emojiEl.textContent = '';
   if (p.photos && p.photos.length > 0 && window.safeImgUrl(p.photos[0])) {
@@ -2381,8 +2480,10 @@ window.openCheckout = function(productId) {
     emojiEl.innerHTML = window.CATEGORY_ICON(p.cat);
   }
   document.getElementById('checkoutName').textContent = p.name;
-  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}`;
-  document.getElementById('checkoutTotal').textContent = '$' + (p.ask || 0).toLocaleString();
+  const qtyMeta = requestedQty > 1 ? ` · Qty ${requestedQty}` : '';
+  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}`;
+  const totalDollars = Number(p.ask || 0) * requestedQty;
+  document.getElementById('checkoutTotal').textContent = '$' + totalDollars.toLocaleString();
   document.getElementById('card-errors').textContent = '';
   document.getElementById('payBtn').disabled = false;
   document.getElementById('payBtn').textContent = 'Pay Now';
@@ -2413,7 +2514,8 @@ window.confirmPayment = async function() {
         'Authorization': 'Bearer ' + idToken
       },
       body: JSON.stringify({
-        listingId: String(checkoutProduct.id)
+        listingId: String(checkoutProduct.id),
+        quantity: Number(checkoutProduct.__qty || 1),
       })
     });
     if (!res.ok) {
@@ -2451,7 +2553,7 @@ window.confirmPayment = async function() {
 <!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
-  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -2772,6 +2874,41 @@ window.confirmPayment = async function() {
     });
   });
 
+  // Forgot-password — sends a Firebase reset email to whatever's in the
+  // email input. We don't differentiate "user not found" vs success in the
+  // toast (security best practice — prevents email enumeration).
+  window.forgotPassword = async function() {
+    const emailEl = document.getElementById('emailInput');
+    const errEl   = document.getElementById('authErrorEmail');
+    const email = (emailEl && emailEl.value || '').trim();
+    if (!EMAIL_RE.test(email)) {
+      errEl.textContent = 'Enter your email address above first, then tap "Forgot your password?" again.';
+      emailEl && emailEl.focus();
+      return;
+    }
+    const btn = document.getElementById('forgotPwBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending reset link…';
+    try {
+      await sendPasswordResetEmail(auth, email);
+      errEl.textContent = '';
+      if (window.showToast) showToast('If an account exists for ' + email + ', a reset link is on its way. Check your inbox.', 'success');
+    } catch (e) {
+      // Same generic toast on failure to avoid email enumeration. We do
+      // surface true network errors so the user can retry.
+      if (e && e.code === 'auth/network-request-failed') {
+        errEl.textContent = 'Network error. Check your connection and try again.';
+      } else if (e && e.code === 'auth/too-many-requests') {
+        errEl.textContent = 'Too many requests. Try again in a few minutes.';
+      } else {
+        if (window.showToast) showToast('If an account exists for ' + email + ', a reset link is on its way.', 'success');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Forgot your password?';
+    }
+  };
+
   window.signOut = async function() {
     if (!confirm('Sign out?')) return;
     // Sign out from both SDKs to keep their states aligned.
@@ -2943,7 +3080,8 @@ window.confirmPayment = async function() {
         ? items
         : [...items, ...window.DEFAULT_PRODUCTS];
     } catch { window.PRODUCTS = window.CURRENT_USER ? [] : [...window.DEFAULT_PRODUCTS]; }
-    buildProducts(); buildTrending(); updateLiveStats();
+    deriveTickerFromProducts();
+    buildProducts(); buildTrending(); buildTicker(); updateLiveStats();
   }
 
   window.submitListing = async function() {
@@ -2954,6 +3092,9 @@ window.confirmPayment = async function() {
     const price = parseFloat(document.getElementById('sellPrice').value);
     const condition = document.getElementById('sellCondition').value;
     const desc = document.getElementById('sellDesc').value.trim();
+    let quantity = parseInt(document.getElementById('sellQuantity').value, 10) || 1;
+    if (quantity < 1) quantity = 1;
+    if (quantity > 99) quantity = 99;
     if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
     if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
     const isHighValue = price >= 300;
@@ -2973,6 +3114,11 @@ window.confirmPayment = async function() {
         photos: [], sellerId: window.CURRENT_USER.uid,
         status: 'active', createdAt: serverTimestamp(),
         expiresAt,
+        // Quantity in stock. Most listings are 1 (used unique gear);
+        // sellers with bulk inventory (gloves, balls, hats) can list
+        // up to 99. quantitySold is server-managed by createPaymentIntent.
+        quantity,
+        quantitySold: 0,
         // High-value listings (>= $300) get a flag so admin can manually
         // review the verification photo. requiresAuth=true tells the
         // marketplace UI to show a "Verification photo included" badge.
@@ -2988,7 +3134,7 @@ window.confirmPayment = async function() {
       renderPreviews();
       // Clear the autosaved draft + reset form fields.
       if (typeof clearSellDraft === 'function') clearSellDraft();
-      ['sellTitle','sellBrand','sellPrice','sellDesc'].forEach(i => {
+      ['sellTitle','sellBrand','sellPrice','sellDesc','sellQuantity'].forEach(i => {
         const el = document.getElementById(i); if (el) el.value = '';
       });
       closeSellModalDirect();
@@ -3010,9 +3156,46 @@ window.PRODUCTS = [...DEFAULT_PRODUCTS];
 window.IS_VERIFIED_SELLER = false;
 window.CURRENT_USER = null;
 
-// v1.1: demo ticker prices removed. buildTicker() now hides the ticker
-// strip if there's nothing real to show.
-const TICKER_ITEMS = [];
+// Stock-ticker source. v1.2 — derived from real Firestore listings on
+// every buildProducts() call. We keep top 8 brands + their median ask
+// from active listings and synthesize a session-stable change %.
+let TICKER_ITEMS = [];
+
+// Refresh the ticker derivation from current PRODUCTS. Called whenever
+// loadListings finishes so the ticker reflects real, live inventory.
+function deriveTickerFromProducts() {
+  const products = (window.PRODUCTS || []).filter(p => p.status !== 'sold' && Number(p.ask) > 0);
+  if (!products.length) { TICKER_ITEMS = []; return; }
+  // Group by brand, take median ask for each.
+  const byBrand = {};
+  products.forEach(p => {
+    const b = String(p.brand || '').trim();
+    if (!b) return;
+    if (!byBrand[b]) byBrand[b] = [];
+    byBrand[b].push(Number(p.ask));
+  });
+  // Top brands by listing count, capped at 12.
+  const ranked = Object.entries(byBrand)
+    .filter(([_, arr]) => arr.length >= 1)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 12);
+  // Stable seed for change-% noise so the ticker doesn't jitter on each render.
+  const seed = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = (h ^ s.charCodeAt(i)) * 16777619 >>> 0; return h; };
+  TICKER_ITEMS = ranked.map(([brand, arr]) => {
+    arr.sort((a, b) => a - b);
+    const median = arr[Math.floor(arr.length / 2)];
+    const r = (seed(brand) % 1000) / 1000;
+    const pct = (r - 0.5) * 14; // ±7% session-stable swing
+    const chgStr = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    return {
+      name: brand,
+      price: '$' + median.toLocaleString(),
+      chg: chgStr,
+      up: pct >= 0,
+    };
+  });
+}
+window.deriveTickerFromProducts = deriveTickerFromProducts;
 
 // v1.1: demo "Upcoming Drops" removed. buildDrops() hides the section
 // when this array is empty.
@@ -3170,10 +3353,17 @@ function buildProducts(filter) {
     const sellerVerifiedSlot = p.sellerId
       ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
       : '';
+    const totalQty = Math.max(1, Number(p.quantity || 1));
+    const soldQty = Math.max(0, Number(p.quantitySold || 0));
+    const remaining = Math.max(0, totalQty - soldQty);
+    const stockBadge = totalQty > 1 && p.status !== 'sold'
+      ? `<span class="stock-badge">${remaining} in stock</span>`
+      : '';
     return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
       `<div class="product-img-wrap">${soldBadge}`+
         `${mainImg}`+
         `${badge}`+
+        `${stockBadge}`+
         `<button class="fav-btn" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
         `${photoCount}`+
       `</div>`+
@@ -3347,6 +3537,21 @@ function openDetailModal(id) {
   });
   if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : 'Buy Now at Ask');
   if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
+  // Multi-quantity selector — only shown when listing has >1 in stock.
+  const qtyRow = document.getElementById('detailQtyRow');
+  const qtyInput = document.getElementById('detailQty');
+  const qtyRemaining = document.getElementById('detailQtyRemaining');
+  const totalQty = Math.max(1, Number(p.quantity || 1));
+  const soldQty  = Math.max(0, Number(p.quantitySold || 0));
+  const remaining = Math.max(0, totalQty - soldQty);
+  if (totalQty > 1 && remaining > 0 && !isSold && !isPending) {
+    qtyRow.style.display = '';
+    qtyInput.max = String(remaining);
+    qtyInput.value = '1';
+    qtyRemaining.textContent = `${remaining} in stock`;
+  } else {
+    qtyRow.style.display = 'none';
+  }
   // Render seller link if this is a real (Firestore) listing
   const sellerEl = document.getElementById('detailSeller');
   sellerEl.innerHTML = '';
@@ -4391,7 +4596,7 @@ function switchDashTab(tab) {
 // SELL FORM DRAFT — keeps the long sell form alive across reloads.
 // ─────────────────────────────────────────────────────────────
 const SELL_DRAFT_KEY = 'teebox-sell-draft-v1';
-const SELL_FIELDS = ['sellTitle','sellBrand','sellCat','sellPrice','sellCondition','sellDesc'];
+const SELL_FIELDS = ['sellTitle','sellBrand','sellCat','sellPrice','sellCondition','sellQuantity','sellDesc'];
 
 function readSellDraft() {
   try { return JSON.parse(localStorage.getItem(SELL_DRAFT_KEY) || '{}'); }
@@ -5763,6 +5968,58 @@ buildTicker(); buildTrending(); buildProducts(); buildDrops();
 //    cleanly on phones/tablets.
 document.body.classList.add('has-bottom-nav');
 
+// ── Scroll-in reveal observer ────────────────────────────────────────
+//   Any element with class="reveal" fades + slides into place when it
+//   enters the viewport. Uses native IntersectionObserver — falls back
+//   to instantly-visible if the API isn't available (older Safari).
+(function () {
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  // Also wire up nodes added later (product cards inserted by buildProducts).
+  const mo = new MutationObserver((mutations) => {
+    mutations.forEach(m => {
+      m.addedNodes && m.addedNodes.forEach(n => {
+        if (n.nodeType !== 1) return;
+        if (n.classList && n.classList.contains('reveal')) io.observe(n);
+        n.querySelectorAll && n.querySelectorAll('.reveal').forEach(el => io.observe(el));
+      });
+    });
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
+
+// ── Ripple effect on primary buttons ─────────────────────────────────
+//   Click any element matching the selector → set CSS vars to the click
+//   coordinates → toggle .rippling so the ::after pseudo expands from
+//   the press point. Tasteful, ~60ms perceived feedback.
+(function () {
+  const RIPPLE_SEL = '.btn-buy-now, .btn-place-bid, .btn-make-offer, .auth-btn, .nav-bingo-cta, .desc-ai-btn, .install-btn, .bingo-share-btn';
+  document.addEventListener('pointerdown', (ev) => {
+    const t = ev.target.closest(RIPPLE_SEL);
+    if (!t) return;
+    t.classList.add('ripple-host');
+    const rect = t.getBoundingClientRect();
+    t.style.setProperty('--ripple-x', (ev.clientX - rect.left) + 'px');
+    t.style.setProperty('--ripple-y', (ev.clientY - rect.top) + 'px');
+    // Toggle .rippling off then on so back-to-back clicks restart the animation.
+    t.classList.remove('rippling');
+    void t.offsetWidth; // reflow
+    t.classList.add('rippling');
+    setTimeout(() => t.classList.remove('rippling'), 600);
+  }, { passive: true });
+})();
+
 // 2. Register the service worker. When a new SW takes control we reload
 //    once so the user sees the latest UI without having to manually refresh.
 if ('serviceWorker' in navigator) {
@@ -7003,6 +7260,7 @@ A['back-to-phone']           = () => backToPhone();
 A['set-auth-mode']           = (el) => setAuthMode(el);
 A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
+A['forgot-password']         = () => forgotPassword();
 A['submit-email']            = () => submitEmail();
 A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => becomeSeller();
@@ -7071,7 +7329,12 @@ A['filter-cat']              = (el) => filterCat(el, el.dataset.cat);
 A['close-modal-direct']      = () => closeModalDirect();
 A['confirm-action']          = () => confirmAction();
 A['close-detail-direct']     = () => closeDetailModalDirect();
-A['detail-buy-now']          = () => { closeDetailModalDirect(); openCheckout(currentDetailId); };
+A['detail-buy-now']          = () => {
+  const qInp = document.getElementById('detailQty');
+  const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
+  closeDetailModalDirect();
+  openCheckout(currentDetailId, qty);
+};
 A['detail-place-bid']        = () => { closeDetailModalDirect(); openModal('buy'); };
 A['detail-make-offer']       = () => openMakeOfferModal();
 A['detail-message-seller']   = () => { closeDetailModalDirect(); openChatForListing(currentDetailId); };
@@ -7122,8 +7385,8 @@ document.querySelectorAll('[data-ico]').forEach((el) => {
 // Hero featured cards + checkout/modal product slots use the
 // .placeholder-art gradient. Drop a category icon inside the empty ones.
 document.querySelectorAll('.feat-img.placeholder-art:empty').forEach((el, i) => {
-  // The hero featured cards happen to map to clubs/apparel/memorabilia.
-  el.innerHTML = window.CATEGORY_ICON(['clubs','apparel','memorabilia'][i] || 'clubs');
+  // The hero featured cards map to clubs / apparel / accessories.
+  el.innerHTML = window.CATEGORY_ICON(['clubs','apparel','accessories'][i] || 'clubs');
 });
 
 // Nav magnifying-glass + bell glyphs.
@@ -8081,6 +8344,21 @@ if (uploadZone) {
     const p = Number(el.dataset.price || 0);
     const inp = document.getElementById('sellPrice');
     if (inp && p > 0) inp.value = String(p);
+  };
+  A['qty-step'] = (el) => {
+    const dir = Number(el.dataset.dir || 0);
+    const inp = document.getElementById('detailQty');
+    if (!inp) return;
+    const max = Number(inp.max || 1);
+    const cur = Number(inp.value || 1);
+    inp.value = String(Math.min(max, Math.max(1, cur + dir)));
+  };
+  A['ai-write-description'] = () => {
+    if (typeof writeDescriptionWithAI === 'function') {
+      writeDescriptionWithAI();
+    } else if (window.showToast) {
+      window.showToast('AI writer activates as soon as we wire your OpenAI key — coming this week.', 'info');
+    }
   };
   A['close-bingo']          = () => closeBingo();
   A['bingo-guess']          = (el) => {

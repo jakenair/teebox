@@ -32,9 +32,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // .prod required for TestFlight + App Store builds (aps-environment=production);
-        // .unknown can mis-detect and route to sandbox APNs which never delivers.
+        // Match the build's aps-environment. Debug builds use the sandbox
+        // APNs servers; Release / TestFlight / App Store use prod. Picking
+        // the wrong type silently routes the auth-silent-push to a server
+        // that will never deliver it, which is exactly the
+        // "phone code never arrives" symptom we were chasing.
+        #if DEBUG
+        Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
+        #else
         Auth.auth().setAPNSToken(deviceToken, type: .prod)
+        #endif
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {

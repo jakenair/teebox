@@ -55,5 +55,11 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<!-- We register for APNs and forward the token to Firebase Auth manually
+	     in AppDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:).
+	     Disabling Firebase's auto-proxy stops it from competing with our handler,
+	     which was eating the verificationId on phone-auth. -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 </dict>
 </plist>
