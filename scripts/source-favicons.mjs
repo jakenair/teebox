@@ -364,11 +364,64 @@ function urlGuesses(course) {
   return [...new Set(guesses)].slice(0, 24);
 }
 
+// US state full-name → 2-letter abbreviation (lowercase).
+const STATE_TO_ABBR = {
+  alabama:'al', alaska:'ak', arizona:'az', arkansas:'ar', california:'ca',
+  colorado:'co', connecticut:'ct', delaware:'de', florida:'fl', georgia:'ga',
+  hawaii:'hi', idaho:'id', illinois:'il', indiana:'in', iowa:'ia',
+  kansas:'ks', kentucky:'ky', louisiana:'la', maine:'me', maryland:'md',
+  massachusetts:'ma', michigan:'mi', minnesota:'mn', mississippi:'ms', missouri:'mo',
+  montana:'mt', nebraska:'ne', nevada:'nv', 'new hampshire':'nh', 'new jersey':'nj',
+  'new mexico':'nm', 'new york':'ny', 'north carolina':'nc', 'north dakota':'nd',
+  ohio:'oh', oklahoma:'ok', oregon:'or', pennsylvania:'pa', 'rhode island':'ri',
+  'south carolina':'sc', 'south dakota':'sd', tennessee:'tn', texas:'tx', utah:'ut',
+  vermont:'vt', virginia:'va', washington:'wa', 'west virginia':'wv',
+  wisconsin:'wi', wyoming:'wy',
+};
+
+// Common geography words that match too broadly (any "Beach Country Club"
+// would pass a "beach" check). Filter these out so location verification
+// requires meaningful disambiguators (city/state/country name).
+const GENERIC_GEO_TOKENS = new Set([
+  'beach','bay','hill','hills','park','lake','river','creek','valley','dunes',
+  'point','springs','spring','heights','heath','grove','woods','field','fields',
+  'island','isle','harbor','harbour','south','north','east','west','village',
+  'town','city','county','state','center','centre','road','street','lane',
+  'mountain','ridge','glen','ranch','farm','wood','green','greens',
+]);
+
+function extractLocationTokens(location, excludeSet = new Set()) {
+  // Returns { strong: Set<string>, abbrev: Set<string> }
+  // - strong: full city / state / country words ≥4 chars (sufficient on their own)
+  // - abbrev: state abbreviations (require comma-bounded match in HTML)
+  const strong = new Set();
+  const abbrev = new Set();
+  const lower = (location || '').toLowerCase();
+  // Scan for multi-word state names first (e.g. "new jersey")
+  for (const stateName of Object.keys(STATE_TO_ABBR)) {
+    if (stateName.includes(' ') && lower.includes(stateName)) {
+      // Add component words ≥4 chars (e.g. "jersey" from "new jersey")
+      for (const w of stateName.split(' ')) if (w.length >= 4) strong.add(w);
+      abbrev.add(STATE_TO_ABBR[stateName]);
+    }
+  }
+  for (const word of lower.split(/[^a-z0-9]+/)) {
+    if (word.length >= 4 && !excludeSet.has(word) && !GENERIC_GEO_TOKENS.has(word)) {
+      strong.add(word);
+      // Add state abbrev for single-word states (e.g. "pennsylvania" → "pa")
+      if (STATE_TO_ABBR[word]) abbrev.add(STATE_TO_ABBR[word]);
+    }
+  }
+  return { strong, abbrev };
+}
+
 // Verify a candidate URL is plausibly the club's site:
 // - HTTP 200 reachable
 // - The page must mention BOTH (a) at least one course token AND (b) a golf-related
-//   keyword. This prevents matching unrelated businesses that share a name (e.g.
-//   "Sandhills Global" data company vs. "Sand Hills Golf Club").
+//   keyword. To avoid matching unrelated businesses that share a name (e.g.
+//   "Pine Valley Country Club, Fort Wayne IN" vs. famous "Pine Valley GC, NJ"),
+//   we additionally require the page to mention either the course's city or its
+//   state — unless the host name is unmistakably the club itself.
 async function verifyClubSite(url, course) {
   let html, finalUrl;
   try {
@@ -392,41 +445,93 @@ async function verifyClubSite(url, course) {
   addToks(course.name);
   addToks(course.shortName);
   addToks(course.id);
+  const locTokens = extractLocationTokens(course.location, tokens);
   // Build sample text to scan
   const titleMatch = html.match(/<title[^>]*>([\s\S]{0,400})<\/title>/i);
   const title = (titleMatch ? titleMatch[1] : '').toLowerCase();
   const head = extractHead(html).toLowerCase();
-  const sample = (title + ' ' + head + ' ' + html.slice(0, 12000).toLowerCase());
+  const sample = (title + ' ' + head + ' ' + html.slice(0, 16000).toLowerCase());
+  // For location check, scan the full HTML (location often appears in footer / contact info)
+  const fullLower = html.toLowerCase();
 
   let matchedToken = null;
   for (const t of tokens) {
     if (sample.includes(t)) { matchedToken = t; break; }
   }
-  // Must have golf-related keyword
   const hasGolfWord = /\b(golf|tee[\s-]?times?|fairway|clubhouse|greens?\b|bunker|pro\s?shop|caddie|caddy|country club|18[\s-]?holes?|membership|tournament|members)\b/.test(sample);
 
-  // Special case: if host of finalUrl contains a token AND a golf-y suffix, accept
-  // even without a strong body match (handles tiny sparse sites).
-  let hostHasTokenAndGolfy = false;
+  // Location verification: page must mention the course's city/state full word
+  // (≥4 chars) OR a state abbreviation in a contact-info pattern (", PA " or
+  // "PA 15139"). Pure 2-letter matches without context produce false positives.
+  let hasLocation = false;
+  for (const lt of locTokens.strong) {
+    if (fullLower.includes(lt)) { hasLocation = true; break; }
+  }
+  if (!hasLocation) {
+    for (const ab of locTokens.abbrev) {
+      // Match patterns like ", pa " or " pa," or " pa 15139" (zip)
+      const re = new RegExp(`(^|[\\s,>(])${ab}([\\s,)]|\\s+\\d{5}|$)`, 'i');
+      if (re.test(fullLower)) { hasLocation = true; break; }
+    }
+  }
+  // Host-strong-match: hostname contains a course token AND a golf-club suffix
+  // (golfclub, gc, cc, country, links, resort). This is a strong signal the site
+  // is actually the club — used for sparse private-club sites that omit the city
+  // (e.g. seminolegolfclub.com).
+  let hostStrongMatch = false;
+  let hostStrongToken = null;
   try {
     const fu = new NodeURL(finalUrl);
     const hostBase = fu.host.toLowerCase().replace(/^www\./, '').split('.').slice(0, -1).join('');
     for (const t of tokens) {
-      if (t.length >= 5 && hostBase.includes(t) && /(golf|club|gc|cc|links|resort|country)/.test(hostBase)) {
-        hostHasTokenAndGolfy = true; break;
+      if (t.length >= 6 && hostBase.includes(t) && /(golfclub|countryclub|cc$|gc$|cclub|gclub|golf$|links|resort)/.test(hostBase)) {
+        hostStrongMatch = true; hostStrongToken = t; break;
       }
     }
   } catch {}
 
-  if (matchedToken && (hasGolfWord || hostHasTokenAndGolfy)) {
+  // Wrong-state detector: scan for any US state abbreviation in a contact-info
+  // pattern. If the page lists ONE state and that state ≠ the course's state,
+  // we have strong evidence this is the wrong club.
+  let wrongState = false;
+  let detectedStates = new Set();
+  const courseAbbrevs = new Set([...locTokens.abbrev]);
+  // Add abbrev derived from any single-word state in tokens too
+  for (const tok of tokens) if (STATE_TO_ABBR[tok]) courseAbbrevs.add(STATE_TO_ABBR[tok]);
+  // Also accept full state names from the course location
+  const courseStates = new Set([...locTokens.strong].filter(s => Object.keys(STATE_TO_ABBR).includes(s)));
+  // Detect ZIP-code-bounded state abbreviations in the page (very strong signal)
+  const stateZipRe = /\b([a-z]{2})\s+\d{5}\b/gi;
+  let m2;
+  while ((m2 = stateZipRe.exec(fullLower)) !== null) {
+    const ab = m2[1].toLowerCase();
+    if (Object.values(STATE_TO_ABBR).includes(ab)) detectedStates.add(ab);
+  }
+  if (detectedStates.size > 0) {
+    let mismatched = true;
+    for (const ds of detectedStates) {
+      if (courseAbbrevs.has(ds)) { mismatched = false; break; }
+    }
+    if (mismatched && courseAbbrevs.size > 0) wrongState = true;
+  }
+
+  if (wrongState) {
+    return {
+      ok: false,
+      reason: `wrong state (page=${[...detectedStates].join(',')}, course=${[...courseAbbrevs].join(',')})`,
+      finalUrl, html,
+    };
+  }
+
+  if (matchedToken && hasGolfWord && hasLocation) {
     return { ok: true, finalUrl, html, matchedToken };
   }
-  if (hostHasTokenAndGolfy) {
-    return { ok: true, finalUrl, html, matchedToken: 'host' };
+  if (hostStrongMatch && hasGolfWord) {
+    return { ok: true, finalUrl, html, matchedToken: `host:${hostStrongToken}` };
   }
   return {
     ok: false,
-    reason: `verify failed (token=${matchedToken || 'none'}, golfWord=${hasGolfWord}, hostMatch=${hostHasTokenAndGolfy}; title="${title.slice(0,60).replace(/\s+/g,' ')}")`,
+    reason: `verify failed (token=${matchedToken || 'none'}, golf=${hasGolfWord}, loc=${hasLocation}, hostStrong=${hostStrongMatch}; title="${title.slice(0,60).replace(/\s+/g,' ')}")`,
     finalUrl, html
   };
 }
