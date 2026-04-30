@@ -850,12 +850,6 @@
   .price-suggest button:hover { background: var(--gold-400); }
   .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
   .auth-photo-notice strong { color: #b04428; font-size: 13px; }
-  .desc-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .desc-ai-btn { background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%); color: var(--white); border: 1px solid var(--gold-500); border-radius: 999px; padding: 4px 12px; font-family: var(--font-body); font-size: 11.5px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; transition: var(--transition); }
-  .desc-ai-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(31, 72, 39, 0.25); }
-  .desc-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-  .ai-write-status { margin-top: 6px; font-size: 12px; color: var(--gray-600); font-style: italic; }
-  .ai-write-status.error { color: #b04428; font-style: normal; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
 
   /* IMAGE UPLOAD */
@@ -2275,14 +2269,7 @@
         <strong>🛡️ High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
-      <div class="form-row">
-        <div class="desc-label-row">
-          <label for="sellDesc">Description</label>
-          <button type="button" class="desc-ai-btn" id="aiWriteBtn" data-action="ai-write-description">✨ Write for me</button>
-        </div>
-        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea>
-        <div id="aiWriteStatus" class="ai-write-status" style="display:none"></div>
-      </div>
+      <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
         <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
@@ -8352,13 +8339,6 @@ if (uploadZone) {
     const max = Number(inp.max || 1);
     const cur = Number(inp.value || 1);
     inp.value = String(Math.min(max, Math.max(1, cur + dir)));
-  };
-  A['ai-write-description'] = () => {
-    if (typeof writeDescriptionWithAI === 'function') {
-      writeDescriptionWithAI();
-    } else if (window.showToast) {
-      window.showToast('AI writer activates as soon as we wire your OpenAI key — coming this week.', 'info');
-    }
   };
   A['close-bingo']          = () => closeBingo();
   A['bingo-guess']          = (el) => {
