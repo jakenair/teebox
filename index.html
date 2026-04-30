@@ -1148,12 +1148,7 @@
   .bingo-cell:active:not([data-state="correct"]):not([data-state="revealed"]) { transform: scale(0.98); }
   .bingo-cell-num { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: var(--white); background: var(--green-700); padding: 2px 7px; border-radius: 50px; letter-spacing: 0.4px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
   .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; overflow: hidden; }
-  /* Logos (small flat brand marks) display as-is, contained. Photos (Wikipedia
-     clubhouse/aerial) get the cover/saturate treatment via the .bingo-cell-photo
-     class added at runtime when an image's aspect ratio looks photographic. */
   .bingo-cell-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-  .bingo-cell-logo.bingo-cell-photo { padding: 0; border-radius: var(--radius-md); }
-  .bingo-cell-logo.bingo-cell-photo img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; filter: saturate(0.78) contrast(1.04) brightness(0.94); border-radius: var(--radius-md); }
   .bingo-cell-name { font-size: 11.5px; font-weight: 600; color: var(--gray-700); line-height: 1.2; margin-top: 4px; word-break: break-word; }
   .bingo-cell-mark { position: absolute; top: 6px; right: 8px; font-size: 14px; font-weight: 700; }
   .bingo-cell[data-state="correct"] { background: var(--green-50); border: 2px solid var(--green-600); }
@@ -7932,14 +7927,7 @@ if (uploadZone) {
       if (!url) return;
       const probe = new Image();
       probe.onload = () => {
-        if (!el.isConnected) return;
-        // Photo treatment: PNGs sourced from Wikipedia are 256x256 (square) but
-        // contain photographic content that fills the frame. Real brand-mark
-        // logos have transparent areas and don't fill. Use a heuristic — if
-        // both dimensions are >= 200, it's a photo; apply cover+saturate.
-        const isPhoto = probe.naturalWidth >= 200 && probe.naturalHeight >= 200;
-        el.classList.toggle('bingo-cell-photo', isPhoto);
-        el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
       };
       probe.src = url;
     });
