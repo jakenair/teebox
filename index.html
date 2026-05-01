@@ -1268,7 +1268,6 @@
   .bingo-cell-mark { position: absolute; top: 6px; right: 8px; font-size: 14px; font-weight: 700; }
   .bingo-cell[data-state="correct"] { background: var(--green-50); border: 2px solid var(--green-600); }
   .bingo-cell[data-state="correct"] .bingo-cell-name { color: var(--green-700); font-weight: 700; }
-  .bingo-cell[data-state="wrong"] { background: #fff8ed; border-color: var(--gold-300); }
   .bingo-cell[data-state="revealed"] { background: var(--red-100); border: 1.5px solid var(--gray-400); opacity: 0.95; }
   .bingo-cell[data-state="revealed"] .bingo-cell-name { color: var(--red-500); font-weight: 700; }
   .bingo-cell[data-state="correct"], .bingo-cell[data-state="revealed"] { cursor: default; }
@@ -1456,7 +1455,6 @@
   .bingo-autocomplete-empty button:hover { background: var(--gold-400); }
   .bingo-guess-footer { display: flex; gap: 10px; padding: 0 1.25rem 1.25rem; }
   .bingo-guess-footer .btn-full { padding: 12px; font-size: 14px; }
-  .bingo-attempt-pill { display: inline-block; background: var(--gray-100); color: var(--gray-700); border-radius: 50px; padding: 3px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -2190,11 +2188,11 @@
     <div class="bingo-guess-body">
       <div class="bingo-guess-logo" id="bingoGuessLogo">⛳</div>
       <div class="bingo-guess-prompt">
-        Course name<span class="bingo-attempt-pill" id="bingoAttemptPill">Attempt 1</span>
+        Course name
       </div>
       <input type="text" class="bingo-guess-input" id="bingoGuessInput" aria-labelledby="bingoGuessTitle" placeholder="Start typing — Augusta, Pebble, St Andrews…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" maxlength="80" />
       <div class="bingo-autocomplete" id="bingoAutocomplete"></div>
-      <div class="bingo-guess-hint" id="bingoGuessHint">One retry on a wrong guess — then the answer is revealed.</div>
+      <div class="bingo-guess-hint" id="bingoGuessHint">One guess per logo — wrong reveals the answer.</div>
     </div>
     <div class="bingo-guess-footer">
       <button class="btn-full ghost" data-action="bingo-skip-guess" type="button">Reveal</button>
@@ -2236,7 +2234,7 @@
     <a href="#" class="mobile-nav-link" data-action="open-my-offers">My Offers</a>
     <a href="#" class="mobile-nav-link" data-action="open-saved-searches">Saved Searches</a>
     <a href="#" class="mobile-nav-link" data-action="open-inbox">Messages</a>
-    <a href="#" class="mobile-nav-link" data-action="open-profile-self">Profile</a>
+    <a href="#" class="mobile-nav-link" data-action="open-profile-self">Account</a>
   </nav>
 </div>
 
@@ -7161,11 +7159,19 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     `;
   }
 
-  // Mobile account hub: every destination in the desktop user-menu
-  // (My Shop, Orders, Watchlist, Offers, Saved Searches, About) plus
-  // the Apple Review 5.1.1(v) Delete Account path. Only renders for
-  // the signed-in user viewing their own profile.
-  const editBtn = isMe
+  // Apple Review 5.1.1(v): Delete Account must be discoverable WITHOUT
+  // scrolling on iPad Air landscape. Profile-actions (Edit/Sign Out/Delete)
+  // render right under the header, BEFORE the account-hub list. Build 18
+  // was rejected because Delete Account sat below the hub.
+  const profileActionsHtml = isMe
+    ? `<div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+         <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
+         <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
+         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
+       </div>`
+    : '';
+
+  const accountHubHtml = isMe
     ? `<div class="profile-section profile-account-hub">
          <h4>Your account</h4>
          <div class="account-hub-list">
@@ -7194,11 +7200,6 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-chev">›</span>
            </button>
          </div>
-       </div>
-       <div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
-         <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
-         <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
-         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
        </div>`
     : '';
 
@@ -7214,9 +7215,11 @@ function renderProfileView(profile, listings, reviews, recentSold) {
       </div>
     </div>
 
+    ${profileActionsHtml}
+
     ${featuredHtml}
 
-    ${editBtn}
+    ${accountHubHtml}
 
     <div class="profile-section">
       <div class="profile-stat-row">
@@ -8100,7 +8103,6 @@ if (uploadZone) {
       let mark = '';
       if (cell.state === 'correct') mark = '<span class="bingo-cell-mark">✅</span>';
       else if (cell.state === 'revealed') mark = '<span class="bingo-cell-mark">❌</span>';
-      else if (cell.state === 'wrong') mark = '<span class="bingo-cell-mark" style="color:var(--gold-600)">↻</span>';
       const showName = cell.state === 'correct' || cell.state === 'revealed';
       const nameHtml = showName
         ? `<div class="bingo-cell-name">${window.safeText ? window.safeText(course.shortName) : course.shortName}</div>`
@@ -8328,16 +8330,13 @@ if (uploadZone) {
     const back = document.getElementById('bingoGuessBackdrop');
     const logo = document.getElementById('bingoGuessLogo');
     const input = document.getElementById('bingoGuessInput');
-    const pill = document.getElementById('bingoAttemptPill');
     const hint = document.getElementById('bingoGuessHint');
     const ac = document.getElementById('bingoAutocomplete');
-    // Logo modal: show the actual PNG (no emoji fallback in Logo Bingo).
     if (logo) {
       const url = courseLogoUrl(course);
       logo.innerHTML = url ? `<img src="${url}" alt="" loading="eager" style="max-width:100%;max-height:100%;object-fit:contain"/>` : '';
     }
     if (input) { input.value = ''; }
-    if (pill) pill.textContent = `Tile #${idx + 1} · Attempt ${cell.attempts + 1}`;
     if (hint) {
       hint.classList.remove('error');
       hint.textContent = 'One guess only — make it count.';
