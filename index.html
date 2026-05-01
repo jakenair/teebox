@@ -399,7 +399,10 @@
     .bottom-nav-item.sell .ico { stroke-width: 2; }
     .bottom-nav-item.sell.active { color: var(--gold-600); }
     body.has-bottom-nav { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
-    body.has-bottom-nav nav { display: none; }
+    /* Hide the DESKTOP nav only. The previous `body.has-bottom-nav nav` rule
+       was a foot-cannon — it also matched .bottom-nav and the drawer's inner
+       nav, hiding the entire mobile UX. Use :not() to scope it. */
+    body.has-bottom-nav nav:not(.bottom-nav):not(.mobile-nav-drawer-inner) { display: none; }
     /* Mobile top bar shows in place of the hidden desktop nav. */
     body.has-bottom-nav .mobile-top-bar {
       display: flex;
@@ -2855,13 +2858,24 @@ window.confirmPayment = async function() {
       }
       const badge = document.getElementById('userBadge');
       badge.style.display = 'inline-flex';
-      // For email users, show the local-part only — full address overflows the
-      // header pill on small phones, even with ellipsis truncation.
-      const displayName = user.phoneNumber || (user.email ? user.email.split('@')[0] : '') || 'Account';
-      badge.textContent = displayName;
+      // Show "Welcome, {first name}" when the user has set a profile name.
+      // Otherwise fall back to the email local-part or phone — full address
+      // overflows the header pill on small phones.
+      const fallback = user.phoneNumber || (user.email ? user.email.split('@')[0] : '') || 'Account';
+      const initialAuthName = user.displayName || '';
+      const initialFirst = initialAuthName ? initialAuthName.split(' ')[0] : '';
+      badge.textContent = initialFirst ? `Welcome, ${initialFirst}` : fallback;
       badge.setAttribute('title', 'Open account menu');
-      badge.setAttribute('aria-label', `Open account menu for ${displayName}`);
+      badge.setAttribute('aria-label', `Open account menu for ${initialFirst || fallback}`);
       await checkSellerStatus(user.uid);
+      // checkSellerStatus also stamps window.CURRENT_PROFILE_NAME if the
+      // Firestore profile has a displayName — refresh the badge from there.
+      const profName = window.CURRENT_PROFILE_NAME || '';
+      const profFirst = profName ? profName.split(' ')[0] : '';
+      if (profFirst) {
+        badge.textContent = `Welcome, ${profFirst}`;
+        badge.setAttribute('aria-label', `Open account menu for ${profFirst}`);
+      }
       loadListings();
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
       if (window.hydrateWatchlist) window.hydrateWatchlist();
@@ -2887,10 +2901,13 @@ window.confirmPayment = async function() {
   async function checkSellerStatus(uid) {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
-      window.IS_VERIFIED_SELLER = snap.exists() && snap.data().sellerVerified === true;
+      const data = snap.exists() ? snap.data() : null;
+      window.IS_VERIFIED_SELLER = !!(data && data.sellerVerified === true);
+      window.CURRENT_PROFILE_NAME = (data && data.displayName) ? String(data.displayName) : '';
     } catch (e) {
       console.warn('checkSellerStatus failed:', e && e.code || e);
       window.IS_VERIFIED_SELLER = false;
+      window.CURRENT_PROFILE_NAME = '';
     }
   }
 
@@ -3427,17 +3444,31 @@ let TICKER_ITEMS = [];
 // loadListings finishes so the ticker reflects real, live inventory.
 // Default ticker shown before any listings exist — keeps the stock-market
 // feel on first paint and on a brand-new marketplace with zero inventory.
+// Real, recognizable golf items + realistic resale-market prices. Stock-
+// ticker styling — the % moves are decorative noise, not real telemetry —
+// but the brand/price pairings match what these items actually trade for
+// peer-to-peer. Refresh as inventory + market shifts.
 const DEFAULT_TICKER = [
-  { name: 'Drivers',     price: '$385', chg: '+4.2%',  up: true  },
-  { name: 'Irons',       price: '$720', chg: '-1.8%',  up: false },
-  { name: 'Putters',     price: '$245', chg: '+6.5%',  up: true  },
-  { name: 'Wedges',      price: '$135', chg: '+2.1%',  up: true  },
-  { name: 'Polos',       price: '$98',  chg: '-0.7%',  up: false },
-  { name: 'Headcovers',  price: '$68',  chg: '+3.4%',  up: true  },
-  { name: 'Belts',       price: '$155', chg: '+1.2%',  up: true  },
-  { name: 'Bags',        price: '$295', chg: '-2.4%',  up: false },
-  { name: 'Shoes',       price: '$175', chg: '+5.0%',  up: true  },
-  { name: 'Balls',       price: '$48',  chg: '+0.9%',  up: true  },
+  { name: 'Scotty Cameron Newport',      price: '$485', chg: '+3.8%',  up: true  },
+  { name: 'L.A.B. Mezz.1 Putter',         price: '$525', chg: '+5.2%',  up: true  },
+  { name: 'Bettinardi Studio Stock 28',  price: '$465', chg: '-1.4%',  up: false },
+  { name: 'Vokey SM10 Wedge',             price: '$165', chg: '+2.1%',  up: true  },
+  { name: 'TaylorMade Qi10 Driver',       price: '$465', chg: '+1.8%',  up: true  },
+  { name: 'Titleist T100 Irons',          price: '$1,295', chg: '-0.9%', up: false },
+  { name: 'Pro V1 (3-Dozen)',             price: '$155', chg: '+0.7%',  up: true  },
+  { name: 'Smathers & Branson Belt',      price: '$165', chg: '+1.5%',  up: true  },
+  { name: 'RLX Tour Quarter-Zip',          price: '$185', chg: '+2.4%',  up: true  },
+  { name: 'Peter Millar Crown Crafted',   price: '$155', chg: '-0.6%',  up: false },
+  { name: 'Holderness & Bourne Polo',     price: '$135', chg: '+1.9%',  up: true  },
+  { name: 'B. Draddy 1/4-Zip',             price: '$148', chg: '+3.2%',  up: true  },
+  { name: 'G/Fore Tuxedo Polo',            price: '$125', chg: '+0.8%',  up: true  },
+  { name: 'FootJoy Premiere Field',       price: '$199', chg: '-1.1%',  up: false },
+  { name: 'Manors 1/4-Zip',                price: '$255', chg: '+4.1%',  up: true  },
+  { name: 'Greyson Wolf Polo',            price: '$98',  chg: '+1.2%',  up: true  },
+  { name: 'Malbon Buckets Tee',           price: '$78',  chg: '+0.6%',  up: true  },
+  { name: 'Travis Mathew Beck Short',     price: '$85',  chg: '-0.4%',  up: false },
+  { name: 'Devereux Surcingle Belt',       price: '$65',  chg: '+0.9%',  up: true  },
+  { name: 'Vessel Player IV Stand Bag',   price: '$395', chg: '+2.7%',  up: true  },
 ];
 
 function deriveTickerFromProducts() {
