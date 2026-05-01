@@ -370,14 +370,77 @@
   .mobile-nav-toggle { background: transparent; border: 0; color: var(--white); font-size: 22px; line-height: 1; padding: 6px 8px; cursor: pointer; font-weight: 700; }
   .mobile-nav-toggle:active { opacity: 0.7; }
   /* Slide-in drawer with menu links — full set of desktop nav destinations. */
-  .mobile-nav-drawer { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.5); }
+  /* MOBILE NAV DRAWER — slides in from the right. Branded dark-green with
+     gold accents, organized into sections so all 11 destinations fit in one
+     glance without scrolling on a typical iPhone screen. */
+  .mobile-nav-drawer { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
   .mobile-nav-drawer.open { display: block; animation: backdropFade 0.18s ease; }
-  .mobile-nav-drawer-inner { position: absolute; top: 0; right: 0; bottom: 0; width: min(86vw, 340px); background: var(--white); padding: calc(env(safe-area-inset-top) + 8px) 0 calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.16); animation: drawerSlideIn 0.22s cubic-bezier(.32,.72,0,1); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .mobile-nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px 14px; border-bottom: 1px solid var(--gray-100); }
-  .mobile-nav-drawer-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; color: var(--gray-900); }
-  .mobile-nav-drawer-close { background: transparent; border: 0; font-size: 28px; line-height: 1; color: var(--gray-500); cursor: pointer; padding: 4px 8px; }
-  .mobile-nav-link { display: block; padding: 14px 20px; font-size: 15px; font-weight: 500; color: var(--gray-900); text-decoration: none; border-bottom: 1px solid var(--gray-100); }
-  .mobile-nav-link:active { background: var(--gray-100); }
+  .mobile-nav-drawer-inner {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: min(86vw, 320px);
+    background: linear-gradient(170deg, var(--green-900) 0%, var(--green-950, #061508) 100%);
+    padding: 0;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.4);
+    animation: drawerSlideIn 0.26s cubic-bezier(.32,.72,0,1);
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* iOS rendering fallback in case some descendant flex/transform clips
+       siblings — we declare each child as its own block. */
+    display: block;
+  }
+  .mobile-nav-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.18);
+  }
+  .mobile-nav-drawer-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--gold-300); letter-spacing: 0.3px; }
+  .mobile-nav-drawer-close { background: transparent; border: 0; font-size: 28px; line-height: 1; color: rgba(255,255,255,0.6); cursor: pointer; padding: 4px 8px; transition: color 0.15s ease, transform 0.1s ease; }
+  .mobile-nav-drawer-close:hover { color: var(--white); }
+  .mobile-nav-drawer-close:active { transform: scale(0.92); }
+
+  .mobile-nav-section { padding: 14px 0 6px; }
+  .mobile-nav-section + .mobile-nav-section { border-top: 1px solid rgba(255,255,255,0.06); }
+  .mobile-nav-section-label {
+    display: block;
+    padding: 0 18px 8px;
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--gold-300);
+    opacity: 0.7;
+  }
+  .mobile-nav-link {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 18px;
+    font-size: 15px; font-weight: 500;
+    color: rgba(255,255,255,0.92); text-decoration: none;
+    transition: background 0.18s ease, color 0.18s ease, padding-left 0.18s ease;
+    position: relative;
+  }
+  .mobile-nav-link::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+    width: 3px; background: var(--gold-400); border-radius: 0 3px 3px 0;
+    transform: scaleY(0); transform-origin: center; transition: transform 0.2s ease;
+  }
+  .mobile-nav-link:hover { background: rgba(255,255,255,0.06); padding-left: 22px; color: var(--white); }
+  .mobile-nav-link:hover::before { transform: scaleY(1); }
+  .mobile-nav-link:active { background: rgba(255,255,255,0.10); transform: scale(0.99); }
+  .mobile-nav-link.danger { color: rgba(255, 130, 110, 0.9); }
+  .mobile-nav-link.danger:hover { background: rgba(255,80,60,0.10); color: rgb(255, 160, 140); }
+  .mobile-nav-link.danger::before { background: var(--red-500); }
+  .mobile-nav-link-icon {
+    width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--gold-300); flex-shrink: 0;
+    font-size: 16px;
+  }
+  .mobile-nav-link.danger .mobile-nav-link-icon { color: rgb(255, 130, 110); }
+  .mobile-nav-link-label { flex: 1; min-width: 0; }
+  .mobile-nav-link-chev { color: rgba(255,255,255,0.25); font-size: 14px; transition: color 0.2s ease, transform 0.2s ease; }
+  .mobile-nav-link:hover .mobile-nav-link-chev { color: var(--gold-400); transform: translateX(2px); }
+
+  .mobile-nav-footer-pad { height: env(safe-area-inset-bottom); }
+
   @keyframes drawerSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
   @keyframes backdropFade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -418,28 +481,14 @@
        in WKWebView. Force it to match the top-bar's green. */
     body.has-bottom-nav { background: var(--green-800); }
     body.has-bottom-nav main { background: var(--cream); }
-    /* Cat-bar sits directly under the mobile top bar. */
+    /* Cat-bar sits directly under the mobile top bar. Keep it green to
+       match the brand — the inherited white-text-on-green pills work fine
+       and the bar reads as a continuation of the header. */
     body.has-bottom-nav .cat-bar {
       top: calc(env(safe-area-inset-top) + 52px);
-      padding-top: 6px;
-      background: var(--cream);
-      border-bottom: 1px solid var(--gray-200);
-    }
-    /* On cream cat-bar, recolor inactive pills to dark — Build 18 shipped
-       white-on-cream and the labels were invisible. */
-    body.has-bottom-nav .cat-pill {
-      color: var(--gray-700);
-      border-color: var(--gray-300);
-    }
-    body.has-bottom-nav .cat-pill:active,
-    body.has-bottom-nav .cat-pill:hover {
-      background: var(--gray-100);
-      color: var(--gray-900);
-    }
-    body.has-bottom-nav .cat-pill.active {
-      background: var(--gold-400);
-      border-color: var(--gold-400);
-      color: var(--green-900);
+      padding: 6px 14px 0;
+      background: linear-gradient(180deg, var(--green-800) 0%, var(--green-900) 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     body.has-bottom-nav main { margin-top: calc(44px + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
@@ -766,11 +815,37 @@
   .user-menu-divider { height: 1px; background: var(--gray-200); margin: 6px 0; }
 
   /* CAT BAR */
-  .cat-bar { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); display: flex; align-items: center; padding: 0 2rem; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .cat-bar { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); display: flex; align-items: center; padding: 0 2rem; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px; overflow-x: auto; scrollbar-width: none; }
   .cat-bar::-webkit-scrollbar { display: none; }
-  .cat-pill { background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.75); border-radius: 50px; padding: 4px 14px; font-family: var(--font-body); font-size: 12.5px; font-weight: 500; cursor: pointer; transition: var(--transition); white-space: nowrap; flex-shrink: 0; }
-  .cat-pill:hover { background: rgba(255,255,255,0.1); color: var(--white); }
-  .cat-pill.active { background: var(--gold-400); border-color: var(--gold-400); color: var(--green-900); font-weight: 600; }
+  .cat-pill {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.85);
+    border-radius: 50px; padding: 5px 16px;
+    font-family: var(--font-body); font-size: 12.5px; font-weight: 500;
+    cursor: pointer;
+    transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, transform 0.12s ease, box-shadow 0.22s ease;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .cat-pill:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(212, 175, 55, 0.5);
+    color: var(--white);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.08);
+  }
+  .cat-pill:active { transform: scale(0.96); }
+  .cat-pill.active {
+    background: var(--gold-400);
+    border-color: var(--gold-400);
+    color: var(--green-900);
+    font-weight: 700;
+    box-shadow: 0 2px 12px rgba(212, 175, 55, 0.35);
+  }
+  .cat-pill.active:hover {
+    background: var(--gold-300);
+    border-color: var(--gold-300);
+    box-shadow: 0 3px 16px rgba(212, 175, 55, 0.5);
+  }
 
   main { margin-top: calc(var(--nav-h) + 44px); }
 
@@ -2245,20 +2320,93 @@
 <div class="mobile-nav-drawer" id="mobileNavDrawer" data-action="close-mobile-nav" aria-hidden="true">
   <nav class="mobile-nav-drawer-inner" aria-label="App menu" onclick="event.stopPropagation()">
     <div class="mobile-nav-drawer-head">
-      <span class="mobile-nav-drawer-title">Menu</span>
+      <span class="mobile-nav-drawer-title">TeeBox</span>
       <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
     </div>
-    <a href="#" class="mobile-nav-link" data-action="bn-home">Marketplace</a>
-    <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">Trending</a>
-    <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">Drops</a>
-    <a href="#" class="mobile-nav-link" data-action="open-about">About</a>
-    <a href="#" class="mobile-nav-link" data-action="open-shop-dashboard">My Shop</a>
-    <a href="#" class="mobile-nav-link" data-action="open-watchlist">Watchlist</a>
-    <a href="#" class="mobile-nav-link" data-action="open-orders">My Orders</a>
-    <a href="#" class="mobile-nav-link" data-action="open-my-offers">My Offers</a>
-    <a href="#" class="mobile-nav-link" data-action="open-saved-searches">Saved Searches</a>
-    <a href="#" class="mobile-nav-link" data-action="open-inbox">Messages</a>
-    <a href="#" class="mobile-nav-link" data-action="open-profile-self">Account</a>
+
+    <div class="mobile-nav-section">
+      <span class="mobile-nav-section-label">Marketplace</span>
+      <a href="#" class="mobile-nav-link" data-action="bn-home">
+        <span class="mobile-nav-link-icon">🏠</span>
+        <span class="mobile-nav-link-label">Browse</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">
+        <span class="mobile-nav-link-icon">📈</span>
+        <span class="mobile-nav-link-label">Trending</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">
+        <span class="mobile-nav-link-icon">⚡</span>
+        <span class="mobile-nav-link-label">Drops</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-bingo">
+        <span class="mobile-nav-link-icon">🎯</span>
+        <span class="mobile-nav-link-label">Logo Bingo</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+    </div>
+
+    <div class="mobile-nav-section">
+      <span class="mobile-nav-section-label">My Activity</span>
+      <a href="#" class="mobile-nav-link" data-action="open-shop-dashboard">
+        <span class="mobile-nav-link-icon">🛍️</span>
+        <span class="mobile-nav-link-label">My Shop</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-orders">
+        <span class="mobile-nav-link-icon">📦</span>
+        <span class="mobile-nav-link-label">My Orders</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-my-offers">
+        <span class="mobile-nav-link-icon">🤝</span>
+        <span class="mobile-nav-link-label">My Offers</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-watchlist">
+        <span class="mobile-nav-link-icon">⭐</span>
+        <span class="mobile-nav-link-label">Watchlist</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-saved-searches">
+        <span class="mobile-nav-link-icon">🔔</span>
+        <span class="mobile-nav-link-label">Saved Searches</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-inbox">
+        <span class="mobile-nav-link-icon">💬</span>
+        <span class="mobile-nav-link-label">Messages</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+    </div>
+
+    <div class="mobile-nav-section">
+      <span class="mobile-nav-section-label">Account</span>
+      <a href="#" class="mobile-nav-link" data-action="open-profile-self">
+        <span class="mobile-nav-link-icon">👤</span>
+        <span class="mobile-nav-link-label">Profile</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-about">
+        <span class="mobile-nav-link-icon">ℹ️</span>
+        <span class="mobile-nav-link-label">About TeeBox</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="sign-out">
+        <span class="mobile-nav-link-icon">↩️</span>
+        <span class="mobile-nav-link-label">Sign Out</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link danger" data-action="open-delete-account">
+        <span class="mobile-nav-link-icon">🗑️</span>
+        <span class="mobile-nav-link-label">Delete Account</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+    </div>
+
+    <div class="mobile-nav-footer-pad"></div>
   </nav>
 </div>
 
