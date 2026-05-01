@@ -8298,17 +8298,7 @@ if (uploadZone) {
     if (pill) pill.textContent = `Tile #${idx + 1} · Attempt ${cell.attempts + 1}`;
     if (hint) {
       hint.classList.remove('error');
-      // Progressive hints: location after wrong #1, architect after wrong #2.
-      // Pulled from bingo-courses.js metadata so each course gives unique tells.
-      if (cell.attempts === 0) {
-        hint.textContent = 'One retry on a wrong guess — then the answer is revealed.';
-      } else if (cell.attempts === 1 && course.location) {
-        hint.innerHTML = `<strong>Hint:</strong> Located in ${window.safeText(course.location)}. Last try.`;
-      } else if (cell.attempts === 1 && course.architect) {
-        hint.innerHTML = `<strong>Hint:</strong> Designed by ${window.safeText(course.architect)}. Last try.`;
-      } else {
-        hint.textContent = 'Last try — wrong answer reveals the course.';
-      }
+      hint.textContent = 'One guess only — make it count.';
     }
     if (ac) { ac.innerHTML = ''; ac.classList.remove('open'); }
     if (back) {
@@ -8432,36 +8422,17 @@ if (uploadZone) {
       maybeFinish();
       return;
     }
-    // Wrong guess
-    if (cell.attempts >= 2) {
-      cell.state = 'revealed';
-      cell.resolvedAt = Date.now();
-      cell.points = 0;
-      persist();
-      showCourseRevealCard(course, false, 0);
-      closeGuessModal();
-      render();
-      playRevealFx(idx);
-      maybeFinish();
-      return;
-    }
-    // Allow retry
-    cell.state = 'wrong';
+    // Wrong guess — single-shot mode. No retry. Tile resolves to revealed
+    // immediately with the correct answer shown.
+    cell.state = 'revealed';
+    cell.resolvedAt = Date.now();
+    cell.points = 0;
     persist();
-    if (hint) {
-      hint.classList.add('error');
-      hint.textContent = `Not quite — one more try.`;
-    }
-    const pill = document.getElementById('bingoAttemptPill');
-    if (pill) pill.textContent = `Tile #${idx + 1} · Attempt ${cell.attempts + 1}`;
-    input.value = '';
-    input.focus();
+    showCourseRevealCard(course, false, 0);
+    closeGuessModal();
     render();
-    // Trigger the autocomplete to repopulate (now showing the full list again)
-    renderAutocomplete('');
-    // Visual + toast feedback for the wrong attempt
-    playWrongFx(idx);
-    if (window.showToast) window.showToast('Try again');
+    playRevealFx(idx);
+    maybeFinish();
   }
   function skipGuess() {
     // "Reveal" button — same as exhausting attempts

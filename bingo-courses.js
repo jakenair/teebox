@@ -1999,8 +1999,8 @@ export const COURSES = [
   {
     id: 'flossmoor',
     name: 'Flossmoor Country Club',
-    shortName: 'Flossmoor',
-    aliases: ['flossmoor cc'],
+    shortName: 'Flossmoor Country Club',
+    aliases: ['flossmoor', 'flossmoor cc'],
     location: 'Flossmoor, Illinois',
     architect: 'Herbert Tweedie',
     logo: '⛳',
