@@ -7792,6 +7792,7 @@ if (uploadZone) {
      ───────────────────────────────────────────────────────────────────── -->
 <script type="module">
   import { COURSES, courseLogoUrl } from './bingo-courses.js';
+  import { LOGOS_AVAILABLE } from './assets/logos/manifest.js';
 
   // ── Date helpers (UTC so every player sees the same puzzle) ─────────────
   function todayUTC() {
@@ -7839,11 +7840,14 @@ if (uploadZone) {
   }
   // Pick 9 deterministic courses for the given date string. Same 9 worldwide
   // on the same date. Uses a canonical pre-shuffled ordering and walks it 9
-  // tiles at a time so no course repeats within a ~20-day cycle (185/9).
+  // tiles at a time so no course repeats within one cycle.
+  //
+  // IMPORTANT: pool is filtered to courses with a real PNG logo (LOGOS_AVAILABLE)
+  // — Bingo is a *Logo* game, emoji fallbacks defeat the point.
   function dailySeed(dateStr) {
     // Stable canonical ordering — bumping the seed string reshuffles the cycle.
-    const rngOrder = mulberry32(hashStr('teebox-bingo-canon-v2'));
-    const pool = COURSES.slice();
+    const rngOrder = mulberry32(hashStr('teebox-bingo-canon-v3'));
+    const pool = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(rngOrder() * (i + 1));
       const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
@@ -8062,7 +8066,7 @@ if (uploadZone) {
       div.innerHTML = `
         <span class="bingo-cell-num">${i + 1}</span>
         ${mark}
-        <div class="bingo-cell-logo" data-logo-id="${course.id}">${course.logo}</div>
+        <div class="bingo-cell-logo" data-logo-id="${course.id}"></div>
         ${nameHtml}
       `;
       grid.appendChild(div);
@@ -8285,7 +8289,11 @@ if (uploadZone) {
     const pill = document.getElementById('bingoAttemptPill');
     const hint = document.getElementById('bingoGuessHint');
     const ac = document.getElementById('bingoAutocomplete');
-    if (logo) logo.textContent = course.logo;
+    // Logo modal: show the actual PNG (no emoji fallback in Logo Bingo).
+    if (logo) {
+      const url = courseLogoUrl(course);
+      logo.innerHTML = url ? `<img src="${url}" alt="" loading="eager" style="max-width:100%;max-height:100%;object-fit:contain"/>` : '';
+    }
     if (input) { input.value = ''; }
     if (pill) pill.textContent = `Tile #${idx + 1} · Attempt ${cell.attempts + 1}`;
     if (hint) {
@@ -8357,7 +8365,6 @@ if (uploadZone) {
       const safeName = window.safeText ? window.safeText(c.shortName) : c.shortName;
       const safeLoc  = window.safeText ? window.safeText(c.location)  : c.location;
       return `<div class="bingo-autocomplete-row" data-pick="${window.safeAttr ? window.safeAttr(c.shortName) : c.shortName}">
-        <span class="bingo-autocomplete-emoji">${c.logo}</span>
         <div style="min-width:0;">
           <div class="bingo-autocomplete-name">${safeName}</div>
           <div class="bingo-autocomplete-meta">${safeLoc}</div>
