@@ -1,0 +1,186 @@
+SLUG	COURSE NAME	HAVE LOGO?
+augusta-national	Augusta National Golf Club	NO
+pine-valley	Pine Valley Golf Club	NO
+cypress-point	Cypress Point Club	NO
+pebble-beach	Pebble Beach Golf Links	NO
+shinnecock-hills	Shinnecock Hills Golf Club	NO
+oakmont	Oakmont Country Club	YES
+merion-east	Merion Golf Club (East)	YES
+national-golf-links	National Golf Links of America	NO
+fishers-island	Fishers Island Club	YES
+sand-hills	Sand Hills Golf Club	NO
+bandon-dunes	Bandon Dunes Resort	YES
+chicago-golf-club	Chicago Golf Club	YES
+winged-foot-west	Winged Foot Golf Club (West)	NO
+seminole	Seminole Golf Club	YES
+los-angeles-cc-north	Los Angeles Country Club (North)	NO
+riviera	The Riviera Country Club	YES
+oakland-hills-south	Oakland Hills Country Club (South)	YES
+olympic-club-lake	The Olympic Club (Lake)	YES
+san-francisco-gc	San Francisco Golf Club	YES
+baltusrol-lower	Baltusrol Golf Club (Lower)	YES
+bethpage-black	Bethpage State Park (Black)	NO
+pinehurst-no-2	Pinehurst No. 2	YES
+whistling-straits	Whistling Straits (Straits)	NO
+erin-hills	Erin Hills	YES
+tpc-sawgrass	TPC Sawgrass (Stadium)	YES
+kiawah-ocean	Kiawah Island Golf Resort (Ocean)	YES
+harbour-town	Harbour Town Golf Links	NO
+tobacco-road	Tobacco Road Golf Club	YES
+streamsong-blue	Streamsong Resort	YES
+cabot-citrus-farms	Cabot Citrus Farms	YES
+inverness	Inverness Club	NO
+crystal-downs	Crystal Downs Country Club	YES
+prairie-dunes	Prairie Dunes Country Club	YES
+oak-hill-east	Oak Hill Country Club (East)	YES
+medinah-3	Medinah Country Club (No. 3)	YES
+quaker-ridge	Quaker Ridge Golf Club	YES
+wade-hampton	Wade Hampton Golf Club	NO
+east-lake	East Lake Golf Club	YES
+whispering-pines	Whispering Pines Golf Club	NO
+castle-pines	Castle Pines Golf Club	NO
+shadow-creek	Shadow Creek	NO
+friars-head	Friar	NO
+somerset-hills	Somerset Hills Country Club	NO
+maidstone	Maidstone Club	YES
+st-andrews-old	The Old Course at St Andrews	YES
+muirfield	Muirfield (The Honourable Company of Edinburgh Golfers)	YES
+royal-dornoch	Royal Dornoch Golf Club (Championship)	YES
+turnberry-ailsa	Trump Turnberry (Ailsa)	NO
+carnoustie	Carnoustie Golf Links (Championship)	YES
+north-berwick	North Berwick (West Links)	YES
+kingsbarns	Kingsbarns Golf Links	YES
+cruden-bay	Cruden Bay Golf Club	NO
+machrihanish	Machrihanish Golf Club	YES
+machrihanish-dunes	Machrihanish Dunes	NO
+castle-stuart	Castle Stuart Golf Links	NO
+royal-troon	Royal Troon Golf Club (Old)	YES
+royal-county-down	Royal County Down Golf Club (Championship)	YES
+royal-portrush-dunluce	Royal Portrush Golf Club (Dunluce)	YES
+ballybunion-old	Ballybunion Golf Club (Old)	YES
+lahinch	Lahinch Golf Club	YES
+portmarnock	Portmarnock Golf Club	YES
+european-club	The European Club	YES
+royal-st-georges	Royal St George	YES
+sunningdale-old	Sunningdale Golf Club (Old)	YES
+royal-birkdale	Royal Birkdale Golf Club	YES
+royal-lytham	Royal Lytham & St Annes Golf Club	YES
+royal-liverpool	Royal Liverpool Golf Club	YES
+swinley-forest	Swinley Forest Golf Club	YES
+walton-heath-old	Walton Heath Golf Club (Old)	NO
+morfontaine	Golf de Morfontaine	YES
+les-bordes	Les Bordes Golf Club	YES
+valderrama	Real Club Valderrama	YES
+royal-melbourne-west	Royal Melbourne Golf Club (West)	YES
+kingston-heath	Kingston Heath Golf Club	YES
+barnbougle-dunes	Barnbougle Dunes	YES
+barnbougle-lost-farm	Barnbougle Lost Farm	YES
+cape-wickham	Cape Wickham Links	YES
+new-south-wales	New South Wales Golf Club	YES
+tara-iti	Tara Iti Golf Club	YES
+cape-kidnappers	Cape Kidnappers	NO
+cabot-cliffs	Cabot Cliffs	NO
+cabot-links	Cabot Links	NO
+st-georges-canada	St. George	YES
+hamilton-gcc	Hamilton Golf and Country Club	YES
+hirono	Hirono Golf Club	NO
+kawana-fuji	Kawana Hotel (Fuji)	NO
+tokyo-gc	Tokyo Golf Club	NO
+chambers-bay	Chambers Bay	YES
+black-mesa	Black Mesa Golf Club	NO
+wolf-creek	Wolf Creek Golf Club	NO
+bayonne	Bayonne Golf Club	YES
+old-sandwich	Old Sandwich Golf Club	NO
+quail-hollow	Quail Hollow Club	YES
+wild-horse	Wild Horse Golf Club	NO
+yeamans-hall	Yeamans Hall Club	NO
+camargo-club	The Camargo Club	NO
+old-town-club	Old Town Club	NO
+sleepy-hollow	Sleepy Hollow Country Club	NO
+garden-city	Garden City Golf Club	YES
+tpc-scottsdale	TPC Scottsdale (Stadium)	YES
+tpc-river-highlands	TPC River Highlands	YES
+detroit-golf-club	Detroit Golf Club	YES
+colonial	Colonial Country Club	NO
+muirfield-village	Muirfield Village Golf Club	YES
+sand-valley	Sand Valley	YES
+mammoth-dunes	Mammoth Dunes	NO
+sedge-valley	Sedge Valley	NO
+forest-dunes	Forest Dunes Golf Club	YES
+the-loop	The Loop at Forest Dunes	NO
+arcadia-bluffs	Arcadia Bluffs Golf Club	YES
+spyglass-hill	Spyglass Hill Golf Course	NO
+monterey-peninsula-shore	Monterey Peninsula Country Club (Shore)	NO
+pasatiempo	Pasatiempo Golf Club	NO
+congressional-blue	Congressional Country Club (Blue)	YES
+plainfield	Plainfield Country Club	NO
+aronimink	Aronimink Golf Club	YES
+cherry-hills	Cherry Hills Country Club	YES
+southern-hills	Southern Hills Country Club	YES
+firestone-south	Firestone Country Club (South)	NO
+olympia-fields-north	Olympia Fields Country Club (North)	YES
+tpc-southwind	TPC Southwind	NO
+austin-cc	Austin Country Club	YES
+wolf-point	Wolf Point Club	YES
+ohoopee-match	Ohoopee Match Club	NO
+gozzer-ranch	Gozzer Ranch Golf and Lake Club	YES
+congaree	Congaree Golf Club	NO
+royal-porthcawl	Royal Porthcawl Golf Club	NO
+royal-ashdown-forest	Royal Ashdown Forest Golf Club	NO
+rye	Rye Golf Club	NO
+st-georges-hill	St George	NO
+royal-cinque-ports	Royal Cinque Ports Golf Club	YES
+royal-west-norfolk	Royal West Norfolk Golf Club	YES
+royal-aberdeen	Royal Aberdeen Golf Club	YES
+trump-international-scotland	Trump International Golf Links Scotland	NO
+gleneagles-kings	Gleneagles (King	NO
+gleneagles-pga-centenary	Gleneagles (PGA Centenary)	NO
+prestwick	Prestwick Golf Club	NO
+royal-st-davids	Royal St David	NO
+old-head	Old Head Golf Links	YES
+waterville	Waterville Golf Links	NO
+tralee	Tralee Golf Club	YES
+royal-dublin	Royal Dublin Golf Club	YES
+county-sligo	County Sligo Golf Club	YES
+enniscrone	Enniscrone Golf Club	YES
+royal-portrush-valley	Royal Portrush Golf Club (Valley)	YES
+falsterbo	Falsterbo Golfklubb	NO
+halmstad	Halmstad Golfklubb (North)	YES
+sotogrande	Real Club de Golf Sotogrande	YES
+la-reserva-sotogrande	La Reserva Club de Sotogrande	YES
+real-san-sebastian	Real Golf Club de San Sebastian	NO
+le-touquet-la-mer	Le Touquet Golf Resort (La Mer)	NO
+domaine-de-belesbat	Golf de Belesbat	NO
+fontainebleau	Golf de Fontainebleau	NO
+club-zur-vahr	Club zur Vahr (Garlstedter Heide)	NO
+pevero	Pevero Golf Club	NO
+hokkaido-classic	Hokkaido Classic Golf Club	NO
+naruo	Naruo Golf Club	YES
+yas-links	Yas Links Abu Dhabi	NO
+doha-golf-club	Doha Golf Club	NO
+emirates-majlis	Emirates Golf Club (Majlis)	NO
+mission-hills-shenzhen	Mission Hills (World Cup)	YES
+diamante-dunes	Diamante Cabo San Lucas (Dunes)	YES
+cabot-saint-lucia	Cabot Saint Lucia (Point Hardy)	NO
+casa-de-campo-teeth	Casa de Campo (Teeth of the Dog)	YES
+punta-espada	Punta Espada Golf Club	YES
+country-club-bogota	Country Club de Bogota	NO
+royal-melbourne-east	Royal Melbourne Golf Club (East)	YES
+victoria-golf-club	Victoria Golf Club	YES
+metropolitan-melbourne	Metropolitan Golf Club	YES
+ellerston	Ellerston Golf Course	NO
+te-arai-south	Te Arai Links (South)	YES
+te-arai-north	Te Arai Links (North)	YES
+paraparaumu-beach	Paraparaumu Beach Golf Club	YES
+national-golf-club-canada	The National Golf Club of Canada	NO
+highlands-links	Cape Breton Highlands Links	YES
+jasper-park	Fairmont Jasper Park Lodge Golf Course	NO
+banff-springs	Fairmont Banff Springs Golf Course	YES
+lido	The Lido	YES
+old-barnwell	Old Barnwell	YES
+mcarthur	McArthur Golf Club	YES
+stanwich	The Stanwich Club	NO
+philadelphia-cricket	Philadelphia Cricket Club (Wissahickon)	YES
+crooked-stick	Crooked Stick Golf Club	NO
+liberty-national	Liberty National Golf Club	YES
+yale	Yale Golf Course	YES
