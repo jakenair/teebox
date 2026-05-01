@@ -2708,6 +2708,7 @@ window.confirmPayment = async function() {
 <!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app-check.js";
   import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
@@ -2725,22 +2726,25 @@ window.confirmPayment = async function() {
   const app = initializeApp(firebaseConfig);
 
   // ──────────────────────────────────────────────────────────
-  // App Check (currently DISABLED).
-  // To enable:
-  //   1. Firebase console → App Check → Apps → Web app → Register
-  //      with reCAPTCHA Enterprise; copy the site key.
-  //   2. Replace YOUR_RECAPTCHA_ENTERPRISE_SITE_KEY below.
-  //   3. Uncomment the import and the initialize block.
-  //   4. In Firebase console → App Check → APIs, set Firestore /
+  // App Check — registers a reCAPTCHA Enterprise token with every
+  // Firebase request so bots/scripts running outside the live site
+  // can't spam Firestore/Storage/Functions even if they exfil the
+  // public API key.
+  //
+  // Currently in MONITORING mode: clients send tokens, but the
+  // backend doesn't reject requests without one. To go to enforcement:
+  //   1. Watch the App Check dashboard for ~10 min — verify tokens
+  //      are flowing on every Firestore endpoint (green graph).
+  //   2. Firebase console → App Check → APIs → flip Firestore /
   //      Storage / Cloud Functions to "Enforced".
-  //   5. In firestore.rules, uncomment the `appCheckActive()` guard
-  //      lines and redeploy with `firebase deploy --only firestore:rules`.
+  //   3. In firestore.rules, change `function appCheckOk()` from
+  //      `return true;` to `return request.app != null;` and
+  //      redeploy with `firebase deploy --only firestore:rules`.
   // ──────────────────────────────────────────────────────────
-  // import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app-check.js";
-  // initializeAppCheck(app, {
-  //   provider: new ReCaptchaEnterpriseProvider("YOUR_RECAPTCHA_ENTERPRISE_SITE_KEY"),
-  //   isTokenAutoRefreshEnabled: true,
-  // });
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
+    isTokenAutoRefreshEnabled: true,
+  });
 
   const auth = getAuth(app);
   const db = getFirestore(app);
