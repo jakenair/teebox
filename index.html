@@ -420,6 +420,23 @@
       top: calc(env(safe-area-inset-top) + 52px);
       padding-top: 6px;
       background: var(--cream);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    /* On cream cat-bar, recolor inactive pills to dark — Build 18 shipped
+       white-on-cream and the labels were invisible. */
+    body.has-bottom-nav .cat-pill {
+      color: var(--gray-700);
+      border-color: var(--gray-300);
+    }
+    body.has-bottom-nav .cat-pill:active,
+    body.has-bottom-nav .cat-pill:hover {
+      background: var(--gray-100);
+      color: var(--gray-900);
+    }
+    body.has-bottom-nav .cat-pill.active {
+      background: var(--gold-400);
+      border-color: var(--gold-400);
+      color: var(--green-900);
     }
     body.has-bottom-nav main { margin-top: calc(44px + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
@@ -7728,6 +7745,18 @@ document.addEventListener('click', (ev) => {
   if (!menu || !wrap || !menu.classList.contains('open')) return;
   if (!wrap.contains(ev.target)) menu.classList.remove('open');
 });
+
+// Direct click listener on the hamburger as a backup. Build 18 reports
+// suggested the data-action delegation occasionally missed the tap on
+// iOS WKWebView — a direct binding guarantees the drawer opens.
+const hamburgerBtn = document.querySelector('.mobile-nav-toggle');
+if (hamburgerBtn) {
+  hamburgerBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const fn = window.__actions && window.__actions['toggle-mobile-nav'];
+    if (typeof fn === 'function') fn(hamburgerBtn, ev);
+  });
+}
 
 // Auto-close the mobile nav drawer when any link inside it is tapped.
 // Runs after the action handler so the destination opens before the close.
