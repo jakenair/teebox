@@ -462,10 +462,9 @@
     .bottom-nav-item.sell .ico { stroke-width: 2; }
     .bottom-nav-item.sell.active { color: var(--gold-600); }
     body.has-bottom-nav { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
-    /* Hide the DESKTOP nav only. The previous `body.has-bottom-nav nav` rule
-       was a foot-cannon — it also matched .bottom-nav and the drawer's inner
-       nav, hiding the entire mobile UX. Use :not() to scope it. */
-    body.has-bottom-nav nav:not(.bottom-nav):not(.mobile-nav-drawer-inner) { display: none; }
+    /* Hide the DESKTOP nav only — the bottom-nav has its own class, and the
+       drawer's inner is now a <div> so it's not affected. */
+    body.has-bottom-nav nav:not(.bottom-nav) { display: none; }
     /* Mobile top bar shows in place of the hidden desktop nav. */
     body.has-bottom-nav .mobile-top-bar {
       display: flex;
@@ -2318,7 +2317,7 @@
 
 <!-- MOBILE NAV DRAWER (slides in from the right) -->
 <div class="mobile-nav-drawer" id="mobileNavDrawer" data-action="close-mobile-nav" aria-hidden="true">
-  <nav class="mobile-nav-drawer-inner" aria-label="App menu" onclick="event.stopPropagation()">
+  <div class="mobile-nav-drawer-inner" role="navigation" aria-label="App menu" onclick="event.stopPropagation()">
     <div class="mobile-nav-drawer-head">
       <span class="mobile-nav-drawer-title">TeeBox</span>
       <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
@@ -2407,7 +2406,7 @@
     </div>
 
     <div class="mobile-nav-footer-pad"></div>
-  </nav>
+  </div>
 </div>
 
 <!-- NAV -->
