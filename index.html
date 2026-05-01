@@ -227,7 +227,6 @@
   .account-hub-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 500; color: var(--gray-900); text-align: left; transition: background 0.15s ease; width: 100%; }
   .account-hub-item:last-child { border-bottom: 0; }
   .account-hub-item:active { background: var(--gray-100); }
-  .account-hub-icon { font-size: 18px; line-height: 1; flex-shrink: 0; width: 24px; text-align: center; }
   .account-hub-label { flex: 1; }
   .account-hub-chev { color: var(--gray-400); font-size: 22px; line-height: 1; }
   .profile-bio { font-size: 14px; line-height: 1.6; color: var(--gray-700); white-space: pre-wrap; }
@@ -7098,32 +7097,26 @@ function renderProfileView(profile, listings, reviews, recentSold) {
          <h4>Your account</h4>
          <div class="account-hub-list">
            <button class="account-hub-item" data-action="open-shop-dashboard" type="button">
-             <span class="account-hub-icon">🏪</span>
              <span class="account-hub-label">My Shop</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-orders" type="button">
-             <span class="account-hub-icon">📦</span>
              <span class="account-hub-label">My Orders</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-watchlist" type="button">
-             <span class="account-hub-icon">❤️</span>
              <span class="account-hub-label">Watchlist</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-my-offers" type="button">
-             <span class="account-hub-icon">🤝</span>
              <span class="account-hub-label">My Offers</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-saved-searches" type="button">
-             <span class="account-hub-icon">🔔</span>
              <span class="account-hub-label">Saved Searches</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-about" type="button">
-             <span class="account-hub-icon">ℹ️</span>
              <span class="account-hub-label">About TeeBox</span>
              <span class="account-hub-chev">›</span>
            </button>
