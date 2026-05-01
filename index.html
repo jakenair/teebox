@@ -1309,6 +1309,40 @@
     100% { transform: scale(1); }
   }
 
+  /* Course reveal card — drops in after each tile resolves */
+  .bingo-reveal-card {
+    position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 80px);
+    transform: translateX(-50%);
+    min-width: 260px; max-width: 92vw;
+    padding: 14px 18px;
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+    z-index: 410;
+    animation: bingoRevealIn 0.36s cubic-bezier(.32,.72,0,1);
+    color: var(--white);
+    font-family: var(--font-body);
+    text-align: center;
+  }
+  .bingo-reveal-card.is-correct { background: linear-gradient(135deg, var(--green-700), var(--green-600)); border: 1.5px solid var(--green-500); }
+  .bingo-reveal-card.is-wrong   { background: linear-gradient(135deg, #b04428, #8a3320); border: 1.5px solid #c95a3d; }
+  .bingo-reveal-card.out { animation: bingoRevealOut 0.4s ease forwards; }
+  .bingo-reveal-head { font-size: 13px; font-weight: 700; opacity: 0.9; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .bingo-reveal-points { color: var(--gold-300); font-weight: 800; }
+  .bingo-reveal-name { font-family: var(--font-display); font-size: 20px; font-weight: 800; margin: 2px 0 6px; line-height: 1.2; }
+  .bingo-reveal-meta { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; opacity: 0.92; line-height: 1.45; }
+  .bingo-reveal-meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  @keyframes bingoRevealIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.94); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+  @keyframes bingoRevealOut {
+    to { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.96); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bingo-reveal-card { animation: none; }
+    .bingo-reveal-card.out { animation: none; opacity: 0; transition: opacity 0.2s; }
+  }
+
   /* Confetti burst at top of screen */
   .bingo-confetti { position: fixed; top: 0; left: 0; right: 0; height: 100vh; pointer-events: none; z-index: 380; overflow: hidden; }
   .bingo-confetti span {
@@ -7932,7 +7966,12 @@ if (uploadZone) {
     activeCell: -1,                  // index of the cell whose modal is open
   };
   function defaultCellState() {
-    return Array.from({ length: 9 }, () => ({ state: 'pending', attempts: 0, guess: null }));
+    return Array.from({ length: 9 }, () => ({
+      state: 'pending', attempts: 0, guess: null,
+      // Speed-scoring: when the tile's modal opened (tappedAt) and when it
+      // resolved (resolvedAt). Used to compute per-tile point bonus.
+      tappedAt: null, resolvedAt: null, points: 0,
+    }));
   }
 
   function hydrate() {
@@ -7954,6 +7993,42 @@ if (uploadZone) {
   }
   function scoreCount() {
     return game.cells.filter(c => c.state === 'correct').length;
+  }
+  // ── Point scoring ──────────────────────────────────────────────────────
+  // Per-tile points = base (correct = 100, attempt-2 correct = 50) + speed
+  // bonus on first-try correct only:
+  //   tap→answer ≤ 5s  → +200
+  //   ≤ 10s            → +100
+  //   ≤ 15s            → +50
+  //   else             → +20
+  // Wrong-then-correct earns the base 50 only — speed bonuses reward decisive
+  // first-try guesses, which is what makes the leaderboard interesting.
+  function computeCellPoints(cell) {
+    if (cell.state !== 'correct') return 0;
+    const base = cell.attempts === 1 ? 100 : 50;
+    if (cell.attempts !== 1 || !cell.tappedAt || !cell.resolvedAt) return base;
+    const sec = Math.max(0, (cell.resolvedAt - cell.tappedAt) / 1000);
+    let bonus = 20;
+    if (sec <= 5) bonus = 200;
+    else if (sec <= 10) bonus = 100;
+    else if (sec <= 15) bonus = 50;
+    return base + bonus;
+  }
+  function totalPoints() {
+    return game.cells.reduce((sum, c) => sum + (c.points || 0), 0);
+  }
+  function totalElapsedSec() {
+    let total = 0;
+    for (const c of game.cells) {
+      if (c.tappedAt && c.resolvedAt) total += (c.resolvedAt - c.tappedAt) / 1000;
+    }
+    return Math.round(total);
+  }
+  function formatDuration(sec) {
+    if (!sec) return '—';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
   }
   function isComplete() {
     return game.cells.every(c => c.state === 'correct' || c.state === 'revealed');
@@ -8019,7 +8094,8 @@ if (uploadZone) {
     const streakLbl = document.getElementById('bingoStreakLbl');
     const fill = document.getElementById('bingoProgressFill');
     if (dateLbl) dateLbl.textContent = prettyDate(TODAY);
-    if (scoreLbl) scoreLbl.textContent = `${score}/9`;
+    const pts = totalPoints();
+    if (scoreLbl) scoreLbl.textContent = pts > 0 ? `${score}/9 · ${pts.toLocaleString()} pts` : `${score}/9`;
     if (fill) fill.style.width = `${Math.round((score / 9) * 100)}%`;
     const streak = loadStreak();
     if (streakLbl) {
@@ -8047,7 +8123,13 @@ if (uploadZone) {
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
         const fire = streak.count > 0 ? ' 🔥' : '';
-        banner.textContent = `You got ${score}/9 today! Streak: ${streak.count}${fire}`;
+        const elapsed = totalElapsedSec();
+        banner.innerHTML = `
+          <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
+          <div style="margin-top:4px;font-size:14px;opacity:0.95">
+            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${streak.count}${fire}
+          </div>
+        `;
         body.insertBefore(banner, gridEl);
       }
     } else if (!completed && existingBanner) {
@@ -8194,6 +8276,9 @@ if (uploadZone) {
     if (!cell || !course) return;
     if (cell.state === 'correct' || cell.state === 'revealed') return;  // locked
     game.activeCell = idx;
+    // Stamp tappedAt on first open so first-try speed bonus is fair. Don't
+    // re-stamp on retry — preserves the original click-to-answer window.
+    if (!cell.tappedAt) cell.tappedAt = Date.now();
     const back = document.getElementById('bingoGuessBackdrop');
     const logo = document.getElementById('bingoGuessLogo');
     const input = document.getElementById('bingoGuessInput');
@@ -8330,8 +8415,10 @@ if (uploadZone) {
     cell.guess = raw.slice(0, 80);
     if (correct) {
       cell.state = 'correct';
+      cell.resolvedAt = Date.now();
+      cell.points = computeCellPoints(cell);
       persist();
-      if (window.showToast) window.showToast(`Nice — ${course.shortName}!`, 'success');
+      showCourseRevealCard(course, true, cell.points);
       closeGuessModal();
       render();
       playCorrectFx(idx, course);
@@ -8341,8 +8428,10 @@ if (uploadZone) {
     // Wrong guess
     if (cell.attempts >= 2) {
       cell.state = 'revealed';
+      cell.resolvedAt = Date.now();
+      cell.points = 0;
       persist();
-      if (window.showToast) window.showToast(`Was: ${course.shortName}`);
+      showCourseRevealCard(course, false, 0);
       closeGuessModal();
       render();
       playRevealFx(idx);
@@ -8376,12 +8465,50 @@ if (uploadZone) {
     if (!cell || !course) return;
     cell.state = 'revealed';
     cell.attempts = Math.max(cell.attempts, 2);
+    cell.resolvedAt = Date.now();
+    cell.points = 0;
     persist();
+    showCourseRevealCard(course, false, 0);
     closeGuessModal();
     render();
     playRevealFx(idx);
-    if (window.showToast) window.showToast(`Was: ${course.shortName}`);
     maybeFinish();
+  }
+
+  // ── Course reveal card ─────────────────────────────────────────────────
+  // Animated banner that drops in after each tile resolves, showing the
+  // course name, location, architect, and points earned. Green on correct,
+  // red on revealed (wrong). Auto-dismisses after 2.5s.
+  function showCourseRevealCard(course, correct, points) {
+    if (!course) return;
+    // Remove any previous card
+    const old = document.getElementById('bingoRevealCard');
+    if (old) old.remove();
+
+    const card = document.createElement('div');
+    card.id = 'bingoRevealCard';
+    card.className = 'bingo-reveal-card ' + (correct ? 'is-correct' : 'is-wrong');
+    card.setAttribute('role', 'status');
+    card.setAttribute('aria-live', 'polite');
+
+    const head = correct
+      ? `<div class="bingo-reveal-head">✓ Correct &nbsp;·&nbsp; <span class="bingo-reveal-points">+${points} pts</span></div>`
+      : `<div class="bingo-reveal-head">✗ Revealed</div>`;
+
+    const safe = (s) => (window.safeText ? window.safeText(s) : String(s || ''));
+    card.innerHTML = `
+      ${head}
+      <div class="bingo-reveal-name">${safe(course.shortName || course.name)}</div>
+      <div class="bingo-reveal-meta">
+        ${course.location ? `<span>📍 ${safe(course.location)}</span>` : ''}
+        ${course.architect && course.architect !== '—' ? `<span>✏️ ${safe(course.architect)}</span>` : ''}
+      </div>
+    `;
+
+    document.body.appendChild(card);
+    // Auto-dismiss
+    setTimeout(() => card.classList.add('out'), 2200);
+    setTimeout(() => card.remove(), 2700);
   }
 
   // ── Cell FX ────────────────────────────────────────────────────────────
@@ -8505,7 +8632,14 @@ if (uploadZone) {
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
         const fire = s.count > 0 ? ' 🔥' : '';
-        banner.textContent = `You got ${score}/9 today! Streak: ${s.count}${fire}`;
+        const pts = totalPoints();
+        const elapsed = totalElapsedSec();
+        banner.innerHTML = `
+          <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
+          <div style="margin-top:4px;font-size:14px;opacity:0.95">
+            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}${fire}
+          </div>
+        `;
         body.insertBefore(banner, grid);
       }
       announceLive(`Puzzle complete. ${score} of 9 correct. Streak ${s.count}.`);
@@ -8547,18 +8681,28 @@ if (uploadZone) {
       let row = '';
       for (let c = 0; c < 3; c++) {
         const cell = game.cells[r * 3 + c];
-        row += cell.state === 'correct' ? '✅' : '❌';
+        row += cell.state === 'correct' ? '🟩' : '🟥';
       }
       rows.push(row);
     }
     const streak = loadStreak();
-    const streakLine = streak.count > 0 ? `${score}/9 · Streak ${streak.count} 🔥` : `${score}/9`;
-    return [
-      `Logo Bingo ${TODAY}`,
+    const pts = totalPoints();
+    const elapsed = totalElapsedSec();
+    // Stat line packs the most engagement-relevant info: score, points, time,
+    // streak. Then a one-line link for the recipient. Format is intentionally
+    // recognizable so it stands out in iMessage / Twitter.
+    const lines = [
+      `🎯 TeeBox Logo Bingo · ${TODAY}`,
+      '',
       ...rows,
-      streakLine,
-      'https://teeboxmarket.com',
-    ].join('\n');
+      '',
+      `Score: ${score}/9 · ${pts.toLocaleString()} pts`,
+    ];
+    if (elapsed) lines.push(`Time: ${formatDuration(elapsed)}`);
+    if (streak.count > 0) lines.push(`Streak: ${streak.count} 🔥`);
+    lines.push('');
+    lines.push('Play: https://teeboxmarket.com');
+    return lines.join('\n');
   }
   async function shareResult() {
     if (!isComplete()) {
