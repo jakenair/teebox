@@ -663,6 +663,9 @@
   /* AUTH */
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: flex; align-items: center; justify-content: center; padding: 1rem; }
   #authScreen.hidden { display: none; }
+  .auth-guest-link { display: block; width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.85); border-radius: 50px; padding: 10px 14px; font-family: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; margin-bottom: 16px; transition: var(--transition); }
+  .auth-guest-link:hover { background: rgba(255,255,255,0.06); color: var(--white); }
+  .auth-guest-link:active { transform: scale(0.98); }
   .auth-box { background: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; width: 100%; max-width: 400px; text-align: center; }
   .auth-logo { font-family: var(--font-display); font-size: 2rem; font-weight: 900; color: var(--green-800); margin-bottom: 0.25rem; }
   .auth-logo span { color: var(--gold-500); }
@@ -1598,6 +1601,7 @@
     <div class="auth-logo"><span>Tee</span>Box</div>
     <div class="auth-sub">The Golf Marketplace</div>
     <div id="authStep1">
+      <button type="button" class="auth-guest-link" data-action="continue-as-guest">Continue as guest →</button>
       <div class="auth-mode-toggle">
         <button type="button" class="auth-mode-btn active" data-mode="email" data-action="set-auth-mode">Email</button>
         <button type="button" class="auth-mode-btn" data-mode="phone" data-action="set-auth-mode">Phone</button>
@@ -2842,7 +2846,13 @@ window.confirmPayment = async function() {
     currentUser = user;
     window.CURRENT_USER = user;
     if (user) {
+      window.GUEST_MODE = false;
       document.getElementById('authScreen').classList.add('hidden');
+      // If they arrived via ?play=bingo, fulfill the deep link now.
+      if (window.__pendingDeepLink === 'bingo') {
+        window.__pendingDeepLink = null;
+        setTimeout(() => { try { window.openBingo && window.openBingo(); } catch {} }, 300);
+      }
       const badge = document.getElementById('userBadge');
       badge.style.display = 'inline-flex';
       // For email users, show the local-part only — full address overflows the
@@ -2861,7 +2871,12 @@ window.confirmPayment = async function() {
       // user signed in. If they decline we never re-prompt this session.
       setTimeout(() => { try { window.maybeRegisterPush && window.maybeRegisterPush(); } catch(_e){} }, 4000);
     } else {
-      document.getElementById('authScreen').classList.remove('hidden');
+      // Guest mode: keep authScreen hidden, let people browse + play Bingo.
+      // Anything that needs auth (buy, sell, watchlist, account) already
+      // gates itself with `if (!window.CURRENT_USER)` toasts.
+      if (!window.GUEST_MODE) {
+        document.getElementById('authScreen').classList.remove('hidden');
+      }
       document.getElementById('userBadge').style.display = 'none';
       window.IS_VERIFIED_SELLER = false;
       window.PRODUCTS = [...window.DEFAULT_PRODUCTS];
@@ -7576,6 +7591,15 @@ A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['forgot-password']         = () => forgotPassword();
 A['submit-email']            = () => submitEmail();
+A['continue-as-guest']       = () => {
+  window.GUEST_MODE = true;
+  document.getElementById('authScreen').classList.add('hidden');
+  // If a deep-link asked us to land on Bingo, honor it now.
+  if (window.__pendingDeepLink === 'bingo') {
+    window.__pendingDeepLink = null;
+    if (typeof window.openBingo === 'function') window.openBingo();
+  }
+};
 A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => becomeSeller();
 A['close-shop-dashboard']    = () => closeShopDashboard();
@@ -8749,7 +8773,7 @@ if (uploadZone) {
     if (elapsed) lines.push(`Time: ${formatDuration(elapsed)}`);
     if (streak.count > 0) lines.push(`Streak: ${streak.count} 🔥`);
     lines.push('');
-    lines.push('Play: https://teeboxmarket.com');
+    lines.push('Play: https://teeboxmarket.com/?play=bingo');
     return lines.join('\n');
   }
   async function shareResult() {
@@ -8797,6 +8821,21 @@ if (uploadZone) {
   window.__actions = window.__actions || {};
   const A = window.__actions;
   A['open-bingo']           = () => openBingo();
+  // Expose for the deep-link / guest-mode hand-off in the auth flow.
+  window.openBingo = openBingo;
+  // Handle ?play=bingo deep-link from shared messages. If the user is signed
+  // in (or already in guest mode), open Bingo immediately. Otherwise stash the
+  // intent and the auth-screen guest button will pick it up.
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('play') === 'bingo') {
+      if (window.CURRENT_USER || window.GUEST_MODE) {
+        setTimeout(openBingo, 200);
+      } else {
+        window.__pendingDeepLink = 'bingo';
+      }
+    }
+  } catch {}
   A['bingo-lb-tab']         = (el) => loadLeaderboard(el.dataset.tab);
   A['apply-suggest-price']  = (el) => {
     const p = Number(el.dataset.price || 0);
