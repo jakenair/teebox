@@ -7830,13 +7830,19 @@ if (uploadZone) {
   import { COURSES, courseLogoUrl } from './bingo-courses.js';
   import { LOGOS_AVAILABLE } from './assets/logos/manifest.js';
 
-  // ── Date helpers (UTC so every player sees the same puzzle) ─────────────
+  // ── Date helpers ───────────────────────────────────────────────────────
+  // Daily puzzle flips at midnight US Eastern so US users get a fresh
+  // game at midnight their time (or close to it). Everyone in the world
+  // sees the same date string at the same instant — leaderboards stay
+  // coherent across timezones.
+  // Auto-handles EST/EDT via Intl, no manual DST math.
   function todayUTC() {
-    const d = new Date();
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const get = (t) => parts.find(p => p.type === t).value;
+    return `${get('year')}-${get('month')}-${get('day')}`;
   }
   function prettyDate(yyyymmdd) {
     // "2026-04-29" → "April 29, 2026" (locale-agnostic month names)
