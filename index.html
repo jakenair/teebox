@@ -1221,10 +1221,46 @@
   .bingo-stat.streak .bingo-stat-v { color: var(--gold-600); }
   .bingo-progressbar { flex: 1; height: 8px; background: var(--gray-200); border-radius: 50px; overflow: hidden; max-width: 140px; }
   .bingo-progressfill { height: 100%; background: linear-gradient(90deg, var(--green-500), var(--gold-500)); border-radius: 50px; width: 0%; transition: width 0.4s cubic-bezier(.4,0,.2,1); }
-  .bingo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; perspective: 800px; }
-  .bingo-cell { aspect-ratio: 1; background: var(--white); border: 1px solid var(--gold-300); border-radius: var(--radius-lg); cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; text-align: center; transition: transform 0.18s cubic-bezier(.4,0,.2,1), border-color 0.18s, box-shadow 0.18s; box-shadow: var(--shadow-card); overflow: hidden; transform-style: preserve-3d; will-change: transform; }
-  .bingo-cell:hover:not([data-state="correct"]):not([data-state="revealed"]) { border-color: var(--green-400); transform: scale(1.02); box-shadow: 0 6px 18px rgba(45,84,56,0.14); }
+  .bingo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.25rem; perspective: 1000px; }
+  .bingo-cell {
+    aspect-ratio: 1;
+    background: linear-gradient(145deg, #ffffff 0%, #fbf7ee 100%);
+    border: 1.5px solid rgba(197, 162, 83, 0.35);
+    border-radius: 14px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px;
+    text-align: center;
+    transition: transform 0.2s cubic-bezier(.4,0,.2,1), border-color 0.2s, box-shadow 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(45,84,56,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+    overflow: hidden;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  /* Subtle inner highlight so the box has a touch of depth without shouting. */
+  .bingo-cell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5) 0%, transparent 60%);
+    pointer-events: none;
+    opacity: 0.6;
+  }
+  .bingo-cell:hover:not([data-state="correct"]):not([data-state="revealed"]) {
+    border-color: var(--gold-500);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.06), 0 12px 24px rgba(197,162,83,0.18), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
   .bingo-cell:active:not([data-state="correct"]):not([data-state="revealed"]) { transform: scale(0.98); }
+  /* Resolved states tinted very gently to confirm correct/wrong without shouting. */
+  .bingo-cell[data-state="correct"] { background: linear-gradient(145deg, #f0f9f1 0%, #e1f0e3 100%); border-color: rgba(45,84,56,0.4); }
+  .bingo-cell[data-state="revealed"] { background: linear-gradient(145deg, #fdf2ee 0%, #f7e6e0 100%); border-color: rgba(176,68,40,0.35); opacity: 0.88; }
   .bingo-cell-num { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: var(--white); background: var(--green-700); padding: 2px 7px; border-radius: 50px; letter-spacing: 0.4px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
   .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; overflow: hidden; }
   .bingo-cell-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }

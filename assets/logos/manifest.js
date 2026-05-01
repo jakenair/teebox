@@ -4,7 +4,6 @@
 
 export const LOGOS_AVAILABLE = new Set([
   'alotian',
-  'arcadia-bluffs',
   'aronimink',
   'augusta-national',
   'austin-cc',
@@ -14,7 +13,6 @@ export const LOGOS_AVAILABLE = new Set([
   'banff-springs',
   'barnbougle-dunes',
   'barnbougle-lost-farm',
-  'bayonne',
   'bellerive',
   'berkeley-hall',
   'black-sheep',
@@ -110,7 +108,6 @@ export const LOGOS_AVAILABLE = new Set([
   'quaker-ridge',
   'rich-harvest-farms',
   'riviera',
-  'royal-aberdeen',
   'royal-birkdale',
   'royal-cinque-ports',
   'royal-county-down',
