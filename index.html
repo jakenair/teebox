@@ -744,6 +744,20 @@
   .auth-mode-btn.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
   .email-input { letter-spacing: 0; text-align: left; }
   .auth-link { background: none; border: none; color: var(--green-600); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; margin-top: 2px; font-family: var(--font-body); }
+  .auth-link-muted { color: var(--gray-500); text-decoration: none; display: block; width: 100%; text-align: center; margin-top: 14px; font-size: 13px; }
+  .auth-link-muted:hover { color: var(--gray-700); text-decoration: underline; }
+  .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--gray-400); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+  .auth-google-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; background: var(--white); color: var(--gray-900);
+    border: 1px solid var(--gray-300); border-radius: var(--radius-md);
+    padding: 12px; font-family: var(--font-body); font-size: 14.5px; font-weight: 600;
+    cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease, transform 0.08s ease;
+  }
+  .auth-google-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
+  .auth-google-btn:active { transform: scale(0.98); }
+  .auth-google-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
   /* SELLER VERIFY */
   .verify-backdrop { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 1rem; }
@@ -1679,10 +1693,6 @@
     <div class="auth-sub">The Golf Marketplace</div>
     <div id="authStep1">
       <button type="button" class="auth-guest-link" data-action="continue-as-guest">Continue as guest →</button>
-      <div class="auth-mode-toggle">
-        <button type="button" class="auth-mode-btn active" data-mode="email" data-action="set-auth-mode">Email</button>
-        <button type="button" class="auth-mode-btn" data-mode="phone" data-action="set-auth-mode">Phone</button>
-      </div>
 
       <div id="authEmailMode">
         <div class="auth-mode-toggle auth-emailmode-toggle">
@@ -1696,6 +1706,20 @@
         <div class="auth-error" id="authErrorEmail"></div>
         <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
         <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <button type="button" class="auth-google-btn" data-action="sign-in-google">
+          <svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.27-4.74 3.27-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.15-4.53H2.16v2.84A11 11 0 0012 23z"/>
+            <path fill="#FBBC05" d="M5.85 14.12a6.6 6.6 0 010-4.24V7.04H2.16a11 11 0 000 9.92l3.69-2.84z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.04l3.69 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+
+        <button type="button" class="auth-link auth-link-muted" data-action="show-phone-fallback">More sign-in options</button>
         <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
       </div>
 
@@ -1709,6 +1733,7 @@
         <div id="recaptcha-container"></div>
         <div class="auth-error" id="authError1"></div>
         <button class="auth-btn" id="sendCodeBtn" data-action="send-code">Send Verification Code</button>
+        <button type="button" class="auth-link auth-link-muted" data-action="hide-phone-fallback">← Back to Email / Google</button>
         <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
       </div>
     </div>
@@ -2326,22 +2351,18 @@
     <div class="mobile-nav-section">
       <span class="mobile-nav-section-label">Marketplace</span>
       <a href="#" class="mobile-nav-link" data-action="bn-home">
-        <span class="mobile-nav-link-icon">🏠</span>
         <span class="mobile-nav-link-label">Browse</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">
-        <span class="mobile-nav-link-icon">📈</span>
         <span class="mobile-nav-link-label">Trending</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">
-        <span class="mobile-nav-link-icon">⚡</span>
         <span class="mobile-nav-link-label">Drops</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-bingo">
-        <span class="mobile-nav-link-icon">🎯</span>
         <span class="mobile-nav-link-label">Logo Bingo</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
@@ -2350,32 +2371,26 @@
     <div class="mobile-nav-section">
       <span class="mobile-nav-section-label">My Activity</span>
       <a href="#" class="mobile-nav-link" data-action="open-shop-dashboard">
-        <span class="mobile-nav-link-icon">🛍️</span>
         <span class="mobile-nav-link-label">My Shop</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-orders">
-        <span class="mobile-nav-link-icon">📦</span>
         <span class="mobile-nav-link-label">My Orders</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-my-offers">
-        <span class="mobile-nav-link-icon">🤝</span>
         <span class="mobile-nav-link-label">My Offers</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-watchlist">
-        <span class="mobile-nav-link-icon">⭐</span>
-        <span class="mobile-nav-link-label">Watchlist</span>
+        <span class="mobile-nav-link-label">Likes</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-saved-searches">
-        <span class="mobile-nav-link-icon">🔔</span>
         <span class="mobile-nav-link-label">Saved Searches</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-inbox">
-        <span class="mobile-nav-link-icon">💬</span>
         <span class="mobile-nav-link-label">Messages</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
@@ -2384,22 +2399,18 @@
     <div class="mobile-nav-section">
       <span class="mobile-nav-section-label">Account</span>
       <a href="#" class="mobile-nav-link" data-action="open-profile-self">
-        <span class="mobile-nav-link-icon">👤</span>
         <span class="mobile-nav-link-label">Profile</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-about">
-        <span class="mobile-nav-link-icon">ℹ️</span>
         <span class="mobile-nav-link-label">About TeeBox</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="sign-out">
-        <span class="mobile-nav-link-icon">↩️</span>
         <span class="mobile-nav-link-label">Sign Out</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link danger" data-action="open-delete-account">
-        <span class="mobile-nav-link-icon">🗑️</span>
         <span class="mobile-nav-link-label">Delete Account</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
@@ -2422,7 +2433,7 @@
     <a href="#drops" data-nav="drops">Drops</a>
     <a href="#" data-action="open-about" data-nav="about">About</a>
     <a href="#" data-action="open-shop-dashboard" data-nav="shop">My Shop</a>
-    <a href="#" data-action="open-watchlist" data-nav="watchlist">Watchlist</a>
+    <a href="#" data-action="open-watchlist" data-nav="watchlist">Likes</a>
     <a href="#" data-action="open-inbox" data-nav="inbox">Messages</a>
     <a href="#" data-action="open-profile-self" data-nav="profile">Account</a>
   </div>
@@ -2441,7 +2452,7 @@
         <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
         <a href="#" data-action="open-shop-dashboard" class="user-menu-item">My Shop</a>
         <a href="#" data-action="open-orders" class="user-menu-item">My Orders</a>
-        <a href="#" data-action="open-watchlist" class="user-menu-item">Watchlist</a>
+        <a href="#" data-action="open-watchlist" class="user-menu-item">Likes</a>
         <a href="#" data-action="open-inbox" class="user-menu-item">Messages <span class="unread-badge"></span></a>
         <a href="#" data-action="open-my-offers" class="user-menu-item">🤝 My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
         <a href="#" data-action="open-saved-searches" class="user-menu-item">🔔 Saved Searches</a>
@@ -2948,7 +2959,7 @@ window.confirmPayment = async function() {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app-check.js";
-  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, GoogleAuthProvider, signInWithPopup, signInWithCredential } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -3266,7 +3277,12 @@ window.confirmPayment = async function() {
       if (emailMode === 'signin') {
         await signInWithEmailAndPassword(auth, email, pw);
       } else {
-        await createUserWithEmailAndPassword(auth, email, pw);
+        const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        // Fire-and-forget: send the verification email. Failure here doesn't
+        // block sign-up — the user still has an account, they just won't see
+        // the verification link until they retry. The unverified-banner in
+        // the app surfaces this state.
+        try { await sendEmailVerification(cred.user); } catch (_) {}
       }
       // onAuthStateChanged fires and dismisses the auth screen.
     } catch (e) {
@@ -3506,8 +3522,29 @@ window.confirmPayment = async function() {
         ? items
         : [...items, ...window.DEFAULT_PRODUCTS];
     } catch { window.PRODUCTS = window.CURRENT_USER ? [] : [...window.DEFAULT_PRODUCTS]; }
+    // Auto-derive a "Hot" badge from viewCount. Don't override badges that
+    // were set explicitly (e.g. 'new' for items <72h old). The threshold is
+    // top-25% of view counts, gated at >= 5 views so a 1-view listing isn't
+    // labelled hot just because it's the only one with views.
+    try { deriveHotBadges(window.PRODUCTS); } catch (_e) {}
     deriveTickerFromProducts();
     buildProducts(); buildTrending(); buildTicker(); updateLiveStats();
+  }
+
+  function deriveHotBadges(products) {
+    if (!Array.isArray(products) || !products.length) return;
+    const counts = products
+      .map(p => Number(p.viewCount || 0))
+      .filter(n => n > 0)
+      .sort((a, b) => b - a);
+    if (!counts.length) return;
+    const cutoff = Math.max(5, counts[Math.floor(counts.length * 0.25)] || 0);
+    products.forEach(p => {
+      // Don't downgrade an existing 'new' badge — newness is more time-sensitive.
+      if (p.badge === 'new') return;
+      const v = Number(p.viewCount || 0);
+      if (v >= cutoff && v >= 5) p.badge = 'hot';
+    });
   }
 
   window.submitListing = async function() {
@@ -7029,25 +7066,25 @@ async function toggleWatch(productId) {
       await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { watchlist: { [id]: deleteField() } }, { merge: true });
       fav.delete(productId);
-      showToast('Removed from watchlist.');
+      showToast('Unliked.');
     } else {
       const entry = { addedAt: serverTimestamp() };
       if (askNow > 0) entry.priceWhenAdded = askNow;
       await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { watchlist: { [id]: entry } }, { merge: true });
       fav.add(productId);
-      showToast('Saved to watchlist.');
+      showToast('Liked!');
     }
     buildProducts();
   } catch (e) {
     console.error('toggleWatch failed:', e);
-    showToast('Could not update watchlist.');
+    showToast('Could not update likes.');
   }
 }
 
 async function openWatchlist() {
   if (!window.CURRENT_USER) {
-    showToast('Sign in to view your watchlist.');
+    showToast('Sign in to view your liked items.');
     return;
   }
   const watch = await loadWatchlist();
@@ -7057,7 +7094,7 @@ async function openWatchlist() {
   document.getElementById('searchOverlay').classList.add('open');
   const results = document.getElementById('searchResults');
   if (!items.length) {
-    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400)">Your watchlist is empty. Tap the heart on any listing to save it.</div>';
+    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400)">No liked items yet. Tap the heart on any listing to save it.</div>';
     return;
   }
   results.innerHTML = items.map(p => {
@@ -7394,7 +7431,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-watchlist" type="button">
-             <span class="account-hub-label">Watchlist</span>
+             <span class="account-hub-label">Likes</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-my-offers" type="button">
@@ -7769,6 +7806,39 @@ A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['forgot-password']         = () => forgotPassword();
 A['submit-email']            = () => submitEmail();
+A['sign-in-google']          = async () => {
+  const err = document.getElementById('authErrorEmail');
+  if (err) err.textContent = '';
+  try {
+    // Native (iOS/Android): use the @capacitor-firebase/authentication plugin
+    // so we get the real Google sign-in UI from the OS, not a popup. The
+    // plugin signs the user in to Firebase Auth automatically.
+    if (IS_NATIVE && FBAuthPlugin && typeof FBAuthPlugin.signInWithGoogle === 'function') {
+      await FBAuthPlugin.signInWithGoogle();
+      return; // onAuthStateChanged fires
+    }
+    // Web fallback: Firebase Web SDK popup. If popups are blocked the
+    // browser surfaces an error we relay below.
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    const code = e && e.code;
+    let msg = 'Could not sign in with Google. Try again or use email.';
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+    if (code === 'auth/popup-blocked') msg = 'Pop-up blocked. Allow pop-ups or use email sign-in.';
+    if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
+    if (err) err.textContent = msg;
+    console.warn('[auth] google sign-in failed:', code, e && e.message);
+  }
+};
+A['show-phone-fallback']     = () => {
+  document.getElementById('authEmailMode').style.display = 'none';
+  document.getElementById('authPhoneMode').style.display = 'block';
+};
+A['hide-phone-fallback']     = () => {
+  document.getElementById('authPhoneMode').style.display = 'none';
+  document.getElementById('authEmailMode').style.display = 'block';
+};
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;
   document.getElementById('authScreen').classList.add('hidden');
