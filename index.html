@@ -5729,19 +5729,6 @@ async function loadShopData() {
     const listingsSnap = await getDocs(listingsQ);
     const listings = listingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Fallback: if any marketplace listings have photos uploaded to this
-    // user's storage folder (`listings/{uid}/...`) but a different sellerId
-    // field — surface them in My Shop too. Catches stranded listings from
-    // before the storage path encoded sellerId, where auth state shifted
-    // between doc create and photo upload, etc.
-    const knownIds = new Set(listings.map(l => l.id));
-    const myUidInPath = new RegExp('/listings/' + uid + '/', 'i');
-    const orphanedFromPaths = (window.PRODUCTS || []).filter(p =>
-      p && !knownIds.has(p.id) &&
-      Array.isArray(p.photos) && p.photos.some(u => myUidInPath.test(String(u || '')))
-    );
-    for (const p of orphanedFromPaths) listings.push(p);
-
     const ordersQ = query(collection(firestoreDb, 'orders'), where('sellerId', '==', uid));
     const ordersSnap = await getDocs(ordersQ);
     const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -6816,24 +6803,7 @@ async function confirmDeleteListing() {
     const { getFirestore, doc, deleteDoc } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    try {
-      await deleteDoc(doc(db, 'listings', listingId));
-    } catch (e) {
-      // Permission-denied happens for "claimable" orphans where the
-      // sellerId field doesn't match the current user but the listing
-      // photos sit in /listings/{uid}/ — fall back to the server-side
-      // claimAndDeleteListing function which validates ownership via
-      // photo URL path.
-      if (e && (e.code === 'permission-denied' || /permission/i.test(e.message || ''))) {
-        const { getFunctions, httpsCallable } =
-          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
-        const fns = getFunctions();
-        const claim = httpsCallable(fns, 'claimAndDeleteListing');
-        await claim({ listingId });
-      } else {
-        throw e;
-      }
-    }
+    await deleteDoc(doc(db, 'listings', listingId));
 
     // 3. Close modal, refresh the dashboard.
     _pendingDeleteListing = null;

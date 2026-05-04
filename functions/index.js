@@ -2383,63 +2383,6 @@ function findExplicitTerm(text) {
   return null;
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// claimAndDeleteListing
-//
-// Admin escape-hatch for deleting listings the caller technically owns
-// (uploaded the photos for) but where the sellerId field doesn't match
-// because of an auth-state hiccup at create time. The standard
-// confirmDeleteListing path uses Firestore + Storage rules which require
-// sellerId == auth.uid; this server-side function bypasses that rule by
-// validating ownership via the photo URL path:
-//   https://firebasestorage.googleapis.com/.../listings%2F{uid}%2F{id}/...
-// If the listing's photos[] contains a URL with the caller's UID in the
-// /listings/{uid}/ segment, we accept the claim and delete the doc.
-// ──────────────────────────────────────────────────────────────────────
-exports.claimAndDeleteListing = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Must be signed in");
-  }
-  const uid = request.auth.uid;
-  const listingId = request.data && request.data.listingId;
-  if (!listingId || typeof listingId !== "string") {
-    throw new HttpsError("invalid-argument", "listingId required");
-  }
-  const db = admin.firestore();
-  const ref = db.collection("listings").doc(listingId);
-  const snap = await ref.get();
-  if (!snap.exists) {
-    throw new HttpsError("not-found", "Listing not found");
-  }
-  const data = snap.data() || {};
-  // Standard ownership check first.
-  if (data.sellerId === uid) {
-    await ref.delete();
-    return {deleted: true, reason: "sellerId-match"};
-  }
-  // Fallback: ownership via storage path embedded in photo URLs.
-  const photos = Array.isArray(data.photos) ? data.photos : [];
-  const pathFragment = `listings%2F${uid}%2F`;
-  const pathFragmentRaw = `/listings/${uid}/`;
-  const ownedByPath = photos.some((u) => {
-    const s = String(u || "");
-    return s.includes(pathFragment) || s.includes(pathFragmentRaw);
-  });
-  if (!ownedByPath) {
-    throw new HttpsError(
-        "permission-denied",
-        "Not the seller of this listing",
-    );
-  }
-  logger.info("claimAndDeleteListing: ownership via path", {
-    listingId,
-    uid,
-    storedSellerId: data.sellerId,
-  });
-  await ref.delete();
-  return {deleted: true, reason: "path-claim"};
-});
-
 exports.moderateListingOnCreate = onDocumentCreated(
     "listings/{listingId}",
     async (event) => {
