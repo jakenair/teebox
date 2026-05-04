@@ -355,6 +355,10 @@
   .install-banner-x { background: rgba(255,255,255,0.12); border: none; color: var(--white); font-size: 22px; line-height: 1; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; }
   .install-banner-x:hover { background: rgba(255,255,255,0.22); }
   .install-banner-x:active { transform: scale(0.92); }
+  /* Hide the "Install TeeBox · Add to your home screen" prompt inside the
+     native iOS app — that prompt only makes sense on the website. The body
+     gets `is-native` set when window.Capacitor.isNativePlatform() is true. */
+  body.is-native .install-banner { display: none !important; }
   .offline-banner { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; background: var(--red-500); color: var(--white); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; text-align: center; z-index: 700; box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
 
   /* Mobile-only top header (defaults hidden — shown by body.has-bottom-nav rule below). */
@@ -362,8 +366,24 @@
   .mobile-top-logo { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; line-height: 1; }
   .mobile-top-logo span { color: var(--white); }
   .mobile-top-actions { display: flex; align-items: center; gap: 8px; }
-  .mobile-top-bingo { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-500); color: var(--green-900); border: 0; border-radius: 999px; padding: 7px 14px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .mobile-top-bingo {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-400) 100%);
+    color: var(--green-900);
+    border: 0; border-radius: 999px;
+    padding: 7px 16px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(231, 210, 138, 0.55), 0 2px 6px rgba(197,162,83,0.35);
+    animation: mobileBingoGlow 2.6s ease-in-out infinite;
+    transition: transform 0.15s ease;
+  }
   .mobile-top-bingo:active { transform: scale(0.97); }
+  @keyframes mobileBingoGlow {
+    0%, 100% { box-shadow: 0 0 14px rgba(231, 210, 138, 0.55), 0 2px 6px rgba(197,162,83,0.35); }
+    50%      { box-shadow: 0 0 24px rgba(231, 210, 138, 0.85), 0 2px 10px rgba(197,162,83,0.55); }
+  }
+  @media (prefers-reduced-motion: reduce) { .mobile-top-bingo { animation: none; } }
   .mobile-top-icon { position: relative; background: transparent; border: 0; padding: 6px; color: var(--white); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
   .mobile-top-icon .ico { width: 22px; height: 22px; }
   .mobile-top-icon .unread-badge { position: absolute; top: 4px; right: 4px; }
@@ -804,15 +824,62 @@
 
   /* Desktop Bingo CTA — pill button in top nav.
      Hidden on mobile because the bottom-nav already has a Bingo entry. */
-  .nav-bingo-cta { display: none; align-items: center; gap: 10px; padding: 7px 16px 7px 12px; background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%); color: var(--white); border: 1.5px solid var(--gold-500); border-radius: 50px; font-family: var(--font-body); cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; box-shadow: 0 2px 6px rgba(11, 26, 14, 0.18), 0 0 0 0 rgba(197, 162, 83, 0.6); position: relative; }
-  .nav-bingo-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(11, 26, 14, 0.3), 0 0 0 3px rgba(197, 162, 83, 0.15); border-color: var(--gold-400); background: linear-gradient(135deg, var(--green-600) 0%, var(--green-500) 100%); }
-  .nav-bingo-cta:active { transform: translateY(0); }
-  .nav-bingo-icon { font-size: 16px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+  .nav-bingo-cta {
+    display: none; align-items: center; gap: 10px;
+    padding: 8px 22px;
+    background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-400) 100%);
+    color: var(--green-900);
+    border: 0;
+    border-radius: 50px;
+    font-family: var(--font-body); font-weight: 700;
+    cursor: pointer;
+    position: relative;
+    overflow: visible;
+    transition: transform 0.18s cubic-bezier(.32,.72,0,1), box-shadow 0.3s ease, background 0.3s ease;
+    /* Steady gold glow + animated pulse on the unplayed state. */
+    box-shadow:
+      0 2px 8px rgba(197, 162, 83, 0.35),
+      0 0 18px rgba(231, 210, 138, 0.45),
+      0 0 0 0 rgba(231, 210, 138, 0.6);
+    animation: navBingoGlow 2.6s ease-in-out infinite;
+  }
+  .nav-bingo-cta:hover {
+    transform: translateY(-1px) scale(1.02);
+    background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-300) 100%);
+    box-shadow:
+      0 4px 14px rgba(197, 162, 83, 0.55),
+      0 0 28px rgba(231, 210, 138, 0.7);
+  }
+  .nav-bingo-cta:active { transform: translateY(0) scale(0.99); }
+  @keyframes navBingoGlow {
+    0%, 100% { box-shadow: 0 2px 8px rgba(197, 162, 83, 0.35), 0 0 18px rgba(231, 210, 138, 0.45), 0 0 0 0 rgba(231, 210, 138, 0.55); }
+    50%      { box-shadow: 0 2px 12px rgba(197, 162, 83, 0.5),  0 0 32px rgba(231, 210, 138, 0.7),  0 0 0 6px rgba(231, 210, 138, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .nav-bingo-cta { animation: none; } }
+  .nav-bingo-label { font-size: 13.5px; font-weight: 700; letter-spacing: 0.2px; line-height: 1; }
+  .nav-bingo-sub { font-size: 10.5px; font-weight: 600; opacity: 0.78; line-height: 1; }
+  .nav-bingo-text { display: inline-flex; flex-direction: column; gap: 3px; }
+  /* Bottom-nav glow dot — replaces the dart emoji. Pure gold disc with
+     a soft pulse so it reads as "tap me, daily" without a literal target. */
+  .bn-bingo-glow {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle, var(--gold-300) 0%, var(--gold-500) 70%);
+    box-shadow: 0 0 8px rgba(231,210,138,0.7);
+    margin-bottom: 3px;
+    animation: bnBingoPulse 2s ease-in-out infinite;
+  }
+  @keyframes bnBingoPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(231,210,138,0.7); transform: scale(1); }
+    50%      { box-shadow: 0 0 16px rgba(231,210,138,1);  transform: scale(1.15); }
+  }
+  @media (prefers-reduced-motion: reduce) { .bn-bingo-glow { animation: none; } }
   .nav-bingo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
   .nav-bingo-label { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; letter-spacing: 0.4px; color: var(--white); }
   .nav-bingo-sub { font-size: 9px; font-weight: 700; color: var(--gold-300); letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
   .nav-bingo-cta.played .nav-bingo-sub { color: var(--gold-400); }
-  .nav-bingo-cta.unplayed::after { content: ""; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-400); box-shadow: 0 0 0 2px var(--green-700); animation: navBingoPulse 2s ease-in-out infinite; }
+  /* Tiny "play today" indicator dot — only on .unplayed. Lives on top of
+     the gold glow for an extra "yes, today's puzzle is fresh" hint. */
+  .nav-bingo-cta.unplayed::after { content: ""; position: absolute; top: 5px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--green-700); animation: navBingoPulse 2s ease-in-out infinite; }
   @keyframes navBingoPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.25); opacity: 0.65; } }
   @media (min-width: 901px) { .nav-bingo-cta { display: inline-flex; } }
   @media (prefers-reduced-motion: reduce) { .nav-bingo-cta.unplayed::after { animation: none; } }
@@ -1582,7 +1649,7 @@
     <span data-ico="plus"></span>Sell
   </button>
   <button class="bottom-nav-item" data-tab="bingo" data-action="open-bingo" type="button" aria-label="Logo Bingo">
-    <span aria-hidden="true" style="font-size:20px;line-height:1;">🎯</span>Bingo
+    <span class="bn-bingo-glow" aria-hidden="true"></span>Bingo
   </button>
   <button class="bottom-nav-item" data-tab="inbox" data-action="open-inbox" type="button">
     <span data-ico="message" class="bn-icon"><span class="unread-badge"></span></span>Inbox
@@ -2360,7 +2427,7 @@
   <a class="mobile-top-logo" href="#" data-action="bn-home"><span>Tee</span>Box</a>
   <div class="mobile-top-actions">
     <button class="mobile-top-bingo" data-action="open-bingo" type="button" aria-label="Open Logo Bingo">
-      <span aria-hidden="true">🎯</span><span>Bingo</span>
+      <span>Bingo</span>
     </button>
     <button class="mobile-top-icon" data-action="open-inbox" type="button" aria-label="Inbox">
       <span data-ico="message"></span><span class="unread-badge" aria-hidden="true"></span>
@@ -2470,7 +2537,6 @@
   </div>
   <div class="nav-actions">
     <button class="nav-bingo-cta unplayed" id="navBingoCta" data-action="open-bingo" type="button" aria-label="Open Logo Bingo — daily golf course logo guessing game">
-      <span class="nav-bingo-icon" aria-hidden="true">🎯</span>
       <span class="nav-bingo-text">
         <span class="nav-bingo-label">Logo Bingo</span>
         <span class="nav-bingo-sub" id="navBingoSub">Play Today</span>
@@ -8964,8 +9030,8 @@ if (uploadZone) {
       ${head}
       <div class="bingo-reveal-name">${safe(course.shortName || course.name)}</div>
       <div class="bingo-reveal-meta">
-        ${course.location ? `<span>📍 ${safe(course.location)}</span>` : ''}
-        ${course.architect && course.architect !== '—' ? `<span>✏️ ${safe(course.architect)}</span>` : ''}
+        ${course.location ? `<span>${safe(course.location)}</span>` : ''}
+        ${course.architect && course.architect !== '—' ? `<span>${safe(course.architect)}</span>` : ''}
       </div>
     `;
 
