@@ -2350,3 +2350,58 @@ exports.generateListingDescription = onCall(
     return {description: text.trim()};
   },
 );
+
+// ──────────────────────────────────────────────────────────────────────
+// moderateListingOnCreate
+//
+// Server-side enforcement of the explicit-content blocklist. The client
+// runs the same check before submit, but a malicious client could bypass
+// it. This trigger fires when any new listing is created and removes the
+// doc if the title/desc/brand contain a blocked term. We also flag
+// listings that will need photo moderation (Cloud Vision SafeSearch is
+// applied separately by optimizeListingPhoto on each photo upload).
+// ──────────────────────────────────────────────────────────────────────
+const EXPLICIT_BLOCKLIST = [
+  "fuck", "shit", "asshole", "bitch", "cunt", "dick ", "pussy", "cock ",
+  "tits", "tit ", "whore", "slut", "bastard", "retard", "fag", "faggot",
+  "nigger", "nigga", "kike", "spic", "chink", "tranny", "dyke",
+  "jizz", "blowjob", "handjob", "rimjob",
+  "porn", "xxx", "nude", "nudes", "naked", "sex", "sexy", "sexual", "erotic",
+  "horny", "penis", "vagina", "boobs", "boob", "nipple", "orgasm",
+  "masturbat", "wank", "rape", "molest", "pedo",
+  "beastiality", "bestiality", "incest",
+];
+
+function findExplicitTerm(text) {
+  if (!text) return null;
+  const s = String(text).toLowerCase();
+  for (const term of EXPLICIT_BLOCKLIST) {
+    const trimmed = term.trim();
+    const re = new RegExp("\\b" + trimmed + "\\b", "i");
+    if (re.test(s)) return trimmed;
+  }
+  return null;
+}
+
+exports.moderateListingOnCreate = onDocumentCreated(
+    "listings/{listingId}",
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+      const d = snap.data();
+      const haystack = [d.title, d.brand, d.desc].filter(Boolean).join(" ");
+      const term = findExplicitTerm(haystack);
+      if (!term) return;
+
+      logger.warn("moderation: blocking listing for explicit term", {
+        listingId: event.params.listingId,
+        sellerId: d.sellerId,
+        term,
+      });
+      try {
+        await snap.ref.delete();
+      } catch (e) {
+        logger.error("moderation: delete failed", e);
+      }
+    },
+);

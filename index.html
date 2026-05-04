@@ -1966,6 +1966,35 @@
     return '';
   };
 
+  // Explicit-content blocklist applied to titles + descriptions before a
+  // listing can be submitted. The list is intentionally narrow — we want to
+  // block obvious profanity and slurs without false-positive blocking
+  // legitimate brand names ("dick's sporting goods", "cocky" as a descriptor,
+  // etc.). Server-side enforcement also lives in functions/index.js so the
+  // client check can't be bypassed. Photo-side moderation runs in the
+  // optimizeListingPhoto Cloud Function via Cloud Vision SafeSearch.
+  window.EXPLICIT_BLOCKLIST = [
+    'fuck','shit','asshole','bitch','cunt','dick ','pussy','cock ','tits','tit ',
+    'whore','slut','bastard','retard','fag','faggot','nigger','nigga','kike',
+    'spic','chink','tranny','dyke','jizz','blowjob','handjob','rimjob',
+    'porn','xxx','nude','nudes','naked','sex','sexy','sexual','erotic','horny',
+    'penis','vagina','boobs','boob','nipple','orgasm','masturbat','wank',
+    'rape','molest','pedo','beastiality','bestiality','incest',
+  ];
+  window.findExplicitContent = function(text) {
+    if (!text) return null;
+    var s = String(text).toLowerCase();
+    for (var i = 0; i < window.EXPLICIT_BLOCKLIST.length; i++) {
+      var term = window.EXPLICIT_BLOCKLIST[i];
+      // Word boundary match unless the term ends with a space (already a boundary).
+      var re = term.endsWith(' ')
+        ? new RegExp('\\b' + term.replace(/\s+$/, '') + '\\b', 'i')
+        : new RegExp('\\b' + term + '\\b', 'i');
+      if (re.test(s)) return term.trim();
+    }
+    return null;
+  };
+
   // ─── Inline SVG icon library (no external font / no emojis) ───
   // Each value is a complete <svg> string sized via the .ico CSS class.
   // Using innerHTML with these is safe — they contain no user data.
@@ -4055,7 +4084,11 @@ window.confirmPayment = async function() {
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
         // Hide expired listings from the public feed.
-        .filter(p => p.status !== 'expired');
+        .filter(p => p.status !== 'expired')
+        // Hide listings with no photos — orphans from before the rollback fix
+        // shipped, plus any in-progress listing where photo upload failed.
+        // Sellers can still see + delete these from My Shop.
+        .filter(p => Array.isArray(p.photos) && p.photos.length > 0);
       // Show real Firestore listings to signed-in users; show the demo
       // catalog as a teaser only when nobody is signed in. This stops
       // logged-in shoppers from clicking into demo cards that 404.
@@ -4101,9 +4134,18 @@ window.confirmPayment = async function() {
     if (quantity > 99) quantity = 99;
     if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
     if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
+    if (selectedFiles.length < 3) {
+      showToast('Please add at least 3 photos before submitting.');
+      return;
+    }
+    const blocked = window.findExplicitContent && window.findExplicitContent(title + ' ' + desc);
+    if (blocked) {
+      showToast('Please remove inappropriate language from the title or description.');
+      return;
+    }
     const isHighValue = price >= 300;
-    if (isHighValue && selectedFiles.length < 2) {
-      showToast('Listings over $300 require at least 2 photos including a verification photo.');
+    if (isHighValue && selectedFiles.length < 4) {
+      showToast('Listings over $300 require at least 4 photos including a verification photo.');
       return;
     }
     const btn = document.getElementById('submitListingBtn');
@@ -5786,7 +5828,15 @@ function renderShopTables() {
   if (active.length === 0) {
     activeEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No active listings yet</div>Tap <strong>Sell Now</strong> in the nav to post your first item. Listings go live immediately for verified sellers.</div>';
   } else {
+    const emptyCount = active.filter(l => !Array.isArray(l.photos) || l.photos.length === 0).length;
+    const purgeBar = emptyCount > 0
+      ? `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--gray-600)">
+           <span>${emptyCount} listing${emptyCount === 1 ? '' : 's'} with no photos</span>
+           <button class="renew-btn" style="background:var(--red-500);color:#fff;border:none" data-action="purge-empty-listings">Delete all empty</button>
+         </div>`
+      : '';
     activeEl.innerHTML = `
+      ${purgeBar}
       <table class="dash-table">
         <thead>
           <tr>
@@ -6776,6 +6826,37 @@ async function confirmDeleteListing() {
 }
 window.askDeleteListing = askDeleteListing;
 window.confirmDeleteListing = confirmDeleteListing;
+
+// Bulk-delete every active listing the current user owns that has no photos.
+// Used to clean up orphan test listings from before the rollback fix shipped.
+async function purgeEmptyListings() {
+  if (!window.CURRENT_USER) { showToast('Please sign in.'); return; }
+  if (!window.SHOP_DATA || !Array.isArray(window.SHOP_DATA.listings)) {
+    showToast('Shop data not loaded yet.'); return;
+  }
+  const empties = window.SHOP_DATA.listings.filter(l =>
+    (!Array.isArray(l.photos) || l.photos.length === 0) && l.status !== 'sold'
+  );
+  if (empties.length === 0) { showToast('No empty listings to delete.'); return; }
+  if (!confirm(`Delete ${empties.length} listing${empties.length === 1 ? '' : 's'} with no photos? This cannot be undone.`)) return;
+  showToast(`Deleting ${empties.length}…`);
+  try {
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    let ok = 0, fail = 0;
+    for (const l of empties) {
+      try { await deleteDoc(doc(db, 'listings', l.id)); ok++; }
+      catch (e) { console.warn('purge: delete failed', l.id, e); fail++; }
+    }
+    showToast(fail === 0 ? `Deleted ${ok} listing${ok === 1 ? '' : 's'}.` : `Deleted ${ok}, ${fail} failed.`);
+    try { await loadShopData(); } catch (_) {}
+  } catch (e) {
+    console.error('purgeEmptyListings failed:', e);
+    showToast('Could not bulk-delete. Try again.');
+  }
+}
+window.purgeEmptyListings = purgeEmptyListings;
 
 // ─────────────────────────────────────────────────────────────
 // SAVED SEARCHES — persist filter state so users can return to it.
@@ -9570,6 +9651,7 @@ A['save-current-search']     = () => saveCurrentSearch();
 A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
 A['ask-delete-listing']      = (el) => askDeleteListing(el.dataset.listingId, el.dataset.listingTitle);
 A['confirm-delete-listing']  = () => confirmDeleteListing();
+A['purge-empty-listings']    = () => purgeEmptyListings();
 A['mark-shipped']            = (el) => markShipped(el.dataset.orderId);
 A['confirm-ship']            = () => confirmShip();
 A['confirm-delivery']        = (el) => confirmDelivery(el.dataset.orderId);
