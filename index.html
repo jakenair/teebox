@@ -322,6 +322,29 @@
   .payout-status { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.4px; }
   .payout-status.pending { background: #fff4d6; color: #856404; }
   .payout-status.paid { background: var(--up-bg, #e6f5ec); color: var(--up-green, #1f8a4d); }
+  /* Stripe Connect status banner — sits at the top of the Payouts tab */
+  .stripe-connect-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 16px; border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    font-size: 13.5px; line-height: 1.4;
+  }
+  .stripe-connect-banner > div { display: flex; flex-direction: column; gap: 2px; }
+  .stripe-connect-banner strong { font-size: 14px; color: var(--gray-900); }
+  .stripe-connect-banner span { color: var(--gray-700); font-size: 12.5px; }
+  .stripe-connect-banner.cta { background: linear-gradient(135deg, #fdf6e6 0%, #f9eccd 100%); border: 1px solid var(--gold-300); }
+  .stripe-connect-banner.warn { background: #fff8ed; border: 1px solid #f3d68a; }
+  .stripe-connect-banner.ok { background: var(--up-bg, #e6f5ec); border: 1px solid #9ed3b5; }
+  .stripe-connect-banner.ok strong { color: var(--up-green, #1f8a4d); }
+  .btn-stripe-connect {
+    background: var(--green-700); color: var(--white);
+    border: 0; border-radius: 50px;
+    padding: 8px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: background 0.18s ease, transform 0.08s ease;
+    flex-shrink: 0;
+  }
+  .btn-stripe-connect:hover { background: var(--green-600); }
+  .btn-stripe-connect:active { transform: scale(0.97); }
 
   /* Info modal (About / Terms / Privacy) */
   .info-backdrop { display: none; position: fixed; inset: 0; z-index: 350; background: rgba(0,0,0,0.6); align-items: flex-start; justify-content: center; padding: 4rem 1rem 2rem; overflow-y: auto; }
@@ -4973,9 +4996,59 @@ function maskBuyerId(id) {
 // Payouts dashboard tab (Feature #13). Renders 3 stat cards + a full order
 // table with masked buyer info + an "Export CSV" button. CSV intentionally
 // excludes buyer info for privacy.
-function renderPayouts() {
+async function renderStripeConnectBanner() {
+  // Renders the seller's Stripe Connect status: "set up payouts" CTA if
+  // not connected, "finish onboarding" if requirements remain, or a small
+  // ✓ confirmation if fully verified. Inlined into the Payouts tab.
+  const u = window.CURRENT_USER;
+  if (!u) return '';
+  let status;
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'getStripeAccountStatus');
+    const result = await fn();
+    status = result.data || {};
+  } catch (e) {
+    return `<div class="stripe-connect-banner warn">
+      <strong>Couldn't load payout status.</strong>
+      <span>Refresh the page or try again in a moment.</span>
+    </div>`;
+  }
+  if (!status.connected) {
+    return `<div class="stripe-connect-banner cta">
+      <div>
+        <strong>Get paid on TeeBox</strong>
+        <span>Connect your bank via Stripe to receive payouts. Takes ~3 minutes.</span>
+      </div>
+      <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Set up payouts</button>
+    </div>`;
+  }
+  if (!status.chargesEnabled || !status.payoutsEnabled || (status.requirementsDue || []).length) {
+    return `<div class="stripe-connect-banner warn">
+      <div>
+        <strong>Finish setting up payouts</strong>
+        <span>Stripe still needs a few details before you can be paid.</span>
+      </div>
+      <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish setup</button>
+    </div>`;
+  }
+  return `<div class="stripe-connect-banner ok">
+    <div>
+      <strong>Payouts active</strong>
+      <span>Stripe sends earnings directly to your bank, daily.</span>
+    </div>
+  </div>`;
+}
+
+async function renderPayouts() {
   const el = document.getElementById('dashTabPayouts');
   if (!el) return;
+  const banner = await renderStripeConnectBanner();
+  // Stash banner so the existing render path injects it. We do this by
+  // prepending after the rest of the function builds its HTML.
+  el.dataset.stripeBanner = banner;
   const { orders, listings } = window.SHOP_DATA;
   const listingsById = {};
   listings.forEach(l => { listingsById[l.id] = l; });
@@ -5026,8 +5099,10 @@ function renderPayouts() {
     </tr>`;
   }).join('');
 
+  const stripeBanner = el.dataset.stripeBanner || '';
   if (rows.length === 0) {
     el.innerHTML = `
+      ${stripeBanner}
       <div class="stats-grid" style="margin-bottom:1rem">
         <div class="stat-card"><div class="stat-label">Pending Payout</div><div class="stat-value">${fmt$(pending)}</div><div class="stat-sub">Shipped, awaiting delivery</div></div>
         <div class="stat-card"><div class="stat-label">Paid Out (30d)</div><div class="stat-value">${fmt$(paid30)}</div><div class="stat-sub">Delivered in last 30 days</div></div>
@@ -5039,6 +5114,7 @@ function renderPayouts() {
   }
 
   el.innerHTML = `
+    ${stripeBanner}
     <div class="stats-grid" style="margin-bottom:1rem">
       <div class="stat-card"><div class="stat-label">Pending Payout</div><div class="stat-value">${fmt$(pending)}</div><div class="stat-sub">Shipped, awaiting delivery</div></div>
       <div class="stat-card"><div class="stat-label">Paid Out (30d)</div><div class="stat-value">${fmt$(paid30)}</div><div class="stat-sub">Delivered in last 30 days</div></div>
@@ -8061,6 +8137,30 @@ A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => becomeSeller();
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+A['stripe-connect']          = async () => {
+  if (!window.CURRENT_USER) { showToast('Sign in to set up payouts.'); return; }
+  showToast('Opening Stripe…');
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'createStripeOnboardingLink');
+    const res = await fn();
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No onboarding URL returned');
+    // On Capacitor (iOS), open in the system browser so Stripe's OAuth
+    // pages get the cookies they expect. On web, just navigate.
+    const Cap = window.Capacitor;
+    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  } catch (e) {
+    console.error('stripe-connect failed:', e);
+    showToast('Could not start Stripe setup. Try again.');
+  }
+};
 A['close-inbox']             = () => closeInbox();
 A['close-chat']              = () => closeChat();
 A['send-message']            = () => sendMessage();

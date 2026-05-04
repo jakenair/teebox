@@ -156,6 +156,31 @@ exports.createPaymentIntent = onRequest(
       );
       const sellerPayoutCents = reservation.priceCents - platformFeeCents;
 
+      // Look up the seller's Stripe Connect account. Without an active
+      // Connect account + chargesEnabled, we can't route funds to them —
+      // refuse to charge so the buyer doesn't pay for an item the seller
+      // can never get paid for.
+      const sellerSnap = await db.collection("users")
+        .doc(reservation.sellerId)
+        .get();
+      const sellerData = sellerSnap.exists ? sellerSnap.data() : {};
+      const stripeAccountId = sellerData.stripeAccountId || null;
+      const stripeChargesEnabled = !!sellerData.stripeChargesEnabled;
+
+      if (!stripeAccountId || !stripeChargesEnabled) {
+        // Roll back the reservation we just made so the listing doesn't
+        // sit in `pending` forever.
+        await listingRef.update({
+          status: "active",
+          pendingBuyer: admin.firestore.FieldValue.delete(),
+          pendingUntil: admin.firestore.FieldValue.delete(),
+        }).catch(() => {});
+        return res.status(409).json({
+          error: "This seller hasn't finished setting up payouts yet. " +
+            "Please come back in a bit, or message them via the listing.",
+        });
+      }
+
       const stripeClient = stripe(stripeSecret.value());
 
       // Truncate description to Stripe's 1000-char limit, defensively.
@@ -167,24 +192,31 @@ exports.createPaymentIntent = onRequest(
         Date.now() / (5 * 60 * 1000)
       )}`;
 
+      // Stripe Connect destination charge: platform receives the funds,
+      // automatically transfers (priceCents - applicationFee) to the
+      // seller's connected account. Stripe handles the split — no manual
+      // payouts, no holding funds on our books.
       const paymentIntent = await stripeClient.paymentIntents.create(
         {
           amount: reservation.priceCents,
           currency: "usd",
           automatic_payment_methods: {enabled: true},
-          // Explicit policy. 'automatic' = Stripe Radar decides per
-          // transaction. Switch to 'any' for marketplace-wide 3DS
-          // enforcement once Radar tells us false-positives are low.
           payment_method_options: {
             card: {request_three_d_secure: "automatic"},
           },
           description,
-          // Up to 22 chars, what the buyer sees on their card statement.
           statement_descriptor_suffix: "TEEBOX",
+          // ── Connect bits ──
+          application_fee_amount: platformFeeCents,
+          transfer_data: {destination: stripeAccountId},
+          // Charge the seller's account for any disputes/refunds rather
+          // than the platform — keeps platform liability bounded.
+          on_behalf_of: stripeAccountId,
           metadata: {
             listingId,
             buyerId,
             sellerId: reservation.sellerId || "",
+            stripeAccountId,
             platformFeeCents: String(platformFeeCents),
             sellerPayoutCents: String(sellerPayoutCents),
             quantity: String(reservation.qty),
@@ -242,6 +274,15 @@ exports.stripeWebhook = onRequest(
         case "payment_intent.canceled":
           await releaseListingOnFailure(event.data.object);
           break;
+        case "account.updated":
+          // Seller's Connect status changed (finished onboarding,
+          // requirement added, etc.). Mirror it into Firestore so the
+          // app can gate Buy Now + show payout-status banners.
+          await syncConnectAccountStatus(event.data.object);
+          break;
+        case "charge.dispute.created":
+          await handleDisputeOpened(event.data.object);
+          break;
         default:
           logger.info(`Unhandled event type: ${event.type}`);
       }
@@ -252,6 +293,46 @@ exports.stripeWebhook = onRequest(
     }
   }
 );
+
+async function syncConnectAccountStatus(account) {
+  if (!account || !account.id) return;
+  const db = admin.firestore();
+  // Reverse-lookup the user by their stored stripeAccountId.
+  const usersSnap = await db.collection("users")
+    .where("stripeAccountId", "==", account.id).limit(1).get();
+  if (usersSnap.empty) {
+    logger.warn(`account.updated for unknown account ${account.id}`);
+    return;
+  }
+  const userDoc = usersSnap.docs[0];
+  const update = {
+    stripeChargesEnabled: !!account.charges_enabled,
+    stripePayoutsEnabled: !!account.payouts_enabled,
+    stripeDetailsSubmitted: !!account.details_submitted,
+    stripeRequirementsCount: ((account.requirements || {}).currently_due || []).length,
+    stripeAccountUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await userDoc.ref.update(update);
+  logger.info(`Synced Connect status for ${userDoc.id}: ` +
+    `charges=${update.stripeChargesEnabled}, payouts=${update.stripePayoutsEnabled}`);
+}
+
+async function handleDisputeOpened(dispute) {
+  if (!dispute || !dispute.payment_intent) return;
+  const db = admin.firestore();
+  // Tag the order doc so the seller dashboard can surface the dispute,
+  // and so /orders queries can flag affected items in red.
+  const orderRef = db.collection("orders").doc(dispute.payment_intent);
+  await orderRef.set({
+    disputed: true,
+    disputeId: dispute.id,
+    disputeReason: dispute.reason || "",
+    disputeAmountCents: dispute.amount || 0,
+    disputeStatus: dispute.status || "needs_response",
+    disputeCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  logger.warn(`Dispute opened on order ${dispute.payment_intent}: ${dispute.reason}`);
+}
 
 async function handlePaymentSucceeded(pi) {
   const db = admin.firestore();
@@ -1945,4 +2026,166 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
       logger.error("welcomeOnFirstProfileWrite error", err);
     }
   }
+);
+
+// ─────────────────────────────────────────────────────────────
+// STRIPE CONNECT — seller onboarding + status
+//
+// createStripeOnboardingLink (callable)
+//   - First call: creates an Express account, stores the id on the user,
+//     returns an account-link URL the user opens in a browser/webview.
+//   - Subsequent calls: re-issues a fresh link if onboarding wasn't
+//     finished, or returns null + status if it was.
+//   - Stripe redirects the user back to teeboxmarket.com on completion.
+//
+// getStripeAccountStatus (callable)
+//   - Reads the live status from Stripe (chargesEnabled, payoutsEnabled,
+//     requirements). Server-of-record stays Stripe; we cache the booleans
+//     in users/{uid} via the account.updated webhook.
+// ─────────────────────────────────────────────────────────────
+exports.createStripeOnboardingLink = onCall(
+  {secrets: [stripeSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const stripeClient = stripe(stripeSecret.value());
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const user = userSnap.exists ? userSnap.data() : {};
+
+    // Pull email + name to pre-fill Stripe's onboarding form.
+    let email; let displayName;
+    try {
+      const authUser = await admin.auth().getUser(uid);
+      email = authUser.email || undefined;
+      displayName = authUser.displayName || user.displayName || undefined;
+    } catch (_e) { /* swallow — Stripe will collect on the form */ }
+
+    let accountId = user.stripeAccountId;
+    if (!accountId) {
+      const account = await stripeClient.accounts.create({
+        type: "express",
+        country: "US",
+        email,
+        capabilities: {
+          card_payments: {requested: true},
+          transfers: {requested: true},
+        },
+        business_type: "individual",
+        business_profile: {
+          mcc: "5941", // sporting goods
+          product_description: "Used + new golf gear via the TeeBox marketplace",
+          url: APP_URL,
+        },
+        metadata: {
+          firebaseUid: uid,
+          ...(displayName ? {displayName} : {}),
+        },
+        settings: {
+          payouts: {schedule: {interval: "daily"}},
+        },
+      });
+      accountId = account.id;
+      await userRef.set({
+        stripeAccountId: accountId,
+        stripeAccountCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    }
+
+    // Refresh URL is hit if the link expires while the user is filling
+    // out the form — sends them back to call us again for a new link.
+    // Return URL is hit on completion.
+    const link = await stripeClient.accountLinks.create({
+      account: accountId,
+      refresh_url: `${APP_URL}/?stripe=refresh`,
+      return_url: `${APP_URL}/?stripe=onboarded`,
+      type: "account_onboarding",
+    });
+    return {url: link.url, accountId};
+  },
+);
+
+exports.getStripeAccountStatus = onCall(
+  {secrets: [stripeSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.exists ? userSnap.data() : {};
+    if (!user.stripeAccountId) {
+      return {connected: false};
+    }
+    const stripeClient = stripe(stripeSecret.value());
+    const acct = await stripeClient.accounts.retrieve(user.stripeAccountId);
+    // Cache the booleans in Firestore so the client can skip the round-trip
+    // to Stripe on every page load — webhook already does this on changes,
+    // this is a belt-and-suspenders sync for first-time fetches.
+    await db.collection("users").doc(uid).update({
+      stripeChargesEnabled: !!acct.charges_enabled,
+      stripePayoutsEnabled: !!acct.payouts_enabled,
+      stripeDetailsSubmitted: !!acct.details_submitted,
+    }).catch(() => {});
+    return {
+      connected: true,
+      accountId: acct.id,
+      chargesEnabled: !!acct.charges_enabled,
+      payoutsEnabled: !!acct.payouts_enabled,
+      detailsSubmitted: !!acct.details_submitted,
+      requirementsDue: (acct.requirements && acct.requirements.currently_due) || [],
+    };
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// refundOrder (callable)
+//   Seller- or platform-initiated refund. Reverses the payment intent,
+//   refunds the buyer, and reverses the application_fee proportionally
+//   (Stripe handles the maths via refund_application_fee=true).
+// ─────────────────────────────────────────────────────────────
+exports.refundOrder = onCall(
+  {secrets: [stripeSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const {orderId, reason} = request.data || {};
+    if (!orderId || typeof orderId !== "string") {
+      throw new HttpsError("invalid-argument", "orderId required");
+    }
+    const db = admin.firestore();
+    const orderRef = db.collection("orders").doc(orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) {
+      throw new HttpsError("not-found", "Order not found");
+    }
+    const order = orderSnap.data();
+    // Only the seller (or platform-admin in the future) can refund.
+    if (order.sellerId !== request.auth.uid) {
+      throw new HttpsError("permission-denied", "Only the seller can refund this order.");
+    }
+    if (order.refunded) {
+      throw new HttpsError("failed-precondition", "Order is already refunded.");
+    }
+    const stripeClient = stripe(stripeSecret.value());
+    const refund = await stripeClient.refunds.create({
+      payment_intent: orderId,
+      reason: ["duplicate", "fraudulent", "requested_by_customer"]
+        .includes(reason) ? reason : "requested_by_customer",
+      refund_application_fee: true,
+      reverse_transfer: true,
+    });
+    await orderRef.update({
+      refunded: true,
+      refundId: refund.id,
+      refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+      fulfillmentStatus: "refunded",
+    });
+    return {refundId: refund.id, status: refund.status};
+  },
 );
