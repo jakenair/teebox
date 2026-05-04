@@ -1332,7 +1332,7 @@ exports.notifyOnWatchlistPriceDrop = onSchedule(
 // ─────────────────────────────────────────────────────────────
 exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
   .onObjectFinalized(
-    {memory: "1GiB", region: "us-east1"},
+    {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app"},
     async (event) => {
       const obj = event.data;
       if (!obj || !obj.name) return;
@@ -1746,7 +1746,9 @@ function trackingUrl(carrier, trackingNumber) {
   if (c.includes("dhl")) return `https://www.dhl.com/us-en/home/tracking/tracking-parcel.html?tracking-id=${encodeURIComponent(trackingNumber)}`;
   return APP_URL;
 }
-exports.trackingUrl = trackingUrl; // exported for tests, never invoked as fn
+// Local helper — intentionally NOT exported. Firebase Functions only
+// accepts Cloud Function exports; exporting a plain function breaks
+// `firebase deploy --only functions` with a backend-spec timeout.
 
 // ─────────────────────────────────────────────────────────────
 // notifyOnOfferCreated — push + email seller when a buyer offers
