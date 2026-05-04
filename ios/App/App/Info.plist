@@ -61,5 +61,18 @@
 	     which was eating the verificationId on phone-auth. -->
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<!-- Google OAuth callback. The URL scheme MUST equal REVERSED_CLIENT_ID
+	     from GoogleService-Info.plist (looks like com.googleusercontent.apps.NNN-XXX).
+	     Re-download GoogleService-Info.plist from Firebase Console after enabling
+	     Google Sign-In, then paste the REVERSED_CLIENT_ID below. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>REPLACE_WITH_REVERSED_CLIENT_ID</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

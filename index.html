@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -137,6 +137,7 @@
     --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
     --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
     --red-500: #c0392b; --red-100: #fde8e6;
+    --heart-red: #e74c3c;
     --up-green: #1a8a3c; --up-bg: #e8f7ed; --dn-red: #c0392b; --dn-bg: #fde8e6;
     --font-display: 'Playfair Display', Georgia, serif;
     --font-body: 'DM Sans', system-ui, sans-serif;
@@ -599,8 +600,36 @@
   /* Stagger fade-in for product cards on render */
   .product-card { animation: cardIn 0.34s cubic-bezier(.4,0,.2,1) backwards; }
 
-  /* Watchlist heart animation when toggled */
-  .fav-btn.popped svg, .fav-btn.popped { animation: heartPop 0.36s cubic-bezier(.34,1.56,.64,1); }
+  /* Watchlist heart animation when toggled.
+     ".popped" = newly liked → spring up to 1.3x then settle to 1.1x in red.
+     ".unpopped" = newly unliked → small dip back to 1.0 in gray.
+     ".fav-btn.liked" carries the resting "filled red" look so detail-view
+     buttons match cards even outside the click frame. */
+  .fav-btn { color: var(--gray-400); transition: color 0.22s ease, transform 0.22s ease, border-color 0.22s ease; }
+  .fav-btn.liked { color: var(--heart-red, #e74c3c); border-color: var(--heart-red, #e74c3c); }
+  .fav-btn.liked svg { color: var(--heart-red, #e74c3c); fill: var(--heart-red, #e74c3c); }
+  .fav-btn.popped { animation: heartPop 0.38s cubic-bezier(.34,1.56,.64,1); }
+  .fav-btn.popped svg { animation: heartPop 0.38s cubic-bezier(.34,1.56,.64,1); }
+  .fav-btn.unpopped { animation: heartUnpop 0.32s cubic-bezier(.4,0,.2,1); }
+  .fav-btn.unpopped svg { animation: heartUnpop 0.32s cubic-bezier(.4,0,.2,1); }
+  /* Particle burst — six tiny hearts that float up & fade when the user
+     just liked. Created in JS at click time then auto-removed.
+     Pure CSS animation, no layout impact (absolutely positioned). */
+  .heart-burst { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .heart-burst-particle {
+    position: absolute; left: 50%; top: 50%;
+    width: 10px; height: 10px;
+    transform: translate(-50%, -50%);
+    color: var(--heart-red, #e74c3c);
+    font-size: 12px; line-height: 1;
+    opacity: 0;
+    animation: heartParticle 0.7s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fav-btn, .fav-btn svg, .fav-btn.popped, .fav-btn.popped svg,
+    .fav-btn.unpopped, .fav-btn.unpopped svg { animation: none !important; transition: color 0.15s ease !important; }
+    .heart-burst, .heart-burst-particle { display: none !important; }
+  }
 
   /* Page transition when switching bottom-nav tabs */
   main.page-in { animation: pageIn 0.22s ease-out; }
@@ -1010,11 +1039,47 @@
   .product-badge { position: absolute; top: 10px; left: 10px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.8px; z-index: 1; }
   .badge-new { background: var(--green-100); color: var(--green-700); }
   .badge-hot { background: #fff0e0; color: #b35f00; }
+  /* Condition pill — overlay on photo, top-right under the heart.
+     Color-coded by condition tier. Detail-view variant ".cond-pill.detail"
+     keeps the same colors but flows inline in the header. */
+  .cond-pill { position: absolute; top: 46px; right: 10px; z-index: 1; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 50px; letter-spacing: 0.4px; background: var(--gray-200); color: var(--gray-700); white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .cond-pill.detail { position: static; display: inline-flex; align-items: center; margin-left: 8px; vertical-align: middle; }
+  .cond-pill.cond-new       { background: #e0f5e3; color: #1e6b2f; }
+  .cond-pill.cond-likenew   { background: #d6f0ec; color: #135e54; }
+  .cond-pill.cond-good      { background: #e0ecf5; color: #1e4a6b; }
+  .cond-pill.cond-fair      { background: #fbe9c2; color: #8a5a09; }
+  .cond-pill.cond-parts     { background: #fadcd8; color: #8a1f15; }
+
+  /* AI description button — sits inline with the "Description" label.
+     Disabled until title/brand/category/condition are non-empty. */
+  .ai-desc-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--gold-300), var(--gold-500));
+    color: var(--green-900);
+    border: 1px solid var(--gold-500);
+    border-radius: 50px;
+    padding: 5px 12px;
+    font-family: var(--font-body); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: none;
+  }
+  .ai-desc-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(201,153,30,0.25); }
+  .ai-desc-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
+  .ai-desc-btn.loading { pointer-events: none; opacity: 0.7; }
+  .ai-desc-spark { font-size: 13px; line-height: 1; }
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
   .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
   .product-body { padding: 14px 14px 16px; }
   .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 3px; }
-  .product-name { font-size: 14px; font-weight: 600; color: var(--gray-900); margin-bottom: 10px; line-height: 1.35; }
+  .product-name { font-size: 14px; font-weight: 600; color: var(--gray-900); margin-bottom: 6px; line-height: 1.35; }
+  /* Seller rating row injected by hydrateSellerRatings — empty by default
+     so a 0-review seller leaves no visual gap on the card. */
+  .product-rating { font-size: 11.5px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; line-height: 1; min-height: 0; display: flex; align-items: center; gap: 4px; }
+  .product-rating:empty { display: none; }
+  .product-rating .pr-star { color: var(--gold-500); font-size: 12px; }
+  .product-rating .pr-count { color: var(--gray-400); font-weight: 500; }
   .product-market { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--gray-100); padding-top: 10px; margin-top: 4px; }
   .market-col label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-400); margin-bottom: 2px; }
   .market-bid { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--green-600); }
@@ -1092,7 +1157,22 @@
   /* MODALS */
   @keyframes slideUp { from { opacity:0; transform: translateY(24px); } to { opacity:1; transform:none; } }
   @keyframes sheetUp { from { opacity:0; transform: translateY(100%); } to { opacity:1; transform: translateY(0); } }
-  @keyframes heartPop { 0% { transform: scale(1); } 40% { transform: scale(1.4); } 70% { transform: scale(0.92); } 100% { transform: scale(1); } }
+  @keyframes heartPop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.3); }
+    65%  { transform: scale(0.95); }
+    100% { transform: scale(1.1); }
+  }
+  @keyframes heartUnpop {
+    0%   { transform: scale(1.1); }
+    50%  { transform: scale(0.85); }
+    100% { transform: scale(1); }
+  }
+  @keyframes heartParticle {
+    0%   { opacity: 0; transform: translate(-50%, -50%) translate(var(--hx, 0), 0) scale(0.4); }
+    20%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--hx, 0), -34px) scale(1); }
+  }
   @keyframes cardIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
   @keyframes pageIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
   @keyframes toastOut { to { opacity: 0; transform: translate(-50%, 20px); } }
@@ -1301,6 +1381,42 @@
     .stats-grid { grid-template-columns: 1fr 1fr !important; }
     #checkoutBackdrop .modal { max-width: calc(100vw - 1rem); }
     .chat-modal, .inbox-modal { max-width: calc(100vw - 1rem); height: 90vh; }
+  }
+
+  /* iPad band — 768–1024px. iPhone (≤767) keeps its layout; desktop
+     (≥1025) keeps its layout. Goal here is to stop the auto-fill grid
+     from looking either too sparse (4 wide cards) or too dense (2 wide)
+     and to give modals/forms room to breathe at tablet scale.
+     Note: the bottom-nav rule lives in @media (max-width: 900px) and
+     uses `nav:not(.bottom-nav)` so we leave it alone — drawer is a div,
+     bottom-nav stays on smaller iPads, and 901–1024px keeps the desktop
+     top nav. Don't add a bare `nav { display: none }` here. */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    /* Marketplace grid: lock to 3 columns so cards don't stretch to fill
+       1024px (which renders 4 thin columns) or compress to 2 (only 768px
+       phones get that). */
+    .product-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    /* Hero: at 768–900 the existing rule already stacks the hero 1-col.
+       At 901–1024 keep the 2-col split but tighten the gap so the title
+       column doesn't get pinned to one side of a too-wide grid. */
+    .hero-inner { gap: 2.5rem; }
+    /* Trim hero title at iPad scale — clamp() is fine but the upper end
+       can read as billboard-y on a 1024 viewport. */
+    .hero-title { font-size: clamp(2rem, 4.6vw, 2.8rem); }
+    /* Modals: let listing detail, sell form, profile, and checkout
+       breathe instead of inheriting the 100vw - 1.5rem mobile clamp. */
+    .detail-modal { max-width: min(820px, 92vw); }
+    .sell-modal   { max-width: min(720px, 92vw); }
+    .info-modal   { max-width: min(720px, 92vw); }
+    #profileBackdrop .info-modal { max-width: min(820px, 92vw); }
+    #checkoutBackdrop .modal { max-width: min(520px, 92vw); }
+    .chat-modal, .inbox-modal { max-width: min(720px, 92vw); }
+    /* Profile listings grid — give it 3 cols on iPad rather than the
+       2-col that the max-width:900 rule forces on small tablets. */
+    .profile-listings { grid-template-columns: repeat(3, 1fr); }
+    /* Drops + how-it-works grids look best at 2-up on iPad. */
+    .drops-grid { grid-template-columns: 1fr 1fr; }
+    .how-grid   { grid-template-columns: 1fr 1fr; }
   }
 /* SHOP DASHBOARD */
   #shopDashboard { display: none; position: fixed; inset: 0; z-index: 200; background: var(--cream); overflow-y: auto; }
@@ -1833,6 +1949,7 @@
       <input class="auth-input" type="text" inputmode="numeric" pattern="[0-9]*" id="codeInput" placeholder="000000" maxlength="6" autocomplete="one-time-code" />
       <div class="auth-error" id="authError2"></div>
       <button class="auth-btn" id="verifyBtn" data-action="verify-code">Verify &amp; Enter TeeBox</button>
+      <button type="button" class="auth-link auth-link-muted" id="resendCodeBtn" data-action="resend-code" style="display:none;margin-top:10px">Didn't get a code? Resend</button>
       <br/><button class="auth-back" data-action="back-to-phone">← Change number</button>
     </div>
   </div>
@@ -2577,6 +2694,7 @@
         <a href="#" data-action="open-my-offers" class="user-menu-item">🤝 My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
         <a href="#" data-action="open-saved-searches" class="user-menu-item">🔔 Saved Searches</a>
         <div class="user-menu-divider"></div>
+        <a href="#" data-action="resend-verification-email" class="user-menu-item">Resend verification email</a>
         <a href="#" data-action="sign-out" class="user-menu-item">Sign out</a>
         <a href="#" data-action="open-delete-account" class="user-menu-item danger">Delete account</a>
       </div>
@@ -2792,21 +2910,42 @@
       </div>
 
       <div class="form-row"><label>Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" /></div>
-      <div class="form-row"><label>Brand</label><input type="text" id="sellBrand" placeholder="e.g. TaylorMade" /></div>
-      <div class="form-row-2">
-        <div class="form-row"><label>Category</label><select id="sellCat"><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
-        <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" placeholder="0.00" /></div>
+      <div class="form-row"><label>Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" />
+        <datalist id="sellBrandSuggestions">
+          <!-- Clubs -->
+          <option value="TaylorMade"></option><option value="Callaway"></option><option value="Titleist"></option><option value="Ping"></option><option value="Cobra"></option><option value="Mizuno"></option><option value="Cleveland"></option><option value="PXG"></option><option value="Srixon"></option><option value="Wilson"></option><option value="Honma"></option><option value="Scotty Cameron"></option><option value="Bettinardi"></option><option value="Odyssey"></option><option value="L.A.B."></option>
+          <!-- Apparel -->
+          <option value="Travis Mathew"></option><option value="Peter Millar"></option><option value="FootJoy"></option><option value="Galvin Green"></option><option value="Lululemon"></option><option value="Adidas"></option><option value="Nike"></option><option value="Puma"></option><option value="Under Armour"></option><option value="G/Fore"></option><option value="Bonobos"></option>
+          <!-- Shoes -->
+          <option value="ECCO"></option><option value="Skechers"></option><option value="Cuater"></option>
+          <!-- Bags -->
+          <option value="Sun Mountain"></option><option value="Vessel"></option><option value="Stitch"></option><option value="Jones"></option>
+          <!-- Accessories -->
+          <option value="Vokey"></option><option value="Pro V1"></option><option value="TP5"></option><option value="Bushnell"></option><option value="Garmin"></option><option value="Arccos"></option>
+        </datalist>
       </div>
       <div class="form-row-2">
-        <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
-        <div class="form-row"><label>Quantity in stock</label><input type="number" id="sellQuantity" placeholder="1" min="1" max="99" value="1" /></div>
+        <div class="form-row"><label>Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
+        <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
+        <div class="form-row"><label>Quantity in stock</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" /></div>
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
         <strong>🛡️ High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
-      <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
+      <div class="form-row">
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span>Description</span>
+          <button type="button" id="aiDescBtn" class="ai-desc-btn" data-action="ai-write-desc" disabled title="Fill in title, brand, category, and condition first">
+            <span class="ai-desc-spark">&#10024;</span> Write description for me
+          </button>
+        </label>
+        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea>
+      </div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
         <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
@@ -3080,7 +3219,7 @@ window.confirmPayment = async function() {
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app-check.js";
   import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, GoogleAuthProvider, signInWithPopup, signInWithCredential } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
 
@@ -3182,6 +3321,17 @@ window.confirmPayment = async function() {
       const data = snap.exists() ? snap.data() : null;
       window.IS_VERIFIED_SELLER = !!(data && data.sellerVerified === true);
       window.CURRENT_PROFILE_NAME = (data && data.displayName) ? String(data.displayName) : '';
+      // Bootstrap the users/{uid} doc on first sign-in (any provider —
+      // email, Google, phone). Schema is locked to the rules whitelist:
+      // [phone, termsAgreed, termsAgreedAt, displayName, watchlist, blocked].
+      // Anything else fails the create rule. We seed displayName='' so
+      // downstream merges (block, watchlist, requestSellerVerification)
+      // always have a doc to land on.
+      if (!snap.exists()) {
+        try {
+          await setDoc(doc(db, 'users', uid), { displayName: '' }, { merge: true });
+        } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
+      }
     } catch (e) {
       console.warn('checkSellerStatus failed:', e && e.code || e);
       window.IS_VERIFIED_SELLER = false;
@@ -3225,6 +3375,10 @@ window.confirmPayment = async function() {
       document.getElementById('codeSentDesc').textContent = sentTo ? `Code sent to ${sentTo}.` : 'Code sent.';
       const btn = document.getElementById('sendCodeBtn');
       if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code'; }
+      // Focus the OTP field so iOS/Android auto-fill from the SMS lands
+      // straight in the input — saves the user a tap.
+      try { document.getElementById('codeInput').focus(); } catch {}
+      armResendCode();
     });
     FBAuthPlugin.addListener('phoneVerificationFailed', (event) => {
       const err = document.getElementById('authError1');
@@ -3232,7 +3386,53 @@ window.confirmPayment = async function() {
       const btn = document.getElementById('sendCodeBtn');
       if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code'; }
     });
+    // Native Google sign-in errors surface through this event. Without a
+    // listener the plugin silently swallows them (cancelled, network,
+    // missing CFBundleURLSchemes), leaving the user staring at a frozen
+    // sign-in screen. Mirror them into the email-side error region since
+    // the Google button lives there.
+    FBAuthPlugin.addListener('googleSignInError', (event) => {
+      const err = document.getElementById('authErrorEmail');
+      const code = (event && event.code) || '';
+      let msg = (event && event.message) || 'Google sign-in failed. Try again.';
+      if (code === 'auth/cancelled' || /cancel/i.test(msg)) return; // user backed out
+      if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
+      if (code === 'auth/account-exists-with-different-credential') {
+        msg = 'An account with that email already exists. Sign in with your original method first.';
+      }
+      if (err) err.textContent = msg;
+      console.warn('[auth] native google sign-in failed:', code, event && event.message);
+    });
   }
+
+  // Reveal the "Resend code" link after a 30s cool-down so users who
+  // never receive the SMS aren't stuck. Cancelled if the user navigates
+  // back to step 1 (back-to-phone) since the timer would otherwise fire
+  // against a hidden DOM.
+  let resendTimer = null;
+  function armResendCode() {
+    const link = document.getElementById('resendCodeBtn');
+    if (!link) return;
+    link.style.display = 'none';
+    if (resendTimer) { clearTimeout(resendTimer); resendTimer = null; }
+    resendTimer = setTimeout(() => { link.style.display = 'inline-block'; resendTimer = null; }, 30000);
+  }
+  window.resendCode = function() {
+    // Drop any in-memory verification state so sendCode runs the full
+    // path again. For native phone-auth this just re-arms the listener;
+    // for web we also rebuild reCAPTCHA which is single-use.
+    nativeVerificationId = null;
+    confirmationResult = null;
+    try { window.recaptchaVerifier?.clear(); } catch {}
+    window.recaptchaVerifier = null;
+    const link = document.getElementById('resendCodeBtn');
+    if (link) link.style.display = 'none';
+    // Flip back to step 1 visually so the same sendCode UI handles the
+    // re-send (button text + error region are reused).
+    document.getElementById('authStep1').style.display = 'block';
+    document.getElementById('authStep2').style.display = 'none';
+    if (typeof window.sendCode === 'function') window.sendCode();
+  };
 
   window.sendCode = async function() {
     const raw = document.getElementById('phoneInput').value;
@@ -3279,6 +3479,10 @@ window.confirmPayment = async function() {
       document.getElementById('authStep1').style.display = 'none';
       document.getElementById('authStep2').style.display = 'block';
       document.getElementById('codeSentDesc').textContent = `Code sent to ${phone}.`;
+      // Auto-focus the OTP field — saves a tap on iOS where the keyboard
+      // doesn't open until the input is focused.
+      try { document.getElementById('codeInput').focus(); } catch {}
+      armResendCode();
     } catch(e) {
       err.textContent = e.message || 'Failed to send code.';
       btn.disabled = false; btn.textContent = 'Send Verification Code';
@@ -3322,6 +3526,11 @@ window.confirmPayment = async function() {
       return;
     }
 
+    if (!confirmationResult) {
+      err.textContent = 'Session expired. Send code again.';
+      btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
+      return;
+    }
     try { await confirmationResult.confirm(code); }
     catch(e) { err.textContent = 'Invalid code.'; btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox'; }
   };
@@ -3333,6 +3542,10 @@ window.confirmPayment = async function() {
     document.getElementById('sendCodeBtn').disabled = false;
     document.getElementById('sendCodeBtn').textContent = 'Send Verification Code';
     nativeVerificationId = null;
+    confirmationResult = null;
+    if (resendTimer) { clearTimeout(resendTimer); resendTimer = null; }
+    const link = document.getElementById('resendCodeBtn');
+    if (link) link.style.display = 'none';
     // Reset reCAPTCHA — single-use, retrying without rebuild throws auth/internal-error.
     try { window.recaptchaVerifier?.clear(); } catch {}
     window.recaptchaVerifier = null;
@@ -3398,11 +3611,23 @@ window.confirmPayment = async function() {
         await signInWithEmailAndPassword(auth, email, pw);
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        // Bootstrap the users/{uid} doc so downstream code (watchlist,
+        // blocking, seller verification merges) has a doc to merge into.
+        // Schema is strict — see firestore.rules `match /users/{userId}`:
+        // only [phone, termsAgreed, termsAgreedAt, displayName, watchlist,
+        // blocked] are accepted at create time. Anything else (including
+        // `email`, `createdAt`, `isVerifiedSeller`) is rejected by rules.
+        try {
+          await setDoc(doc(db, 'users', cred.user.uid), { displayName: '' }, { merge: true });
+        } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
         // Fire-and-forget: send the verification email. Failure here doesn't
         // block sign-up — the user still has an account, they just won't see
         // the verification link until they retry. The unverified-banner in
         // the app surfaces this state.
-        try { await sendEmailVerification(cred.user); } catch (_) {}
+        try {
+          await sendEmailVerification(cred.user);
+          if (window.showToast) showToast('Verification email sent to ' + email + '. Check your inbox.', 'success');
+        } catch (_) {}
       }
       // onAuthStateChanged fires and dismisses the auth screen.
     } catch (e) {
@@ -3473,6 +3698,26 @@ window.confirmPayment = async function() {
 
   window.signOut = async function() {
     if (!confirm('Sign out?')) return;
+    // Tear down any open UI before flipping auth state — otherwise an
+    // open modal can briefly render with stale user data while
+    // onAuthStateChanged is still propagating.
+    try { window.closeShopDashboard && window.closeShopDashboard(); } catch {}
+    try { window.closeInbox && window.closeInbox(); } catch {}
+    try { window.closeChat && window.closeChat(); } catch {}
+    try { window.closeDetailModalDirect && window.closeDetailModalDirect(); } catch {}
+    try { window.closeModalDirect && window.closeModalDirect(); } catch {}
+    try { window.closeSellModalDirect && window.closeSellModalDirect(); } catch {}
+    try { window.closeVerifyModal && window.closeVerifyModal(); } catch {}
+    try { window.closeCheckoutDirect && window.closeCheckoutDirect(); } catch {}
+    try { document.getElementById('userMenu').classList.remove('open'); } catch {}
+    // Drop cached profile lookups so the next sign-in re-fetches fresh.
+    try { window.PROFILE_CACHE && window.PROFILE_CACHE.clear && window.PROFILE_CACHE.clear(); } catch {}
+    // Reset auth-derived globals up front so any code that runs in the
+    // same tick (badges, sell-gate checks) sees a clean signed-out state
+    // even before onAuthStateChanged fires.
+    window.GUEST_MODE = false;
+    window.CURRENT_USER = null;
+    window.IS_VERIFIED_SELLER = false;
     // Sign out from both SDKs to keep their states aligned.
     if (IS_NATIVE && FBAuthPlugin) {
       try { await FBAuthPlugin.signOut(); } catch {}
@@ -3609,13 +3854,17 @@ window.confirmPayment = async function() {
 
   async function uploadPhotos(listingId) {
     if (selectedFiles.length === 0) return [];
+    const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+    if (!uid) throw new Error('not signed in');
     const progress = document.getElementById('uploadProgress');
     const bar = document.getElementById('uploadProgressBar');
     progress.style.display = 'block';
     const urls = [];
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      const storageRef = ref(storage, `listings/${listingId}/${Date.now()}_${file.name}`);
+      // Path includes sellerId so storage rules can verify ownership without
+      // a cross-service firestore.get() (which was 403'ing due to consistency lag).
+      const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       urls.push(url);
@@ -3687,11 +3936,15 @@ window.confirmPayment = async function() {
     }
     const btn = document.getElementById('submitListingBtn');
     btn.disabled = true; btn.textContent = selectedFiles.length > 0 ? 'Uploading photos…' : 'Submitting…';
+    // Track the just-created listing doc so we can roll it back if the
+    // photo-upload step fails. Without this, a 403/network error mid-upload
+    // leaves an orphaned listing doc with photos: [] in Firestore.
+    let docRef = null;
     try {
       // Listings auto-expire 60 days after creation; sellers can renew
       // from the My Shop dashboard.
       const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      const docRef = await addDoc(collection(db, 'listings'), {
+      docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price, bid: Math.round(price*0.9),
         condition, desc, badge: 'new',
         photos: [], sellerId: window.CURRENT_USER.uid,
@@ -3723,7 +3976,41 @@ window.confirmPayment = async function() {
       closeSellModalDirect();
       showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'), 'success');
       loadListings();
-    } catch(e) { showToast('Error submitting. Try again.'); }
+    } catch(e) {
+      console.error('[submitListing] failed:', e?.code, e?.message, e);
+      const code = e?.code || '';
+      // Roll back the just-created listing if it exists AND the failure was
+      // *not* the listing-creation step itself. addDoc rejections surface as
+      // codes prefixed with 'firestore/' or 'permission-denied' before docRef
+      // is assigned — in that case docRef is still null so we skip rollback.
+      // Storage 403/permission errors aren't going to recover on retry, so
+      // we delete the orphan doc to avoid polluting the marketplace feed.
+      // We only skip rollback for 'storage/canceled' / 'storage/retry-limit'
+      // style transient blips where a retry could plausibly succeed.
+      if (docRef) {
+        const isTransientUploadBlip =
+          code === 'storage/canceled' || code === 'storage/retry-limit-exceeded';
+        if (!isTransientUploadBlip) {
+          try {
+            await deleteDoc(docRef);
+            console.info('[submitListing] rolled back orphan listing', docRef.id);
+          } catch (rollbackErr) {
+            console.warn('[submitListing] rollback failed', rollbackErr);
+          }
+        }
+      }
+      let msg = 'Error submitting. Try again.';
+      if (code.includes('permission-denied') || code.includes('unauthenticated')) {
+        msg = 'Permission denied. Sign out, sign back in, and try again.';
+      } else if (code.includes('storage/')) {
+        msg = 'Photo upload failed. Try a smaller image or fewer photos.';
+      } else if (code.includes('app-check')) {
+        msg = 'App verification failed. Refresh the page and try again.';
+      } else if (e?.message) {
+        msg = 'Error: ' + e.message.slice(0, 120);
+      }
+      showToast(msg);
+    }
     btn.disabled = false; btn.textContent = 'Submit Listing';
   };
 </script>
@@ -3919,6 +4206,24 @@ function applyFilters(list) {
   return out;
 }
 
+// Map a free-text condition value (sell-modal options + a few legacy
+// labels) to (label, color-class). Returns null when the condition is
+// missing/blank so we skip the pill entirely. Case-insensitive match,
+// falls back to a neutral gray pill for unknown values.
+function conditionBadgeMeta(raw) {
+  if (!raw) return null;
+  const v = String(raw).trim();
+  if (!v) return null;
+  const k = v.toLowerCase();
+  if (k === 'new with tags' || k === 'new')                          return { label: v, cls: 'cond-new' };
+  if (k === 'like new' || k === 'excellent')                          return { label: v, cls: 'cond-likenew' };
+  if (k === 'very good' || k === 'lightly used' || k === 'good')      return { label: v, cls: 'cond-good' };
+  if (k === 'used' || k === 'fair')                                   return { label: v, cls: 'cond-fair' };
+  if (k === 'for parts' || k === 'parts')                             return { label: v, cls: 'cond-parts' };
+  return { label: v, cls: '' };
+}
+window.conditionBadgeMeta = conditionBadgeMeta;
+
 function buildProducts(filter) {
   if (filter !== undefined) window.__filter.cat = filter;
   const all = window.PRODUCTS || [];
@@ -3961,23 +4266,33 @@ function buildProducts(filter) {
     const sellerVerifiedSlot = p.sellerId
       ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
       : '';
+    const sellerRatingSlot = p.sellerId
+      ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
+      : '';
     const totalQty = Math.max(1, Number(p.quantity || 1));
     const soldQty = Math.max(0, Number(p.quantitySold || 0));
     const remaining = Math.max(0, totalQty - soldQty);
     const stockBadge = totalQty > 1 && p.status !== 'sold'
       ? `<span class="stock-badge">${remaining} in stock</span>`
       : '';
+    // Condition pill — top-right corner of the photo, sits below the heart.
+    const condMeta = conditionBadgeMeta(p.condition);
+    const condPill = condMeta
+      ? `<span class="cond-pill ${condMeta.cls}">${window.safeText(condMeta.label)}</span>`
+      : '';
     return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
       `<div class="product-img-wrap">${soldBadge}`+
         `${mainImg}`+
         `${badge}`+
         `${stockBadge}`+
-        `<button class="fav-btn" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
+        `<button class="fav-btn${fav.has(p.id)?' liked':''}" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
+        `${condPill}`+
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
         `<div class="product-brand">${window.safeText(p.brand)}${sellerVerifiedSlot}</div>`+
         `<div class="product-name">${window.safeText(p.name)}</div>`+
+        `${sellerRatingSlot}`+
         `<div class="product-market">`+
           `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
           `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
@@ -3992,6 +4307,8 @@ function buildProducts(filter) {
   }).join('');
   // Async hydrate verified-seller pills inside listing cards (Feature #3).
   hydrateVerifiedSellerPills(document.getElementById('productGrid'));
+  // Async hydrate seller star ratings on each card. Empty if 0 reviews.
+  hydrateSellerRatings(document.getElementById('productGrid'));
 }
 
 // Walk a container, find all .seller-verified-slot[data-seller-id] elements,
@@ -4017,6 +4334,48 @@ async function hydrateVerifiedSellerPills(rootEl) {
       bySeller.get(sid).forEach(slot => {
         slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">🛡️</span>';
       });
+    } catch (_e) { /* ignore */ }
+  });
+  await Promise.allSettled(tasks);
+}
+
+// Walk a container, find all .seller-rating-slot[data-seller-id] elements,
+// dedupe by sellerId, and inject a ★ avg (count) row pulled from the
+// profile aggregate (avgRating + reviewCount fields, written by the
+// `onReviewWrite` Cloud Function). Falls back to loadUserReviews when
+// the aggregate hasn't been computed yet. Slots stay empty for sellers
+// with 0 reviews — the `:empty` CSS rule hides them so cards don't get
+// a stray gap. Best-effort, never throws.
+async function hydrateSellerRatings(rootEl) {
+  if (!rootEl) return;
+  const slots = rootEl.querySelectorAll('.seller-rating-slot[data-seller-id]');
+  if (!slots.length) return;
+  const bySeller = new Map();
+  slots.forEach(slot => {
+    const sid = slot.getAttribute('data-seller-id');
+    if (!sid) return;
+    if (!bySeller.has(sid)) bySeller.set(sid, []);
+    bySeller.get(sid).push(slot);
+  });
+  const tasks = Array.from(bySeller.keys()).map(async sid => {
+    try {
+      const prof = await loadProfile(sid);
+      let count = (prof && typeof prof.reviewCount === 'number') ? prof.reviewCount : null;
+      let avg = (prof && typeof prof.avgRating === 'number') ? prof.avgRating : null;
+      // Fall back to a per-seller review aggregate when the profile doc
+      // doesn't carry the precomputed fields yet (older sellers, pre-CF).
+      if (count == null || avg == null) {
+        if (typeof window.loadUserReviews === 'function') {
+          const agg = await window.loadUserReviews(sid);
+          count = agg ? agg.count : 0;
+          avg = agg ? agg.avg : 0;
+        } else {
+          count = 0; avg = 0;
+        }
+      }
+      if (!count || count <= 0) return;
+      const html = `<span class="pr-star">★</span> ${Number(avg).toFixed(1)} <span class="pr-count">(${Number(count)})</span>`;
+      bySeller.get(sid).forEach(slot => { slot.innerHTML = html; });
     } catch (_e) { /* ignore */ }
   });
   await Promise.allSettled(tasks);
@@ -4122,7 +4481,22 @@ function openDetailModal(id) {
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
-  document.getElementById('detailCondition').textContent = p.condition || 'Good';
+  // Detail condition badge — color-code via conditionBadgeMeta to match
+  // the listing-card pills. Wipe stray classes from a prior listing so a
+  // re-open with a different condition doesn't keep the old tint.
+  const detailCondEl = document.getElementById('detailCondition');
+  detailCondEl.className = 'detail-condition';
+  if (p.condition) {
+    const meta = conditionBadgeMeta(p.condition);
+    detailCondEl.textContent = meta ? meta.label : p.condition;
+    if (meta && meta.cls) {
+      detailCondEl.classList.add('cond-pill', meta.cls);
+    }
+    detailCondEl.style.display = '';
+  } else {
+    detailCondEl.textContent = '';
+    detailCondEl.style.display = 'none';
+  }
   // Real listings: show "—" until we resolve the actual highest bid.
   // Demo listings (numeric ids): show whatever bid/ask was on the demo
   // record, since they have no real Firestore-backed price data.
@@ -5312,6 +5686,9 @@ function openSellModal() {
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
   applySellDraft();
+  // Ensure the AI button starts in the right state for the (possibly
+  // hydrated-from-draft) field values.
+  if (typeof refreshAiDescBtnState === 'function') refreshAiDescBtnState();
   // Wire price-suggest debounce once. Reads from sellTitle + sellBrand,
   // queries Firestore for sold listings of the same brand+title, and
   // shows a suggested band in the .price-suggest panel.
@@ -5386,6 +5763,85 @@ async function suggestPrice() {
   }
 }
 window.suggestPrice = suggestPrice;
+
+// ─────────────────────────────────────────────────────────────
+// AI description generator (Gemini 1.5 Flash via Cloud Function).
+// Refreshes the disabled state of the "Write description for me"
+// button whenever any of the four required fields change. The
+// click handler (aiWriteDescription) calls the callable, fills the
+// textarea, and confirms before overwriting an existing draft.
+// ─────────────────────────────────────────────────────────────
+function refreshAiDescBtnState() {
+  const btn = document.getElementById('aiDescBtn');
+  if (!btn) return;
+  const t = (document.getElementById('sellTitle')     || {}).value || '';
+  const b = (document.getElementById('sellBrand')     || {}).value || '';
+  const c = (document.getElementById('sellCat')       || {}).value || '';
+  const k = (document.getElementById('sellCondition') || {}).value || '';
+  const ready = !!(t.trim() && b.trim() && c.trim() && k.trim());
+  btn.disabled = !ready;
+  btn.title = ready ? 'Generate a description with AI' :
+    'Fill in title, brand, category, and condition first';
+}
+window.refreshAiDescBtnState = refreshAiDescBtnState;
+
+async function aiWriteDescription() {
+  const btn  = document.getElementById('aiDescBtn');
+  const ta   = document.getElementById('sellDesc');
+  if (!btn || !ta || btn.disabled) return;
+  const title     = (document.getElementById('sellTitle')     || {}).value.trim();
+  const brand     = (document.getElementById('sellBrand')     || {}).value.trim();
+  const category  = (document.getElementById('sellCat')       || {}).value.trim();
+  const condition = (document.getElementById('sellCondition') || {}).value.trim();
+  if (!title || !brand || !category || !condition) {
+    showToast('Fill in title, brand, category, and condition first.');
+    return;
+  }
+  // Don't silently overwrite an in-progress draft.
+  const existing = ta.value.trim();
+  if (existing.length > 0) {
+    if (!confirm('Replace your current description with an AI draft?')) return;
+  }
+  if (!window.CURRENT_USER) { showToast('Sign in to use AI description.'); return; }
+  const originalLabel = btn.innerHTML;
+  btn.classList.add('loading');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ai-desc-spark">&#10024;</span> Writing…';
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'generateListingDescription');
+    const result = await fn({ title, brand, category, condition });
+    const text = result && result.data && result.data.description;
+    if (typeof text === 'string' && text.trim()) {
+      ta.value = text.trim();
+      // Persist to draft so refresh doesn't lose the AI text.
+      if (typeof captureSellDraft === 'function') captureSellDraft();
+      showToast('Description ready. Edit before submitting.');
+    } else {
+      showToast("Couldn't generate. Try again.");
+    }
+  } catch (e) {
+    console.error('aiWriteDescription failed:', e);
+    const code = (e && e.code) || '';
+    if (code === 'functions/resource-exhausted') {
+      showToast('Daily limit reached. Edit manually.');
+    } else if (code === 'functions/failed-precondition') {
+      showToast('Verified sellers only. Complete seller setup first.');
+    } else if (code === 'functions/unauthenticated') {
+      showToast('Sign in to use AI description.');
+    } else {
+      showToast("Couldn't generate. Try again.");
+    }
+  } finally {
+    btn.classList.remove('loading');
+    btn.innerHTML = originalLabel;
+    refreshAiDescBtnState();
+  }
+}
+window.aiWriteDescription = aiWriteDescription;
+
 function closeSellModal(e) { if(e.target===document.getElementById('sellModalBackdrop')) closeSellModalDirect(); }
 function closeSellModalDirect() { document.getElementById('sellModalBackdrop').classList.remove('open'); }
 window.closeSellModalDirect = closeSellModalDirect;
@@ -5393,12 +5849,51 @@ window.closeSellModalDirect = closeSellModalDirect;
 function openSearch() {
   document.getElementById('searchOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('searchInput').focus(),50);
+  // Empty input → hide the results dropdown entirely (typeahead spec).
   filterSearch('');
 }
 function closeSearch(e) { if(e.target===document.getElementById('searchOverlay')) document.getElementById('searchOverlay').classList.remove('open'); }
+// Debounced typeahead. The raw `input` event handler calls
+// filterSearch(value), which schedules a 150ms timer; the actual
+// match-and-render runs in filterSearchRender. Calling filterSearch
+// with an empty string hides the dropdown immediately so it doesn't
+// flash a "No matches" frame on backspace-to-empty.
+let __searchDebounceTimer = null;
 function filterSearch(q) {
-  const results = q?window.PRODUCTS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.brand.toLowerCase().includes(q.toLowerCase())):window.PRODUCTS.slice(0,6);
-  document.getElementById('searchResults').innerHTML = results.map(p=>{
+  if (__searchDebounceTimer) { clearTimeout(__searchDebounceTimer); __searchDebounceTimer = null; }
+  const results = document.getElementById('searchResults');
+  if (!results) return;
+  const query = String(q || '').trim();
+  if (!query) {
+    // Empty input — hide the dropdown entirely (no first-N preview).
+    results.innerHTML = '';
+    results.style.display = 'none';
+    return;
+  }
+  __searchDebounceTimer = setTimeout(() => filterSearchRender(query), 150);
+}
+function filterSearchRender(query) {
+  const results = document.getElementById('searchResults');
+  if (!results) return;
+  results.style.display = '';
+  const ql = query.toLowerCase();
+  // Substring match across the fields a buyer would type into a
+  // typeahead: title/name, brand, category, plus description as a
+  // last-resort signal. (Listings have no separate course/club field;
+  // brand covers club names like "Scotty Cameron" today.)
+  const all = (window.PRODUCTS || []).filter(p => {
+    if (!p) return false;
+    const hay = [
+      p.name, p.title, p.brand, p.cat, p.category, p.desc,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(ql);
+  });
+  const matches = all.slice(0, 8);
+  if (!matches.length) {
+    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
+    return;
+  }
+  results.innerHTML = matches.map((p, i) => {
     const id = window.safeId(p.id);
     const url = window.safeImgUrl(p.photos && p.photos[0]);
     const img = url
@@ -5407,13 +5902,15 @@ function filterSearch(q) {
     const verifiedSlot = p.sellerId
       ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
       : '';
-    return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}">`+
+    // tabindex=0 so Enter on a focused row opens the listing via
+    // the keydown handler wired in openSearch().
+    return `<div class="search-result-item" data-action="open-detail-from-search" data-product-id="${window.safeAttr(id)}" tabindex="0" role="option" data-search-idx="${i}">`+
       `<div class="search-res-img">${img}</div>`+
       `<div><div class="search-res-name">${window.safeText(p.name)}${verifiedSlot}</div><div class="search-res-cat">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div>`+
       `<span class="search-res-price">$${Number(p.ask||0).toLocaleString()}</span>`+
     `</div>`;
-  }).join('')||'<div style="padding:1rem;text-align:center;color:var(--gray-400)">No results found</div>';
-  hydrateVerifiedSellerPills(document.getElementById('searchResults'));
+  }).join('');
+  hydrateVerifiedSellerPills(results);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -7323,6 +7820,10 @@ async function openWatchlist() {
   // Reuse the search overlay to display
   document.getElementById('searchOverlay').classList.add('open');
   const results = document.getElementById('searchResults');
+  // The marketplace typeahead hides this list when the search input is
+  // empty; the watchlist re-uses the same overlay, so reset display
+  // before populating.
+  results.style.display = '';
   if (!items.length) {
     results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400)">No liked items yet. Tap the heart on any listing to save it.</div>';
     return;
@@ -7450,6 +7951,10 @@ async function loadSparkline(p) {
 // PROFILES
 // ─────────────────────────────────────────────────────────────
 const PROFILE_CACHE = new Map();
+// Expose so the module-script signOut handler can clear stale profile
+// data on logout. Different script types share the global window object
+// even though they don't share lexical scope.
+window.PROFILE_CACHE = PROFILE_CACHE;
 
 async function loadProfile(uid) {
   if (!uid) return null;
@@ -8086,6 +8591,7 @@ const A = window.__actions;
 A['send-code']               = () => sendCode();
 A['verify-code']             = () => verifyCode();
 A['back-to-phone']           = () => backToPhone();
+A['resend-code']             = () => resendCode();
 A['set-auth-mode']           = (el) => setAuthMode(el);
 A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
@@ -8112,6 +8618,9 @@ A['sign-in-google']          = async () => {
     if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
     if (code === 'auth/popup-blocked') msg = 'Pop-up blocked. Allow pop-ups or use email sign-in.';
     if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
+    if (code === 'auth/account-exists-with-different-credential') {
+      msg = 'An account with that email already exists. Sign in with your original method first.';
+    }
     if (err) err.textContent = msg;
     console.warn('[auth] google sign-in failed:', code, e && e.message);
   }
@@ -8167,6 +8676,26 @@ A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
 A['toggle-user-menu']        = () => document.getElementById('userMenu').classList.toggle('open');
+A['resend-verification-email'] = async () => {
+  // Best-effort resend of the Firebase email-verification link. Hidden
+  // for non-email users; surfaces a generic toast on success and a
+  // specific message on rate-limit so the user knows to wait.
+  try { document.getElementById('userMenu').classList.remove('open'); } catch {}
+  const u = window.CURRENT_USER;
+  if (!u || !u.email) { showToast('Sign in with email to resend verification.'); return; }
+  if (u.emailVerified) { showToast('Your email is already verified.', 'success'); return; }
+  try {
+    const { sendEmailVerification } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js");
+    await sendEmailVerification(u);
+    showToast('Verification email sent to ' + u.email + '. Check your inbox.', 'success');
+  } catch (e) {
+    if (e && e.code === 'auth/too-many-requests') {
+      showToast('Too many requests. Try again in a few minutes.');
+    } else {
+      showToast('Could not send verification email. Try again later.');
+    }
+  }
+};
 A['toggle-mobile-nav']       = () => {
   const d = document.getElementById('mobileNavDrawer');
   if (!d) return;
@@ -8210,13 +8739,49 @@ A['open-orders']             = () => openOrders();
 A['withdraw-bid']            = (el) => withdrawBid(el.dataset.bidId);
 A['toggle-watch']            = (el, ev) => {
   ev.stopPropagation();
-  // Pop animation — re-trigger by removing/adding the class on next frame.
-  el.classList.remove('popped');
-  void el.offsetWidth;
-  el.classList.add('popped');
-  setTimeout(() => el.classList.remove('popped'), 400);
-  toggleWatch(el.dataset.productId);
+  // Two-state animation. We infer the "next" state from whether the
+  // element is currently in the "liked" set — matches the optimistic
+  // toggle inside toggleWatch(). On a fresh like, also spawn a small
+  // CSS-only particle burst (six tiny hearts that float up + fade).
+  const id = el.dataset.productId;
+  const wasLiked = fav.has(id) || fav.has(Number(id));
+  el.classList.remove('popped', 'unpopped');
+  void el.offsetWidth; // force reflow so animation re-triggers
+  if (wasLiked) {
+    // About to unlike → small dip animation, drop "liked" tint.
+    el.classList.remove('liked');
+    el.classList.add('unpopped');
+    setTimeout(() => el.classList.remove('unpopped'), 360);
+  } else {
+    // About to like → spring up, paint red, spawn particle burst.
+    el.classList.add('popped', 'liked');
+    setTimeout(() => el.classList.remove('popped'), 420);
+    spawnHeartBurst(el);
+  }
+  toggleWatch(id);
 };
+// Optional CSS-only flourish — six tiny floating hearts. Skipped when
+// prefers-reduced-motion is set (the .heart-burst rule hides itself).
+function spawnHeartBurst(btn) {
+  if (!btn || typeof window === 'undefined') return;
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  } catch (_e) {}
+  const wrap = document.createElement('span');
+  wrap.className = 'heart-burst';
+  // 6 particles spread across ~80px, each with a small horizontal drift.
+  const drifts = [-26, -14, -4, 6, 16, 28];
+  drifts.forEach((dx, i) => {
+    const p = document.createElement('span');
+    p.className = 'heart-burst-particle';
+    p.textContent = '♥';
+    p.style.setProperty('--hx', dx + 'px');
+    p.style.animationDelay = (i * 30) + 'ms';
+    wrap.appendChild(p);
+  });
+  btn.appendChild(wrap);
+  setTimeout(() => { try { wrap.remove(); } catch (_e) {} }, 900);
+}
 A['submit-review']            = () => submitReview();
 A['open-delete-account']     = () => openDeleteAccountModal();
 A['confirm-delete-account']  = () => confirmDeleteAccount();
@@ -8277,6 +8842,7 @@ A['open-report-review']       = (el) => openReportReview(el.dataset.reviewId);
 A['confirm-report-review']    = () => confirmReportReview();
 A['close-sell-direct']       = () => closeSellModalDirect();
 A['submit-listing']          = () => submitListing();
+A['ai-write-desc']            = () => aiWriteDescription();
 A['close-checkout-direct']   = () => closeCheckoutDirect();
 A['confirm-payment']         = () => confirmPayment();
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
@@ -8387,12 +8953,15 @@ if (fclear) fclear.addEventListener('click', () => {
 });
 
 // Sell-form draft autosave: snapshot every keystroke into localStorage
-// so the long form survives an accidental refresh.
+// so the long form survives an accidental refresh. Also re-evaluates
+// the AI-description button's disabled state on every change.
 SELL_FIELDS.forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', captureSellDraft);
   el.addEventListener('change', captureSellDraft);
+  el.addEventListener('input', refreshAiDescBtnState);
+  el.addEventListener('change', refreshAiDescBtnState);
 });
 
 // Hydrate the watchlist set from Firestore so hearts are rendered
@@ -8414,7 +8983,38 @@ if (photoInput) photoInput.addEventListener('change', (e) => onPhotoSelect(e));
 const termsBox = document.getElementById('termsCheckbox');
 if (termsBox) termsBox.addEventListener('change', () => onTermsCheck());
 const searchIn = document.getElementById('searchInput');
-if (searchIn) searchIn.addEventListener('input', (e) => filterSearch(e.target.value));
+if (searchIn) {
+  searchIn.addEventListener('input', (e) => filterSearch(e.target.value));
+  // Enter from the input opens the first match (typeahead default).
+  // ArrowDown moves focus into the results list so subsequent Enter
+  // opens whichever row the user has selected.
+  searchIn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const first = document.querySelector('#searchResults .search-result-item');
+      if (first) { e.preventDefault(); first.click(); }
+    } else if (e.key === 'ArrowDown') {
+      const first = document.querySelector('#searchResults .search-result-item');
+      if (first) { e.preventDefault(); first.focus(); }
+    }
+  });
+}
+// Enter / arrow keys on a focused result row.
+const searchResultsEl = document.getElementById('searchResults');
+if (searchResultsEl) {
+  searchResultsEl.addEventListener('keydown', (e) => {
+    const row = e.target.closest && e.target.closest('.search-result-item');
+    if (!row) return;
+    if (e.key === 'Enter') { e.preventDefault(); row.click(); return; }
+    if (e.key === 'ArrowDown') {
+      const next = row.nextElementSibling;
+      if (next && next.classList.contains('search-result-item')) { e.preventDefault(); next.focus(); }
+    } else if (e.key === 'ArrowUp') {
+      const prev = row.previousElementSibling;
+      if (prev && prev.classList.contains('search-result-item')) { e.preventDefault(); prev.focus(); }
+      else { e.preventDefault(); const si = document.getElementById('searchInput'); if (si) si.focus(); }
+    }
+  });
+}
 const chatIn = document.getElementById('chatInput');
 if (chatIn) chatIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
 const uploadZone = document.getElementById('uploadZone');

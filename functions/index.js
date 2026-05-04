@@ -13,6 +13,7 @@ admin.initializeApp();
 
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
+const geminiSecret = defineSecret("GEMINI_API_KEY");
 
 const PLATFORM_FEE_PERCENT = 0.065;
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
@@ -2187,5 +2188,165 @@ exports.refundOrder = onCall(
       fulfillmentStatus: "refunded",
     });
     return {refundId: refund.id, status: refund.status};
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// generateListingDescription
+//   Callable that asks Gemini 1.5 Flash to draft a marketplace
+//   listing description from {title, brand, category, condition}.
+//   - Auth required
+//   - Verified-seller required (users/{uid}.isVerifiedSeller, with a
+//     fallback to legacy `sellerVerified` field for older users)
+//   - 30 calls/user/day rate limit, tracked at users/{uid}/aiUsage/{YYYY-MM-DD}
+//   - Returns { description: <trimmed text> }
+// ─────────────────────────────────────────────────────────────
+exports.generateListingDescription = onCall(
+  {secrets: [geminiSecret], cors: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in.");
+    }
+    const uid = request.auth.uid;
+    const data = request.data || {};
+
+    // ── Input validation ──
+    const requireString = (key, max) => {
+      const v = data[key];
+      if (typeof v !== "string") {
+        throw new HttpsError("invalid-argument", `${key} required`);
+      }
+      const trimmed = v.trim();
+      if (!trimmed) {
+        throw new HttpsError("invalid-argument", `${key} required`);
+      }
+      if (trimmed.length > max) {
+        throw new HttpsError("invalid-argument", `${key} too long`);
+      }
+      return trimmed;
+    };
+    const title = requireString("title", 200);
+    const brand = requireString("brand", 200);
+    const category = requireString("category", 200);
+    const condition = requireString("condition", 200);
+
+    const db = admin.firestore();
+
+    // ── Verified-seller gate ──
+    let userSnap;
+    try {
+      userSnap = await db.collection("users").doc(uid).get();
+    } catch (err) {
+      logger.error("generateListingDescription: user lookup failed", err);
+      throw new HttpsError("internal", "Could not verify seller.");
+    }
+    const userData = userSnap.exists ? userSnap.data() : {};
+    const isVerified = !!(userData.isVerifiedSeller || userData.sellerVerified);
+    if (!isVerified) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Verified sellers only.",
+      );
+    }
+
+    // ── Rate limit (30/day per user) ──
+    // Stored at users/{uid}/aiUsage/{YYYY-MM-DD} so it's auditable and
+    // self-cleans (one tiny doc per day per user).
+    const dateKey = new Date().toISOString().slice(0, 10); // UTC day
+    const usageRef = db
+        .collection("users").doc(uid)
+        .collection("aiUsage").doc(dateKey);
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(usageRef);
+        const count = snap.exists ? Number(snap.data().count || 0) : 0;
+        if (count >= 30) {
+          throw new HttpsError("resource-exhausted", "Daily AI limit reached.");
+        }
+        tx.set(usageRef, {
+          count: count + 1,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("generateListingDescription: rate-limit txn failed", err);
+      throw new HttpsError("internal", "Could not record AI usage.");
+    }
+
+    // ── Build prompt + call Gemini 1.5 Flash via REST ──
+    const prompt =
+      "Write a concise (60-100 word) marketplace listing description for " +
+      "a used golf item. " +
+      `Item: ${title}. Brand: ${brand}. Category: ${category}. ` +
+      `Condition: ${condition}. ` +
+      "Tone: confident and informative, no fluff. " +
+      "Don't invent specs or features that weren't given. " +
+      "Don't use emojis. Don't use 'I'/'you' — third person. " +
+      "Don't include the price. Output the description only, no preamble.";
+
+    const apiKey = geminiSecret.value();
+    if (!apiKey) {
+      logger.error("generateListingDescription: GEMINI_API_KEY missing");
+      throw new HttpsError("internal", "AI service not configured.");
+    }
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      "gemini-1.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
+
+    let aiResp;
+    try {
+      aiResp = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          contents: [{parts: [{text: prompt}]}],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 256,
+          },
+        }),
+      });
+    } catch (err) {
+      logger.error("generateListingDescription: fetch failed", err);
+      throw new HttpsError("internal", "Could not reach AI service.");
+    }
+
+    if (!aiResp.ok) {
+      const body = await aiResp.text().catch(() => "");
+      logger.error(
+          "generateListingDescription: Gemini error",
+          aiResp.status,
+          body,
+      );
+      throw new HttpsError("internal", "AI service returned an error.");
+    }
+
+    let payload;
+    try {
+      payload = await aiResp.json();
+    } catch (err) {
+      logger.error("generateListingDescription: bad JSON", err);
+      throw new HttpsError("internal", "AI service returned invalid response.");
+    }
+
+    const text =
+      payload &&
+      payload.candidates &&
+      payload.candidates[0] &&
+      payload.candidates[0].content &&
+      payload.candidates[0].content.parts &&
+      payload.candidates[0].content.parts[0] &&
+      payload.candidates[0].content.parts[0].text;
+
+    if (typeof text !== "string" || !text.trim()) {
+      logger.error(
+          "generateListingDescription: empty candidate",
+          JSON.stringify(payload).slice(0, 500),
+      );
+      throw new HttpsError("internal", "AI service returned an empty draft.");
+    }
+
+    return {description: text.trim()};
   },
 );

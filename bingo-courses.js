@@ -2107,16 +2107,6 @@ export const COURSES = [
     logoUrl: '',
   },
   {
-    id: 'sage-valley',
-    name: 'Sage Valley Golf Club',
-    shortName: 'Sage Valley',
-    aliases: ['sage', 'sage valley', 'sage valley club'],
-    location: 'Graniteville, South Carolina',
-    architect: 'Tom Fazio',
-    logo: '🌿',
-    logoUrl: '',
-  },
-  {
     id: 'scioto',
     name: 'Scioto Country Club',
     shortName: 'Scioto',
