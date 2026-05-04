@@ -1776,6 +1776,90 @@
   .bingo-autocomplete-empty button:hover { background: var(--gold-400); }
   .bingo-guess-footer { display: flex; gap: 10px; padding: 0 1.25rem 1.25rem; }
   .bingo-guess-footer .btn-full { padding: 12px; font-size: 14px; }
+
+  /* First-run seller tour (Feature: tour-v1) */
+  /* Backdrop dims surroundings so the tooltip + highlighted target pop.
+     Sits below the shop-dashboard close button but above tab content. */
+  #sellerTourBackdrop {
+    display: none; position: fixed; inset: 0; z-index: 480;
+    background: rgba(10, 16, 12, 0.55);
+    animation: sellerTourFadeIn 0.22s ease both;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #sellerTourBackdrop.open { display: block; }
+  #sellerTourBackdrop.closing { animation: sellerTourFadeOut 0.18s ease both; }
+  @keyframes sellerTourFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sellerTourFadeOut { from { opacity: 1; } to { opacity: 0; } }
+  /* Highlight ring over the targeted element. We render this as a
+     fixed-position overlay so it can't break the existing layout. */
+  .seller-tour-spot {
+    position: fixed; z-index: 481; pointer-events: none;
+    border-radius: 12px;
+    box-shadow: 0 0 0 3px var(--gold-400), 0 0 0 9999px rgba(10,16,12,0.55);
+    transition: top 0.25s cubic-bezier(.4,0,.2,1),
+                left 0.25s cubic-bezier(.4,0,.2,1),
+                width 0.25s cubic-bezier(.4,0,.2,1),
+                height 0.25s cubic-bezier(.4,0,.2,1);
+    animation: sellerTourPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes sellerTourPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--gold-400), 0 0 0 9999px rgba(10,16,12,0.55); }
+    50%      { box-shadow: 0 0 0 6px var(--gold-300), 0 0 0 9999px rgba(10,16,12,0.55); }
+  }
+  /* Tooltip card. Defaults to the centered/backdrop fallback used when
+     the target can't be located on small screens. */
+  .seller-tour-tip {
+    position: fixed; z-index: 482;
+    width: 290px; max-width: calc(100vw - 24px);
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-hover);
+    padding: 16px 18px 14px;
+    font-family: var(--font-body);
+    color: var(--gray-900);
+    animation: sellerTourTipIn 0.22s cubic-bezier(.4,0,.2,1) both;
+  }
+  .seller-tour-tip.closing { animation: sellerTourTipOut 0.16s ease both; }
+  @keyframes sellerTourTipIn  { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes sellerTourTipOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(0.98); } }
+  .seller-tour-step {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+    text-transform: uppercase; color: var(--gold-600); margin-bottom: 4px;
+  }
+  .seller-tour-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 16px;
+    color: var(--green-900); margin-bottom: 6px; line-height: 1.25;
+  }
+  .seller-tour-desc {
+    font-size: 13.5px; line-height: 1.5; color: var(--gray-700); margin-bottom: 12px;
+  }
+  .seller-tour-actions {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .seller-tour-next {
+    background: var(--green-700); color: var(--white); border: none;
+    border-radius: 50px; padding: 8px 18px; font-family: var(--font-body);
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition);
+  }
+  .seller-tour-next:hover { background: var(--green-600); }
+  .seller-tour-next:active { transform: scale(0.97); }
+  .seller-tour-skip {
+    background: none; border: none; color: var(--gray-500);
+    font-family: var(--font-body); font-size: 12px; cursor: pointer;
+    text-decoration: underline; padding: 4px 2px;
+  }
+  .seller-tour-skip:hover { color: var(--gray-700); }
+  /* Optional little arrow that points from the tooltip toward the spot. */
+  .seller-tour-tip::before {
+    content: ''; position: absolute; width: 12px; height: 12px;
+    background: var(--white); transform: rotate(45deg);
+    box-shadow: -1px -1px 2px rgba(0,0,0,0.04);
+  }
+  .seller-tour-tip[data-arrow="top"]::before    { top: -6px; left: 24px; }
+  .seller-tour-tip[data-arrow="bottom"]::before { bottom: -6px; left: 24px; }
+  .seller-tour-tip[data-arrow="left"]::before   { left: -6px; top: 24px; }
+  .seller-tour-tip[data-arrow="right"]::before  { right: -6px; top: 24px; }
+  .seller-tour-tip[data-arrow="none"]::before   { display: none; }
 </style>
 </head>
 <body>
@@ -5166,6 +5250,8 @@ async function openShopDashboard() {
   document.getElementById('shopDashboard').classList.add('open');
   document.body.style.overflow = 'hidden';
   await loadShopData();
+  // First-run seller tour (Feature: tour-v1) — fires once per device.
+  try { maybeRunSellerTour(); } catch (_) {}
 }
 window.SHOP_DATA = { listings: [], orders: [], profile: null };
 
@@ -5569,7 +5655,247 @@ function exportPayoutsCsv() {
 function closeShopDashboard() {
   document.getElementById('shopDashboard').classList.remove('open');
   document.body.style.overflow = '';
+  // Defensive: if the user closes the dashboard mid-tour, tear it down so
+  // the backdrop + tooltip don't linger over the rest of the app.
+  try { dismissSellerTour({ markSeen: false }); } catch (_) {}
 }
+
+// ─────────────────────────────────────────────────────────────
+// First-run seller tour (Feature: tour-v1)
+// ─────────────────────────────────────────────────────────────
+// 3–4 step tooltip walkthrough that fires the FIRST time a user opens
+// "My Shop". Tracked by localStorage so it never repeats.
+// To reset for testing: localStorage.removeItem('teebox-tour-seen-v1')
+const SELLER_TOUR_KEY = 'teebox-tour-seen-v1';
+let SELLER_TOUR_STATE = null;
+
+function _sellerTourSteps() {
+  // Each step locates its target lazily so we always grab the live DOM
+  // node — the Payouts tab, for example, is hidden until clicked.
+  return [
+    {
+      title: 'Connect Stripe',
+      desc: 'Sellers get paid through Stripe. Connect your account here so we can send your earnings to your bank.',
+      // Open the Payouts tab so the Stripe banner is actually visible.
+      before: () => { try { switchDashTab('payouts'); } catch (_) {} },
+      target: () => document.querySelector('#dashTabPayouts .stripe-connect-banner')
+                 || document.getElementById('dashTabPayouts'),
+      placement: 'bottom'
+    },
+    {
+      title: 'List your first item',
+      desc: 'Tap here to create your first listing. Add photos, set a price, and you’re live.',
+      target: () => document.querySelector('.bottom-nav-item.sell')
+                 || document.querySelector('[data-action="handle-sell"]'),
+      placement: 'top'
+    },
+    {
+      title: 'Manage offers',
+      desc: 'Buyers can make offers below your asking price. You can accept, decline, or counter from this tab.',
+      target: () => document.querySelector('.dash-tab[data-tab="offers"]'),
+      placement: 'bottom'
+    },
+    {
+      title: 'Check your inbox',
+      desc: 'Buyers will message you about your listings here. Quick replies build seller reputation.',
+      target: () => document.querySelector('.bottom-nav-item[data-tab="inbox"]')
+                 || document.querySelector('[data-action="open-inbox"]'),
+      placement: 'top'
+    }
+  ];
+}
+
+function maybeRunSellerTour() {
+  try {
+    if (localStorage.getItem(SELLER_TOUR_KEY) === '1') return;
+  } catch (_) { return; }
+  // Wait one paint so renderShopTables / renderPayouts have populated the
+  // DOM before we measure target rects.
+  setTimeout(() => { try { runSellerTour(); } catch (e) { console.warn('Tour failed:', e); } }, 350);
+}
+
+function runSellerTour() {
+  if (SELLER_TOUR_STATE) return; // already running
+  const steps = _sellerTourSteps();
+  if (!steps.length) return;
+
+  // Build backdrop + spotlight + tooltip nodes once; we'll mutate them
+  // between steps rather than re-creating the DOM.
+  let backdrop = document.getElementById('sellerTourBackdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'sellerTourBackdrop';
+    document.body.appendChild(backdrop);
+  }
+  let spot = document.getElementById('sellerTourSpot');
+  if (!spot) {
+    spot = document.createElement('div');
+    spot.id = 'sellerTourSpot';
+    spot.className = 'seller-tour-spot';
+    document.body.appendChild(spot);
+  }
+  let tip = document.getElementById('sellerTourTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'sellerTourTip';
+    tip.className = 'seller-tour-tip';
+    document.body.appendChild(tip);
+  }
+
+  backdrop.classList.remove('closing');
+  backdrop.classList.add('open');
+
+  SELLER_TOUR_STATE = { idx: 0, steps, backdrop, spot, tip };
+
+  // Click on backdrop dims but does NOT advance — explicit user intent only.
+  backdrop.onclick = (e) => { e.stopPropagation(); };
+
+  // Keyboard: ESC dismisses, Enter advances.
+  SELLER_TOUR_STATE.keyHandler = (e) => {
+    if (!SELLER_TOUR_STATE) return;
+    if (e.key === 'Escape') { e.preventDefault(); dismissSellerTour({ markSeen: true }); }
+    else if (e.key === 'Enter') { e.preventDefault(); advanceSellerTour(); }
+  };
+  document.addEventListener('keydown', SELLER_TOUR_STATE.keyHandler);
+
+  // Reposition on resize / scroll so the spotlight tracks its target.
+  SELLER_TOUR_STATE.repos = () => _renderSellerTourStep();
+  window.addEventListener('resize', SELLER_TOUR_STATE.repos);
+  window.addEventListener('scroll', SELLER_TOUR_STATE.repos, true);
+
+  _renderSellerTourStep();
+}
+
+function _renderSellerTourStep() {
+  if (!SELLER_TOUR_STATE) return;
+  const { idx, steps, spot, tip } = SELLER_TOUR_STATE;
+  const step = steps[idx];
+  if (!step) return;
+
+  if (typeof step.before === 'function') {
+    try { step.before(); } catch (_) {}
+  }
+
+  const total = steps.length;
+  const isLast = idx === total - 1;
+  tip.innerHTML =
+    '<div class="seller-tour-step">Step ' + (idx + 1) + ' of ' + total + '</div>' +
+    '<div class="seller-tour-title">' + safeText(step.title) + '</div>' +
+    '<div class="seller-tour-desc">' + safeText(step.desc) + '</div>' +
+    '<div class="seller-tour-actions">' +
+      '<button type="button" class="seller-tour-skip" data-action="seller-tour-skip">Skip tour</button>' +
+      '<button type="button" class="seller-tour-next" data-action="seller-tour-next">' +
+        (isLast ? 'Got it' : 'Next') +
+      '</button>' +
+    '</div>';
+
+  // Defer one frame so the just-triggered tab switch (e.g. Payouts) has
+  // time to render before we measure its bounding rect.
+  requestAnimationFrame(() => _placeSellerTourTip(step));
+}
+
+function _placeSellerTourTip(step) {
+  if (!SELLER_TOUR_STATE) return;
+  const { spot, tip } = SELLER_TOUR_STATE;
+  const target = (typeof step.target === 'function') ? step.target() : null;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const tipW = 290, tipH = tip.offsetHeight || 150;
+  const margin = 12, pad = 6;
+
+  // Helper: center the tip with no spotlight (mobile fallback).
+  const centerFallback = () => {
+    spot.style.display = 'none';
+    tip.style.left = Math.max(12, (vw - tipW) / 2) + 'px';
+    tip.style.top  = Math.max(12, (vh - tipH) / 2) + 'px';
+    tip.dataset.arrow = 'none';
+  };
+
+  if (!target || !target.getBoundingClientRect) return centerFallback();
+  const r = target.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return centerFallback();
+
+  // Position spotlight over target.
+  spot.style.display = 'block';
+  spot.style.left   = Math.max(0, r.left - pad) + 'px';
+  spot.style.top    = Math.max(0, r.top - pad)  + 'px';
+  spot.style.width  = (r.width + pad * 2) + 'px';
+  spot.style.height = (r.height + pad * 2) + 'px';
+
+  // Decide tooltip placement. Prefer the requested side, but fall back
+  // if it doesn't fit.
+  let placement = step.placement || 'bottom';
+  const fits = {
+    bottom: (r.bottom + margin + tipH) < vh,
+    top:    (r.top - margin - tipH) > 0,
+    right:  (r.right + margin + tipW) < vw,
+    left:   (r.left - margin - tipW) > 0
+  };
+  if (!fits[placement]) {
+    placement = ['bottom', 'top', 'right', 'left'].find(p => fits[p]) || 'bottom';
+  }
+
+  let left, top, arrow;
+  if (placement === 'bottom') {
+    left = Math.min(vw - tipW - 12, Math.max(12, r.left));
+    top  = r.bottom + margin;
+    arrow = 'top';
+  } else if (placement === 'top') {
+    left = Math.min(vw - tipW - 12, Math.max(12, r.left));
+    top  = r.top - tipH - margin;
+    arrow = 'bottom';
+  } else if (placement === 'right') {
+    left = r.right + margin;
+    top  = Math.min(vh - tipH - 12, Math.max(12, r.top));
+    arrow = 'left';
+  } else {
+    left = r.left - tipW - margin;
+    top  = Math.min(vh - tipH - 12, Math.max(12, r.top));
+    arrow = 'right';
+  }
+
+  // Final clamp so we never spill past the viewport on tiny screens.
+  if (left < 8 || (left + tipW) > (vw - 8) || top < 8 || (top + tipH) > (vh - 8)) {
+    return centerFallback();
+  }
+
+  tip.style.left = left + 'px';
+  tip.style.top  = top + 'px';
+  tip.dataset.arrow = arrow;
+}
+
+function advanceSellerTour() {
+  if (!SELLER_TOUR_STATE) return;
+  if (SELLER_TOUR_STATE.idx >= SELLER_TOUR_STATE.steps.length - 1) {
+    dismissSellerTour({ markSeen: true });
+    return;
+  }
+  SELLER_TOUR_STATE.idx += 1;
+  _renderSellerTourStep();
+}
+
+function dismissSellerTour(opts) {
+  const markSeen = !opts || opts.markSeen !== false;
+  if (markSeen) {
+    try { localStorage.setItem(SELLER_TOUR_KEY, '1'); } catch (_) {}
+  }
+  if (!SELLER_TOUR_STATE) return;
+  const { backdrop, spot, tip, keyHandler, repos } = SELLER_TOUR_STATE;
+  if (keyHandler) document.removeEventListener('keydown', keyHandler);
+  if (repos) {
+    window.removeEventListener('resize', repos);
+    window.removeEventListener('scroll', repos, true);
+  }
+  // Smooth fade-out, then remove nodes.
+  if (backdrop) backdrop.classList.add('closing');
+  if (tip) tip.classList.add('closing');
+  setTimeout(() => {
+    if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+    if (spot && spot.parentNode) spot.parentNode.removeChild(spot);
+    if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
+  }, 200);
+  SELLER_TOUR_STATE = null;
+}
+
 let revenueChartInstance = null;
 
 function renderRevenueChart(rangeDays) {
@@ -8884,6 +9210,8 @@ A['avatar-pick']             = () => document.getElementById('avatarFileInput').
 A['pin-listing']             = (el) => pinListingToProfile(el.dataset.listingId);
 A['unpin-listing']           = (_el) => pinListingToProfile(null);
 A['payout-export-csv']       = () => exportPayoutsCsv();
+A['seller-tour-next']        = () => advanceSellerTour();
+A['seller-tour-skip']        = () => dismissSellerTour({ markSeen: true });
 A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
