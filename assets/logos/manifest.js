@@ -64,7 +64,6 @@ export const LOGOS_AVAILABLE = new Set([
   'plainfield',
   'quail-hollow',
   'rich-harvest-farms',
-  'sage-valley',
   'sand-valley',
   'scioto',
   'secession',
