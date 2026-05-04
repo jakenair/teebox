@@ -4489,18 +4489,12 @@ function buildProducts(filter) {
     const stockBadge = totalQty > 1 && p.status !== 'sold'
       ? `<span class="stock-badge">${remaining} in stock</span>`
       : '';
-    // Condition pill — top-right corner of the photo, sits below the heart.
-    const condMeta = conditionBadgeMeta(p.condition);
-    const condPill = condMeta
-      ? `<span class="cond-pill ${condMeta.cls}">${window.safeText(condMeta.label)}</span>`
-      : '';
     return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
       `<div class="product-img-wrap">${soldBadge}`+
         `${mainImg}`+
         `${badge}`+
         `${stockBadge}`+
         `<button class="fav-btn${fav.has(p.id)?' liked':''}" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
-        `${condPill}`+
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
