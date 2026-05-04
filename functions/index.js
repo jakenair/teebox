@@ -1444,9 +1444,32 @@ exports.pushNotificationDispatch = onDocumentCreated(
       } else if (data.kind === "offer-received") {
         title = `New offer: $${data.amount}`;
         body = `From ${data.buyerName || "a buyer"} on ${data.listingTitle || "your listing"}`;
+      } else if (data.kind === "offer-accepted") {
+        title = "Offer accepted!";
+        body = `${data.sellerName || "The seller"} accepted your $${data.amount} offer.`;
+      } else if (data.kind === "offer-declined") {
+        title = "Offer declined";
+        body = `${data.sellerName || "The seller"} passed on your $${data.amount} offer.`;
+      } else if (data.kind === "offer-countered") {
+        title = `Counter offer: $${data.counterAmount}`;
+        body = `${data.sellerName || "The seller"} countered your offer.`;
       } else if (data.kind === "new-message") {
         title = `New message from ${data.fromName || "buyer"}`;
         body = data.preview || "Tap to read";
+      } else if (data.kind === "order-placed") {
+        title = `You sold ${data.listingTitle || "an item"}`;
+        body = `$${data.amount} — ship within 3 business days.`;
+      } else if (data.kind === "order-shipped") {
+        title = `Your ${data.listingTitle || "order"} shipped`;
+        body = data.trackingNumber
+          ? `${data.carrier || "Carrier"} · ${data.trackingNumber}`
+          : "On its way!";
+      } else if (data.kind === "order-delivered") {
+        title = "Order delivered";
+        body = `${data.listingTitle || "Your item"} reached the buyer. Payout incoming.`;
+      } else if (data.kind === "review-received") {
+        title = `New ${data.rating || ""}★ review`;
+        body = data.preview || "Tap to read your review.";
       }
 
       const tokens = [];
@@ -1480,6 +1503,444 @@ exports.pushNotificationDispatch = onDocumentCreated(
       }
     } catch (err) {
       logger.error("pushNotificationDispatch error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// Email + push fan-out helpers
+//   Each user-facing event (order placed/shipped/delivered, offer
+//   received/responded, message received, review received) writes a
+//   notification doc (which fires pushNotificationDispatch) AND, when
+//   RESEND_API_KEY is configured, sends a transactional email via
+//   Resend. Email failure never blocks push — they're independent.
+// ─────────────────────────────────────────────────────────────
+const RESEND_KEY = defineSecret("RESEND_API_KEY");
+const FROM_EMAIL = "TeeBox <noreply@teeboxmarket.com>";
+const APP_URL = "https://teeboxmarket.com";
+
+async function lookupUser(uid) {
+  if (!uid) return null;
+  const db = admin.firestore();
+  const [authUser, profileSnap] = await Promise.all([
+    admin.auth().getUser(uid).catch(() => null),
+    db.collection("users").doc(uid).get().catch(() => null),
+  ]);
+  return {
+    uid,
+    email: authUser ? authUser.email : null,
+    displayName: (profileSnap && profileSnap.exists && profileSnap.data().displayName) ||
+      (authUser && authUser.displayName) || "TeeBox member",
+  };
+}
+
+async function writeNotification(uid, doc) {
+  if (!uid) return;
+  const db = admin.firestore();
+  await db.collection("users").doc(uid).collection("notifications").add({
+    ...doc,
+    userId: uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
+  });
+}
+
+// Lightweight branded email shell. Inline styles only (Gmail strips
+// <style> blocks). Cream + green palette mirrors the app.
+function emailShell(headline, bodyHtml, ctaLabel, ctaUrl) {
+  const cta = ctaLabel && ctaUrl
+    ? `<p style="margin:28px 0 0;text-align:center;">
+         <a href="${ctaUrl}" style="display:inline-block;background:#1f4827;color:#fff;
+            text-decoration:none;font-weight:600;padding:13px 28px;border-radius:50px;">
+           ${ctaLabel}
+         </a>
+       </p>`
+    : "";
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f6f2e8;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f2e8;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+          <tr><td style="background:#14301a;padding:24px;text-align:center;">
+            <span style="font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:28px;color:#e7d28a;">TeeBox</span>
+          </td></tr>
+          <tr><td style="padding:32px 28px 16px;">
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#14301a;">${headline}</h1>
+            ${bodyHtml}
+            ${cta}
+          </td></tr>
+          <tr><td style="padding:24px 28px 28px;border-top:1px solid #f0eadb;color:#777;font-size:12px;line-height:1.5;text-align:center;">
+            TeeBox · The peer-to-peer marketplace for golfers<br/>
+            <a href="${APP_URL}/support" style="color:#1f4827;">Help</a> ·
+            <a href="${APP_URL}/privacy.html" style="color:#1f4827;">Privacy</a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table></body></html>`;
+}
+
+async function sendEmail({to, subject, html}) {
+  if (!to || !subject || !html) return;
+  let key;
+  try { key = RESEND_KEY.value(); } catch (_e) { key = null; }
+  if (!key) {
+    logger.info(`[email skipped] RESEND_API_KEY not set — would send "${subject}" to ${to}`);
+    return;
+  }
+  try {
+    const {Resend} = require("resend");
+    const resend = new Resend(key);
+    await resend.emails.send({from: FROM_EMAIL, to, subject, html});
+  } catch (err) {
+    logger.error(`[email send failed] ${subject} → ${to}`, err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnOrderCreated
+//   Fires when Stripe webhook writes orders/{paymentIntentId}.
+//   - Push + email to seller: "you sold X, ship within 3 business days"
+//   - Email to buyer: "order confirmed, here's your receipt"
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnOrderCreated = onDocumentCreated(
+  {document: "orders/{orderId}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const order = event.data && event.data.data();
+      if (!order) return;
+      const db = admin.firestore();
+      const listing = await db.collection("listings").doc(order.listingId).get()
+        .then((s) => s.exists ? s.data() : {}).catch(() => ({}));
+      const listingTitle = listing.title || "your item";
+      const photo = (listing.photos && listing.photos[0]) || null;
+      const amount = Number(order.amount || 0);
+
+      const [seller, buyer] = await Promise.all([
+        lookupUser(order.sellerId),
+        lookupUser(order.buyerId),
+      ]);
+
+      // Seller: push + email.
+      await writeNotification(order.sellerId, {
+        kind: "order-placed",
+        listingId: order.listingId,
+        orderId: event.params.orderId,
+        listingTitle,
+        amount,
+      });
+      if (seller && seller.email) {
+        const body = `<p>Great news — <strong>${listingTitle}</strong> sold for
+          <strong>$${amount.toLocaleString()}</strong>. Please ship within 3 business days
+          and mark it as shipped in the app so the buyer can track delivery.</p>
+          ${photo ? `<p style="text-align:center;margin:20px 0;"><img src="${photo}"
+            alt="" style="max-width:280px;border-radius:8px;" /></p>` : ""}`;
+        await sendEmail({
+          to: seller.email,
+          subject: `You sold ${listingTitle} — ship within 3 days`,
+          html: emailShell(`You sold ${listingTitle}!`, body, "Open Order", `${APP_URL}/?order=${event.params.orderId}`),
+        });
+      }
+
+      // Buyer: confirmation email only (push at this point would be
+      // redundant with the in-app Stripe success screen).
+      if (buyer && buyer.email) {
+        const body = `<p>Thanks for your order, ${buyer.displayName}!</p>
+          <p><strong>${listingTitle}</strong> — $${amount.toLocaleString()}</p>
+          <p>The seller will ship within 3 business days. You'll get an email + push
+          notification with tracking when it's on the way.</p>`;
+        await sendEmail({
+          to: buyer.email,
+          subject: `Order confirmed: ${listingTitle}`,
+          html: emailShell("Order confirmed", body, "View Order", `${APP_URL}/?order=${event.params.orderId}`),
+        });
+      }
+    } catch (err) {
+      logger.error("notifyOnOrderCreated error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnOrderUpdated
+//   Single trigger handles two transitions:
+//     awaiting_seller_shipment → shipped   → notify buyer
+//     shipped                  → delivered → notify seller
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnOrderUpdated = onDocumentUpdated(
+  {document: "orders/{orderId}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const before = event.data && event.data.before && event.data.before.data();
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!before || !after) return;
+      const db = admin.firestore();
+      const listing = await db.collection("listings").doc(after.listingId).get()
+        .then((s) => s.exists ? s.data() : {}).catch(() => ({}));
+      const listingTitle = listing.title || "your item";
+
+      // Shipment notification (seller → buyer)
+      if (before.fulfillmentStatus === "awaiting_seller_shipment"
+          && after.fulfillmentStatus === "shipped") {
+        const buyer = await lookupUser(after.buyerId);
+        await writeNotification(after.buyerId, {
+          kind: "order-shipped",
+          listingId: after.listingId,
+          orderId: event.params.orderId,
+          listingTitle,
+          carrier: after.carrier || "",
+          trackingNumber: after.trackingNumber || "",
+        });
+        if (buyer && buyer.email) {
+          const trackingLink = trackingUrl(after.carrier, after.trackingNumber);
+          const trackingHtml = after.trackingNumber
+            ? `<p><strong>${after.carrier || "Carrier"}</strong>:
+                <a href="${trackingLink}" style="color:#1f4827;">${after.trackingNumber}</a></p>`
+            : "";
+          const body = `<p>Your <strong>${listingTitle}</strong> just shipped.</p>${trackingHtml}
+            <p>You'll get another note when it's delivered.</p>`;
+          await sendEmail({
+            to: buyer.email,
+            subject: `Shipped: ${listingTitle}`,
+            html: emailShell("Your order shipped", body, "Track Order", `${APP_URL}/?order=${event.params.orderId}`),
+          });
+        }
+      }
+
+      // Delivery confirmation (buyer → seller; aggregateSellerStats
+      // already handles seller-stats roll-up separately).
+      if (before.fulfillmentStatus === "shipped"
+          && after.fulfillmentStatus === "delivered") {
+        const seller = await lookupUser(after.sellerId);
+        await writeNotification(after.sellerId, {
+          kind: "order-delivered",
+          listingId: after.listingId,
+          orderId: event.params.orderId,
+          listingTitle,
+        });
+        if (seller && seller.email) {
+          const payoutCents = Number(after.sellerPayoutCents || 0);
+          const payoutDollars = (payoutCents / 100).toFixed(2);
+          const body = `<p>${listingTitle} reached the buyer. Your payout of
+            <strong>$${payoutDollars}</strong> is on the way to your bank
+            (typically 2 business days via Stripe).</p>
+            <p>Thanks for being a great seller!</p>`;
+          await sendEmail({
+            to: seller.email,
+            subject: `Delivered: ${listingTitle}`,
+            html: emailShell("Delivered — payout incoming", body, "View Order", `${APP_URL}/?order=${event.params.orderId}`),
+          });
+        }
+      }
+    } catch (err) {
+      logger.error("notifyOnOrderUpdated error", err);
+    }
+  }
+);
+
+function trackingUrl(carrier, trackingNumber) {
+  if (!trackingNumber) return APP_URL;
+  const c = String(carrier || "").toLowerCase();
+  if (c.includes("usps")) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`;
+  if (c.includes("ups")) return `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`;
+  if (c.includes("fedex")) return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
+  if (c.includes("dhl")) return `https://www.dhl.com/us-en/home/tracking/tracking-parcel.html?tracking-id=${encodeURIComponent(trackingNumber)}`;
+  return APP_URL;
+}
+exports.trackingUrl = trackingUrl; // exported for tests, never invoked as fn
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnOfferCreated — push + email seller when a buyer offers
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnOfferCreated = onDocumentCreated(
+  {document: "offers/{offerId}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const offer = event.data && event.data.data();
+      if (!offer || !offer.sellerId) return;
+      const db = admin.firestore();
+      const [seller, buyer, listingSnap] = await Promise.all([
+        lookupUser(offer.sellerId),
+        lookupUser(offer.buyerId),
+        db.collection("listings").doc(offer.listingId || "").get().catch(() => null),
+      ]);
+      const listing = (listingSnap && listingSnap.exists) ? listingSnap.data() : {};
+      const listingTitle = listing.title || "your listing";
+
+      await writeNotification(offer.sellerId, {
+        kind: "offer-received",
+        listingId: offer.listingId,
+        offerId: event.params.offerId,
+        listingTitle,
+        amount: Number(offer.amount || 0),
+        buyerName: (buyer && buyer.displayName) || "a buyer",
+      });
+      if (seller && seller.email) {
+        const body = `<p>${(buyer && buyer.displayName) || "Someone"} offered
+          <strong>$${Number(offer.amount || 0).toLocaleString()}</strong> on
+          <strong>${listingTitle}</strong>.</p>
+          <p>Open the app to accept, decline, or counter.</p>`;
+        await sendEmail({
+          to: seller.email,
+          subject: `New offer on ${listingTitle}`,
+          html: emailShell(`New offer: $${Number(offer.amount || 0).toLocaleString()}`, body, "Review Offer", `${APP_URL}/?offer=${event.params.offerId}`),
+        });
+      }
+    } catch (err) {
+      logger.error("notifyOnOfferCreated error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnOfferUpdated — push + email buyer on accept/decline/counter
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnOfferUpdated = onDocumentUpdated(
+  {document: "offers/{offerId}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+      if (!before || !after) return;
+      if (before.status === after.status) return;
+      if (!["accepted", "declined", "countered"].includes(after.status)) return;
+      const db = admin.firestore();
+      const [buyer, seller, listingSnap] = await Promise.all([
+        lookupUser(after.buyerId),
+        lookupUser(after.sellerId),
+        db.collection("listings").doc(after.listingId || "").get().catch(() => null),
+      ]);
+      const listing = (listingSnap && listingSnap.exists) ? listingSnap.data() : {};
+      const listingTitle = listing.title || "the listing";
+      const sellerName = (seller && seller.displayName) || "The seller";
+
+      const kind = after.status === "accepted" ? "offer-accepted"
+        : after.status === "declined" ? "offer-declined"
+        : "offer-countered";
+      await writeNotification(after.buyerId, {
+        kind, listingId: after.listingId, offerId: event.params.offerId,
+        listingTitle, sellerName,
+        amount: Number(after.amount || 0),
+        counterAmount: Number(after.counterAmount || 0),
+      });
+
+      if (buyer && buyer.email) {
+        let subject; let headline; let body;
+        if (after.status === "accepted") {
+          subject = `Offer accepted: ${listingTitle}`;
+          headline = `${sellerName} accepted your offer!`;
+          body = `<p>Your <strong>$${Number(after.amount || 0).toLocaleString()}</strong>
+            offer on <strong>${listingTitle}</strong> was accepted.
+            Pay now to lock it in — listings are first-come, first-served until paid.</p>`;
+        } else if (after.status === "declined") {
+          subject = `Offer declined: ${listingTitle}`;
+          headline = `${sellerName} passed on your offer`;
+          body = `<p>Your $${Number(after.amount || 0).toLocaleString()} offer on
+            <strong>${listingTitle}</strong> wasn't accepted. The listing is
+            still available — try a higher offer or buy at the asking price.</p>`;
+        } else {
+          subject = `Counter offer on ${listingTitle}`;
+          headline = `Counter offer: $${Number(after.counterAmount || 0).toLocaleString()}`;
+          body = `<p>${sellerName} countered with
+            <strong>$${Number(after.counterAmount || 0).toLocaleString()}</strong>
+            on <strong>${listingTitle}</strong>. Open the app to accept, decline, or
+            counter back.</p>`;
+        }
+        await sendEmail({to: buyer.email, subject, html: emailShell(headline, body, "Open Offer", `${APP_URL}/?offer=${event.params.offerId}`)});
+      }
+    } catch (err) {
+      logger.error("notifyOnOfferUpdated error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// notifyOnNewMessage — push (immediate) + email (when not online)
+// ─────────────────────────────────────────────────────────────
+exports.notifyOnNewMessage = onDocumentCreated(
+  {document: "messages/{messageId}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const msg = event.data && event.data.data();
+      if (!msg) return;
+      const db = admin.firestore();
+      let recipientUid = msg.recipientId || msg.toUid;
+      const conversationId = msg.conversationId;
+      if (!recipientUid && conversationId) {
+        const conv = await db.collection("conversations").doc(conversationId).get();
+        if (conv.exists) {
+          const c = conv.data();
+          const senderId = msg.senderId || msg.fromUid;
+          recipientUid = (c.participants || []).find((p) => p !== senderId);
+        }
+      }
+      if (!recipientUid) return;
+      const [recipient, sender] = await Promise.all([
+        lookupUser(recipientUid),
+        lookupUser(msg.senderId || msg.fromUid),
+      ]);
+      const fromName = (sender && sender.displayName) || "A buyer";
+      const preview = String(msg.text || msg.body || "").slice(0, 120);
+
+      await writeNotification(recipientUid, {
+        kind: "new-message",
+        listingId: msg.listingId || null,
+        conversationId,
+        fromName,
+        preview,
+      });
+      // Mail an immediate digest only if the recipient has email AND the
+      // message isn't from themselves. A future enhancement would batch
+      // these into a daily digest if recipients complain.
+      if (recipient && recipient.email && msg.senderId !== recipientUid) {
+        const safePreview = preview.replace(/[<>]/g, "");
+        const body = `<p><strong>${fromName}</strong> sent you a message:</p>
+          <blockquote style="border-left:3px solid #c5a253;padding:8px 14px;
+            margin:14px 0;color:#4a4a4a;font-style:italic;">${safePreview}</blockquote>
+          <p>Reply in the app — buyers and sellers chat directly inside TeeBox.</p>`;
+        await sendEmail({
+          to: recipient.email,
+          subject: `New message from ${fromName}`,
+          html: emailShell(`Message from ${fromName}`, body, "Open Inbox", `${APP_URL}/?inbox=1`),
+        });
+      }
+    } catch (err) {
+      logger.error("notifyOnNewMessage error", err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
+// welcomeOnFirstProfileWrite
+//   Fires the first time a users/{uid} doc is created — which happens
+//   right after the first sign-in regardless of provider (email, Google,
+//   phone). Sends a branded welcome email. Firebase's built-in
+//   verification email is separate (it's just the "click to verify"
+//   link); this one is the actual welcome.
+// ─────────────────────────────────────────────────────────────
+exports.welcomeOnFirstProfileWrite = onDocumentCreated(
+  {document: "users/{uid}", secrets: [RESEND_KEY]},
+  async (event) => {
+    try {
+      const uid = event.params.uid;
+      const u = await lookupUser(uid);
+      if (!u || !u.email) return;
+      const body = `<p>Welcome to TeeBox, ${u.displayName}.</p>
+        <p>You're now part of a peer-to-peer marketplace built specifically for golfers.
+        Buy gear from other members, list what you no longer use, and trade at fair
+        peer-to-peer prices — with payments secured by Stripe and a flat 6.5% seller fee.</p>
+        <p>A few things you can try right now:</p>
+        <ul>
+          <li><strong>Browse</strong> the live marketplace</li>
+          <li><strong>Like</strong> items by tapping the heart on any listing</li>
+          <li><strong>Play Logo Bingo</strong> — daily golf course logo guessing game</li>
+        </ul>`;
+      await sendEmail({
+        to: u.email,
+        subject: "Welcome to TeeBox",
+        html: emailShell(`Welcome, ${u.displayName}`, body, "Open TeeBox", APP_URL),
+      });
+    } catch (err) {
+      logger.error("welcomeOnFirstProfileWrite error", err);
     }
   }
 );

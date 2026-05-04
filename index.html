@@ -1953,6 +1953,37 @@
 </div>
 
 <!-- DELETE ACCOUNT MODAL -->
+<!-- SHIP MODAL — replaces the dual prompt() seller flow -->
+<div class="modal-backdrop info-backdrop" id="shipBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" style="max-width:420px;">
+    <div class="modal-header">
+      <span class="modal-title">Mark as shipped</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--gray-700);font-size:13.5px;line-height:1.5;margin-bottom:14px;">
+        Enter the carrier and tracking number. The buyer will get an instant push + email
+        with a clickable tracking link.
+      </p>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Carrier</label>
+      <select id="shipCarrier" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:15px;background:var(--white);margin-bottom:14px;">
+        <option value="USPS">USPS</option>
+        <option value="UPS">UPS</option>
+        <option value="FedEx">FedEx</option>
+        <option value="DHL">DHL</option>
+        <option value="Other">Other</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number</label>
+      <input id="shipTracking" type="text" placeholder="e.g. 9400 1000 0000 0000 0000 00" autocapitalize="characters" autocomplete="off" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:15px;letter-spacing:0.5px;" />
+      <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:1em;"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full green" id="shipConfirmBtn" data-action="confirm-ship">Mark as shipped</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop info-backdrop" id="deleteAccountBackdrop" data-close-on-backdrop="close-info">
   <div class="info-modal" style="max-width:520px">
     <div class="modal-header">
@@ -4091,6 +4122,10 @@ function openDetailModal(id) {
   }
   // Sale-history sparkline
   loadSparkline(p);
+  // Seller reviews — collapsed preview right inside the listing detail.
+  // Helps build buyer trust without forcing a click into the seller's
+  // profile to see ratings.
+  loadDetailReviews(p);
   const photos = (p.photos && p.photos.length > 0 ? p.photos : [])
     .map(window.safeImgUrl)
     .filter(Boolean);
@@ -5416,7 +5451,15 @@ async function openOrders() {
     ];
     const stageIdx = Math.max(0, stages.findIndex(s => s.key === stage));
     const tracker = stages.map((s, i) => `<span class="stage ${i <= stageIdx ? 'on' : ''}">${s.label}</span>`).join(' → ');
-    const tracking = o.trackingNumber ? `<div class="order-tracking">Tracking: <strong>${window.safeText(o.trackingNumber)}</strong>${o.carrier ? ' · ' + window.safeText(o.carrier) : ''}</div>` : '';
+    const trackingLink = trackingUrlFor(o.carrier, o.trackingNumber);
+    const tracking = o.trackingNumber
+      ? `<div class="order-tracking">Tracking:
+          <a href="${window.safeAttr(trackingLink)}" target="_blank" rel="noopener noreferrer"
+             style="color:var(--green-700);font-weight:600;text-decoration:underline;">
+             ${window.safeText(o.trackingNumber)}
+          </a>${o.carrier ? ' · ' + window.safeText(o.carrier) : ''}
+        </div>`
+      : '';
     const deliveryBtn = stage === 'shipped'
       ? `<button class="btn-full green" data-action="confirm-delivery" data-order-id="${window.safeAttr(window.safeId(o.id))}">Confirm Delivery</button>`
       : '';
@@ -5432,12 +5475,53 @@ async function openOrders() {
   }).join('');
 }
 
-async function markShipped(orderId) {
+// Build the public tracking URL for a carrier+number pair so the buyer's
+// "Tracking" line is clickable. Falls back to a generic Google search
+// when the carrier doesn't match a known template.
+function trackingUrlFor(carrier, trackingNumber) {
+  if (!trackingNumber) return '#';
+  const c = String(carrier || '').toLowerCase();
+  const tn = encodeURIComponent(trackingNumber);
+  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${tn}`;
+  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${tn}`;
+  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${tn}`;
+  if (c.includes('dhl')) return `https://www.dhl.com/us-en/home/tracking/tracking-parcel.html?tracking-id=${tn}`;
+  return `https://www.google.com/search?q=${encodeURIComponent((carrier||'') + ' tracking ' + trackingNumber)}`;
+}
+window.trackingUrlFor = trackingUrlFor;
+
+let __pendingShipOrderId = null;
+function markShipped(orderId) {
+  // Open the ship-it modal instead of using two stacked prompts. The modal
+  // form has dropdown carriers + a focused tracking input; way friendlier
+  // than the native prompt() pair this replaced.
   if (!orderId || !window.CURRENT_USER) return;
-  const carrier = prompt('Carrier (USPS / UPS / FedEx)?');
-  if (!carrier) return;
-  const tracking = prompt('Tracking number?');
-  if (!tracking) return;
+  __pendingShipOrderId = orderId;
+  const back = document.getElementById('shipBackdrop');
+  if (!back) return;
+  const carrierSel = document.getElementById('shipCarrier');
+  const trackingIn = document.getElementById('shipTracking');
+  const errEl = document.getElementById('shipError');
+  if (carrierSel) carrierSel.value = 'USPS';
+  if (trackingIn) trackingIn.value = '';
+  if (errEl) errEl.textContent = '';
+  back.classList.add('open');
+  setTimeout(() => trackingIn && trackingIn.focus(), 60);
+}
+window.markShipped = markShipped;
+
+async function confirmShip() {
+  const orderId = __pendingShipOrderId;
+  if (!orderId || !window.CURRENT_USER) return;
+  const carrier = (document.getElementById('shipCarrier') || {}).value || 'USPS';
+  const tracking = ((document.getElementById('shipTracking') || {}).value || '').trim();
+  const errEl = document.getElementById('shipError');
+  if (!tracking) {
+    if (errEl) errEl.textContent = 'Tracking number is required.';
+    return;
+  }
+  const btn = document.getElementById('shipConfirmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Marking shipped…'; }
   try {
     const { getFirestore, doc, updateDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -5448,14 +5532,18 @@ async function markShipped(orderId) {
       trackingNumber: String(tracking).slice(0, 60),
       shippedAt: serverTimestamp(),
     });
+    document.getElementById('shipBackdrop').classList.remove('open');
     showToast('Marked as shipped. Buyer notified.');
-    loadShopData();
+    __pendingShipOrderId = null;
+    if (typeof loadShopData === 'function') loadShopData();
   } catch (e) {
-    console.error('markShipped failed:', e);
-    showToast('Could not mark shipped.');
+    console.error('confirmShip failed:', e);
+    if (errEl) errEl.textContent = 'Could not mark shipped. Please try again.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Mark as shipped'; }
   }
 }
-window.markShipped = markShipped;
+window.confirmShip = confirmShip;
 
 async function confirmDelivery(orderId) {
   if (!orderId || !window.CURRENT_USER) return;
@@ -7116,6 +7204,61 @@ async function openWatchlist() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// SELLER REVIEWS ON LISTING DETAIL
+//   Loads the seller's review aggregate + last 3 reviews into the
+//   listing detail modal so buyers see trust signal before they
+//   tap into the seller's profile.
+// ─────────────────────────────────────────────────────────────
+async function loadDetailReviews(p) {
+  const el = document.getElementById('detailReviews');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!p || !p.sellerId) return;
+  let agg;
+  try {
+    if (typeof window.loadUserReviews === 'function') {
+      agg = await window.loadUserReviews(p.sellerId);
+    }
+  } catch (_e) { agg = null; }
+  if (!agg || !agg.count) {
+    el.innerHTML = `<div style="margin:14px 0;padding:12px 14px;background:var(--gray-50,#fafafa);border-radius:var(--radius-md);font-size:13px;color:var(--gray-500);">
+      No reviews yet for this seller.
+    </div>`;
+    return;
+  }
+  const stars = (n) => {
+    const full = Math.round(n);
+    let s = '';
+    for (let i = 0; i < 5; i++) s += i < full ? '★' : '☆';
+    return s;
+  };
+  const items = (agg.items || []).slice(0, 3).map(r => {
+    const date = r.createdAt && r.createdAt.toDate ? r.createdAt.toDate() : null;
+    const when = date ? date.toLocaleDateString(undefined, {month: 'short', year: 'numeric'}) : '';
+    const safe = (s) => window.safeText ? window.safeText(s) : String(s || '');
+    const comment = r.comment ? `<div style="font-size:13.5px;color:var(--gray-700);line-height:1.5;margin-top:4px;">${safe(r.comment).slice(0, 200)}${(r.comment||'').length > 200 ? '…' : ''}</div>` : '';
+    return `<div style="padding:10px 0;border-top:1px solid var(--gray-100);">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:12.5px;">
+        <span style="color:var(--gold-500);letter-spacing:1px;">${stars(r.rating || 0)}</span>
+        <span style="color:var(--gray-500);">${when}</span>
+      </div>
+      ${comment}
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div style="margin:18px 0 6px;padding:14px;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-md);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <strong style="font-size:14px;">Seller Reviews</strong>
+      <span style="font-size:13px;color:var(--gray-700);">
+        <span style="color:var(--gold-500);letter-spacing:1px;">${stars(agg.avg)}</span>
+        ${agg.avg.toFixed(1)} (${agg.count})
+      </span>
+    </div>
+    ${items}
+  </div>`;
+}
+window.loadDetailReviews = loadDetailReviews;
+
+// ─────────────────────────────────────────────────────────────
 // PRICE HISTORY SPARKLINE
 // ─────────────────────────────────────────────────────────────
 let sparklineChart = null;
@@ -7889,6 +8032,7 @@ A['open-saved-searches']     = () => openSavedSearchesV2();
 A['save-current-search']     = () => saveCurrentSearch();
 A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
 A['mark-shipped']            = (el) => markShipped(el.dataset.orderId);
+A['confirm-ship']            = () => confirmShip();
 A['confirm-delivery']        = (el) => confirmDelivery(el.dataset.orderId);
 A['report-problem']          = (el) => openDispute(el.dataset.orderId);
 A['submit-dispute']          = () => submitDispute();
