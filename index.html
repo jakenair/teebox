@@ -369,6 +369,53 @@
   .bottom-nav-item .unread-badge { top: -4px; right: -8px; }
   .user-menu-item .unread-badge { position: static; margin-left: 6px; vertical-align: middle; }
 
+  /* Notifications panel (Feature: notifications-v1) ─────────────────────
+     Bell button in top nav + dropdown panel that aggregates pending offers,
+     new orders, unread messages, and Stripe action items. Anchored under
+     the bell on desktop; full-width sheet on mobile. */
+  .notif-wrap { position: relative; display: inline-block; }
+  .notif-btn .ico { width: 18px; height: 18px; }
+  .notif-dot { display: none; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--red-500); box-shadow: 0 0 0 2px var(--green-900); pointer-events: none; }
+  .notif-dot.active { display: block; }
+  .mobile-top-icon .notif-dot { top: 5px; right: 5px; box-shadow: 0 0 0 2px var(--green-800); }
+  .notif-panel { position: fixed; top: calc(var(--nav-h) + 6px); right: 16px; width: 360px; max-height: 70vh; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-card, 0 12px 32px rgba(0,0,0,0.18)); display: none; flex-direction: column; overflow: hidden; z-index: 130; }
+  .notif-panel.open { display: flex; }
+  .notif-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--green-900); color: var(--white); flex-shrink: 0; }
+  .notif-panel-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .notif-panel-close { background: rgba(255,255,255,0.12); color: var(--white); border: 0; width: 28px; height: 28px; border-radius: 50%; font-size: 16px; cursor: pointer; line-height: 1; }
+  .notif-panel-close:hover { background: rgba(255,255,255,0.22); }
+  .notif-panel-body { flex: 1; overflow-y: auto; padding: 4px 0 8px; }
+  .notif-section { border-bottom: 1px solid var(--gray-100); }
+  .notif-section:last-child { border-bottom: 0; }
+  .notif-section-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 6px; font-size: 11px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.7px; }
+  .notif-section-count { background: var(--gray-100); color: var(--gray-700); border-radius: 10px; padding: 1px 8px; font-size: 10.5px; font-weight: 700; }
+  .notif-section.empty .notif-section-count { display: none; }
+  .notif-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; transition: background 0.15s ease; background: transparent; border: 0; width: 100%; text-align: left; font-family: inherit; }
+  .notif-row:hover { background: var(--gray-50); }
+  .notif-row:active { background: var(--gray-100); }
+  .notif-row-body { flex: 1; min-width: 0; }
+  .notif-row-title { font-size: 13.5px; font-weight: 600; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notif-row-sub { font-size: 12px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .notif-row-meta { font-size: 11px; color: var(--gray-500); flex-shrink: 0; text-align: right; }
+  .notif-row-amt { font-size: 13px; font-weight: 700; color: var(--green-700); }
+  .notif-empty-all { text-align: center; padding: 2.25rem 1rem; color: var(--gray-500); font-size: 13.5px; }
+  .notif-section-empty-msg { padding: 4px 16px 10px; font-size: 12px; color: var(--gray-400); }
+  .notif-section-error { padding: 4px 16px 10px; font-size: 12px; color: var(--red-500); }
+  .notif-skeleton-row { display: flex; gap: 10px; padding: 10px 16px; align-items: center; }
+  .notif-skeleton-bar { background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: sk-shimmer 1.4s infinite linear; border-radius: 4px; height: 10px; }
+  .notif-skeleton-bar.tall { height: 14px; }
+  .notif-stripe-row { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: linear-gradient(135deg, #fdf6e6 0%, #f9eccd 100%); border: 0; cursor: pointer; width: 100%; font-family: inherit; text-align: left; }
+  .notif-stripe-row:hover { background: linear-gradient(135deg, #faecd0 0%, #f4dfae 100%); }
+  .notif-stripe-row .ico { color: var(--gold-600, #b88a00); flex-shrink: 0; }
+  .notif-stripe-text { flex: 1; min-width: 0; }
+  .notif-stripe-text strong { display: block; font-size: 13.5px; color: var(--gray-900); }
+  .notif-stripe-text span { font-size: 12px; color: var(--gray-700); }
+  @media (max-width: 900px) {
+    .notif-wrap { position: static; }
+    .notif-panel { position: fixed; top: 0; left: 0; right: 0; width: 100%; max-height: 100vh; height: 100vh; border-radius: 0; border: 0; z-index: 360; }
+    .notif-panel-head { padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; }
+  }
+
   /* Install banner + offline indicator */
   .install-banner { position: fixed; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); background: var(--green-900); color: var(--white); border-radius: var(--radius-lg); box-shadow: 0 12px 36px rgba(0,0,0,0.4); padding: 12px 16px; display: flex; align-items: center; gap: 12px; z-index: 350; animation: slideUp 0.3s cubic-bezier(.4,0,.2,1); }
   .install-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
@@ -2679,6 +2726,9 @@
     <button class="mobile-top-icon" data-action="open-inbox" type="button" aria-label="Inbox">
       <span data-ico="message"></span><span class="unread-badge" aria-hidden="true"></span>
     </button>
+    <button class="mobile-top-icon notif-mobile-btn" data-action="toggle-notifications" type="button" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel">
+      <span data-ico="bell"></span><span class="notif-dot" aria-hidden="true"></span>
+    </button>
     <button class="mobile-nav-toggle" data-action="toggle-mobile-nav" type="button" aria-label="Open menu" aria-expanded="false">
       <span aria-hidden="true">☰</span>
     </button>
@@ -2790,6 +2840,10 @@
       </span>
     </button>
     <button class="btn-icon" id="navInboxIcon" data-action="open-inbox" title="Messages"><span class="unread-badge" aria-label="Unread messages"></span></button>
+    <!-- Notifications panel (Feature: notifications-v1) -->
+    <div class="notif-wrap" id="notifWrap">
+      <button class="btn-icon notif-btn" id="navNotifBtn" data-action="toggle-notifications" type="button" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel"><span data-ico="bell"></span><span class="notif-dot" id="notifDot" aria-hidden="true"></span></button>
+    </div>
     <div class="user-menu-wrap" id="userMenuWrap">
       <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button"></button>
       <div class="user-menu" id="userMenu">
@@ -2809,6 +2863,17 @@
     <button class="btn-sell-nav" data-action="handle-sell">Sell Now</button>
   </div>
 </nav>
+
+<!-- Notifications panel (Feature: notifications-v1) — kept outside <nav>
+     so the panel still renders on mobile where the desktop nav is hidden
+     (display:none on the parent would suppress fixed-positioned children). -->
+<div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications" aria-hidden="true">
+  <div class="notif-panel-head">
+    <span class="notif-panel-title">Notifications</span>
+    <button class="notif-panel-close" data-action="close-notifications" type="button" aria-label="Close notifications">×</button>
+  </div>
+  <div class="notif-panel-body" id="notifBody"></div>
+</div>
 
 <!-- CAT BAR -->
 <div class="cat-bar">
@@ -5245,6 +5310,369 @@ async function openChatFromConversation(conversationId) {
   }
 }
 
+// ─── Notifications panel (Feature: notifications-v1) ─────────────────
+// Bell icon dropdown that aggregates pending offers, new orders, unread
+// messages, and Stripe action items. Lazy-fetched on open with a 30s
+// cache so re-opening doesn't re-fetch. Per-section error isolation.
+window.__notifCache = { ts: 0, data: null };
+const NOTIF_CACHE_MS = 30000;
+
+function openNotifications() {
+  const panel = document.getElementById('notifPanel');
+  const btn = document.getElementById('navNotifBtn');
+  if (!panel) return;
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+  // On mobile the panel is a full-screen sheet — lock body scroll.
+  if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
+    document.body.style.overflow = 'hidden';
+  }
+  loadNotifications();
+}
+
+function closeNotifications() {
+  const panel = document.getElementById('notifPanel');
+  const btns = document.querySelectorAll('[data-action="toggle-notifications"]');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+  }
+  btns.forEach(b => b.setAttribute('aria-expanded', 'false'));
+  // Only release body scroll if no other modal still claims it.
+  // Inbox / shop dashboard / chat each set body overflow; we shouldn't
+  // clobber theirs. Heuristic: only clear if no .open backdrop visible.
+  const stillBlocking = document.querySelector('#shopDashboard.open, #inboxBackdrop.open, #chatBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open');
+  if (!stillBlocking) document.body.style.overflow = '';
+}
+
+function toggleNotifications() {
+  const panel = document.getElementById('notifPanel');
+  if (!panel) return;
+  if (panel.classList.contains('open')) closeNotifications();
+  else openNotifications();
+}
+
+async function loadNotifications(force) {
+  const body = document.getElementById('notifBody');
+  if (!body) return;
+  if (!window.CURRENT_USER) {
+    body.innerHTML = '<div class="notif-empty-all">Sign in to see notifications.</div>';
+    window.__notifCache = { ts: 0, data: null };
+    document.querySelectorAll('.notif-dot').forEach(d => d.classList.remove('active'));
+    return;
+  }
+  // Cache hit
+  const now = Date.now();
+  if (!force && window.__notifCache.data && (now - window.__notifCache.ts) < NOTIF_CACHE_MS) {
+    renderNotifications(window.__notifCache.data);
+    return;
+  }
+  // Loading skeleton (3 rows)
+  body.innerHTML = `
+    <div class="notif-section">
+      <div class="notif-section-head"><span>Loading…</span></div>
+      ${[0,1,2].map(() => `
+        <div class="notif-skeleton-row">
+          <div style="flex:1">
+            <div class="notif-skeleton-bar tall" style="width:60%"></div>
+            <div class="notif-skeleton-bar" style="width:40%;margin-top:6px"></div>
+          </div>
+          <div class="notif-skeleton-bar" style="width:36px"></div>
+        </div>`).join('')}
+    </div>`;
+  const [offersR, ordersR, msgsR, stripeR] = await Promise.all([
+    fetchNotifOffers().catch(e => ({ error: true, msg: e && e.message || 'error' })),
+    fetchNotifOrders().catch(e => ({ error: true, msg: e && e.message || 'error' })),
+    fetchNotifUnreadMessages().catch(e => ({ error: true, msg: e && e.message || 'error' })),
+    fetchNotifStripeStatus().catch(e => ({ error: true, msg: e && e.message || 'error' })),
+  ]);
+  const data = { offers: offersR, orders: ordersR, messages: msgsR, stripe: stripeR };
+  window.__notifCache = { ts: Date.now(), data };
+  renderNotifications(data);
+}
+
+async function fetchNotifOffers() {
+  if (!window.CURRENT_USER) return [];
+  const { getFirestore, collection, query, where, getDocs, orderBy } =
+    await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  const db = getFirestore();
+  let docs;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'offers'),
+      where('sellerId', '==', window.CURRENT_USER.uid),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc'),
+    ));
+    docs = snap.docs;
+  } catch (_idxErr) {
+    const snap = await getDocs(query(
+      collection(db, 'offers'),
+      where('sellerId', '==', window.CURRENT_USER.uid),
+    ));
+    docs = snap.docs.filter(d => (d.data().status || 'pending') === 'pending');
+  }
+  const offers = docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return bt - at;
+    })
+    .slice(0, 8);
+  // Resolve buyer name + listing title in parallel (best-effort).
+  const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  await Promise.all(offers.map(async o => {
+    try {
+      if (o.listingId) {
+        const ls = await getDoc(doc(db, 'listings', String(o.listingId)));
+        if (ls.exists()) o._listingTitle = (ls.data() || {}).title || 'Listing';
+      }
+    } catch (_e) {}
+    try {
+      if (o.buyerId && typeof loadProfile === 'function') {
+        const prof = await loadProfile(o.buyerId);
+        o._buyerName = (prof && prof.displayName) || ('Buyer •••• ' + (o.buyerId || '').slice(-4).toUpperCase());
+      }
+    } catch (_e) {}
+  }));
+  return offers;
+}
+
+async function fetchNotifOrders() {
+  if (!window.CURRENT_USER) return [];
+  const { getFirestore, collection, query, where, getDocs } =
+    await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  const db = getFirestore();
+  const snap = await getDocs(query(
+    collection(db, 'orders'),
+    where('sellerId', '==', window.CURRENT_USER.uid),
+  ));
+  const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(o => {
+      const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
+      // pre-fulfillment: paid (awaiting shipment) or shipped (awaiting delivery confirmation)
+      return stage === 'awaiting_seller_shipment' || stage === 'shipped';
+    })
+    .sort((a, b) => {
+      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return bt - at;
+    })
+    .slice(0, 8);
+  // Resolve buyer name (best-effort)
+  await Promise.all(orders.map(async o => {
+    try {
+      if (o.buyerId && typeof loadProfile === 'function') {
+        const prof = await loadProfile(o.buyerId);
+        o._buyerName = (prof && prof.displayName) || ('Buyer •••• ' + (o.buyerId || '').slice(-4).toUpperCase());
+      }
+    } catch (_e) {}
+  }));
+  return orders;
+}
+
+async function fetchNotifUnreadMessages() {
+  if (!window.CURRENT_USER) return [];
+  const { getFirestore, collection, query, where, getDocs } =
+    await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  const db = getFirestore();
+  const snap = await getDocs(query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', window.CURRENT_USER.uid),
+  ));
+  const myUid = window.CURRENT_USER.uid;
+  const convs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => isConvUnread(c, myUid))
+    .sort((a, b) => {
+      const at = a.lastMessageAt && a.lastMessageAt.toMillis ? a.lastMessageAt.toMillis() : 0;
+      const bt = b.lastMessageAt && b.lastMessageAt.toMillis ? b.lastMessageAt.toMillis() : 0;
+      return bt - at;
+    })
+    .slice(0, 8);
+  return convs;
+}
+
+async function fetchNotifStripeStatus() {
+  if (!window.CURRENT_USER) return { needsAction: false };
+  // Check the user's Firestore profile first — only show banner if they
+  // appear to be (or are becoming) a seller. Determined by having any
+  // listings — cheap proxy. If the heavy callable is too slow, swallow.
+  try {
+    const { getFirestore, collection, query, where, getDocs, limit } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const lsnap = await getDocs(query(
+      collection(db, 'listings'),
+      where('sellerId', '==', window.CURRENT_USER.uid),
+      limit(1),
+    ));
+    if (lsnap.empty) return { needsAction: false };
+  } catch (_e) {
+    return { needsAction: false };
+  }
+  // User is a seller; ask the Stripe Connect callable for status.
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'getStripeAccountStatus');
+    const res = await fn();
+    const status = (res && res.data) || {};
+    const needsAction = !status.connected || !status.chargesEnabled || !status.payoutsEnabled
+      || ((status.requirementsDue || []).length > 0);
+    return { needsAction, status };
+  } catch (_e) {
+    return { needsAction: false };
+  }
+}
+
+function renderNotifications(data) {
+  const body = document.getElementById('notifBody');
+  if (!body) return;
+  const sections = [];
+
+  // Section: offers
+  sections.push(renderNotifSection({
+    title: 'Offers received',
+    result: data.offers,
+    errorMsg: "Couldn't load offers",
+    emptyMsg: 'No pending offers.',
+    rowsHtml: (offers) => offers.map(o => {
+      const id = window.safeAttr(window.safeId(o.id));
+      const title = window.safeText(o._listingTitle || 'Listing');
+      const sub = window.safeText((o._buyerName || 'Buyer') + ' · ' + formatRelativeTime(o.createdAt));
+      const amt = '$' + Number(o.amount || 0).toLocaleString();
+      return `<button type="button" class="notif-row" data-action="notif-open-offer" data-offer-id="${id}">
+        <div class="notif-row-body">
+          <div class="notif-row-title">${title}</div>
+          <div class="notif-row-sub">${sub}</div>
+        </div>
+        <div class="notif-row-meta"><div class="notif-row-amt">${amt}</div></div>
+      </button>`;
+    }).join(''),
+  }));
+
+  // Section: new orders
+  sections.push(renderNotifSection({
+    title: 'New orders',
+    result: data.orders,
+    errorMsg: "Couldn't load orders",
+    emptyMsg: 'No new orders.',
+    rowsHtml: (orders) => orders.map(o => {
+      const id = window.safeAttr(window.safeId(o.id));
+      const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
+      const stageLabel = stage === 'shipped' ? 'Shipped — awaiting delivery' : 'Paid — ship to buyer';
+      const title = window.safeText(o.listingTitle || o.title || 'Order');
+      const sub = window.safeText((o._buyerName || 'Buyer') + ' · ' + formatRelativeTime(o.createdAt));
+      return `<button type="button" class="notif-row" data-action="notif-open-order" data-order-id="${id}">
+        <div class="notif-row-body">
+          <div class="notif-row-title">${title}</div>
+          <div class="notif-row-sub">${sub}</div>
+        </div>
+        <div class="notif-row-meta">${window.safeText(stageLabel)}</div>
+      </button>`;
+    }).join(''),
+  }));
+
+  // Section: unread messages
+  sections.push(renderNotifSection({
+    title: 'Unread messages',
+    result: data.messages,
+    errorMsg: "Couldn't load messages",
+    emptyMsg: 'No unread messages.',
+    rowsHtml: (convs) => convs.map(c => {
+      const id = window.safeAttr(window.safeId(c.id));
+      const title = window.safeText(c.listingTitle || 'Conversation');
+      const snippet = window.safeText(c.lastMessageText || '');
+      const time = formatRelativeTime(c.lastMessageAt);
+      return `<button type="button" class="notif-row" data-action="notif-open-conv" data-conv-id="${id}">
+        <div class="notif-row-body">
+          <div class="notif-row-title">${title}</div>
+          <div class="notif-row-sub">${snippet}</div>
+        </div>
+        <div class="notif-row-meta">${window.safeText(time)}</div>
+      </button>`;
+    }).join(''),
+  }));
+
+  // Stripe action row (only renders if needsAction)
+  let stripeHtml = '';
+  if (data.stripe && !data.stripe.error && data.stripe.needsAction) {
+    stripeHtml = `<div class="notif-section">
+      <div class="notif-section-head"><span>Action needed</span></div>
+      <button type="button" class="notif-stripe-row" data-action="notif-open-stripe">
+        <span data-ico="shield"></span>
+        <div class="notif-stripe-text">
+          <strong>Finish Stripe setup to receive payouts.</strong>
+          <span>Connect your bank to start getting paid.</span>
+        </div>
+      </button>
+    </div>`;
+  }
+
+  // Empty-all check
+  const offersEmpty   = !data.offers   || (Array.isArray(data.offers)   && data.offers.length === 0);
+  const ordersEmpty   = !data.orders   || (Array.isArray(data.orders)   && data.orders.length === 0);
+  const msgsEmpty     = !data.messages || (Array.isArray(data.messages) && data.messages.length === 0);
+  const stripeNoAction = !data.stripe || data.stripe.error || !data.stripe.needsAction;
+  const allEmpty = offersEmpty && ordersEmpty && msgsEmpty && stripeNoAction;
+  const anyError = (data.offers && data.offers.error) || (data.orders && data.orders.error)
+    || (data.messages && data.messages.error);
+
+  if (allEmpty && !anyError) {
+    body.innerHTML = `<div class="notif-empty-all">You're all caught up.</div>`;
+  } else {
+    body.innerHTML = sections.join('') + stripeHtml;
+  }
+  // Render any [data-ico] glyphs we just injected (shield in stripe row).
+  body.querySelectorAll('[data-ico]').forEach((el) => {
+    const name = el.dataset.ico;
+    const svg = window.ICONS && window.ICONS[name];
+    if (svg && !el.firstChild) el.innerHTML = svg;
+  });
+  refreshNotifDot();
+}
+
+function renderNotifSection({ title, result, errorMsg, emptyMsg, rowsHtml }) {
+  const isError = result && result.error;
+  const items = Array.isArray(result) ? result : [];
+  const isEmpty = !isError && items.length === 0;
+  const emptyCls = isEmpty ? ' empty' : '';
+  return `<div class="notif-section${emptyCls}">
+    <div class="notif-section-head">
+      <span>${window.safeText(title)}</span>
+      <span class="notif-section-count">${items.length}</span>
+    </div>
+    ${isError
+      ? `<div class="notif-section-error">${window.safeText(errorMsg)}</div>`
+      : (isEmpty
+          ? `<div class="notif-section-empty-msg">${window.safeText(emptyMsg)}</div>`
+          : rowsHtml(items))}
+  </div>`;
+}
+
+function refreshNotifDot() {
+  const data = window.__notifCache.data;
+  let unread = 0;
+  if (data) {
+    if (Array.isArray(data.offers))   unread += data.offers.length;
+    if (Array.isArray(data.orders))   unread += data.orders.length;
+    if (Array.isArray(data.messages)) unread += data.messages.length;
+    if (data.stripe && data.stripe.needsAction) unread += 1;
+  }
+  document.querySelectorAll('.notif-dot').forEach(d => d.classList.toggle('active', unread > 0));
+}
+
+// Background refresh every 60s so the red dot updates without re-opening.
+// Skips network when no user is signed in. Lightweight — runs only the
+// counts query path via loadNotifications which already de-dupes via cache.
+setInterval(() => {
+  if (!window.CURRENT_USER) return;
+  // Force refresh in background; render only updates dot if panel is closed.
+  loadNotifications(true).catch(() => {});
+}, 60000);
+
 async function openShopDashboard() {
   if (!window.CURRENT_USER) { showToast('Please sign in to view your shop.'); return; }
   document.getElementById('shopDashboard').classList.add('open');
@@ -7594,6 +8022,8 @@ document.addEventListener('keydown',e=>{
     document.getElementById('verifyBackdrop').classList.remove('open');
     document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
     closeLightbox();
+    // Notifications panel (Feature: notifications-v1)
+    if (typeof closeNotifications === 'function') closeNotifications();
   }
 });
 
@@ -9264,6 +9694,30 @@ A['confirm-payment']         = () => confirmPayment();
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
 A['open-conv']               = (el) => openChatFromConversation(el.dataset.convId);
+// Notifications panel (Feature: notifications-v1)
+A['toggle-notifications']    = () => toggleNotifications();
+A['close-notifications']     = () => closeNotifications();
+A['notif-open-offer']        = (el) => {
+  closeNotifications();
+  if (typeof openShopDashboard === 'function') openShopDashboard().then(() => {
+    setTimeout(() => { try { switchDashTab('offers'); } catch (_e) {} }, 250);
+  });
+};
+A['notif-open-order']        = (el) => {
+  closeNotifications();
+  if (typeof openShopDashboard === 'function') openShopDashboard().then(() => {
+    setTimeout(() => { try { switchDashTab('sold'); } catch (_e) {} }, 250);
+  });
+};
+A['notif-open-conv']         = (el) => {
+  closeNotifications();
+  if (typeof openChatFromConversation === 'function') openChatFromConversation(el.dataset.convId);
+};
+A['notif-open-stripe']       = () => {
+  closeNotifications();
+  const fn = window.__actions && window.__actions['stripe-connect'];
+  if (typeof fn === 'function') fn();
+};
 
 // Backdrop click-to-close: an element marked data-close-on-backdrop
 // fires the named action only when the click hits the backdrop itself.
@@ -9308,6 +9762,18 @@ document.addEventListener('click', (ev) => {
   const wrap = document.getElementById('userMenuWrap');
   if (!menu || !wrap || !menu.classList.contains('open')) return;
   if (!wrap.contains(ev.target)) menu.classList.remove('open');
+});
+
+// Close the notifications panel when clicking outside it.
+// (Feature: notifications-v1)
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('notifPanel');
+  if (!panel || !panel.classList.contains('open')) return;
+  // Ignore clicks on either of the toggle buttons (desktop or mobile).
+  if (ev.target.closest('[data-action="toggle-notifications"]')) return;
+  // Ignore clicks inside the panel itself.
+  if (panel.contains(ev.target)) return;
+  closeNotifications();
 });
 
 // Direct click listener on the hamburger as a backup. Build 18 reports
