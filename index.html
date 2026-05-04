@@ -642,6 +642,10 @@
   .order-tracking { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
   .renew-btn, .ship-btn { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 5px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
   .renew-btn:hover, .ship-btn:hover { background: var(--gold-300); }
+  .listing-delete-btn { background: transparent; border: 1px solid var(--gray-200); color: var(--gray-500); border-radius: 6px; width: 32px; height: 32px; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: var(--transition); vertical-align: middle; }
+  .listing-delete-btn:hover { background: #fff5f5; border-color: var(--red-500); color: var(--red-500); }
+  .listing-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .listing-delete-btn .ico { width: 16px; height: 16px; stroke-width: 2; }
   .chat-header-actions { display: flex; gap: 6px; margin-left: auto; }
   .chat-header-actions button { background: rgba(255,255,255,0.1); border: none; color: var(--white); font-size: 11px; padding: 4px 10px; border-radius: 50px; cursor: pointer; }
   .chat-header-actions button:hover { background: rgba(255,255,255,0.2); }
@@ -1749,6 +1753,7 @@
     menu:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
     arrowRight:'<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
     instagram: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" class="ico-fill"/></svg>',
+    trash:     '<svg class="ico" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>',
   };
 
   // Map listing categories to placeholder icons.
@@ -2099,6 +2104,24 @@
   </div>
 </div>
 
+<!-- DELETE LISTING CONFIRM MODAL -->
+<div class="modal-backdrop info-backdrop" id="deleteListingBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Delete listing</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p id="deleteListingCopy" style="color:var(--gray-700);margin-bottom:0.5rem">Delete this listing? This cannot be undone.</p>
+      <p style="font-size:13px;color:var(--gray-500);margin-bottom:0">The listing and its photos will be removed permanently.</p>
+      <div class="profile-actions">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full" id="deleteListingConfirmBtn" data-action="confirm-delete-listing" style="background:var(--red-500);color:var(--white)">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- IMAGE LIGHTBOX -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" data-close-on-backdrop="close-lightbox">
   <button class="lightbox-close" data-action="close-lightbox" aria-label="Close image viewer" data-ico="close"></button>
@@ -2430,7 +2453,7 @@
       <button class="bingo-guess-close" data-action="bingo-cancel-guess" aria-label="Cancel guess" type="button">×</button>
     </div>
     <div class="bingo-guess-body">
-      <div class="bingo-guess-logo" id="bingoGuessLogo">⛳</div>
+      <div class="bingo-guess-logo" id="bingoGuessLogo"><!-- bound at runtime --></div>
       <div class="bingo-guess-prompt">
         Course name
       </div>
@@ -2574,8 +2597,8 @@
         <a href="#" data-action="open-orders" class="user-menu-item">My Orders</a>
         <a href="#" data-action="open-watchlist" class="user-menu-item">Likes</a>
         <a href="#" data-action="open-inbox" class="user-menu-item">Messages <span class="unread-badge"></span></a>
-        <a href="#" data-action="open-my-offers" class="user-menu-item">🤝 My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
-        <a href="#" data-action="open-saved-searches" class="user-menu-item">🔔 Saved Searches</a>
+        <a href="#" data-action="open-my-offers" class="user-menu-item">My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
+        <a href="#" data-action="open-saved-searches" class="user-menu-item">Saved Searches</a>
         <div class="user-menu-divider"></div>
         <a href="#" data-action="sign-out" class="user-menu-item">Sign out</a>
         <a href="#" data-action="open-delete-account" class="user-menu-item danger">Delete account</a>
@@ -2803,7 +2826,7 @@
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
-        <strong>🛡️ High-value verification</strong>
+        <strong>High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
       <div class="form-row"><label>Description</label><textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea></div>
@@ -2820,7 +2843,7 @@
   <div class="search-box">
     <div class="search-box-input"><span>⌕</span><input type="text" id="searchInput" placeholder="Search…" /></div>
     <div style="display:flex;justify-content:flex-end;gap:6px;margin:6px 4px 0">
-      <button class="filter-clear" id="searchSaveBtn" type="button" data-action="open-save-search-name">💾 Save this search</button>
+      <button class="filter-clear" id="searchSaveBtn" type="button" data-action="open-save-search-name">Save this search</button>
     </div>
     <div class="search-results-list" id="searchResults"></div>
   </div>
@@ -4015,7 +4038,7 @@ async function hydrateVerifiedSellerPills(rootEl) {
       const verified = !!(prof && prof._user && prof._user.sellerVerified);
       if (!verified) return;
       bySeller.get(sid).forEach(slot => {
-        slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">🛡️</span>';
+        slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">Verified</span>';
       });
     } catch (_e) { /* ignore */ }
   });
@@ -4174,7 +4197,7 @@ function openDetailModal(id) {
       // Verified pill (Feature #3) — only render when sellerVerified === true.
       if (prof._user && prof._user.sellerVerified) {
         const slot = sellerEl.querySelector('.seller-verified-slot');
-        if (slot) slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">🛡️ Verified</span>';
+        if (slot) slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">Verified</span>';
       }
     });
   }
@@ -4883,9 +4906,9 @@ function renderShopTables() {
             <th>Category</th>
             <th>Status</th>
             <th>Price</th>
-            <th class="col-analytic-h" title="Views">👁</th>
-            <th class="col-analytic-h" title="Watchers">❤️</th>
-            <th class="col-analytic-h" title="Messages">💬</th>
+            <th class="col-analytic-h" title="Views">Views</th>
+            <th class="col-analytic-h" title="Watchers">Watch</th>
+            <th class="col-analytic-h" title="Messages">Msgs</th>
             <th>Expires</th>
             <th></th>
           </tr>
@@ -4898,7 +4921,7 @@ function renderShopTables() {
             const renew = isExpired ? `<button class="renew-btn" data-action="renew-listing" data-listing-id="${escapeHtml(String(l.id))}">Renew</button>` : '';
             const isPinned = pinnedId && pinnedId === String(l.id);
             const pinBtn = isPinned
-              ? `<button class="pin-btn pinned" data-action="unpin-listing" data-listing-id="${escapeHtml(String(l.id))}" title="Unpin from profile">📌 Pinned</button>`
+              ? `<button class="pin-btn pinned" data-action="unpin-listing" data-listing-id="${escapeHtml(String(l.id))}" title="Unpin from profile">Pinned</button>`
               : `<button class="pin-btn" data-action="pin-listing" data-listing-id="${escapeHtml(String(l.id))}" title="Pin to profile">Pin</button>`;
             const views = Number(l.views || 0).toLocaleString();
             const watchers = Number(l.watchlistCount || 0).toLocaleString();
@@ -4916,11 +4939,11 @@ function renderShopTables() {
               <td style="text-transform:capitalize">${escapeHtml(l.cat || '—')}</td>
               <td><span style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:${isExpired ? 'var(--red-500)' : 'var(--up-green)'}">${isExpired ? 'Expired' : 'Active'}</span></td>
               <td style="font-weight:600">$${(l.ask || 0).toLocaleString()}</td>
-              <td class="col-analytic" title="Views">👁 <span class="lbl">${views}</span></td>
-              <td class="col-analytic" title="Watchers">❤️ <span class="lbl">${watchers}</span></td>
-              <td class="col-analytic" title="Messages">💬 <span class="lbl">${msgs}</span></td>
+              <td class="col-analytic" title="Views"><span class="lbl">${views}</span></td>
+              <td class="col-analytic" title="Watchers"><span class="lbl">${watchers}</span></td>
+              <td class="col-analytic" title="Messages"><span class="lbl">${msgs}</span></td>
               <td style="color:var(--gray-500);font-size:12px">${expireLabel}</td>
-              <td>${pinBtn} ${renew}</td>
+              <td style="white-space:nowrap">${pinBtn} ${renew} <button class="listing-delete-btn" data-action="ask-delete-listing" data-listing-id="${escapeHtml(String(l.id))}" data-listing-title="${escapeHtml(String(l.title || 'Untitled'))}" title="Delete listing" aria-label="Delete listing">${window.ICONS.trash}</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -5377,7 +5400,7 @@ async function suggestPrice() {
     const low  = hits[Math.floor(hits.length * 0.25)];
     const high = hits[Math.floor(hits.length * 0.75)];
     panel.innerHTML =
-      `💡 <span>Comparable listings: <strong>$${low}–$${high}</strong> · median <strong>$${median}</strong> (${hits.length} listings)</span>` +
+      `<span>Comparable listings: <strong>$${low}–$${high}</strong> · median <strong>$${median}</strong> (${hits.length} listings)</span>` +
       `<button type="button" data-action="apply-suggest-price" data-price="${median}">Use $${median}</button>`;
     panel.style.display = '';
   } catch (e) {
@@ -5439,6 +5462,69 @@ async function renewListing(listingId) {
   }
 }
 window.renewListing = renewListing;
+
+// ─────────────────────────────────────────────────────────────
+// DELETE LISTING — one-click + confirm flow from the My Shop active list.
+// Removes the Firestore doc, then best-effort cleans up Storage photos.
+// ─────────────────────────────────────────────────────────────
+let _pendingDeleteListing = null; // { id, title }
+function askDeleteListing(listingId, listingTitle) {
+  if (!listingId) return;
+  _pendingDeleteListing = { id: String(listingId), title: String(listingTitle || 'Untitled') };
+  const copy = document.getElementById('deleteListingCopy');
+  if (copy) {
+    copy.textContent = `Delete "${_pendingDeleteListing.title}"? This cannot be undone.`;
+  }
+  // Reset button state every time the modal opens.
+  const btn = document.getElementById('deleteListingConfirmBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  const bd = document.getElementById('deleteListingBackdrop');
+  if (bd) bd.classList.add('open');
+}
+async function confirmDeleteListing() {
+  if (!_pendingDeleteListing || !window.CURRENT_USER) return;
+  const { id: listingId } = _pendingDeleteListing;
+  const uid = window.CURRENT_USER.uid;
+  const btn = document.getElementById('deleteListingConfirmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    // 1. Best-effort: clean up the photos folder FIRST. Storage rules use
+    //    firestore.get on the listing doc to authorize delete, so the doc
+    //    must still exist when we hit Storage. Path is
+    //    listings/{sellerId}/{listingId}/{filename}. Failure here is
+    //    non-fatal — we still proceed to delete the listing doc.
+    try {
+      const { getStorage, ref: sref, listAll, deleteObject } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js");
+      const st = getStorage();
+      const folderRef = sref(st, `listings/${uid}/${listingId}`);
+      const items = await listAll(folderRef);
+      await Promise.allSettled(items.items.map(it => deleteObject(it)));
+    } catch (storageErr) {
+      console.warn('listing photo cleanup failed (non-fatal):', storageErr);
+    }
+
+    // 2. Delete the Firestore listing doc — the source of truth.
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await deleteDoc(doc(db, 'listings', listingId));
+
+    // 3. Close modal, refresh the dashboard.
+    _pendingDeleteListing = null;
+    const bd = document.getElementById('deleteListingBackdrop');
+    if (bd) bd.classList.remove('open');
+    showToast('Listing deleted.');
+    try { await loadShopData(); } catch (_) {}
+  } catch (e) {
+    console.error('deleteListing failed:', e);
+    const reason = (e && e.code) ? e.code : (e && e.message) ? e.message : 'unknown error';
+    showToast(`Could not delete listing: ${reason}`);
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
+}
+window.askDeleteListing = askDeleteListing;
+window.confirmDeleteListing = confirmDeleteListing;
 
 // ─────────────────────────────────────────────────────────────
 // SAVED SEARCHES — persist filter state so users can return to it.
@@ -6422,7 +6508,7 @@ async function openSavedSearchesV2() {
       legacy.docs.forEach(d => items.push({ id: d.id, _src: 'legacy', ...d.data() }));
     } catch (_e) {}
     if (!items.length) {
-      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No saved searches yet. Open the search overlay and tap <strong>💾 Save this search</strong>.</div>';
+      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No saved searches yet. Open the search overlay and tap <strong>Save this search</strong>.</div>';
       window.__savedSearches = [];
       return;
     }
@@ -6449,7 +6535,7 @@ async function openSavedSearchesV2() {
       const id = window.safeAttr(window.safeId(s.id));
       const src = window.safeAttr(s._src);
       const notifyToggle = s._src === 'top'
-        ? `<button class="filter-clear" data-action="toggle-saved-search-notify" data-search-id="${id}" title="Toggle alerts">${s.notifyOnNew ? '🔔 On' : '🔕 Off'}</button>`
+        ? `<button class="filter-clear" data-action="toggle-saved-search-notify" data-search-id="${id}" title="Toggle alerts">Alerts: ${s.notifyOnNew ? 'On' : 'Off'}</button>`
         : '';
       return `<div class="ss-row">
         <div><strong>${window.safeText(s.name || desc || 'Any listing')}</strong>${s.name && desc ? `<div style="font-size:11px;color:var(--gray-500)">${window.safeText(desc)}</div>` : ''}</div>
@@ -6577,7 +6663,7 @@ async function openWatchlistWithDropBadges() {
         if (nameCell && !nameCell.querySelector('.price-drop-badge')) {
           const b = document.createElement('span');
           b.className = 'price-drop-badge';
-          b.textContent = `🔥 -${pct}% (was $${oldPrice.toLocaleString()})`;
+          b.textContent = `-${pct}% off (was $${oldPrice.toLocaleString()})`;
           nameCell.appendChild(b);
         }
       }
@@ -6586,7 +6672,7 @@ async function openWatchlistWithDropBadges() {
       const banner = document.createElement('div');
       banner.id = 'priceDropBanner';
       banner.className = 'price-drop-banner';
-      banner.textContent = `🎯 ${droppedCount} item${droppedCount === 1 ? '' : 's'} dropped in price recently`;
+      banner.textContent = `${droppedCount} item${droppedCount === 1 ? '' : 's'} dropped in price recently`;
       results.parentNode && results.parentNode.insertBefore(banner, results);
     }
   } catch (e) {
@@ -7554,13 +7640,13 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   const u = profile._user || { sellerVerified: false, phone: false, email: false };
   let badges = '';
   if (u.sellerVerified) {
-    badges += `<span class="verified-pill" title="Verified seller">🛡️ Verified Seller</span>`;
+    badges += `<span class="verified-pill" title="Verified seller">Verified Seller</span>`;
   }
   if (u.phone) {
-    badges += `<span class="verify-icon" title="Phone verified">📞</span>`;
+    badges += `<span class="verify-icon" title="Phone verified">Phone</span>`;
   }
   if (u.email) {
-    badges += `<span class="verify-icon" title="Email verified">✉️</span>`;
+    badges += `<span class="verify-icon" title="Email verified">Email</span>`;
   }
 
   // Prominent stats row (Feature #8) — uses Cloud-Function-written aggregates with
@@ -7609,7 +7695,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
         <div class="featured-listing" data-action="open-detail" data-product-id="${pid}">
           <div class="featured-listing-img">${pimg}</div>
           <div class="featured-listing-body">
-            <span class="featured-badge">📌 Featured</span>
+            <span class="featured-badge">Featured</span>
             <div class="featured-listing-title">${window.safeText(pinnedListing.title || '')}</div>
             <div class="featured-listing-price">$${Number(pinnedListing.ask || 0).toLocaleString()}</div>
           </div>
@@ -7618,7 +7704,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     `;
   }
 
-  // Active listings grid — pinned card gets a small 📌 indicator + isMe gets
+  // Active listings grid — pinned card gets a small indicator + isMe gets
   // pin/unpin buttons inline.
   const listingsHtml = active.length
     ? active.map(l => {
@@ -7628,7 +7714,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
           ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(l.title||'')}" loading="lazy" decoding="async" />`
           : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(l.cat)}</div>`;
         const isPinned = profile.pinnedListingId === l.id;
-        const pinIndicator = isPinned ? `<span class="pin-indicator" title="Featured">📌</span>` : '';
+        const pinIndicator = isPinned ? `<span class="pin-indicator" title="Featured">Featured</span>` : '';
         const pinBtn = isMe
           ? `<button class="pin-btn ${isPinned ? 'pinned' : ''}" data-action="${isPinned ? 'unpin-listing' : 'pin-listing'}" data-listing-id="${id}" type="button">${isPinned ? 'Unpin' : 'Pin to profile'}</button>`
           : '';
@@ -7794,9 +7880,9 @@ function renderProfileReviews(items) {
       ${r.comment ? `<div class="review-comment">${window.safeText(r.comment)}</div>` : ''}
       <div class="review-actions">
         <span style="color:var(--gray-500)">Was this helpful?</span>
-        <button class="review-help-btn${yesCls}" data-action="vote-review-helpful" data-review-id="${id}" data-vote="yes">👍 Yes (${help.yes})</button>
-        <button class="review-help-btn${noCls}" data-action="vote-review-helpful" data-review-id="${id}" data-vote="no">👎 No (${help.no})</button>
-        <button class="review-report-btn" data-action="open-report-review" data-review-id="${id}" title="Report this review">🚩 Report</button>
+        <button class="review-help-btn${yesCls}" data-action="vote-review-helpful" data-review-id="${id}" data-vote="yes">Yes (${help.yes})</button>
+        <button class="review-help-btn${noCls}" data-action="vote-review-helpful" data-review-id="${id}" data-vote="no">No (${help.no})</button>
+        <button class="review-report-btn" data-action="open-report-review" data-review-id="${id}" title="Report this review">Report</button>
       </div>
     </div>`;
   }).join('');
@@ -8197,6 +8283,8 @@ A['lightbox-next']           = () => stepLightbox(1);
 A['open-saved-searches']     = () => openSavedSearchesV2();
 A['save-current-search']     = () => saveCurrentSearch();
 A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
+A['ask-delete-listing']      = (el) => askDeleteListing(el.dataset.listingId, el.dataset.listingTitle);
+A['confirm-delete-listing']  = () => confirmDeleteListing();
 A['mark-shipped']            = (el) => markShipped(el.dataset.orderId);
 A['confirm-ship']            = () => confirmShip();
 A['confirm-delivery']        = (el) => confirmDelivery(el.dataset.orderId);
@@ -8712,8 +8800,8 @@ if (uploadZone) {
         : `Revealed: ${course.shortName}`);
       div.dataset.action = 'bingo-guess';
       let mark = '';
-      if (cell.state === 'correct') mark = '<span class="bingo-cell-mark">✅</span>';
-      else if (cell.state === 'revealed') mark = '<span class="bingo-cell-mark">❌</span>';
+      if (cell.state === 'correct') mark = '<span class="bingo-cell-mark">✓</span>';
+      else if (cell.state === 'revealed') mark = '<span class="bingo-cell-mark">✗</span>';
       const showName = cell.state === 'correct' || cell.state === 'revealed';
       const nameHtml = showName
         ? `<div class="bingo-cell-name">${window.safeText ? window.safeText(course.shortName) : course.shortName}</div>`
@@ -8732,7 +8820,7 @@ if (uploadZone) {
     //
     // Probe order:
     //   1. /assets/logos/{id}.png  — real logo or Wikipedia course photo
-    //   2. emoji from course.logo  — ⛳ fallback when no PNG exists
+    //   2. (no fallback — courses without PNG logos are filtered out via hasLogo)
     grid.querySelectorAll('.bingo-cell-logo').forEach((el) => {
       const id = el.dataset.logoId;
       const course = game.courses.find(c => c.id === id);
@@ -8759,7 +8847,7 @@ if (uploadZone) {
     const streak = loadStreak();
     if (streakLbl) {
       const showStreak = streak.lastPlayedDate === TODAY ? streak.count : streak.count;
-      streakLbl.textContent = `${showStreak}d${showStreak > 0 ? ' 🔥' : ''}`;
+      streakLbl.textContent = `${showStreak}d`;
     }
     updateNavBingoCta();
 
@@ -8781,12 +8869,11 @@ if (uploadZone) {
         const banner = document.createElement('div');
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
-        const fire = streak.count > 0 ? ' 🔥' : '';
         const elapsed = totalElapsedSec();
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
-            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${streak.count}${fire}
+            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${streak.count}
           </div>
         `;
         body.insertBefore(banner, gridEl);
@@ -8899,8 +8986,8 @@ if (uploadZone) {
         const rankClass = rank === 1 ? 'gold' : '';
         const youClass = (me && r.uid === me) ? 'you' : '';
         const name = (profilesByUid[r.uid] && profilesByUid[r.uid].displayName) || ('Player ' + (r.uid || '').slice(-4).toUpperCase());
-        const streakStr = r.streak ? `${r.streak}🔥` : '';
-        const rankStr = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
+        const streakStr = r.streak ? `${r.streak}d` : '';
+        const rankStr = `${rank}`;
         return `<div class="bingo-lb-row ${youClass}">
           <div class="bingo-lb-rank ${rankClass}">${rankStr}</div>
           <div class="bingo-lb-name">${window.safeText(name)}</div>
@@ -9261,13 +9348,12 @@ if (uploadZone) {
         const banner = document.createElement('div');
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
-        const fire = s.count > 0 ? ' 🔥' : '';
         const pts = totalPoints();
         const elapsed = totalElapsedSec();
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
-            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}${fire}
+            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}
           </div>
         `;
         body.insertBefore(banner, grid);
@@ -9311,7 +9397,7 @@ if (uploadZone) {
       let row = '';
       for (let c = 0; c < 3; c++) {
         const cell = game.cells[r * 3 + c];
-        row += cell.state === 'correct' ? '🟩' : '🟥';
+        row += cell.state === 'correct' ? '[+]' : '[ ]';
       }
       rows.push(row);
     }
@@ -9322,14 +9408,14 @@ if (uploadZone) {
     // streak. Then a one-line link for the recipient. Format is intentionally
     // recognizable so it stands out in iMessage / Twitter.
     const lines = [
-      `🎯 TeeBox Logo Bingo · ${TODAY}`,
+      `TeeBox Logo Bingo · ${TODAY}`,
       '',
       ...rows,
       '',
       `Score: ${score}/9 · ${pts.toLocaleString()} pts`,
     ];
     if (elapsed) lines.push(`Time: ${formatDuration(elapsed)}`);
-    if (streak.count > 0) lines.push(`Streak: ${streak.count} 🔥`);
+    if (streak.count > 0) lines.push(`Streak: ${streak.count}d`);
     lines.push('');
     lines.push('Play: https://teeboxmarket.com/?play=bingo');
     return lines.join('\n');

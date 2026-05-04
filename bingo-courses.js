@@ -29,7 +29,7 @@ export const COURSES = [
     aliases: ['augusta', 'the masters', 'national', 'augusta national gc'],
     location: 'Augusta, Georgia',
     architect: 'Alister MacKenzie & Bobby Jones',
-    logo: '🌷',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -39,7 +39,7 @@ export const COURSES = [
     aliases: ['pine valley gc'],
     location: 'Pine Valley, New Jersey',
     architect: 'George Crump',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -49,7 +49,7 @@ export const COURSES = [
     aliases: ['cypress', 'cypress point cc'],
     location: 'Pebble Beach, California',
     architect: 'Alister MacKenzie',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -59,7 +59,7 @@ export const COURSES = [
     aliases: ['pebble', 'pebble beach gl'],
     location: 'Pebble Beach, California',
     architect: 'Jack Neville & Douglas Grant',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -69,7 +69,7 @@ export const COURSES = [
     aliases: ['shinnecock', 'shinnecock hills gc'],
     location: 'Southampton, New York',
     architect: 'William Flynn',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -79,7 +79,7 @@ export const COURSES = [
     aliases: ['oakmont cc'],
     location: 'Oakmont, Pennsylvania',
     architect: 'Henry Fownes',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -89,7 +89,7 @@ export const COURSES = [
     aliases: ['merion', 'merion gc', 'merion east course'],
     location: 'Ardmore, Pennsylvania',
     architect: 'Hugh Wilson',
-    logo: '🧺',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -99,7 +99,7 @@ export const COURSES = [
     aliases: ['ngla', 'national golf links of america'],
     location: 'Southampton, New York',
     architect: 'C.B. Macdonald',
-    logo: '🇺🇸',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -109,7 +109,7 @@ export const COURSES = [
     aliases: ['fishers', 'fishers island club', 'fic'],
     location: 'Fishers Island, New York',
     architect: 'Seth Raynor',
-    logo: '🐟',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -119,7 +119,7 @@ export const COURSES = [
     aliases: ['sand hills gc'],
     location: 'Mullen, Nebraska',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🏜️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -132,7 +132,7 @@ export const COURSES = [
     aliases: ['bandon', 'bandon dunes', 'pacific dunes', 'old macdonald', 'bandon trails', 'sheep ranch'],
     location: 'Bandon, Oregon',
     architect: 'David McLay Kidd / Tom Doak / Coore & Crenshaw',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -142,7 +142,7 @@ export const COURSES = [
     aliases: ['chicago gc', 'cgc'],
     location: 'Wheaton, Illinois',
     architect: 'C.B. Macdonald & Seth Raynor',
-    logo: '🏙️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -152,7 +152,7 @@ export const COURSES = [
     aliases: ['winged foot', 'winged foot west course', 'wfgc'],
     location: 'Mamaroneck, New York',
     architect: 'A.W. Tillinghast',
-    logo: '🦅',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -162,7 +162,7 @@ export const COURSES = [
     aliases: ['seminole gc'],
     location: 'Juno Beach, Florida',
     architect: 'Donald Ross',
-    logo: '🌴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -172,7 +172,7 @@ export const COURSES = [
     aliases: ['lacc', 'la country club', 'los angeles cc', 'lacc north course'],
     location: 'Los Angeles, California',
     architect: 'George C. Thomas Jr.',
-    logo: '🌴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -182,7 +182,7 @@ export const COURSES = [
     aliases: ['riviera cc', 'the riv'],
     location: 'Pacific Palisades, California',
     architect: 'George C. Thomas Jr.',
-    logo: '🎬',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -192,7 +192,7 @@ export const COURSES = [
     aliases: ['oakland hills', 'oakland hills cc'],
     location: 'Bloomfield Hills, Michigan',
     architect: 'Donald Ross',
-    logo: '🐉',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -202,7 +202,7 @@ export const COURSES = [
     aliases: ['olympic club', 'the olympic club', 'olympic lake'],
     location: 'San Francisco, California',
     architect: 'Sam Whiting',
-    logo: '🏛️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -212,7 +212,7 @@ export const COURSES = [
     aliases: ['sfgc', 'san francisco golf club'],
     location: 'San Francisco, California',
     architect: 'A.W. Tillinghast',
-    logo: '🌉',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -222,7 +222,7 @@ export const COURSES = [
     aliases: ['baltusrol', 'baltusrol gc', 'baltusrol lower course'],
     location: 'Springfield, New Jersey',
     architect: 'A.W. Tillinghast',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -232,7 +232,7 @@ export const COURSES = [
     aliases: ['bethpage', 'the black', 'bethpage black course'],
     location: 'Farmingdale, New York',
     architect: 'A.W. Tillinghast',
-    logo: '⚫',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -242,7 +242,7 @@ export const COURSES = [
     aliases: ['pinehurst 2', 'pinehurst', 'pinehurst number 2', 'pinehurst #2'],
     location: 'Pinehurst, North Carolina',
     architect: 'Donald Ross',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -252,7 +252,7 @@ export const COURSES = [
     aliases: ['whistling straits straits', 'the straits', 'whistling straits gc'],
     location: 'Haven, Wisconsin',
     architect: 'Pete Dye',
-    logo: '🌬️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -262,7 +262,7 @@ export const COURSES = [
     aliases: ['erin hills gc'],
     location: 'Erin, Wisconsin',
     architect: 'Hurdzan, Fry & Whitten',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -272,7 +272,7 @@ export const COURSES = [
     aliases: ['sawgrass', 'players stadium course', 'tpc sawgrass stadium'],
     location: 'Ponte Vedra Beach, Florida',
     architect: 'Pete Dye',
-    logo: '🏝️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -282,7 +282,7 @@ export const COURSES = [
     aliases: ['kiawah', 'the ocean course', 'kiawah ocean'],
     location: 'Kiawah Island, South Carolina',
     architect: 'Pete Dye',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -292,7 +292,7 @@ export const COURSES = [
     aliases: ['harbour town gl', 'sea pines harbour town'],
     location: 'Hilton Head, South Carolina',
     architect: 'Pete Dye & Jack Nicklaus',
-    logo: '🚤',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -302,7 +302,7 @@ export const COURSES = [
     aliases: ['tobacco road gc'],
     location: 'Sanford, North Carolina',
     architect: 'Mike Strantz',
-    logo: '🚬',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -315,7 +315,7 @@ export const COURSES = [
     aliases: ['streamsong', 'streamsong red', 'streamsong blue', 'streamsong black'],
     location: 'Bowling Green, Florida',
     architect: 'Coore & Crenshaw / Tom Doak / Gil Hanse',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -325,7 +325,7 @@ export const COURSES = [
     aliases: ['cabot citrus', 'world woods', 'pine barrens cabot'],
     location: 'Brooksville, Florida',
     architect: 'Kyle Franz / Mike Strantz',
-    logo: '🍊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -335,7 +335,7 @@ export const COURSES = [
     aliases: ['inverness club'],
     location: 'Toledo, Ohio',
     architect: 'Donald Ross',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -345,7 +345,7 @@ export const COURSES = [
     aliases: ['crystal downs cc'],
     location: 'Frankfort, Michigan',
     architect: 'Alister MacKenzie & Perry Maxwell',
-    logo: '💎',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -355,7 +355,7 @@ export const COURSES = [
     aliases: ['prairie dunes cc'],
     location: 'Hutchinson, Kansas',
     architect: 'Perry Maxwell',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -365,7 +365,7 @@ export const COURSES = [
     aliases: ['oak hill', 'oak hill cc'],
     location: 'Rochester, New York',
     architect: 'Donald Ross',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -375,7 +375,7 @@ export const COURSES = [
     aliases: ['medinah', 'medinah cc', 'medinah 3'],
     location: 'Medinah, Illinois',
     architect: 'Tom Bendelow',
-    logo: '🕌',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -385,7 +385,7 @@ export const COURSES = [
     aliases: ['quaker ridge gc'],
     location: 'Scarsdale, New York',
     architect: 'A.W. Tillinghast',
-    logo: '🎩',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -395,7 +395,7 @@ export const COURSES = [
     aliases: ['wade hampton gc'],
     location: 'Cashiers, North Carolina',
     architect: 'Tom Fazio',
-    logo: '⛰️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -405,7 +405,7 @@ export const COURSES = [
     aliases: ['east lake gc', 'tour championship'],
     location: 'Atlanta, Georgia',
     architect: 'Donald Ross / Rees Jones',
-    logo: '🏆',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -415,7 +415,7 @@ export const COURSES = [
     aliases: ['whispering pines gc'],
     location: 'Trinity, Texas',
     architect: 'Chet Williams',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -425,7 +425,7 @@ export const COURSES = [
     aliases: ['castle pines gc'],
     location: 'Castle Rock, Colorado',
     architect: 'Jack Nicklaus',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -435,7 +435,7 @@ export const COURSES = [
     aliases: ['shadow creek gc'],
     location: 'North Las Vegas, Nevada',
     architect: 'Tom Fazio',
-    logo: '🌑',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -445,7 +445,7 @@ export const COURSES = [
     aliases: ['friars head', 'friars head gc'],
     location: 'Baiting Hollow, New York',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '⛪',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -455,7 +455,7 @@ export const COURSES = [
     aliases: ['somerset hills cc'],
     location: 'Bernardsville, New Jersey',
     architect: 'A.W. Tillinghast',
-    logo: '🏞️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -465,7 +465,7 @@ export const COURSES = [
     aliases: ['maidstone club'],
     location: 'East Hampton, New York',
     architect: 'Willie & John Park Jr.',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
 
@@ -477,7 +477,7 @@ export const COURSES = [
     aliases: ['st andrews', 'old course', 'the old course', 'st andrews old course', 'home of golf'],
     location: 'St Andrews, Scotland',
     architect: 'Old Tom Morris (evolved)',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -487,7 +487,7 @@ export const COURSES = [
     aliases: ['muirfield gc', 'honourable company of edinburgh golfers', 'the honourable company'],
     location: 'Gullane, Scotland',
     architect: 'Old Tom Morris / Harry Colt',
-    logo: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -497,7 +497,7 @@ export const COURSES = [
     aliases: ['dornoch', 'royal dornoch gc'],
     location: 'Dornoch, Scotland',
     architect: 'Old Tom Morris / John Sutherland',
-    logo: '👑',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -507,7 +507,7 @@ export const COURSES = [
     aliases: ['turnberry', 'ailsa', 'trump turnberry', 'turnberry ailsa course'],
     location: 'Turnberry, Scotland',
     architect: 'Mackenzie Ross',
-    logo: '🗼',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -517,7 +517,7 @@ export const COURSES = [
     aliases: ['carnoustie championship', 'car-nasty', 'carnoustie gl'],
     location: 'Carnoustie, Scotland',
     architect: 'James Braid',
-    logo: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -527,7 +527,7 @@ export const COURSES = [
     aliases: ['north berwick west', 'north berwick gc', 'west links'],
     location: 'North Berwick, Scotland',
     architect: '—',
-    logo: '🪨',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -537,7 +537,7 @@ export const COURSES = [
     aliases: ['kingsbarns gl'],
     location: 'St Andrews, Scotland',
     architect: 'Kyle Phillips',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -547,7 +547,7 @@ export const COURSES = [
     aliases: ['cruden bay gc'],
     location: 'Cruden Bay, Scotland',
     architect: 'Old Tom Morris / Tom Simpson',
-    logo: '🌅',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -557,7 +557,7 @@ export const COURSES = [
     aliases: ['machrihanish gc', 'old mach'],
     location: 'Campbeltown, Scotland',
     architect: 'Old Tom Morris',
-    logo: '🪶',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -567,7 +567,7 @@ export const COURSES = [
     aliases: ['mach dunes'],
     location: 'Campbeltown, Scotland',
     architect: 'David McLay Kidd',
-    logo: '🏞️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -577,7 +577,7 @@ export const COURSES = [
     aliases: ['castle stuart gl'],
     location: 'Inverness, Scotland',
     architect: 'Gil Hanse & Mark Parsinen',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -587,7 +587,7 @@ export const COURSES = [
     aliases: ['troon', 'royal troon gc', 'royal troon old'],
     location: 'Troon, Scotland',
     architect: 'Willie Fernie',
-    logo: '👑',
+    logo: '',
     logoUrl: '',
   },
 
@@ -599,7 +599,7 @@ export const COURSES = [
     aliases: ['rcd', 'royal county down gc', 'county down'],
     location: 'Newcastle, Northern Ireland',
     architect: 'Old Tom Morris / Harry Vardon',
-    logo: '⛰️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -609,7 +609,7 @@ export const COURSES = [
     aliases: ['portrush', 'royal portrush dunluce', 'dunluce'],
     location: 'Portrush, Northern Ireland',
     architect: 'Harry Colt',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -619,7 +619,7 @@ export const COURSES = [
     aliases: ['ballybunion', 'ballybunion old course'],
     location: 'Ballybunion, Ireland',
     architect: 'Tom Simpson (revisions)',
-    logo: '🍀',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -629,7 +629,7 @@ export const COURSES = [
     aliases: ['lahinch gc', 'old course lahinch'],
     location: 'Lahinch, Ireland',
     architect: 'Old Tom Morris / Alister MacKenzie',
-    logo: '🐐',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -639,7 +639,7 @@ export const COURSES = [
     aliases: ['portmarnock gc'],
     location: 'Portmarnock, Ireland',
     architect: 'W.C. Pickeman / Mungo Park',
-    logo: '☘️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -649,7 +649,7 @@ export const COURSES = [
     aliases: ['european club ireland'],
     location: 'Brittas Bay, Ireland',
     architect: 'Pat Ruddy',
-    logo: '🇪🇺',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -659,7 +659,7 @@ export const COURSES = [
     aliases: ['royal st georges', 'sandwich', 'rsg'],
     location: 'Sandwich, England',
     architect: 'William Laidlaw Purves',
-    logo: '🐉',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -669,7 +669,7 @@ export const COURSES = [
     aliases: ['sunningdale', 'sunningdale gc', 'sunningdale old course'],
     location: 'Sunningdale, England',
     architect: 'Willie Park Jr.',
-    logo: '☀️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -679,7 +679,7 @@ export const COURSES = [
     aliases: ['birkdale', 'royal birkdale gc'],
     location: 'Southport, England',
     architect: 'George Lowe / F.G. Hawtree',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -689,7 +689,7 @@ export const COURSES = [
     aliases: ['royal lytham and st annes', 'lytham', 'royal lytham gc'],
     location: 'Lytham St Annes, England',
     architect: 'George Lowe',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -699,7 +699,7 @@ export const COURSES = [
     aliases: ['hoylake', 'royal liverpool gc'],
     location: 'Hoylake, England',
     architect: 'Robert Chambers / George Morris',
-    logo: '🐦',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -709,7 +709,7 @@ export const COURSES = [
     aliases: ['swinley', 'swinley forest gc'],
     location: 'Ascot, England',
     architect: 'Harry Colt',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -719,7 +719,7 @@ export const COURSES = [
     aliases: ['walton heath', 'walton heath old course', 'walton heath gc'],
     location: 'Walton-on-the-Hill, England',
     architect: 'Herbert Fowler',
-    logo: '🌿',
+    logo: '',
     logoUrl: '',
   },
 
@@ -731,7 +731,7 @@ export const COURSES = [
     aliases: ['morfontaine gc'],
     location: 'Mortefontaine, France',
     architect: 'Tom Simpson',
-    logo: '🥖',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -741,7 +741,7 @@ export const COURSES = [
     aliases: ['les bordes gc'],
     location: 'Saint-Laurent-Nouan, France',
     architect: 'Robert von Hagge',
-    logo: '🍇',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -751,7 +751,7 @@ export const COURSES = [
     aliases: ['valderrama gc', 'rc valderrama'],
     location: 'Sotogrande, Spain',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🫒',
+    logo: '',
     logoUrl: '',
   },
 
@@ -763,7 +763,7 @@ export const COURSES = [
     aliases: ['royal melbourne', 'royal melbourne gc', 'rmgc', 'royal melbourne west course'],
     location: 'Black Rock, Australia',
     architect: 'Alister MacKenzie',
-    logo: '🦘',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -773,7 +773,7 @@ export const COURSES = [
     aliases: ['kingston heath gc'],
     location: 'Cheltenham, Australia',
     architect: 'Dan Soutar / Alister MacKenzie',
-    logo: '🌿',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -783,7 +783,7 @@ export const COURSES = [
     aliases: ['barnbougle'],
     location: 'Bridport, Tasmania, Australia',
     architect: 'Tom Doak & Mike Clayton',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -793,7 +793,7 @@ export const COURSES = [
     aliases: ['barnbougle lost farm', 'lost farm'],
     location: 'Bridport, Tasmania, Australia',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🚜',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -803,7 +803,7 @@ export const COURSES = [
     aliases: ['cape wickham links'],
     location: 'King Island, Australia',
     architect: 'Mike DeVries & Darius Oliver',
-    logo: '🌬️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -813,7 +813,7 @@ export const COURSES = [
     aliases: ['nsw gc', 'new south wales gc'],
     location: 'La Perouse, Australia',
     architect: 'Alister MacKenzie',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -823,7 +823,7 @@ export const COURSES = [
     aliases: ['tara iti gc'],
     location: 'Te Arai, New Zealand',
     architect: 'Tom Doak',
-    logo: '🐦',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -833,7 +833,7 @@ export const COURSES = [
     aliases: ['cape kidnappers gc', 'kidnappers'],
     location: "Hawke's Bay, New Zealand",
     architect: 'Tom Doak',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
 
@@ -845,7 +845,7 @@ export const COURSES = [
     aliases: ['cabot cliffs gc'],
     location: 'Inverness, Nova Scotia, Canada',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🧗',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -855,7 +855,7 @@ export const COURSES = [
     aliases: ['cabot', 'cabot links gc'],
     location: 'Inverness, Nova Scotia, Canada',
     architect: 'Rod Whitman',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -865,7 +865,7 @@ export const COURSES = [
     aliases: ['st georges canada', 'st georges gc canada'],
     location: 'Etobicoke, Ontario, Canada',
     architect: 'Stanley Thompson',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -875,7 +875,7 @@ export const COURSES = [
     aliases: ['hamilton golf and country club', 'hamilton gcc'],
     location: 'Ancaster, Ontario, Canada',
     architect: 'Harry Colt',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
 
@@ -887,7 +887,7 @@ export const COURSES = [
     aliases: ['hirono gc'],
     location: 'Kobe, Japan',
     architect: 'Charles Alison',
-    logo: '🌸',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -897,7 +897,7 @@ export const COURSES = [
     aliases: ['kawana', 'kawana fuji course', 'kawana hotel fuji'],
     location: 'Itō, Japan',
     architect: 'Charles Alison',
-    logo: '🗻',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -907,7 +907,7 @@ export const COURSES = [
     aliases: ['tokyo gc'],
     location: 'Sayama, Japan',
     architect: 'Komyo Otani',
-    logo: '🗾',
+    logo: '',
     logoUrl: '',
   },
 
@@ -919,7 +919,7 @@ export const COURSES = [
     aliases: ['chambers bay golf course'],
     location: 'University Place, Washington',
     architect: 'Robert Trent Jones Jr.',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -929,7 +929,7 @@ export const COURSES = [
     aliases: ['black mesa gc'],
     location: 'La Mesilla, New Mexico',
     architect: 'Baxter Spann',
-    logo: '🏜️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -939,7 +939,7 @@ export const COURSES = [
     aliases: ['wolf creek gc', 'wolf creek mesquite'],
     location: 'Mesquite, Nevada',
     architect: 'Dennis Rider',
-    logo: '🐺',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -949,7 +949,7 @@ export const COURSES = [
     aliases: ['bayonne gc'],
     location: 'Bayonne, New Jersey',
     architect: 'Eric Bergstol',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -959,7 +959,7 @@ export const COURSES = [
     aliases: ['old sandwich gc'],
     location: 'Plymouth, Massachusetts',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -969,7 +969,7 @@ export const COURSES = [
     aliases: ['quail hollow cc', 'wells fargo championship'],
     location: 'Charlotte, North Carolina',
     architect: 'George Cobb / Tom Fazio',
-    logo: '🐦',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -979,7 +979,7 @@ export const COURSES = [
     aliases: ['wild horse gc'],
     location: 'Gothenburg, Nebraska',
     architect: 'Dave Axland & Dan Proctor',
-    logo: '🐴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -989,7 +989,7 @@ export const COURSES = [
     aliases: ['yeamans hall club'],
     location: 'Hanahan, South Carolina',
     architect: 'Seth Raynor',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -999,7 +999,7 @@ export const COURSES = [
     aliases: ['camargo club'],
     location: 'Indian Hill, Ohio',
     architect: 'Seth Raynor',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1009,7 +1009,7 @@ export const COURSES = [
     aliases: ['old town club nc'],
     location: 'Winston-Salem, North Carolina',
     architect: 'Perry Maxwell',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1019,7 +1019,7 @@ export const COURSES = [
     aliases: ['sleepy hollow cc'],
     location: 'Briarcliff Manor, New York',
     architect: 'C.B. Macdonald & Seth Raynor',
-    logo: '🎃',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1029,7 +1029,7 @@ export const COURSES = [
     aliases: ['garden city gc'],
     location: 'Garden City, New York',
     architect: 'Devereux Emmet / Walter Travis',
-    logo: '🌷',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1039,7 +1039,7 @@ export const COURSES = [
     aliases: ['tpc scottsdale stadium', 'waste management open', 'phoenix open'],
     location: 'Scottsdale, Arizona',
     architect: 'Tom Weiskopf & Jay Morrish',
-    logo: '🌵',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1049,7 +1049,7 @@ export const COURSES = [
     aliases: ['river highlands', 'travelers championship'],
     location: 'Cromwell, Connecticut',
     architect: 'Pete Dye / Bobby Weed',
-    logo: '🏞️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1059,7 +1059,7 @@ export const COURSES = [
     aliases: ['detroit gc', 'rocket mortgage classic'],
     location: 'Detroit, Michigan',
     architect: 'Donald Ross',
-    logo: '🏛️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1069,7 +1069,7 @@ export const COURSES = [
     aliases: ['colonial cc', 'charles schwab challenge'],
     location: 'Fort Worth, Texas',
     architect: 'John Bredemus / Perry Maxwell',
-    logo: '🤠',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1079,7 +1079,7 @@ export const COURSES = [
     aliases: ['memorial tournament', 'muirfield village gc'],
     location: 'Dublin, Ohio',
     architect: 'Jack Nicklaus & Desmond Muirhead',
-    logo: '🏆',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1089,7 +1089,7 @@ export const COURSES = [
     aliases: ['sand valley resort'],
     location: 'Nekoosa, Wisconsin',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1099,7 +1099,7 @@ export const COURSES = [
     aliases: ['sand valley mammoth dunes'],
     location: 'Nekoosa, Wisconsin',
     architect: 'David McLay Kidd',
-    logo: '🦣',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1109,7 +1109,7 @@ export const COURSES = [
     aliases: ['sand valley sedge valley'],
     location: 'Nekoosa, Wisconsin',
     architect: 'Tom Doak',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1119,7 +1119,7 @@ export const COURSES = [
     aliases: ['forest dunes gc'],
     location: 'Roscommon, Michigan',
     architect: 'Tom Weiskopf',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1129,7 +1129,7 @@ export const COURSES = [
     aliases: ['the loop forest dunes', 'reversible loop'],
     location: 'Roscommon, Michigan',
     architect: 'Tom Doak',
-    logo: '🔁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1139,7 +1139,7 @@ export const COURSES = [
     aliases: ['arcadia bluffs gc'],
     location: 'Arcadia, Michigan',
     architect: 'Rick Smith & Warren Henderson',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1149,7 +1149,7 @@ export const COURSES = [
     aliases: ['spyglass', 'spyglass hill gc'],
     location: 'Pebble Beach, California',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🔭',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1159,7 +1159,7 @@ export const COURSES = [
     aliases: ['mpcc shore', 'monterey peninsula cc shore'],
     location: 'Pebble Beach, California',
     architect: 'Mike Strantz',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1169,7 +1169,7 @@ export const COURSES = [
     aliases: ['pasatiempo gc'],
     location: 'Santa Cruz, California',
     architect: 'Alister MacKenzie',
-    logo: '🏄',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1179,7 +1179,7 @@ export const COURSES = [
     aliases: ['congressional cc', 'congressional blue'],
     location: 'Bethesda, Maryland',
     architect: 'Devereux Emmet / Rees Jones',
-    logo: '🏛️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1189,7 +1189,7 @@ export const COURSES = [
     aliases: ['plainfield cc'],
     location: 'Edison, New Jersey',
     architect: 'Donald Ross',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1199,7 +1199,7 @@ export const COURSES = [
     aliases: ['aronimink gc'],
     location: 'Newtown Square, Pennsylvania',
     architect: 'Donald Ross',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1209,7 +1209,7 @@ export const COURSES = [
     aliases: ['cherry hills cc'],
     location: 'Cherry Hills Village, Colorado',
     architect: 'William Flynn',
-    logo: '🍒',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1219,7 +1219,7 @@ export const COURSES = [
     aliases: ['southern hills cc'],
     location: 'Tulsa, Oklahoma',
     architect: 'Perry Maxwell',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1229,7 +1229,7 @@ export const COURSES = [
     aliases: ['firestone cc', 'firestone south course'],
     location: 'Akron, Ohio',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🔥',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1239,7 +1239,7 @@ export const COURSES = [
     aliases: ['olympia fields', 'olympia fields cc'],
     location: 'Olympia Fields, Illinois',
     architect: 'Willie Park Jr.',
-    logo: '🏛️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1249,7 +1249,7 @@ export const COURSES = [
     aliases: ['southwind', 'fedex st jude'],
     location: 'Memphis, Tennessee',
     architect: 'Ron Pritchard',
-    logo: '🎷',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1259,7 +1259,7 @@ export const COURSES = [
     aliases: ['austin country club', 'wgc match play'],
     location: 'Austin, Texas',
     architect: 'Pete Dye',
-    logo: '🎸',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1269,7 +1269,7 @@ export const COURSES = [
     aliases: ['wolf point club texas'],
     location: 'Port Lavaca, Texas',
     architect: 'Mike Nuzzo',
-    logo: '🐺',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1279,7 +1279,7 @@ export const COURSES = [
     aliases: ['ohoopee match club'],
     location: 'Cobbtown, Georgia',
     architect: 'Gil Hanse',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1289,7 +1289,7 @@ export const COURSES = [
     aliases: ['gozzer ranch'],
     location: 'Harrison, Idaho',
     architect: 'Tom Fazio',
-    logo: '🦌',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1299,7 +1299,7 @@ export const COURSES = [
     aliases: ['congaree gc'],
     location: 'Ridgeland, South Carolina',
     architect: 'Tom Fazio',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1311,7 +1311,7 @@ export const COURSES = [
     aliases: ['royal porthcawl gc', 'porthcawl'],
     location: 'Porthcawl, Wales',
     architect: 'Charles Gibson / Harry Colt',
-    logo: '🏴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1321,7 +1321,7 @@ export const COURSES = [
     aliases: ['royal ashdown', 'royal ashdown forest gc'],
     location: 'Forest Row, England',
     architect: 'Reverend A.T. Scott',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1331,7 +1331,7 @@ export const COURSES = [
     aliases: ['rye gc'],
     location: 'Rye, England',
     architect: 'Harry Colt',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1341,7 +1341,7 @@ export const COURSES = [
     aliases: ['st georges hill', 'st georges hill gc'],
     location: 'Weybridge, England',
     architect: 'Harry Colt',
-    logo: '🐉',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1351,7 +1351,7 @@ export const COURSES = [
     aliases: ['deal', 'royal cinque ports gc'],
     location: 'Deal, England',
     architect: 'Tom Dunn / James Braid',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1361,7 +1361,7 @@ export const COURSES = [
     aliases: ['brancaster', 'royal west norfolk', 'rwn gc'],
     location: 'Brancaster, England',
     architect: 'Holcombe Ingleby',
-    logo: '🪶',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1371,7 +1371,7 @@ export const COURSES = [
     aliases: ['royal aberdeen gc', 'balgownie'],
     location: 'Aberdeen, Scotland',
     architect: 'Robert Simpson',
-    logo: '👑',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1381,7 +1381,7 @@ export const COURSES = [
     aliases: ['trump aberdeen', 'menie', 'trump international scotland'],
     location: 'Balmedie, Scotland',
     architect: 'Martin Hawtree',
-    logo: '🌬️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1391,7 +1391,7 @@ export const COURSES = [
     aliases: ['gleneagles', 'gleneagles kings', 'kings course gleneagles'],
     location: 'Auchterarder, Scotland',
     architect: 'James Braid',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1401,7 +1401,7 @@ export const COURSES = [
     aliases: ['gleneagles pga centenary', 'centenary course'],
     location: 'Auchterarder, Scotland',
     architect: 'Jack Nicklaus',
-    logo: '🏆',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1411,7 +1411,7 @@ export const COURSES = [
     aliases: ['prestwick gc'],
     location: 'Prestwick, Scotland',
     architect: 'Old Tom Morris',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1421,7 +1421,7 @@ export const COURSES = [
     aliases: ['royal st davids', 'harlech'],
     location: 'Harlech, Wales',
     architect: 'Harold Finch-Hatton',
-    logo: '🐉',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1431,7 +1431,7 @@ export const COURSES = [
     aliases: ['old head kinsale', 'old head gl'],
     location: 'Kinsale, Ireland',
     architect: 'Ron Kirby / Joe Carr / Eddie Hackett',
-    logo: '🏔️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1441,7 +1441,7 @@ export const COURSES = [
     aliases: ['waterville gl'],
     location: 'Waterville, Ireland',
     architect: 'Eddie Hackett / Tom Fazio',
-    logo: '🍀',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1451,7 +1451,7 @@ export const COURSES = [
     aliases: ['tralee gc'],
     location: 'Ardfert, Ireland',
     architect: 'Arnold Palmer',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1461,7 +1461,7 @@ export const COURSES = [
     aliases: ['royal dublin gc'],
     location: 'Dublin, Ireland',
     architect: 'H.S. Colt',
-    logo: '☘️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1471,7 +1471,7 @@ export const COURSES = [
     aliases: ['rosses point', 'county sligo gc'],
     location: 'Rosses Point, Ireland',
     architect: 'H.S. Colt',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1481,7 +1481,7 @@ export const COURSES = [
     aliases: ['enniscrone gc'],
     location: 'Enniscrone, Ireland',
     architect: 'Eddie Hackett',
-    logo: '🍀',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1491,7 +1491,7 @@ export const COURSES = [
     aliases: ['portrush valley', 'royal portrush valley'],
     location: 'Portrush, Northern Ireland',
     architect: 'Harry Colt',
-    logo: '🏰',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1503,7 +1503,7 @@ export const COURSES = [
     aliases: ['falsterbo gk'],
     location: 'Falsterbo, Sweden',
     architect: 'Gunnar Bauer',
-    logo: '🌬️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1513,7 +1513,7 @@ export const COURSES = [
     aliases: ['halmstad gk', 'halmstad north'],
     location: 'Halmstad, Sweden',
     architect: 'Rafael Sundblom / Frank Pennink',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1523,7 +1523,7 @@ export const COURSES = [
     aliases: ['real club sotogrande', 'sotogrande gc'],
     location: 'Sotogrande, Spain',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🫒',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1533,7 +1533,7 @@ export const COURSES = [
     aliases: ['la reserva sotogrande', 'la reserva club'],
     location: 'Sotogrande, Spain',
     architect: 'Cabell Robinson',
-    logo: '🫒',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1543,7 +1543,7 @@ export const COURSES = [
     aliases: ['real san sebastian', 'san sebastian gc'],
     location: 'Hondarribia, Spain',
     architect: 'Pierre Hirigoyen',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1553,7 +1553,7 @@ export const COURSES = [
     aliases: ['le touquet', 'le touquet la mer'],
     location: 'Le Touquet, France',
     architect: 'Harry Colt',
-    logo: '🥖',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1563,7 +1563,7 @@ export const COURSES = [
     aliases: ['domaine de belesbat', 'golf de belesbat'],
     location: 'Courdimanche-sur-Essonne, France',
     architect: 'Patrice Lambert',
-    logo: '🥖',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1573,7 +1573,7 @@ export const COURSES = [
     aliases: ['fontainebleau gc'],
     location: 'Fontainebleau, France',
     architect: 'Tom Simpson',
-    logo: '🥖',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1583,7 +1583,7 @@ export const COURSES = [
     aliases: ['garlstedt', 'club zur vahr'],
     location: 'Bremen, Germany',
     architect: 'Bernhard von Limburger',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1593,7 +1593,7 @@ export const COURSES = [
     aliases: ['pevero gc', 'costa smeralda'],
     location: 'Sardinia, Italy',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1605,7 +1605,7 @@ export const COURSES = [
     aliases: ['hokkaido classic gc'],
     location: 'Hokkaido, Japan',
     architect: 'Jack Nicklaus',
-    logo: '🌸',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1615,7 +1615,7 @@ export const COURSES = [
     aliases: ['naruo gc'],
     location: 'Hyogo, Japan',
     architect: 'H.C. Crane / Charles Alison',
-    logo: '🌸',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1625,7 +1625,7 @@ export const COURSES = [
     aliases: ['yas links abu dhabi', 'yas island'],
     location: 'Abu Dhabi, United Arab Emirates',
     architect: 'Kyle Phillips',
-    logo: '🐪',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1635,7 +1635,7 @@ export const COURSES = [
     aliases: ['doha gc'],
     location: 'Doha, Qatar',
     architect: 'Peter Harradine',
-    logo: '🐪',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1645,7 +1645,7 @@ export const COURSES = [
     aliases: ['emirates gc', 'majlis course', 'dubai desert classic'],
     location: 'Dubai, United Arab Emirates',
     architect: 'Karl Litten',
-    logo: '🐪',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1655,7 +1655,7 @@ export const COURSES = [
     aliases: ['mission hills shenzhen', 'mission hills china'],
     location: 'Shenzhen, China',
     architect: 'Jack Nicklaus',
-    logo: '🐉',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1667,7 +1667,7 @@ export const COURSES = [
     aliases: ['diamante', 'diamante dunes', 'cabo dunes'],
     location: 'Cabo San Lucas, Mexico',
     architect: 'Davis Love III',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1677,7 +1677,7 @@ export const COURSES = [
     aliases: ['cabot saint lucia', 'point hardy', 'cabot st lucia'],
     location: 'Cap Estate, Saint Lucia',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🌴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1687,7 +1687,7 @@ export const COURSES = [
     aliases: ['teeth of the dog', 'casa de campo'],
     location: 'La Romana, Dominican Republic',
     architect: 'Pete Dye',
-    logo: '🦷',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1697,7 +1697,7 @@ export const COURSES = [
     aliases: ['punta espada gc', 'cap cana'],
     location: 'Cap Cana, Dominican Republic',
     architect: 'Jack Nicklaus',
-    logo: '⚔️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1707,7 +1707,7 @@ export const COURSES = [
     aliases: ['country club bogota', 'cc de bogota'],
     location: 'Bogota, Colombia',
     architect: 'Robert Trent Jones Sr.',
-    logo: '🌄',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1719,7 +1719,7 @@ export const COURSES = [
     aliases: ['royal melbourne east', 'royal melbourne east course'],
     location: 'Black Rock, Australia',
     architect: 'Alex Russell',
-    logo: '🦘',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1729,7 +1729,7 @@ export const COURSES = [
     aliases: ['victoria gc melbourne'],
     location: 'Cheltenham, Australia',
     architect: 'William Meader / Alister MacKenzie',
-    logo: '🦘',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1739,7 +1739,7 @@ export const COURSES = [
     aliases: ['metropolitan gc'],
     location: 'South Oakleigh, Australia',
     architect: 'J.B. Mackenzie / Dick Wilson',
-    logo: '🦘',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1749,7 +1749,7 @@ export const COURSES = [
     aliases: ['ellerston gc'],
     location: 'Ellerston, Australia',
     architect: 'Greg Norman',
-    logo: '🐎',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1759,7 +1759,7 @@ export const COURSES = [
     aliases: ['te arai south', 'te arai south course'],
     location: 'Te Arai, New Zealand',
     architect: 'Bill Coore & Ben Crenshaw',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1769,7 +1769,7 @@ export const COURSES = [
     aliases: ['te arai north', 'te arai north course'],
     location: 'Te Arai, New Zealand',
     architect: 'Tom Doak',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1779,7 +1779,7 @@ export const COURSES = [
     aliases: ['paraparaumu beach gc', 'parap'],
     location: 'Paraparaumu, New Zealand',
     architect: 'Alex Russell',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1791,7 +1791,7 @@ export const COURSES = [
     aliases: ['national golf club canada', 'national gc canada'],
     location: 'Woodbridge, Ontario, Canada',
     architect: 'Tom Fazio & George Fazio',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1801,7 +1801,7 @@ export const COURSES = [
     aliases: ['cape breton highlands links', 'highlands links'],
     location: 'Ingonish Beach, Nova Scotia, Canada',
     architect: 'Stanley Thompson',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1811,7 +1811,7 @@ export const COURSES = [
     aliases: ['jasper park lodge', 'jasper park golf'],
     location: 'Jasper, Alberta, Canada',
     architect: 'Stanley Thompson',
-    logo: '🍁',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1821,7 +1821,7 @@ export const COURSES = [
     aliases: ['banff springs', 'fairmont banff'],
     location: 'Banff, Alberta, Canada',
     architect: 'Stanley Thompson',
-    logo: '🏔️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1831,7 +1831,7 @@ export const COURSES = [
     aliases: ['lido', 'the lido', 'lido club'],
     location: 'Nekoosa, Wisconsin',
     architect: 'C.B. Macdonald (Tom Doak reconstruction)',
-    logo: '🧜',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1841,7 +1841,7 @@ export const COURSES = [
     aliases: ['old barnwell', 'barnwell'],
     location: 'Aiken, South Carolina',
     architect: 'Brian Schneider & Blake Conant',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1851,7 +1851,7 @@ export const COURSES = [
     aliases: ['mcarthur', 'mcarthur golf'],
     location: 'Hobe Sound, Florida',
     architect: 'Tom Fazio & Nick Price',
-    logo: '🥛',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1861,7 +1861,7 @@ export const COURSES = [
     aliases: ['stanwich', 'the stanwich club'],
     location: 'Greenwich, Connecticut',
     architect: 'William Gordon & David Gordon',
-    logo: '🧙',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1871,7 +1871,7 @@ export const COURSES = [
     aliases: ['philadelphia cricket', 'pcc', 'wissahickon'],
     location: 'Flourtown, Pennsylvania',
     architect: 'A.W. Tillinghast',
-    logo: '🏏',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1881,7 +1881,7 @@ export const COURSES = [
     aliases: ['crooked stick'],
     location: 'Carmel, Indiana',
     architect: 'Pete Dye',
-    logo: '🏌️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1891,7 +1891,7 @@ export const COURSES = [
     aliases: ['liberty national', 'libnat'],
     location: 'Jersey City, New Jersey',
     architect: 'Tom Kite & Bob Cupp',
-    logo: '🗽',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1901,7 +1901,7 @@ export const COURSES = [
     aliases: ['yale', 'yale golf', 'yale university golf'],
     location: 'New Haven, Connecticut',
     architect: 'C.B. Macdonald & Seth Raynor',
-    logo: '🎓',
+    logo: '',
     logoUrl: '',
   },
 
@@ -1913,7 +1913,7 @@ export const COURSES = [
     aliases: ['bellerive cc'],
     location: 'St. Louis, Missouri',
     architect: 'Robert Trent Jones Sr.',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1923,7 +1923,7 @@ export const COURSES = [
     aliases: ['berkeley hall'],
     location: 'Bluffton, South Carolina',
     architect: 'Tom Fazio',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1933,7 +1933,7 @@ export const COURSES = [
     aliases: ['black sheep gc'],
     location: 'Sugar Grove, Illinois',
     architect: 'Hurdzan & Fry',
-    logo: '🐑',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1943,7 +1943,7 @@ export const COURSES = [
     aliases: ['boston gc'],
     location: 'Hingham, Massachusetts',
     architect: 'Gil Hanse',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1953,7 +1953,7 @@ export const COURSES = [
     aliases: ['broomsedge gc'],
     location: 'Aiken, South Carolina',
     architect: 'King-Collins',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1963,7 +1963,7 @@ export const COURSES = [
     aliases: ['burning tree'],
     location: 'Bethesda, Maryland',
     architect: 'Alister MacKenzie & Devereux Emmet',
-    logo: '🔥',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1973,7 +1973,7 @@ export const COURSES = [
     aliases: ['calusa'],
     location: 'Naples, Florida',
     architect: 'Hurdzan & Fry',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1983,7 +1983,7 @@ export const COURSES = [
     aliases: ['dooks gc'],
     location: 'Glenbeigh, County Kerry, Ireland',
     architect: 'Eddie Hackett',
-    logo: '🍀',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -1993,7 +1993,7 @@ export const COURSES = [
     aliases: ['essex'],
     location: 'West Orange, New Jersey',
     architect: 'Donald Ross',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2003,7 +2003,7 @@ export const COURSES = [
     aliases: ['flossmoor', 'flossmoor cc'],
     location: 'Flossmoor, Illinois',
     architect: 'Herbert Tweedie',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2013,7 +2013,7 @@ export const COURSES = [
     aliases: ['gamble'],
     location: 'Brewster, Washington',
     architect: 'David McLay Kidd',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2023,7 +2023,7 @@ export const COURSES = [
     aliases: ['interlachen cc'],
     location: 'Edina, Minnesota',
     architect: 'Donald Ross',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2033,7 +2033,7 @@ export const COURSES = [
     aliases: ['kittansett club'],
     location: 'Marion, Massachusetts',
     architect: 'Frederick Hood',
-    logo: '⚓',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2043,7 +2043,7 @@ export const COURSES = [
     aliases: ['lost dunes gc'],
     location: 'Bridgman, Michigan',
     architect: 'Tom Doak',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2053,7 +2053,7 @@ export const COURSES = [
     aliases: ['myopia', 'myopia hunt', 'myopia hunt club', 'myopia club'],
     location: 'South Hamilton, Massachusetts',
     architect: 'Herbert Leeds',
-    logo: '🦊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2063,7 +2063,7 @@ export const COURSES = [
     aliases: ['naples national gc'],
     location: 'Naples, Florida',
     architect: 'Tom Fazio',
-    logo: '🌴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2073,7 +2073,7 @@ export const COURSES = [
     aliases: ['old elm gc'],
     location: 'Highland Park, Illinois',
     architect: 'Harry S. Colt & Donald Ross',
-    logo: '🌳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2083,7 +2083,7 @@ export const COURSES = [
     aliases: ['bandon pacific dunes'],
     location: 'Bandon, Oregon',
     architect: 'Tom Doak',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2093,7 +2093,7 @@ export const COURSES = [
     aliases: ['piping rock'],
     location: 'Locust Valley, New York',
     architect: 'C.B. Macdonald',
-    logo: '🪈',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2103,7 +2103,7 @@ export const COURSES = [
     aliases: ['rich harvest'],
     location: 'Sugar Grove, Illinois',
     architect: 'Jerry Rich',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2113,7 +2113,7 @@ export const COURSES = [
     aliases: ['sage', 'sage valley', 'sage valley club'],
     location: 'Graniteville, South Carolina',
     architect: 'Tom Fazio',
-    logo: '🌿',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2123,7 +2123,7 @@ export const COURSES = [
     aliases: ['scioto cc'],
     location: 'Columbus, Ohio',
     architect: 'Donald Ross',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2133,7 +2133,7 @@ export const COURSES = [
     aliases: ['secession gc'],
     location: 'Beaufort, South Carolina',
     architect: 'Bruce Devlin & P.B. Dye',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2143,7 +2143,7 @@ export const COURSES = [
     aliases: ['shore acres'],
     location: 'Lake Bluff, Illinois',
     architect: 'Seth Raynor',
-    logo: '🌊',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2153,7 +2153,7 @@ export const COURSES = [
     aliases: ['skene', 'skene valley cc'],
     location: 'Whitehall, New York',
     architect: 'William Mitchell',
-    logo: '🦶',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2163,7 +2163,7 @@ export const COURSES = [
     aliases: ['st louis country club', 'saint louis cc'],
     location: 'Ladue, Missouri',
     architect: 'C.B. Macdonald & Seth Raynor',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2173,7 +2173,7 @@ export const COURSES = [
     aliases: ['stonewall'],
     location: 'Grayslake, Illinois',
     architect: 'Arthur Hills',
-    logo: '🍎',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2183,7 +2183,7 @@ export const COURSES = [
     aliases: ['the alotian club'],
     location: 'Roland, Arkansas',
     architect: 'Tom Fazio',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2193,7 +2193,7 @@ export const COURSES = [
     aliases: ['country club brookline', 'tcc', 'the country club at brookline'],
     location: 'Brookline, Massachusetts',
     architect: 'William Campbell & Willie Park Jr.',
-    logo: '⛳',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2203,7 +2203,7 @@ export const COURSES = [
     aliases: ['the dunes club michigan'],
     location: 'New Buffalo, Michigan',
     architect: 'Dick Nugent',
-    logo: '🏖️',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2213,7 +2213,7 @@ export const COURSES = [
     aliases: ['hay short course', 'pebble beach hay'],
     location: 'Pebble Beach, California',
     architect: 'Tiger Woods (TGR Design)',
-    logo: '🌾',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2223,7 +2223,7 @@ export const COURSES = [
     aliases: ['loxahatchee club'],
     location: 'Jupiter, Florida',
     architect: 'Jack Nicklaus',
-    logo: '🌴',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2233,7 +2233,7 @@ export const COURSES = [
     aliases: ['the tree farm'],
     location: 'Aiken, South Carolina',
     architect: 'Tom Doak & Brian Schneider',
-    logo: '🌲',
+    logo: '',
     logoUrl: '',
   },
   {
@@ -2243,7 +2243,7 @@ export const COURSES = [
     aliases: ['vaquero golf club'],
     location: 'Westlake, Texas',
     architect: 'Tom Fazio',
-    logo: '🤠',
+    logo: '',
     logoUrl: '',
   },
 ];
