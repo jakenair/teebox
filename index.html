@@ -3172,7 +3172,7 @@
   </div>
 </div>
 
-<!-- STRIPE CHECKOUT MODAL -->
+<!-- STRIPE CHECKOUT MODAL — Payment Element (Apple Pay / Google Pay / Link / Card) -->
 <div class="modal-backdrop" id="checkoutBackdrop" data-close-on-backdrop="close-checkout-direct">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -3185,34 +3185,67 @@
         <div class="modal-info">
           <h3 id="checkoutName">Item</h3>
           <p id="checkoutMeta"></p>
+          <p id="checkoutSeller" style="margin:4px 0 0;font-size:12.5px;color:var(--gray-600);"></p>
         </div>
       </div>
-      <div style="background:var(--gray-100);border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;font-weight:600;color:var(--gray-700);">Total</span>
-        <span style="font-family:var(--font-display);font-size:1.4rem;font-weight:700;color:var(--gray-900);" id="checkoutTotal">$0</span>
+
+      <!-- Order summary: itemized so buyer sees exactly what's charged -->
+      <div style="background:var(--gray-100);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;color:var(--gray-700);margin-bottom:6px;">
+          <span id="checkoutItemLabel">Item</span>
+          <span id="checkoutItemPrice">$0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
+          <span>Buyer fees</span>
+          <span>$0.00</span>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--gray-200);margin:8px 0 10px;" />
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-size:13px;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;">What you'll pay</span>
+          <span style="font-family:var(--font-display);font-size:1.7rem;font-weight:800;color:var(--gray-900);" id="checkoutTotal">$0.00</span>
+        </div>
       </div>
-      <!-- One-tap wallet button (Apple Pay / Google Pay / Link). Only shows
-           when the device + browser supports it. Requires the domain to be
-           registered in Stripe Dashboard → Settings → Payment methods →
-           Apple Pay → Add new domain (uploads a verification file at
-           /.well-known/apple-developer-merchantid-domain-association). -->
-      <div id="payment-request-button" style="margin-bottom: 12px;"></div>
-      <div id="payment-request-divider" style="display:none; text-align:center; font-size:11px; color:var(--gray-500); text-transform:uppercase; letter-spacing:1px; margin: 8px 0 12px; position:relative;">
-        <span style="background:var(--white); padding: 0 12px; position:relative; z-index:1;">or pay with card</span>
-        <hr style="position:absolute; top:50%; left:0; right:0; border:none; border-top: 1px solid var(--gray-200); margin:0;" />
+
+      <!-- Buyer-protection callout -->
+      <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;">
+        <span data-ico="shield" style="color:var(--green-700);flex-shrink:0;margin-top:1px;"></span>
+        <div style="font-size:12.5px;color:var(--green-700);line-height:1.45;">
+          <strong style="display:block;font-size:13px;margin-bottom:2px;color:var(--green-700);">Buyer Protection</strong>
+          Full refund if your item arrives not as described, never ships, or the seller doesn't ship within 5 business days.
+        </div>
       </div>
-      <div class="modal-input-row">
-        <label>Card Details</label>
-        <div id="card-element" style="border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:12px 14px;background:var(--white);"></div>
-        <div id="card-errors" style="color:var(--red-500);font-size:13px;margin-top:6px;min-height:18px;"></div>
+
+      <!-- Stripe Payment Element — auto-renders Apple Pay, Google Pay, Link, Card -->
+      <div class="modal-input-row" style="margin-bottom:10px;">
+        <div id="payment-element" style="min-height:48px;"></div>
+        <div id="card-errors" role="alert" aria-live="polite" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:18px;"></div>
       </div>
-      <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--green-700);margin-bottom:0.5rem;">
-        <span data-ico="lock"></span> Payments are secured by Stripe. TeeBox never stores your card details.
+
+      <!-- PCI / "card details never stored" reassurance -->
+      <div style="font-size:11.5px;color:var(--gray-500);line-height:1.45;margin-bottom:6px;display:flex;gap:6px;align-items:flex-start;">
+        <span data-ico="lock" style="color:var(--gray-500);flex-shrink:0;margin-top:1px;"></span>
+        <span>Your card details are never stored on our servers. Payments are processed directly by Stripe over an encrypted connection.</span>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-full ghost" data-action="close-checkout-direct">Cancel</button>
-      <button class="btn-full green" id="payBtn" data-action="confirm-payment">Pay Now</button>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <div style="display:flex;gap:10px;width:100%;">
+        <button class="btn-full ghost" data-action="close-checkout-direct" style="flex:1;">Cancel</button>
+        <button class="btn-full green" id="payBtn" data-action="confirm-payment" style="flex:2;">Pay Now</button>
+      </div>
+      <!-- Secured-by-Stripe badge directly under Pay button -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--gray-500);font-weight:600;letter-spacing:0.3px;">
+        <span data-ico="lock" style="color:var(--gray-500);width:14px;height:14px;display:inline-flex;"></span>
+        <span>SECURED BY STRIPE</span>
+      </div>
+      <!-- Trust row: payment method marks (text glyphs — keeps CSP simple, no remote SVG) -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--gray-100);padding:10px 0 2px;">
+        <span style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">Pay</span>
+        <span style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">G Pay</span>
+        <span style="font-size:10px;font-weight:800;color:#1a1f71;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.5px;">VISA</span>
+        <span style="font-size:10px;font-weight:800;color:#eb001b;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">MC</span>
+        <span style="font-size:10px;font-weight:800;color:#006fcf;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">AMEX</span>
+        <span style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">Link</span>
+      </div>
     </div>
   </div>
 </div>
@@ -3224,120 +3257,142 @@
         integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"
         crossorigin="anonymous"></script>
 <script>
+// ──────────────────────────────────────────────────────────────────────
+// Stripe Payment Element — single component that auto-renders Apple Pay,
+// Google Pay, Link, and Card based on browser/device support. Replaces
+// the legacy Card Element + paymentRequestButton split. Server-side, the
+// createPaymentIntent function already sets `automatic_payment_methods:
+// { enabled: true }`, which is the only requirement for this to work.
+//
+// IMPORTANT — Apple Pay on web requires *two* one-time setup steps that
+// can ONLY be done by a human in the Stripe Dashboard:
+//   1) Settings → Payment methods → Apple Pay → Add new domain
+//      (teeboxmarket.com)
+//   2) Stripe issues a verification file. Download it and upload to:
+//        /.well-known/apple-developer-merchantid-domain-association
+//      A placeholder lives at that path with instructions. Replace the
+//      contents with the file Stripe gives you, then redeploy.
+// Google Pay needs no domain step — works once the Payment Element loads.
+// ──────────────────────────────────────────────────────────────────────
 const STRIPE_PK = 'pk_test_51TNLBCACdHwBgjjdr9bh2msyvaBe21US8OeHxxSzVVzPlJzDEFyTfStKekQu13Mq6tjX1TQIxi4N3nWVG21DzB0O00L0YuqqAj';
 const CLOUD_FUNCTION_URL = 'https://us-central1-teebox-market.cloudfunctions.net/createPaymentIntent';
 let stripeInstance = null;
-let cardElement = null;
+let stripeElements = null;       // current Elements instance (rebuilt per checkout — clientSecret is per-PI)
+let paymentElement = null;       // the mounted Payment Element
 let checkoutProduct = null;
+let checkoutClientSecret = null; // PaymentIntent client secret for the open checkout
 
-function initStripe() {
-  if (!stripeInstance) {
+function ensureStripeLoaded() {
+  if (!stripeInstance && typeof Stripe === 'function') {
     stripeInstance = Stripe(STRIPE_PK);
-    const elements = stripeInstance.elements();
-    cardElement = elements.create('card', {
-      style: {
-        base: { fontSize: '15px', color: '#1c1c18', fontFamily: 'DM Sans, system-ui, sans-serif', '::placeholder': { color: '#a8a89e' } },
-        invalid: { color: '#c0392b' }
-      }
-    });
-    cardElement.mount('#card-element');
-    cardElement.on('change', e => {
-      document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
-    });
+  }
+  return stripeInstance;
+}
+
+// Translate a Stripe error into a buyer-friendly sentence. We map the
+// common decline_codes + a handful of error.code values; everything else
+// falls back to Stripe's own message (which is usually fine).
+function friendlyStripeError(err) {
+  if (!err) return 'Payment failed. Please try again.';
+  const code = err.decline_code || err.code || '';
+  switch (code) {
+    case 'card_declined':       return 'Your card was declined. Try a different card.';
+    case 'insufficient_funds':  return 'Your card has insufficient funds. Try a different card.';
+    case 'expired_card':        return 'That card is expired. Please enter a new one.';
+    case 'incorrect_cvc':       return 'The security code on your card was wrong.';
+    case 'incorrect_number':    return 'That card number looks wrong. Please re-enter it.';
+    case 'processing_error':    return "Something went wrong on Stripe's end. Try again in a moment.";
+    case 'authentication_required':
+      return 'Your bank requires extra verification. Try again and complete the prompt.';
+    case 'lost_card':
+    case 'stolen_card':
+      return 'Your card was declined. Try a different card.';
+    default:
+      return err.message || 'Payment failed. Please try again.';
   }
 }
 
-let paymentRequestButton = null;
-async function setupPaymentRequest(product) {
-  if (!stripeInstance || !product) return;
-  const qty = Math.max(1, Number(product.__qty || 1));
-  const amountCents = Math.round(Number(product.ask || 0) * 100 * qty);
-  if (amountCents <= 0) return;
-  try {
-    const pr = stripeInstance.paymentRequest({
-      country: 'US',
-      currency: 'usd',
-      total: {
-        label: product.name || 'TeeBox order',
-        amount: amountCents,
+function setCheckoutError(msg) {
+  const el = document.getElementById('card-errors');
+  if (el) el.textContent = msg || '';
+}
+
+// Create a PaymentIntent on the server, mount the Payment Element bound
+// to the returned clientSecret. We have to do this *before* showing the
+// element because Stripe needs the clientSecret to know which payment
+// methods to render (Apple Pay, Google Pay, Link, etc.).
+async function mountPaymentElement(product) {
+  ensureStripeLoaded();
+  if (!stripeInstance) throw new Error('Stripe failed to load.');
+  if (!window.CURRENT_USER) throw new Error('Please sign in to purchase.');
+
+  const idToken = await window.CURRENT_USER.getIdToken();
+  const res = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + idToken,
+    },
+    body: JSON.stringify({
+      listingId: String(product.id),
+      quantity: Number(product.__qty || 1),
+    }),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).error || ''; } catch {}
+    throw new Error(detail || `Payment server error (${res.status})`);
+  }
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  if (!data.clientSecret) throw new Error('Payment could not be started. Try again.');
+
+  checkoutClientSecret = data.clientSecret;
+
+  // Tear down any previous Element from a prior checkout open.
+  if (paymentElement) {
+    try { paymentElement.unmount(); } catch (_e) {}
+    paymentElement = null;
+  }
+
+  stripeElements = stripeInstance.elements({
+    clientSecret: checkoutClientSecret,
+    appearance: {
+      theme: 'stripe',
+      variables: {
+        colorPrimary: '#15803d',
+        colorBackground: '#ffffff',
+        colorText: '#1c1c18',
+        colorDanger: '#c0392b',
+        fontFamily: 'DM Sans, system-ui, sans-serif',
+        borderRadius: '10px',
       },
-      requestPayerName: true,
-      requestPayerEmail: true,
-    });
-    const canMake = await pr.canMakePayment();
-    const slot = document.getElementById('payment-request-button');
-    const divider = document.getElementById('payment-request-divider');
-    if (!canMake) {
-      if (slot) slot.style.display = 'none';
-      if (divider) divider.style.display = 'none';
-      return;
-    }
-    // Tear down any previous mount.
-    if (paymentRequestButton) {
-      try { paymentRequestButton.unmount(); } catch (_e) {}
-    }
-    const elements = stripeInstance.elements();
-    paymentRequestButton = elements.create('paymentRequestButton', {
-      paymentRequest: pr,
-      style: { paymentRequestButton: { theme: 'dark', height: '44px' } },
-    });
-    paymentRequestButton.mount('#payment-request-button');
-    if (slot) slot.style.display = '';
-    if (divider) divider.style.display = '';
-    pr.on('paymentmethod', async (ev) => {
-      try {
-        // Create the PaymentIntent server-side first.
-        const idToken = await window.CURRENT_USER.getIdToken();
-        const res = await fetch(CLOUD_FUNCTION_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + idToken,
-          },
-          body: JSON.stringify({ listingId: String(product.id), quantity: Number(product.__qty || 1) }),
-        });
-        if (!res.ok) {
-          let detail = '';
-          try { detail = (await res.json()).error || ''; } catch {}
-          ev.complete('fail');
-          document.getElementById('card-errors').textContent = detail || 'Payment failed.';
-          return;
-        }
-        const { clientSecret } = await res.json();
-        const { error: confErr } = await stripeInstance.confirmCardPayment(
-          clientSecret,
-          { payment_method: ev.paymentMethod.id },
-          { handleActions: false }
-        );
-        if (confErr) {
-          ev.complete('fail');
-          document.getElementById('card-errors').textContent = confErr.message;
-          return;
-        }
-        ev.complete('success');
-        closeCheckoutDirect();
-        if (window.showToast) showToast('Payment successful — your order is confirmed.', 'success');
-        if (window.loadListings) try { await window.loadListings(); } catch (_e) {}
-      } catch (err) {
-        ev.complete('fail');
-        document.getElementById('card-errors').textContent = (err && err.message) || 'Payment failed.';
-      }
-    });
-  } catch (err) {
-    // Wallet button is best-effort. Card form still works.
-    console.warn('paymentRequest setup failed', err);
-  }
+    },
+  });
+
+  paymentElement = stripeElements.create('payment', {
+    layout: { type: 'tabs', defaultCollapsed: false },
+    wallets: { applePay: 'auto', googlePay: 'auto' },
+  });
+  paymentElement.mount('#payment-element');
+  paymentElement.on('change', (ev) => {
+    // Surface live validation errors as the buyer types/selects.
+    setCheckoutError(ev.error ? ev.error.message : '');
+  });
 }
 
-window.openCheckout = function(productId, qty) {
+window.openCheckout = async function(productId, qty) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
   if (!p) return;
   if (!window.CURRENT_USER) { showToast('Please sign in to purchase.'); return; }
+
   // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
   const totalQty = Math.max(1, Number(p.quantity || 1));
   const remaining = Math.max(1, totalQty - Math.max(0, Number(p.quantitySold || 0)));
   const requestedQty = Math.min(remaining, Math.max(1, Number(qty || 1)));
   checkoutProduct = Object.assign({}, p, { __qty: requestedQty });
+
+  // Product image / placeholder
   const emojiEl = document.getElementById('checkoutEmoji');
   emojiEl.textContent = '';
   if (p.photos && p.photos.length > 0 && window.safeImgUrl(p.photos[0])) {
@@ -3350,19 +3405,55 @@ window.openCheckout = function(productId, qty) {
     emojiEl.classList.add('placeholder-art');
     emojiEl.innerHTML = window.CATEGORY_ICON(p.cat);
   }
+
   document.getElementById('checkoutName').textContent = p.name;
   const qtyMeta = requestedQty > 1 ? ` · Qty ${requestedQty}` : '';
   document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}`;
-  const totalDollars = Number(p.ask || 0) * requestedQty;
-  document.getElementById('checkoutTotal').textContent = '$' + totalDollars.toLocaleString();
-  document.getElementById('card-errors').textContent = '';
-  document.getElementById('payBtn').disabled = false;
-  document.getElementById('payBtn').textContent = 'Pay Now';
+
+  // Cents-precise itemized summary. Buyer doesn't pay a separate buyer fee
+  // (platform fee is collected from the seller via Stripe Connect), so the
+  // line item == the total. Showing both is the convention buyers expect.
+  const unit = Number(p.ask || 0);
+  const totalDollars = unit * requestedQty;
+  const fmt = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('checkoutItemLabel').textContent =
+    requestedQty > 1 ? `Item × ${requestedQty}` : 'Item';
+  document.getElementById('checkoutItemPrice').textContent = fmt(totalDollars);
+  document.getElementById('checkoutTotal').textContent = fmt(totalDollars);
+
+  // Seller line — name + verified pill if applicable
+  const sellerEl = document.getElementById('checkoutSeller');
+  sellerEl.innerHTML = 'Sold by <span style="color:var(--gray-700);font-weight:600;">a TeeBox member</span>';
+  if (p.sellerId && typeof loadProfile === 'function') {
+    loadProfile(p.sellerId).then((prof) => {
+      const u = (prof && prof._user) || {};
+      const name = u.displayName || u.name || 'a TeeBox member';
+      const verified = !!u.sellerVerified;
+      sellerEl.innerHTML =
+        'Sold by <span style="color:var(--gray-700);font-weight:600;">' +
+        window.safeText(name) + '</span>' +
+        (verified ? ' <span class="verified-pill sm" title="Verified seller">Verified</span>' : '');
+    }).catch(() => {});
+  }
+
+  setCheckoutError('');
+  const payBtn = document.getElementById('payBtn');
+  payBtn.disabled = true; // disabled until the Payment Element finishes mounting
+  payBtn.textContent = 'Loading…';
+
   document.getElementById('checkoutBackdrop').classList.add('open');
-  setTimeout(() => {
-    initStripe();
-    setupPaymentRequest(p);
-  }, 100);
+
+  // Mount the Payment Element. If it fails (network, signed-out, seller
+  // hasn't connected Stripe), surface the message inline and keep the
+  // modal open so the buyer can close it cleanly.
+  try {
+    await mountPaymentElement(checkoutProduct);
+    payBtn.disabled = false;
+    payBtn.textContent = 'Pay ' + fmt(totalDollars);
+  } catch (err) {
+    setCheckoutError(err && err.message || 'Could not start payment. Try again.');
+    payBtn.textContent = 'Pay Now';
+  }
 };
 
 window.closeCheckout = function(e) {
@@ -3370,53 +3461,66 @@ window.closeCheckout = function(e) {
 };
 window.closeCheckoutDirect = function() {
   document.getElementById('checkoutBackdrop').classList.remove('open');
+  // Tear the Element down so the next open creates a fresh PI / mount.
+  if (paymentElement) {
+    try { paymentElement.unmount(); } catch (_e) {}
+    paymentElement = null;
+  }
+  stripeElements = null;
+  checkoutClientSecret = null;
 };
 
 window.confirmPayment = async function() {
-  if (!checkoutProduct || !cardElement || !window.CURRENT_USER) return;
+  if (!checkoutProduct || !window.CURRENT_USER) return;
+  if (!stripeInstance || !stripeElements || !checkoutClientSecret) {
+    setCheckoutError('Payment is still loading — please wait a moment and try again.');
+    return;
+  }
   const btn = document.getElementById('payBtn');
-  btn.disabled = true; btn.textContent = 'Processing…';
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Processing payment…';
+  setCheckoutError('');
+
   try {
-    const idToken = await window.CURRENT_USER.getIdToken();
-    const res = await fetch(CLOUD_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + idToken
-      },
-      body: JSON.stringify({
-        listingId: String(checkoutProduct.id),
-        quantity: Number(checkoutProduct.__qty || 1),
-      })
+    // confirmPayment handles 3DS / wallet flows internally. With
+    // redirect:'if_required' the buyer stays on-page for cards that
+    // don't need redirection (Apple Pay, Google Pay, most US cards).
+    const { error, paymentIntent } = await stripeInstance.confirmPayment({
+      elements: stripeElements,
+      redirect: 'if_required',
     });
-    if (!res.ok) {
-      // Payment server returned 4xx/5xx — JSON may be missing or contain HTML.
-      let detail = '';
-      try { detail = (await res.json()).error || ''; } catch {}
-      throw new Error(detail || `Payment server error (${res.status})`);
+
+    if (error) {
+      setCheckoutError(friendlyStripeError(error));
+      btn.disabled = false;
+      btn.textContent = originalLabel || 'Pay Now';
+      return;
     }
-    const { clientSecret, error } = await res.json();
-    if (error) throw new Error(error);
-    const result = await stripeInstance.confirmCardPayment(clientSecret, {
-      payment_method: { card: cardElement }
-    });
-    if (result.error) {
-      document.getElementById('card-errors').textContent = result.error.message;
-      btn.disabled = false; btn.textContent = 'Pay Now';
-    } else {
+
+    // Stripe says the PI succeeded (or is processing — bank-side).
+    if (paymentIntent && paymentIntent.status === 'succeeded') {
       closeCheckoutDirect();
       showToast('Payment successful — your order is confirmed.', 'success');
-      // Refresh listings + close detail modal so the just-bought item is no longer marked Buy Now.
       const detailBackdrop = document.getElementById('detailBackdrop');
       if (detailBackdrop) detailBackdrop.classList.remove('open');
       if (window.loadListings) {
         try { await window.loadListings(); }
         catch (e) { showToast('Order placed — refresh to see updated listings.', 'info'); }
       }
+    } else if (paymentIntent && paymentIntent.status === 'processing') {
+      closeCheckoutDirect();
+      showToast('Payment is processing — we will email you when it confirms.', 'info');
+    } else {
+      // Status == requires_payment_method or similar — keep modal open.
+      setCheckoutError('Payment was not completed. Please try again.');
+      btn.disabled = false;
+      btn.textContent = originalLabel || 'Pay Now';
     }
-  } catch(err) {
-    document.getElementById('card-errors').textContent = err.message || 'Payment failed. Please try again.';
-    btn.disabled = false; btn.textContent = 'Pay Now';
+  } catch (err) {
+    setCheckoutError(friendlyStripeError(err));
+    btn.disabled = false;
+    btn.textContent = originalLabel || 'Pay Now';
   }
 };
 </script>
