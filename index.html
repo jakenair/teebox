@@ -1123,7 +1123,13 @@
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
   .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
   .product-body { padding: 14px 14px 16px; }
-  .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 3px; }
+  .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  .brand-link { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+  .brand-link:hover, .brand-link:focus { color: var(--green-700); text-decoration: underline; outline: none; }
+  /* Active brand filter chip — sits in the filter row, click to clear */
+  .brand-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--green-700); color: var(--white); border: none; border-radius: 50px; padding: 6px 10px 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition); margin-left: 6px; vertical-align: middle; }
+  .brand-chip:hover { background: var(--green-800, #143d1f); }
+  .brand-chip .x { font-size: 14px; line-height: 1; opacity: 0.85; }
   .product-name { font-size: 14px; font-weight: 600; color: var(--gray-900); margin-bottom: 6px; line-height: 1.35; }
   /* Seller rating row injected by hydrateSellerRatings — empty by default
      so a 0-review seller leaves no visual gap on the card. */
@@ -2953,7 +2959,7 @@
   </div>
 
   <div class="section reveal">
-    <div class="section-header"><h2 class="section-title">Latest Listings</h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
+    <div class="section-header"><h2 class="section-title">Latest Listings<span id="activeBrandChipSlot"></span></h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
     <div class="filter-bar" id="filterBar">
       <div class="filter-group">
         <label>Sort</label>
@@ -4396,12 +4402,16 @@ function buildTrending() {
 }
 
 // Active filter state. Updated by filter-bar inputs; persisted across renders.
-window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set() };
+window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set(), brand: null };
 
 function applyFilters(list) {
   const f = window.__filter;
   let out = list.slice();
   if (f.cat && f.cat !== 'all') out = out.filter(p => p.cat === f.cat);
+  if (f.brand) {
+    const wanted = String(f.brand).trim().toLowerCase();
+    out = out.filter(p => String(p.brand || '').trim().toLowerCase() === wanted);
+  }
   if (f.min != null) out = out.filter(p => Number(p.ask || 0) >= f.min);
   if (f.max != null) out = out.filter(p => Number(p.ask || 0) <= f.max);
   if (f.conditions && f.conditions.size > 0) out = out.filter(p => f.conditions.has(p.condition));
@@ -4438,10 +4448,30 @@ function conditionBadgeMeta(raw) {
 }
 window.conditionBadgeMeta = conditionBadgeMeta;
 
+// Click a brand label on a listing card to narrow the marketplace to
+// just that brand. Pass null to clear the brand filter.
+function filterByBrand(brand) {
+  window.__filter.brand = brand ? String(brand).trim() : null;
+  buildProducts();
+  // Scroll the marketplace grid back into view so the user sees the
+  // narrowed result set immediately.
+  const grid = document.getElementById('productGrid');
+  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.filterByBrand = filterByBrand;
+
 function buildProducts(filter) {
   if (filter !== undefined) window.__filter.cat = filter;
   const all = window.PRODUCTS || [];
   const list = applyFilters(all);
+  // Render the active-brand chip in the section header.
+  const chipSlot = document.getElementById('activeBrandChipSlot');
+  if (chipSlot) {
+    const b = window.__filter && window.__filter.brand;
+    chipSlot.innerHTML = b
+      ? `<button class="brand-chip" data-action="clear-brand-filter" title="Clear brand filter">${window.safeText(b)} <span class="x">✕</span></button>`
+      : '';
+  }
   if (!list.length) {
     // Distinguish "filters too narrow" from "marketplace genuinely
     // empty" — the latter gets a CTA into the Sell flow so signed-out
@@ -4498,7 +4528,7 @@ function buildProducts(filter) {
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
-        `<div class="product-brand">${window.safeText(p.brand)}${sellerVerifiedSlot}</div>`+
+        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerVerifiedSlot}</div>`+
         `<div class="product-name">${window.safeText(p.name)}</div>`+
         `${sellerRatingSlot}`+
         `<div class="product-market">`+
@@ -9642,6 +9672,8 @@ A['lightbox-prev']           = () => stepLightbox(-1);
 A['lightbox-next']           = () => stepLightbox(1);
 A['open-saved-searches']     = () => openSavedSearchesV2();
 A['save-current-search']     = () => saveCurrentSearch();
+A['filter-by-brand']         = (el) => filterByBrand(el.dataset.brand);
+A['clear-brand-filter']      = () => filterByBrand(null);
 A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
 A['ask-delete-listing']      = (el) => askDeleteListing(el.dataset.listingId, el.dataset.listingTitle);
 A['confirm-delete-listing']  = () => confirmDeleteListing();
