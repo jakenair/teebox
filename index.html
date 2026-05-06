@@ -1312,6 +1312,125 @@
   .thumb { width: 56px; height: 56px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: var(--transition); background: var(--gray-100); display: flex; align-items: center; justify-content: center; }
   .thumb:hover, .thumb.active { border-color: var(--green-500); }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Instagram-style photo swiper on the listing detail page.
+     - Native CSS scroll-snap (no JS swipe libs)
+     - Square slides, edge-to-edge on mobile
+     - Dot indicators below; arrow buttons on desktop hover only
+     - Photo count badge top-right
+     - Tap on any slide opens the existing lightbox */
+  .ig-swiper { position: relative; width: 100%; }
+  .ig-swiper-track {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    border-radius: var(--radius-lg);
+    background: var(--gray-100);
+    aspect-ratio: 1;
+  }
+  .ig-swiper-track::-webkit-scrollbar { display: none; }
+  .ig-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-in;
+    background: var(--gray-100);
+  }
+  .ig-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ig-count-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 50px;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 2;
+    letter-spacing: 0.2px;
+  }
+  .ig-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.85);
+    color: var(--gray-900);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 160ms ease, background 160ms ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  .ig-arrow:hover { background: rgba(255, 255, 255, 1); }
+  .ig-arrow:disabled { opacity: 0 !important; pointer-events: none; }
+  .ig-arrow-prev { left: 10px; }
+  .ig-arrow-next { right: 10px; }
+  /* Show arrows only on devices with hover (desktop). Mobile relies on swipe. */
+  @media (hover: hover) and (pointer: fine) {
+    .ig-swiper:hover .ig-arrow:not(:disabled) { opacity: 1; }
+    .ig-arrow:focus-visible { opacity: 1; outline: 2px solid var(--green-500); outline-offset: 2px; }
+  }
+  .ig-dots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    min-height: 10px;
+  }
+  .ig-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gray-300);
+    transition: background 160ms ease, transform 160ms ease;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+  .ig-dot.active {
+    background: var(--green-600);
+    transform: scale(1.4);
+  }
+  .ig-swiper-empty {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Mobile: edge-to-edge — let the swiper bleed into the modal padding so
+     the image touches both screen edges, matching Instagram. */
+  @media (max-width: 600px) {
+    .detail-body .ig-swiper { margin-left: -1rem; margin-right: -1rem; width: calc(100% + 2rem); }
+    .detail-body .ig-swiper-track { border-radius: 0; }
+  }
   .detail-info { }
   .detail-brand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 4px; }
   .detail-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; line-height: 1.3; }
@@ -3124,10 +3243,7 @@
       <button class="modal-close" data-action="close-detail-direct" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="detail-body">
-      <div class="detail-gallery">
-        <div class="main-photo" id="detailMainPhoto"></div>
-        <div class="thumbnails" id="detailThumbs"></div>
-      </div>
+      <div class="detail-gallery" id="detailGallery"></div>
       <div class="detail-info">
         <div class="detail-brand" id="detailBrand"></div>
         <div class="detail-name" id="detailName"></div>
@@ -5128,36 +5244,20 @@ function openDetailModal(id) {
   const photos = (p.photos && p.photos.length > 0 ? p.photos : [])
     .map(window.safeImgUrl)
     .filter(Boolean);
-  const mainPhoto = document.getElementById('detailMainPhoto');
-  const thumbs = document.getElementById('detailThumbs');
-  mainPhoto.textContent = '';
-  thumbs.textContent = '';
-  if (photos.length > 0) {
-    const mainImg = document.createElement('img');
-    mainImg.src = photos[0];
-    mainImg.alt = p.name || '';
-    mainImg.loading = 'lazy';
-    mainPhoto.appendChild(mainImg);
-    mainPhoto.onclick = () => openLightbox(photos, 0);
-    photos.forEach((url, i) => {
-      const thumb = document.createElement('div');
-      thumb.className = 'thumb' + (i === 0 ? ' active' : '');
-      const timg = document.createElement('img');
-      timg.src = url;
-      timg.loading = 'lazy';
-      thumb.appendChild(timg);
-      thumb.addEventListener('click', () => {
-        window.setMainPhoto(url, thumb);
-      });
-      thumb.addEventListener('dblclick', () => openLightbox(photos, i));
-      thumbs.appendChild(thumb);
-    });
+  const galleryEl = document.getElementById('detailGallery');
+  galleryEl.textContent = '';
+  if (photos.length === 0) {
+    // 0 photos → existing fallback (placeholder icon, square)
+    const empty = document.createElement('div');
+    empty.className = 'ig-swiper-empty';
+    const placeholder = document.createElement('div');
+    placeholder.className = 'placeholder-art';
+    placeholder.style.cssText = 'width:100%;height:100%;border-radius:8px';
+    placeholder.innerHTML = window.CATEGORY_ICON(p.cat);
+    empty.appendChild(placeholder);
+    galleryEl.appendChild(empty);
   } else {
-    const div = document.createElement('div');
-    div.className = 'placeholder-art';
-    div.style.cssText = 'width:100%;height:100%;border-radius:8px';
-    div.innerHTML = window.CATEGORY_ICON(p.cat);
-    mainPhoto.appendChild(div);
+    window.buildIgSwiper(galleryEl, photos, p.name || '');
   }
   // "More like this" row — same category, current listing excluded, max 6.
   renderMoreLikeThis(p);
@@ -5214,16 +5314,138 @@ function renderMoreLikeThis(currentListing) {
   });
 }
 
-window.setMainPhoto = function(url, el) {
-  const safeUrl = window.safeImgUrl(url);
-  if (!safeUrl) return;
-  const main = document.getElementById('detailMainPhoto');
-  main.textContent = '';
-  const img = document.createElement('img');
-  img.src = safeUrl;
-  main.appendChild(img);
-  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
-  if (el && el.classList) el.classList.add('active');
+// Legacy no-op kept for backwards compatibility — old gallery exposed
+// setMainPhoto on window; the new IG-style swiper handles its own state.
+window.setMainPhoto = function() {};
+
+// Instagram-style photo swiper for the listing detail modal.
+// - Native CSS scroll-snap drives the swipe (no JS swipe library)
+// - Dot indicators reflect the current slide via scroll-position observation
+// - Arrow buttons (desktop only) scroll to the prev/next slide
+// - Tap on any slide opens the existing lightbox at the right index
+// - Photo count badge ("3/5") in the top-right
+// - 1 photo: no dots, no arrows, no badge — just the image
+window.buildIgSwiper = function(container, urls, alt) {
+  container.textContent = '';
+  if (!urls || !urls.length) return;
+  const single = urls.length < 2;
+
+  const swiper = document.createElement('div');
+  swiper.className = 'ig-swiper';
+
+  const track = document.createElement('div');
+  track.className = 'ig-swiper-track';
+  track.setAttribute('role', 'region');
+  track.setAttribute('aria-label', 'Listing photos');
+  swiper.appendChild(track);
+
+  // Photo count badge — only shown when 2+ photos exist
+  const badge = document.createElement('div');
+  badge.className = 'ig-count-badge';
+  badge.textContent = `1/${urls.length}`;
+  if (single) badge.style.display = 'none';
+  swiper.appendChild(badge);
+
+  // Slides
+  urls.forEach((url, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'ig-slide';
+    slide.setAttribute('data-idx', String(i));
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = alt || '';
+    img.loading = i === 0 ? 'eager' : 'lazy';
+    img.draggable = false;
+    slide.appendChild(img);
+    slide.addEventListener('click', () => {
+      // Open the existing lightbox at this slide's index. Read current
+      // index from data-idx so it stays correct even if scroll-tracking
+      // races the click.
+      const idx = Number(slide.getAttribute('data-idx')) || 0;
+      window.openLightbox(urls, idx);
+    });
+    track.appendChild(slide);
+  });
+
+  // Arrow buttons (desktop only — CSS hides on touch devices)
+  let prevBtn = null, nextBtn = null;
+  if (!single) {
+    prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'ig-arrow ig-arrow-prev';
+    prevBtn.setAttribute('aria-label', 'Previous photo');
+    prevBtn.textContent = '‹';
+    swiper.appendChild(prevBtn);
+
+    nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'ig-arrow ig-arrow-next';
+    nextBtn.setAttribute('aria-label', 'Next photo');
+    nextBtn.textContent = '›';
+    swiper.appendChild(nextBtn);
+  }
+
+  // Dot indicators — only when 2+ photos
+  const dotsWrap = document.createElement('div');
+  dotsWrap.className = 'ig-dots';
+  const dots = [];
+  if (!single) {
+    urls.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'ig-dot' + (i === 0 ? ' active' : '');
+      dot.setAttribute('aria-label', `Go to photo ${i + 1}`);
+      dot.addEventListener('click', () => goTo(i));
+      dotsWrap.appendChild(dot);
+      dots.push(dot);
+    });
+  }
+
+  container.appendChild(swiper);
+  container.appendChild(dotsWrap);
+
+  let currentIdx = 0;
+  function setIdx(i) {
+    currentIdx = Math.max(0, Math.min(urls.length - 1, i));
+    badge.textContent = `${currentIdx + 1}/${urls.length}`;
+    dots.forEach((d, di) => d.classList.toggle('active', di === currentIdx));
+    if (prevBtn) prevBtn.disabled = currentIdx === 0;
+    if (nextBtn) nextBtn.disabled = currentIdx === urls.length - 1;
+    container._igIdx = currentIdx;
+  }
+  function goTo(i) {
+    const target = Math.max(0, Math.min(urls.length - 1, i));
+    const slide = track.children[target];
+    if (slide) {
+      track.scrollTo({ left: slide.offsetLeft, behavior: 'smooth' });
+    }
+    setIdx(target);
+  }
+
+  // Track scroll position to keep dots/badge in sync with native swipe.
+  // Debounce via rAF so we don't churn on every scroll event.
+  let scrollRaf = 0;
+  track.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      const w = track.clientWidth || 1;
+      const idx = Math.round(track.scrollLeft / w);
+      if (idx !== currentIdx) setIdx(idx);
+    });
+  }, { passive: true });
+
+  if (prevBtn) prevBtn.addEventListener('click', () => goTo(currentIdx - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => goTo(currentIdx + 1));
+
+  // Expose stepper on the swiper element so the global keyboard handler
+  // (registered once at startup) can drive it without reaching into closure.
+  swiper._igGoTo = goTo;
+  swiper._igStep = (d) => goTo(currentIdx + d);
+  swiper._igCount = urls.length;
+  container._igSwiper = swiper;
+
+  setIdx(0);
 };
 
 window.openDetailModal = openDetailModal;
@@ -8476,6 +8698,22 @@ document.addEventListener('keydown',e=>{
     if (e.key === 'Escape')     return closeLightbox();
     if (e.key === 'ArrowLeft')  return stepLightbox(-1);
     if (e.key === 'ArrowRight') return stepLightbox(1);
+  }
+  // Listing detail modal: arrow keys step the IG-style photo swiper when
+  // the lightbox isn't intercepting and the user isn't typing into a field.
+  const detailOpen = document.getElementById('detailBackdrop')?.classList.contains('open');
+  if (detailOpen && !lbOpen && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const tag = (e.target && e.target.tagName) || '';
+    const editable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
+    if (!editable) {
+      const gallery = document.getElementById('detailGallery');
+      const swiper = gallery && gallery._igSwiper;
+      if (swiper && typeof swiper._igStep === 'function') {
+        e.preventDefault();
+        swiper._igStep(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+      }
+    }
   }
   if(e.key==='Escape') {
     const so = document.getElementById('searchOverlay');
