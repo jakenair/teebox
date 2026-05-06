@@ -640,13 +640,14 @@
     /* Cat-bar sits directly under the mobile top bar. Keep it green to
        match the brand — the inherited white-text-on-green pills work fine
        and the bar reads as a continuation of the header. */
-    body.has-bottom-nav .cat-bar {
+    body.has-bottom-nav .cat-bar-wrap {
       top: calc(env(safe-area-inset-top) + 52px);
-      padding: 6px 14px 0;
       background: linear-gradient(180deg, var(--green-800) 0%, var(--green-900) 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    body.has-bottom-nav main { margin-top: calc(44px + env(safe-area-inset-top) + 52px); }
+    body.has-bottom-nav .cat-bar-wrap::before { background: linear-gradient(to right, var(--green-800) 30%, transparent); }
+    body.has-bottom-nav .cat-bar-wrap::after { background: linear-gradient(to left, var(--green-900) 30%, transparent); }
+    body.has-bottom-nav main { margin-top: calc(48px + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
   }
@@ -680,7 +681,7 @@
     body { background: var(--cream); }
     /* Add a bit of top padding so content doesn't sit under iOS status bar */
     nav { padding-top: env(safe-area-inset-top); height: calc(var(--nav-h) + env(safe-area-inset-top)); }
-    .cat-bar { top: calc(var(--nav-h) + env(safe-area-inset-top)); }
+    .cat-bar-wrap { top: calc(var(--nav-h) + env(safe-area-inset-top)); }
   }
 
   /* Smoother modal entrance */
@@ -1097,18 +1098,30 @@
   .user-menu-item.danger:hover { background: var(--red-100); color: var(--red-500); }
   .user-menu-divider { height: 1px; background: var(--gray-200); margin: 6px 0; }
 
-  /* CAT BAR */
-  .cat-bar { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); display: flex; align-items: center; padding: 0 2rem; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  /* CAT BAR — horizontally scrollable category pills.
+     The wrapper sits below .nav and provides edge fades so users see there's
+     more content to scroll on mobile. .cat-bar itself is the scrollable rail. */
+  .cat-bar-wrap { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); border-bottom: 1px solid rgba(255,255,255,0.08); height: 48px; }
+  .cat-bar-wrap::before, .cat-bar-wrap::after { content: ''; position: absolute; top: 0; bottom: 1px; width: 28px; pointer-events: none; z-index: 2; transition: opacity 0.18s ease; }
+  .cat-bar-wrap::before { left: 0; background: linear-gradient(to right, var(--green-800) 30%, transparent); opacity: 0; }
+  .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-800) 30%, transparent); opacity: 1; }
+  .cat-bar-wrap.scrolled::before { opacity: 1; }
+  .cat-bar-wrap.at-end::after { opacity: 0; }
+  .cat-bar { position: relative; height: 100%; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
   .cat-bar::-webkit-scrollbar { display: none; }
+  /* Trailing/leading spacers so the first/last pill never bumps into the
+     edge fade — gives a clean breathing margin when scrolled to either end. */
+  .cat-bar::before, .cat-bar::after { content: ''; flex: 0 0 4px; }
+  @media (min-width: 720px) { .cat-bar { padding: 0 1.5rem; } }
   .cat-pill {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.15);
     color: rgba(255,255,255,0.85);
-    border-radius: 50px; padding: 5px 16px;
-    font-family: var(--font-body); font-size: 12.5px; font-weight: 500;
+    border-radius: 50px; padding: 6px 16px;
+    font-family: var(--font-body); font-size: 13px; font-weight: 500;
     cursor: pointer;
     transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, transform 0.12s ease, box-shadow 0.22s ease;
-    white-space: nowrap; flex-shrink: 0;
+    white-space: nowrap; flex-shrink: 0; scroll-snap-align: center;
   }
   .cat-pill:hover {
     background: rgba(255,255,255,0.12);
@@ -1123,14 +1136,16 @@
     color: var(--green-900);
     font-weight: 700;
     box-shadow: 0 2px 12px rgba(212, 175, 55, 0.35);
+    animation: catPillPop 0.32s cubic-bezier(.34,1.56,.64,1);
   }
   .cat-pill.active:hover {
     background: var(--gold-300);
     border-color: var(--gold-300);
     box-shadow: 0 3px 16px rgba(212, 175, 55, 0.5);
   }
+  @keyframes catPillPop { 0% { transform: scale(0.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
 
-  main { margin-top: calc(var(--nav-h) + 44px); }
+  main { margin-top: calc(var(--nav-h) + 48px); }
 
   /* HERO */
   .hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 60%, var(--green-600) 100%); padding: 4rem 2rem 3.5rem; position: relative; overflow: hidden; }
@@ -3258,14 +3273,43 @@
 </div>
 
 <!-- CAT BAR -->
-<div class="cat-bar">
-  <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="apparel">Apparel</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="accessories">Accessories</button>
-  <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
+<div class="cat-bar-wrap" id="catBarWrap">
+  <div class="cat-bar" id="catBar">
+    <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="apparel">Apparel</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="accessories">Accessories</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
+  </div>
 </div>
+<script>
+  // Toggle .scrolled / .at-end on the cat-bar wrap so the edge fade
+  // gradients render only when there's actually more content to reveal.
+  (function() {
+    var bar = document.getElementById('catBar');
+    var wrap = document.getElementById('catBarWrap');
+    if (!bar || !wrap) return;
+    function updateFades() {
+      var maxScroll = bar.scrollWidth - bar.clientWidth;
+      wrap.classList.toggle('scrolled', bar.scrollLeft > 4);
+      wrap.classList.toggle('at-end', maxScroll <= 0 || bar.scrollLeft >= maxScroll - 4);
+    }
+    bar.addEventListener('scroll', updateFades, { passive: true });
+    window.addEventListener('resize', updateFades);
+    // Initial state — also rerun after fonts load in case widths shift.
+    updateFades();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateFades).catch(()=>{});
+    // When a pill becomes active, scroll it into view smoothly.
+    bar.addEventListener('click', function(ev) {
+      var pill = ev.target.closest('.cat-pill');
+      if (!pill) return;
+      requestAnimationFrame(function() {
+        pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    });
+  })();
+</script>
 
 <main>
   <section class="hero">
