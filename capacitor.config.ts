@@ -39,7 +39,7 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
     },
     FirebaseAuthentication: {
-      providers: ['google.com'],
+      providers: ['google.com', 'apple.com'],
     },
   },
 };
