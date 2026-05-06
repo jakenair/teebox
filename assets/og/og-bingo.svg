@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  
+    <defs>
+      <radialGradient id="plate" cx="22%" cy="35%" r="85%">
+        <stop offset="0%" stop-color="#16301d" />
+        <stop offset="55%" stop-color="#0b1a0e" />
+        <stop offset="100%" stop-color="#070f09" />
+      </radialGradient>
+      <linearGradient id="goldRule" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#d6a900" stop-opacity="0" />
+        <stop offset="20%" stop-color="#d6a900" stop-opacity="1" />
+        <stop offset="80%" stop-color="#d6a900" stop-opacity="1" />
+        <stop offset="100%" stop-color="#d6a900" stop-opacity="0" />
+      </linearGradient>
+      <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="#d6a900" fill-opacity="0.06" />
+      </pattern>
+    </defs>
+    <rect width="1200" height="630" fill="url(#plate)" />
+    <rect width="1200" height="630" fill="url(#dots)" />
+    <!-- gold inner border -->
+    <rect x="24" y="24" width="1152" height="582"
+          fill="none" stroke="#d6a900" stroke-opacity="0.35" stroke-width="2" rx="14" />
+  
+
+  <!-- Eyebrow -->
+  <text x="80" y="160" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="20" font-weight="600"
+        fill="#e9c64a" letter-spacing="6">DAILY GOLF GAME</text>
+
+  <!-- Wordmark -->
+  
+    <text x="76" y="290" font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="156"
+          font-weight="700" letter-spacing="-2">
+      <tspan fill="#d6a900">Tee</tspan><tspan fill="#ffffff">Box</tspan>
+    </text>
+  
+
+  <!-- Gold rule -->
+  <rect x="80" y="320" width="280" height="3" fill="url(#goldRule)" />
+
+  <!-- Tagline -->
+  <text x="80" y="395" font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="56" font-weight="500"
+        fill="#f6efe1">Logo Bingo</text>
+  <text x="80" y="445" font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="32" font-style="italic"
+        fill="#f6efe1" fill-opacity="0.85">Name the course from the logo.</text>
+
+  <!-- Sub-tagline -->
+  <text x="80" y="490" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#f6efe1" fill-opacity="0.72">
+    A new round daily. Share your score, challenge a friend.
+  </text>
+
+  <!-- App Store badge bottom-left -->
+  
+    <g transform="translate(80, 528)">
+      <rect width="240" height="64" rx="12" fill="#000" stroke="#ffffff" stroke-opacity="0.4" stroke-width="1" />
+      <!-- Apple logo glyph (simplified) -->
+      <g transform="translate(20, 14) scale(0.9)" fill="#ffffff">
+        <path d="M22.5 19.7c0-3.3 2.7-4.9 2.8-5-1.5-2.2-3.9-2.5-4.7-2.5-2-.2-3.9 1.2-4.9 1.2-1 0-2.6-1.2-4.3-1.1-2.2 0-4.2 1.3-5.4 3.3-2.3 4-.6 9.9 1.7 13.1 1.1 1.6 2.4 3.4 4.1 3.3 1.6-.1 2.3-1.1 4.3-1.1 2 0 2.5 1.1 4.3 1 1.8 0 2.9-1.6 4-3.2 1.3-1.8 1.8-3.6 1.8-3.7-.1 0-3.4-1.3-3.7-5.3zM19.6 9.7c.9-1.1 1.5-2.6 1.3-4.1-1.3.1-2.8.9-3.7 1.9-.8.9-1.6 2.4-1.4 3.9 1.4.1 2.9-.7 3.8-1.7z"/>
+      </g>
+      <text x="74" y="26" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="11" fill="#ffffff" fill-opacity="0.85" letter-spacing="0.5">Download on the</text>
+      <text x="74" y="48" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="22" font-weight="600" fill="#ffffff">App Store</text>
+    </g>
+  
+
+  <!-- 3x3 grid accent -->
+  
+      <g transform="translate(720, 130)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">A</text>
+      </g>
+    
+      <g transform="translate(846, 130)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">C</text>
+      </g>
+    
+      <g transform="translate(972, 130)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">P</text>
+      </g>
+    
+      <g transform="translate(720, 256)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">B</text>
+      </g>
+    
+      <g transform="translate(846, 256)">
+        <rect width="110" height="110" rx="14"
+              fill="#d6a900" stroke="#e9c64a" stroke-opacity="0.9" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#0b1a0e">M</text>
+      </g>
+    
+      <g transform="translate(972, 256)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">R</text>
+      </g>
+    
+      <g transform="translate(720, 382)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">S</text>
+      </g>
+    
+      <g transform="translate(846, 382)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">O</text>
+      </g>
+    
+      <g transform="translate(972, 382)">
+        <rect width="110" height="110" rx="14"
+              fill="#13261a" stroke="#d6a900" stroke-opacity="0.45" stroke-width="2" />
+        <text x="55" y="77" text-anchor="middle"
+              font-family="'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif" font-size="58" font-weight="700"
+              fill="#f6efe1">W</text>
+      </g>
+    
+
+  <!-- Domain footer -->
+  <text x="1120" y="588" text-anchor="end" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="18"
+        fill="#f6efe1" fill-opacity="0.55" letter-spacing="2">teeboxmarket.com/?play=bingo</text>
+</svg>
