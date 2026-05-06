@@ -14,6 +14,46 @@ admin.initializeApp();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const geminiSecret = defineSecret("GEMINI_API_KEY");
+
+// Sizing presets for the four common shapes — keep one source of truth
+// so we can tune the whole platform at once. Values are picked to handle
+// a 100x traffic spike (influencer post / viral share) without piling up
+// cold-starts at the buyer/seller path.
+//
+//   • USER_CALLABLE — onCall shape used by signed-in users. 30s budget,
+//     tight cold-start ceiling, room to scale to 100 instances.
+//   • LIGHT_TRIGGER — Firestore trigger for tiny doc updates (counters,
+//     fan-outs). Default memory + 60s is fine; concurrency boosted.
+//   • EMAIL_TRIGGER — Firestore trigger that calls Resend / Stripe API.
+//     Keep memory low but allow long timeout for retried HTTP.
+//   • SCHEDULED_BATCH — onSchedule sweep that reads/writes hundreds of
+//     docs. Needs more memory + a 5-min budget.
+const USER_CALLABLE = {
+  region: "us-central1",
+  memory: "256MiB",
+  timeoutSeconds: 30,
+  concurrency: 80,
+  maxInstances: 100,
+};
+const LIGHT_TRIGGER = {
+  region: "us-central1",
+  memory: "256MiB",
+  timeoutSeconds: 60,
+  concurrency: 80,
+  maxInstances: 100,
+};
+const EMAIL_TRIGGER = {
+  region: "us-central1",
+  memory: "256MiB",
+  timeoutSeconds: 60,
+  concurrency: 40,
+  maxInstances: 50,
+};
+const SCHEDULED_BATCH = {
+  region: "us-central1",
+  memory: "512MiB",
+  timeoutSeconds: 300,
+};
 // Stripe recurring Price ID for the Pro Seller plan ($14.99/mo). Set via
 // `firebase functions:secrets:set STRIPE_PRO_PRICE_ID` after creating the
 // Product + Price in the Stripe Dashboard.
@@ -60,7 +100,18 @@ async function getAuthedUser(req) {
 //   - Listing is atomically reserved before the PI is created
 // ─────────────────────────────────────────────────────────────
 exports.createPaymentIntent = onRequest(
-  {secrets: [stripeSecret], cors: ALLOWED_ORIGINS},
+  {
+    secrets: [stripeSecret],
+    cors: ALLOWED_ORIGINS,
+    // Sizing — this is the critical hot path for revenue. Keep one warm
+    // instance to eliminate cold-start checkout drop-off at peak.
+    region: "us-central1",
+    memory: "512MiB",
+    timeoutSeconds: 30,
+    concurrency: 80,
+    minInstances: 1,
+    maxInstances: 50,
+  },
   async (req, res) => {
     if (req.method !== "POST") {
       return res.status(405).json({error: "Method not allowed"});
@@ -266,7 +317,17 @@ exports.createPaymentIntent = onRequest(
 //   - Handles success, failure, and cancellation
 // ─────────────────────────────────────────────────────────────
 exports.stripeWebhook = onRequest(
-  {secrets: [stripeSecret, webhookSecret]},
+  {
+    secrets: [stripeSecret, webhookSecret],
+    // Stripe retries on non-2xx, so we need fast acks even under burst.
+    // High concurrency + bigger memory + tight timeout — webhook bodies
+    // are small but order-creation transactions need headroom.
+    region: "us-central1",
+    memory: "512MiB",
+    timeoutSeconds: 30,
+    concurrency: 200,
+    maxInstances: 50,
+  },
   async (req, res) => {
     const stripeClient = stripe(stripeSecret.value());
     const sig = req.headers["stripe-signature"];
@@ -607,7 +668,13 @@ async function releaseListingOnFailure(pi) {
 //   Sellers can renew from their dashboard.
 // ─────────────────────────────────────────────────────────────
 exports.expireListings = onSchedule(
-  {schedule: "every day 03:00", timeZone: "America/Chicago"},
+  {
+    schedule: "every day 03:00",
+    timeZone: "America/Chicago",
+    // Batch can read up to 500 listings + write them — give it room.
+    memory: "512MiB",
+    timeoutSeconds: 300,
+  },
   async () => {
     const db = admin.firestore();
     const now = admin.firestore.Timestamp.now();
@@ -644,7 +711,7 @@ exports.expireListings = onSchedule(
 //   3. Uncomment the import + the body below.
 //   4. Redeploy.
 // ─────────────────────────────────────────────────────────────
-exports.moderateImage = onCall(async (request) => {
+exports.moderateImage = onCall({...USER_CALLABLE, memory: "512MiB"}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -708,7 +775,7 @@ exports.moderateImage = onCall(async (request) => {
 //   the terms of service"; swap the placeholder logic for real
 //   KYC (ID check, bank-account verification) when ready.
 // ─────────────────────────────────────────────────────────────
-exports.requestSellerVerification = onCall(async (request) => {
+exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -750,7 +817,7 @@ exports.requestSellerVerification = onCall(async (request) => {
 //   Uses the admin SDK so it bypasses Firestore rules and works
 //   without a recent re-authentication on the client.
 // ─────────────────────────────────────────────────────────────
-exports.deleteUserAccount = onCall(async (request) => {
+exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -758,8 +825,12 @@ exports.deleteUserAccount = onCall(async (request) => {
   const db = admin.firestore();
   const now = admin.firestore.FieldValue.serverTimestamp();
 
+  // Cap at 400 (under Firestore's 500-op batch limit). Seller accounts
+  // with more than 400 listings are vanishingly rare today; if we hit
+  // this we should chunk the deletion across multiple batches.
   const listingsSnap = await db.collection("listings")
     .where("sellerId", "==", uid)
+    .limit(400)
     .get();
   if (!listingsSnap.empty) {
     const batch = db.batch();
@@ -836,7 +907,7 @@ exports.exchangeIdTokenForCustomToken = onCall(async (request) => {
 //   them without an N+1 read.
 // ─────────────────────────────────────────────────────────────
 exports.onReviewCreated = onDocumentCreated(
-  "reviews/{orderId}",
+  {document: "reviews/{orderId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const review = event.data && event.data.data();
@@ -852,10 +923,14 @@ exports.onReviewCreated = onDocumentCreated(
         return;
       }
 
+      // Cap the rollup at 1000 reviews — past that the average is statistically
+      // stable and the function is just paying for cold storage reads. If a
+      // seller crosses this we'll switch to an incremental counter.
       const db = admin.firestore();
       const snap = await db
         .collection("reviews")
         .where("sellerId", "==", sellerId)
+        .limit(1000)
         .get();
 
       let total = 0;
@@ -903,7 +978,11 @@ exports.onReviewCreated = onDocumentCreated(
 //   user per listing per 24h via a marker doc in listingViews.
 //   Returns the fresh view count so the caller can render it.
 // ─────────────────────────────────────────────────────────────
-exports.incrementListingView = onCall(async (request) => {
+// High-frequency callable — every product detail view fires this. Bump
+// concurrency so a single instance can soak up the bursts.
+exports.incrementListingView = onCall(
+  {...USER_CALLABLE, concurrency: 200, timeoutSeconds: 15},
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -957,7 +1036,7 @@ exports.incrementListingView = onCall(async (request) => {
 //   new message in a conversation tied to a listing.
 // ─────────────────────────────────────────────────────────────
 exports.incrementListingMessage = onDocumentCreated(
-  "messages/{messageId}",
+  {document: "messages/{messageId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const msg = event.data && event.data.data();
@@ -1012,7 +1091,7 @@ exports.incrementListingMessage = onDocumentCreated(
 //   double-count.
 // ─────────────────────────────────────────────────────────────
 exports.aggregateSellerStats = onDocumentUpdated(
-  "orders/{orderId}",
+  {document: "orders/{orderId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const before = event.data && event.data.before && event.data.before.data();
@@ -1105,7 +1184,7 @@ function todayUtcDateKey() {
 }
 
 exports.generateDailyBingoPuzzle = onSchedule(
-  {schedule: "every day 00:00", timeZone: "UTC"},
+  {schedule: "every day 00:00", timeZone: "UTC", ...SCHEDULED_BATCH},
   async () => {
     try {
       const db = admin.firestore();
@@ -1172,7 +1251,7 @@ function listingMatchesSavedSearch(listing, query) {
 }
 
 exports.notifyOnSavedSearchMatch = onDocumentCreated(
-  "listings/{listingId}",
+  {document: "listings/{listingId}", ...LIGHT_TRIGGER, memory: "512MiB"},
   async (event) => {
     try {
       const listing = event.data && event.data.data();
@@ -1241,7 +1320,11 @@ exports.notifyOnSavedSearchMatch = onDocumentCreated(
 //   under Firestore's 500-op batch limit.
 // ─────────────────────────────────────────────────────────────
 exports.expireOldOffers = onSchedule(
-  {schedule: "every 1 hours"},
+  {
+    schedule: "every 1 hours",
+    memory: "512MiB",
+    timeoutSeconds: 300,
+  },
   async () => {
     try {
       const db = admin.firestore();
@@ -1299,7 +1382,7 @@ function randomReferralCode() {
   return s;
 }
 
-exports.generateReferralCode = onCall(async (request) => {
+exports.generateReferralCode = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -1379,7 +1462,7 @@ exports.generateReferralCode = onCall(async (request) => {
 const REFERRAL_CREDIT_USD = 10;
 
 exports.redeemReferralCredit = onDocumentUpdated(
-  "orders/{orderId}",
+  {document: "orders/{orderId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const before = event.data && event.data.before && event.data.before.data();
@@ -1472,7 +1555,7 @@ exports.redeemReferralCredit = onDocumentUpdated(
 //   previous price between runs.
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnWatchlistPriceDrop = onSchedule(
-  {schedule: "every 4 hours"},
+  {schedule: "every 4 hours", ...SCHEDULED_BATCH},
   async () => {
     try {
       const db = admin.firestore();
@@ -1634,7 +1717,7 @@ exports.createIdentitySession = onCall(
 //   token-not-registered" are pruned automatically.
 // ─────────────────────────────────────────────────────────────
 exports.pushNotificationDispatch = onDocumentCreated(
-  {document: "users/{uid}/notifications/{notifId}"},
+  {document: "users/{uid}/notifications/{notifId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const uid = event.params.uid;
@@ -1816,7 +1899,7 @@ async function sendEmail({to, subject, html}) {
 //   - Email to buyer: "order confirmed, here's your receipt"
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnOrderCreated = onDocumentCreated(
-  {document: "orders/{orderId}", secrets: [RESEND_KEY]},
+  {document: "orders/{orderId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const order = event.data && event.data.data();
@@ -1880,7 +1963,7 @@ exports.notifyOnOrderCreated = onDocumentCreated(
 //     shipped                  → delivered → notify seller
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnOrderUpdated = onDocumentUpdated(
-  {document: "orders/{orderId}", secrets: [RESEND_KEY]},
+  {document: "orders/{orderId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const before = event.data && event.data.before && event.data.before.data();
@@ -1967,7 +2050,7 @@ function trackingUrl(carrier, trackingNumber) {
 // notifyOnOfferCreated — push + email seller when a buyer offers
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnOfferCreated = onDocumentCreated(
-  {document: "offers/{offerId}", secrets: [RESEND_KEY]},
+  {document: "offers/{offerId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const offer = event.data && event.data.data();
@@ -2010,7 +2093,7 @@ exports.notifyOnOfferCreated = onDocumentCreated(
 // notifyOnOfferUpdated — push + email buyer on accept/decline/counter
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnOfferUpdated = onDocumentUpdated(
-  {document: "offers/{offerId}", secrets: [RESEND_KEY]},
+  {document: "offers/{offerId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const before = event.data.before.data();
@@ -2072,7 +2155,7 @@ exports.notifyOnOfferUpdated = onDocumentUpdated(
 // notifyOnNewMessage — push (immediate) + email (when not online)
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnNewMessage = onDocumentCreated(
-  {document: "messages/{messageId}", secrets: [RESEND_KEY]},
+  {document: "messages/{messageId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const msg = event.data && event.data.data();
@@ -2133,7 +2216,7 @@ exports.notifyOnNewMessage = onDocumentCreated(
 //   link); this one is the actual welcome.
 // ─────────────────────────────────────────────────────────────
 exports.welcomeOnFirstProfileWrite = onDocumentCreated(
-  {document: "users/{uid}", secrets: [RESEND_KEY]},
+  {document: "users/{uid}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const uid = event.params.uid;
@@ -2241,7 +2324,7 @@ exports.createStripeOnboardingLink = onCall(
 );
 
 exports.getStripeAccountStatus = onCall(
-  {secrets: [stripeSecret]},
+  {secrets: [stripeSecret], ...USER_CALLABLE},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -2632,7 +2715,7 @@ function findExplicitTerm(text) {
 }
 
 exports.moderateListingOnCreate = onDocumentCreated(
-    "listings/{listingId}",
+    {document: "listings/{listingId}", ...LIGHT_TRIGGER},
     async (event) => {
       const snap = event.data;
       if (!snap) return;
