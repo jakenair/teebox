@@ -1487,6 +1487,11 @@
     .stats-grid { grid-template-columns: 1fr 1fr !important; }
     #checkoutBackdrop .modal { max-width: calc(100vw - 1rem); }
     .chat-modal, .inbox-modal { max-width: calc(100vw - 1rem); height: 90vh; }
+    /* Touch-target enlargement for mobile (Apple HIG: 44x44 min). */
+    .qty-stepper button { width: 44px; height: 44px; font-size: 18px; }
+    .qty-stepper input { height: 44px; font-size: 16px; }
+    .chat-close, .inbox-close { width: 40px; height: 40px; font-size: 20px; }
+    .dash-tab { padding: 12px 18px; font-size: 14px; }
   }
 
   /* iPad band — 768–1024px. iPhone (≤767) keeps its layout; desktop
@@ -1969,22 +1974,22 @@
 <!-- BOTTOM TAB NAV (mobile only) -->
 <nav class="bottom-nav" aria-label="Mobile primary">
   <button class="bottom-nav-item active" data-tab="home" data-action="bn-home" type="button">
-    <span data-ico="search"></span>Browse
+    <span data-ico="search" aria-hidden="true"></span>Browse
   </button>
   <button class="bottom-nav-item" data-tab="search" data-action="open-search" type="button">
-    <span data-ico="search"></span>Search
+    <span data-ico="search" aria-hidden="true"></span>Search
   </button>
   <button class="bottom-nav-item sell" data-tab="sell" data-action="handle-sell" type="button">
-    <span data-ico="plus"></span>Sell
+    <span data-ico="plus" aria-hidden="true"></span>Sell
   </button>
   <button class="bottom-nav-item" data-tab="bingo" data-action="open-bingo" type="button" aria-label="Logo Bingo">
     <span class="bn-bingo-glow" aria-hidden="true"></span>Bingo
   </button>
   <button class="bottom-nav-item" data-tab="inbox" data-action="open-inbox" type="button">
-    <span data-ico="message" class="bn-icon"><span class="unread-badge"></span></span>Inbox
+    <span data-ico="message" class="bn-icon" aria-hidden="true"><span class="unread-badge" aria-hidden="true"></span></span>Inbox
   </button>
   <button class="bottom-nav-item" data-tab="account" data-action="open-profile-self" type="button">
-    <span data-ico="user"></span>Account
+    <span data-ico="user" aria-hidden="true"></span>Account
   </button>
 </nav>
 
@@ -2108,7 +2113,9 @@
     var t = ev.target.closest && ev.target.closest('[data-action]');
     if (!t) return;
     var fn = window.__actions[t.dataset.action];
-    if (typeof fn === 'function') fn(t, ev);
+    if (typeof fn !== 'function') return;
+    try { fn(t, ev); }
+    catch (err) { console.error('[action] ' + t.dataset.action + ' threw:', err); }
   });
 </script>
 
@@ -2177,16 +2184,16 @@
 
 <!-- SELLER VERIFY -->
 <div class="verify-backdrop" id="verifyBackdrop">
-  <div class="verify-modal">
+  <div class="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verifyModalTitle">
     <div class="verify-header">
-      <span class="verify-badge" data-ico="shield"></span>
-      <h2>Become a TeeBox Seller</h2>
+      <span class="verify-badge" data-ico="shield" aria-hidden="true"></span>
+      <h2 id="verifyModalTitle">Become a TeeBox Seller</h2>
       <p>Read and agree to our seller terms to start listing</p>
     </div>
     <div class="verify-steps">
-      <div class="verify-step"><span class="verify-step-icon" data-ico="user"></span><div class="verify-step-label">Account</div><div class="verify-step-val">Verified</div></div>
-      <div class="verify-step"><span class="verify-step-icon" data-ico="check"></span><div class="verify-step-label">Terms</div><div class="verify-step-val" id="termsStepVal">Pending</div></div>
-      <div class="verify-step"><span class="verify-step-icon" data-ico="star"></span><div class="verify-step-label">Status</div><div class="verify-step-val">Instant</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="user" aria-hidden="true"></span><div class="verify-step-label">Account</div><div class="verify-step-val">Verified</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="check" aria-hidden="true"></span><div class="verify-step-label">Terms</div><div class="verify-step-val" id="termsStepVal">Pending</div></div>
+      <div class="verify-step"><span class="verify-step-icon" data-ico="star" aria-hidden="true"></span><div class="verify-step-label">Status</div><div class="verify-step-val">Instant</div></div>
     </div>
     <div class="verify-body">
       <h3>Seller Terms of Service</h3>
@@ -2221,7 +2228,7 @@
 </div>
 <!-- SAVED SEARCHES MODAL -->
 <div class="modal-backdrop info-backdrop" id="savedSearchesBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:560px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:560px">
     <div class="modal-header">
       <span class="modal-title">Saved Searches</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2232,7 +2239,7 @@
 
 <!-- SAVE SEARCH NAME MODAL (Feature #15) -->
 <div class="modal-backdrop info-backdrop" id="saveSearchNameBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:480px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Save this search</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2256,7 +2263,7 @@
 
 <!-- MAKE OFFER MODAL (Feature #14) -->
 <div class="modal-backdrop info-backdrop" id="makeOfferBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:480px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Make an Offer</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2265,7 +2272,7 @@
       <p class="info-meta" id="makeOfferSub">Submit an offer below the seller's asking price.</p>
       <div class="ss-name-form">
         <label for="makeOfferAmount">Your offer ($)</label>
-        <input id="makeOfferAmount" type="number" min="1" step="1" />
+        <input id="makeOfferAmount" type="number" min="1" step="1" inputmode="decimal" placeholder="0" />
         <label for="makeOfferMessage" style="margin-top:0.75rem">Message (optional)</label>
         <textarea id="makeOfferMessage" maxlength="500" placeholder="Add a quick note for the seller…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;min-height:90px;font-family:var(--font-body);font-size:14px;outline:none"></textarea>
       </div>
@@ -2279,7 +2286,7 @@
 
 <!-- COUNTER OFFER MODAL (Feature #14, seller side) -->
 <div class="modal-backdrop info-backdrop" id="counterOfferBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:420px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:420px">
     <div class="modal-header">
       <span class="modal-title">Counter offer</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2288,7 +2295,7 @@
       <p class="info-meta" id="counterOfferSub">Send a counter price.</p>
       <div class="ss-name-form">
         <label for="counterOfferAmount">Your counter ($)</label>
-        <input id="counterOfferAmount" type="number" min="1" step="1" />
+        <input id="counterOfferAmount" type="number" min="1" step="1" inputmode="decimal" placeholder="0" />
       </div>
       <div class="profile-actions">
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
@@ -2300,7 +2307,7 @@
 
 <!-- BUYER OFFERS MODAL (Feature #14) -->
 <div class="modal-backdrop info-backdrop" id="myOffersBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:560px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:560px">
     <div class="modal-header">
       <span class="modal-title">My Offers</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2311,7 +2318,7 @@
 
 <!-- REPORT REVIEW MODAL -->
 <div class="modal-backdrop info-backdrop" id="reportReviewBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:480px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Report this review</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2338,7 +2345,7 @@
 
 <!-- ORDERS MODAL (buyer-side) -->
 <div class="modal-backdrop info-backdrop" id="ordersBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:640px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:640px">
     <div class="modal-header">
       <span class="modal-title">My Orders</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2349,7 +2356,7 @@
 
 <!-- DISPUTE MODAL -->
 <div class="modal-backdrop info-backdrop" id="disputeBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:520px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:520px">
     <div class="modal-header">
       <span class="modal-title">Report a problem</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2382,7 +2389,7 @@
 <!-- DELETE ACCOUNT MODAL -->
 <!-- SHIP MODAL — replaces the dual prompt() seller flow -->
 <div class="modal-backdrop info-backdrop" id="shipBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:420px;">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:420px;">
     <div class="modal-header">
       <span class="modal-title">Mark as shipped</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2400,8 +2407,8 @@
         <option value="DHL">DHL</option>
         <option value="Other">Other</option>
       </select>
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number</label>
-      <input id="shipTracking" type="text" placeholder="e.g. 9400 1000 0000 0000 0000 00" autocapitalize="characters" autocomplete="off" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:15px;letter-spacing:0.5px;" />
+      <label for="shipTracking" style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number</label>
+      <input id="shipTracking" type="text" placeholder="e.g. 9400 1000 0000 0000 0000 00" autocapitalize="characters" autocomplete="off" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;letter-spacing:0.5px;" />
       <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:1em;"></p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
@@ -2412,7 +2419,7 @@
 </div>
 
 <div class="modal-backdrop info-backdrop" id="deleteAccountBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:520px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:520px">
     <div class="modal-header">
       <span class="modal-title">Delete account</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2426,7 +2433,7 @@
         <li>Anonymized order and dispute records are retained for accounting.</li>
       </ul>
       <p style="margin-bottom:0.5rem;font-size:13px;color:var(--gray-500)">Type <strong>DELETE</strong> below to confirm.</p>
-      <input id="deleteAccountConfirmInput" type="text" placeholder="DELETE" autocapitalize="characters" autocomplete="off" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;outline:none" />
+      <input id="deleteAccountConfirmInput" type="text" placeholder="DELETE" autocapitalize="characters" autocomplete="off" aria-label="Type DELETE to confirm account deletion" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;outline:none" />
       <p id="deleteAccountError" style="color:var(--red-500);font-size:13px;margin-top:0.5rem;min-height:1em"></p>
       <div class="profile-actions">
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
@@ -2438,7 +2445,7 @@
 
 <!-- DELETE LISTING CONFIRM MODAL -->
 <div class="modal-backdrop info-backdrop" id="deleteListingBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal" style="max-width:480px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Delete listing</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2464,7 +2471,7 @@
 
 <!-- REVIEW PROMPT MODAL -->
 <div class="modal-backdrop info-backdrop" id="reviewBackdrop">
-  <div class="info-modal" style="max-width:480px">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title" id="reviewModalTitle">Rate your seller</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2490,7 +2497,7 @@
 
 <!-- PROFILE MODAL -->
 <div class="modal-backdrop info-backdrop" id="profileBackdrop" data-close-on-backdrop="close-profile">
-  <div class="info-modal" id="profileModalInner">
+  <div class="info-modal" role="dialog" aria-modal="true" id="profileModalInner">
     <div class="modal-header">
       <span class="modal-title" id="profileModalTitle">Profile</span>
       <button class="modal-close" data-action="close-profile" aria-label="Close" data-ico="close"></button>
@@ -2503,7 +2510,7 @@
 
 <!-- ABOUT / TERMS / PRIVACY MODALS -->
 <div class="modal-backdrop info-backdrop" id="aboutBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal">
+  <div class="info-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <span class="modal-title">About TeeBox</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2531,7 +2538,7 @@
 </div>
 
 <div class="modal-backdrop info-backdrop" id="termsBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal">
+  <div class="info-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <span class="modal-title">Terms of Service</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2584,7 +2591,7 @@
 </div>
 
 <div class="modal-backdrop info-backdrop" id="privacyBackdrop" data-close-on-backdrop="close-info">
-  <div class="info-modal">
+  <div class="info-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <span class="modal-title">Privacy Policy</span>
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
@@ -2617,7 +2624,7 @@
       <h1>My Shop</h1>
       <p id="dashSubtitle">Your seller dashboard</p>
     </div>
-    <button class="dash-close" data-action="close-shop-dashboard">×</button>
+    <button class="dash-close" data-action="close-shop-dashboard" type="button" aria-label="Close My Shop">×</button>
   </div>
   <div class="dash-body">
 
@@ -2690,10 +2697,10 @@
 </div>
 <!-- INBOX MODAL -->
 <div id="inboxBackdrop" data-close-on-backdrop="close-inbox">
-  <div class="inbox-modal">
+  <div class="inbox-modal" role="dialog" aria-modal="true" aria-label="Messages inbox">
     <div class="inbox-header">
       <h2>Messages</h2>
-      <button class="inbox-close" data-action="close-inbox">×</button>
+      <button class="inbox-close" data-action="close-inbox" type="button" aria-label="Close inbox">×</button>
     </div>
     <div class="inbox-body" id="inboxBody">
       <div class="inbox-empty">Loading…</div>
@@ -2702,10 +2709,10 @@
 </div>
 <!-- CHAT MODAL -->
 <div id="chatBackdrop" data-close-on-backdrop="close-chat">
-  <div class="chat-modal">
+  <div class="chat-modal" role="dialog" aria-modal="true" aria-label="Conversation">
     <div class="chat-header">
       <div class="chat-header-info">
-        <span class="chat-header-emoji" id="chatEmoji" data-ico="message"></span>
+        <span class="chat-header-emoji" id="chatEmoji" data-ico="message" aria-hidden="true"></span>
         <div style="min-width:0;">
           <div class="chat-header-title" id="chatTitle">Conversation</div>
           <div class="chat-header-sub" id="chatSub">—</div>
@@ -2714,18 +2721,18 @@
       <div class="chat-header-actions">
         <button data-action="block-conv" type="button">Block</button>
         <button data-action="report-conv" type="button">Report</button>
-        <button class="chat-close" data-action="close-chat" type="button">×</button>
+        <button class="chat-close" data-action="close-chat" type="button" aria-label="Close chat">×</button>
       </div>
     </div>
     <div class="chat-warning">
-      <span data-ico="lock"></span> Keep deals on TeeBox — off-platform purchases aren't protected by our buyer-protection program.
+      <span data-ico="lock" aria-hidden="true"></span> Keep deals on TeeBox — off-platform purchases aren't protected by our buyer-protection program.
     </div>
     <div class="chat-body" id="chatBody">
       <div class="chat-empty">Loading messages…</div>
     </div>
     <div class="chat-input-row">
-      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000">
-      <button class="chat-send" id="chatSendBtn" data-action="send-message">Send</button>
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000" aria-label="Message text">
+      <button class="chat-send" id="chatSendBtn" data-action="send-message" type="button">Send</button>
     </div>
   </div>
 </div>
@@ -2904,7 +2911,7 @@
   <a class="nav-logo" href="#"><span>Tee</span>Box</a>
   <div class="nav-search">
     <span class="nav-search-icon" id="navSearchIcon"></span>
-    <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" />
+    <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
   </div>
   <div class="nav-links" id="topNavLinks">
     <a href="#" class="active" data-action="bn-home" data-nav="home">Marketplace</a>
@@ -2929,7 +2936,7 @@
       <button class="btn-icon notif-btn" id="navNotifBtn" data-action="toggle-notifications" type="button" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel"><span data-ico="bell"></span><span class="notif-dot" id="notifDot" aria-hidden="true"></span></button>
     </div>
     <div class="user-menu-wrap" id="userMenuWrap">
-      <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button"></button>
+      <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false"></button>
       <div class="user-menu" id="userMenu">
         <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
         <a href="#" data-action="open-shop-dashboard" class="user-menu-item">My Shop</a>
@@ -3049,20 +3056,20 @@
   </div>
 
   <div class="trust-bar">
-    <div class="trust-item"><span class="trust-icon" data-ico="user"></span><span class="trust-text">Member-to-Member</span></div>
-    <div class="trust-item"><span class="trust-icon" data-ico="lock"></span><span class="trust-text">Stripe Payments</span></div>
-    <div class="trust-item"><span class="trust-icon" data-ico="truck"></span><span class="trust-text">Direct Shipping</span></div>
-    <div class="trust-item"><span class="trust-icon" data-ico="shield"></span><span class="trust-text">Buyer Protection</span></div>
-    <div class="trust-item"><span class="trust-icon" data-ico="message"></span><span class="trust-text">In-App Messaging</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="user" aria-hidden="true"></span><span class="trust-text">Member-to-Member</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="lock" aria-hidden="true"></span><span class="trust-text">Stripe Payments</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="truck" aria-hidden="true"></span><span class="trust-text">Direct Shipping</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="shield" aria-hidden="true"></span><span class="trust-text">Buyer Protection</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="message" aria-hidden="true"></span><span class="trust-text">In-App Messaging</span></div>
   </div>
 
   <div class="how-section">
     <div class="how-inner">
       <h2 class="how-title">How TeeBox Works</h2>
       <div class="how-grid">
-        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. Buy at the listed ask or place a bid.</p></div>
-        <div class="how-card"><div class="how-num">02</div><span class="how-icon" data-ico="message"></span><h3>Message the Seller</h3><p>Ask questions, request more photos, and confirm condition before you commit. Every conversation is logged.</p></div>
-        <div class="how-card"><div class="how-num">03</div><span class="how-icon" data-ico="truck"></span><h3>Ship &amp; Receive</h3><p>Sellers ship the item directly. Funds are held until the buyer confirms delivery — like eBay.</p></div>
+        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search" aria-hidden="true"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. Buy at the listed ask or place a bid.</p></div>
+        <div class="how-card"><div class="how-num">02</div><span class="how-icon" data-ico="message" aria-hidden="true"></span><h3>Message the Seller</h3><p>Ask questions, request more photos, and confirm condition before you commit. Every conversation is logged.</p></div>
+        <div class="how-card"><div class="how-num">03</div><span class="how-icon" data-ico="truck" aria-hidden="true"></span><h3>Ship &amp; Receive</h3><p>Sellers ship the item directly. Funds are held until the buyer confirms delivery — like eBay.</p></div>
       </div>
     </div>
   </div>
@@ -3085,7 +3092,7 @@
 
 <!-- BUY MODAL -->
 <div class="modal-backdrop" id="modalBackdrop" data-close-on-backdrop="close-modal-direct">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" data-action="close-modal-direct" aria-label="Close" data-ico="close"></button></div>
     <div class="modal-body">
       <div class="modal-product"><div class="modal-emoji placeholder-art" id="modalEmoji" style="border-radius:8px"></div><div class="modal-info"><h3 id="modalItemName">Item</h3><p id="modalItemMeta"></p></div></div>
@@ -3093,7 +3100,7 @@
         <div class="ba-box bid"><div class="ba-lbl">Highest Bid</div><div class="ba-price" id="modalBid">$0</div><div class="ba-note">active bids</div></div>
         <div class="ba-box ask"><div class="ba-lbl">Lowest Ask</div><div class="ba-price" id="modalAsk">$0</div><div class="ba-note">sellers</div></div>
       </div>
-      <div class="modal-input-row"><label>Your Bid (USD)</label><input type="number" id="modalPrice" placeholder="Enter amount…" min="1" step="1" /></div>
+      <div class="modal-input-row"><label for="modalPrice">Your Bid (USD)</label><input type="number" id="modalPrice" placeholder="Enter amount…" min="1" step="1" inputmode="decimal" /></div>
       <div class="modal-fineprint">Bids are visible to the seller. Withdraw any time before they accept.</div>
     </div>
     <div class="modal-footer"><button class="btn-full ghost" data-action="close-modal-direct">Cancel</button><button class="btn-full green" data-action="confirm-action">Confirm Bid</button></div>
@@ -3102,7 +3109,7 @@
 
 <!-- PRODUCT DETAIL MODAL -->
 <div class="detail-backdrop" id="detailBackdrop" data-close-on-backdrop="close-detail-direct">
-  <div class="detail-modal">
+  <div class="detail-modal" role="dialog" aria-modal="true" aria-label="Listing details">
     <div class="detail-header">
       <span class="detail-title" id="detailTitle">Product Details</span>
       <button class="modal-close" data-action="close-detail-direct" aria-label="Close" data-ico="close"></button>
@@ -3128,9 +3135,9 @@
         <div class="qty-selector" id="detailQtyRow" style="display:none">
           <label>Quantity</label>
           <div class="qty-stepper">
-            <button type="button" data-action="qty-step" data-dir="-1" id="qtyDec">−</button>
-            <input type="number" id="detailQty" value="1" min="1" max="99" />
-            <button type="button" data-action="qty-step" data-dir="1" id="qtyInc">+</button>
+            <button type="button" data-action="qty-step" data-dir="-1" id="qtyDec" aria-label="Decrease quantity">−</button>
+            <input type="number" id="detailQty" value="1" min="1" max="99" inputmode="numeric" aria-label="Quantity" />
+            <button type="button" data-action="qty-step" data-dir="1" id="qtyInc" aria-label="Increase quantity">+</button>
           </div>
           <span class="qty-remaining" id="detailQtyRemaining"></span>
         </div>
@@ -3153,10 +3160,10 @@
 
 <!-- SELL MODAL -->
 <div class="sell-modal-backdrop" id="sellModalBackdrop" data-close-on-backdrop="close-sell-direct">
-  <div class="sell-modal">
+  <div class="sell-modal" role="dialog" aria-modal="true" aria-label="List an item for sale">
     <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" data-action="close-sell-direct" aria-label="Close" data-ico="close"></button></div>
     <div class="sell-form">
-      <div class="seller-verified-bar"><span data-ico="check"></span> Verified Seller — Your listings go live instantly</div>
+      <div class="seller-verified-bar"><span data-ico="check" aria-hidden="true"></span> Verified Seller — Your listings go live instantly</div>
 
       <!-- IMAGE UPLOAD -->
       <div class="form-row">
@@ -3164,7 +3171,7 @@
         <div class="upload-previews" id="uploadPreviews"></div>
         <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
         <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
-          <span class="upload-zone-icon" data-ico="camera"></span>
+          <span class="upload-zone-icon" data-ico="camera" aria-hidden="true"></span>
           <div class="upload-zone-text">Click to upload or drag & drop</div>
           <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
         </div>
@@ -3172,8 +3179,8 @@
         <div class="upload-count" id="uploadCount"></div>
       </div>
 
-      <div class="form-row"><label>Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" /></div>
-      <div class="form-row"><label>Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" />
+      <div class="form-row"><label for="sellTitle">Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" maxlength="120" /></div>
+      <div class="form-row"><label for="sellBrand">Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" maxlength="60" />
         <datalist id="sellBrandSuggestions">
           <!-- Clubs -->
           <option value="TaylorMade"></option><option value="Callaway"></option><option value="Titleist"></option><option value="Ping"></option><option value="Cobra"></option><option value="Mizuno"></option><option value="Cleveland"></option><option value="PXG"></option><option value="Srixon"></option><option value="Wilson"></option><option value="Honma"></option><option value="Scotty Cameron"></option><option value="Bettinardi"></option><option value="Odyssey"></option><option value="L.A.B."></option>
@@ -3188,12 +3195,12 @@
         </datalist>
       </div>
       <div class="form-row-2">
-        <div class="form-row"><label>Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
-        <div class="form-row"><label>Ask Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
+        <div class="form-row"><label for="sellCat">Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
+        <div class="form-row"><label for="sellPrice">Ask Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
       </div>
       <div class="form-row-2">
-        <div class="form-row"><label>Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
-        <div class="form-row"><label>Quantity in stock</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" /></div>
+        <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
+        <div class="form-row"><label for="sellQuantity">Quantity in stock</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" /></div>
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
@@ -3201,13 +3208,13 @@
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
       <div class="form-row">
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <label for="sellDesc" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <span>Description</span>
-          <button type="button" id="aiDescBtn" class="ai-desc-btn" data-action="ai-write-desc" disabled title="Fill in title, brand, category, and condition first">
-            <span class="ai-desc-spark">&#10024;</span> Write description for me
+          <button type="button" id="aiDescBtn" class="ai-desc-btn" data-action="ai-write-desc" disabled title="Fill in title, brand, category, and condition first" aria-label="Write description with AI">
+            <span class="ai-desc-spark" aria-hidden="true">&#10024;</span> Write description for me
           </button>
         </label>
-        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…"></textarea>
+        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
@@ -3220,7 +3227,7 @@
 <!-- SEARCH -->
 <div class="search-overlay" id="searchOverlay" data-close-on-backdrop="close-search">
   <div class="search-box">
-    <div class="search-box-input"><span>⌕</span><input type="text" id="searchInput" placeholder="Search…" /></div>
+    <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" placeholder="Search clubs, apparel, accessories…" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
     <div style="display:flex;justify-content:flex-end;gap:6px;margin:6px 4px 0">
       <button class="filter-clear" id="searchSaveBtn" type="button" data-action="open-save-search-name">Save this search</button>
     </div>
@@ -3230,7 +3237,7 @@
 
 <!-- STRIPE CHECKOUT MODAL — Payment Element (Apple Pay / Google Pay / Link / Card) -->
 <div class="modal-backdrop" id="checkoutBackdrop" data-close-on-backdrop="close-checkout-direct">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Checkout" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title">Complete Purchase</span>
       <button class="modal-close" data-action="close-checkout-direct" aria-label="Close" data-ico="close"></button>
@@ -3279,7 +3286,7 @@
 
       <!-- PCI / "card details never stored" reassurance -->
       <div style="font-size:11.5px;color:var(--gray-500);line-height:1.45;margin-bottom:6px;display:flex;gap:6px;align-items:flex-start;">
-        <span data-ico="lock" style="color:var(--gray-500);flex-shrink:0;margin-top:1px;"></span>
+        <span data-ico="lock" aria-hidden="true" style="color:var(--gray-500);flex-shrink:0;margin-top:1px;"></span>
         <span>Your card details are never stored on our servers. Payments are processed directly by Stripe over an encrypted connection.</span>
       </div>
     </div>
@@ -4926,7 +4933,16 @@ function buildDrops() {
 
 function filterCat(el,cat) {
   document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active'); buildProducts(cat);
+  // If the trigger is a cat-pill button, mark it active. Otherwise (e.g.
+  // footer category link), mark the matching pill so the toolbar reflects
+  // the current filter.
+  if (el && el.classList && el.classList.contains('cat-pill')) {
+    el.classList.add('active');
+  } else {
+    const match = document.querySelector('.cat-pill[data-cat="' + cat + '"]');
+    if (match) match.classList.add('active');
+  }
+  buildProducts(cat);
 }
 
 function toggleFav(e,id) { e.stopPropagation(); fav.has(id)?fav.delete(id):fav.add(id); buildProducts(); }
@@ -5594,8 +5610,11 @@ async function openInbox() {
 }
 
 function closeInbox() {
-  document.getElementById('inboxBackdrop').classList.remove('open');
-  document.body.style.overflow = '';
+  const ib = document.getElementById('inboxBackdrop');
+  if (ib) ib.classList.remove('open');
+  // Only release body scroll if no other overlay is still claiming it.
+  const stillBlocking = document.querySelector('#shopDashboard.open, #chatBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open, #notifPanel.open');
+  if (!stillBlocking) document.body.style.overflow = '';
 }
 
 async function loadInbox() {
@@ -5993,7 +6012,7 @@ function renderNotifications(data) {
     stripeHtml = `<div class="notif-section">
       <div class="notif-section-head"><span>Action needed</span></div>
       <button type="button" class="notif-stripe-row" data-action="notif-open-stripe">
-        <span data-ico="shield"></span>
+        <span data-ico="shield" aria-hidden="true"></span>
         <div class="notif-stripe-text">
           <strong>Finish Stripe setup to receive payouts.</strong>
           <span>Connect your bank to start getting paid.</span>
@@ -6566,6 +6585,9 @@ function runSellerTour() {
     tip = document.createElement('div');
     tip.id = 'sellerTourTip';
     tip.className = 'seller-tour-tip';
+    tip.setAttribute('role', 'dialog');
+    tip.setAttribute('aria-modal', 'false');
+    tip.setAttribute('aria-label', 'Seller tour');
     document.body.appendChild(tip);
   }
 
@@ -8447,13 +8469,26 @@ document.addEventListener('keydown',e=>{
     if (e.key === 'ArrowRight') return stepLightbox(1);
   }
   if(e.key==='Escape') {
-    document.getElementById('searchOverlay').classList.remove('open');
+    const so = document.getElementById('searchOverlay');
+    if (so) so.classList.remove('open');
     closeModalDirect(); closeSellModalDirect(); closeDetailModalDirect();
-    document.getElementById('verifyBackdrop').classList.remove('open');
+    const vb = document.getElementById('verifyBackdrop');
+    if (vb) vb.classList.remove('open');
     document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
     closeLightbox();
     // Notifications panel (Feature: notifications-v1)
     if (typeof closeNotifications === 'function') closeNotifications();
+    // Inbox / chat / bingo guess (Esc was previously a no-op for these).
+    if (typeof closeChat === 'function') closeChat();
+    if (typeof closeInbox === 'function') closeInbox();
+    // Bingo guess modal close — its function is scoped inside an IIFE,
+    // so trigger via the cancel-guess action that's already on the
+    // backdrop. The handler hides the backdrop + restores body scroll.
+    const bg = document.getElementById('bingoGuessBackdrop');
+    if (bg && bg.classList.contains('open')) {
+      const fn = window.__actions && window.__actions['bingo-cancel-guess'];
+      if (typeof fn === 'function') { try { fn(); } catch (_) {} }
+    }
   }
 });
 
@@ -9706,7 +9741,7 @@ async function renderProfileEditor() {
       <div>
         <div class="profile-meta">JPG, PNG, WEBP, or HEIC. Max 2MB.</div>
         <div class="avatar-upload-row">
-          <button class="avatar-upload-btn" data-action="avatar-pick">Choose Photo</button>
+          <button type="button" class="avatar-upload-btn" data-action="avatar-pick">Choose Photo</button>
           <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style="display:none" />
         </div>
       </div>
@@ -9715,7 +9750,7 @@ async function renderProfileEditor() {
     <div class="profile-edit-grid">
       <div>
         <label for="editDisplayName">Display Name</label>
-        <input id="editDisplayName" type="text" maxlength="60" value="${window.safeAttr(profile.displayName || '')}" />
+        <input id="editDisplayName" type="text" maxlength="60" placeholder="Your display name" value="${window.safeAttr(profile.displayName || '')}" />
       </div>
       <div>
         <label for="editBio">Bio</label>
@@ -9968,7 +10003,14 @@ A['close-chat']              = () => closeChat();
 A['send-message']            = () => sendMessage();
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
-A['toggle-user-menu']        = () => document.getElementById('userMenu').classList.toggle('open');
+A['toggle-user-menu']        = () => {
+  const menu = document.getElementById('userMenu');
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('open');
+  menu.classList.toggle('open');
+  const btn = document.getElementById('userBadge');
+  if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+};
 A['resend-verification-email'] = async () => {
   // Best-effort resend of the Firebase email-verification link. Hidden
   // for non-email users; surfaces a generic toast on success and a
@@ -10110,7 +10152,17 @@ A['open-inbox']              = () => openInbox();
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
 A['open-modal-buy']          = () => openModal('buy');
-A['filter-cat']              = (el) => filterCat(el, el.dataset.cat);
+A['filter-cat']              = (el, ev) => {
+  // Footer + bottom-nav category triggers are <a href="#"> — block the
+  // default scroll-to-top so we stay anchored on the marketplace grid.
+  if (ev && ev.preventDefault && el && el.tagName === 'A') ev.preventDefault();
+  filterCat(el, el.dataset.cat);
+  // If the user came from footer / bottom-nav, scroll the grid into view.
+  if (el && el.tagName === 'A') {
+    const grid = document.getElementById('productGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
 A['close-modal-direct']      = () => closeModalDirect();
 A['confirm-action']          = () => confirmAction();
 A['close-detail-direct']     = () => closeDetailModalDirect();
@@ -10215,7 +10267,11 @@ document.addEventListener('click', (ev) => {
   const menu = document.getElementById('userMenu');
   const wrap = document.getElementById('userMenuWrap');
   if (!menu || !wrap || !menu.classList.contains('open')) return;
-  if (!wrap.contains(ev.target)) menu.classList.remove('open');
+  if (!wrap.contains(ev.target)) {
+    menu.classList.remove('open');
+    const btn = document.getElementById('userBadge');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
 });
 
 // Close the notifications panel when clicking outside it.
