@@ -14,8 +14,16 @@ admin.initializeApp();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const geminiSecret = defineSecret("GEMINI_API_KEY");
+// Stripe recurring Price ID for the Pro Seller plan ($14.99/mo). Set via
+// `firebase functions:secrets:set STRIPE_PRO_PRICE_ID` after creating the
+// Product + Price in the Stripe Dashboard.
+const stripeProPriceId = defineSecret("STRIPE_PRO_PRICE_ID");
 
+// Tier-based platform fees. Free sellers pay 6.5%; Pro Seller subscribers
+// ($14.99/mo) pay 3%. Break-even is ~$385/mo of GMV. Keep these in sync
+// with the marketing copy in the Pro upgrade modal in index.html.
 const PLATFORM_FEE_PERCENT = 0.065;
+const PLATFORM_FEE_PERCENT_PRO = 0.03;
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
@@ -152,11 +160,6 @@ exports.createPaymentIntent = onRequest(
         };
       });
 
-      const platformFeeCents = Math.round(
-        reservation.priceCents * PLATFORM_FEE_PERCENT
-      );
-      const sellerPayoutCents = reservation.priceCents - platformFeeCents;
-
       // Look up the seller's Stripe Connect account. Without an active
       // Connect account + chargesEnabled, we can't route funds to them —
       // refuse to charge so the buyer doesn't pay for an item the seller
@@ -167,6 +170,18 @@ exports.createPaymentIntent = onRequest(
       const sellerData = sellerSnap.exists ? sellerSnap.data() : {};
       const stripeAccountId = sellerData.stripeAccountId || null;
       const stripeChargesEnabled = !!sellerData.stripeChargesEnabled;
+
+      // Tier-aware platform fee. Pro Seller subscribers ($14.99/mo,
+      // tier === 'pro') pay 3%; everyone else pays 6.5%. The tier value
+      // is server-written by stripeWebhook on customer.subscription.*
+      // events, so a malicious client can't fabricate it (the firestore
+      // rules whitelist also blocks client writes to `tier`).
+      const sellerTier = sellerData.tier === "pro" ? "pro" : "free";
+      const feeRate = sellerTier === "pro"
+        ? PLATFORM_FEE_PERCENT_PRO
+        : PLATFORM_FEE_PERCENT;
+      const platformFeeCents = Math.round(reservation.priceCents * feeRate);
+      const sellerPayoutCents = reservation.priceCents - platformFeeCents;
 
       if (!stripeAccountId || !stripeChargesEnabled) {
         // Roll back the reservation we just made so the listing doesn't
@@ -222,6 +237,8 @@ exports.createPaymentIntent = onRequest(
             sellerPayoutCents: String(sellerPayoutCents),
             quantity: String(reservation.qty),
             unitPriceCents: String(reservation.unitPriceCents),
+            sellerTier,
+            feeRateBps: String(Math.round(feeRate * 10000)),
           },
         },
         {idempotencyKey}
@@ -284,6 +301,20 @@ exports.stripeWebhook = onRequest(
         case "charge.dispute.created":
           await handleDisputeOpened(event.data.object);
           break;
+        // ── Pro Seller subscription lifecycle ──
+        // We listen on the subscription object directly (rather than
+        // checkout.session.completed) so renewals, plan changes, and
+        // cancellations all flow through one handler. Stripe's Smart
+        // Retries handles dunning on payment failures — the subscription
+        // stays in `past_due` (still active) for the retry window and
+        // only flips to `canceled` if all retries fail.
+        case "customer.subscription.created":
+        case "customer.subscription.updated":
+          await handleSubscriptionUpsert(event.data.object);
+          break;
+        case "customer.subscription.deleted":
+          await handleSubscriptionDeleted(event.data.object);
+          break;
         default:
           logger.info(`Unhandled event type: ${event.type}`);
       }
@@ -294,6 +325,106 @@ exports.stripeWebhook = onRequest(
     }
   }
 );
+
+// ─────────────────────────────────────────────────────────────
+// Pro Seller subscription handlers
+//
+// We map Stripe's customer.id → users/{uid} via the stripeCustomerId
+// field stored on the user doc when createSubscriptionCheckout fires.
+// The `tier` field is the source of truth for fee calculation in
+// createPaymentIntent — it must only ever be written here (server-side)
+// or the firestore rules whitelist will catch the client.
+//
+// Status mapping:
+//   active | trialing            → tier='pro'
+//   past_due                     → tier='pro' (Smart Retries window)
+//   canceled | unpaid | incomplete_expired → tier='free'
+//   incomplete                   → leave as-is (not paid yet)
+// ─────────────────────────────────────────────────────────────
+async function findUserByStripeCustomer(customerId) {
+  if (!customerId) return null;
+  const db = admin.firestore();
+  const snap = await db.collection("users")
+    .where("stripeCustomerId", "==", customerId).limit(1).get();
+  return snap.empty ? null : snap.docs[0];
+}
+
+const PRO_ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
+const PRO_INACTIVE_STATUSES = new Set([
+  "canceled", "unpaid", "incomplete_expired",
+]);
+
+// Mirror the Pro tier flag to the public profile doc so other users
+// (buyers browsing listings) can see the badge. profiles/{uid} is
+// publicly readable; users/{uid} is self-only. We write a single
+// boolean (`isPro`) to keep the public surface area minimal.
+async function mirrorTierToProfile(uid, isPro) {
+  if (!uid) return;
+  const db = admin.firestore();
+  try {
+    await db.doc(`profiles/${uid}`).set({
+      isPro: !!isPro,
+      isProUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+  } catch (e) {
+    logger.warn(`mirrorTierToProfile failed for ${uid}: ${e.message}`);
+  }
+}
+
+async function handleSubscriptionUpsert(sub) {
+  if (!sub || !sub.id) return;
+  const userDoc = await findUserByStripeCustomer(sub.customer);
+  if (!userDoc) {
+    logger.warn(`subscription event for unknown customer ${sub.customer}`);
+    return;
+  }
+  const status = sub.status || "incomplete";
+  const update = {
+    proSubscriptionId: sub.id,
+    proSubscriptionStatus: status,
+    proSubscriptionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (PRO_ACTIVE_STATUSES.has(status)) {
+    update.tier = "pro";
+    if (sub.current_period_end) {
+      update.proCurrentPeriodEnd = admin.firestore.Timestamp.fromMillis(
+        sub.current_period_end * 1000,
+      );
+    }
+    if (sub.cancel_at_period_end) {
+      update.proCancelAtPeriodEnd = true;
+    } else {
+      update.proCancelAtPeriodEnd = false;
+    }
+  } else if (PRO_INACTIVE_STATUSES.has(status)) {
+    update.tier = "free";
+  }
+  // For status='incomplete' we don't downgrade — the user just hasn't
+  // paid yet. They stay on whatever tier they had before.
+  await userDoc.ref.set(update, {merge: true});
+  if (update.tier) await mirrorTierToProfile(userDoc.id, update.tier === "pro");
+  logger.info(
+    `Subscription ${sub.id} → ${status} for ${userDoc.id} ` +
+    `(tier=${update.tier || "unchanged"})`,
+  );
+}
+
+async function handleSubscriptionDeleted(sub) {
+  if (!sub || !sub.id) return;
+  const userDoc = await findUserByStripeCustomer(sub.customer);
+  if (!userDoc) {
+    logger.warn(`subscription.deleted for unknown customer ${sub.customer}`);
+    return;
+  }
+  await userDoc.ref.set({
+    tier: "free",
+    proSubscriptionStatus: "canceled",
+    proSubscriptionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    proCancelAtPeriodEnd: false,
+  }, {merge: true});
+  await mirrorTierToProfile(userDoc.id, false);
+  logger.info(`Subscription ${sub.id} canceled for ${userDoc.id}`);
+}
 
 async function syncConnectAccountStatus(account) {
   if (!account || !account.id) return;
@@ -2140,6 +2271,123 @@ exports.getStripeAccountStatus = onCall(
       detailsSubmitted: !!acct.details_submitted,
       requirementsDue: (acct.requirements && acct.requirements.currently_due) || [],
     };
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// PRO SELLER — subscription checkout + customer portal
+//
+// createSubscriptionCheckout (callable)
+//   - Creates (or reuses) a Stripe Customer for the user
+//   - Spins up a Stripe-hosted Checkout Session in subscription mode
+//     against STRIPE_PRO_PRICE_ID
+//   - Returns { url } for the client to redirect into
+//   The customer.id is persisted on first creation so the webhook can
+//   reverse-look-up the user when the subscription event lands.
+//
+// createBillingPortalSession (callable)
+//   - Opens Stripe's hosted billing portal so a Pro subscriber can
+//     update card / cancel / view invoices without us building any UI.
+//   - Configure the portal once in the Stripe Dashboard → Settings →
+//     Billing → Customer portal.
+// ─────────────────────────────────────────────────────────────
+exports.createSubscriptionCheckout = onCall(
+  {secrets: [stripeSecret, stripeProPriceId]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const priceId = stripeProPriceId.value();
+    if (!priceId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Pro plan is not configured yet. Try again soon.",
+      );
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const stripeClient = stripe(stripeSecret.value());
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const user = userSnap.exists ? userSnap.data() : {};
+
+    // Refuse to spin up a 2nd subscription if the user already has one
+    // active. They should use the billing portal to manage it.
+    if (user.tier === "pro" && user.proSubscriptionId) {
+      throw new HttpsError(
+        "already-exists",
+        "You're already on Pro. Open Manage subscription to change " +
+          "payment details or cancel.",
+      );
+    }
+
+    // Fetch email + name for the Stripe customer record. Stripe needs an
+    // email for receipt + dunning emails — required by best practice.
+    let email; let displayName;
+    try {
+      const authUser = await admin.auth().getUser(uid);
+      email = authUser.email || undefined;
+      displayName = authUser.displayName || user.displayName || undefined;
+    } catch (_e) { /* swallow — Checkout will collect email if needed */ }
+
+    // Reuse the customer.id if we created one previously. Stops the
+    // user from accumulating duplicate Customer records in Stripe if
+    // they bounce out of Checkout multiple times.
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripeClient.customers.create({
+        email,
+        name: displayName,
+        metadata: {firebaseUid: uid},
+      });
+      customerId = customer.id;
+      await userRef.set({
+        stripeCustomerId: customerId,
+        stripeCustomerCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    }
+
+    const session = await stripeClient.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{price: priceId, quantity: 1}],
+      success_url: `${APP_URL}/?checkout=pro_success`,
+      cancel_url: `${APP_URL}/?checkout=pro_cancel`,
+      // Tag the session + the resulting subscription with the firebase
+      // uid as a belt-and-suspenders backup for the customer-id lookup.
+      client_reference_id: uid,
+      subscription_data: {metadata: {firebaseUid: uid}},
+      // Allow_promotion_codes lets us run launch / referral coupons
+      // without code changes — they're configured in the Stripe Dashboard.
+      allow_promotion_codes: true,
+    });
+
+    return {url: session.url, sessionId: session.id};
+  },
+);
+
+exports.createBillingPortalSession = onCall(
+  {secrets: [stripeSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.exists ? userSnap.data() : {};
+    if (!user.stripeCustomerId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No subscription found for this account.",
+      );
+    }
+    const stripeClient = stripe(stripeSecret.value());
+    const session = await stripeClient.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${APP_URL}/?billing=portal_return`,
+    });
+    return {url: session.url};
   },
 );
 
