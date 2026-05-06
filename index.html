@@ -257,6 +257,50 @@
   /* Verification badges (Feature #3) */
   .verified-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--green-600); color: var(--white); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; letter-spacing: 0.3px; vertical-align: middle; }
   .verified-pill.sm { font-size: 10px; padding: 2px 6px; }
+
+  /* Pro Seller pill — gold-on-green, sits next to brand on listing cards
+     and on the seller profile page. Hydrated async by hydrateSellerProPills(). */
+  .pro-pill { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-500) 100%); color: var(--green-900); font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; letter-spacing: 0.5px; vertical-align: middle; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .pro-pill.sm { font-size: 9.5px; padding: 2px 6px; letter-spacing: 0.4px; }
+
+  /* My Shop tier banner — sits at the top of the dashboard body. */
+  .pro-tier-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--radius-lg); margin-bottom: 14px; }
+  .pro-tier-banner.free { background: linear-gradient(135deg, #fdf6e6 0%, #f9eccd 100%); border: 1px solid var(--gold-300); }
+  .pro-tier-banner.pro { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%); color: var(--white); border: 1px solid var(--green-700); }
+  .pro-tier-banner-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pro-tier-banner-info strong { font-size: 14px; }
+  .pro-tier-banner-info span { font-size: 12.5px; }
+  .pro-tier-banner.free .pro-tier-banner-info strong { color: var(--gold-700); }
+  .pro-tier-banner.free .pro-tier-banner-info span { color: var(--gray-700); }
+  .pro-tier-banner.pro .pro-tier-banner-info strong { color: var(--gold-300); display: inline-flex; align-items: center; gap: 6px; }
+  .pro-tier-banner.pro .pro-tier-banner-info span { color: rgba(255,255,255,0.78); }
+  .pro-tier-banner-cta { background: var(--green-800); color: var(--white); border: none; border-radius: 999px; padding: 9px 16px; font-family: var(--font-body); font-weight: 700; font-size: 13px; cursor: pointer; transition: var(--transition); white-space: nowrap; flex-shrink: 0; }
+  .pro-tier-banner-cta:hover { background: var(--green-900); }
+  .pro-tier-banner.pro .pro-tier-banner-cta { background: var(--gold-500); color: var(--green-900); }
+  .pro-tier-banner.pro .pro-tier-banner-cta:hover { background: var(--gold-400); }
+  @media (max-width: 480px) {
+    .pro-tier-banner { flex-direction: column; align-items: flex-start; }
+    .pro-tier-banner-cta { align-self: stretch; text-align: center; }
+  }
+
+  /* Pro upgrade modal */
+  .pro-modal-hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%); color: var(--white); padding: 24px 24px 20px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+  .pro-modal-eyebrow { display: inline-block; background: var(--gold-500); color: var(--green-900); font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 10px; }
+  .pro-modal-title { font-family: var(--font-display); font-size: 28px; line-height: 1.1; margin: 0 0 6px; }
+  .pro-modal-price { font-size: 16px; color: var(--gold-300); font-weight: 600; }
+  .pro-modal-price strong { font-size: 22px; color: var(--white); }
+  .pro-modal-body { padding: 20px 24px 8px; flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .pro-perks { list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-direction: column; gap: 12px; }
+  .pro-perks li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--gray-900); line-height: 1.45; }
+  .pro-perks li .pro-perk-check { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--green-50); color: var(--green-700); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; margin-top: 1px; }
+  .pro-perks li strong { color: var(--green-900); }
+  .pro-breakeven { background: var(--gray-100); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12.5px; color: var(--gray-700); margin-bottom: 14px; }
+  .pro-breakeven strong { color: var(--green-700); }
+  .pro-modal-footer { padding: 0 24px 22px; display: flex; flex-direction: column; gap: 8px; }
+  .pro-modal-footer .btn-pro-upgrade { background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-400) 100%); color: var(--green-900); border: none; border-radius: var(--radius-md); padding: 14px; font-family: var(--font-body); font-size: 15px; font-weight: 800; cursor: pointer; transition: var(--transition); letter-spacing: 0.3px; }
+  .pro-modal-footer .btn-pro-upgrade:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(201,153,30,0.35); }
+  .pro-modal-footer .btn-pro-upgrade:disabled { opacity: 0.65; cursor: wait; transform: none; }
+  .pro-modal-fineprint { font-size: 11.5px; color: var(--gray-500); text-align: center; line-height: 1.5; }
   .verify-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--gray-100); color: var(--green-700); font-size: 10px; margin-left: 4px; vertical-align: middle; border: 1px solid var(--gray-200); }
   .verify-icon[title] { cursor: help; }
   .profile-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
@@ -2404,6 +2448,45 @@
     </div>
   </div>
 </div>
+<!-- PRO SELLER UPGRADE MODAL -->
+<div class="modal-backdrop info-backdrop" id="proUpgradeBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="proUpgradeTitle" style="max-width:480px; padding:0; overflow:hidden;">
+    <div class="pro-modal-hero">
+      <span class="pro-modal-eyebrow">TeeBox Pro</span>
+      <h2 class="pro-modal-title" id="proUpgradeTitle">Pro Seller</h2>
+      <div class="pro-modal-price"><strong>$14.99</strong> / month</div>
+    </div>
+    <div class="pro-modal-body">
+      <ul class="pro-perks">
+        <li>
+          <span class="pro-perk-check" aria-hidden="true">✓</span>
+          <div><strong>3% transaction fee</strong> instead of the standard 6.5% — keep more of every sale.</div>
+        </li>
+        <li>
+          <span class="pro-perk-check" aria-hidden="true">✓</span>
+          <div><strong>Pro Seller badge</strong> on every listing — buyers see you're a trusted, high-volume seller.</div>
+        </li>
+        <li>
+          <span class="pro-perk-check" aria-hidden="true">✓</span>
+          <div><strong>Priority support</strong> — disputes and payout questions get fast-tracked.</div>
+        </li>
+        <li>
+          <span class="pro-perk-check" aria-hidden="true">✓</span>
+          <div><strong>Cancel anytime</strong> — manage your subscription from the same dashboard.</div>
+        </li>
+      </ul>
+      <div class="pro-breakeven">
+        Sell more than <strong>~$385/mo</strong> and Pro pays for itself in fee savings alone.
+      </div>
+    </div>
+    <div class="pro-modal-footer">
+      <button class="btn-pro-upgrade" data-action="upgrade-to-pro" id="proUpgradeBtn" type="button">Upgrade now</button>
+      <button class="btn-full ghost" data-action="close-info" type="button">Maybe later</button>
+      <p class="pro-modal-fineprint">Billed monthly via Stripe. Subscription auto-renews until canceled.</p>
+    </div>
+  </div>
+</div>
+
 <!-- SAVED SEARCHES MODAL -->
 <div class="modal-backdrop info-backdrop" id="savedSearchesBackdrop" data-close-on-backdrop="close-info">
   <div class="info-modal" role="dialog" aria-modal="true" style="max-width:560px">
@@ -2805,6 +2888,9 @@
     <button class="dash-close" data-action="close-shop-dashboard" type="button" aria-label="Close My Shop">×</button>
   </div>
   <div class="dash-body">
+
+    <!-- TIER BANNER (Pro Seller upsell / status) -->
+    <div id="proTierBanner"></div>
 
     <!-- STAT CARDS -->
     <div class="stats-grid">
@@ -5025,6 +5111,11 @@ function buildProducts(filter) {
     const sellerVerifiedSlot = p.sellerId
       ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
       : '';
+    // Pro Seller pill — gold pill, hydrated alongside the verified pill.
+    // Lives in the same .product-brand row so it renders inline with the brand.
+    const sellerProSlot = p.sellerId
+      ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
+      : '';
     const sellerRatingSlot = p.sellerId
       ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
       : '';
@@ -5043,7 +5134,7 @@ function buildProducts(filter) {
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
-        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerVerifiedSlot}</div>`+
+        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}</div>`+
         `<div class="product-name">${window.safeText(p.name)}</div>`+
         `${sellerRatingSlot}`+
         `<div class="product-market">`+
@@ -5060,6 +5151,8 @@ function buildProducts(filter) {
   }).join('');
   // Async hydrate verified-seller pills inside listing cards (Feature #3).
   hydrateVerifiedSellerPills(document.getElementById('productGrid'));
+  // Async hydrate Pro Seller pills inside listing cards.
+  hydrateSellerProPills(document.getElementById('productGrid'));
   // Async hydrate seller star ratings on each card. Empty if 0 reviews.
   hydrateSellerRatings(document.getElementById('productGrid'));
 }
@@ -5091,6 +5184,33 @@ async function hydrateVerifiedSellerPills(rootEl) {
         // inside .product-brand inside .product-body inside .product-card.
         const card = slot.closest('.product-card');
         if (card) card.classList.add('verified-card');
+      });
+    } catch (_e) { /* ignore */ }
+  });
+  await Promise.allSettled(tasks);
+}
+
+// Walk a container, find all .seller-pro-slot[data-seller-id] elements,
+// dedupe by sellerId, look up profiles (cached via PROFILE_CACHE), and
+// inject the small "PRO" pill where applicable. Best-effort, never throws.
+async function hydrateSellerProPills(rootEl) {
+  if (!rootEl) return;
+  const slots = rootEl.querySelectorAll('.seller-pro-slot[data-seller-id]');
+  if (!slots.length) return;
+  const bySeller = new Map();
+  slots.forEach(slot => {
+    const sid = slot.getAttribute('data-seller-id');
+    if (!sid) return;
+    if (!bySeller.has(sid)) bySeller.set(sid, []);
+    bySeller.get(sid).push(slot);
+  });
+  const tasks = Array.from(bySeller.keys()).map(async sid => {
+    try {
+      const prof = await loadProfile(sid);
+      const isPro = !!(prof && prof._user && prof._user.isPro);
+      if (!isPro) return;
+      bySeller.get(sid).forEach(slot => {
+        slot.innerHTML = ' <span class="pro-pill sm" title="Pro Seller — verified high-volume seller on TeeBox">Pro</span>';
       });
     } catch (_e) { /* ignore */ }
   });
@@ -6476,6 +6596,10 @@ async function loadShopData() {
     renderPayouts();
     wireRevenueRangeButtons();
     renderRevenueChart('7');
+    // Render the Pro Seller tier banner at the top of the dashboard.
+    // Async because it has to read users/{uid} for the current tier;
+    // we don't block the rest of the dashboard on it.
+    renderProTierBanner().catch(e => console.warn('proTierBanner:', e));
     // Best-effort pending-offers badge on the dashboard's Offers tab.
     try {
       const pending = await loadSellerOffers();
@@ -6728,6 +6852,48 @@ async function renderStripeConnectBanner() {
       <span>Stripe sends earnings directly to your bank, daily.</span>
     </div>
   </div>`;
+}
+
+// Pro Seller tier banner. Fetches the user's tier directly from
+// users/{uid} (self-only read, allowed by rules) and paints either an
+// "Upgrade to Pro" CTA or a "Pro Seller" badge with a Manage link.
+async function renderProTierBanner() {
+  const el = document.getElementById('proTierBanner');
+  if (!el) return;
+  const u = window.CURRENT_USER;
+  if (!u) { el.innerHTML = ''; return; }
+  let tier = 'free';
+  let cancelAtPeriodEnd = false;
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDoc(doc(db, 'users', u.uid));
+    const data = snap.exists() ? snap.data() : {};
+    tier = data.tier === 'pro' ? 'pro' : 'free';
+    cancelAtPeriodEnd = !!data.proCancelAtPeriodEnd;
+  } catch (_e) { /* best-effort — fall through to free */ }
+
+  if (tier === 'pro') {
+    const cancelNote = cancelAtPeriodEnd
+      ? '<span>Your subscription will end at the next billing cycle. Reactivate any time.</span>'
+      : '<span>3% transaction fee — keeping more of every sale.</span>';
+    el.innerHTML = `<div class="pro-tier-banner pro">
+      <div class="pro-tier-banner-info">
+        <strong><span class="pro-pill">Pro</span> Pro Seller</strong>
+        ${cancelNote}
+      </div>
+      <button class="pro-tier-banner-cta" data-action="manage-subscription" type="button">Manage subscription</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div class="pro-tier-banner free">
+      <div class="pro-tier-banner-info">
+        <strong>Upgrade to Pro Seller</strong>
+        <span>Cut your transaction fee from 6.5% to 3% for $14.99/month.</span>
+      </div>
+      <button class="pro-tier-banner-cta" data-action="open-pro-upgrade" type="button">Upgrade to Pro</button>
+    </div>`;
+  }
 }
 
 async function renderPayouts() {
@@ -9118,9 +9284,29 @@ const __action = __params.get('action');
 const __brandQ = __params.get('brand');
 const __listingQ = __params.get('listing');
 const __sellerQ  = __params.get('seller');
+const __checkoutQ = __params.get('checkout');
 // Detect /seller/<uid> path-style route — Firebase rewrites + GitHub Pages
 // 404 to /index.html, so we just read the path.
 const __sellerPath = (location.pathname.match(/^\/seller\/([A-Za-z0-9_\-]+)\/?$/) || [])[1];
+// Pro Seller subscription Checkout return — surface a toast so the user
+// knows what happened. The webhook is the source of truth for tier flips,
+// so the banner may take a few seconds to flip from "Upgrade" → "Pro".
+if (__checkoutQ === 'pro_success') {
+  setTimeout(() => {
+    if (typeof showToast === 'function') {
+      showToast("You're on Pro Seller — fees are now 3%. Welcome aboard.", 'success');
+    }
+  }, 600);
+  // Strip the param off the URL so a refresh doesn't re-fire the toast.
+  try { history.replaceState({}, '', location.pathname); } catch (_e) {}
+} else if (__checkoutQ === 'pro_cancel') {
+  setTimeout(() => {
+    if (typeof showToast === 'function') {
+      showToast('Upgrade canceled — you can try again anytime from My Shop.');
+    }
+  }, 600);
+  try { history.replaceState({}, '', location.pathname); } catch (_e) {}
+}
 if (__launch || __action || __brandQ || __listingQ || __sellerQ || __sellerPath) {
   setTimeout(() => {
     if (__launch === 'sell' || __action === 'sell') {
@@ -9680,21 +9866,27 @@ async function loadProfile(uid) {
       getDoc(doc(db, 'users', uid)).catch(() => null),
     ]);
     const data = pSnap.exists() ? { id: pSnap.id, ...pSnap.data() } : { id: uid };
+    // `isPro` is mirrored onto profiles/{uid} by the subscription webhook,
+    // since users/{uid} is read:self-only and can't be seen by buyers.
+    const isPro = pSnap.exists() && pSnap.data() && pSnap.data().isPro === true;
     if (uSnap && uSnap.exists && uSnap.exists()) {
       const u = uSnap.data() || {};
       data._user = {
         sellerVerified: u.sellerVerified === true,
         phone: !!u.phone,
         email: !!u.email,
+        // Prefer the private flag for the signed-in user (it's the source
+        // of truth); fall back to the public mirror for everyone else.
+        isPro: u.tier === 'pro' || isPro,
       };
     } else {
-      data._user = { sellerVerified: false, phone: false, email: false };
+      data._user = { sellerVerified: false, phone: false, email: false, isPro };
     }
     PROFILE_CACHE.set(uid, data);
     return data;
   } catch (e) {
     console.error('loadProfile failed:', e);
-    return { id: uid, _user: { sellerVerified: false, phone: false, email: false } };
+    return { id: uid, _user: { sellerVerified: false, phone: false, email: false, isPro: false } };
   }
 }
 
@@ -9771,8 +9963,11 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   reviews = reviews || { count: 0, avg: 0, items: [] };
 
   // Verification badges (Feature #3) — read from data._user populated by loadProfile
-  const u = profile._user || { sellerVerified: false, phone: false, email: false };
+  const u = profile._user || { sellerVerified: false, phone: false, email: false, isPro: false };
   let badges = '';
+  if (u.isPro) {
+    badges += `<span class="pro-pill" title="Pro Seller — verified high-volume seller on TeeBox">Pro Seller</span>`;
+  }
   if (u.sellerVerified) {
     badges += `<span class="verified-pill" title="Verified seller">Verified Seller</span>`;
   }
@@ -10520,6 +10715,71 @@ A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+A['open-pro-upgrade']        = () => {
+  if (!window.CURRENT_USER) { showToast('Sign in to upgrade.'); return; }
+  // Reset the button state in case it's still in the loading state from a
+  // previous open (e.g. the user closed Checkout and came back).
+  const btn = document.getElementById('proUpgradeBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Upgrade now'; }
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  const back = document.getElementById('proUpgradeBackdrop');
+  if (back) back.classList.add('open');
+};
+A['upgrade-to-pro']          = async () => {
+  if (!window.CURRENT_USER) { showToast('Sign in to upgrade.'); return; }
+  const btn = document.getElementById('proUpgradeBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening Stripe…'; }
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'createSubscriptionCheckout');
+    const res = await fn();
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No checkout URL returned');
+    // On Capacitor (iOS), open in the system browser so Stripe Checkout
+    // gets the cookies + Apple Pay it expects. On web, just navigate.
+    const Cap = window.Capacitor;
+    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.location.href = url;
+    }
+  } catch (e) {
+    console.error('upgrade-to-pro failed:', e);
+    const msg = (e && e.message) ? String(e.message) : '';
+    if (msg.includes('already on Pro')) {
+      showToast("You're already on Pro. Use Manage subscription to make changes.");
+    } else if (msg.includes('not configured')) {
+      showToast('Pro upgrades aren’t available yet — check back soon.');
+    } else {
+      showToast('Could not start the upgrade. Try again in a moment.');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Upgrade now'; }
+  }
+};
+A['manage-subscription']     = async () => {
+  if (!window.CURRENT_USER) { showToast('Sign in to manage your subscription.'); return; }
+  showToast('Opening billing portal…');
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'createBillingPortalSession');
+    const res = await fn();
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No portal URL returned');
+    const Cap = window.Capacitor;
+    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  } catch (e) {
+    console.error('manage-subscription failed:', e);
+    showToast('Could not open billing portal. Try again later.');
+  }
+};
 A['stripe-connect']          = async () => {
   if (!window.requireAuth('to set up payouts')) return;
   showToast('Opening Stripe…');

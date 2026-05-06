@@ -103,9 +103,22 @@ service cloud.firestore {
     // USERS
     //   read:   self only
     //   create/update: self only, whitelist of user-editable fields.
-    //                  `sellerVerified` / `sellerVerifiedAt` are server-only
-    //                  (written by requestSellerVerification callable via
-    //                  Admin SDK, which bypasses these rules).
+    //                  Server-only fields (NEVER writable from the client):
+    //                    sellerVerified, sellerVerifiedAt — set by
+    //                      requestSellerVerification callable
+    //                    stripeAccountId, stripeChargesEnabled,
+    //                    stripePayoutsEnabled, stripeDetailsSubmitted,
+    //                    stripeRequirementsCount, stripeAccountUpdatedAt,
+    //                    stripeAccountCreatedAt — Stripe Connect onboarding
+    //                      + account.updated webhook
+    //                    stripeCustomerId, stripeCustomerCreatedAt —
+    //                      createSubscriptionCheckout callable
+    //                    tier, proSubscriptionId, proSubscriptionStatus,
+    //                    proSubscriptionUpdatedAt, proCurrentPeriodEnd,
+    //                    proCancelAtPeriodEnd — customer.subscription.*
+    //                      events in stripeWebhook
+    //                  These are enforced by the hasOnly() whitelist below;
+    //                  any client write that includes them is rejected.
     //   delete: never from client
     // ─────────────────────────────────────────────
     match /users/{userId} {
@@ -357,6 +370,15 @@ service cloud.firestore {
     // server-owned: they're written by Cloud Functions via the Admin
     // SDK, never by the client. Same for pinnedListingId pin/unpin if
     // we ever wire it through a callable — for now it's user-editable.
+    //
+    // SERVER-OWNED FIELDS (written via Admin SDK, NEVER from client):
+    //   reviewCount, avgRating, fiveStarPct, salesCount, totalRevenue,
+    //   lastSaleAt, lastReviewAt — review aggregates
+    //   isPro, isProUpdatedAt — Pro Seller flag mirrored from
+    //     users/{uid}.tier by the customer.subscription.* webhook so
+    //     that other users (who can't read users/{uid}) can see the pill
+    // The client-write whitelists below intentionally exclude these so
+    // any client write touching them is rejected by hasOnly().
     // ─────────────────────────────────────────────
     match /profiles/{userId} {
       allow read: if true;
