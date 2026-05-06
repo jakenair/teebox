@@ -10168,13 +10168,31 @@ A['sign-in-google']          = async (btn) => {
   };
   try {
     // Native (iOS/Android): use the @capacitor-firebase/authentication plugin
-    // so we get the real Google sign-in UI from the OS, not a popup. The
-    // plugin signs the user in to Firebase Auth automatically.
+    // so we get the real Google sign-in UI from the OS, not a popup.
+    //
+    // Important nuance — the native plugin signs the user into the *native*
+    // Firebase Auth layer only. Our app's data layer (Firestore, Storage,
+    // callable Functions) runs through the Firebase JS SDK inside the
+    // WKWebView, which is a *separate* Auth instance. So we have to take
+    // the Google id_token returned by the plugin and feed it into the JS
+    // SDK via signInWithCredential — otherwise onAuthStateChanged never
+    // fires on the web layer, the auth modal stays open, and Firestore
+    // requests run unauthenticated.
+    //
+    // (Also note: the iOS Podfile must depend on the plugin's `Google`
+    // subspec — without it, the GIDSignIn flow is compiled out and
+    // signInWithGoogle() hangs forever with no result and no error.)
     if (IS_NATIVE && FBAuthPlugin && typeof FBAuthPlugin.signInWithGoogle === 'function') {
-      await FBAuthPlugin.signInWithGoogle();
+      const result = await FBAuthPlugin.signInWithGoogle();
+      const idToken = result && result.credential && result.credential.idToken;
+      const accessToken = result && result.credential && result.credential.accessToken;
+      if (idToken) {
+        const cred = GoogleAuthProvider.credential(idToken, accessToken);
+        await signInWithCredential(auth, cred);
+      }
       // onAuthStateChanged hides the auth screen on success. Restore the
-      // button as a safety net in case the plugin resolves without firing
-      // the event (rare; observed in older plugin versions).
+      // button as a safety net in case the listener fires before the
+      // resolve (the modal close handler is idempotent).
       setTimeout(restoreBtn, 1500);
       return;
     }
