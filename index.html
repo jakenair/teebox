@@ -5450,6 +5450,12 @@ function buildProducts(filter) {
     const sellerProSlot = p.sellerId
       ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
       : '';
+    // Tenured-seller pill — colour-coded social-proof pill. Placeholder
+    // here, hydrated by hydrateSellerTenurePills() once profile data
+    // (salesCount / avgRating / createdAt) loads from Firestore.
+    const sellerTenureSlot = p.sellerId
+      ? `<span class="seller-tenure-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
+      : '';
     const sellerRatingSlot = p.sellerId
       ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
       : '';
@@ -5468,7 +5474,7 @@ function buildProducts(filter) {
         `${photoCount}`+
       `</div>`+
       `<div class="product-body">`+
-        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}</div>`+
+        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
         `<div class="product-name">${window.safeText(p.name)}</div>`+
         `${sellerRatingSlot}`+
         `<div class="product-market">`+
@@ -5592,6 +5598,207 @@ async function hydrateSellerRatings(rootEl) {
   });
   await Promise.allSettled(tasks);
 }
+
+// ─────────────────────────────────────────────────────────────
+// TENURED SELLER BADGES
+//   Lightweight social-proof pill that summarises a seller's
+//   tenure on TeeBox using the server-aggregated salesCount /
+//   avgRating / reviewCount on profiles/{uid} plus account age
+//   (createdAt). Tier thresholds are intentionally conservative
+//   so the highest tier ("Top-rated") feels earned.
+//
+//   Tier ladder (each later tier supersedes the prior):
+//     - new       — < 3 sales AND < 14 days old
+//     - active    — 3+ sales OR 14+ days old (default)
+//     - trusted   — 10+ sales, avgRating ≥ 4.5, 30+ days old
+//     - top_rated — 50+ sales, avgRating ≥ 4.8, 90+ days old
+// ─────────────────────────────────────────────────────────────
+window.TENURE_TIERS = {
+  new: {
+    label: 'New seller',
+    cls: 'tenure-new',
+    blurb: 'Account < 14 days old with fewer than 3 completed sales.',
+  },
+  active: {
+    label: 'Active seller',
+    cls: 'tenure-active',
+    blurb: 'Established seller with completed sales or 14+ days on TeeBox.',
+  },
+  trusted: {
+    label: 'Trusted seller',
+    cls: 'tenure-trusted',
+    blurb: '10+ sales, average rating ≥ 4.5, 30+ days on TeeBox.',
+  },
+  top_rated: {
+    label: 'Top-rated',
+    cls: 'tenure-top_rated',
+    blurb: '50+ sales, average rating ≥ 4.8, 90+ days on TeeBox.',
+  },
+};
+
+// Shared shield-with-checkmark glyph used inside every tenure pill.
+// Tiny (~11px) so it sits flush with text — colour is currentColor so
+// each tier's background palette controls it via CSS.
+window.TENURE_ICON_SVG = '<svg class="tenure-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2.2 2.2L15 10"/></svg>';
+
+// Pull a Date out of either profiles/{uid}.createdAt or users/{uid}.createdAt.
+// Falls back to null when neither field is present or parseable.
+function tenureCreatedDate(profile) {
+  if (!profile) return null;
+  const candidates = [
+    profile.createdAt,
+    profile._user && profile._user.createdAt,
+  ];
+  for (const v of candidates) {
+    if (!v) continue;
+    if (v.toDate && typeof v.toDate === 'function') {
+      try { return v.toDate(); } catch (_e) { /* fall through */ }
+    }
+    if (v.seconds) {
+      try { return new Date(v.seconds * 1000); } catch (_e) { /* fall through */ }
+    }
+    if (typeof v === 'number') return new Date(v);
+    if (typeof v === 'string') {
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (v instanceof Date && !isNaN(v.getTime())) return v;
+  }
+  return null;
+}
+
+// Human-readable "Joined Apr 2026" string. Returns null when no date.
+function tenureJoinedLabel(profile) {
+  const d = tenureCreatedDate(profile);
+  if (!d) return null;
+  return 'Joined ' + d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
+// Returns one of 'new' | 'active' | 'trusted' | 'top_rated' | null.
+// Pure function — no DOM, no async. Easy to unit-test.
+function sellerTenureTier(profile) {
+  if (!profile) return null;
+  const sales = (typeof profile.salesCount === 'number') ? profile.salesCount : 0;
+  const avg   = (typeof profile.avgRating  === 'number') ? profile.avgRating  : 0;
+  const reviews = (typeof profile.reviewCount === 'number') ? profile.reviewCount : 0;
+  const created = tenureCreatedDate(profile);
+  // Without ANY signal (no sales, no rating, no createdAt) we have
+  // nothing to show — return null and the badge slot stays empty.
+  if (!sales && !avg && !reviews && !created) return null;
+  const ageDays = created
+    ? Math.max(0, (Date.now() - created.getTime()) / 86400000)
+    : 0;
+  if (sales >= 50 && avg >= 4.8 && ageDays >= 90) return 'top_rated';
+  if (sales >= 10 && avg >= 4.5 && ageDays >= 30) return 'trusted';
+  if (sales < 3 && ageDays < 14) return 'new';
+  return 'active';
+}
+window.sellerTenureTier = sellerTenureTier;
+window.tenureCreatedDate = tenureCreatedDate;
+window.tenureJoinedLabel = tenureJoinedLabel;
+
+// Build the inner HTML for a tenure pill. `variant`:
+//   - 'card'   — compact, used inside listing-card brand row.
+//                Drops the tier label when sales >= 3 to save room.
+//   - 'detail' — listing-detail / inline placements. Shows tier label
+//                + sales/rating when ≥ 3 sales.
+//   - 'block'  — large variant for the seller profile page.
+function tenurePillHtml(profile, variant) {
+  const tier = sellerTenureTier(profile);
+  if (!tier) return '';
+  const meta = window.TENURE_TIERS[tier];
+  if (!meta) return '';
+  const sales = (typeof profile.salesCount === 'number') ? profile.salesCount : 0;
+  const avg   = (typeof profile.avgRating  === 'number') ? profile.avgRating  : 0;
+  const sm = variant === 'card' ? ' sm' : '';
+  let inner;
+  if (variant === 'card') {
+    // Tighten content on the busy listing-card brand row.
+    if (sales >= 3) {
+      const ratingPart = avg ? ' · ' + avg.toFixed(1) + '★' : '';
+      inner = sales + ' sales' + ratingPart;
+    } else {
+      inner = meta.label;
+    }
+  } else {
+    if (tier === 'trusted' || tier === 'top_rated') {
+      const ratingPart = avg ? ' · ' + avg.toFixed(2).replace(/0$/,'') + '★' : '';
+      inner = meta.label + ' · ' + sales + ' sales' + ratingPart;
+    } else if (sales >= 3) {
+      const ratingPart = avg ? ' · ' + avg.toFixed(1) + '★' : '';
+      inner = meta.label + ' · ' + sales + ' sales' + ratingPart;
+    } else {
+      inner = meta.label;
+    }
+  }
+  // Tooltip shows the requirements for this tier — works on desktop
+  // hover and is read by screen readers via aria-label.
+  const titleAttr = window.safeAttr(meta.label + ' — ' + meta.blurb);
+  const ariaLabel = window.safeAttr(meta.label + '. ' + meta.blurb);
+  return '<span class="tenure-pill ' + meta.cls + sm + '" title="' + titleAttr + '" aria-label="' + ariaLabel + '">'
+       + window.TENURE_ICON_SVG
+       + '<span>' + window.safeText(inner) + '</span>'
+       + '</span>';
+}
+window.tenurePillHtml = tenurePillHtml;
+
+// Walk a container, find all .seller-tenure-slot[data-seller-id] elements,
+// dedupe by sellerId, look up profiles (cached via PROFILE_CACHE), and
+// inject the tenure pill + (when applicable) a "Joined …" caption.
+// Mirrors hydrateSellerProPills so async hydration is consistent across
+// the three pill types we render on listing cards.
+async function hydrateSellerTenurePills(rootEl) {
+  if (!rootEl) return;
+  const slots = rootEl.querySelectorAll('.seller-tenure-slot[data-seller-id]');
+  if (!slots.length) return;
+  const bySeller = new Map();
+  slots.forEach(slot => {
+    const sid = slot.getAttribute('data-seller-id');
+    if (!sid) return;
+    if (!bySeller.has(sid)) bySeller.set(sid, []);
+    bySeller.get(sid).push(slot);
+  });
+  const tasks = Array.from(bySeller.keys()).map(async sid => {
+    try {
+      const prof = await loadProfile(sid);
+      if (!prof) return;
+      const variant = 'card';
+      const pill = tenurePillHtml(prof, variant);
+      const sales = (typeof prof.salesCount === 'number') ? prof.salesCount : 0;
+      // Listing-card display rule from spec: when fewer than 3 sales
+      // we surface the join date instead of a stats line. The pill
+      // itself still shows so buyers see the tier color cue.
+      const joinedLine = (sales < 3) ? tenureJoinedLabel(prof) : null;
+      bySeller.get(sid).forEach(slot => {
+        let html = pill ? (' ' + pill) : '';
+        if (joinedLine) {
+          // Render the "Joined …" caption as a sibling line so it
+          // doesn't push the pill out of the brand row. The card
+          // CSS targets a sibling .seller-meta-line element.
+          const card = slot.closest('.product-card');
+          if (card) {
+            const body = card.querySelector('.product-body');
+            if (body && !body.querySelector('.seller-meta-line')) {
+              const line = document.createElement('div');
+              line.className = 'seller-meta-line';
+              line.textContent = joinedLine;
+              // Insert just after the brand row.
+              const brand = body.querySelector('.product-brand');
+              if (brand && brand.nextSibling) {
+                body.insertBefore(line, brand.nextSibling);
+              } else {
+                body.appendChild(line);
+              }
+            }
+          }
+        }
+        slot.innerHTML = html;
+      });
+    } catch (_e) { /* ignore */ }
+  });
+  await Promise.allSettled(tasks);
+}
+window.hydrateSellerTenurePills = hydrateSellerTenurePills;
 
 function buildDrops() {
   const gridEl = document.getElementById('dropsGrid');
