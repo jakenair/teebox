@@ -4075,6 +4075,14 @@ window.confirmPayment = async function() {
       if (digits.length >= 4) f += ') ' + digits.slice(3, 6);
       if (digits.length >= 7) f += '-' + digits.slice(6);
       e.target.value = f;
+      // Clear stale "invalid phone" error as soon as they keep typing.
+      const err1 = document.getElementById('authError1');
+      if (err1 && err1.textContent) err1.textContent = '';
+    });
+    // Enter-to-submit (parity with email field — saves an extra tap on
+    // iOS where the keyboard "Go" key triggers submit).
+    phoneInputEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); window.sendCode && window.sendCode(); }
     });
   }
 
@@ -4116,18 +4124,30 @@ window.confirmPayment = async function() {
     // listener the plugin silently swallows them (cancelled, network,
     // missing CFBundleURLSchemes), leaving the user staring at a frozen
     // sign-in screen. Mirror them into the email-side error region since
-    // the Google button lives there.
+    // the Google button lives there. Also re-enable the Google button in
+    // every branch — otherwise users see "Signing in…" forever after a
+    // network error or sheet dismissal.
     FBAuthPlugin.addListener('googleSignInError', (event) => {
       const err = document.getElementById('authErrorEmail');
       const code = (event && event.code) || '';
       let msg = (event && event.message) || 'Google sign-in failed. Try again.';
-      if (code === 'auth/cancelled' || /cancel/i.test(msg)) return; // user backed out
-      if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
+      const restoreGoogleBtn = () => {
+        const gBtn = document.querySelector('.auth-google-btn');
+        const lbl = gBtn ? gBtn.querySelector('span') : null;
+        if (gBtn) gBtn.disabled = false;
+        if (lbl) lbl.textContent = 'Continue with Google';
+      };
+      if (code === 'auth/cancelled' || /cancel/i.test(msg)) {
+        restoreGoogleBtn();
+        return; // user backed out — silent
+      }
+      if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
       if (code === 'auth/account-exists-with-different-credential') {
-        msg = 'An account with that email already exists. Sign in with your original method first.';
+        msg = 'An account with that email already exists. Sign in with email or your original method first.';
       }
       if (err) err.textContent = msg;
       console.warn('[auth] native google sign-in failed:', code, event && event.message);
+      restoreGoogleBtn();
     });
   }
 
@@ -4190,7 +4210,12 @@ window.confirmPayment = async function() {
       try {
         await FBAuthPlugin.signInWithPhoneNumber({ phoneNumber: phone });
       } catch (e) {
-        err.textContent = (e && e.message) || 'Failed to send code.';
+        const code = (e && e.code) || '';
+        let msg = 'Couldn’t send the code. Try again in a moment.';
+        if (code === 'auth/invalid-phone-number') msg = 'That phone number isn’t valid. Double-check and try again.';
+        else if (code === 'auth/too-many-requests') msg = 'Too many requests. Wait a few minutes before trying again.';
+        else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
+        err.textContent = msg;
         btn.disabled = false; btn.textContent = 'Send Verification Code';
       }
       return;
@@ -4210,7 +4235,13 @@ window.confirmPayment = async function() {
       try { document.getElementById('codeInput').focus(); } catch {}
       armResendCode();
     } catch(e) {
-      err.textContent = e.message || 'Failed to send code.';
+      const code = (e && e.code) || '';
+      let msg = 'Couldn’t send the code. Try again in a moment.';
+      if (code === 'auth/invalid-phone-number') msg = 'That phone number isn’t valid. Double-check and try again.';
+      else if (code === 'auth/too-many-requests') msg = 'Too many requests. Wait a few minutes before trying again.';
+      else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
+      else if (code === 'auth/captcha-check-failed' || code === 'auth/internal-error') msg = 'Verification failed. Reload the page and try again.';
+      err.textContent = msg;
       btn.disabled = false; btn.textContent = 'Send Verification Code';
       try { window.recaptchaVerifier?.clear(); } catch {}
       window.recaptchaVerifier = null;
@@ -4227,6 +4258,16 @@ window.confirmPayment = async function() {
       return;
     }
     err.textContent = ''; btn.disabled = true; btn.textContent = 'Verifying…';
+
+    const friendlyVerifyError = (e) => {
+      const code = (e && e.code) || '';
+      if (code === 'auth/invalid-verification-code') return 'That code didn’t work. Double-check the digits and try again.';
+      if (code === 'auth/code-expired') return 'This code has expired. Tap "Resend" to get a new one.';
+      if (code === 'auth/network-request-failed') return 'Network error. Check your connection and try again.';
+      if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
+      if (code === 'auth/session-expired') return 'Session expired. Send a new code to continue.';
+      return 'That code didn’t work. Double-check the digits and try again.';
+    };
 
     if (IS_NATIVE && FBAuthPlugin) {
       try {
@@ -4246,7 +4287,7 @@ window.confirmPayment = async function() {
         // onAuthStateChanged fires from here.
       } catch (e) {
         console.error('verifyCode (native) failed:', e);
-        err.textContent = 'That code didn’t work. Double-check the digits and try again.';
+        err.textContent = friendlyVerifyError(e);
         btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
         // Clear + refocus so the user can retype without first having to
         // tap-clear the bad code on iOS.
@@ -4265,7 +4306,7 @@ window.confirmPayment = async function() {
     }
     try { await confirmationResult.confirm(code); }
     catch(e) {
-      err.textContent = 'That code didn’t work. Double-check the digits and try again.';
+      err.textContent = friendlyVerifyError(e);
       btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
       try {
         const ci = document.getElementById('codeInput');
@@ -4371,17 +4412,24 @@ window.confirmPayment = async function() {
       // onAuthStateChanged fires and dismisses the auth screen.
     } catch (e) {
       const code = e && e.code;
-      let msg = (e && e.message) || 'Sign-in failed. Try again.';
-      if (code === 'auth/invalid-email') msg = 'Invalid email address.';
-      else if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') msg = 'Email or password is incorrect.';
+      let msg = 'Sign-in failed. Try again.';
+      if (code === 'auth/invalid-email') msg = 'That email address doesn’t look right. Double-check and try again.';
+      else if (code === 'auth/user-not-found') msg = 'No account found for this email. Tap "Create Account" to sign up.';
+      else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') msg = 'Email or password is incorrect.';
+      else if (code === 'auth/missing-password') msg = 'Please enter your password.';
+      else if (code === 'auth/user-disabled') msg = 'This account has been disabled. Contact support@teeboxmarket.com for help.';
       else if (code === 'auth/email-already-in-use') {
         // Auto-flip to sign-in mode so the user can immediately try the right action.
         if (emailMode === 'signup') toggleEmailMode();
         msg = 'An account with this email already exists. Enter your password to sign in.';
+        // Focus the password field — they almost certainly want to fix
+        // this without re-tapping Sign In first.
+        setTimeout(() => { try { document.getElementById('passwordInput').focus(); } catch {} }, 50);
       }
-      else if (code === 'auth/weak-password') msg = 'Password is too weak.';
-      else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
-      else if (code === 'auth/too-many-requests') msg = 'Too many attempts. Try again in a few minutes.';
+      else if (code === 'auth/weak-password') msg = 'Password is too weak. Use 8+ characters with a mix of letters and numbers.';
+      else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
+      else if (code === 'auth/too-many-requests') msg = 'Too many attempts. Wait a few minutes before trying again.';
+      else if (code === 'auth/operation-not-allowed') msg = 'Email sign-in is temporarily unavailable. Try Google sign-in instead.';
       err.textContent = msg;
       btn.disabled = false;
       btn.textContent = emailMode === 'signin' ? 'Sign In' : 'Create Account';
@@ -10631,9 +10679,18 @@ window.dismissAuthScreen = function dismissAuthScreen() {
   window.GUEST_MODE = true;
   _authScreen.classList.remove('open');
   _authScreen.classList.add('hidden');
+  _authScreen.classList.remove('fading-out');
   // Clear any reason banner so it doesn't leak into a later session.
   const reasonEl = document.getElementById('authReason');
   if (reasonEl) { reasonEl.textContent = ''; reasonEl.classList.remove('visible'); }
+  // Ensure the nav "Sign In" pill is visible so the user has a way back.
+  const _signInBtn = document.getElementById('navSignInBtn');
+  if (_signInBtn) _signInBtn.style.display = 'inline-flex';
+  // Clear any stale errors so they don't appear next time the screen opens.
+  ['authErrorEmail', 'authError1', 'authError2'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
 };
 
 A['show-auth']                = () => window.showAuthScreen('');
@@ -10666,12 +10723,12 @@ A['sign-in-google']          = async (btn) => {
   // otherwise spawn two sign-in flows.
   const googleBtn = btn || document.querySelector('.auth-google-btn');
   const labelEl = googleBtn ? googleBtn.querySelector('span') : null;
-  const originalLabel = labelEl ? labelEl.textContent : '';
+  const originalLabel = (labelEl && labelEl.textContent) || 'Continue with Google';
   if (googleBtn) googleBtn.disabled = true;
   if (labelEl) labelEl.textContent = 'Signing in…';
   const restoreBtn = () => {
     if (googleBtn) googleBtn.disabled = false;
-    if (labelEl && originalLabel) labelEl.textContent = originalLabel;
+    if (labelEl) labelEl.textContent = originalLabel;
   };
   try {
     // Native (iOS/Android): use the @capacitor-firebase/authentication plugin
@@ -10693,32 +10750,48 @@ A['sign-in-google']          = async (btn) => {
       const result = await FBAuthPlugin.signInWithGoogle();
       const idToken = result && result.credential && result.credential.idToken;
       const accessToken = result && result.credential && result.credential.accessToken;
-      if (idToken) {
-        const cred = GoogleAuthProvider.credential(idToken, accessToken);
-        await signInWithCredential(auth, cred);
+      if (!idToken) {
+        // Plugin returned without a token — usually means the user backed
+        // out of the Google sheet. Treat as silent cancel and just
+        // restore the button rather than showing a scary error.
+        restoreBtn();
+        return;
       }
-      // onAuthStateChanged hides the auth screen on success. Restore the
-      // button as a safety net in case the listener fires before the
-      // resolve (the modal close handler is idempotent).
-      setTimeout(restoreBtn, 1500);
+      const cred = GoogleAuthProvider.credential(idToken, accessToken);
+      await signInWithCredential(auth, cred);
+      // onAuthStateChanged will hide the auth screen on success. We don't
+      // restore the button here on purpose — the screen is about to fade
+      // out, so flashing the button back to its idle label looks janky.
       return;
     }
     // Web fallback: Firebase Web SDK popup. If popups are blocked the
-    // browser surfaces an error we relay below.
+    // browser surfaces an error we relay below. signInWithPopup resolves
+    // only after onAuthStateChanged has propagated, so the auth screen
+    // close happens before this await returns — no need to restore.
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
-    setTimeout(restoreBtn, 1500);
   } catch (e) {
-    const code = e && e.code;
+    const code = (e && e.code) || '';
     let msg = 'Could not sign in with Google. Try again or use email.';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+    // User backed out — the popup/sheet was closed before completion.
+    // Don't surface an error message; just restore the button so they
+    // can try again.
+    if (
+      code === 'auth/popup-closed-by-user' ||
+      code === 'auth/cancelled-popup-request' ||
+      code === 'auth/cancelled' ||
+      code === 'auth/user-cancelled' ||
+      /cancel/i.test((e && e.message) || '')
+    ) {
       restoreBtn();
       return;
     }
     if (code === 'auth/popup-blocked') msg = 'Pop-up blocked. Allow pop-ups or use email sign-in.';
-    if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection.';
-    if (code === 'auth/account-exists-with-different-credential') {
-      msg = 'An account with that email already exists. Sign in with your original method first.';
+    else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
+    else if (code === 'auth/account-exists-with-different-credential') {
+      msg = 'An account with that email already exists. Sign in with email or your original method first.';
+    } else if (code === 'auth/internal-error') {
+      msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
     if (err) err.textContent = msg;
     console.warn('[auth] google sign-in failed:', code, e && e.message);
@@ -10728,10 +10801,28 @@ A['sign-in-google']          = async (btn) => {
 A['show-phone-fallback']     = () => {
   document.getElementById('authEmailMode').style.display = 'none';
   document.getElementById('authPhoneMode').style.display = 'block';
+  // Clear stale email-side errors so they don't follow the user.
+  const emailErr = document.getElementById('authErrorEmail');
+  if (emailErr) emailErr.textContent = '';
+  // Auto-focus the phone input so the keyboard pops up immediately on iOS.
+  setTimeout(() => { try { document.getElementById('phoneInput').focus(); } catch {} }, 80);
 };
 A['hide-phone-fallback']     = () => {
   document.getElementById('authPhoneMode').style.display = 'none';
   document.getElementById('authEmailMode').style.display = 'block';
+  // Clear any stale phone-side error.
+  const phoneErr = document.getElementById('authError1');
+  if (phoneErr) phoneErr.textContent = '';
+  // Auto-focus the email input on desktop. (Skip mobile so the keyboard
+  // doesn't pop up unexpectedly when people are tapping around.)
+  setTimeout(() => {
+    try {
+      if (window.matchMedia && window.matchMedia('(min-width: 700px)').matches) {
+        const emailInput = document.getElementById('emailInput');
+        if (emailInput) emailInput.focus();
+      }
+    } catch {}
+  }, 80);
 };
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;
@@ -10746,7 +10837,13 @@ A['continue-as-guest']       = () => {
   if (_authScreen) {
     _authScreen.classList.remove('open');
     _authScreen.classList.add('hidden');
+    _authScreen.classList.remove('fading-out');
   }
+  // Clear any stale errors so they don't reappear next time.
+  ['authErrorEmail', 'authError1', 'authError2'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
   // Show the nav Sign In pill so guests can return on demand.
   const _signInBtn = document.getElementById('navSignInBtn');
   if (_signInBtn) _signInBtn.style.display = 'inline-flex';
