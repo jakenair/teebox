@@ -11,13 +11,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-  # Google sign-in: the plugin's default subspec is 'Lite', which compiles
-  # out the GoogleSignIn flow behind `#if RGCFA_INCLUDE_GOOGLE`. Without
-  # the 'Google' subspec, calling FirebaseAuthentication.signInWithGoogle()
-  # returns silently with no result — exactly the "Google sign-in didn't
-  # work" symptom on iOS. The 'Google' subspec pulls in GoogleSignIn 7.1.0
-  # and sets the -DRGCFA_INCLUDE_GOOGLE flag so the native flow compiles in.
-  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication', :subspecs => ['Google']
+  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
