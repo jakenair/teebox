@@ -1536,12 +1536,64 @@ exports.notifyOnWatchlistPriceDrop = onSchedule(
 );
 
 // ─────────────────────────────────────────────────────────────
+// NSFW / SafeSearch helpers (Cloud Vision)
+//
+// Cloud Vision SafeSearch returns five signals on each image:
+//   adult, racy, violence, medical, spoof
+// each as one of:
+//   VERY_UNLIKELY | UNLIKELY | POSSIBLE | LIKELY | VERY_LIKELY
+//
+// Policy: TeeBox is a public golf-gear marketplace. We block any
+// image that is LIKELY/VERY_LIKELY adult or racy, OR VERY_LIKELY
+// violence. We do NOT block on `medical` or `spoof` (would catch
+// too many legitimate listings — clubhouse selfies, etc.).
+//
+// COST NOTE: Cloud Vision SafeSearch billing is $1.50 per 1,000
+// calls after the first 1,000 free per month. At 100 listings/mo
+// (~3 photos each = 300 calls) → free tier covers it. At 10,000
+// listings/mo (~30k calls) → ~$43.50/mo. Acceptable given the
+// liability cost of leaving porn on a marketplace App Store
+// reviewers visit. See MODERATION_RUNBOOK.md for the full math.
+// ─────────────────────────────────────────────────────────────
+const SAFE_SEARCH_BLOCK_LEVEL = new Set(["LIKELY", "VERY_LIKELY"]);
+function isSafeForMarketplace(annotation) {
+  if (!annotation) return true; // Vision API failed open — log + allow.
+  const adult = annotation.adult || "VERY_UNLIKELY";
+  const racy = annotation.racy || "VERY_UNLIKELY";
+  const violence = annotation.violence || "VERY_UNLIKELY";
+  if (SAFE_SEARCH_BLOCK_LEVEL.has(adult)) return false;
+  if (SAFE_SEARCH_BLOCK_LEVEL.has(racy)) return false;
+  if (violence === "VERY_LIKELY") return false;
+  return true;
+}
+function describeSafeSearchTrip(annotation) {
+  if (!annotation) return "unknown";
+  const reasons = [];
+  if (SAFE_SEARCH_BLOCK_LEVEL.has(annotation.adult)) reasons.push(`adult=${annotation.adult}`);
+  if (SAFE_SEARCH_BLOCK_LEVEL.has(annotation.racy)) reasons.push(`racy=${annotation.racy}`);
+  if (annotation.violence === "VERY_LIKELY") reasons.push(`violence=${annotation.violence}`);
+  return reasons.join(",") || "unknown";
+}
+
+// Hardcoded admin UID list. Email gate (jakenair23@gmail.com) is
+// resolved on first flagged-listing notification — see
+// notifyAdminOfFlaggedListing below — so we don't need to hardcode
+// the UID here. We mirror flagged listings to a top-level
+// `flaggedListings` collection that the admin queue UI queries
+// directly (avoiding cross-user notification clutter).
+
+// ─────────────────────────────────────────────────────────────
 // optimizeListingPhoto (Storage trigger)
 //   Runs whenever a new image is uploaded to listings/{id}/photos.
 //   Strips EXIF (privacy: removes geolocation), resizes to a sensible
 //   max dimension, and rewrites as WebP. The original is replaced
 //   in-place to keep URLs stable. Skips files that are already
 //   processed (have a content-disposition or webp content-type).
+//
+//   After optimization, runs Cloud Vision SafeSearch. If the photo
+//   is NSFW (adult/racy LIKELY+, or violence VERY_LIKELY), the file
+//   is deleted from Storage and the parent listing is flagged for
+//   manual review. See MODERATION_RUNBOOK.md.
 // ─────────────────────────────────────────────────────────────
 exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
   .onObjectFinalized(
@@ -1555,10 +1607,10 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       const contentType = obj.contentType || "";
       if (!contentType.startsWith("image/")) return;
       if (obj.metadata && obj.metadata.optimized === "true") return;
+      const bucket = admin.storage().bucket(obj.bucket);
+      const file = bucket.file(obj.name);
       try {
         const sharp = require("sharp");
-        const bucket = admin.storage().bucket(obj.bucket);
-        const file = bucket.file(obj.name);
         const [buf] = await file.download();
         const out = await sharp(buf)
           .rotate() // honor EXIF orientation
@@ -1577,6 +1629,116 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
         logger.info(`optimized ${obj.name}: ${buf.length} → ${out.length} bytes`);
       } catch (err) {
         logger.error("optimizeListingPhoto error", obj.name, err);
+        // Don't return — still try to run SafeSearch on the unoptimized
+        // upload below so a sharp failure doesn't bypass moderation.
+      }
+
+      // ── Cloud Vision SafeSearch ──
+      // Path is `listings/{sellerId}/{listingId}/{file}`.
+      const parts = obj.name.split("/");
+      if (parts.length < 4) return;
+      const sellerId = parts[1];
+      const listingId = parts[2];
+      let safeSearch = null;
+      try {
+        // Lazy-require so the function still cold-starts if the dep
+        // isn't installed yet (e.g. before a deploy).
+        const vision = require("@google-cloud/vision");
+        const client = new vision.ImageAnnotatorClient();
+        const gcsUri = `gs://${obj.bucket}/${obj.name}`;
+        const [result] = await client.safeSearchDetection(gcsUri);
+        safeSearch = result && result.safeSearchAnnotation;
+      } catch (err) {
+        // If Vision isn't enabled or quota is hit, fail OPEN — we
+        // still get the text-based moderation pass and the report
+        // button as backstops. Log loudly so it shows in alerting.
+        logger.error("SafeSearch detection failed", obj.name, err && err.message);
+        return;
+      }
+
+      if (isSafeForMarketplace(safeSearch)) return;
+
+      const reason = describeSafeSearchTrip(safeSearch);
+      logger.warn("moderation: NSFW photo flagged", {
+        path: obj.name,
+        sellerId,
+        listingId,
+        reason,
+        signals: safeSearch,
+      });
+
+      // 1. Delete the offending photo immediately.
+      try {
+        await file.delete({ignoreNotFound: true});
+      } catch (e) {
+        logger.error("moderation: photo delete failed", obj.name, e);
+      }
+
+      // 2. Flag the parent listing — only if it still exists. The
+      //    text-side moderateListingOnCreate may have already deleted
+      //    the doc; in that case we don't want to recreate an orphan
+      //    via merge:true. We also short-circuit the rest if so.
+      const db = admin.firestore();
+      const listingRef = db.collection("listings").doc(listingId);
+      let listingData = null;
+      try {
+        const snap = await listingRef.get();
+        if (!snap.exists) {
+          logger.info("moderation: listing already gone, skipping flag", listingId);
+          return;
+        }
+        listingData = snap.data();
+        await listingRef.update({
+          status: "flagged",
+          moderationFlags: {
+            reason,
+            signals: safeSearch || {},
+            flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+            offendingPath: obj.name,
+          },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        logger.error("moderation: listing flag write failed", listingId, e);
+      }
+
+      // 3. Mirror into flaggedListings/{listingId} for the admin
+      //    queue UI to read (admin queue queries this collection,
+      //    not the listings collection — keeps the moderation
+      //    surface area tight). listingData is set in step 2 only
+      //    if the listing still existed; default to {} otherwise.
+      try {
+        const data = listingData || {};
+        await db.collection("flaggedListings").doc(listingId).set({
+          listingId,
+          sellerId,
+          title: data.title || "(unknown)",
+          brand: data.brand || "",
+          photos: data.photos || [],
+          reason,
+          signals: safeSearch || {},
+          offendingPath: obj.name,
+          status: "pending",
+          flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      } catch (e) {
+        logger.error("moderation: flaggedListings write failed", listingId, e);
+      }
+
+      // 4. Notify the seller (in-app). pushNotificationDispatch
+      //    will pick this up and send FCM if they have tokens.
+      try {
+        await db.collection("users").doc(sellerId)
+          .collection("notifications").add({
+            kind: "listing-under-review",
+            subject: "Listing under review",
+            body: "One of your photos couldn't be approved automatically. Our team is taking a look.",
+            listingId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          });
+      } catch (e) {
+        logger.error("moderation: seller notification failed", sellerId, e);
       }
     }
   );
@@ -2637,7 +2799,11 @@ exports.moderateListingOnCreate = onDocumentCreated(
       const snap = event.data;
       if (!snap) return;
       const d = snap.data();
-      const haystack = [d.title, d.brand, d.desc].filter(Boolean).join(" ");
+      // Cover every freeform string field a seller controls. `cat` and
+      // `condition` are dropdowns client-side but a malicious client
+      // could POST anything, so we sweep them too.
+      const haystack = [d.title, d.brand, d.desc, d.cat, d.condition]
+          .filter(Boolean).join(" ");
       const term = findExplicitTerm(haystack);
       if (!term) return;
 
@@ -2650,6 +2816,42 @@ exports.moderateListingOnCreate = onDocumentCreated(
         await snap.ref.delete();
       } catch (e) {
         logger.error("moderation: delete failed", e);
+      }
+    },
+);
+
+// ──────────────────────────────────────────────────────────────────────
+// moderateProfileOnWrite
+//
+// Profile displayName / bio are freeform — a malicious user could put
+// slurs there. Mirror the listing blocklist sweep. We don't delete the
+// profile (the user still needs an account), we just clear the
+// offending field. Profile updates are idempotent so this is safe.
+// ──────────────────────────────────────────────────────────────────────
+exports.moderateProfileOnWrite = onDocumentUpdated(
+    "profiles/{userId}",
+    async (event) => {
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!after) return;
+      const fields = ["displayName", "bio", "location"];
+      const updates = {};
+      for (const f of fields) {
+        const val = after[f];
+        const term = findExplicitTerm(val);
+        if (term) {
+          updates[f] = "";
+          logger.warn("moderation: cleared profile field", {
+            userId: event.params.userId,
+            field: f,
+            term,
+          });
+        }
+      }
+      if (Object.keys(updates).length === 0) return;
+      try {
+        await event.data.after.ref.set(updates, {merge: true});
+      } catch (e) {
+        logger.error("moderation: profile clear failed", e);
       }
     },
 );

@@ -10,6 +10,18 @@ service firebase.storage {
       return true;
     }
 
+    // Hardcoded admin allowlist — kept in sync with firestore.rules
+    // isAdmin(). Used by the moderation queue's "Reject + delete"
+    // path so admin can purge a flagged listing's photos directly
+    // from the client without needing a callable function.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'jakenair23@gmail.com'
+        ];
+    }
+
     // Listing photos — path encodes sellerId so we don't need a cross-service
     // firestore.get() to check ownership. The old shape /listings/{listingId}
     // hit a consistency lag where rules couldn't see the just-created listing
@@ -17,7 +29,7 @@ service firebase.storage {
     //   read:   public
     //   write:  signed-in user, ONLY to their own /listings/{uid}/... folder;
     //           max 5MB; only explicit raster image types (SVG blocked).
-    //   delete: same — owner of the path only.
+    //   delete: owner of the path, OR an admin (moderation reject).
     match /listings/{sellerId}/{listingId}/{fileName} {
       allow read: if true;
 
@@ -29,7 +41,7 @@ service firebase.storage {
 
       allow delete: if request.auth != null
         && appCheckOk()
-        && request.auth.uid == sellerId;
+        && (request.auth.uid == sellerId || isAdmin());
     }
 
     // Profile avatars

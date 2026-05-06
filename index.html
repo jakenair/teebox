@@ -154,6 +154,7 @@
     --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
     --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
     --red-500: #c0392b; --red-100: #fde8e6;
+    --blue-700: #1d4ed8; --blue-500: #3b82f6; --blue-100: #dbeafe;
     --heart-red: #e74c3c;
     --up-green: #1a8a3c; --up-bg: #e8f7ed; --dn-red: #c0392b; --dn-bg: #fde8e6;
     --font-display: 'Playfair Display', Georgia, serif;
@@ -279,6 +280,47 @@
      and on the seller profile page. Hydrated async by hydrateSellerProPills(). */
   .pro-pill { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-500) 100%); color: var(--green-900); font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; letter-spacing: 0.5px; vertical-align: middle; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
   .pro-pill.sm { font-size: 9.5px; padding: 2px 6px; letter-spacing: 0.4px; }
+
+  /* Tenured seller pill — social-proof badge that sits next to the brand
+     on listing cards, in the seller info row of the listing detail modal,
+     and at the top of the seller profile page. Tier is computed by
+     window.sellerTenureTier(profile) from salesCount + avgRating + age. */
+  .tenure-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; letter-spacing: 0.2px; vertical-align: middle; line-height: 1.2; white-space: nowrap; }
+  .tenure-pill.sm { font-size: 10px; padding: 2px 6px; gap: 3px; }
+  .tenure-pill .tenure-icon { width: 11px; height: 11px; flex-shrink: 0; }
+  .tenure-pill.sm .tenure-icon { width: 9.5px; height: 9.5px; }
+  .tenure-pill.tenure-new { background: var(--gray-200); color: var(--gray-700); }
+  .tenure-pill.tenure-active { background: var(--blue-100); color: var(--blue-700); }
+  .tenure-pill.tenure-trusted { background: var(--green-100); color: var(--green-700); }
+  .tenure-pill.tenure-top_rated { background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-500) 100%); color: var(--green-900); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+  /* Inline "Joined ..." caption shown on listing cards when seller has < 3 sales. */
+  .seller-meta-line { font-size: 11px; color: var(--gray-500); margin-top: 2px; min-height: 14px; }
+  .seller-meta-line:empty { display: none; }
+
+  /* Profile-page tenure block: pill + stat grid above the listings. */
+  .tenure-block { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--gray-100); margin-bottom: 14px; }
+  .tenure-block-pill-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tenure-block-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .tenure-stat { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 8px 10px; }
+  .tenure-stat-label { font-size: 10.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .tenure-stat-value { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--gray-900); line-height: 1.1; }
+  .tenure-stat-value .tenure-stat-sub { font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--gray-500); margin-left: 4px; }
+
+  /* My Shop tenure card — own-tier display + "How to upgrade" tooltip. */
+  .my-tenure-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--white); margin-bottom: 14px; flex-wrap: wrap; }
+  .my-tenure-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+  .my-tenure-card-info strong { font-size: 13px; color: var(--gray-900); }
+  .my-tenure-card-info span { font-size: 12px; color: var(--gray-500); }
+  .tenure-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gray-100); color: var(--gray-500); font-weight: 700; font-size: 12px; cursor: help; border: 1px solid var(--gray-200); user-select: none; flex-shrink: 0; }
+  .tenure-help:hover, .tenure-help:focus { background: var(--green-50); color: var(--green-700); border-color: var(--green-400); outline: none; }
+  /* CSS-only tooltip — appears on hover/focus of .tenure-help. Hidden on
+     touch (no hover) but the same content sits in title= as a fallback. */
+  .tenure-help .tenure-help-tip { position: absolute; bottom: calc(100% + 8px); right: 0; background: var(--gray-900); color: var(--white); padding: 10px 12px; border-radius: var(--radius-md); font-size: 12px; font-weight: 500; line-height: 1.45; width: max-content; max-width: 260px; box-shadow: var(--shadow-card); opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 50; text-align: left; cursor: default; }
+  .tenure-help:hover .tenure-help-tip, .tenure-help:focus .tenure-help-tip { opacity: 1; pointer-events: auto; }
+  .tenure-help-tip strong { color: var(--gold-300); display: block; margin-bottom: 4px; font-size: 11.5px; }
+  .tenure-help-tip ul { margin: 4px 0 0; padding-left: 14px; }
+  .tenure-help-tip li { margin-bottom: 2px; }
 
   /* My Shop tier banner — sits at the top of the dashboard body. */
   .pro-tier-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--radius-lg); margin-bottom: 14px; }
@@ -426,6 +468,33 @@
   .info-list { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
   .info-list li { margin-bottom: 0.5rem; }
   .info-meta { font-size: 12px; color: var(--gray-500); margin-top: 0.5rem; }
+
+  /* Admin moderation queue — dark green / gold theme */
+  .moderation-modal { max-width: 880px; }
+  #moderationBackdrop .info-modal { background: var(--green-900); color: #fff; }
+  .mod-card { background: var(--green-800); border: 1px solid var(--green-700); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; display: grid; grid-template-columns: 120px 1fr; gap: 16px; }
+  .mod-card .mod-photo { width: 120px; height: 120px; background: var(--green-950); border-radius: var(--radius-sm); object-fit: cover; display: block; }
+  .mod-card .mod-photo.placeholder { display: flex; align-items: center; justify-content: center; color: var(--gold-300); font-size: 11px; text-align: center; padding: 8px; }
+  .mod-card .mod-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .mod-card .mod-title { font-size: 16px; font-weight: 700; color: #fff; word-break: break-word; }
+  .mod-card .mod-brand { font-size: 12px; color: var(--gold-300); text-transform: uppercase; letter-spacing: 1px; }
+  .mod-card .mod-meta { font-size: 12px; color: var(--green-200); }
+  .mod-card .mod-meta code { background: var(--green-950); padding: 2px 6px; border-radius: 3px; color: var(--gold-300); font-size: 11px; }
+  .mod-card .mod-reason { font-size: 12px; color: #ffb4b4; background: rgba(255,80,80,0.12); border-left: 3px solid #ff5050; padding: 6px 10px; border-radius: 3px; margin-top: 4px; }
+  .mod-card .mod-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .mod-card .mod-btn { font-family: var(--font-body); font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: var(--transition); }
+  .mod-card .mod-btn-approve { background: var(--green-500); color: #fff; }
+  .mod-card .mod-btn-approve:hover { background: var(--green-400); }
+  .mod-card .mod-btn-reject { background: #b3261e; color: #fff; }
+  .mod-card .mod-btn-reject:hover { background: #d23a30; }
+  .mod-card .mod-btn-skip { background: transparent; color: var(--gold-300); border: 1px solid var(--gold-700); }
+  .mod-card .mod-btn-skip:hover { background: rgba(224,184,64,0.08); }
+  .mod-empty { text-align: center; padding: 56px 16px; color: var(--gold-300); font-size: 14px; }
+  .mod-error { text-align: center; padding: 24px 16px; color: #ffb4b4; font-size: 13px; }
+  @media (max-width: 600px) {
+    .mod-card { grid-template-columns: 1fr; }
+    .mod-card .mod-photo { width: 100%; height: 220px; }
+  }
 
   /* Unread badge — used in nav inbox icon, bottom-nav inbox tab, user menu */
   .unread-badge { display: none; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 50px; background: var(--red-500); color: var(--white); font-size: 10px; font-weight: 700; text-align: center; line-height: 16px; position: absolute; top: 2px; right: 2px; box-sizing: border-box; }
@@ -2686,6 +2755,10 @@
 
 <!-- DELETE ACCOUNT MODAL -->
 <!-- SHIP MODAL — replaces the dual prompt() seller flow -->
+<!-- Tracking is MANDATORY here: format-validated against USPS / UPS / FedEx / DHL
+     regexes before the order is updated. The carrier is auto-detected from the
+     number so we don't have to trust a self-reported dropdown — and we persist
+     the detected value as `trackingCarrier` for downstream webhook integration. -->
 <div class="modal-backdrop info-backdrop" id="shipBackdrop" data-close-on-backdrop="close-info">
   <div class="info-modal" role="dialog" aria-modal="true" style="max-width:420px;">
     <div class="modal-header">
@@ -2694,20 +2767,20 @@
     </div>
     <div class="modal-body">
       <p style="color:var(--gray-700);font-size:13.5px;line-height:1.5;margin-bottom:14px;">
-        Enter the carrier and tracking number. The buyer will get an instant push + email
-        with a clickable tracking link.
+        Enter your carrier tracking number. The buyer will get an instant push + email
+        with a clickable tracking link, and your payout is released after delivery.
       </p>
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Carrier</label>
-      <select id="shipCarrier" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:15px;background:var(--white);margin-bottom:14px;">
-        <option value="USPS">USPS</option>
-        <option value="UPS">UPS</option>
-        <option value="FedEx">FedEx</option>
-        <option value="DHL">DHL</option>
-        <option value="Other">Other</option>
-      </select>
-      <label for="shipTracking" style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number</label>
-      <input id="shipTracking" type="text" placeholder="e.g. 9400 1000 0000 0000 0000 00" autocapitalize="characters" autocomplete="off" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;letter-spacing:0.5px;" />
-      <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:1em;"></p>
+      <label for="shipTracking" style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number <span style="color:var(--red-500)">*</span></label>
+      <input id="shipTracking" type="text" required aria-required="true"
+        placeholder="e.g. 9400 1000 0000 0000 0000 00"
+        autocapitalize="characters" autocomplete="off" maxlength="40"
+        style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;letter-spacing:0.5px;" />
+      <p id="shipCarrierHint" style="color:var(--gray-500);font-size:12.5px;margin-top:6px;min-height:1em;"></p>
+      <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:4px;min-height:1em;"></p>
+      <p style="font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.4;">
+        Accepted carriers: USPS, UPS, FedEx, DHL.
+        <a href="#" data-action="ship-no-tracking-info" style="color:var(--green-700);text-decoration:underline;">Don't have a number yet?</a>
+      </p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
         <button class="btn-full green" id="shipConfirmBtn" data-action="confirm-ship">Mark as shipped</button>
@@ -2802,6 +2875,19 @@
     </div>
     <div class="info-body" id="profileBody">
       <div class="profile-loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODERATION QUEUE MODAL (admin-only, ?admin=moderation) -->
+<div class="modal-backdrop info-backdrop" id="moderationBackdrop" data-close-on-backdrop="close-moderation">
+  <div class="info-modal moderation-modal" role="dialog" aria-modal="true" aria-labelledby="moderationTitle">
+    <div class="modal-header" style="background:var(--green-900);color:var(--gold-300);border-bottom:1px solid var(--gold-700);">
+      <span class="modal-title" id="moderationTitle" style="color:var(--gold-300);">Moderation Queue</span>
+      <button class="modal-close" data-action="close-moderation" aria-label="Close" data-ico="close" style="color:var(--gold-300);"></button>
+    </div>
+    <div class="info-body" id="moderationBody" style="background:var(--green-900);color:#fff;min-height:300px;">
+      <div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>
     </div>
   </div>
 </div>
@@ -11251,6 +11337,193 @@ function openInfo(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('open');
 }
+
+// ─── Admin moderation queue (?admin=moderation) ───────────────
+// Hardcoded email gate — kept in sync with firestore.rules and
+// storage.rules isAdmin(). Anyone else who hits the deep link
+// gets a "Not authorized" toast and the URL is cleared.
+const MODERATION_ADMIN_EMAILS = new Set(['jakenair23@gmail.com']);
+function isModerationAdmin() {
+  const u = window.CURRENT_USER;
+  if (!u || !u.email) return false;
+  if (!u.emailVerified) return false;
+  return MODERATION_ADMIN_EMAILS.has(String(u.email).toLowerCase());
+}
+A['close-moderation']        = () => {
+  const bd = document.getElementById('moderationBackdrop');
+  if (bd) bd.classList.remove('open');
+  // Drop the ?admin=moderation query so a refresh doesn't reopen it.
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.get('admin') === 'moderation') {
+      u.searchParams.delete('admin');
+      window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+    }
+  } catch (_e) {}
+};
+async function openModerationQueue() {
+  if (!isModerationAdmin()) {
+    if (window.showToast) window.showToast('Not authorized.', 'error');
+    // Strip the query param so non-admins don't see the modal.
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('admin');
+      window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+    } catch (_e) {}
+    return;
+  }
+  const bd = document.getElementById('moderationBackdrop');
+  const body = document.getElementById('moderationBody');
+  if (!bd || !body) return;
+  // Open with loading state.
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  body.innerHTML = '<div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>';
+  bd.classList.add('open');
+  try {
+    const { getFirestore, collection, query, orderBy, getDocs } =
+      await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js');
+    const db = getFirestore();
+    // Read from the dedicated flaggedListings collection (Cloud
+    // Functions write into it; firestore.rules grants admin read).
+    const q = query(collection(db, 'flaggedListings'), orderBy('flaggedAt', 'desc'));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      body.innerHTML = '<div class="mod-empty">Nothing in the queue. Nice.</div>';
+      return;
+    }
+    const items = [];
+    snap.forEach(d => items.push(Object.assign({_id: d.id}, d.data())));
+    renderModerationQueue(items);
+  } catch (err) {
+    console.error('moderation queue load failed:', err);
+    body.innerHTML = '<div class="mod-error">Could not load queue: ' + escapeHtml(err && err.message || 'unknown error') + '</div>';
+  }
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function renderModerationQueue(items) {
+  const body = document.getElementById('moderationBody');
+  if (!body) return;
+  if (!items || !items.length) {
+    body.innerHTML = '<div class="mod-empty">Nothing in the queue. Nice.</div>';
+    return;
+  }
+  const cards = items.map(it => {
+    const photos = Array.isArray(it.photos) ? it.photos.slice(0, 3) : [];
+    const photoHtml = photos.length
+      ? photos.map(p => `<img class="mod-photo" src="${escapeHtml(p)}" alt="" loading="lazy"/>`).join('')
+      : '<div class="mod-photo placeholder">all photos<br/>removed</div>';
+    const reason = it.reason || 'unknown';
+    const sigLines = it.signals
+      ? Object.entries(it.signals)
+          .map(([k,v]) => `${escapeHtml(k)}=${escapeHtml(String(v))}`)
+          .join(' · ')
+      : '';
+    return `
+      <div class="mod-card" data-listing-id="${escapeHtml(it._id)}" data-seller-id="${escapeHtml(it.sellerId || '')}">
+        <div>${photoHtml}</div>
+        <div class="mod-info">
+          <div class="mod-title">${escapeHtml(it.title || '(untitled)')}</div>
+          <div class="mod-brand">${escapeHtml(it.brand || '')}</div>
+          <div class="mod-meta">listing <code>${escapeHtml(it._id)}</code> · seller <code>${escapeHtml(it.sellerId || '')}</code></div>
+          <div class="mod-reason">flagged: ${escapeHtml(reason)}${sigLines ? ' &nbsp;·&nbsp; ' + sigLines : ''}</div>
+          <div class="mod-actions">
+            <button class="mod-btn mod-btn-approve" data-action="mod-approve">Approve</button>
+            <button class="mod-btn mod-btn-reject" data-action="mod-reject">Reject + delete</button>
+            <button class="mod-btn mod-btn-skip" data-action="mod-skip">Skip</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  body.innerHTML = cards;
+}
+async function moderationCardAction(el, kind) {
+  const card = el && el.closest('.mod-card');
+  if (!card) return;
+  const listingId = card.dataset.listingId;
+  const sellerId = card.dataset.sellerId;
+  if (!listingId) return;
+  // Disable buttons immediately so a double-tap can't double-fire.
+  card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+  try {
+    const fs = await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js');
+    const { getFirestore, doc, updateDoc, deleteDoc, deleteField, serverTimestamp } = fs;
+    const db = getFirestore();
+    if (kind === 'approve') {
+      // Clear flag, set status active, drop the queue mirror doc.
+      await updateDoc(doc(db, 'listings', listingId), {
+        status: 'active',
+        moderationFlags: deleteField(),
+        updatedAt: serverTimestamp(),
+      });
+      await deleteDoc(doc(db, 'flaggedListings', listingId)).catch(() => {});
+      if (window.showToast) window.showToast('Approved.', 'success');
+    } else if (kind === 'reject') {
+      // Delete photos, then listing doc, then queue mirror.
+      try {
+        const st = await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js');
+        const { getStorage, ref: sref, listAll, deleteObject } = st;
+        const storage = getStorage();
+        const folder = sref(storage, `listings/${sellerId}/${listingId}`);
+        const items = await listAll(folder);
+        await Promise.allSettled(items.items.map(it => deleteObject(it)));
+      } catch (storageErr) {
+        console.warn('moderation reject: photo cleanup failed (non-fatal):', storageErr);
+      }
+      await deleteDoc(doc(db, 'listings', listingId)).catch(() => {});
+      await deleteDoc(doc(db, 'flaggedListings', listingId)).catch(() => {});
+      if (window.showToast) window.showToast('Rejected + deleted.', 'success');
+    } else if (kind === 'skip') {
+      // No write — just collapse the card and move on.
+      if (window.showToast) window.showToast('Skipped.', 'info');
+    }
+    // Animate the card out.
+    card.style.transition = 'opacity 200ms ease, transform 200ms ease';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(8px)';
+    setTimeout(() => {
+      card.remove();
+      const body = document.getElementById('moderationBody');
+      if (body && !body.querySelector('.mod-card')) {
+        body.innerHTML = '<div class="mod-empty">Queue cleared. Nice.</div>';
+      }
+    }, 220);
+  } catch (err) {
+    console.error('moderation action failed:', err);
+    if (window.showToast) window.showToast('Action failed: ' + (err && err.message || 'unknown'), 'error');
+    card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+  }
+}
+A['mod-approve'] = (el) => moderationCardAction(el, 'approve');
+A['mod-reject']  = (el) => moderationCardAction(el, 'reject');
+A['mod-skip']    = (el) => moderationCardAction(el, 'skip');
+window.openModerationQueue = openModerationQueue;
+// Honor ?admin=moderation on initial load — wait for auth to settle
+// (onAuthStateChanged fires async after page load) then open if admin.
+try {
+  const _adminSp = new URLSearchParams(window.location.search);
+  if (_adminSp.get('admin') === 'moderation') {
+    let _modAttempts = 0;
+    const _modPoll = setInterval(() => {
+      _modAttempts++;
+      // Bail after ~10s; auth hasn't resolved or user is signed out.
+      if (_modAttempts > 50) {
+        clearInterval(_modPoll);
+        if (!window.CURRENT_USER) {
+          if (window.showToast) window.showToast('Sign in as the admin to view the moderation queue.', 'info');
+        }
+        return;
+      }
+      if (window.CURRENT_USER) {
+        clearInterval(_modPoll);
+        openModerationQueue();
+      }
+    }, 200);
+  }
+} catch (_e) {}
 A['open-shop-dashboard']     = () => { if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
 A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
