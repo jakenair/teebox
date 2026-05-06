@@ -2774,11 +2774,12 @@
       <input id="shipTracking" type="text" required aria-required="true"
         placeholder="e.g. 9400 1000 0000 0000 0000 00"
         autocapitalize="characters" autocomplete="off" maxlength="40"
+        data-input="ship-tracking"
         style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:16px;letter-spacing:0.5px;" />
-      <p id="shipCarrierHint" style="color:var(--gray-500);font-size:12.5px;margin-top:6px;min-height:1em;"></p>
-      <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:4px;min-height:1em;"></p>
+      <p id="shipCarrierHint" style="color:var(--gray-500);font-size:12.5px;margin-top:6px;min-height:1em;" aria-live="polite"></p>
+      <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:4px;min-height:1em;" role="alert"></p>
       <p style="font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.4;">
-        Accepted carriers: USPS, UPS, FedEx, DHL.
+        Accepted carriers: USPS, UPS, FedEx, DHL. Tracking is required to release funds.
         <a href="#" data-action="ship-no-tracking-info" style="color:var(--green-700);text-decoration:underline;">Don't have a number yet?</a>
       </p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
