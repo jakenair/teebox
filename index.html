@@ -3625,19 +3625,37 @@ function friendlyStripeError(err) {
   if (!err) return 'Payment failed. Please try again.';
   const code = err.decline_code || err.code || '';
   switch (code) {
-    case 'card_declined':       return 'Your card was declined. Try a different card.';
-    case 'insufficient_funds':  return 'Your card has insufficient funds. Try a different card.';
-    case 'expired_card':        return 'That card is expired. Please enter a new one.';
-    case 'incorrect_cvc':       return 'The security code on your card was wrong.';
-    case 'incorrect_number':    return 'That card number looks wrong. Please re-enter it.';
-    case 'processing_error':    return "Something went wrong on Stripe's end. Try again in a moment.";
+    case 'card_declined':         return 'Your card was declined. Try a different card.';
+    case 'do_not_honor':           return 'Your bank declined this charge. Try a different card or call your bank.';
+    case 'generic_decline':        return 'Your card was declined. Try a different card.';
+    case 'insufficient_funds':    return 'Your card has insufficient funds. Try a different card.';
+    case 'expired_card':          return 'That card is expired. Please enter a new one.';
+    case 'incorrect_cvc':         return 'The security code on your card was wrong.';
+    case 'incorrect_number':      return 'That card number looks wrong. Please re-enter it.';
+    case 'invalid_number':        return 'That card number is invalid. Please re-enter it.';
+    case 'invalid_expiry_month':
+    case 'invalid_expiry_year':
+    case 'invalid_expiry_date':   return "That expiration date doesn't look right. Please re-enter it.";
+    case 'invalid_cvc':           return 'That security code is invalid. Please re-enter it.';
+    case 'postal_code_invalid':
+    case 'incorrect_zip':         return "That ZIP code didn't match. Please re-enter it.";
+    case 'processing_error':      return "Something went wrong on Stripe's end. Try again in a moment.";
+    case 'try_again_later':       return 'Please try again in a moment.';
+    case 'card_velocity_exceeded': return 'Your card hit its limit. Try a different card or your bank.';
     case 'authentication_required':
+    case 'authentication_failure':
       return 'Your bank requires extra verification. Try again and complete the prompt.';
     case 'lost_card':
     case 'stolen_card':
+    case 'pickup_card':
+    case 'restricted_card':
+    case 'service_not_allowed':
+    case 'fraudulent':
       return 'Your card was declined. Try a different card.';
     default:
-      return err.message || 'Payment failed. Please try again.';
+      // Strings starting with "decline" or message-only Stripe errors fall
+      // through here. err.message is usually a sentence already.
+      return (err.message || '').trim() || 'Payment failed. Please try again.';
   }
 }
 
@@ -3721,12 +3739,27 @@ window.openCheckout = async function(productId, qty) {
     showToast('Please sign in to purchase.');
     return;
   }
+  // Client-side parity guard with the server: refuse to open the checkout
+  // modal for a buyer's own listing. The Cloud Function blocks this too,
+  // but doing it client-side avoids a wasted round-trip + a confusing
+  // error inside the payment modal.
+  if (p.sellerId && window.CURRENT_USER && p.sellerId === window.CURRENT_USER.uid) {
+    showToast("That's your listing — you can't buy your own item.");
+    return;
+  }
+  // If the listing is already sold or pending, surface the same status the
+  // detail modal shows rather than starting a payment that will 409.
+  if (p.status === 'sold')   { showToast('Sorry, this listing has already sold.'); return; }
+  if (p.status === 'pending') { showToast('Another buyer is checking out — try again in a few minutes.'); return; }
 
   // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
   const totalQty = Math.max(1, Number(p.quantity || 1));
   const remaining = Math.max(1, totalQty - Math.max(0, Number(p.quantitySold || 0)));
   const requestedQty = Math.min(remaining, Math.max(1, Number(qty || 1)));
   checkoutProduct = Object.assign({}, p, { __qty: requestedQty });
+  // Mirror onto window so action handlers in sibling <script> tags
+  // (e.g. retry-checkout) can re-open the same product without re-querying.
+  window.checkoutProduct = checkoutProduct;
 
   // Product image / placeholder
   const emojiEl = document.getElementById('checkoutEmoji');
@@ -3776,19 +3809,28 @@ window.openCheckout = async function(productId, qty) {
   const payBtn = document.getElementById('payBtn');
   payBtn.disabled = true; // disabled until the Payment Element finishes mounting
   payBtn.textContent = 'Loading…';
+  // Reset to the default action in case a prior open ended in the
+  // mount-error "Try again" branch and swapped this to retry-checkout.
+  payBtn.dataset.action = 'confirm-payment';
 
   document.getElementById('checkoutBackdrop').classList.add('open');
 
   // Mount the Payment Element. If it fails (network, signed-out, seller
-  // hasn't connected Stripe), surface the message inline and keep the
-  // modal open so the buyer can close it cleanly.
+  // hasn't connected Stripe), surface the message inline and flip the Pay
+  // button into a "Try again" so the buyer has an obvious recovery path
+  // without having to close + reopen the modal.
   try {
     await mountPaymentElement(checkoutProduct);
     payBtn.disabled = false;
     payBtn.textContent = 'Pay ' + fmt(totalDollars);
+    payBtn.dataset.action = 'confirm-payment';
   } catch (err) {
     setCheckoutError(err && err.message || 'Could not start payment. Try again.');
-    payBtn.textContent = 'Pay Now';
+    payBtn.disabled = false;
+    payBtn.textContent = 'Try again';
+    // Swap the action handler so a click re-runs openCheckout (mount path)
+    // instead of confirmPayment (which would error since elements is null).
+    payBtn.dataset.action = 'retry-checkout';
   }
 };
 
@@ -3804,6 +3846,15 @@ window.closeCheckoutDirect = function() {
   }
   stripeElements = null;
   checkoutClientSecret = null;
+  // Reset the Pay button back to its default action so a stale "Try again"
+  // state doesn't leak into the next open.
+  const _payBtn = document.getElementById('payBtn');
+  if (_payBtn) {
+    _payBtn.dataset.action = 'confirm-payment';
+    _payBtn.disabled = false;
+    _payBtn.textContent = 'Pay Now';
+  }
+  setCheckoutError('');
 };
 
 window.confirmPayment = async function() {
@@ -3836,13 +3887,36 @@ window.confirmPayment = async function() {
 
     // Stripe says the PI succeeded (or is processing — bank-side).
     if (paymentIntent && paymentIntent.status === 'succeeded') {
+      // Optimistic local update: flip the listing's status in PRODUCTS so the
+      // grid + card UI reflects "Sold" / decremented stock right away. The
+      // webhook will fire within ~1-3s and make the change canonical, but
+      // we don't want the buyer to see a still-active card as soon as they
+      // close the modal.
+      try {
+        if (window.PRODUCTS && checkoutProduct) {
+          const idx = window.PRODUCTS.findIndex(x => String(x.id) === String(checkoutProduct.id));
+          if (idx !== -1) {
+            const target = window.PRODUCTS[idx];
+            const purchased = Number(checkoutProduct.__qty || 1);
+            const totalQ = Math.max(1, Number(target.quantity || 1));
+            const soldNow = Math.max(0, Number(target.quantitySold || 0)) + purchased;
+            target.quantitySold = soldNow;
+            if (soldNow >= totalQ) target.status = 'sold';
+          }
+        }
+      } catch (_e) {}
       closeCheckoutDirect();
       showToast('Payment successful — your order is confirmed.', 'success');
       const detailBackdrop = document.getElementById('detailBackdrop');
       if (detailBackdrop) detailBackdrop.classList.remove('open');
+      // Re-fetch from Firestore after a short delay so the webhook has a
+      // chance to land its commit. If we hit Firestore the millisecond
+      // confirmPayment resolves, the listing may still be `pending`.
       if (window.loadListings) {
-        try { await window.loadListings(); }
-        catch (e) { showToast('Order placed — refresh to see updated listings.', 'info'); }
+        setTimeout(() => {
+          try { window.loadListings(); }
+          catch (e) { /* ignore — optimistic update already applied */ }
+        }, 1500);
       }
     } else if (paymentIntent && paymentIntent.status === 'processing') {
       closeCheckoutDirect();
@@ -11027,6 +11101,14 @@ A['submit-listing']          = () => { if (!window.requireAuth('to publish your 
 A['ai-write-desc']            = () => { if (!window.requireAuth('to use AI description')) return; aiWriteDescription(); };
 A['close-checkout-direct']   = () => closeCheckoutDirect();
 A['confirm-payment']         = () => { if (!window.requireAuth('to complete your purchase')) return; confirmPayment(); };
+// Mount-time error recovery — re-runs openCheckout for the active product
+// when the buyer taps the swapped "Try again" button on the Pay slot.
+A['retry-checkout']          = () => {
+  if (!window.checkoutProduct) { closeCheckoutDirect(); return; }
+  const p = window.checkoutProduct;
+  closeCheckoutDirect();
+  setTimeout(() => window.openCheckout(p.id, Number(p.__qty || 1)), 50);
+};
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
 A['open-conv']               = (el) => { if (!window.requireAuth('to open this conversation')) return; openChatFromConversation(el.dataset.convId); };
