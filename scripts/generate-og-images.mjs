@@ -175,38 +175,56 @@ function buildDefaultSvg() {
 </svg>`;
 }
 
+// Curated set of 9 iconic course logos for the Bingo OG grid.
+// All files exist in assets/logos/ — verified at build time, with a graceful
+// monogram-tile fallback if a PNG is missing.
+const BINGO_LOGOS = [
+  'augusta-national',
+  'pine-valley',
+  'cypress-point',
+  'oakmont',
+  null, // center tile — TeeBox brand mark on gold (set inline in the loop)
+  'bandon-dunes',
+  'baltusrol-lower',
+  'seminole',
+  'shinnecock-hills',
+];
+
+const BINGO_GRID_X = 720;
+const BINGO_GRID_Y = 130;
+const BINGO_TILE = 110;
+const BINGO_GAP = 16;
+
 /**
- * Bingo OG card — 3x3 logo grid accent in the right column.
+ * Bingo OG card — 3x3 grid of REAL course logos composited from PNG.
+ * The SVG renders the brand text + empty tile rectangles; sharp then
+ * composites the logos on top of each tile in `compositeBingoLogos()`.
  */
 function buildBingoSvg() {
-  // 3x3 grid of placeholder logo tiles (we draw simple monogram circles since
-  // we can't reliably embed PNGs inside SVG via sharp without base64 — and
-  // keeping it vector keeps the file portable). Each tile gets a different
-  // serif initial to evoke a bingo-style card of course logos.
-  const initials = ['A', 'C', 'P', 'B', 'M', 'R', 'S', 'O', 'W'];
-  const gridX = 720;
-  const gridY = 130;
-  const tile = 110;
-  const gap = 16;
+  // Empty rounded rectangles for each tile. Logos get composited on top.
   let tiles = '';
   for (let i = 0; i < 9; i++) {
     const row = Math.floor(i / 3);
     const col = i % 3;
-    const tx = gridX + col * (tile + gap);
-    const ty = gridY + row * (tile + gap);
-    // middle tile (i === 4) is highlighted gold to signal "free space"
-    const isFree = i === 4;
-    const fill = isFree ? GOLD_500 : GREEN_800;
-    const stroke = isFree ? GOLD_300 : GOLD_500;
-    const strokeOp = isFree ? '0.9' : '0.45';
-    const textFill = isFree ? GREEN_900 : CREAM;
+    const tx = BINGO_GRID_X + col * (BINGO_TILE + BINGO_GAP);
+    const ty = BINGO_GRID_Y + row * (BINGO_TILE + BINGO_GAP);
+    const isCenter = i === 4;
+    const fill = isCenter ? GOLD_500 : '#ffffff';
+    const stroke = isCenter ? GOLD_300 : GOLD_500;
+    const strokeOp = isCenter ? '0.9' : '0.45';
     tiles += `
       <g transform="translate(${tx}, ${ty})">
-        <rect width="${tile}" height="${tile}" rx="14"
+        <rect width="${BINGO_TILE}" height="${BINGO_TILE}" rx="14"
               fill="${fill}" stroke="${stroke}" stroke-opacity="${strokeOp}" stroke-width="2" />
-        <text x="${tile / 2}" y="${tile / 2 + 22}" text-anchor="middle"
-              font-family="${SERIF}" font-size="58" font-weight="700"
-              fill="${textFill}">${initials[i]}</text>
+        ${isCenter ? `
+          <!-- Center tile: TeeBox monogram on gold -->
+          <text x="${BINGO_TILE / 2}" y="${BINGO_TILE / 2 + 4}" text-anchor="middle"
+                font-family="${SERIF}" font-size="22" font-weight="800" letter-spacing="-0.5"
+                fill="${GREEN_900}">Tee</text>
+          <text x="${BINGO_TILE / 2}" y="${BINGO_TILE / 2 + 32}" text-anchor="middle"
+                font-family="${SERIF}" font-size="22" font-weight="800" letter-spacing="-0.5"
+                fill="${GREEN_900}">Box</text>
+        ` : ''}
       </g>
     `;
   }
@@ -239,7 +257,7 @@ function buildBingoSvg() {
   <!-- App Store badge bottom-left -->
   ${appStoreBadge(80, 528)}
 
-  <!-- 3x3 grid accent -->
+  <!-- 3x3 grid backdrop (logos composited separately) -->
   ${tiles}
 
   <!-- Domain footer -->
@@ -248,12 +266,42 @@ function buildBingoSvg() {
 </svg>`;
 }
 
-async function renderToPng(svgString, outPath) {
+/**
+ * Build the array of sharp.composite() inputs for the bingo logos.
+ * Each non-center tile gets a course logo PNG resized to fit, with padding.
+ */
+async function compositeBingoLogos() {
+  const composites = [];
+  const LOGOS_DIR = join(repoRoot, 'assets', 'logos');
+  const PADDING = 12; // logo inset within tile so it doesn't kiss the border
+  const innerSize = BINGO_TILE - PADDING * 2;
+
+  for (let i = 0; i < BINGO_LOGOS.length; i++) {
+    const slug = BINGO_LOGOS[i];
+    if (!slug) continue; // center tile — already painted in SVG
+    const row = Math.floor(i / 3);
+    const col = i % 3;
+    const left = BINGO_GRID_X + col * (BINGO_TILE + BINGO_GAP) + PADDING;
+    const top = BINGO_GRID_Y + row * (BINGO_TILE + BINGO_GAP) + PADDING;
+    const path = join(LOGOS_DIR, `${slug}.png`);
+    if (!existsSync(path)) {
+      console.warn(`  skipping missing logo: ${slug}.png`);
+      continue;
+    }
+    // Pre-resize the logo to fit inside the tile, preserving aspect ratio.
+    const logoBuf = await sharp(path)
+      .resize(innerSize, innerSize, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .toBuffer();
+    composites.push({ input: logoBuf, left: Math.round(left), top: Math.round(top) });
+  }
+  return composites;
+}
+
+async function renderToPng(svgString, outPath, compositeOps = []) {
   const buf = Buffer.from(svgString, 'utf8');
-  await sharp(buf, { density: 144 })
-    .resize(W, H, { fit: 'cover' })
-    .png({ compressionLevel: 9, quality: 92 })
-    .toFile(outPath);
+  let pipeline = sharp(buf, { density: 144 }).resize(W, H, { fit: 'cover' });
+  if (compositeOps.length > 0) pipeline = pipeline.composite(compositeOps);
+  await pipeline.png({ compressionLevel: 9, quality: 92 }).toFile(outPath);
   const sizeKb = Math.round((require('node:fs').statSync(outPath).size) / 1024);
   console.log(`  wrote ${outPath} (${sizeKb} KB)`);
 }
@@ -269,7 +317,10 @@ async function main() {
   writeFileSync(join(OUT_DIR, 'og-bingo.svg'), bingoSvg);
 
   await renderToPng(defaultSvg, join(OUT_DIR, 'og-default.png'));
-  await renderToPng(bingoSvg, join(OUT_DIR, 'og-bingo.png'));
+
+  // Bingo card: composite real course logos on top of the tile rectangles.
+  const bingoComposites = await compositeBingoLogos();
+  await renderToPng(bingoSvg, join(OUT_DIR, 'og-bingo.png'), bingoComposites);
 
   console.log('Done. Re-run after edits with: node scripts/generate-og-images.mjs');
 }
