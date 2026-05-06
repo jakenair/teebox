@@ -8567,16 +8567,75 @@ function markShipped(orderId) {
 }
 window.markShipped = markShipped;
 
+// Live carrier detection as the seller types — gives instant feedback so
+// they don't have to submit to find out the format is wrong. Also auto-
+// updates the carrier dropdown when the format strongly matches one
+// specific carrier different from what's selected.
+(function wireTrackingLiveHint() {
+  let bound = false;
+  function bind() {
+    if (bound) return;
+    const input = document.getElementById('shipTracking');
+    const hint = document.getElementById('shipCarrierHint');
+    const carrierSel = document.getElementById('shipCarrier');
+    if (!input || !hint) return;
+    bound = true;
+    input.addEventListener('input', function() {
+      const v = this.value || '';
+      if (!v.trim()) { hint.textContent = ''; return; }
+      const r = window.validateTrackingNumber(v);
+      if (r.ok) {
+        hint.style.color = 'var(--green-700, #1f8a4d)';
+        hint.textContent = 'Looks like ' + r.detected + ' ✓';
+        if (carrierSel && carrierSel.value !== r.detected) carrierSel.value = r.detected;
+      } else if (v.replace(/[\s-]/g, '').length >= 8) {
+        hint.style.color = 'var(--gray-500)';
+        hint.textContent = 'Doesn\'t match a known carrier yet — keep typing or double-check.';
+      } else {
+        hint.style.color = 'var(--gray-500)';
+        hint.textContent = '';
+      }
+    });
+  }
+  // Modal markup is in the static HTML so binding once on first markShipped() is enough.
+  const orig = window.markShipped;
+  window.markShipped = function(id) { bind(); return orig(id); };
+})();
+
+// Validate tracking number against the four supported carriers. Returns
+// { ok, normalized, detected } — `detected` is the auto-recognized carrier
+// (used to warn the seller if it doesn't match their dropdown choice).
+window.TRACKING_PATTERNS = {
+  USPS:  /^(\d{20}|\d{22}|9[2-5]\d{18,20}|EA\d{9}US|EC\d{9}US|LK\d{9}US)$/,
+  UPS:   /^1Z[A-HJ-NP-Z0-9]{16}$/,
+  FedEx: /^(\d{12}|\d{15}|\d{20}|\d{22})$/,
+  DHL:   /^\d{10}$|^\d{11}$/,
+};
+window.validateTrackingNumber = function(raw) {
+  const normalized = String(raw || '').replace(/[\s-]/g, '').toUpperCase();
+  if (!normalized) return { ok: false, msg: 'Tracking number is required.', normalized };
+  if (normalized.length < 8 || normalized.length > 30) {
+    return { ok: false, msg: 'That tracking number looks too short or too long. Please double-check.', normalized };
+  }
+  for (const [carrier, re] of Object.entries(window.TRACKING_PATTERNS)) {
+    if (re.test(normalized)) return { ok: true, normalized, detected: carrier };
+  }
+  return { ok: false, msg: 'That doesn’t look like a valid USPS / UPS / FedEx / DHL tracking number. Please double-check.', normalized };
+};
+
 async function confirmShip() {
   const orderId = __pendingShipOrderId;
   if (!orderId || !window.CURRENT_USER) return;
   const carrier = (document.getElementById('shipCarrier') || {}).value || 'USPS';
-  const tracking = ((document.getElementById('shipTracking') || {}).value || '').trim();
+  const trackingRaw = ((document.getElementById('shipTracking') || {}).value || '').trim();
   const errEl = document.getElementById('shipError');
-  if (!tracking) {
-    if (errEl) errEl.textContent = 'Tracking number is required.';
+  const result = window.validateTrackingNumber(trackingRaw);
+  if (!result.ok) {
+    if (errEl) errEl.textContent = result.msg;
     return;
   }
+  const tracking = result.normalized;
+  const trackingCarrier = result.detected || carrier;
   const btn = document.getElementById('shipConfirmBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Marking shipped…'; }
   try {
@@ -8586,7 +8645,8 @@ async function confirmShip() {
     await updateDoc(doc(db, 'orders', orderId), {
       fulfillmentStatus: 'shipped',
       carrier: String(carrier).slice(0, 20),
-      trackingNumber: String(tracking).slice(0, 60),
+      trackingCarrier: trackingCarrier,
+      trackingNumber: tracking.slice(0, 60),
       shippedAt: serverTimestamp(),
     });
     document.getElementById('shipBackdrop').classList.remove('open');
