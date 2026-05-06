@@ -4093,7 +4093,7 @@ window.confirmPayment = async function() {
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app-check.js";
   import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, GoogleAuthProvider, signInWithPopup, signInWithCredential } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
 
@@ -4936,7 +4936,18 @@ window.confirmPayment = async function() {
   async function loadListings() {
     if (typeof showProductSkeleton === 'function') showProductSkeleton(8);
     try {
-      const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
+      // Cap the marketplace fetch to keep first-paint snappy and bandwidth
+      // bounded. We display the most-recent N — the homepage grid never
+      // shows more than a few dozen cards above the fold anyway. When we
+      // pass this threshold we'll graduate to cursor-paginated infinite
+      // scroll. Bumping this is fine; just remember every doc here is a
+      // Firestore read on every page load.
+      const LISTINGS_FETCH_CAP = 200;
+      const q = query(
+        collection(db, 'listings'),
+        orderBy('createdAt', 'desc'),
+        limit(LISTINGS_FETCH_CAP)
+      );
       const snap = await getDocs(q);
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
@@ -6221,12 +6232,16 @@ async function loadMessages() {
   if (!currentChat.conversationId) return;
   if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
   try {
-    const { getFirestore, collection, query, orderBy, onSnapshot } =
+    const { getFirestore, collection, query, orderBy, onSnapshot, limitToLast } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const firestoreDb = getFirestore();
+    // Cap the snapshot to the last 200 messages — anything older isn't
+    // visible without scrolling and would inflate the realtime payload
+    // for long-lived conversations.
     const msgsQ = query(
       collection(firestoreDb, 'conversations', currentChat.conversationId, 'messages'),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limitToLast(200)
     );
     unsubscribeMessages = onSnapshot(msgsQ, (snap) => {
       renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -6317,12 +6332,17 @@ function escapeInboxText(str) {
 async function refreshUnreadBadge() {
   if (!window.CURRENT_USER) { updateUnreadBadge(0); return; }
   try {
-    const { getFirestore, collection, query, where, getDocs } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const firestoreDb = getFirestore();
+    // Only check the 50 most-recent conversations — we can't have unread
+    // messages sitting on a year-old conv that nobody is looking at, and
+    // the badge is a UX hint not an exact count.
     const q = query(
       collection(firestoreDb, 'conversations'),
-      where('participants', 'array-contains', window.CURRENT_USER.uid)
+      where('participants', 'array-contains', window.CURRENT_USER.uid),
+      orderBy('lastMessageAt', 'desc'),
+      limit(50)
     );
     const snap = await getDocs(q);
     const myUid = window.CURRENT_USER.uid;
@@ -6369,13 +6389,14 @@ async function loadInbox() {
   const body = document.getElementById('inboxBody');
   body.innerHTML = '<div class="inbox-empty">Loading…</div>';
   try {
-    const { getFirestore, collection, query, where, orderBy, getDocs } =
+    const { getFirestore, collection, query, where, orderBy, getDocs, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const firestoreDb = getFirestore();
     const q = query(
       collection(firestoreDb, 'conversations'),
       where('participants', 'array-contains', window.CURRENT_USER.uid),
-      orderBy('lastMessageAt', 'desc')
+      orderBy('lastMessageAt', 'desc'),
+      limit(100)
     );
     const snap = await getDocs(q);
     renderInbox(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -6599,12 +6620,17 @@ async function fetchNotifOffers() {
 
 async function fetchNotifOrders() {
   if (!window.CURRENT_USER) return [];
-  const { getFirestore, collection, query, where, getDocs } =
+  const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
     await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
   const db = getFirestore();
+  // We only render the 8 most-recent unfulfilled orders — fetch a small
+  // window ordered by createdAt so the dot/count is fast even for
+  // sellers with hundreds of historical orders.
   const snap = await getDocs(query(
     collection(db, 'orders'),
     where('sellerId', '==', window.CURRENT_USER.uid),
+    orderBy('createdAt', 'desc'),
+    limit(50),
   ));
   const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     .filter(o => {
@@ -6632,12 +6658,14 @@ async function fetchNotifOrders() {
 
 async function fetchNotifUnreadMessages() {
   if (!window.CURRENT_USER) return [];
-  const { getFirestore, collection, query, where, getDocs } =
+  const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
     await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
   const db = getFirestore();
   const snap = await getDocs(query(
     collection(db, 'conversations'),
     where('participants', 'array-contains', window.CURRENT_USER.uid),
+    orderBy('lastMessageAt', 'desc'),
+    limit(50),
   ));
   const myUid = window.CURRENT_USER.uid;
   const convs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -6849,15 +6877,30 @@ window.SHOP_DATA = { listings: [], orders: [], profile: null };
 
 async function loadShopData() {
   try {
-    const { getFirestore, collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const firestoreDb = getFirestore();
     const uid = window.CURRENT_USER.uid;
 
-    const listingsQ = query(collection(firestoreDb, 'listings'), where('sellerId', '==', uid));
+    // Cap each fan-out — a Pro seller with >500 listings still gets fast
+    // dashboard load; the long-tail can paginate later. Sort by createdAt
+    // so pagination has a natural cursor when we wire it up.
+    const SHOP_LISTINGS_CAP = 500;
+    const SHOP_ORDERS_CAP = 500;
+    const listingsQ = query(
+      collection(firestoreDb, 'listings'),
+      where('sellerId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(SHOP_LISTINGS_CAP)
+    );
     const listingsSnap = await getDocs(listingsQ);
     const listings = listingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const ordersQ = query(collection(firestoreDb, 'orders'), where('sellerId', '==', uid));
+    const ordersQ = query(
+      collection(firestoreDb, 'orders'),
+      where('sellerId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(SHOP_ORDERS_CAP)
+    );
     const ordersSnap = await getDocs(ordersQ);
     const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -8171,13 +8214,14 @@ window.deleteSavedSearch = deleteSavedSearch;
 async function loadBuyerOrders() {
   if (!window.CURRENT_USER) return [];
   try {
-    const { getFirestore, collection, query, where, getDocs, orderBy } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const snap = await getDocs(query(
       collection(db, 'orders'),
       where('buyerId', '==', window.CURRENT_USER.uid),
       orderBy('createdAt', 'desc'),
+      limit(100),
     ));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
@@ -9262,12 +9306,18 @@ async function updateLiveStats() {
   setListings.textContent = realCount > 0 ? fmtCount(realCount) : '0';
 
   // Volume = sum of all completed-sale prices in priceHistory.
-  // Public collection — read once on page load, no auth needed.
+  // Public collection — read on page load, no auth needed.
+  //
+  // SCALING NOTE: this is an O(N) collection scan that runs on every
+  // homepage hit. Capped at 500 docs so it's bounded; once we cross
+  // that we should denormalize a single `globalStats/totalGmvCents`
+  // doc that the order-success handler bumps via FieldValue.increment.
+  // That replaces ~500 reads per home page with 1.
   try {
-    const { getFirestore, collection, getDocs } =
+    const { getFirestore, collection, getDocs, query, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    const snap = await getDocs(collection(db, 'priceHistory'));
+    const snap = await getDocs(query(collection(db, 'priceHistory'), limit(500)));
     let totalCents = 0;
     snap.docs.forEach(d => {
       (d.data().sales || []).forEach(s => { totalCents += (s.priceCents || 0); });
@@ -9773,14 +9823,18 @@ let pendingReviewRole = null; // 'buyer' | 'seller'
 window.maybePromptReview = async function maybePromptReview() {
   if (!window.CURRENT_USER) return;
   try {
-    const { getFirestore, collection, query, where, getDocs, doc, getDoc } =
+    const { getFirestore, collection, query, where, getDocs, doc, getDoc, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const uid = window.CURRENT_USER.uid;
-    // Buyer-role first (we want to thank-you the buyer first)
+    // Buyer-role first (we want to thank-you the buyer first). Only check
+    // the 30 most-recent orders — anything older is past the realistic
+    // review-prompt window.
     const buyerSnap = await getDocs(query(
       collection(db, 'orders'),
-      where('buyerId', '==', uid)
+      where('buyerId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(30)
     ));
     for (const o of buyerSnap.docs) {
       const od = o.data();
@@ -9798,7 +9852,9 @@ window.maybePromptReview = async function maybePromptReview() {
     // Then seller-role (sellers reviewing buyers)
     const sellerSnap = await getDocs(query(
       collection(db, 'orders'),
-      where('sellerId', '==', uid)
+      where('sellerId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(30)
     ));
     for (const o of sellerSnap.docs) {
       const od = o.data();
@@ -10228,12 +10284,17 @@ async function openProfile(uid) {
 
 async function loadProfileListings(uid) {
   try {
-    const { getFirestore, collection, query, where, getDocs } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
+    // Cap public profile views — popular sellers can have hundreds of
+    // listings; we display 24 active + 12 sold above the fold. Pagination
+    // is a follow-up if/when we hit the cap.
     const snap = await getDocs(query(
       collection(db, 'listings'),
-      where('sellerId', '==', uid)
+      where('sellerId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(200)
     ));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
