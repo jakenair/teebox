@@ -835,12 +835,45 @@
   .placeholder-art svg { width: 38%; height: 38%; color: var(--gray-400); }
 
   /* AUTH */
-  #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: flex; align-items: center; justify-content: center; padding: 1rem; opacity: 1; transition: opacity 0.25s ease; }
+  /* Guest browse mode: the auth-screen is hidden by default and only
+     shown when an action explicitly requires sign-in (or when the user
+     opens it via the nav "Sign In" pill). The legacy `.hidden` class
+     flag is kept for compatibility with the existing
+     onAuthStateChanged code paths. */
+  #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: center; justify-content: center; padding: 1rem; opacity: 1; transition: opacity 0.25s ease; }
+  #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
   #authScreen.hidden { display: none; }
   .auth-guest-link { display: block; width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.85); border-radius: 50px; padding: 10px 14px; font-family: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; margin-bottom: 16px; transition: var(--transition); }
   .auth-guest-link:hover { background: rgba(255,255,255,0.06); color: var(--white); }
   .auth-guest-link:active { transform: scale(0.98); }
+  /* "X" close button in the corner of the auth screen — lets a guest
+     bail out without signing in when the screen was opened by a gated
+     action (or explicitly by the nav Sign In pill). */
+  .auth-close-btn { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; background: rgba(255,255,255,0.10); color: var(--white); border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: var(--transition); z-index: 2; }
+  .auth-close-btn:hover { background: rgba(255,255,255,0.18); }
+  .auth-close-btn:active { transform: scale(0.95); }
+  .auth-reason { background: rgba(0,0,0,0.06); color: var(--gray-700); border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; margin: 0 0 14px; line-height: 1.45; display: none; text-align: left; }
+  .auth-reason.visible { display: block; }
+  /* "Sign In" pill in the nav (visible for guests; replaces the user
+     badge). Inline-flex when guest mode is active. */
+  .nav-signin-btn { display: none; background: rgba(255,255,255,0.08); color: var(--white); border: 1px solid rgba(255,255,255,0.18); border-radius: 50px; padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); transition: var(--transition); }
+  .nav-signin-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.30); }
+  .nav-signin-btn:active { transform: scale(0.97); }
+  /* Sign-in prompt modal (the guest gate). */
+  .signin-prompt-backdrop { display: none; position: fixed; inset: 0; z-index: 460; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
+  .signin-prompt-backdrop.open { display: flex; }
+  .signin-prompt-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 380px; width: 100%; padding: 1.6rem 1.4rem 1.3rem; text-align: center; box-shadow: var(--shadow-card); animation: slideUp 0.22s cubic-bezier(.4,0,.2,1); }
+  .signin-prompt-icon { width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 50%; background: rgba(15,79,47,0.10); color: var(--green-800); display: flex; align-items: center; justify-content: center; }
+  .signin-prompt-icon svg { width: 26px; height: 26px; }
+  .signin-prompt-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+  .signin-prompt-msg { font-size: 13.5px; color: var(--gray-600); line-height: 1.5; margin-bottom: 18px; }
+  .signin-prompt-actions { display: flex; flex-direction: column; gap: 8px; }
+  .signin-prompt-primary { background: var(--green-800); color: var(--white); border: 0; border-radius: 50px; padding: 11px 18px; font-family: var(--font-body); font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+  .signin-prompt-primary:hover { background: var(--green-900); }
+  .signin-prompt-primary:active { transform: scale(0.98); }
+  .signin-prompt-secondary { background: transparent; color: var(--gray-600); border: 0; padding: 8px; font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); }
+  .signin-prompt-secondary:hover { color: var(--gray-900); }
   .auth-box { background: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; width: 100%; max-width: 400px; text-align: center; }
   .auth-logo { font-family: var(--font-display); font-size: 2rem; font-weight: 900; color: var(--green-800); margin-bottom: 0.25rem; }
   .auth-logo span { color: var(--gold-500); }
@@ -2121,11 +2154,13 @@
 
 <!-- AUTH -->
 <div id="authScreen">
+  <button type="button" class="auth-close-btn" data-action="dismiss-auth-screen" aria-label="Continue browsing as guest">×</button>
   <div class="auth-box">
     <div class="auth-logo"><span>Tee</span>Box</div>
     <div class="auth-sub">The Golf Marketplace</div>
     <div id="authStep1">
-      <button type="button" class="auth-guest-link" data-action="continue-as-guest">Continue as guest →</button>
+      <div class="auth-reason" id="authReason" role="status" aria-live="polite"></div>
+      <button type="button" class="auth-guest-link" data-action="continue-as-guest">Browse as guest →</button>
 
       <div id="authEmailMode">
         <div class="auth-mode-toggle auth-emailmode-toggle">
@@ -2178,6 +2213,25 @@
       <button class="auth-btn" id="verifyBtn" data-action="verify-code">Verify &amp; Enter TeeBox</button>
       <button type="button" class="auth-link auth-link-muted" id="resendCodeBtn" data-action="resend-code" style="display:none;margin-top:10px">Didn't get a code? Resend</button>
       <br/><button class="auth-back" data-action="back-to-phone">← Change number</button>
+    </div>
+  </div>
+</div>
+
+<!-- GUEST GATE: friendly "Sign in to continue" prompt. Shown when a guest
+     attempts an action that needs identity (buy, sell, like, message,
+     review, offer, account). Two buttons: primary continues to the auth
+     screen with the original intent recorded; secondary dismisses and
+     leaves the guest where they were. -->
+<div class="signin-prompt-backdrop" id="signInPromptBackdrop" data-close-on-backdrop="dismiss-sign-in-prompt" role="dialog" aria-modal="true" aria-labelledby="signInPromptTitle" aria-describedby="signInPromptMsg">
+  <div class="signin-prompt-modal">
+    <div class="signin-prompt-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+    </div>
+    <div class="signin-prompt-title" id="signInPromptTitle">Sign in to continue</div>
+    <div class="signin-prompt-msg" id="signInPromptMsg">Create a free TeeBox account to keep going.</div>
+    <div class="signin-prompt-actions">
+      <button type="button" class="signin-prompt-primary" data-action="show-auth-from-prompt">Sign In</button>
+      <button type="button" class="signin-prompt-secondary" data-action="dismiss-sign-in-prompt">Maybe later</button>
     </div>
   </div>
 </div>
@@ -2935,6 +2989,7 @@
     <div class="notif-wrap" id="notifWrap">
       <button class="btn-icon notif-btn" id="navNotifBtn" data-action="toggle-notifications" type="button" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel"><span data-ico="bell"></span><span class="notif-dot" id="notifDot" aria-hidden="true"></span></button>
     </div>
+    <button id="navSignInBtn" class="nav-signin-btn" data-action="show-auth" type="button" aria-label="Sign in or create account">Sign In</button>
     <div class="user-menu-wrap" id="userMenuWrap">
       <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false"></button>
       <div class="user-menu" id="userMenu">
@@ -3447,7 +3502,14 @@ async function mountPaymentElement(product) {
 window.openCheckout = async function(productId, qty) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
   if (!p) return;
-  if (!window.CURRENT_USER) { showToast('Please sign in to purchase.'); return; }
+  // Guest gate: surface the polished sign-in prompt and remember the
+  // user's intent so we can replay openCheckout() after they sign in.
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to buy this listing', () => window.openCheckout(productId, qty))) return;
+  } else if (!window.CURRENT_USER) {
+    showToast('Please sign in to purchase.');
+    return;
+  }
 
   // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
   const totalQty = Math.max(1, Number(p.quantity || 1));
@@ -3645,14 +3707,26 @@ window.confirmPayment = async function() {
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
       const _authScreen = document.getElementById('authScreen');
-      if (_authScreen && !_authScreen.classList.contains('hidden')) {
+      if (_authScreen && _authScreen.classList.contains('open')) {
         _authScreen.classList.add('fading-out');
         setTimeout(() => {
+          _authScreen.classList.remove('open');
           _authScreen.classList.add('hidden');
           _authScreen.classList.remove('fading-out');
         }, 260);
       } else if (_authScreen) {
+        _authScreen.classList.remove('open');
         _authScreen.classList.add('hidden');
+      }
+      // Hide the guest-only "Sign In" pill in the nav.
+      const _signInBtn = document.getElementById('navSignInBtn');
+      if (_signInBtn) _signInBtn.style.display = 'none';
+      // After successful sign-in, replay the gated action (if any) so a
+      // guest who clicked Buy / Sell / Like ends up where they intended.
+      if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
+        const intent = window.__pendingAuthIntent;
+        window.__pendingAuthIntent = null;
+        setTimeout(() => { try { intent(); } catch (e) { console.warn('[guest] intent replay failed:', e); } }, 600);
       }
       // If they arrived via ?play=bingo, fulfill the deep link now.
       if (window.__pendingDeepLink === 'bingo') {
@@ -3689,13 +3763,34 @@ window.confirmPayment = async function() {
       setTimeout(() => { try { window.maybeRegisterPush && window.maybeRegisterPush(); } catch(_e){} }, 4000);
     } else {
       // Guest mode: keep authScreen hidden, let people browse + play Bingo.
-      // Anything that needs auth (buy, sell, watchlist, account) already
-      // gates itself with `if (!window.CURRENT_USER)` toasts.
+      // Anything that needs auth (buy, sell, watchlist, account) routes
+      // through the requireAuth() gate, which shows the polished
+      // sign-in prompt before opening the auth screen on confirmation.
+      // We default to GUEST_MODE = true so a fresh visitor lands on the
+      // marketplace, never on a sign-in wall.
+      if (window.GUEST_MODE !== true && window.GUEST_MODE !== false) {
+        window.GUEST_MODE = true;
+      }
       const _authScreen = document.getElementById('authScreen');
       if (_authScreen) {
         _authScreen.classList.remove('fading-out');
-        if (!window.GUEST_MODE) _authScreen.classList.remove('hidden');
+        // Only auto-show the auth screen on initial load if the URL
+        // explicitly asked for sign-in (?signin=1). Otherwise keep it
+        // hidden — the nav "Sign In" pill or any gated action will
+        // surface it on demand.
+        try {
+          const _sp = new URLSearchParams(window.location.search);
+          if (_sp.get('signin') === '1' && !window.GUEST_MODE) {
+            _authScreen.classList.remove('hidden');
+            _authScreen.classList.add('open');
+          } else {
+            _authScreen.classList.remove('open');
+          }
+        } catch { _authScreen.classList.remove('open'); }
       }
+      // Show the guest-only "Sign In" pill in the nav.
+      const _signInBtn = document.getElementById('navSignInBtn');
+      if (_signInBtn) _signInBtn.style.display = 'inline-flex';
       document.getElementById('userBadge').style.display = 'none';
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
@@ -4153,8 +4248,9 @@ window.confirmPayment = async function() {
     try { window.PROFILE_CACHE && window.PROFILE_CACHE.clear && window.PROFILE_CACHE.clear(); } catch {}
     // Reset auth-derived globals up front so any code that runs in the
     // same tick (badges, sell-gate checks) sees a clean signed-out state
-    // even before onAuthStateChanged fires.
-    window.GUEST_MODE = false;
+    // even before onAuthStateChanged fires. We flip into GUEST_MODE so
+    // the user lands back on the marketplace rather than the auth wall.
+    window.GUEST_MODE = true;
     window.CURRENT_USER = null;
     window.IS_VERIFIED_SELLER = false;
     window.CURRENT_PROFILE_NAME = '';
@@ -4190,7 +4286,19 @@ window.confirmPayment = async function() {
   };
 
   window.handleSellClick = function() {
-    if (!window.CURRENT_USER) { document.getElementById('authScreen').classList.remove('hidden'); return; }
+    // Guest? Show the friendly "Sign in to start selling" prompt and
+    // remember the intent so we resume the seller-verification flow
+    // immediately after a successful sign-in.
+    if (!window.CURRENT_USER) {
+      if (typeof window.requireAuth === 'function') {
+        window.requireAuth('to start selling on TeeBox', () => window.handleSellClick());
+        return;
+      }
+      // Fallback if requireAuth is somehow not loaded yet.
+      const _a = document.getElementById('authScreen');
+      if (_a) { _a.classList.remove('hidden'); _a.classList.add('open'); }
+      return;
+    }
     if (window.IS_VERIFIED_SELLER) { openSellModal(); return; }
     document.getElementById('verifyBackdrop').classList.add('open');
   };
@@ -4502,6 +4610,13 @@ window.DEFAULT_PRODUCTS = DEFAULT_PRODUCTS;
 window.PRODUCTS = [...DEFAULT_PRODUCTS];
 window.IS_VERIFIED_SELLER = false;
 window.CURRENT_USER = null;
+// Guest browse mode: default to TRUE so a fresh visitor lands on the
+// marketplace without a sign-in wall. onAuthStateChanged flips this to
+// `false` on a successful login. Any action that requires identity
+// goes through requireAuth() (defined below) — guests get a polished
+// "Sign in to continue" modal explaining why; authenticated users
+// proceed normally.
+if (typeof window.GUEST_MODE === 'undefined') window.GUEST_MODE = true;
 
 // Stock-ticker source. v1.2 — derived from real Firestore listings on
 // every buildProducts() call. We keep top 8 brands + their median ask
@@ -5387,7 +5502,9 @@ let currentChat = { conversationId: null, listing: null, otherUserId: null };
 let unsubscribeMessages = null;
 
 async function openChatForListing(listingId) {
-  if (!window.CURRENT_USER) {
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to message the seller', () => openChatForListing(listingId))) return;
+  } else if (!window.CURRENT_USER) {
     showToast('Please sign in to message the seller.');
     return;
   }
@@ -5600,7 +5717,12 @@ window.addEventListener('load', () => {
   setInterval(checkAndRefresh, 60000);
 });
 async function openInbox() {
-  if (!window.CURRENT_USER) {
+  // Defence in depth — surface the polished sign-in prompt for guests
+  // even when this is invoked from a place that isn't an action handler
+  // (notif panel deep-link, mobile-nav-and-go, etc.).
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to view your messages', () => openInbox())) return;
+  } else if (!window.CURRENT_USER) {
     showToast('Please sign in to view your messages.');
     return;
   }
@@ -6084,7 +6206,13 @@ setInterval(() => {
 }, 60000);
 
 async function openShopDashboard() {
-  if (!window.CURRENT_USER) { showToast('Please sign in to view your shop.'); return; }
+  // Guests get the polished "Sign in to start selling" prompt; the
+  // intent re-opens the dashboard once they finish auth.
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return;
+  } else if (!window.CURRENT_USER) {
+    showToast('Please sign in to view your shop.'); return;
+  }
   document.getElementById('shopDashboard').classList.add('open');
   document.body.style.overflow = 'hidden';
   await loadShopData();
@@ -7234,7 +7362,9 @@ window.purgeEmptyListings = purgeEmptyListings;
 // Email alerts are wired to Resend stub; activate when key is set.
 // ─────────────────────────────────────────────────────────────
 async function saveCurrentSearch() {
-  if (!window.CURRENT_USER) { showToast('Sign in to save a search.'); return; }
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to save this search', () => saveCurrentSearch())) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to save a search.'); return; }
   const f = window.__filter;
   const q = (document.getElementById('searchInput') || {}).value || '';
   try {
@@ -7362,7 +7492,9 @@ async function loadBuyerOrders() {
 }
 
 async function openOrders() {
-  if (!window.CURRENT_USER) { showToast('Sign in to view your orders.'); return; }
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to view your orders', () => openOrders())) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to view your orders.'); return; }
   const back = document.getElementById('ordersBackdrop');
   if (!back) return;
   back.classList.add('open');
@@ -7664,7 +7796,9 @@ window.__actions['delete-saved-search'] = (el) => deleteSavedSearchV2(el.dataset
 //   - Decline writes status='declined' (with confirm).
 let __pendingOfferListing = null;
 function openMakeOfferModal() {
-  if (!window.CURRENT_USER) { showToast('Sign in to make an offer.'); return; }
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to make an offer.'); return; }
   if (!currentDetailId) return;
   const p = window.PRODUCTS.find(x => String(x.id) === String(currentDetailId));
   if (!p) return;
@@ -7975,7 +8109,9 @@ async function declineOffer(offerId) {
 
 // ── Buyer side: My Offers ──────────────────────────────────────────
 async function openMyOffers() {
-  if (!window.CURRENT_USER) { showToast('Sign in to view your offers.'); return; }
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to view your offers', () => openMyOffers())) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to view your offers.'); return; }
   const back = document.getElementById('myOffersBackdrop');
   if (!back) return;
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
@@ -8469,6 +8605,18 @@ document.addEventListener('keydown',e=>{
     if (e.key === 'ArrowRight') return stepLightbox(1);
   }
   if(e.key==='Escape') {
+    // Guest gate prompt + auth screen take priority — Esc here just
+    // closes them without disturbing the underlying page.
+    const _signInPrompt = document.getElementById('signInPromptBackdrop');
+    if (_signInPrompt && _signInPrompt.classList.contains('open')) {
+      if (typeof window.dismissSignInPrompt === 'function') window.dismissSignInPrompt();
+      return;
+    }
+    const _authScreenEl = document.getElementById('authScreen');
+    if (_authScreenEl && _authScreenEl.classList.contains('open')) {
+      if (typeof window.dismissAuthScreen === 'function') window.dismissAuthScreen();
+      return;
+    }
     const so = document.getElementById('searchOverlay');
     if (so) so.classList.remove('open');
     closeModalDirect(); closeSellModalDirect(); closeDetailModalDirect();
@@ -9081,7 +9229,13 @@ async function loadWatchlist() {
 }
 
 async function toggleWatch(productId) {
-  if (!window.CURRENT_USER) {
+  // Guest gate. We do NOT replay after sign-in — silently liking a
+  // listing the user clicked before authenticating would feel
+  // surprising. The optimistic CSS pop is suppressed inside the
+  // `toggle-watch` action handler when there is no current user.
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to like and save listings')) return;
+  } else if (!window.CURRENT_USER) {
     showToast('Sign in to save items.');
     return;
   }
@@ -9117,7 +9271,9 @@ async function toggleWatch(productId) {
 }
 
 async function openWatchlist() {
-  if (!window.CURRENT_USER) {
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to view your liked items', () => openWatchlist())) return;
+  } else if (!window.CURRENT_USER) {
     showToast('Sign in to view your liked items.');
     return;
   }
@@ -9308,7 +9464,12 @@ function avatarHtml(p) {
 
 async function openProfile(uid) {
   if (!uid) {
-    showToast('Sign in to view your profile.');
+    // Self-profile but no signed-in user → use the polished prompt.
+    if (typeof window.requireAuth === 'function') {
+      window.requireAuth('to view your profile');
+    } else {
+      showToast('Sign in to view your profile.');
+    }
     return;
   }
   window.__lastProfileUid = uid;
@@ -9895,6 +10056,112 @@ async function pinListingToProfile(listingId) {
 // ─────────────────────────────────────────────────────────────
 window.__actions = window.__actions || {};
 const A = window.__actions;
+
+// ──────────────────────────────────────────────────────────
+// GUEST GATE — requireAuth(reason, intent)
+//   The single place every gated action runs through. If the user is
+//   signed in, returns true and the caller proceeds. If the user is a
+//   guest, opens the polished "Sign in to continue" prompt with a
+//   contextual reason ("Sign in to buy on TeeBox" / "...to like this
+//   listing" / etc.) and stashes the original intent so we can replay
+//   it after a successful sign-in (deep-link the user back to what
+//   they were trying to do).
+//
+//   Usage:
+//     if (!requireAuth('to buy this listing', () => openCheckout(id, qty))) return;
+//   Or shorthand for actions that don't need a replay:
+//     if (!requireAuth('to send a message')) return;
+// ──────────────────────────────────────────────────────────
+window.requireAuth = function requireAuth(reason, intent) {
+  if (window.CURRENT_USER) return true;
+  showSignInPrompt(reason || '', typeof intent === 'function' ? intent : null);
+  return false;
+};
+
+window.showSignInPrompt = function showSignInPrompt(reason, intent) {
+  const backdrop = document.getElementById('signInPromptBackdrop');
+  if (!backdrop) return;
+  // Compose title + message. We always lead with "Sign in to continue"
+  // (consistent CTA) and put the contextual reason in the message.
+  const titleEl = document.getElementById('signInPromptTitle');
+  const msgEl = document.getElementById('signInPromptMsg');
+  if (titleEl) titleEl.textContent = 'Sign in to continue';
+  if (msgEl) {
+    const r = (reason || '').trim();
+    msgEl.textContent = r
+      ? `Create a free TeeBox account ${r}.`
+      : 'Create a free TeeBox account to keep going.';
+  }
+  // Stash both the intent (replay after sign-in) and the reason (used
+  // by the auth screen banner if the user chooses to continue).
+  window.__pendingAuthIntent = intent || null;
+  window.__pendingAuthReason = reason || '';
+  backdrop.classList.add('open');
+};
+
+window.dismissSignInPrompt = function dismissSignInPrompt() {
+  const backdrop = document.getElementById('signInPromptBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+  // Note: we keep __pendingAuthIntent in case the user re-opens via
+  // the nav Sign In pill — they likely still want the deep-link back.
+  // It's cleared on auth state change or explicit replay.
+};
+
+window.showAuthScreen = function showAuthScreen(reason) {
+  const _authScreen = document.getElementById('authScreen');
+  if (!_authScreen) return;
+  _authScreen.classList.remove('hidden');
+  _authScreen.classList.remove('fading-out');
+  _authScreen.classList.add('open');
+  // Surface the contextual reason inside the auth box so users
+  // remember why they're here after switching modes (email ↔ phone).
+  const reasonEl = document.getElementById('authReason');
+  const r = (reason || window.__pendingAuthReason || '').trim();
+  if (reasonEl) {
+    if (r) {
+      reasonEl.textContent = `Sign in ${r}.`;
+      reasonEl.classList.add('visible');
+    } else {
+      reasonEl.textContent = '';
+      reasonEl.classList.remove('visible');
+    }
+  }
+  // Focus the email field for keyboard users (skipped on small mobile
+  // since the OS keyboard popping is more disruptive than helpful).
+  setTimeout(() => {
+    try {
+      if (window.matchMedia && window.matchMedia('(min-width: 700px)').matches) {
+        const emailInput = document.getElementById('emailInput');
+        if (emailInput) emailInput.focus();
+      }
+    } catch (_) {}
+  }, 80);
+};
+
+window.dismissAuthScreen = function dismissAuthScreen() {
+  const _authScreen = document.getElementById('authScreen');
+  if (!_authScreen) return;
+  window.GUEST_MODE = true;
+  _authScreen.classList.remove('open');
+  _authScreen.classList.add('hidden');
+  // Clear any reason banner so it doesn't leak into a later session.
+  const reasonEl = document.getElementById('authReason');
+  if (reasonEl) { reasonEl.textContent = ''; reasonEl.classList.remove('visible'); }
+};
+
+A['show-auth']                = () => window.showAuthScreen('');
+A['dismiss-auth-screen']      = () => window.dismissAuthScreen();
+A['dismiss-sign-in-prompt']   = () => window.dismissSignInPrompt();
+A['show-auth-from-prompt']    = () => {
+  const reason = window.__pendingAuthReason || '';
+  window.dismissSignInPrompt();
+  window.showAuthScreen(reason);
+};
+A['prompt-sign-in']          = (el) => {
+  const reason = (el && el.dataset && el.dataset.reason) || '';
+  window.requireAuth(reason);
+};
+
 A['send-code']               = () => sendCode();
 A['verify-code']             = () => verifyCode();
 A['back-to-phone']           = () => backToPhone();
@@ -9963,7 +10230,21 @@ A['hide-phone-fallback']     = () => {
 };
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;
-  document.getElementById('authScreen').classList.add('hidden');
+  // Clear any reason banner + pending intent — the user explicitly
+  // chose to skip sign-in, so the previously-stashed deep-link
+  // intent should not silently fire later.
+  window.__pendingAuthIntent = null;
+  window.__pendingAuthReason = '';
+  const reasonEl = document.getElementById('authReason');
+  if (reasonEl) { reasonEl.textContent = ''; reasonEl.classList.remove('visible'); }
+  const _authScreen = document.getElementById('authScreen');
+  if (_authScreen) {
+    _authScreen.classList.remove('open');
+    _authScreen.classList.add('hidden');
+  }
+  // Show the nav Sign In pill so guests can return on demand.
+  const _signInBtn = document.getElementById('navSignInBtn');
+  if (_signInBtn) _signInBtn.style.display = 'inline-flex';
   // If a deep-link asked us to land on Bingo, honor it now.
   if (window.__pendingDeepLink === 'bingo') {
     window.__pendingDeepLink = null;
@@ -9971,11 +10252,11 @@ A['continue-as-guest']       = () => {
   }
 };
 A['close-verify']            = () => closeVerifyModal();
-A['become-seller']           = () => becomeSeller();
+A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
 A['stripe-connect']          = async () => {
-  if (!window.CURRENT_USER) { showToast('Sign in to set up payouts.'); return; }
+  if (!window.requireAuth('to set up payouts')) return;
   showToast('Opening Stripe…');
   try {
     const { getFunctions, httpsCallable } =
@@ -10000,7 +10281,7 @@ A['stripe-connect']          = async () => {
 };
 A['close-inbox']             = () => closeInbox();
 A['close-chat']              = () => closeChat();
-A['send-message']            = () => sendMessage();
+A['send-message']            = () => { if (!window.requireAuth('to send a message')) return; sendMessage(); };
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
 A['toggle-user-menu']        = () => {
@@ -10016,6 +10297,7 @@ A['resend-verification-email'] = async () => {
   // for non-email users; surfaces a generic toast on success and a
   // specific message on rate-limit so the user knows to wait.
   try { document.getElementById('userMenu').classList.remove('open'); } catch {}
+  if (!window.requireAuth('to resend the verification email')) return;
   const u = window.CURRENT_USER;
   if (!u || !u.email) { showToast('Sign in with email to resend verification.'); return; }
   if (u.emailVerified) { showToast('Your email is already verified.', 'success'); return; }
@@ -10058,32 +10340,41 @@ A['close-mobile-nav-and-go'] = (el) => {
 A['close-lightbox']          = () => closeLightbox();
 A['lightbox-prev']           = () => stepLightbox(-1);
 A['lightbox-next']           = () => stepLightbox(1);
-A['open-saved-searches']     = () => openSavedSearchesV2();
-A['save-current-search']     = () => saveCurrentSearch();
+A['open-saved-searches']     = () => { if (!window.requireAuth('to view your saved searches', () => openSavedSearchesV2())) return; openSavedSearchesV2(); };
+A['save-current-search']     = () => { if (!window.requireAuth('to save this search')) return; saveCurrentSearch(); };
 A['filter-by-brand']         = (el) => filterByBrand(el.dataset.brand);
 A['clear-brand-filter']      = () => filterByBrand(null);
-A['renew-listing']           = (el) => renewListing(el.dataset.listingId);
-A['ask-delete-listing']      = (el) => askDeleteListing(el.dataset.listingId, el.dataset.listingTitle);
-A['confirm-delete-listing']  = () => confirmDeleteListing();
-A['purge-empty-listings']    = () => purgeEmptyListings();
-A['mark-shipped']            = (el) => markShipped(el.dataset.orderId);
-A['confirm-ship']            = () => confirmShip();
-A['confirm-delivery']        = (el) => confirmDelivery(el.dataset.orderId);
-A['report-problem']          = (el) => openDispute(el.dataset.orderId);
-A['submit-dispute']          = () => submitDispute();
-A['accept-bid']              = (el) => acceptBid(el.dataset.bidId);
-A['counter-bid']             = (el) => counterBid(el.dataset.bidId);
-A['block-conv']              = () => blockConversation();
-A['report-conv']             = () => reportConversation();
-A['open-orders']             = () => openOrders();
-A['withdraw-bid']            = (el) => withdrawBid(el.dataset.bidId);
+A['renew-listing']           = (el) => { if (!window.requireAuth('to renew your listing')) return; renewListing(el.dataset.listingId); };
+A['ask-delete-listing']      = (el) => { if (!window.requireAuth('to delete your listing')) return; askDeleteListing(el.dataset.listingId, el.dataset.listingTitle); };
+A['confirm-delete-listing']  = () => { if (!window.requireAuth('to delete your listing')) return; confirmDeleteListing(); };
+A['purge-empty-listings']    = () => { if (!window.requireAuth('to clean up your listings')) return; purgeEmptyListings(); };
+A['mark-shipped']            = (el) => { if (!window.requireAuth('to mark this order shipped')) return; markShipped(el.dataset.orderId); };
+A['confirm-ship']            = () => { if (!window.requireAuth('to confirm shipment')) return; confirmShip(); };
+A['confirm-delivery']        = (el) => { if (!window.requireAuth('to confirm delivery')) return; confirmDelivery(el.dataset.orderId); };
+A['report-problem']          = (el) => { if (!window.requireAuth('to report a problem with this order')) return; openDispute(el.dataset.orderId); };
+A['submit-dispute']          = () => { if (!window.requireAuth('to submit your dispute')) return; submitDispute(); };
+A['accept-bid']              = (el) => { if (!window.requireAuth('to accept this bid')) return; acceptBid(el.dataset.bidId); };
+A['counter-bid']             = (el) => { if (!window.requireAuth('to counter this bid')) return; counterBid(el.dataset.bidId); };
+A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
+A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
+A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
+A['withdraw-bid']            = (el) => { if (!window.requireAuth('to withdraw this bid')) return; withdrawBid(el.dataset.bidId); };
 A['toggle-watch']            = (el, ev) => {
   ev.stopPropagation();
+  const id = el.dataset.productId;
+  // Guest gate FIRST — show the polished sign-in prompt and do NOT
+  // run any optimistic animation. Otherwise a guest sees a fake
+  // "liked" state that doesn't survive a refresh.
+  if (!window.CURRENT_USER) {
+    if (typeof window.requireAuth === 'function') {
+      window.requireAuth('to like and save listings');
+    }
+    return;
+  }
   // Two-state animation. We infer the "next" state from whether the
   // element is currently in the "liked" set — matches the optimistic
   // toggle inside toggleWatch(). On a fresh like, also spawn a small
   // CSS-only particle burst (six tiny hearts that float up + fade).
-  const id = el.dataset.productId;
   const wasLiked = fav.has(id) || fav.has(Number(id));
   el.classList.remove('popped', 'unpopped');
   void el.offsetWidth; // force reflow so animation re-triggers
@@ -10122,20 +10413,24 @@ function spawnHeartBurst(btn) {
   btn.appendChild(wrap);
   setTimeout(() => { try { wrap.remove(); } catch (_e) {} }, 900);
 }
-A['submit-review']            = () => submitReview();
-A['open-delete-account']     = () => openDeleteAccountModal();
-A['confirm-delete-account']  = () => confirmDeleteAccount();
-A['open-watchlist']          = () => openWatchlistWithDropBadges();
-A['open-profile-self']       = () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid);
+// ── Gated actions: each requires a signed-in user. The requireAuth()
+//    helper opens the polished sign-in prompt for guests with the
+//    contextual reason. open-profile (other users) is left ungated —
+//    public profiles are part of the marketplace browse experience.
+A['submit-review']            = () => { if (!window.requireAuth('to leave a review')) return; submitReview(); };
+A['open-delete-account']     = () => { if (!window.requireAuth('to manage your account')) return; openDeleteAccountModal(); };
+A['confirm-delete-account']  = () => { if (!window.requireAuth('to delete your account')) return; confirmDeleteAccount(); };
+A['open-watchlist']          = () => { if (!window.requireAuth('to view your liked items', () => openWatchlistWithDropBadges())) return; openWatchlistWithDropBadges(); };
+A['open-profile-self']       = () => { if (!window.requireAuth('to view your profile', () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid))) return; openProfile(window.CURRENT_USER && window.CURRENT_USER.uid); };
 A['open-profile']            = (el) => openProfile(el.dataset.uid);
 A['close-profile']           = () => document.getElementById('profileBackdrop').classList.remove('open');
-A['edit-profile']            = () => renderProfileEditor();
+A['edit-profile']            = () => { if (!window.requireAuth('to edit your profile')) return; renderProfileEditor(); };
 A['cancel-edit-profile']     = () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid);
-A['save-profile']            = () => saveProfileEdits();
-A['avatar-pick']             = () => document.getElementById('avatarFileInput').click();
-A['pin-listing']             = (el) => pinListingToProfile(el.dataset.listingId);
-A['unpin-listing']           = (_el) => pinListingToProfile(null);
-A['payout-export-csv']       = () => exportPayoutsCsv();
+A['save-profile']            = () => { if (!window.requireAuth('to save your profile')) return; saveProfileEdits(); };
+A['avatar-pick']             = () => { if (!window.requireAuth('to update your avatar')) return; document.getElementById('avatarFileInput').click(); };
+A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
+A['unpin-listing']           = (_el) => { if (!window.requireAuth('to unpin your listing')) return; pinListingToProfile(null); };
+A['payout-export-csv']       = () => { if (!window.requireAuth('to export your payouts')) return; exportPayoutsCsv(); };
 A['seller-tour-next']        = () => advanceSellerTour();
 A['seller-tour-skip']        = () => dismissSellerTour({ markSeen: true });
 A['open-about']              = () => openInfo('aboutBackdrop');
@@ -10147,8 +10442,8 @@ function openInfo(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('open');
 }
-A['open-shop-dashboard']     = () => openShopDashboard();
-A['open-inbox']              = () => openInbox();
+A['open-shop-dashboard']     = () => { if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
+A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
 A['open-modal-buy']          = () => openModal('buy');
@@ -10169,57 +10464,71 @@ A['close-detail-direct']     = () => closeDetailModalDirect();
 A['detail-buy-now']          = () => {
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
+  // Guest gate. We pass the replay intent so a guest who completes
+  // sign-in lands directly back in checkout.
+  if (!window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(currentDetailId, qty); })) return;
   closeDetailModalDirect();
   openCheckout(currentDetailId, qty);
 };
-A['detail-place-bid']        = () => { closeDetailModalDirect(); openModal('buy'); };
-A['detail-make-offer']       = () => openMakeOfferModal();
-A['detail-message-seller']   = () => { closeDetailModalDirect(); openChatForListing(currentDetailId); };
+A['detail-place-bid']        = () => { if (!window.requireAuth('to place a bid')) return; closeDetailModalDirect(); openModal('buy'); };
+A['detail-make-offer']       = () => { if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return; openMakeOfferModal(); };
+A['detail-message-seller']   = () => {
+  // Persist the listing ID across the auth round-trip (currentDetailId
+  // resets when the modal closes during sign-in).
+  const _id = currentDetailId;
+  if (!window.requireAuth('to message the seller', () => { closeDetailModalDirect(); openChatForListing(_id); })) return;
+  closeDetailModalDirect();
+  openChatForListing(_id);
+};
 // Feature #14 — offers
-A['submit-offer']             = () => submitOffer();
-A['accept-offer']             = (el) => acceptOffer(el.dataset.offerId, el.dataset.listingId, el.dataset.buyerId, Number(el.dataset.amount));
-A['counter-offer']            = (el) => openCounterOffer(el.dataset.offerId, Number(el.dataset.amount));
-A['confirm-counter-offer']    = () => confirmCounterOffer();
-A['decline-offer']            = (el) => declineOffer(el.dataset.offerId);
-A['open-my-offers']           = () => openMyOffers();
-A['accept-counter']           = (el) => acceptCounter(el.dataset.offerId);
-A['decline-counter']          = (el) => declineCounter(el.dataset.offerId);
+A['submit-offer']             = () => { if (!window.requireAuth('to submit your offer')) return; submitOffer(); };
+A['accept-offer']             = (el) => { if (!window.requireAuth('to accept this offer')) return; acceptOffer(el.dataset.offerId, el.dataset.listingId, el.dataset.buyerId, Number(el.dataset.amount)); };
+A['counter-offer']            = (el) => { if (!window.requireAuth('to send a counter-offer')) return; openCounterOffer(el.dataset.offerId, Number(el.dataset.amount)); };
+A['confirm-counter-offer']    = () => { if (!window.requireAuth('to send your counter-offer')) return; confirmCounterOffer(); };
+A['decline-offer']            = (el) => { if (!window.requireAuth('to decline this offer')) return; declineOffer(el.dataset.offerId); };
+A['open-my-offers']           = () => { if (!window.requireAuth('to view your offers', () => openMyOffers())) return; openMyOffers(); };
+A['accept-counter']           = (el) => { if (!window.requireAuth('to accept the counter-offer')) return; acceptCounter(el.dataset.offerId); };
+A['decline-counter']          = (el) => { if (!window.requireAuth('to decline the counter-offer')) return; declineCounter(el.dataset.offerId); };
 // Feature #15 — saved searches v1.1
-A['open-save-search-name']    = () => openSaveSearchName();
-A['confirm-save-search']      = () => confirmSaveSearch();
-A['toggle-saved-search-notify'] = (el) => toggleSavedSearchNotify(el.dataset.searchId);
+A['open-save-search-name']    = () => { if (!window.requireAuth('to save this search')) return; openSaveSearchName(); };
+A['confirm-save-search']      = () => { if (!window.requireAuth('to save your search')) return; confirmSaveSearch(); };
+A['toggle-saved-search-notify'] = (el) => { if (!window.requireAuth('to manage your saved searches')) return; toggleSavedSearchNotify(el.dataset.searchId); };
 // Reviews v1.1
-A['vote-review-helpful']      = (el) => voteReviewHelpful(el.dataset.reviewId, el.dataset.vote);
-A['open-report-review']       = (el) => openReportReview(el.dataset.reviewId);
-A['confirm-report-review']    = () => confirmReportReview();
+A['vote-review-helpful']      = (el) => { if (!window.requireAuth('to vote on reviews')) return; voteReviewHelpful(el.dataset.reviewId, el.dataset.vote); };
+A['open-report-review']       = (el) => { if (!window.requireAuth('to report a review')) return; openReportReview(el.dataset.reviewId); };
+A['confirm-report-review']    = () => { if (!window.requireAuth('to submit your report')) return; confirmReportReview(); };
 A['close-sell-direct']       = () => closeSellModalDirect();
-A['submit-listing']          = () => submitListing();
-A['ai-write-desc']            = () => aiWriteDescription();
+A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
+A['ai-write-desc']            = () => { if (!window.requireAuth('to use AI description')) return; aiWriteDescription(); };
 A['close-checkout-direct']   = () => closeCheckoutDirect();
-A['confirm-payment']         = () => confirmPayment();
+A['confirm-payment']         = () => { if (!window.requireAuth('to complete your purchase')) return; confirmPayment(); };
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
-A['open-conv']               = (el) => openChatFromConversation(el.dataset.convId);
+A['open-conv']               = (el) => { if (!window.requireAuth('to open this conversation')) return; openChatFromConversation(el.dataset.convId); };
 // Notifications panel (Feature: notifications-v1)
-A['toggle-notifications']    = () => toggleNotifications();
+A['toggle-notifications']    = () => { if (!window.requireAuth('to view your notifications')) return; toggleNotifications(); };
 A['close-notifications']     = () => closeNotifications();
 A['notif-open-offer']        = (el) => {
+  if (!window.requireAuth('to view your offers')) return;
   closeNotifications();
   if (typeof openShopDashboard === 'function') openShopDashboard().then(() => {
     setTimeout(() => { try { switchDashTab('offers'); } catch (_e) {} }, 250);
   });
 };
 A['notif-open-order']        = (el) => {
+  if (!window.requireAuth('to view your orders')) return;
   closeNotifications();
   if (typeof openShopDashboard === 'function') openShopDashboard().then(() => {
     setTimeout(() => { try { switchDashTab('sold'); } catch (_e) {} }, 250);
   });
 };
 A['notif-open-conv']         = (el) => {
+  if (!window.requireAuth('to open this conversation')) return;
   closeNotifications();
   if (typeof openChatFromConversation === 'function') openChatFromConversation(el.dataset.convId);
 };
 A['notif-open-stripe']       = () => {
+  if (!window.requireAuth('to set up Stripe payouts')) return;
   closeNotifications();
   const fn = window.__actions && window.__actions['stripe-connect'];
   if (typeof fn === 'function') fn();
