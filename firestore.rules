@@ -73,6 +73,16 @@ service cloud.firestore {
 
     function isValidListingCreate(d) {
       return d.keys().hasAll(['sellerId','title','brand','cat','ask','bid','condition','createdAt','status','expiresAt'])
+        // Defense-in-depth field whitelist. Anything not in this list is
+        // rejected — prevents a malicious client from stuffing arbitrary
+        // server-owned fields (e.g. `disputed`, `refunded`, `tier`,
+        // `featured`) onto a brand-new listing where the per-field
+        // checks below might not catch it.
+        && d.keys().hasOnly([
+             'sellerId','title','brand','cat','ask','bid','condition',
+             'createdAt','status','expiresAt','desc','photos','emoji',
+             'badge','volume','change','quantity','quantitySold',
+             'requiresAuth','authReviewState'])
         && d.status == 'active'
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.brand is string && d.brand.size() > 0 && d.brand.size() <= 60
@@ -86,6 +96,18 @@ service cloud.firestore {
         && (!('badge' in d.keys()) || (d.badge is string && d.badge.size() <= 16))
         && (!('volume' in d.keys()) || d.volume == 0)
         && (!('change' in d.keys()) || d.change == 0)
+        // Multi-quantity stock. Sellers can list 1–99 units; quantitySold
+        // is server-managed by createPaymentIntent and the Stripe webhook
+        // — clients can only seed it to 0 on create.
+        && (!('quantity' in d.keys()) || (d.quantity is number && d.quantity >= 1 && d.quantity <= 99))
+        && (!('quantitySold' in d.keys()) || d.quantitySold == 0)
+        // High-value verification badge. Boolean flag the client sets at
+        // create-time; an admin (Admin SDK) flips authReviewState later.
+        && (!('requiresAuth' in d.keys()) || d.requiresAuth is bool)
+        && (!('authReviewState' in d.keys())
+            || d.authReviewState in ['na','pending'])
+        // Per-field deny list (kept for clarity even though hasOnly()
+        // above already enforces it — easier to audit at a glance).
         && !('sellerPhone' in d.keys())
         && !('soldAt' in d.keys())
         && !('soldTo' in d.keys())
