@@ -1625,6 +1625,11 @@
   .bingo-share-btn:hover { background: var(--gold-400); }
   .bingo-share-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .bingo-body { flex: 1; padding: 1.25rem; max-width: 560px; width: 100%; margin: 0 auto; }
+  .bingo-brand { text-align: center; padding: 24px 16px 16px; max-width: 560px; width: 100%; margin: 0 auto; border-bottom: 1px solid rgba(214, 169, 0, 0.28); position: relative; }
+  .bingo-brand::after { content: ''; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); width: 64px; height: 2px; background: var(--gold-500); border-radius: 2px; }
+  .bingo-brand-wordmark { font-family: var(--font-display); font-weight: 900; color: var(--green-900); font-size: clamp(1.75rem, 6vw, 2.4rem); line-height: 1; letter-spacing: 0.3px; }
+  .bingo-brand-wordmark span { color: var(--gold-500); }
+  .bingo-brand-pill { display: inline-block; margin-top: 10px; font-family: var(--font-body); font-size: clamp(10px, 2.6vw, 11.5px); font-weight: 700; color: var(--green-900); background: rgba(214, 169, 0, 0.16); border: 1px solid rgba(214, 169, 0, 0.35); padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 1.2px; }
   .bingo-leaderboard { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); }
   .bingo-lb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; gap: 12px; flex-wrap: wrap; }
   .bingo-lb-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--green-900); margin: 0; }
@@ -2749,6 +2754,10 @@
     </div>
     <button class="bingo-share-btn" data-action="bingo-share" id="bingoShareTopBtn" type="button" disabled>Share</button>
   </header>
+  <div class="bingo-brand" role="banner" aria-label="TeeBox Logo Bingo">
+    <div class="bingo-brand-wordmark"><span>Tee</span>Box</div>
+    <div class="bingo-brand-pill">Logo Bingo · Play Today</div>
+  </div>
   <div class="bingo-body">
     <p class="bingo-sub">Guess the 9 golf course logos. New puzzle daily — same 9 worldwide.</p>
     <div class="bingo-statrow">
