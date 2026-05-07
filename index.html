@@ -11780,7 +11780,16 @@ A['sign-in-apple']           = async (btn) => {
     // Same JS-SDK bridge pattern as Google — exchange the credential into
     // the JS Auth instance so Firestore/Storage/Functions get an authed user.
     if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithApple === 'function') {
-      const result = await window.FBAuthPlugin.signInWithApple();
+      // skipNativeAuth: true is REQUIRED for Apple. Apple identity tokens
+      // are single-use, and without this option the plugin would also
+      // sign-in with native Firebase iOS SDK using the same idToken,
+      // consuming it. When our JS-side signInWithCredential then tries
+      // to use the same token, Firebase rejects with
+      // auth/missing-or-invalid-nonce ("Duplicate credential received").
+      // (Google ID tokens are reusable within their validity window so
+      // Google sign-in works without this flag — but it would also be
+      // safe to add there.)
+      const result = await window.FBAuthPlugin.signInWithApple({ skipNativeAuth: true });
       const idToken = result && result.credential && result.credential.idToken;
       const rawNonce = result && result.credential && result.credential.nonce;
       if (!idToken) {
