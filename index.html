@@ -987,15 +987,9 @@
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
   #authScreen.hidden { display: none; }
-  .auth-guest-link { display: block; width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.85); border-radius: 50px; padding: 10px 14px; font-family: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; margin-bottom: 16px; transition: var(--transition); }
-  .auth-guest-link:hover { background: rgba(255,255,255,0.06); color: var(--white); }
-  .auth-guest-link:active { transform: scale(0.98); }
-  /* "X" close button in the corner of the auth screen — lets a guest
-     bail out without signing in when the screen was opened by a gated
-     action (or explicitly by the nav Sign In pill). */
-  .auth-close-btn { position: fixed; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; background: rgba(255,255,255,0.10); color: var(--white); border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: var(--transition); z-index: 2; }
-  .auth-close-btn:hover { background: rgba(255,255,255,0.18); }
-  .auth-close-btn:active { transform: scale(0.95); }
+  /* Auth screen is locked: the "Continue as guest" button at the bottom
+     of the form (data-action="continue-as-guest") is the only non-sign-in
+     escape. No close X, no backdrop dismiss, no Esc dismiss. */
   .auth-reason { background: rgba(0,0,0,0.06); color: var(--gray-700); border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; margin: 0 0 14px; line-height: 1.45; display: none; text-align: left; }
   .auth-reason.visible { display: block; }
   /* "Sign In" pill in the nav (visible for guests; replaces the user
@@ -2516,13 +2510,11 @@
 
 <!-- AUTH -->
 <div id="authScreen">
-  <button type="button" class="auth-close-btn" data-action="dismiss-auth-screen" aria-label="Continue browsing as guest">×</button>
   <div class="auth-box">
     <div class="auth-logo"><span>Tee</span>Box</div>
     <div class="auth-sub">The Golf Marketplace</div>
     <div id="authStep1">
       <div class="auth-reason" id="authReason" role="status" aria-live="polite"></div>
-      <button type="button" class="auth-guest-link" data-action="continue-as-guest">Browse as guest →</button>
 
       <div id="authEmailMode">
         <div class="auth-mode-toggle auth-emailmode-toggle">
@@ -4476,6 +4468,15 @@ window.confirmPayment = async function() {
   const IS_NATIVE = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
   if (IS_NATIVE && document.body) document.body.classList.add('is-native');
   const FBAuthPlugin = (Cap && Cap.Plugins) ? Cap.Plugins.FirebaseAuthentication : null;
+  // Mirror onto window so the action handlers in the sibling <script> tag
+  // (this file's auth code lives in <script type="module">, which is its
+  // own scope — handlers like A['sign-in-google'] / A['sign-in-apple']
+  // can't see these consts otherwise and crash with ReferenceError on tap).
+  try {
+    window.Cap = Cap;
+    window.IS_NATIVE = IS_NATIVE;
+    window.FBAuthPlugin = FBAuthPlugin;
+  } catch (_) {}
   let nativeVerificationId = null;
 
   if (IS_NATIVE && FBAuthPlugin) {
@@ -10026,16 +10027,20 @@ document.addEventListener('keydown',e=>{
     }
   }
   if(e.key==='Escape') {
-    // Guest gate prompt + auth screen take priority — Esc here just
-    // closes them without disturbing the underlying page.
+    // Auth screen is locked: Esc must NOT dismiss it. The only non-sign-in
+    // escape is the explicit "Continue as guest" button inside the form.
+    // Swallow Esc when the auth screen is open so it doesn't bubble up
+    // and close anything underneath either.
+    const _authScreenEl = document.getElementById('authScreen');
+    if (_authScreenEl && _authScreenEl.classList.contains('open')) {
+      e.preventDefault();
+      return;
+    }
+    // Guest gate prompt still respects Esc (it's a smaller nudge modal,
+    // not the full sign-in gate).
     const _signInPrompt = document.getElementById('signInPromptBackdrop');
     if (_signInPrompt && _signInPrompt.classList.contains('open')) {
       if (typeof window.dismissSignInPrompt === 'function') window.dismissSignInPrompt();
-      return;
-    }
-    const _authScreenEl = document.getElementById('authScreen');
-    if (_authScreenEl && _authScreenEl.classList.contains('open')) {
-      if (typeof window.dismissAuthScreen === 'function') window.dismissAuthScreen();
       return;
     }
     const so = document.getElementById('searchOverlay');
@@ -11687,8 +11692,8 @@ A['sign-in-google']          = async (btn) => {
     // (Also note: the iOS Podfile must depend on the plugin's `Google`
     // subspec — without it, the GIDSignIn flow is compiled out and
     // signInWithGoogle() hangs forever with no result and no error.)
-    if (IS_NATIVE && FBAuthPlugin && typeof FBAuthPlugin.signInWithGoogle === 'function') {
-      const result = await FBAuthPlugin.signInWithGoogle();
+    if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithGoogle === 'function') {
+      const result = await window.FBAuthPlugin.signInWithGoogle();
       const idToken = result && result.credential && result.credential.idToken;
       const accessToken = result && result.credential && result.credential.accessToken;
       if (!idToken) {
@@ -11739,8 +11744,8 @@ A['sign-in-google']          = async (btn) => {
     // (native plugin vs web fallback) when the user reports "Could not sign in".
     // Includes IS_NATIVE / plugin presence flags so we can tell whether the
     // plugin even registered. Remove this branch once auth is confirmed working.
-    const _diagNative = (typeof IS_NATIVE !== 'undefined') ? IS_NATIVE : 'undef';
-    const _diagPlugin = (typeof FBAuthPlugin !== 'undefined' && FBAuthPlugin) ? 'yes' : 'no';
+    const _diagNative = (typeof window.IS_NATIVE !== 'undefined') ? window.IS_NATIVE : 'undef';
+    const _diagPlugin = (typeof window.FBAuthPlugin !== 'undefined' && window.FBAuthPlugin) ? 'yes' : 'no';
     msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] google sign-in failed:', code, e && e.message);
@@ -11763,8 +11768,8 @@ A['sign-in-apple']           = async (btn) => {
     // Native iOS: use the Capacitor plugin so we get the OS's Apple sheet.
     // Same JS-SDK bridge pattern as Google — exchange the credential into
     // the JS Auth instance so Firestore/Storage/Functions get an authed user.
-    if (IS_NATIVE && FBAuthPlugin && typeof FBAuthPlugin.signInWithApple === 'function') {
-      const result = await FBAuthPlugin.signInWithApple();
+    if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithApple === 'function') {
+      const result = await window.FBAuthPlugin.signInWithApple();
       const idToken = result && result.credential && result.credential.idToken;
       const rawNonce = result && result.credential && result.credential.nonce;
       if (!idToken) {
@@ -11807,8 +11812,8 @@ A['sign-in-apple']           = async (btn) => {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
     // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
-    const _diagNative = (typeof IS_NATIVE !== 'undefined') ? IS_NATIVE : 'undef';
-    const _diagPlugin = (typeof FBAuthPlugin !== 'undefined' && FBAuthPlugin) ? 'yes' : 'no';
+    const _diagNative = (typeof window.IS_NATIVE !== 'undefined') ? window.IS_NATIVE : 'undef';
+    const _diagPlugin = (typeof window.FBAuthPlugin !== 'undefined' && window.FBAuthPlugin) ? 'yes' : 'no';
     msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
