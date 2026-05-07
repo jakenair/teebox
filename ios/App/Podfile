@@ -11,7 +11,14 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
+  # Use the /Google subspec so GoogleSignIn pod is linked and the
+  # RGCFA_INCLUDE_GOOGLE compile flag activates the native Google flow.
+  # Without this, FBAuthPlugin.signInWithGoogle() throws/hangs because
+  # the GIDSignIn code paths are stripped from /Lite (default).
+  # Apple Sign-In does NOT need a subspec — it ships in /Lite plus the
+  # com.apple.developer.applesignin entitlement (set in App.entitlements).
+  # Phone auth also ships in /Lite (uses FirebaseAuth's built-in APNs flow).
+  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
