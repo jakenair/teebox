@@ -4472,10 +4472,21 @@ window.confirmPayment = async function() {
   // (this file's auth code lives in <script type="module">, which is its
   // own scope — handlers like A['sign-in-google'] / A['sign-in-apple']
   // can't see these consts otherwise and crash with ReferenceError on tap).
+  //
+  // Same reason for the Firebase Auth imports below: regular-script auth
+  // handlers can't see module-scope imports, so OAuth credential conversion
+  // (GoogleAuthProvider.credential, new OAuthProvider, signInWithCredential,
+  // signInWithPopup) blew up with `Can't find variable: OAuthProvider` /
+  // `GoogleAuthProvider` on TestFlight. Expose them here too.
   try {
     window.Cap = Cap;
     window.IS_NATIVE = IS_NATIVE;
     window.FBAuthPlugin = FBAuthPlugin;
+    window.firebaseAuth = auth;
+    window.GoogleAuthProvider = GoogleAuthProvider;
+    window.OAuthProvider = OAuthProvider;
+    window.signInWithCredential = signInWithCredential;
+    window.signInWithPopup = signInWithPopup;
   } catch (_) {}
   let nativeVerificationId = null;
 
@@ -11703,8 +11714,8 @@ A['sign-in-google']          = async (btn) => {
         restoreBtn();
         return;
       }
-      const cred = GoogleAuthProvider.credential(idToken, accessToken);
-      await signInWithCredential(auth, cred);
+      const cred = window.GoogleAuthProvider.credential(idToken, accessToken);
+      await window.signInWithCredential(window.firebaseAuth, cred);
       // onAuthStateChanged will hide the auth screen on success. We don't
       // restore the button here on purpose — the screen is about to fade
       // out, so flashing the button back to its idle label looks janky.
@@ -11714,8 +11725,8 @@ A['sign-in-google']          = async (btn) => {
     // browser surfaces an error we relay below. signInWithPopup resolves
     // only after onAuthStateChanged has propagated, so the auth screen
     // close happens before this await returns — no need to restore.
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const provider = new window.GoogleAuthProvider();
+    await window.signInWithPopup(window.firebaseAuth, provider);
   } catch (e) {
     const code = (e && e.code) || '';
     let msg = 'Could not sign in with Google. Try again or use email.';
@@ -11777,18 +11788,18 @@ A['sign-in-apple']           = async (btn) => {
         restoreBtn();
         return;
       }
-      const provider = new OAuthProvider('apple.com');
+      const provider = new window.OAuthProvider('apple.com');
       const cred = provider.credential({ idToken, rawNonce });
-      await signInWithCredential(auth, cred);
+      await window.signInWithCredential(window.firebaseAuth, cred);
       return;
     }
     // Web fallback: Firebase popup with OAuthProvider('apple.com').
     // Apple Sign In on web requires the Service ID + return URL configured
     // in Firebase Console > Auth > Sign-in method > Apple.
-    const provider = new OAuthProvider('apple.com');
+    const provider = new window.OAuthProvider('apple.com');
     provider.addScope('email');
     provider.addScope('name');
-    await signInWithPopup(auth, provider);
+    await window.signInWithPopup(window.firebaseAuth, provider);
   } catch (e) {
     const code = (e && e.code) || '';
     let msg = 'Could not sign in with Apple. Try again or use email.';
