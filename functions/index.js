@@ -1036,7 +1036,7 @@ exports.incrementListingView = onCall(
 //   new message in a conversation tied to a listing.
 // ─────────────────────────────────────────────────────────────
 exports.incrementListingMessage = onDocumentCreated(
-  {document: "messages/{messageId}", ...LIGHT_TRIGGER},
+  {document: "conversations/{cid}/messages/{messageId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const msg = event.data && event.data.data();
@@ -1047,8 +1047,10 @@ exports.incrementListingMessage = onDocumentCreated(
       let sellerId = msg.sellerId || null;
 
       // Fall back to the parent conversation doc if the message
-      // doesn't carry the listingId/sellerId itself.
-      const conversationId = msg.conversationId;
+      // doesn't carry the listingId/sellerId itself. The client only
+      // writes {senderId, text, createdAt} on each message — the
+      // conversation doc holds participants/listingId/sellerId.
+      const conversationId = event.params.cid || msg.conversationId;
       if ((!listingId || !sellerId) && conversationId) {
         const convSnap = await db
           .collection("conversations")
@@ -2317,33 +2319,41 @@ exports.notifyOnOfferUpdated = onDocumentUpdated(
 // notifyOnNewMessage — push (immediate) + email (when not online)
 // ─────────────────────────────────────────────────────────────
 exports.notifyOnNewMessage = onDocumentCreated(
-  {document: "messages/{messageId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
+  {document: "conversations/{cid}/messages/{messageId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
     try {
       const msg = event.data && event.data.data();
       if (!msg) return;
       const db = admin.firestore();
+      const conversationId = event.params.cid;
+      const senderId = msg.senderId || msg.fromUid;
+      // Resolve the recipient from the parent conversation. Client only
+      // writes {senderId, text, createdAt} on the message itself
+      // (index.html sendMessage), so participants live on the conv doc.
       let recipientUid = msg.recipientId || msg.toUid;
-      const conversationId = msg.conversationId;
-      if (!recipientUid && conversationId) {
+      let listingId = msg.listingId || null;
+      if (!recipientUid || !listingId) {
         const conv = await db.collection("conversations").doc(conversationId).get();
         if (conv.exists) {
           const c = conv.data();
-          const senderId = msg.senderId || msg.fromUid;
-          recipientUid = (c.participants || []).find((p) => p !== senderId);
+          if (!recipientUid) {
+            recipientUid = (c.participants || []).find((p) => p !== senderId);
+          }
+          if (!listingId) listingId = c.listingId || null;
         }
       }
       if (!recipientUid) return;
+      if (recipientUid === senderId) return;
       const [recipient, sender] = await Promise.all([
         lookupUser(recipientUid),
-        lookupUser(msg.senderId || msg.fromUid),
+        lookupUser(senderId),
       ]);
       const fromName = (sender && sender.displayName) || "A buyer";
       const preview = String(msg.text || msg.body || "").slice(0, 120);
 
       await writeNotification(recipientUid, {
         kind: "new-message",
-        listingId: msg.listingId || null,
+        listingId,
         conversationId,
         fromName,
         preview,
@@ -2351,7 +2361,7 @@ exports.notifyOnNewMessage = onDocumentCreated(
       // Mail an immediate digest only if the recipient has email AND the
       // message isn't from themselves. A future enhancement would batch
       // these into a daily digest if recipients complain.
-      if (recipient && recipient.email && msg.senderId !== recipientUid) {
+      if (recipient && recipient.email) {
         const safePreview = preview.replace(/[<>]/g, "");
         const body = `<p><strong>${fromName}</strong> sent you a message:</p>
           <blockquote style="border-left:3px solid #c5a253;padding:8px 14px;
