@@ -95,7 +95,7 @@ fixed version:
 
 | Field | Value |
 |---|---|
-| Privacy Policy URL | `https://teeboxmarket.com/?launch=privacy` ✅ verified live |
+| Privacy Policy URL | `https://teeboxmarket.com/privacy.html` ✅ verified live (full policy; in-app modal at `?launch=privacy` is a short summary) |
 | Support URL | `https://teeboxmarket.com/` |
 | Marketing URL (optional) | `https://teeboxmarket.com/` |
 
@@ -203,7 +203,9 @@ For each data type, Apple asks: (a) Is it collected? (b) Linked to user identity
 | Data Type | Apple Category | Purposes | Tracking? |
 |---|---|---|---|
 | Phone number | Contact Info → Phone Number | App Functionality | NO |
+| Email address | Contact Info → Email Address | App Functionality | NO |
 | Display Name | Contact Info → Name | App Functionality | NO |
+| Physical Address (shipping, via Stripe) | Contact Info → Physical Address | App Functionality | NO |
 | Photos (listings + avatar) | User Content → Photos or Videos | App Functionality | NO |
 | Listing descriptions | User Content → Other User Content | App Functionality | NO |
 | Messages between users | User Content → Other User Content | App Functionality | NO |
@@ -213,10 +215,12 @@ For each data type, Apple asks: (a) Is it collected? (b) Linked to user identity
 | Profile bio | User Content → Other User Content | App Functionality | NO |
 | Profile location (optional, user-typed text) | Location → Coarse Location | App Functionality | NO |
 
+> **Email**: Email/password sign-in is one of the supported auth methods (alongside phone), so email is collected and linked to the account.
+>
+> **Physical Address**: Buyers enter shipping address through Stripe at checkout; it's shared with the seller for order fulfillment. TeeBox does not store the full street address in Firestore, but Apple's questionnaire asks whether the app *collects* the data — passing it through to a sub-processor counts.
+
 ### ❌ Data NOT collected
 
-- Email address
-- Physical address
 - Precise location
 - Browsing history (no analytics enabled)
 - Search history (server-side; saved searches are user-initiated only)
