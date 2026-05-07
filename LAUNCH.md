@@ -209,13 +209,16 @@ Apple asks what data you collect. Answers for TeeBox:
 - **Crash data** — only if you add Crashlytics (you haven't)
 
 ### Each release
-1. `npm run cap:sync && npm run cap:ios`
-2. In Xcode: select **Any iOS Device** (not a simulator) → **Product** → **Archive**
-3. Window → Organizer → **Distribute App** → App Store Connect → Upload
-4. Wait ~30 min for processing in App Store Connect
-5. Add to a TestFlight internal-testing group, smoke-test on real
+1. **Bump `CACHE_VERSION` in `sw.js`** if `index.html` or any cached asset
+   changed since the last deploy — otherwise PWA users stay pinned to stale
+   assets until the cache TTL expires. Format: `teebox-vN-YYYY-MM-DD-rNN`.
+2. `npm run cap:sync && npm run cap:ios`
+3. In Xcode: select **Any iOS Device** (not a simulator) → **Product** → **Archive**
+4. Window → Organizer → **Distribute App** → App Store Connect → Upload
+5. Wait ~30 min for processing in App Store Connect
+6. Add to a TestFlight internal-testing group, smoke-test on real
    devices for 24h
-6. Submit for review (Apple typically responds in 1–3 days)
+7. Submit for review (Apple typically responds in 1–3 days)
 
 ### Common rejection reasons (and how to avoid)
 - **4.2 Minimum Functionality** ("looks like a wrapper of a website") —
