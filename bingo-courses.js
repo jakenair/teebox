@@ -2169,7 +2169,7 @@ export const COURSES = [
   {
     id: 'alotian',
     name: 'The Alotian Club',
-    shortName: 'Alotian',
+    shortName: 'The Alotian Club',
     aliases: ['the alotian club'],
     location: 'Roland, Arkansas',
     architect: 'Tom Fazio',
@@ -2189,7 +2189,7 @@ export const COURSES = [
   {
     id: 'dunes-club',
     name: 'The Dunes Club',
-    shortName: 'Dunes Club (NJ)',
+    shortName: 'Dunes Club',
     aliases: ['the dunes club michigan'],
     location: 'New Buffalo, Michigan',
     architect: 'Dick Nugent',

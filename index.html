@@ -11124,7 +11124,18 @@ async function saveProfileEdits() {
 
     PROFILE_CACHE.delete(uid);
     pendingAvatarFile = null;
-    showToast('Profile saved.');
+    // Fire a one-time welcome toast the first time a user gives themselves
+    // a real displayName. Keyed per-uid so it never re-fires after profile
+    // edits, and never fires if they skip naming themselves.
+    const newName = updates.displayName || '';
+    const welcomeKey = 'teebox.welcomed.' + uid;
+    if (newName && !localStorage.getItem(welcomeKey)) {
+      const firstName = newName.split(/\s+/)[0];
+      showToast('Welcome, ' + firstName + '!', 'success');
+      try { localStorage.setItem(welcomeKey, String(Date.now())); } catch {}
+    } else {
+      showToast('Profile saved.');
+    }
     openProfile(uid);
   } catch (e) {
     console.error('saveProfile failed:', e);
@@ -13141,7 +13152,7 @@ if (uploadZone) {
       let row = '';
       for (let c = 0; c < 3; c++) {
         const cell = game.cells[r * 3 + c];
-        row += cell.state === 'correct' ? '[+]' : '[ ]';
+        row += cell.state === 'correct' ? '🟩' : '🟥';
       }
       rows.push(row);
     }
