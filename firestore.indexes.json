@@ -164,13 +164,6 @@
         { "fieldPath": "date", "order": "ASCENDING" },
         { "fieldPath": "correctCount", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "watchlist",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "listingId", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": [

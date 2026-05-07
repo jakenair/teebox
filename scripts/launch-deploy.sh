@@ -72,7 +72,7 @@ ok "firestore indexes deployed"
 # 3. Rules (firestore + storage).
 step "3/6 firestore:rules + storage:rules"
 confirm "Deploy firestore:rules and storage:rules?"
-firebase deploy --only firestore:rules,storage:rules
+firebase deploy --only firestore:rules,storage
 ok "rules deployed"
 
 # 4. Fast-path functions.
