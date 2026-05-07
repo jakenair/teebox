@@ -1846,36 +1846,93 @@
     .drops-grid { grid-template-columns: 1fr 1fr; }
     .how-grid   { grid-template-columns: 1fr 1fr; }
   }
-/* SHOP DASHBOARD */
+/* SHOP DASHBOARD — refined seller experience.
+   Goals: subtle shadows, generous whitespace, mobile-first responsive,
+   count-up + fade-in motion. Stays in the existing color/typography system. */
   #shopDashboard { display: none; position: fixed; inset: 0; z-index: 200; background: var(--cream); overflow-y: auto; }
   #shopDashboard.open { display: block; }
-  .dash-header { background: var(--green-900); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
-  .dash-header h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; }
-  .dash-header p { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+  #shopDashboard .dash-body { animation: dashFadeIn 0.32s cubic-bezier(.4,0,.2,1) both; }
+  @keyframes dashFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .dash-header { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 12px rgba(11,26,14,0.18); }
+  .dash-header h1 { font-family: var(--font-display); font-size: 1.85rem; font-weight: 700; letter-spacing: -0.01em; }
+  .dash-header p { font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 4px; }
   .dash-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: var(--transition); }
-  .dash-close:hover { background: rgba(255,255,255,0.2); }
+  .dash-close:hover { background: rgba(255,255,255,0.22); transform: scale(1.05); }
   .dash-body { max-width: 1240px; margin: 0 auto; padding: 2rem; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-  .stat-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.25rem; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: 0 1px 2px rgba(11,26,14,0.04); transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition); position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--green-700), var(--green-400)); opacity: 0; transition: opacity var(--transition); }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11,26,14,0.08); border-color: var(--gray-300); }
+  .stat-card:hover::before { opacity: 1; }
   .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
-  .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-top: 0.25rem; }
+  .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-top: 0.25rem; font-variant-numeric: tabular-nums; }
   .stat-sub { font-size: 12px; color: var(--gray-500); margin-top: 0.25rem; }
-  .dash-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
-  .dash-section h2 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; }
-  .dash-tabs { display: flex; gap: 2px; background: var(--gray-100); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1rem; width: fit-content; }
-  .dash-tab { background: none; border: none; padding: 8px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 6px; transition: var(--transition); }
-  .dash-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  /* Secondary analytics row — Total Views + Conversion Rate. Lighter weight than primary stats. */
+  .analytics-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+  .analytics-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: transform var(--transition), box-shadow var(--transition); }
+  .analytics-card:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(11,26,14,0.06); }
+  .analytics-card .a-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .analytics-card .a-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--green-700); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .analytics-card .a-sub { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+  .analytics-card .a-ico { width: 36px; height: 36px; border-radius: 10px; background: var(--green-50); color: var(--green-700); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .analytics-card .a-ico .ico { width: 18px; height: 18px; stroke-width: 1.8; }
+  .dash-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 2px rgba(11,26,14,0.03); }
+  .dash-section h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; letter-spacing: -0.005em; }
+  .dash-tabs { display: flex; gap: 2px; background: var(--gray-100); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1rem; width: fit-content; max-width: 100%; overflow-x: auto; }
+  .dash-tab { background: none; border: none; padding: 8px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 6px; transition: var(--transition); white-space: nowrap; }
+  .dash-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .dash-tab:hover:not(.active) { color: var(--gray-700); }
   .dash-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); font-size: 14px; }
   .dash-table { width: 100%; border-collapse: collapse; }
   .dash-table th { text-align: left; font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--gray-200); }
   .dash-table td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid var(--gray-200); }
   .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table tbody tr { transition: background var(--transition); }
+  .dash-table tbody tr:hover { background: var(--gray-100); }
   .dash-table .item-cell { display: flex; align-items: center; gap: 12px; }
   .dash-table .item-emoji { font-size: 1.5rem; }
   .dash-range { display: flex; gap: 4px; background: var(--gray-100); padding: 3px; border-radius: var(--radius-md); }
   .dash-range button { background: none; border: none; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 5px; transition: var(--transition); }
-  .dash-range button.active { background: var(--white); color: var(--green-700); }
+  .dash-range button.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
   .chart-wrap { height: 240px; margin-top: 1rem; }
+  /* Advanced insights — collapsible block at the bottom of the dashboard. */
+  .advanced-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); margin-bottom: 1.5rem; overflow: hidden; box-shadow: 0 1px 2px rgba(11,26,14,0.03); }
+  .advanced-toggle { width: 100%; background: none; border: none; padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: var(--font-body); transition: var(--transition); }
+  .advanced-toggle:hover { background: var(--gray-100); }
+  .advanced-toggle .at-left { display: flex; align-items: center; gap: 12px; }
+  .advanced-toggle .at-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--gray-900); }
+  .advanced-toggle .at-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; text-align: left; }
+  .advanced-toggle .at-chev { font-size: 14px; color: var(--gray-500); transition: transform var(--transition); }
+  .advanced-section.open .advanced-toggle .at-chev { transform: rotate(180deg); }
+  .advanced-body { display: none; padding: 0 1.5rem 1.5rem; border-top: 1px solid var(--gray-200); }
+  .advanced-section.open .advanced-body { display: block; animation: advFadeIn 0.28s ease both; }
+  @keyframes advFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; padding-top: 1.25rem; }
+  .adv-block h3 { font-size: 12px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .adv-list { list-style: none; padding: 0; margin: 0; }
+  .adv-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--gray-200); font-size: 13.5px; }
+  .adv-list li:last-child { border-bottom: none; }
+  .adv-list .adv-name { color: var(--gray-900); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adv-list .adv-meta { color: var(--gray-500); font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .adv-kv { display: flex; flex-direction: column; gap: 12px; }
+  .adv-kv-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--gray-200); }
+  .adv-kv-row:last-child { border-bottom: none; }
+  .adv-kv-row .adv-k { font-size: 13px; color: var(--gray-700); }
+  .adv-kv-row .adv-v { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--green-700); font-variant-numeric: tabular-nums; }
+  .adv-empty { font-size: 13px; color: var(--gray-500); padding: 12px 0; }
+  @media (max-width: 720px) {
+    #shopDashboard .dash-header { padding: 1.25rem 1rem; }
+    #shopDashboard .dash-header h1 { font-size: 1.4rem; }
+    #shopDashboard .dash-body { padding: 1rem; }
+    .stat-card { padding: 1rem; }
+    .stat-value { font-size: 1.55rem; }
+    .analytics-row { grid-template-columns: 1fr; }
+    .analytics-card .a-value { font-size: 1.25rem; }
+    .dash-section { padding: 1rem; }
+    .adv-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .advanced-toggle { padding: 1rem; }
+    .advanced-body { padding: 0 1rem 1rem; }
+  }
 /* CHAT / MESSAGING */
   #chatBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250; align-items: center; justify-content: center; padding: 1rem; }
   #chatBackdrop.open { display: flex; }
@@ -3042,26 +3099,46 @@
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Total Revenue</div>
-        <div class="stat-value" id="statRevenue">$0</div>
+        <div class="stat-value" id="statRevenue" data-count="0" data-prefix="$">$0</div>
         <div class="stat-sub" id="statRevenueSub">All time</div>
         <span class="stat-delta flat" id="statRevenueDelta" title="vs previous 7 days">—</span>
       </div>
       <div class="stat-card">
         <div class="stat-label">Items Sold</div>
-        <div class="stat-value" id="statSold">0</div>
+        <div class="stat-value" id="statSold" data-count="0">0</div>
         <div class="stat-sub" id="statSoldSub">All time</div>
         <span class="stat-delta flat" id="statSoldDelta" title="vs previous 7 days">—</span>
       </div>
       <div class="stat-card">
         <div class="stat-label">Active Listings</div>
-        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-value" id="statActive" data-count="0">0</div>
         <div class="stat-sub">Currently for sale</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Avg. Sale Price</div>
-        <div class="stat-value" id="statAvg">$0</div>
+        <div class="stat-value" id="statAvg" data-count="0" data-prefix="$">$0</div>
         <div class="stat-sub">Per item sold</div>
         <span class="stat-delta flat" id="statAvgDelta" title="vs previous 7 days">—</span>
+      </div>
+    </div>
+
+    <!-- SECONDARY ANALYTICS — Total Views + Conversion Rate (views → sales). -->
+    <div class="analytics-row">
+      <div class="analytics-card">
+        <div>
+          <div class="a-label">Total Views</div>
+          <div class="a-value" id="statViews" data-count="0">0</div>
+          <div class="a-sub">Across all your listings</div>
+        </div>
+        <div class="a-ico" data-ico="chart" aria-hidden="true"></div>
+      </div>
+      <div class="analytics-card">
+        <div>
+          <div class="a-label">Conversion Rate</div>
+          <div class="a-value" id="statConv">0.0%</div>
+          <div class="a-sub" id="statConvSub">Views that turn into sales</div>
+        </div>
+        <div class="a-ico" aria-hidden="true">↗</div>
       </div>
     </div>
 
@@ -3100,6 +3177,41 @@
       </div>
       <div id="dashTabOffers" style="display:none;">
         <div class="dash-empty">Loading offers…</div>
+      </div>
+    </div>
+
+    <!-- ADVANCED INSIGHTS (collapsible) — best sellers, slowest movers,
+         payout cadence, average days-to-sell. All derived client-side from
+         the existing window.SHOP_DATA listings + orders cache. -->
+    <div class="advanced-section" id="advancedSection">
+      <button class="advanced-toggle" type="button" data-action="toggle-advanced-insights" aria-expanded="false" aria-controls="advancedBody">
+        <div class="at-left">
+          <div>
+            <div class="at-title">Advanced insights</div>
+            <div class="at-sub">Best sellers, slow movers, payout cadence &amp; days-to-sell</div>
+          </div>
+        </div>
+        <span class="at-chev" aria-hidden="true">▾</span>
+      </button>
+      <div class="advanced-body" id="advancedBody">
+        <div class="adv-grid">
+          <div class="adv-block">
+            <h3>Best sellers</h3>
+            <ul class="adv-list" id="advBestSellers"><li class="adv-empty">No sales yet.</li></ul>
+          </div>
+          <div class="adv-block">
+            <h3>Slowest movers</h3>
+            <ul class="adv-list" id="advSlowMovers"><li class="adv-empty">No active listings yet.</li></ul>
+          </div>
+          <div class="adv-block">
+            <h3>Payout cadence</h3>
+            <div class="adv-kv" id="advPayoutCadence"><div class="adv-empty">Connect Stripe to see cadence.</div></div>
+          </div>
+          <div class="adv-block">
+            <h3>Time on market</h3>
+            <div class="adv-kv" id="advDaysToSell"><div class="adv-empty">Once you sell items, we'll show how long they took to move.</div></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3785,6 +3897,7 @@ let stripeElements = null;       // current Elements instance (rebuilt per check
 let paymentElement = null;       // the mounted Payment Element
 let checkoutProduct = null;
 let checkoutClientSecret = null; // PaymentIntent client secret for the open checkout
+let paymentElementLoading = false; // guard against double-fire on rapid re-clicks
 
 function ensureStripeLoaded() {
   if (!stripeInstance && typeof Stripe === 'function') {
@@ -3844,63 +3957,73 @@ function setCheckoutError(msg) {
 // element because Stripe needs the clientSecret to know which payment
 // methods to render (Apple Pay, Google Pay, Link, etc.).
 async function mountPaymentElement(product) {
-  ensureStripeLoaded();
-  if (!stripeInstance) throw new Error('Stripe failed to load.');
-  if (!window.CURRENT_USER) throw new Error('Please sign in to purchase.');
+  // If a previous mountPaymentElement call is still in-flight (rapid re-clicks
+  // of "Pay Now" or browser network retries), bail out so we don't create a
+  // second PaymentIntent and orphan the first clientSecret mid-mount. Stripe's
+  // server-side idempotency dedupes the charge, but the UI state would race.
+  if (paymentElementLoading) return;
+  paymentElementLoading = true;
+  try {
+    ensureStripeLoaded();
+    if (!stripeInstance) throw new Error('Stripe failed to load.');
+    if (!window.CURRENT_USER) throw new Error('Please sign in to purchase.');
 
-  const idToken = await window.CURRENT_USER.getIdToken();
-  const res = await fetch(CLOUD_FUNCTION_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + idToken,
-    },
-    body: JSON.stringify({
-      listingId: String(product.id),
-      quantity: Number(product.__qty || 1),
-    }),
-  });
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).error || ''; } catch {}
-    throw new Error(detail || `Payment server error (${res.status})`);
-  }
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
-  if (!data.clientSecret) throw new Error('Payment could not be started. Try again.');
-
-  checkoutClientSecret = data.clientSecret;
-
-  // Tear down any previous Element from a prior checkout open.
-  if (paymentElement) {
-    try { paymentElement.unmount(); } catch (_e) {}
-    paymentElement = null;
-  }
-
-  stripeElements = stripeInstance.elements({
-    clientSecret: checkoutClientSecret,
-    appearance: {
-      theme: 'stripe',
-      variables: {
-        colorPrimary: '#15803d',
-        colorBackground: '#ffffff',
-        colorText: '#1c1c18',
-        colorDanger: '#c0392b',
-        fontFamily: 'DM Sans, system-ui, sans-serif',
-        borderRadius: '10px',
+    const idToken = await window.CURRENT_USER.getIdToken();
+    const res = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + idToken,
       },
-    },
-  });
+      body: JSON.stringify({
+        listingId: String(product.id),
+        quantity: Number(product.__qty || 1),
+      }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).error || ''; } catch {}
+      throw new Error(detail || `Payment server error (${res.status})`);
+    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.clientSecret) throw new Error('Payment could not be started. Try again.');
 
-  paymentElement = stripeElements.create('payment', {
-    layout: { type: 'tabs', defaultCollapsed: false },
-    wallets: { applePay: 'auto', googlePay: 'auto' },
-  });
-  paymentElement.mount('#payment-element');
-  paymentElement.on('change', (ev) => {
-    // Surface live validation errors as the buyer types/selects.
-    setCheckoutError(ev.error ? ev.error.message : '');
-  });
+    checkoutClientSecret = data.clientSecret;
+
+    // Tear down any previous Element from a prior checkout open.
+    if (paymentElement) {
+      try { paymentElement.unmount(); } catch (_e) {}
+      paymentElement = null;
+    }
+
+    stripeElements = stripeInstance.elements({
+      clientSecret: checkoutClientSecret,
+      appearance: {
+        theme: 'stripe',
+        variables: {
+          colorPrimary: '#15803d',
+          colorBackground: '#ffffff',
+          colorText: '#1c1c18',
+          colorDanger: '#c0392b',
+          fontFamily: 'DM Sans, system-ui, sans-serif',
+          borderRadius: '10px',
+        },
+      },
+    });
+
+    paymentElement = stripeElements.create('payment', {
+      layout: { type: 'tabs', defaultCollapsed: false },
+      wallets: { applePay: 'auto', googlePay: 'auto' },
+    });
+    paymentElement.mount('#payment-element');
+    paymentElement.on('change', (ev) => {
+      // Surface live validation errors as the buyer types/selects.
+      setCheckoutError(ev.error ? ev.error.message : '');
+    });
+  } finally {
+    paymentElementLoading = false;
+  }
 }
 
 window.openCheckout = async function(productId, qty) {
@@ -7124,6 +7247,11 @@ async function openShopDashboard() {
   }
   document.getElementById('shopDashboard').classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Reset count-up state so each open re-animates the headline numbers.
+  ['statRevenue','statSold','statActive','statAvg','statViews'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dataset.count = '0';
+  });
   await loadShopData();
   // First-run seller tour (Feature: tour-v1) — fires once per device.
   try { maybeRunSellerTour(); } catch (_) {}
@@ -7188,17 +7316,82 @@ async function loadShopData() {
   }
 }
 
+// Smooth count-up animation for a stat number. Vanilla rAF — no library.
+// Honors prefers-reduced-motion by snapping straight to the final value.
+function _countUpStat(elId, target, opts) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const prefix = (opts && opts.prefix) || '';
+  const suffix = (opts && opts.suffix) || '';
+  const decimals = (opts && opts.decimals) || 0;
+  const duration = (opts && opts.duration) || 800;
+  const fmt = v => prefix + Number(v).toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: decimals }) + suffix;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const start = parseFloat(el.dataset.count || '0') || 0;
+  if (reduce || target === start) {
+    el.dataset.count = String(target);
+    el.textContent = fmt(target);
+    return;
+  }
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min(1, (t - t0) / duration);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - k, 3);
+    const v = start + (target - start) * eased;
+    el.textContent = fmt(v);
+    if (k < 1) requestAnimationFrame(tick);
+    else { el.dataset.count = String(target); el.textContent = fmt(target); }
+  };
+  requestAnimationFrame(tick);
+}
+
 function renderShopStats() {
   const { listings, orders } = window.SHOP_DATA;
   const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
   const itemsSold = orders.length;
   const activeListings = listings.filter(l => l.status !== 'sold').length;
   const avgSale = itemsSold > 0 ? totalRevenue / itemsSold : 0;
+  const totalViews = listings.reduce((sum, l) => sum + Number(l.views || 0), 0);
+  // Conversion rate: views → sales. Uses lifetime totals so it stays
+  // meaningful even for sellers with low daily traffic.
+  const convPct = totalViews > 0 ? (itemsSold / totalViews) * 100 : 0;
 
-  document.getElementById('statRevenue').textContent = '$' + totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  document.getElementById('statSold').textContent = itemsSold;
-  document.getElementById('statActive').textContent = activeListings;
-  document.getElementById('statAvg').textContent = '$' + avgSale.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  _countUpStat('statRevenue', totalRevenue, { prefix: '$' });
+  _countUpStat('statSold', itemsSold);
+  _countUpStat('statActive', activeListings);
+  _countUpStat('statAvg', Math.round(avgSale), { prefix: '$' });
+  _countUpStat('statViews', totalViews);
+  // Conversion rate gets its own renderer (decimals + % suffix).
+  const convEl = document.getElementById('statConv');
+  if (convEl) {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      convEl.textContent = convPct.toFixed(1) + '%';
+    } else {
+      const t0 = performance.now();
+      const tick = (t) => {
+        const k = Math.min(1, (t - t0) / 800);
+        const eased = 1 - Math.pow(1 - k, 3);
+        convEl.textContent = (convPct * eased).toFixed(1) + '%';
+        if (k < 1) requestAnimationFrame(tick);
+        else convEl.textContent = convPct.toFixed(1) + '%';
+      };
+      requestAnimationFrame(tick);
+    }
+  }
+  const convSub = document.getElementById('statConvSub');
+  if (convSub) {
+    convSub.textContent = totalViews
+      ? (itemsSold + ' sale' + (itemsSold === 1 ? '' : 's') + ' on ' + totalViews.toLocaleString() + ' view' + (totalViews === 1 ? '' : 's'))
+      : 'Views that turn into sales';
+  }
+
+  // If the advanced section is already open, refresh it now that data is in.
+  const adv = document.getElementById('advancedSection');
+  if (adv && adv.classList.contains('open')) {
+    try { renderAdvancedInsights(); } catch (_) {}
+  }
 
   // Week-over-week deltas (Feature #10)
   const now = Date.now();
@@ -7240,6 +7433,124 @@ function applyDelta(elId, curr, prev) {
   el.className = 'stat-delta ' + cls;
   el.textContent = txt;
 }
+
+// Compute + render the "Advanced insights" collapsible block. All inputs
+// come from the existing window.SHOP_DATA cache — no new Firestore reads.
+//   • Best sellers: top items by revenue (orders summed per listing).
+//   • Slow movers: oldest active listings (createdAt asc), capped at 5.
+//   • Payout cadence: sales-per-week + last delivered date.
+//   • Time on market: avg / fastest days from listing.createdAt → order.createdAt.
+function renderAdvancedInsights() {
+  const data = window.SHOP_DATA || { listings: [], orders: [] };
+  const listings = data.listings || [];
+  const orders   = data.orders   || [];
+  const listingsById = {};
+  listings.forEach(l => { listingsById[l.id] = l; });
+  const tDate = ts => (ts && ts.toDate) ? ts.toDate() : (ts ? new Date(ts) : null);
+
+  // ── Best sellers (by revenue, top 5) ───────────────────────────────────
+  const revByListing = {};
+  orders.forEach(o => {
+    const k = o.listingId || '__unknown';
+    revByListing[k] = (revByListing[k] || 0) + Number(o.amount || 0);
+  });
+  const bestEl = document.getElementById('advBestSellers');
+  if (bestEl) {
+    const ranked = Object.keys(revByListing)
+      .map(id => ({ id, revenue: revByListing[id], listing: listingsById[id] }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+    if (!ranked.length) {
+      bestEl.innerHTML = '<li class="adv-empty">No sales yet — your top items will appear here.</li>';
+    } else {
+      bestEl.innerHTML = ranked.map(r => {
+        const title = (r.listing && r.listing.title) || ('Item #' + (r.id || '—'));
+        const rev = '$' + Number(r.revenue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+        return '<li><span class="adv-name">' + window.safeText(title) + '</span><span class="adv-meta">' + window.safeText(rev) + '</span></li>';
+      }).join('');
+    }
+  }
+
+  // ── Slowest movers (oldest unsold active listings, top 5) ──────────────
+  const slowEl = document.getElementById('advSlowMovers');
+  if (slowEl) {
+    const now = Date.now();
+    const stale = listings
+      .filter(l => l.status !== 'sold')
+      .map(l => {
+        const d = tDate(l.createdAt);
+        return { l, ageDays: d ? Math.floor((now - d.getTime()) / 86400000) : null };
+      })
+      .filter(x => x.ageDays != null)
+      .sort((a, b) => b.ageDays - a.ageDays)
+      .slice(0, 5);
+    if (!stale.length) {
+      slowEl.innerHTML = '<li class="adv-empty">No active listings to rank.</li>';
+    } else {
+      slowEl.innerHTML = stale.map(({ l, ageDays }) => {
+        const title = l.title || 'Untitled';
+        const meta  = ageDays === 0 ? 'Today' : (ageDays === 1 ? '1 day' : ageDays + ' days');
+        return '<li><span class="adv-name">' + window.safeText(title) + '</span><span class="adv-meta">' + window.safeText(meta) + '</span></li>';
+      }).join('');
+    }
+  }
+
+  // ── Payout cadence ─────────────────────────────────────────────────────
+  const cadEl = document.getElementById('advPayoutCadence');
+  if (cadEl) {
+    const delivered = orders.filter(o => {
+      const s = o.fulfillmentStatus || '';
+      return s === 'delivered' || s === 'reviewed';
+    });
+    if (!delivered.length) {
+      cadEl.innerHTML = '<div class="adv-empty">Once orders are delivered, payout cadence will populate here.</div>';
+    } else {
+      // Sales per week over the orders' active span (first → now). Caps span
+      // at a min of 1 week so brand-new sellers don't see absurd /wk numbers.
+      const firstD = orders.reduce((acc, o) => {
+        const d = tDate(o.createdAt);
+        return (d && (!acc || d < acc)) ? d : acc;
+      }, null);
+      const spanDays = firstD ? Math.max(7, (Date.now() - firstD.getTime()) / 86400000) : 7;
+      const perWeek = (orders.length / spanDays) * 7;
+      const lastDeliveredDate = delivered.reduce((acc, o) => {
+        const d = tDate(o.deliveredAt) || tDate(o.createdAt);
+        return (d && (!acc || d > acc)) ? d : acc;
+      }, null);
+      const lastLbl = lastDeliveredDate ? lastDeliveredDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      const totalPaid = delivered.reduce((s, o) => s + Number(o.amount || 0), 0);
+      cadEl.innerHTML =
+        '<div class="adv-kv-row"><span class="adv-k">Sales / week</span><span class="adv-v">' + perWeek.toFixed(1) + '</span></div>' +
+        '<div class="adv-kv-row"><span class="adv-k">Last payout</span><span class="adv-v">' + window.safeText(lastLbl) + '</span></div>' +
+        '<div class="adv-kv-row"><span class="adv-k">Lifetime paid</span><span class="adv-v">$' + Number(totalPaid).toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</span></div>';
+    }
+  }
+
+  // ── Time on market (avg + fastest days-to-sell) ────────────────────────
+  const dtsEl = document.getElementById('advDaysToSell');
+  if (dtsEl) {
+    const spans = orders.map(o => {
+      const oc = tDate(o.createdAt);
+      const lst = listingsById[o.listingId];
+      const lc = lst ? tDate(lst.createdAt) : null;
+      if (!oc || !lc) return null;
+      return Math.max(0, Math.round((oc.getTime() - lc.getTime()) / 86400000));
+    }).filter(v => v != null);
+    if (!spans.length) {
+      dtsEl.innerHTML = '<div class="adv-empty">Once you sell items, we\'ll show how long they took to move.</div>';
+    } else {
+      const avg = spans.reduce((s, v) => s + v, 0) / spans.length;
+      const fastest = Math.min.apply(null, spans);
+      const slowest = Math.max.apply(null, spans);
+      const dLbl = n => n === 0 ? 'Same day' : (n === 1 ? '1 day' : n + ' days');
+      dtsEl.innerHTML =
+        '<div class="adv-kv-row"><span class="adv-k">Average</span><span class="adv-v">' + window.safeText(dLbl(Math.round(avg))) + '</span></div>' +
+        '<div class="adv-kv-row"><span class="adv-k">Fastest sale</span><span class="adv-v">' + window.safeText(dLbl(fastest)) + '</span></div>' +
+        '<div class="adv-kv-row"><span class="adv-k">Slowest sale</span><span class="adv-v">' + window.safeText(dLbl(slowest)) + '</span></div>';
+    }
+  }
+}
+
 function renderShopTables() {
   const { listings, orders, profile } = window.SHOP_DATA;
   const active = listings.filter(l => l.status !== 'sold');
@@ -11513,6 +11824,14 @@ A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+A['toggle-advanced-insights']= (el) => {
+  const sec = document.getElementById('advancedSection');
+  if (!sec) return;
+  const isOpen = sec.classList.toggle('open');
+  el.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  // Render lazily on first open so we don't compute on every dashboard mount.
+  if (isOpen) { try { renderAdvancedInsights(); } catch (_) {} }
+};
 A['open-pro-upgrade']        = () => {
   if (!window.CURRENT_USER) { showToast('Sign in to upgrade.'); return; }
   // iOS guard (Apple Guideline 3.1.1): never open the Pro upgrade modal
