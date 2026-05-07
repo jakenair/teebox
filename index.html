@@ -976,7 +976,14 @@
      opens it via the nav "Sign In" pill). The legacy `.hidden` class
      flag is kept for compatibility with the existing
      onAuthStateChanged code paths. */
-  #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: center; justify-content: center; padding: 1rem; opacity: 1; transition: opacity 0.25s ease; }
+  /* Auth screen: position:fixed full-viewport overlay. We let the
+     overlay itself scroll (overflow-y:auto + -webkit-overflow-scrolling
+     touch) so when the on-screen keyboard is open or the content is
+     taller than the viewport (small phones, large fonts), users can
+     reach the bottom (Apple sign-in / privacy link). align-items uses
+     "safe center" with a flex-start fallback so taller-than-viewport
+     content doesn't clip its top edge in centered flex layouts. */
+  #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: flex-start; align-items: safe center; justify-content: center; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; opacity: 1; transition: opacity 0.25s ease; }
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
   #authScreen.hidden { display: none; }
@@ -986,7 +993,7 @@
   /* "X" close button in the corner of the auth screen — lets a guest
      bail out without signing in when the screen was opened by a gated
      action (or explicitly by the nav Sign In pill). */
-  .auth-close-btn { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; background: rgba(255,255,255,0.10); color: var(--white); border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: var(--transition); z-index: 2; }
+  .auth-close-btn { position: fixed; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; background: rgba(255,255,255,0.10); color: var(--white); border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: var(--transition); z-index: 2; }
   .auth-close-btn:hover { background: rgba(255,255,255,0.18); }
   .auth-close-btn:active { transform: scale(0.95); }
   .auth-reason { background: rgba(0,0,0,0.06); color: var(--gray-700); border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; margin: 0 0 14px; line-height: 1.45; display: none; text-align: left; }
@@ -1039,6 +1046,15 @@
   .auth-link { background: none; border: none; color: var(--green-600); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; margin-top: 2px; font-family: var(--font-body); }
   .auth-link-muted { color: var(--gray-500); text-decoration: none; display: block; width: 100%; text-align: center; margin-top: 14px; font-size: 13px; }
   .auth-link-muted:hover { color: var(--gray-700); text-decoration: underline; }
+  /* Ghost/outline "Continue as guest" CTA on the auth screen — gives
+     unsigned visitors an explicit way to dismiss the auth gate and
+     browse the marketplace read-only. requireAuth() will surface the
+     polished sign-in prompt on any gated action (bid/buy/list/message). */
+  .auth-guest-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; background: transparent; color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: var(--radius-md); padding: 11px 14px; margin-top: 14px; font-family: var(--font-body); cursor: pointer; transition: var(--transition); }
+  .auth-guest-btn:hover { background: rgba(15,79,47,0.06); }
+  .auth-guest-btn:active { transform: scale(0.98); }
+  .auth-guest-btn-label { font-size: 14px; font-weight: 700; }
+  .auth-guest-btn-sub { font-size: 11.5px; font-weight: 500; color: var(--gray-500); }
   .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--gray-400); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .auth-google-btn {
@@ -2541,6 +2557,12 @@
         </button>
 
         <button type="button" class="auth-link auth-link-muted" data-action="show-phone-fallback">More sign-in options</button>
+
+        <button type="button" class="auth-guest-btn" data-action="continue-as-guest">
+          <span class="auth-guest-btn-label">Continue as guest</span>
+          <span class="auth-guest-btn-sub">Browse only — sign in to bid, buy, or sell</span>
+        </button>
+
         <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
       </div>
 
@@ -4286,6 +4308,9 @@ window.confirmPayment = async function() {
     window.CURRENT_USER = user;
     if (user) {
       window.GUEST_MODE = false;
+      // Mark the auth gate as resolved — if the user later signs out
+      // we don't want the boot-time auto-open to re-fire mid-session.
+      try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
       // Smooth fade-out before hiding so successful sign-in feels deliberate
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
@@ -4357,13 +4382,17 @@ window.confirmPayment = async function() {
       const _authScreen = document.getElementById('authScreen');
       if (_authScreen) {
         _authScreen.classList.remove('fading-out');
-        // Only auto-show the auth screen on initial load if the URL
-        // explicitly asked for sign-in (?signin=1). Otherwise keep it
-        // hidden — the nav "Sign In" pill or any gated action will
-        // surface it on demand.
+        // Auto-show the auth screen on the FIRST visit of a session so
+        // unsigned users see the sign-in screen by default. After they
+        // dismiss it (Continue as guest / X), `seenAuthGate` is set and
+        // we don't re-fire on subsequent re-renders. Also auto-open if
+        // the URL explicitly asked for it (?signin=1).
         try {
           const _sp = new URLSearchParams(window.location.search);
-          if (_sp.get('signin') === '1' && !window.GUEST_MODE) {
+          let _seen = false;
+          try { _seen = sessionStorage.getItem('seenAuthGate') === '1'; } catch (_) {}
+          const _forced = _sp.get('signin') === '1';
+          if (_forced || !_seen) {
             _authScreen.classList.remove('hidden');
             _authScreen.classList.add('open');
           } else {
@@ -11580,6 +11609,10 @@ window.dismissAuthScreen = function dismissAuthScreen() {
   const _authScreen = document.getElementById('authScreen');
   if (!_authScreen) return;
   window.GUEST_MODE = true;
+  // Remember that the user explicitly dismissed the auth gate so we
+  // don't re-open it on subsequent navigations / re-renders this
+  // session. Cleared on tab close (sessionStorage scope).
+  try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
   _authScreen.classList.remove('open');
   _authScreen.classList.add('hidden');
   _authScreen.classList.remove('fading-out');
@@ -11793,6 +11826,9 @@ A['hide-phone-fallback']     = () => {
 };
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;
+  // Remember the dismissal so the auth gate doesn't auto-reopen on
+  // the next render this session (auto-open boot logic checks this).
+  try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
   // Clear any reason banner + pending intent — the user explicitly
   // chose to skip sign-in, so the previously-stashed deep-link
   // intent should not silently fire later.
