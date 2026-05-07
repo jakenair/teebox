@@ -18,6 +18,17 @@ def capacitor_pods
   # Apple Sign-In does NOT need a subspec — it ships in /Lite plus the
   # com.apple.developer.applesignin entitlement (set in App.entitlements).
   # Phone auth also ships in /Lite (uses FirebaseAuth's built-in APNs flow).
+  #
+  # CRITICAL: must reference BOTH the bare pod and the subspec. With only
+  # `pod 'X/Google'`, CocoaPods + use_frameworks! produces an empty
+  # PBXAggregateTarget for CapacitorFirebaseAuthentication — the plugin's
+  # Swift sources are NEVER compiled into any framework, so
+  # NSClassFromString("FirebaseAuthenticationPlugin") returns nil at
+  # runtime and Capacitor can't register the plugin. All 3 native sign-in
+  # flows then silently fall through to the web fallback (which doesn't
+  # work in WKWebView). Adding the bare pod first forces CocoaPods to
+  # generate a proper PBXNativeTarget framework that compiles ios/Plugin/.
+  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'

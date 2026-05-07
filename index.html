@@ -4646,6 +4646,11 @@ window.confirmPayment = async function() {
       else if (code === 'auth/too-many-requests') msg = 'Too many requests. Wait a few minutes before trying again.';
       else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
       else if (code === 'auth/captcha-check-failed' || code === 'auth/internal-error') msg = 'Verification failed. Reload the page and try again.';
+      // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
+      // Catching this branch on iOS = native plugin path was skipped, which
+      // means the @capacitor-firebase/authentication plugin failed to register.
+      // Surface IS_NATIVE / plugin flags so we can tell from the user's screen.
+      msg += ` [diag native=${IS_NATIVE} plugin=${FBAuthPlugin ? 'yes' : 'no'} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
       err.textContent = msg;
       btn.disabled = false; btn.textContent = 'Send Verification Code';
       try { window.recaptchaVerifier?.clear(); } catch {}
@@ -11729,6 +11734,14 @@ A['sign-in-google']          = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
+    // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
+    // Surface the raw error code + message so we can see WHICH layer failed
+    // (native plugin vs web fallback) when the user reports "Could not sign in".
+    // Includes IS_NATIVE / plugin presence flags so we can tell whether the
+    // plugin even registered. Remove this branch once auth is confirmed working.
+    const _diagNative = (typeof IS_NATIVE !== 'undefined') ? IS_NATIVE : 'undef';
+    const _diagPlugin = (typeof FBAuthPlugin !== 'undefined' && FBAuthPlugin) ? 'yes' : 'no';
+    msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] google sign-in failed:', code, e && e.message);
     restoreBtn();
@@ -11793,6 +11806,10 @@ A['sign-in-apple']           = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
+    // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
+    const _diagNative = (typeof IS_NATIVE !== 'undefined') ? IS_NATIVE : 'undef';
+    const _diagPlugin = (typeof FBAuthPlugin !== 'undefined' && FBAuthPlugin) ? 'yes' : 'no';
+    msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();

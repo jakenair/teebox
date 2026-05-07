@@ -10,10 +10,17 @@ PODS:
   - CapacitorApp (7.1.2):
     - Capacitor
   - CapacitorCordova (7.6.2)
+  - CapacitorFirebaseAuthentication (7.5.0):
+    - Capacitor
+    - CapacitorFirebaseAuthentication/Lite (= 7.5.0)
+    - FirebaseAuth (~> 11.7.0)
   - CapacitorFirebaseAuthentication/Google (7.5.0):
     - Capacitor
     - FirebaseAuth (~> 11.7.0)
     - GoogleSignIn (= 7.1.0)
+  - CapacitorFirebaseAuthentication/Lite (7.5.0):
+    - Capacitor
+    - FirebaseAuth (~> 11.7.0)
   - CapacitorShare (7.0.4):
     - Capacitor
   - CapacitorSplashScreen (7.0.5):
@@ -74,6 +81,7 @@ DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorApp (from `../../node_modules/@capacitor/app`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorFirebaseAuthentication (from `../../node_modules/@capacitor-firebase/authentication`)"
   - "CapacitorFirebaseAuthentication/Google (from `../../node_modules/@capacitor-firebase/authentication`)"
   - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - "CapacitorSplashScreen (from `../../node_modules/@capacitor/splash-screen`)"
@@ -131,6 +139,6 @@ SPEC CHECKSUMS:
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
 
-PODFILE CHECKSUM: 9563dcef156d120d42df0ea58c0eac9081368034
+PODFILE CHECKSUM: 08fb06bbcf9ec3b202fbf91aa62f4e06f8fc60ae
 
 COCOAPODS: 1.16.2
