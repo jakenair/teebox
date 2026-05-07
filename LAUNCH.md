@@ -212,6 +212,9 @@ Apple asks what data you collect. Answers for TeeBox:
 1. **Bump `CACHE_VERSION` in `sw.js`** if `index.html` or any cached asset
    changed since the last deploy — otherwise PWA users stay pinned to stale
    assets until the cache TTL expires. Format: `teebox-vN-YYYY-MM-DD-rNN`.
+   Note: `npm run build:web` now auto-syncs the web bundle to
+   `ios/App/App/public/` via rsync, so `cap:sync` is only needed when
+   Capacitor plugins change.
 2. `npm run cap:sync && npm run cap:ios`
 3. In Xcode: select **Any iOS Device** (not a simulator) → **Product** → **Archive**
 4. Window → Organizer → **Distribute App** → App Store Connect → Upload
