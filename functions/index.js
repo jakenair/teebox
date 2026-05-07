@@ -94,6 +94,61 @@ async function getAuthedUser(req) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// checkRateLimit — generic per-UID rolling-window throttle.
+//   Stored at users/{uid}/rateLimits/{key}. Server-only (Admin
+//   SDK bypasses rules) so no Firestore rule is required.
+//
+//   Maintains an array of recent request timestamps within the
+//   last 60s. Drops anything older, then admits or rejects based
+//   on `maxPerMinute`. A Firestore transaction guards against
+//   races between concurrent requests from the same UID.
+//
+//   Fail-open by design: if Firestore is unavailable, we log and
+//   admit the request rather than break the user-facing flow
+//   (e.g. checkout). Stripe idempotency + per-listing reservation
+//   remain the hard correctness guarantees; this is just throttle.
+//
+//   Returns { ok: true } or { ok: false, retryAfterSec }.
+// ─────────────────────────────────────────────────────────────
+async function checkRateLimit(uid, key, maxPerMinute) {
+  if (!uid || !key) return {ok: true};
+  const WINDOW_MS = 60 * 1000;
+  const db = admin.firestore();
+  const ref = db
+      .collection("users").doc(uid)
+      .collection("rateLimits").doc(key);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      const cutoff = now - WINDOW_MS;
+      const prev = snap.exists ? (snap.data().hits || []) : [];
+      // Trim and cap defensively so a buggy client can't grow the
+      // array unboundedly across windows.
+      const recent = prev
+          .map((n) => Number(n))
+          .filter((n) => Number.isFinite(n) && n > cutoff)
+          .slice(-maxPerMinute * 2);
+      if (recent.length >= maxPerMinute) {
+        const oldest = recent[0];
+        const retryAfterSec = Math.max(
+            1, Math.ceil((oldest + WINDOW_MS - now) / 1000));
+        return {ok: false, retryAfterSec};
+      }
+      recent.push(now);
+      tx.set(ref, {
+        hits: recent,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      return {ok: true};
+    });
+  } catch (err) {
+    logger.error(`checkRateLimit(${key}) failed; failing open`, err);
+    return {ok: true};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // createPaymentIntent
 //   - Buyer must be authenticated (Firebase ID token)
 //   - Price is pulled from Firestore, never trusted from client
@@ -135,6 +190,23 @@ exports.createPaymentIntent = onRequest(
     const listingRef = db.collection("listings").doc(listingId);
 
     try {
+      // Per-UID rate limit: 60 req / rolling 60s. Stripe idempotency
+      // and the per-listing reservation already prevent double-charges,
+      // but without this a buyer could hammer createPaymentIntent across
+      // many listingIds (scraping pricing, locking inventory in pending,
+      // burning Stripe API quota). Fail-open inside checkRateLimit so a
+      // Firestore blip doesn't break checkout.
+      const rl = await checkRateLimit(buyerId, "createPaymentIntent", 60);
+      if (!rl.ok) {
+        if (rl.retryAfterSec) {
+          res.set("Retry-After", String(rl.retryAfterSec));
+        }
+        return res.status(429).json({
+          error: "Too many checkout attempts. " +
+            "Please wait a moment and try again.",
+        });
+      }
+
       const reservation = await db.runTransaction(async (tx) => {
         const snap = await tx.get(listingRef);
         if (!snap.exists) {
