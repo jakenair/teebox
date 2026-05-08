@@ -44,12 +44,14 @@ async function main() {
   let batchNum = 0;
   const PAGE = 500;
 
-  while (true) {
-    let q = db.collection('orders')
+  // Drop orderBy + cursor pagination — for a sum the order doesn't matter,
+  // and skipping orderBy avoids requiring a (status ASC + createdAt ASC)
+  // composite index. Caps at PAGE writes; if a future TeeBox has > 500 paid
+  // orders we'll re-introduce a paginated query (and the index).
+  while (batchNum < 1) {
+    const q = db.collection('orders')
         .where('status', '==', 'paid')
-        .orderBy('createdAt', 'asc')
         .limit(PAGE);
-    if (cursor) q = q.startAfter(cursor);
     const snap = await q.get();
     if (snap.empty) break;
     batchNum++;
@@ -67,8 +69,9 @@ async function main() {
     }
     const dollars = (totalGmvCents / 100).toFixed(2);
     console.log(`[batch ${batchNum}] cumulative: $${dollars} across ${totalSold} orders`);
-    cursor = snap.docs[snap.docs.length - 1];
-    if (snap.size < PAGE) break;
+    if (snap.size >= PAGE) {
+      console.warn(`⚠ hit PAGE cap (${PAGE}) — re-add paginated orderBy query if you have more than ${PAGE} paid orders`);
+    }
   }
 
   const payload = {
