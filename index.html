@@ -4332,9 +4332,13 @@ window.confirmPayment = async function() {
     window.CURRENT_USER = user;
     if (user) {
       window.GUEST_MODE = false;
-      // Mark the auth gate as resolved — if the user later signs out
-      // we don't want the boot-time auto-open to re-fire mid-session.
-      try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
+      // Mark the auth gate as resolved for THIS process — if the user
+      // later signs out in the same session we don't want the boot-time
+      // auto-open logic to re-fire mid-session. We use an in-memory
+      // flag (not sessionStorage) so a true cold launch with no signed-in
+      // user re-shows the gate. iOS WKWebView discards in-memory state
+      // on app termination, which is what we want.
+      window.__authGateDismissedInSession = true;
       // Smooth fade-out before hiding so successful sign-in feels deliberate
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
@@ -4406,17 +4410,22 @@ window.confirmPayment = async function() {
       const _authScreen = document.getElementById('authScreen');
       if (_authScreen) {
         _authScreen.classList.remove('fading-out');
-        // Auto-show the auth screen on the FIRST visit of a session so
-        // unsigned users see the sign-in screen by default. After they
-        // dismiss it (Continue as guest / X), `seenAuthGate` is set and
-        // we don't re-fire on subsequent re-renders. Also auto-open if
-        // the URL explicitly asked for it (?signin=1).
+        // Auto-show the auth screen on every COLD launch so unsigned
+        // users always land on the sign-in wall first. We track the
+        // "user dismissed this session" state in an in-memory flag
+        // (`window.__authGateDismissedInSession`) instead of
+        // sessionStorage because Capacitor's WKWebView preserves
+        // sessionStorage across iOS app cold-launches — meaning a guest
+        // who tapped "Continue as guest" once would never see the gate
+        // again, even after force-quitting. iOS discards in-memory JS
+        // state on real app termination, so this gives us the exact
+        // semantics we want: dismissed-this-run vs. fresh-launch.
+        // Also auto-open if the URL explicitly asked for it (?signin=1).
         try {
           const _sp = new URLSearchParams(window.location.search);
-          let _seen = false;
-          try { _seen = sessionStorage.getItem('seenAuthGate') === '1'; } catch (_) {}
+          const _dismissed = window.__authGateDismissedInSession === true;
           const _forced = _sp.get('signin') === '1';
-          if (_forced || !_seen) {
+          if (_forced || !_dismissed) {
             _authScreen.classList.remove('hidden');
             _authScreen.classList.add('open');
           } else {
@@ -11557,20 +11566,33 @@ window.showAuthScreen = function showAuthScreen(reason) {
 window.dismissAuthScreen = function dismissAuthScreen() {
   const _authScreen = document.getElementById('authScreen');
   if (!_authScreen) return;
-  window.GUEST_MODE = true;
+  // Only flip into GUEST_MODE if the user isn't actually signed in.
+  // This function is reused by the OAuth success path (Google/Apple)
+  // to defensively close the modal — in that case onAuthStateChanged
+  // has already set CURRENT_USER and GUEST_MODE = false, and we must
+  // NOT clobber that back to true.
+  if (!window.CURRENT_USER) {
+    window.GUEST_MODE = true;
+  }
   // Remember that the user explicitly dismissed the auth gate so we
   // don't re-open it on subsequent navigations / re-renders this
-  // session. Cleared on tab close (sessionStorage scope).
-  try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
+  // session. In-memory only (NOT sessionStorage) so a true cold app
+  // relaunch resets and the gate appears again until the user signs
+  // in or taps Continue as guest in that new session.
+  window.__authGateDismissedInSession = true;
   _authScreen.classList.remove('open');
   _authScreen.classList.add('hidden');
   _authScreen.classList.remove('fading-out');
   // Clear any reason banner so it doesn't leak into a later session.
   const reasonEl = document.getElementById('authReason');
   if (reasonEl) { reasonEl.textContent = ''; reasonEl.classList.remove('visible'); }
-  // Ensure the nav "Sign In" pill is visible so the user has a way back.
+  // Ensure the nav "Sign In" pill is visible so a guest has a way back.
+  // For a signed-in user (OAuth success path calls this defensively),
+  // the pill must stay hidden — onAuthStateChanged already hid it.
   const _signInBtn = document.getElementById('navSignInBtn');
-  if (_signInBtn) _signInBtn.style.display = 'inline-flex';
+  if (_signInBtn) {
+    _signInBtn.style.display = window.CURRENT_USER ? 'none' : 'inline-flex';
+  }
   // Clear any stale errors so they don't appear next time the screen opens.
   ['authErrorEmail', 'authError1', 'authError2'].forEach((id) => {
     const el = document.getElementById(id);
@@ -11639,9 +11661,28 @@ A['sign-in-google']          = async (btn) => {
       }
       const cred = window.GoogleAuthProvider.credential(idToken, accessToken);
       await window.signInWithCredential(window.firebaseAuth, cred);
-      // onAuthStateChanged will hide the auth screen on success. We don't
-      // restore the button here on purpose — the screen is about to fade
-      // out, so flashing the button back to its idle label looks janky.
+      // Belt-and-suspenders cleanup. Previously we relied solely on
+      // onAuthStateChanged to hide the auth screen, but on the native
+      // plugin path the listener can race with this resolve, leaving
+      // the modal stuck on "Signing in…" until force-quit. Defensive
+      // double-dismiss: if the listener already started its fade
+      // animation we leave it alone (`.fading-out` is set), otherwise
+      // we force-hide. Either way the in-memory dismissed flag is
+      // already set by the listener.
+      const _as = document.getElementById('authScreen');
+      if (_as && _as.classList.contains('open') && !_as.classList.contains('fading-out')) {
+        try { window.dismissAuthScreen && window.dismissAuthScreen(); } catch (_) {}
+      }
+      // Fallback: 600ms after the await, if for any reason the modal
+      // is still visible OR the button is still in "Signing in…" state,
+      // forcibly tear it down. Idempotent on success.
+      setTimeout(() => {
+        try {
+          const _stillOpen = _as && (_as.classList.contains('open') || (_as.style && _as.style.display === 'flex'));
+          if (_stillOpen) { window.dismissAuthScreen && window.dismissAuthScreen(); }
+          restoreBtn();
+        } catch (_) {}
+      }, 600);
       return;
     }
     // Web fallback: Firebase Web SDK popup. If popups are blocked the
@@ -11715,6 +11756,21 @@ A['sign-in-apple']           = async (btn) => {
       const provider = new window.OAuthProvider('apple.com');
       const cred = provider.credential({ idToken, rawNonce });
       await window.signInWithCredential(window.firebaseAuth, cred);
+      // Same race-safety as the Google path. If the onAuthStateChanged
+      // listener hasn't already started fading the modal out, force it.
+      const _as = document.getElementById('authScreen');
+      if (_as && _as.classList.contains('open') && !_as.classList.contains('fading-out')) {
+        try { window.dismissAuthScreen && window.dismissAuthScreen(); } catch (_) {}
+      }
+      // Idempotent fallback: 600ms later, if the modal is somehow still
+      // visible, force-hide it and restore the button.
+      setTimeout(() => {
+        try {
+          const _stillOpen = _as && (_as.classList.contains('open') || (_as.style && _as.style.display === 'flex'));
+          if (_stillOpen) { window.dismissAuthScreen && window.dismissAuthScreen(); }
+          restoreBtn();
+        } catch (_) {}
+      }, 600);
       return;
     }
     // Web fallback: Firebase popup with OAuthProvider('apple.com').
@@ -11754,8 +11810,9 @@ A['sign-in-apple']           = async (btn) => {
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;
   // Remember the dismissal so the auth gate doesn't auto-reopen on
-  // the next render this session (auto-open boot logic checks this).
-  try { sessionStorage.setItem('seenAuthGate', '1'); } catch (_) {}
+  // the next render this session. In-memory only — a true cold
+  // relaunch (force-quit on iOS) wipes this and re-shows the gate.
+  window.__authGateDismissedInSession = true;
   // Clear any reason banner + pending intent — the user explicitly
   // chose to skip sign-in, so the previously-stashed deep-link
   // intent should not silently fire later.
