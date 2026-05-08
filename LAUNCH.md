@@ -169,21 +169,23 @@ Open `android/` in Android Studio.
 
 ## 7. Firebase + Capacitor wiring
 
-The web app uses Firebase Auth via `signInWithPhoneNumber` which
-relies on reCAPTCHA. In Capacitor the page loads from
-`capacitor://localhost` (iOS) and `https://localhost` (Android), which
-isn't whitelisted by default.
+The app uses Google + Apple sign-in (web popup + native iOS via
+`@capacitor-firebase/authentication`) plus email/password. Three
+console-side configurations have to be in place — the code is already
+correct, only console wiring blocks launch:
 
-In the Firebase console → **Authentication** → **Settings** → **Authorized
-domains**, add:
-- `localhost`
-- `capacitor.localhost`
-- `app://localhost` (Android)
+1. **OAuth Web Client** — Authorized JavaScript origins must include
+   `https://teeboxmarket.com`. Without it, web Google sign-in fails
+   with `auth/internal-error`.
+2. **Firebase Authorized domains** — must include `teeboxmarket.com`,
+   `www.teeboxmarket.com`, `localhost`.
+3. **Apple Services ID + private key** — required for web Apple
+   sign-in (separate from native iOS, which uses the App ID's Sign In
+   with Apple capability and is already wired).
 
-If reCAPTCHA still fails inside the webview, swap in the
-`@capacitor-firebase/authentication` plugin which uses **native**
-phone-auth dialogs on each platform. Documented at
-https://github.com/capawesome-team/capacitor-firebase
+Step-by-step instructions for all three (with screenshots-of-where-to-click
+detail and a failure-mode lookup table) live in
+[`docs/AUTH_TROUBLESHOOTING.md`](docs/AUTH_TROUBLESHOOTING.md).
 
 ---
 
