@@ -12,7 +12,8 @@
     "cap:icons": "npx @capacitor/assets generate --iconBackgroundColor '#0b1a0e' --iconBackgroundColorDark '#0b1a0e' --splashBackgroundColor '#0b1a0e' --splashBackgroundColorDark '#0b1a0e'",
     "launch:preflight": "bash scripts/launch-preflight.sh",
     "launch:deploy": "bash scripts/launch-deploy.sh",
-    "launch:smoke": "less scripts/launch-smoke.md"
+    "launch:smoke": "less scripts/launch-smoke.md",
+    "backfill:stats": "node scripts/backfill-global-stats.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
