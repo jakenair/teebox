@@ -463,7 +463,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(
              ['displayName','bio','avatarUrl','location','handicap',
               'golfBag','pinnedListingId','updatedAt'])
-        && isValidProfile(request.resource.data, true);
+        && isValidProfile(request.resource.data);
 
       allow update: if request.auth != null
         && request.auth.uid == userId
@@ -471,12 +471,12 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ['displayName','bio','avatarUrl','location','handicap',
               'golfBag','pinnedListingId','updatedAt'])
-        && isValidProfile(request.resource.data, false);
+        && isValidProfile(request.resource.data);
 
       allow delete: if false;
     }
 
-    function isValidProfile(d, isCreate) {
+    function isValidProfile(d) {
       return (!('displayName' in d.keys()) || (d.displayName is string && d.displayName.size() <= 60))
         && (!('bio' in d.keys())         || (d.bio is string && d.bio.size() <= 600))
         && (!('avatarUrl' in d.keys())   || (d.avatarUrl is string && d.avatarUrl.size() <= 1024))
