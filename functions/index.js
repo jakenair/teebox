@@ -3157,6 +3157,333 @@ exports.generateListingDescription = onCall(
   },
 );
 
+// ─────────────────────────────────────────────────────────────
+// suggestListingPrice
+//   Callable that asks Gemini 1.5 Flash to suggest a fair list
+//   price (with a low/high band and reasoning) for a listing
+//   draft, grounded in recent comparable solds pulled from the
+//   `listings` collection.
+//   - Auth required
+//   - 30 calls/min/UID via the shared checkRateLimit helper
+//   - Reads up to 200 sold listings from the last 90 days
+//     (`listings` collection, status=="sold", ordered by
+//     createdAt DESC), filtered to brand or title-keyword overlap
+//     and capped at 50 comps for the prompt — read-only.
+//   - Multimodal: optional `inlineImages: [{data,mimeType}]`
+//     (base64, already client-side compressed) OR
+//     `photos: [storagePath]` (downloaded from the default bucket
+//     when paths are under listings/<uid>/...). Capped at 3 images
+//     so we don't blow the per-call token budget.
+//   - Returns { suggested, low, high, reasoning, comps[], compsCount }
+// ─────────────────────────────────────────────────────────────
+exports.suggestListingPrice = onCall(
+  {...USER_CALLABLE, secrets: [geminiSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in.");
+    }
+    const uid = request.auth.uid;
+    const data = request.data || {};
+
+    // ── Input validation ──
+    const requireString = (key, max) => {
+      const v = data[key];
+      if (typeof v !== "string") {
+        throw new HttpsError("invalid-argument", `${key} required`);
+      }
+      const trimmed = v.trim();
+      if (!trimmed) {
+        throw new HttpsError("invalid-argument", `${key} required`);
+      }
+      if (trimmed.length > max) {
+        throw new HttpsError("invalid-argument", `${key} too long`);
+      }
+      return trimmed;
+    };
+    const optString = (key, max) => {
+      const v = data[key];
+      if (v == null || typeof v !== "string") return "";
+      const trimmed = v.trim();
+      return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+    };
+
+    const title = requireString("title", 200);
+    const brand = optString("brand", 200);
+    const model = optString("model", 200);
+    const condition = optString("condition", 200);
+    const category = optString("category", 200);
+
+    // ── Rate limit (30/min/UID) ──
+    const rl = await checkRateLimit(uid, "suggestListingPrice", 30);
+    if (!rl.ok) {
+      throw new HttpsError(
+          "resource-exhausted",
+          `Too many requests. Try again in ${rl.retryAfterSec}s.`,
+      );
+    }
+
+    const db = admin.firestore();
+
+    // ── Pull recent solds (last 90 days), then score ──
+    // Uses the existing status+createdAt index. We over-fetch (200)
+    // and re-rank by brand/title overlap so brand-light queries
+    // still get useful signal. Final comps capped at 50.
+    const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+    const cutoffTs = admin.firestore.Timestamp.fromMillis(
+        Date.now() - NINETY_DAYS_MS);
+
+    const titleLower = title.toLowerCase();
+    const modelLower = model.toLowerCase();
+    const brandLower = brand.toLowerCase();
+    const tokens = (titleLower + " " + modelLower)
+        .split(/[^a-z0-9]+/i)
+        .filter((t) => t && t.length > 2);
+
+    let rawSolds = [];
+    try {
+      const snap = await db.collection("listings")
+          .where("status", "==", "sold")
+          .where("createdAt", ">=", cutoffTs)
+          .orderBy("createdAt", "desc")
+          .limit(200)
+          .get();
+      snap.forEach((doc) => {
+        const d = doc.data() || {};
+        const ask = Number(d.ask || 0);
+        if (!ask || ask <= 0) return;
+        rawSolds.push({
+          id: doc.id,
+          title: String(d.title || ""),
+          brand: String(d.brand || ""),
+          condition: String(d.condition || ""),
+          ask,
+        });
+      });
+    } catch (err) {
+      // Fail soft on Firestore — we can still ask Gemini without comps.
+      logger.warn("suggestListingPrice: solds query failed", err);
+      rawSolds = [];
+    }
+
+    const scored = rawSolds.map((s) => {
+      const lt = (s.title || "").toLowerCase();
+      const lb = (s.brand || "").toLowerCase();
+      const overlap = tokens.filter((t) => lt.includes(t)).length;
+      const brandHit = brandLower && lb === brandLower ? 1 : 0;
+      // brand match (3) + per-token overlap (1).
+      const score = brandHit * 3 + overlap;
+      return {...s, score};
+    }).filter((s) => s.score >= 1);
+    scored.sort((a, b) => b.score - a.score);
+    const comps = scored.slice(0, 50);
+
+    // ── Build prompt ──
+    const compsLines = comps.map((c, i) =>
+      `${i + 1}. "${c.title}" — ${c.brand || "?"}, ` +
+      `${c.condition || "?"} — sold $${c.ask}`,
+    ).join("\n");
+
+    const promptText =
+      "You are a pricing expert for a peer-to-peer used golf marketplace " +
+      "(TeeBox). Suggest a fair list price in USD for a new listing, " +
+      "grounded in the comparable recent sales below. Consider brand, " +
+      "model, and condition. Be conservative — pricing too high stalls " +
+      "the listing.\n\n" +
+      "RECENT COMPARABLE SALES (last 90 days, may be empty):\n" +
+      (compsLines || "(no close comps)") + "\n\n" +
+      "NEW LISTING DRAFT:\n" +
+      `Title: ${title}\n` +
+      `Brand: ${brand || "(unspecified)"}\n` +
+      `Model: ${model || "(unspecified)"}\n` +
+      `Category: ${category || "(unspecified)"}\n` +
+      `Condition: ${condition || "(unspecified)"}\n\n` +
+      "Return ONLY a strict JSON object with this exact shape, no prose, " +
+      "no markdown fences:\n" +
+      "{\"suggested\": <number USD>, \"low\": <number USD>, " +
+      "\"high\": <number USD>, " +
+      "\"reasoning\": \"<one-sentence explanation, max 160 chars>\"}\n" +
+      "Where low <= suggested <= high. Use whole dollars or .99 endings.";
+
+    // ── Build multimodal parts (cap at 3 images) ──
+    const parts = [{text: promptText}];
+    const inlineImages = Array.isArray(data.inlineImages) ?
+      data.inlineImages.slice(0, 3) : [];
+    for (const img of inlineImages) {
+      if (!img || typeof img !== "object") continue;
+      const b64 = typeof img.data === "string" ? img.data : "";
+      const mt = typeof img.mimeType === "string" ?
+        img.mimeType : "image/jpeg";
+      // Cap base64 payload at ~2MB per image (raw ~1.5MB).
+      if (!b64 || b64.length > 2_000_000) continue;
+      if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(mt)) continue;
+      parts.push({inlineData: {data: b64, mimeType: mt}});
+    }
+
+    const photoPaths = Array.isArray(data.photos) ?
+      data.photos.slice(0, 3) : [];
+    if (parts.length === 1 && photoPaths.length > 0) {
+      // No inline images — try to download up to 3 from default bucket.
+      try {
+        const bucket = admin.storage().bucket();
+        for (const p of photoPaths) {
+          if (typeof p !== "string" || !p) continue;
+          if (p.length > 1024) continue;
+          // Defense-in-depth: only allow paths under listings/<uid>/...
+          if (!p.startsWith(`listings/${uid}/`)) continue;
+          try {
+            const [buf] = await bucket.file(p).download();
+            if (!buf || buf.length === 0) continue;
+            if (buf.length > 4 * 1024 * 1024) continue;
+            parts.push({
+              inlineData: {
+                data: buf.toString("base64"),
+                mimeType: "image/jpeg",
+              },
+            });
+          } catch (e) {
+            logger.warn("suggestListingPrice: photo download failed", p);
+          }
+        }
+      } catch (e) {
+        logger.warn("suggestListingPrice: bucket access failed", e);
+      }
+    }
+
+    // ── Call Gemini 1.5 Flash via REST ──
+    const apiKey = geminiSecret.value();
+    if (!apiKey) {
+      logger.error("suggestListingPrice: GEMINI_API_KEY missing");
+      throw new HttpsError("internal", "AI service not configured.");
+    }
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      "gemini-1.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
+
+    let aiResp;
+    try {
+      aiResp = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          contents: [{parts}],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 256,
+            responseMimeType: "application/json",
+          },
+        }),
+      });
+    } catch (err) {
+      logger.error("suggestListingPrice: fetch failed", err);
+      throw new HttpsError("internal", "Could not reach AI service.");
+    }
+
+    if (!aiResp.ok) {
+      const body = await aiResp.text().catch(() => "");
+      logger.error(
+          "suggestListingPrice: Gemini error",
+          aiResp.status,
+          body.slice(0, 500),
+      );
+      throw new HttpsError("internal", "AI service returned an error.");
+    }
+
+    let payload;
+    try {
+      payload = await aiResp.json();
+    } catch (err) {
+      logger.error("suggestListingPrice: bad JSON envelope", err);
+      throw new HttpsError("internal", "AI service returned invalid response.");
+    }
+
+    const text =
+      payload &&
+      payload.candidates &&
+      payload.candidates[0] &&
+      payload.candidates[0].content &&
+      payload.candidates[0].content.parts &&
+      payload.candidates[0].content.parts[0] &&
+      payload.candidates[0].content.parts[0].text;
+
+    // ── Parse Gemini's JSON, fall back to median of comps ──
+    const num = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+    };
+
+    const fallbackFromComps = () => {
+      if (!comps.length) return null;
+      const asks = comps.map((c) => c.ask).sort((a, b) => a - b);
+      const median = asks[Math.floor(asks.length / 2)];
+      const low = asks[Math.floor(asks.length * 0.25)] || median;
+      const high = asks[Math.floor(asks.length * 0.75)] || median;
+      return {
+        suggested: median,
+        low,
+        high,
+        reasoning: `Median of ${asks.length} recent comparable sales.`,
+      };
+    };
+
+    let parsed = null;
+    if (typeof text === "string" && text.trim()) {
+      try {
+        // Strip code fences if Gemini ignored responseMimeType.
+        const cleaned = text.trim()
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/```\s*$/i, "");
+        parsed = JSON.parse(cleaned);
+      } catch (err) {
+        logger.warn(
+            "suggestListingPrice: bad JSON in candidate",
+            text.slice(0, 200),
+        );
+      }
+    }
+
+    let suggested = parsed && num(parsed.suggested);
+    let low = parsed && num(parsed.low);
+    let high = parsed && num(parsed.high);
+    let reasoning = parsed && typeof parsed.reasoning === "string" ?
+      parsed.reasoning.slice(0, 240) : "";
+
+    if (!suggested || !low || !high) {
+      const fb = fallbackFromComps();
+      if (!fb) {
+        throw new HttpsError(
+            "internal",
+            "Couldn't suggest a price right now.",
+        );
+      }
+      suggested = fb.suggested;
+      low = fb.low;
+      high = fb.high;
+      reasoning = reasoning || fb.reasoning;
+    }
+
+    // Clamp the band so low <= suggested <= high.
+    if (low > suggested) low = suggested;
+    if (high < suggested) high = suggested;
+
+    // Slim public comps payload — title + ask only, capped at 8 for UI.
+    const publicComps = comps.slice(0, 8).map((c) => ({
+      title: c.title,
+      brand: c.brand,
+      condition: c.condition,
+      ask: c.ask,
+    }));
+
+    return {
+      suggested,
+      low,
+      high,
+      reasoning: reasoning || "Based on recent comparable sales.",
+      comps: publicComps,
+      compsCount: comps.length,
+    };
+  },
+);
+
 // ──────────────────────────────────────────────────────────────────────
 // moderateListingOnCreate
 //

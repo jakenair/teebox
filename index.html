@@ -1685,6 +1685,65 @@
   .price-suggest strong { color: var(--green-900); font-weight: 700; }
   .price-suggest button { background: var(--gold-500); color: var(--green-950); border: none; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-body); margin-left: auto; }
   .price-suggest button:hover { background: var(--gold-400); }
+
+  /* AI price-suggest — ghost button + result card. Sits below the
+     Ask Price input and calls the suggestListingPrice Cloud Function.
+     Forest-green ghost button to match the seller form aesthetic. */
+  .ai-price-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; color: var(--green-700);
+    border: 1px solid var(--green-200);
+    border-radius: 50px;
+    padding: 5px 12px;
+    font-family: var(--font-body); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: none;
+    margin-top: 6px;
+  }
+  .ai-price-btn:hover:not(:disabled) {
+    background: var(--green-50);
+    border-color: var(--green-500);
+  }
+  .ai-price-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ai-price-btn.loading { pointer-events: none; opacity: 0.7; }
+  .ai-price-spark { font-size: 13px; line-height: 1; }
+  .ai-price-card {
+    margin-top: 8px; padding: 10px 12px;
+    background: rgba(31, 72, 39, 0.06);
+    border-left: 3px solid var(--green-700);
+    border-radius: var(--radius-sm);
+    font-size: 12.5px; color: var(--gray-700);
+    display: flex; gap: 10px; align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .ai-price-card strong { color: var(--green-900); font-weight: 700; }
+  .ai-price-card .ai-price-headline {
+    flex: 1 1 100%; line-height: 1.4;
+  }
+  .ai-price-card .ai-price-reasoning {
+    flex: 1 1 100%;
+    color: var(--gray-600);
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .ai-price-card button {
+    background: var(--green-700); color: var(--white);
+    border: none; border-radius: 999px;
+    padding: 5px 12px; font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: var(--font-body);
+  }
+  .ai-price-card button:hover { background: var(--green-900); }
+  .ai-price-card.ai-price-error {
+    background: rgba(176, 68, 40, 0.06);
+    border-left-color: #b04428;
+    color: var(--gray-700);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-price-btn, .ai-price-card button { transition: none; }
+  }
+
   .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
   .auth-photo-notice strong { color: #b04428; font-size: 13px; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
@@ -3734,6 +3793,12 @@
         <div class="form-row"><label for="sellQuantity">Quantity in stock</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" /></div>
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
+      <div style="margin-top:-4px;margin-bottom:10px;">
+        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
+          <span class="ai-price-spark" aria-hidden="true">&#10024;</span> Suggest price
+        </button>
+        <div id="aiPriceCard" class="ai-price-card" style="display:none" aria-live="polite"></div>
+      </div>
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
         <strong>High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
@@ -4830,6 +4895,46 @@ window.confirmPayment = async function() {
   window.removePhoto = function(i) {
     selectedFiles.splice(i,1);
     renderPreviews();
+  };
+
+  // Exposes the first N draft photos as base64 data + mimeType so the
+  // AI price-suggest call can include them as multimodal input. Each
+  // image is downscaled to a max 1024-px edge and re-encoded as JPEG
+  // (~75% quality) to keep the callable payload under 1MB total.
+  window.getSellPhotosForAI = async function(maxCount) {
+    const out = [];
+    if (!selectedFiles || selectedFiles.length === 0) return out;
+    const n = Math.min(selectedFiles.length, Math.max(1, maxCount || 3));
+    for (let i = 0; i < n; i++) {
+      try {
+        const file = selectedFiles[i];
+        const bitmap = await createImageBitmap(file).catch(() => null);
+        if (!bitmap) continue;
+        const maxEdge = 1024;
+        const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+        const w = Math.max(1, Math.round(bitmap.width * scale));
+        const h = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.75));
+        if (!blob) continue;
+        const buf = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        // btoa requires a binary string; build it in chunks to avoid
+        // call-stack limits on larger images.
+        let bin = '';
+        const chunk = 0x8000;
+        for (let j = 0; j < bytes.length; j += chunk) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(j, j + chunk));
+        }
+        out.push({ data: btoa(bin), mimeType: 'image/jpeg' });
+      } catch (e) {
+        // Best-effort — skip this photo and continue.
+      }
+    }
+    return out;
   };
 
   async function uploadPhotos(listingId) {
@@ -8236,6 +8341,109 @@ async function aiWriteDescription() {
   }
 }
 window.aiWriteDescription = aiWriteDescription;
+
+// ─────────────────────────────────────────────────────────────
+// AI price-suggest (Gemini multimodal via suggestListingPrice CF).
+// Reads the current draft (title/brand/category/condition + first 3
+// photos), calls the Cloud Function, and renders a small card below
+// the price input with the suggested price band + a "Use this price"
+// shortcut. Silent fail on any error (inline message in the card).
+// ─────────────────────────────────────────────────────────────
+function escapeHtmlForAiCard(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function aiSuggestPrice() {
+  const btn  = document.getElementById('aiPriceBtn');
+  const card = document.getElementById('aiPriceCard');
+  if (!btn || !card) return;
+  const titleEl = document.getElementById('sellTitle');
+  const brandEl = document.getElementById('sellBrand');
+  const catEl   = document.getElementById('sellCat');
+  const condEl  = document.getElementById('sellCondition');
+  const title     = (titleEl     && titleEl.value     || '').trim();
+  const brand     = (brandEl     && brandEl.value     || '').trim();
+  const category  = (catEl       && catEl.value       || '').trim();
+  const condition = (condEl      && condEl.value      || '').trim();
+  if (!title) {
+    card.className = 'ai-price-card ai-price-error';
+    card.style.display = '';
+    card.innerHTML = '<span class="ai-price-headline">Add a title first.</span>';
+    return;
+  }
+  if (!window.CURRENT_USER) {
+    if (window.showToast) showToast('Sign in to suggest a price.');
+    return;
+  }
+  const originalLabel = btn.innerHTML;
+  btn.classList.add('loading');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ai-price-spark">&#10024;</span> Analyzing…';
+  card.className = 'ai-price-card';
+  card.style.display = 'none';
+  try {
+    // Pull up to 3 photos as base64 (downscaled JPEGs) for multimodal input.
+    const inlineImages = (typeof window.getSellPhotosForAI === 'function')
+      ? await window.getSellPhotosForAI(3).catch(() => [])
+      : [];
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'suggestListingPrice');
+    const result = await fn({
+      title, brand, category, condition,
+      // model is not a separate field in the sell form; pass title as a hint.
+      model: '',
+      inlineImages,
+    });
+    const d = (result && result.data) || {};
+    const suggested = Number(d.suggested || 0);
+    const low  = Number(d.low  || 0);
+    const high = Number(d.high || 0);
+    if (!(suggested > 0 && low > 0 && high > 0)) {
+      throw new Error('bad-shape');
+    }
+    const fmt = (n) => '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
+    const compsCount = Number(d.compsCount || 0);
+    const reasoning = (typeof d.reasoning === 'string' && d.reasoning.trim())
+      ? d.reasoning.trim()
+      : (compsCount > 0
+          ? `Based on ${compsCount} recent sales of similar items.`
+          : 'Based on a fair-value estimate.');
+    card.className = 'ai-price-card';
+    card.style.display = '';
+    card.innerHTML =
+      '<span class="ai-price-headline">' +
+        '&#128161; Suggested: <strong>' + fmt(suggested) + '</strong> ' +
+        '(range <strong>' + fmt(low) + '–' + fmt(high) + '</strong>).' +
+      '</span>' +
+      '<span class="ai-price-reasoning">' + escapeHtmlForAiCard(reasoning) + '</span>' +
+      '<button type="button" data-action="apply-ai-price" data-price="' + suggested + '">Use this price</button>';
+  } catch (e) {
+    console.warn('aiSuggestPrice failed:', e);
+    const code = (e && e.code) || '';
+    let msg = "Couldn't suggest a price right now.";
+    if (code === 'functions/resource-exhausted') {
+      msg = 'Too many requests. Try again in a minute.';
+    } else if (code === 'functions/unauthenticated') {
+      msg = 'Sign in to suggest a price.';
+    } else if (code === 'functions/invalid-argument') {
+      msg = 'Add a title first.';
+    }
+    card.className = 'ai-price-card ai-price-error';
+    card.style.display = '';
+    card.innerHTML = '<span class="ai-price-headline">' + escapeHtmlForAiCard(msg) + '</span>';
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+  }
+}
+window.aiSuggestPrice = aiSuggestPrice;
 
 function closeSellModal(e) { if(e.target===document.getElementById('sellModalBackdrop')) closeSellModalDirect(); }
 function closeSellModalDirect() { document.getElementById('sellModalBackdrop').classList.remove('open'); }
@@ -12118,6 +12326,18 @@ A['confirm-report-review']    = () => { if (!window.requireAuth('to submit your 
 A['close-sell-direct']       = () => closeSellModalDirect();
 A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
 A['ai-write-desc']            = () => { if (!window.requireAuth('to use AI description')) return; aiWriteDescription(); };
+A['ai-suggest-price']         = () => { if (!window.requireAuth('to suggest a price')) return; aiSuggestPrice(); };
+A['apply-ai-price']           = (el) => {
+  const p = Number(el.dataset.price || 0);
+  const inp = document.getElementById('sellPrice');
+  if (inp && p > 0) {
+    inp.value = String(p);
+    // Trigger the input event so any side effects (auth-photo-notice,
+    // draft persistence) run as if the user typed it.
+    inp.dispatchEvent(new Event('input', {bubbles: true}));
+    if (window.showToast) showToast('Price applied.');
+  }
+};
 A['close-checkout-direct']   = () => closeCheckoutDirect();
 A['confirm-payment']         = () => { if (!window.requireAuth('to complete your purchase')) return; confirmPayment(); };
 // Mount-time error recovery — re-runs openCheckout for the active product
