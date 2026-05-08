@@ -11617,6 +11617,15 @@ A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['forgot-password']         = () => forgotPassword();
 A['submit-email']            = () => submitEmail();
+// TODO: revert before launch — TEMP DEBUG (Build 38 OAuth hang diag).
+// Surface each OAuth step on-screen so we can see where the flow stalls
+// without a Mac+USB Web Inspector. Removing this before submission.
+window.__authDiag = function (msg) {
+  try {
+    const el = document.getElementById('authErrorEmail');
+    if (el) el.textContent = '[diag] ' + msg;
+  } catch (_) {}
+};
 A['sign-in-google']          = async (btn) => {
   const err = document.getElementById('authErrorEmail');
   if (err) err.textContent = '';
@@ -11632,6 +11641,7 @@ A['sign-in-google']          = async (btn) => {
     if (googleBtn) googleBtn.disabled = false;
     if (labelEl) labelEl.textContent = originalLabel;
   };
+  window.__authDiag('G1 native=' + (!!window.IS_NATIVE) + ' plugin=' + (!!window.FBAuthPlugin));
   try {
     // Native (iOS/Android): use the @capacitor-firebase/authentication plugin
     // so we get the real Google sign-in UI from the OS, not a popup.
@@ -11649,18 +11659,24 @@ A['sign-in-google']          = async (btn) => {
     // subspec — without it, the GIDSignIn flow is compiled out and
     // signInWithGoogle() hangs forever with no result and no error.)
     if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithGoogle === 'function') {
+      window.__authDiag('G2 calling FBAuthPlugin.signInWithGoogle');
       const result = await window.FBAuthPlugin.signInWithGoogle();
       const idToken = result && result.credential && result.credential.idToken;
       const accessToken = result && result.credential && result.credential.accessToken;
+      window.__authDiag('G3 plugin returned idToken=' + (idToken ? idToken.length : 0) + ' accessToken=' + (accessToken ? accessToken.length : 0));
       if (!idToken) {
         // Plugin returned without a token — usually means the user backed
         // out of the Google sheet. Treat as silent cancel and just
         // restore the button rather than showing a scary error.
+        window.__authDiag('G3a no idToken — silent cancel');
         restoreBtn();
         return;
       }
+      window.__authDiag('G4 building cred');
       const cred = window.GoogleAuthProvider.credential(idToken, accessToken);
+      window.__authDiag('G5 calling signInWithCredential');
       await window.signInWithCredential(window.firebaseAuth, cred);
+      window.__authDiag('G6 signInWithCredential resolved — auth state should propagate');
       // Belt-and-suspenders cleanup. Previously we relied solely on
       // onAuthStateChanged to hide the auth screen, but on the native
       // plugin path the listener can race with this resolve, leaving
@@ -11735,6 +11751,7 @@ A['sign-in-apple']           = async (btn) => {
     // Native iOS: use the Capacitor plugin so we get the OS's Apple sheet.
     // Same JS-SDK bridge pattern as Google — exchange the credential into
     // the JS Auth instance so Firestore/Storage/Functions get an authed user.
+    window.__authDiag('A1 native=' + (!!window.IS_NATIVE) + ' plugin=' + (!!window.FBAuthPlugin));
     if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithApple === 'function') {
       // skipNativeAuth: true is REQUIRED for Apple. Apple identity tokens
       // are single-use, and without this option the plugin would also
@@ -11745,17 +11762,23 @@ A['sign-in-apple']           = async (btn) => {
       // (Google ID tokens are reusable within their validity window so
       // Google sign-in works without this flag — but it would also be
       // safe to add there.)
+      window.__authDiag('A2 calling FBAuthPlugin.signInWithApple');
       const result = await window.FBAuthPlugin.signInWithApple({ skipNativeAuth: true });
+      window.__authDiag('A3 plugin returned idToken=' + (result && result.credential && result.credential.idToken ? 'yes' : 'no'));
       const idToken = result && result.credential && result.credential.idToken;
       const rawNonce = result && result.credential && result.credential.nonce;
       if (!idToken) {
         // User backed out — silent restore.
+        window.__authDiag('A3a no idToken — silent cancel');
         restoreBtn();
         return;
       }
+      window.__authDiag('A4 building OAuthProvider cred');
       const provider = new window.OAuthProvider('apple.com');
       const cred = provider.credential({ idToken, rawNonce });
+      window.__authDiag('A5 calling signInWithCredential');
       await window.signInWithCredential(window.firebaseAuth, cred);
+      window.__authDiag('A6 signInWithCredential resolved');
       // Same race-safety as the Google path. If the onAuthStateChanged
       // listener hasn't already started fading the modal out, force it.
       const _as = document.getElementById('authScreen');
