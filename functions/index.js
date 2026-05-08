@@ -704,6 +704,24 @@ async function handlePaymentSucceeded(pi) {
     logger.warn("priceHistory rollup failed:", err.message);
   }
 
+  // Denormalized homepage stats — `globalStats/all` is a single doc the
+  // homepage reads with one getDoc() instead of scanning priceHistory.
+  // Atomic increment so concurrent webhook deliveries don't lose writes.
+  // Best-effort, non-fatal: a failure here can't block order recording.
+  try {
+    await db.collection("globalStats").doc("all").set(
+      {
+        totalGmvCents: admin.firestore.FieldValue.increment(pi.amount),
+        totalSold: admin.firestore.FieldValue.increment(1),
+        lastSaleAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+  } catch (err) {
+    logger.warn("globalStats bump failed:", err.message);
+  }
+
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
 
@@ -1351,6 +1369,11 @@ exports.notifyOnSavedSearchMatch = onDocumentCreated(
 
       let matched = 0;
       const writes = [];
+      const listingTitle = listing.title || "a new listing";
+      const listingPrice = Number.isFinite(Number(listing.ask))
+        ? Number(listing.ask)
+        : null;
+
       searchesSnap.forEach((doc) => {
         const search = doc.data();
         const userId = search.userId;
@@ -1360,13 +1383,22 @@ exports.notifyOnSavedSearchMatch = onDocumentCreated(
 
         if (!listingMatchesSavedSearch(listing, search.query)) return;
 
-        const notifRef = db.collection("notifications").doc();
+        // Write to users/{uid}/notifications — that's the path the
+        // pushNotificationDispatch trigger listens on. The legacy
+        // top-level notifications/ path was a bug: it created docs
+        // that no dispatcher ever read.
+        const notifRef = db
+          .collection("users").doc(userId)
+          .collection("notifications").doc();
         writes.push(
           notifRef.set({
             userId,
-            type: "saved-search-match",
+            kind: "saved-search-match",
             listingId,
+            listingTitle,
+            listingPrice,
             searchId: doc.id,
+            searchName: search.name || null,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             read: false,
           })
@@ -1971,8 +2003,13 @@ exports.pushNotificationDispatch = onDocumentCreated(
         title = `Price drop on ${data.listingTitle || "your watchlist"}`;
         body = `Now $${data.currentAsk} (was $${data.previousAsk}, -${data.dropPct}%)`;
       } else if (data.kind === "saved-search-match") {
-        title = "New listing matches your saved search";
-        body = data.listingTitle || "Tap to view";
+        title = data.searchName
+          ? `New match for "${data.searchName}"`
+          : "New listing matches your saved search";
+        const priceStr = (data.listingPrice != null)
+          ? ` — $${data.listingPrice}`
+          : "";
+        body = `${data.listingTitle || "Tap to view"}${priceStr}`;
       } else if (data.kind === "offer-received") {
         title = `New offer: $${data.amount}`;
         body = `From ${data.buyerName || "a buyer"} on ${data.listingTitle || "your listing"}`;
@@ -2011,7 +2048,11 @@ exports.pushNotificationDispatch = onDocumentCreated(
         notification: {title, body},
         data: {
           kind: String(data.kind || ""),
+          // Mirror kind to a snake_case `type` for native handlers that
+          // key off the saved-search-match payload (saved_search_match).
+          type: String(data.kind || "").replace(/-/g, "_"),
           listingId: String(data.listingId || ""),
+          savedSearchId: String(data.searchId || ""),
           notificationId: String(event.params.notifId),
         },
       });
@@ -3179,4 +3220,86 @@ exports.moderateProfileOnWrite = onDocumentUpdated(
         logger.error("moderation: profile clear failed", e);
       }
     },
+);
+
+// ─────────────────────────────────────────────────────────────
+// backfillGlobalStats (admin-only callable, ONE-TIME)
+//   Sums every paid order's amount + count and seeds the
+//   `globalStats/all` denormalized doc the homepage reads. Idempotent
+//   via merge-overwrite, so safe to call again if needed. Run once
+//   after the perf migration that swaps the homepage scan for a
+//   single-doc read.
+//
+//   USER ACTION: after `firebase deploy --only functions:backfillGlobalStats`
+//   call this once from the browser as the admin (jakenair23@gmail.com):
+//
+//     firebase.functions().httpsCallable('backfillGlobalStats')()
+//
+//   Or via gcloud / `firebase functions:shell`. Returns {totalGmvCents,
+//   totalSold, ordersScanned}.
+// ─────────────────────────────────────────────────────────────
+const ADMIN_EMAILS = ["jakenair23@gmail.com"];
+exports.backfillGlobalStats = onCall(
+    {...USER_CALLABLE, timeoutSeconds: 300, memory: "512MiB"},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be signed in");
+      }
+      const email = request.auth.token && request.auth.token.email;
+      const verified = request.auth.token &&
+        request.auth.token.email_verified === true;
+      if (!verified || !ADMIN_EMAILS.includes(email)) {
+        throw new HttpsError("permission-denied", "Admin only");
+      }
+
+      const db = admin.firestore();
+      // Page through paid orders to avoid blowing past Firestore limits.
+      // We only need amountCents per doc — keep batching defensive.
+      let totalGmvCents = 0;
+      let totalSold = 0;
+      let lastSaleMs = 0;
+      let cursor = null;
+      const PAGE = 500;
+
+      while (true) {
+        let q = db.collection("orders")
+            .where("status", "==", "paid")
+            .orderBy("createdAt", "asc")
+            .limit(PAGE);
+        if (cursor) q = q.startAfter(cursor);
+        const snap = await q.get();
+        if (snap.empty) break;
+        for (const d of snap.docs) {
+          const data = d.data();
+          const cents = Number(data.amountCents) ||
+            Math.round(Number(data.amount || 0) * 100);
+          if (Number.isFinite(cents) && cents > 0) {
+            totalGmvCents += cents;
+            totalSold += 1;
+          }
+          const ts = data.createdAt && data.createdAt.toMillis ?
+            data.createdAt.toMillis() : 0;
+          if (ts > lastSaleMs) lastSaleMs = ts;
+        }
+        cursor = snap.docs[snap.docs.length - 1];
+        if (snap.size < PAGE) break;
+      }
+
+      const payload = {
+        totalGmvCents,
+        totalSold,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        backfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (lastSaleMs > 0) {
+        payload.lastSaleAt = admin.firestore.Timestamp.fromMillis(lastSaleMs);
+      }
+      await db.collection("globalStats").doc("all").set(payload, {merge: true});
+
+      logger.info(
+          `backfillGlobalStats: seeded ${totalSold} orders, ` +
+        `$${(totalGmvCents / 100).toFixed(2)} GMV`
+      );
+      return {totalGmvCents, totalSold, ordersScanned: totalSold};
+    }
 );
