@@ -117,7 +117,7 @@
       "name": "Can I sell my used golf clubs on TeeBox?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. List your clubs in seconds — verify your phone, agree to the seller terms, post photos with a price. TeeBox takes 6.5% only when your item sells."
+        "text": "Yes. List your clubs in seconds — agree to the seller terms, post photos with a price. TeeBox takes 6.5% only when your item sells."
       }
     }
   ]
@@ -2858,7 +2858,7 @@
       <ul style="margin:0 0 1rem 1.25rem;color:var(--gray-700);line-height:1.6">
         <li>Your active listings will be removed from the marketplace.</li>
         <li>Your profile, name, photo, and bio will be deleted.</li>
-        <li>You will be signed out and cannot sign back in with this phone number.</li>
+        <li>You will be signed out and cannot sign back in with this account.</li>
         <li>Anonymized order and dispute records are retained for accounting.</li>
       </ul>
       <p style="margin-bottom:0.5rem;font-size:13px;color:var(--gray-500)">Type <strong>DELETE</strong> below to confirm.</p>
@@ -2963,7 +2963,7 @@
 
       <h4>How it works</h4>
       <ol class="info-list">
-        <li><strong>List in seconds.</strong> Verify your phone number, agree to the seller terms, and post photos with a price. No application, no waiting.</li>
+        <li><strong>List in seconds.</strong> Agree to the seller terms and post photos with a price. No application, no waiting.</li>
         <li><strong>Message before you buy.</strong> Every listing has a built-in chat with the seller so you can ask about condition, sizing, or shipping before you commit.</li>
         <li><strong>Pay with confidence.</strong> Checkout runs through Stripe with Visa, Mastercard, Amex, Apple Pay, and Google Pay. Card details never touch our servers.</li>
         <li><strong>Sellers ship directly.</strong> Once a sale is confirmed, the seller has 3 business days to ship with tracking. Funds are held until the buyer confirms delivery.</li>
@@ -3042,13 +3042,13 @@
       <p class="info-meta">Last updated: April 28, 2026</p>
 
       <h4>What we collect</h4>
-      <p>When you sign up we collect your email address (or phone number, if you choose phone sign-in) to verify your account and let you sign back in. When you list or purchase items, we collect the listing data you provide and a transaction record. Stripe collects payment information directly — we never store card numbers on TeeBox servers.</p>
+      <p>When you sign up we collect your email address to verify your account and let you sign back in. When you list or purchase items, we collect the listing data you provide and a transaction record. Stripe collects payment information directly — we never store card numbers on TeeBox servers.</p>
 
       <h4>How we use it</h4>
       <p>We use this information to operate the marketplace: showing your listings to other members, routing payments and payouts, communicating with you about your account, and detecting fraud. We do not sell your personal information and we do not use it for third-party advertising.</p>
 
       <h4>Who can see what</h4>
-      <p>Listings and seller display names are public. Your email address and phone number are private to your account and are never shown to other members. Conversations are visible only to the two members in them. Order records are visible only to the buyer and seller of that order.</p>
+      <p>Listings and seller display names are public. Your email address is private to your account and is never shown to other members. Conversations are visible only to the two members in them. Order records are visible only to the buyer and seller of that order.</p>
 
       <h4>Cookies &amp; analytics</h4>
       <p>The site uses functional cookies for sign-in (Firebase Authentication) and payments (Stripe). We do not use third-party advertising trackers, behavioral analytics, or cross-site tracking.</p>
@@ -4386,7 +4386,7 @@ window.confirmPayment = async function() {
       window.IS_VERIFIED_SELLER = !!(data && data.sellerVerified === true);
       window.CURRENT_PROFILE_NAME = (data && data.displayName) ? String(data.displayName) : '';
       // Bootstrap the users/{uid} doc on first sign-in (any provider —
-      // email, Google, phone). Schema is locked to the rules whitelist:
+      // email, Google, Apple). Schema is locked to the rules whitelist:
       // [phone, termsAgreed, termsAgreedAt, displayName, watchlist, blocked].
       // Anything else fails the create rule. We seed displayName='' so
       // downstream merges (block, watchlist, requestSellerVerification)
@@ -4403,33 +4403,10 @@ window.confirmPayment = async function() {
     }
   }
 
-  // Auto-format US phone input as (XXX) XXX-XXXX while typing.
-  const phoneInputEl = document.getElementById('phoneInput');
-  if (phoneInputEl) {
-    phoneInputEl.addEventListener('input', (e) => {
-      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-      let f = '';
-      if (digits.length > 0) f = '(' + digits.slice(0, 3);
-      if (digits.length >= 4) f += ') ' + digits.slice(3, 6);
-      if (digits.length >= 7) f += '-' + digits.slice(6);
-      e.target.value = f;
-      // Clear stale "invalid phone" error as soon as they keep typing.
-      const err1 = document.getElementById('authError1');
-      if (err1 && err1.textContent) err1.textContent = '';
-    });
-    // Enter-to-submit (parity with email field — saves an extra tap on
-    // iOS where the keyboard "Go" key triggers submit).
-    phoneInputEl.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); window.sendCode && window.sendCode(); }
-    });
-  }
-
   // ──────────────────────────────────────────────────────────
-  // Phone auth: Capacitor on iOS uses the @capacitor-firebase/authentication
-  // plugin (native iOS Firebase SDK + APNs silent push). Outside Capacitor
-  // (web/desktop), fall back to the Firebase Web SDK + reCAPTCHA. The
-  // Web SDK's reCAPTCHA flow doesn't render reliably inside WKWebView,
-  // which is the core reason for the split.
+  // Capacitor wiring: native plugins surface OAuth (Google / Apple) results
+  // through Capacitor.Plugins.FirebaseAuthentication. Outside Capacitor
+  // (web / desktop) we fall back to the Firebase Web SDK popup flow.
   // ──────────────────────────────────────────────────────────
   const Cap = (typeof window !== 'undefined') ? window.Capacitor : null;
   const IS_NATIVE = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
@@ -4455,29 +4432,8 @@ window.confirmPayment = async function() {
     window.signInWithCredential = signInWithCredential;
     window.signInWithPopup = signInWithPopup;
   } catch (_) {}
-  let nativeVerificationId = null;
 
   if (IS_NATIVE && FBAuthPlugin) {
-    // Step-2 transition is driven by the phoneCodeSent event (iOS).
-    FBAuthPlugin.addListener('phoneCodeSent', (event) => {
-      nativeVerificationId = event && event.verificationId;
-      const sentTo = (window.__lastPhoneSentTo || '');
-      document.getElementById('authStep1').style.display = 'none';
-      document.getElementById('authStep2').style.display = 'block';
-      document.getElementById('codeSentDesc').textContent = sentTo ? `Code sent to ${sentTo}.` : 'Code sent.';
-      const btn = document.getElementById('sendCodeBtn');
-      if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code'; }
-      // Focus the OTP field so iOS/Android auto-fill from the SMS lands
-      // straight in the input — saves the user a tap.
-      try { document.getElementById('codeInput').focus(); } catch {}
-      armResendCode();
-    });
-    FBAuthPlugin.addListener('phoneVerificationFailed', (event) => {
-      const err = document.getElementById('authError1');
-      if (err) err.textContent = (event && event.message) || 'Verification failed.';
-      const btn = document.getElementById('sendCodeBtn');
-      if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code'; }
-    });
     // Native Google sign-in errors surface through this event. Without a
     // listener the plugin silently swallows them (cancelled, network,
     // missing CFBundleURLSchemes), leaving the user staring at a frozen
@@ -4535,207 +4491,8 @@ window.confirmPayment = async function() {
     });
   }
 
-  // Reveal the "Resend code" link after a 30s cool-down so users who
-  // never receive the SMS aren't stuck. Cancelled if the user navigates
-  // back to step 1 (back-to-phone) since the timer would otherwise fire
-  // against a hidden DOM.
-  let resendTimer = null;
-  function armResendCode() {
-    const link = document.getElementById('resendCodeBtn');
-    if (!link) return;
-    link.style.display = 'none';
-    if (resendTimer) { clearTimeout(resendTimer); resendTimer = null; }
-    resendTimer = setTimeout(() => { link.style.display = 'inline-block'; resendTimer = null; }, 30000);
-  }
-  window.resendCode = function() {
-    // Drop any in-memory verification state so sendCode runs the full
-    // path again. For native phone-auth this just re-arms the listener;
-    // for web we also rebuild reCAPTCHA which is single-use.
-    nativeVerificationId = null;
-    confirmationResult = null;
-    try { window.recaptchaVerifier?.clear(); } catch {}
-    window.recaptchaVerifier = null;
-    const link = document.getElementById('resendCodeBtn');
-    if (link) link.style.display = 'none';
-    // Flip back to step 1 visually so the same sendCode UI handles the
-    // re-send (button text + error region are reused).
-    document.getElementById('authStep1').style.display = 'block';
-    document.getElementById('authStep2').style.display = 'none';
-    if (typeof window.sendCode === 'function') window.sendCode();
-  };
-
-  window.sendCode = async function() {
-    const raw = document.getElementById('phoneInput').value;
-    const digits = raw.replace(/\D/g, '');
-    const err = document.getElementById('authError1');
-    const btn = document.getElementById('sendCodeBtn');
-    if (digits.length !== 10) {
-      err.textContent = 'Please enter a valid 10-digit US phone number.';
-      return;
-    }
-    const phone = '+1' + digits;
-    window.__lastPhoneSentTo = phone;
-    err.textContent = ''; btn.disabled = true; btn.textContent = 'Sending…';
-
-    if (IS_NATIVE && FBAuthPlugin) {
-      // Native iOS: APNs-backed verification, no reCAPTCHA.
-      // Step-2 UI flips inside the phoneCodeSent listener once Firebase confirms.
-      // 30s timeout — if neither phoneCodeSent nor phoneVerificationFailed fires
-      // (the silent-hang failure mode we hit before the entitlements fix), surface
-      // a real error instead of leaving the user staring at a frozen button.
-      window.__sendCodeStarted = Date.now();
-      setTimeout(() => {
-        const stillSending = btn && btn.disabled && btn.textContent.indexOf('Sending') >= 0;
-        if (stillSending) {
-          err.textContent = 'No response from Firebase. Force-quit the app and try again.';
-          btn.disabled = false; btn.textContent = 'Send Verification Code';
-        }
-      }, 30000);
-      try {
-        await FBAuthPlugin.signInWithPhoneNumber({ phoneNumber: phone });
-      } catch (e) {
-        const code = (e && e.code) || '';
-        let msg = 'Couldn’t send the code. Try again in a moment.';
-        if (code === 'auth/invalid-phone-number') msg = 'That phone number isn’t valid. Double-check and try again.';
-        else if (code === 'auth/too-many-requests') msg = 'Too many requests. Wait a few minutes before trying again.';
-        else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
-        err.textContent = msg;
-        btn.disabled = false; btn.textContent = 'Send Verification Code';
-      }
-      return;
-    }
-
-    // Web fallback (Safari / Chrome on desktop).
-    try {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-      }
-      confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-      document.getElementById('authStep1').style.display = 'none';
-      document.getElementById('authStep2').style.display = 'block';
-      document.getElementById('codeSentDesc').textContent = `Code sent to ${phone}.`;
-      // Auto-focus the OTP field — saves a tap on iOS where the keyboard
-      // doesn't open until the input is focused.
-      try { document.getElementById('codeInput').focus(); } catch {}
-      armResendCode();
-    } catch(e) {
-      const code = (e && e.code) || '';
-      let msg = 'Couldn’t send the code. Try again in a moment.';
-      if (code === 'auth/invalid-phone-number') msg = 'That phone number isn’t valid. Double-check and try again.';
-      else if (code === 'auth/too-many-requests') msg = 'Too many requests. Wait a few minutes before trying again.';
-      else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
-      else if (code === 'auth/captcha-check-failed' || code === 'auth/internal-error') msg = 'Verification failed. Reload the page and try again.';
-      // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
-      // Catching this branch on iOS = native plugin path was skipped, which
-      // means the @capacitor-firebase/authentication plugin failed to register.
-      // Surface IS_NATIVE / plugin flags so we can tell from the user's screen.
-      msg += ` [diag native=${IS_NATIVE} plugin=${FBAuthPlugin ? 'yes' : 'no'} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
-      err.textContent = msg;
-      btn.disabled = false; btn.textContent = 'Send Verification Code';
-      try { window.recaptchaVerifier?.clear(); } catch {}
-      window.recaptchaVerifier = null;
-    }
-  };
-
-  window.verifyCode = async function() {
-    const code = document.getElementById('codeInput').value.trim();
-    const err = document.getElementById('authError2');
-    const btn = document.getElementById('verifyBtn');
-    if (!code) { err.textContent = 'Please enter the code.'; return; }
-    if (!/^\d{6}$/.test(code)) {
-      err.textContent = 'The code must be 6 digits.';
-      return;
-    }
-    err.textContent = ''; btn.disabled = true; btn.textContent = 'Verifying…';
-
-    const friendlyVerifyError = (e) => {
-      const code = (e && e.code) || '';
-      if (code === 'auth/invalid-verification-code') return 'That code didn’t work. Double-check the digits and try again.';
-      if (code === 'auth/code-expired') return 'This code has expired. Tap "Resend" to get a new one.';
-      if (code === 'auth/network-request-failed') return 'Network error. Check your connection and try again.';
-      if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
-      if (code === 'auth/session-expired') return 'Session expired. Send a new code to continue.';
-      return 'That code didn’t work. Double-check the digits and try again.';
-    };
-
-    if (IS_NATIVE && FBAuthPlugin) {
-      try {
-        await FBAuthPlugin.confirmVerificationCode({
-          verificationId: nativeVerificationId,
-          verificationCode: code,
-        });
-        // Native SDK is now authenticated. Mirror the auth state into the
-        // Web SDK (which Firestore/Storage/Functions use) by trading the
-        // native ID token for a custom token via Cloud Function.
-        const { token: idToken } = await FBAuthPlugin.getIdToken();
-        const exchangeFn = httpsCallable(fns, 'exchangeIdTokenForCustomToken');
-        const exchanged = await exchangeFn({ idToken });
-        const customToken = exchanged && exchanged.data && exchanged.data.customToken;
-        if (!customToken) throw new Error('Token exchange failed');
-        await signInWithCustomToken(auth, customToken);
-        // onAuthStateChanged fires from here.
-      } catch (e) {
-        console.error('verifyCode (native) failed:', e);
-        err.textContent = friendlyVerifyError(e);
-        btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
-        // Clear + refocus so the user can retype without first having to
-        // tap-clear the bad code on iOS.
-        try {
-          const ci = document.getElementById('codeInput');
-          if (ci) { ci.value = ''; ci.focus(); }
-        } catch {}
-      }
-      return;
-    }
-
-    if (!confirmationResult) {
-      err.textContent = 'Session expired. Send a new code to continue.';
-      btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
-      return;
-    }
-    try { await confirmationResult.confirm(code); }
-    catch(e) {
-      err.textContent = friendlyVerifyError(e);
-      btn.disabled = false; btn.textContent = 'Verify & Enter TeeBox';
-      try {
-        const ci = document.getElementById('codeInput');
-        if (ci) { ci.value = ''; ci.focus(); }
-      } catch {}
-    }
-  };
-
-  window.backToPhone = function() {
-    document.getElementById('authStep1').style.display = 'block';
-    document.getElementById('authStep2').style.display = 'none';
-    document.getElementById('authError1').textContent = '';
-    document.getElementById('sendCodeBtn').disabled = false;
-    document.getElementById('sendCodeBtn').textContent = 'Send Verification Code';
-    nativeVerificationId = null;
-    confirmationResult = null;
-    if (resendTimer) { clearTimeout(resendTimer); resendTimer = null; }
-    const link = document.getElementById('resendCodeBtn');
-    if (link) link.style.display = 'none';
-    // Reset reCAPTCHA — single-use, retrying without rebuild throws auth/internal-error.
-    try { window.recaptchaVerifier?.clear(); } catch {}
-    window.recaptchaVerifier = null;
-  };
-
   // Email auth: works in WebView with no native plugin / APNs / silent push.
   let emailMode = 'signin';
-
-  window.setAuthMode = function(el) {
-    const mode = el && el.dataset && el.dataset.mode;
-    if (mode !== 'email' && mode !== 'phone') return;
-    document.querySelectorAll('.auth-mode-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.querySelector('.auth-mode-btn[data-mode="' + mode + '"]');
-    if (activeBtn) activeBtn.classList.add('active');
-    document.getElementById('authEmailMode').style.display = mode === 'email' ? 'block' : 'none';
-    document.getElementById('authPhoneMode').style.display = mode === 'phone' ? 'block' : 'none';
-    // Clear errors on either side so a stale message from a previous mode
-    // doesn't follow the user across.
-    const e1 = document.getElementById('authError1'); if (e1) e1.textContent = '';
-    const e2 = document.getElementById('authErrorEmail'); if (e2) e2.textContent = '';
-  };
 
   function applyEmailMode() {
     const isSignIn = emailMode === 'signin';
@@ -4845,28 +4602,6 @@ window.confirmPayment = async function() {
     });
   });
 
-  // OTP input — strip non-digits, auto-submit when 6 digits are present,
-  // and submit on Enter / iOS "Go". Saves the user from tapping Verify
-  // when their SMS auto-fill lands the full code in one go.
-  const codeInputEl = document.getElementById('codeInput');
-  if (codeInputEl) {
-    codeInputEl.addEventListener('input', (ev) => {
-      const digits = (ev.target.value || '').replace(/\D/g, '').slice(0, 6);
-      if (digits !== ev.target.value) ev.target.value = digits;
-      // Clear any stale "Invalid code" message while they retype.
-      const err2 = document.getElementById('authError2');
-      if (err2 && err2.textContent) err2.textContent = '';
-      if (digits.length === 6) {
-        // Defer one tick so the input value commits and the keyboard
-        // dismiss animation doesn't fight the Verify call.
-        setTimeout(() => { try { window.verifyCode && window.verifyCode(); } catch {} }, 50);
-      }
-    });
-    codeInputEl.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); window.verifyCode && window.verifyCode(); }
-    });
-  }
-
   // Forgot-password — sends a Firebase reset email to whatever's in the
   // email input. We don't differentiate "user not found" vs success in the
   // toast (security best practice — prevents email enumeration).
@@ -4951,10 +4686,6 @@ window.confirmPayment = async function() {
       const errEmail = document.getElementById('authErrorEmail');
       if (errEmail) errEmail.textContent = '';
     } catch (_) {}
-    // The reCAPTCHA verifier is single-use; if we don't clear here, the
-    // next phone-auth attempt fails with auth/internal-error.
-    try { window.recaptchaVerifier?.clear(); } catch {}
-    window.recaptchaVerifier = null;
     // Sign out from both SDKs to keep their states aligned.
     if (IS_NATIVE && FBAuthPlugin) {
       try { await FBAuthPlugin.signOut(); } catch {}
@@ -11576,7 +11307,7 @@ window.showAuthScreen = function showAuthScreen(reason) {
   _authScreen.classList.remove('fading-out');
   _authScreen.classList.add('open');
   // Surface the contextual reason inside the auth box so users
-  // remember why they're here after switching modes (email ↔ phone).
+  // remember why they're here after the auth gate appears.
   const reasonEl = document.getElementById('authReason');
   const r = (reason || window.__pendingAuthReason || '').trim();
   if (reasonEl) {
@@ -11637,11 +11368,6 @@ A['prompt-sign-in']          = (el) => {
   window.requireAuth(reason);
 };
 
-A['send-code']               = () => sendCode();
-A['verify-code']             = () => verifyCode();
-A['back-to-phone']           = () => backToPhone();
-A['resend-code']             = () => resendCode();
-A['set-auth-mode']           = (el) => setAuthMode(el);
 A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['forgot-password']         = () => forgotPassword();
@@ -11813,32 +11539,6 @@ A['sign-in-apple']           = async (btn) => {
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();
   }
-};
-A['show-phone-fallback']     = () => {
-  document.getElementById('authEmailMode').style.display = 'none';
-  document.getElementById('authPhoneMode').style.display = 'block';
-  // Clear stale email-side errors so they don't follow the user.
-  const emailErr = document.getElementById('authErrorEmail');
-  if (emailErr) emailErr.textContent = '';
-  // Auto-focus the phone input so the keyboard pops up immediately on iOS.
-  setTimeout(() => { try { document.getElementById('phoneInput').focus(); } catch {} }, 80);
-};
-A['hide-phone-fallback']     = () => {
-  document.getElementById('authPhoneMode').style.display = 'none';
-  document.getElementById('authEmailMode').style.display = 'block';
-  // Clear any stale phone-side error.
-  const phoneErr = document.getElementById('authError1');
-  if (phoneErr) phoneErr.textContent = '';
-  // Auto-focus the email input on desktop. (Skip mobile so the keyboard
-  // doesn't pop up unexpectedly when people are tapping around.)
-  setTimeout(() => {
-    try {
-      if (window.matchMedia && window.matchMedia('(min-width: 700px)').matches) {
-        const emailInput = document.getElementById('emailInput');
-        if (emailInput) emailInput.focus();
-      }
-    } catch {}
-  }, 80);
 };
 A['continue-as-guest']       = () => {
   window.GUEST_MODE = true;

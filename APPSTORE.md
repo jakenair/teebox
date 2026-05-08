@@ -9,31 +9,27 @@ manifest.
 
 ## ⚠️ Critical pre-submission steps — do these BEFORE submitting
 
-### A. Whitelist a test phone number in Firebase (5 min)
+### A. Disable the Phone provider in Firebase (1 min)
 
-The app uses **phone-number-only auth with no guest mode**. Apple
-reviewers cannot receive SMS, so they cannot get past the login
-screen — this is the #1 rejection reason for SMS-auth marketplace
-apps.
+The app no longer uses phone sign-in. Disable the Phone provider in
+Firebase so the auth UI source-of-truth stays accurate and to remove
+the lingering SMS quota / billing surface.
 
 1. Go to https://console.firebase.google.com → your TeeBox project
    → **Authentication** → **Sign-in method** tab
 2. Click **Phone** to expand
-3. Scroll down to **Phone numbers for testing (optional)**
-4. Click **Add phone number**
-5. Phone: `+1 555-555-1234`
-6. Verification code: `123456`
-7. Save
+3. Toggle **Enable** to **off**
+4. Save
 
-This whitelists that number — Firebase will return a successful
-auth without actually sending an SMS. The reviewer signs in with
-this combo and gets a real authenticated session.
+Confirm that **Email/Password**, **Google**, and **Apple** providers
+remain **enabled** — those are the three auth methods the app ships
+with.
 
 ### B. Authorize the Capacitor domain in Firebase (3 min)
 
 In WKWebView the page loads from `capacitor://localhost`, which
-Firebase Auth doesn't accept by default — the reCAPTCHA verifier
-will fail.
+Firebase Auth doesn't accept by default — the OAuth popup flow used
+for the desktop fallback needs the domain whitelisted.
 
 1. In the same **Authentication** section → **Settings** tab
 2. Scroll to **Authorized domains**
@@ -121,7 +117,7 @@ WHY TEEBOX
 
 • Transparent pricing — see live ask and bid prices on popular models, plus historical price data, so you know exactly what gear is worth before you buy or list.
 • Secure payments — every transaction runs through Stripe with Visa, Mastercard, Amex, Apple Pay, and Google Pay. Funds are held until the buyer confirms delivery, like the marketplace giants.
-• No counterfeits — sellers verify their phone number and agree to seller terms before listing. Counterfeit, stolen, or misrepresented items are prohibited and removed.
+• No counterfeits — sellers agree to seller terms before listing. Counterfeit, stolen, or misrepresented items are prohibited and removed.
 • Direct messaging — ask the seller anything before you commit. Request more photos, confirm condition, negotiate price.
 • Place a bid — don't love the asking price? Submit an offer and the seller can accept, decline, or counter.
 
@@ -155,7 +151,7 @@ FOR BUYERS
 
 PRIVACY & SECURITY
 
-• Your phone number is private to your account, never shown publicly
+• Your email address is private to your account, never shown publicly
 • We never store your card details — Stripe handles all payment data directly
 • No third-party advertising trackers, no data sales, no spam
 • Conversations are visible only to the two members in them
@@ -202,7 +198,6 @@ For each data type, Apple asks: (a) Is it collected? (b) Linked to user identity
 
 | Data Type | Apple Category | Purposes | Tracking? |
 |---|---|---|---|
-| Phone number | Contact Info → Phone Number | App Functionality | NO |
 | Email address | Contact Info → Email Address | App Functionality | NO |
 | Display Name | Contact Info → Name | App Functionality | NO |
 | Physical Address (shipping, via Stripe) | Contact Info → Physical Address | App Functionality | NO |
@@ -215,9 +210,11 @@ For each data type, Apple asks: (a) Is it collected? (b) Linked to user identity
 | Profile bio | User Content → Other User Content | App Functionality | NO |
 | Profile location (optional, user-typed text) | Location → Coarse Location | App Functionality | NO |
 
-> **Email**: Email/password sign-in is one of the supported auth methods (alongside phone), so email is collected and linked to the account.
+> **Email**: Email/password is the primary sign-in method (alongside Google and Apple), so email is collected and linked to the account.
 >
 > **Physical Address**: Buyers enter shipping address through Stripe at checkout; it's shared with the seller for order fulfillment. TeeBox does not store the full street address in Firestore, but Apple's questionnaire asks whether the app *collects* the data — passing it through to a sub-processor counts.
+>
+> **Phone number**: Stripe may collect a phone number from the buyer at checkout for shipping/order updates, but TeeBox itself does not collect phone numbers as a sign-in method or store them in our own records.
 
 ### ❌ Data NOT collected
 
@@ -282,11 +279,13 @@ TeeBox has block, report, and dispute features which qualifies for
 ### Demo Account
 | Field | Value |
 |---|---|
-| Username | `+1 555-555-1234` |
-| Password | `123456` |
+| Username | `appreview@teeboxmarket.com` |
+| Password | (set this in Firebase Auth → Users before submitting; share via App Review Notes) |
 
-(After you whitelist this number in Firebase per the instructions
-at the top of this doc.)
+Sign-up is automatic on first sign-in for any email/Google/Apple
+account, so the reviewer can also use any Apple ID or Google account
+they choose — the demo email above just gives them a known-good
+fallback if the OAuth sheet acts up.
 
 ### Notes (paste exactly into the App Review Notes field)
 
@@ -294,18 +293,25 @@ at the top of this doc.)
 Thank you for reviewing TeeBox.
 
 SIGN IN INSTRUCTIONS:
-TeeBox uses phone-number authentication via SMS. We have whitelisted a test phone number specifically for App Review:
+TeeBox supports three sign-in methods. Any of them works for review — pick whichever is most convenient:
 
-  Phone: +1 555-555-1234
-  Verification code: 123456
+  1. Email + Password — use the demo account below, or create a new one
+       (any valid email + any 8+ character password creates an account
+       on the spot — no email confirmation step blocks access).
+  2. Continue with Google — use any Google account. First-time sign-in
+       creates a TeeBox account automatically.
+  3. Continue with Apple — use any Apple ID. First-time sign-in creates
+       a TeeBox account automatically.
+
+DEMO ACCOUNT (if needed):
+  Email: appreview@teeboxmarket.com
+  Password: (provided in the App Review demo-account fields above)
 
 To sign in:
 1. Launch the app
-2. On the welcome screen, tap "Sign In"
-3. Enter the phone number above (with country code +1)
-4. Tap "Send code" — no real SMS will be sent
-5. Enter the verification code 123456
-6. You will be signed in as a test account
+2. On the welcome screen, enter the email + password above and tap "Sign In",
+   OR tap "Continue with Google" / "Continue with Apple"
+3. You will be signed in to a real account with browse + bid + sell access
 
 WHAT TO TRY:
 • Browse listings on the home screen
@@ -362,7 +368,7 @@ Apple requires screenshots for at least one device size:
 
 **How to take them:**
 1. Install TeeBox via TestFlight on your iPhone (Pro/Pro Max ideally)
-2. Sign in with the test phone number
+2. Sign in with email/Google/Apple
 3. Press Volume Up + Side button simultaneously to screenshot
 4. Capture: home/browse, search results, listing detail, messaging, profile, sell flow
 
@@ -372,7 +378,8 @@ Recommended 5–6 screenshots covering: hero/home, listing detail with bid, mess
 
 ## 9. Last-mile checklist (before clicking Submit for Review)
 
-- [ ] Firebase test phone number whitelisted (`+1 555-555-1234` / `123456`)
+- [ ] Firebase Phone provider disabled; Email/Password, Google, and Apple providers enabled
+- [ ] Demo email/password account created in Firebase Auth (or instructions tell reviewer to use any Google/Apple ID)
 - [ ] Build 1 attached to Version 1.0
 - [ ] All 14 metadata fields filled in App Store Connect
 - [ ] Screenshots uploaded (at least 1 × 6.7")
@@ -393,7 +400,7 @@ When all are checked → blue **Submit for Review** button activates → click �
 **Likely review timeline:** 24–72 hours for first submission.
 
 **Most common rejection reasons for this kind of app:**
-- 2.1 App Completeness — reviewer can't sign in. Mitigated by the test phone number.
+- 2.1 App Completeness — reviewer can't sign in. Mitigated by the demo email/password account and three OAuth options (any Google or Apple ID works).
 - 4.0 Design — minimum functionality / "feels like a website wrapper". Mitigated by native splash, status bar, offline mode, install shortcuts.
 - 5.1.1 Data Collection — privacy disclosure mismatch. Privacy policy and questionnaire align, so this should pass.
 

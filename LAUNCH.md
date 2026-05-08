@@ -204,7 +204,7 @@ detail and a failure-mode lookup table) live in
 
 ### App Privacy questionnaire
 Apple asks what data you collect. Answers for TeeBox:
-- **Phone number** — used for sign-in, linked to user, *not* used for tracking
+- **Email address** — used for sign-in (email/password, Google, Apple), linked to user, *not* used for tracking
 - **Photos** — uploaded by user as part of listings
 - **Purchase history** — order records
 - **Identifiers** — device ID is collected by Stripe for fraud
@@ -233,8 +233,9 @@ Apple asks what data you collect. Answers for TeeBox:
   the bundle at `https://teeboxmarket.com` directly.
 - **3.1.1 In-App Purchase** — only applies to digital goods. Physical
   goods (golf clubs, apparel) are explicitly allowed via Stripe.
-- **5.1.1 Data Collection** — we ask for phone number for sign-in;
-  this is fine as long as it's documented in the privacy questionnaire.
+- **5.1.1 Data Collection** — we ask for email address for sign-in
+  (email/password, Google, Apple); this is fine as long as it's documented
+  in the privacy questionnaire.
 
 ---
 
