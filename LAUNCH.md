@@ -136,6 +136,17 @@ tab of the `App` target:
 3. **Capabilities**:
    - "Push Notifications" — only if/when you wire FCM.
    - "Associated Domains" — for universal links to teeboxmarket.com.
+     Click **+ Capability** → Associated Domains, then add:
+     - `applinks:teeboxmarket.com`
+     - `applinks:www.teeboxmarket.com`
+     - `webcredentials:teeboxmarket.com`
+
+     This adds `com.apple.developer.associated-domains` to
+     `App.entitlements` — required so iOS hits
+     `https://teeboxmarket.com/.well-known/apple-app-site-association`
+     and routes shared listing/seller URLs into the app instead of
+     Safari. See `docs/UNIVERSAL_LINKS.md` for the full setup +
+     verification steps.
 
 In `ios/App/App/Info.plist`, set permission strings (Apple **rejects**
 apps that use APIs without describing why):
