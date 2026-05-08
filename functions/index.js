@@ -2488,6 +2488,166 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
 );
 
 // ─────────────────────────────────────────────────────────────
+// BRANDED AUTH EMAILS — password reset + email verification
+//
+//   Firebase Auth's built-in `sendPasswordResetEmail()` and
+//   `sendEmailVerification()` deliver from `noreply@<project>.
+//   firebaseapp.com`, which has no DKIM/SPF for our domain and
+//   often hits spam. These two callables instead:
+//     1. Use the Admin SDK to *generate* the action link (no email
+//        is sent automatically — we get the URL back).
+//     2. Wrap it in our branded `emailShell` HTML.
+//     3. Ship it via Resend from `noreply@teeboxmarket.com`
+//        (DKIM/SPF/DMARC-signed for deliverability).
+//
+//   Both functions are conservative on enumeration:
+//     - sendBrandedPasswordReset always returns success even if
+//       the email isn't on file.
+//     - sendBrandedVerification requires auth, so it can't be
+//       used to probe for accounts.
+// ─────────────────────────────────────────────────────────────
+const AUTH_EMAIL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// continueURL Firebase appends to the action link as `?continueUrl=`.
+// After the user finishes the action on Firebase's hosted handler, they
+// land here. `?launch=auth` re-opens the app to the auth screen on web
+// and is a registered Universal Link target for iOS so the Capacitor
+// app can resume cleanly.
+const AUTH_CONTINUE_URL = `${APP_URL}/?launch=auth`;
+const AUTH_ACTION_CODE_SETTINGS = {
+  url: AUTH_CONTINUE_URL,
+  handleCodeInApp: false,
+};
+
+exports.sendBrandedPasswordReset = onCall(
+  {...USER_CALLABLE, secrets: [RESEND_KEY]},
+  async (request) => {
+    const data = request.data || {};
+    const rawEmail = typeof data.email === "string" ? data.email.trim() : "";
+    const email = rawEmail.toLowerCase();
+    if (!email || !AUTH_EMAIL_EMAIL_RE.test(email)) {
+      throw new HttpsError("invalid-argument", "A valid email is required.");
+    }
+
+    // Rate-limit per-email (not per-UID — the caller is unauthed).
+    // 5/min is enough for a fat-fingered user retry but cuts off
+    // scripted abuse. Key namespace: `pwReset:<email>` under the
+    // throwaway uid `_pwReset` so we share the same Firestore
+    // schema as authed limits.
+    const rl = await checkRateLimit(
+        "_pwReset", `email:${email}`, 5);
+    if (!rl.ok) {
+      throw new HttpsError(
+          "resource-exhausted",
+          `Too many requests. Try again in ${rl.retryAfterSec}s.`,
+      );
+    }
+
+    let resetUrl = null;
+    try {
+      resetUrl = await admin.auth().generatePasswordResetLink(
+          email, AUTH_ACTION_CODE_SETTINGS);
+    } catch (err) {
+      // Anti-enumeration: if the user doesn't exist, swallow and
+      // return ok. Anything else (Firebase quota, transient) we log
+      // but still return ok so timing + response shape don't leak
+      // existence either.
+      const code = err && err.code;
+      if (code !== "auth/user-not-found" &&
+          code !== "auth/email-not-found") {
+        logger.error("sendBrandedPasswordReset: generateLink failed", err);
+      }
+      return {ok: true};
+    }
+
+    if (resetUrl) {
+      const body = `<p>We received a request to reset your TeeBox password.
+        Click the button below to set a new one. If you didn't make this
+        request, you can safely ignore this email — your password won't
+        change.</p>
+        <p style="color:#777;font-size:13px;margin-top:18px;">
+          This link expires in 1 hour.
+        </p>`;
+      try {
+        await sendEmail({
+          to: email,
+          subject: "Reset your TeeBox password",
+          html: emailShell(
+              "Reset your password", body, "Reset Password", resetUrl),
+        });
+      } catch (err) {
+        // sendEmail already logs internally; never surface to the
+        // caller (anti-enumeration).
+        logger.error("sendBrandedPasswordReset: send failed", err);
+      }
+    }
+    return {ok: true};
+  },
+);
+
+exports.sendBrandedVerification = onCall(
+  {...USER_CALLABLE, secrets: [RESEND_KEY]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+
+    const rl = await checkRateLimit(uid, "verifyEmail", 3);
+    if (!rl.ok) {
+      throw new HttpsError(
+          "resource-exhausted",
+          `Too many requests. Try again in ${rl.retryAfterSec}s.`,
+      );
+    }
+
+    let authUser;
+    try {
+      authUser = await admin.auth().getUser(uid);
+    } catch (err) {
+      logger.error("sendBrandedVerification: getUser failed", err);
+      throw new HttpsError("not-found", "User not found.");
+    }
+    if (!authUser.email) {
+      throw new HttpsError(
+          "failed-precondition",
+          "No email on file for this account.",
+      );
+    }
+    if (authUser.emailVerified) {
+      return {ok: true, alreadyVerified: true};
+    }
+
+    let verifyUrl;
+    try {
+      verifyUrl = await admin.auth().generateEmailVerificationLink(
+          authUser.email, AUTH_ACTION_CODE_SETTINGS);
+    } catch (err) {
+      logger.error("sendBrandedVerification: generateLink failed", err);
+      throw new HttpsError("internal", "Could not generate link.");
+    }
+
+    const body = `<p>Confirm your email address to start buying and
+      selling on TeeBox. Click the button below — it only takes a
+      second.</p>
+      <p style="color:#777;font-size:13px;margin-top:18px;">
+        If you didn't sign up for TeeBox, ignore this email.
+      </p>`;
+    try {
+      await sendEmail({
+        to: authUser.email,
+        subject: "Verify your email for TeeBox",
+        html: emailShell(
+            "Welcome to TeeBox", body, "Verify Email", verifyUrl),
+      });
+    } catch (err) {
+      logger.error("sendBrandedVerification: send failed", err);
+      throw new HttpsError("internal", "Could not send email.");
+    }
+    return {ok: true};
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
 // STRIPE CONNECT — seller onboarding + status
 //
 // createStripeOnboardingLink (callable)
