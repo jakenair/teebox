@@ -1064,12 +1064,28 @@ exports.onReviewCreated = onDocumentCreated(
 
 // ─────────────────────────────────────────────────────────────
 // incrementListingView (callable)
-//   Bumps listings/{listingId}.views, throttled to one count per
-//   user per listing per 24h via a marker doc in listingViews.
-//   Returns the fresh view count so the caller can render it.
+//   Bumps a sharded counter on listings/{listingId} (fields
+//   views_0..views_9), throttled to one count per user per
+//   listing per 24h via a marker doc in listingViews. Returns
+//   the fresh total so the caller can render it.
+//
+//   Sharding rationale (SCALING_AUDIT #2): a single document
+//   field is capped at ~1 sustained write/sec by Firestore.
+//   On a viral listing that ceiling caused contention/staleness.
+//   Spreading writes across 10 random shard fields lifts the
+//   effective ceiling to ~10 writes/sec/listing.
+//
+//   Document shape:
+//     listings/{id}.views_0 .. views_9  (number, server-owned)
+//     listings/{id}.views                (legacy — pre-shard
+//       counter; still readable. New writes never touch it, and
+//       the read path treats it as an additional shard for
+//       backward compat. No migration required.)
+//     listings/{id}.lastViewedAt         (server timestamp)
 // ─────────────────────────────────────────────────────────────
 // High-frequency callable — every product detail view fires this. Bump
 // concurrency so a single instance can soak up the bursts.
+const VIEW_SHARD_COUNT = 10;
 exports.incrementListingView = onCall(
   {...USER_CALLABLE, concurrency: 200, timeoutSeconds: 15},
   async (request) => {
@@ -1097,8 +1113,12 @@ exports.incrementListingView = onCall(
     const withinWindow = now - lastViewedMs < TWENTY_FOUR_HOURS_MS;
 
     if (!withinWindow) {
+      // Pick a random shard so concurrent viewers spread their
+      // writes across 10 fields instead of contending on one.
+      const shard = Math.floor(Math.random() * VIEW_SHARD_COUNT);
       await listingRef.update({
-        views: admin.firestore.FieldValue.increment(1),
+        [`views_${shard}`]: admin.firestore.FieldValue.increment(1),
+        lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       await markerRef.set(
         {
@@ -1110,8 +1130,18 @@ exports.incrementListingView = onCall(
       );
     }
 
+    // Sum the shards (plus the legacy `views` field, if present)
+    // so the caller renders the correct total even on listings
+    // that still hold pre-shard counts.
     const fresh = await listingRef.get();
-    const views = fresh.exists ? Number(fresh.data().views) || 0 : 0;
+    let views = 0;
+    if (fresh.exists) {
+      const d = fresh.data() || {};
+      views = Number(d.views) || 0;
+      for (let i = 0; i < VIEW_SHARD_COUNT; i++) {
+        views += Number(d[`views_${i}`]) || 0;
+      }
+    }
     return {views};
   } catch (err) {
     logger.error("incrementListingView error", err);

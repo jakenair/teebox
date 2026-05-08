@@ -116,8 +116,21 @@ service cloud.firestore {
         && !('pendingUntil' in d.keys())
         && !('pendingPaymentIntentId' in d.keys())
         // Analytics counters are server-owned (Cloud Functions only).
-        // Clients cannot seed or overwrite them on create.
+        // Clients cannot seed or overwrite them on create. The view
+        // counter is sharded across views_0..views_9 (SCALING_AUDIT #2);
+        // `views` is the legacy pre-shard field, kept readable for
+        // backward compat. None are client-writable.
         && !('views' in d.keys())
+        && !('views_0' in d.keys())
+        && !('views_1' in d.keys())
+        && !('views_2' in d.keys())
+        && !('views_3' in d.keys())
+        && !('views_4' in d.keys())
+        && !('views_5' in d.keys())
+        && !('views_6' in d.keys())
+        && !('views_7' in d.keys())
+        && !('views_8' in d.keys())
+        && !('views_9' in d.keys())
         && !('watchlistCount' in d.keys())
         && !('messageCount' in d.keys());
     }
@@ -404,6 +417,19 @@ service cloud.firestore {
     // anyone can see the sparkline on a listing detail.
     // ─────────────────────────────────────────────
     match /priceHistory/{model} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // GLOBAL STATS — single denormalized doc `globalStats/all` that the
+    // homepage reads to render hero volume + sold count. Bumped by the
+    // Stripe order-success webhook via FieldValue.increment (Admin SDK
+    // bypasses these rules). Public read so the hero pill works for
+    // signed-out visitors. Backfilled once via the admin-only
+    // `backfillGlobalStats` callable.
+    // ─────────────────────────────────────────────
+    match /globalStats/{docId} {
       allow read: if true;
       allow write: if false;
     }
