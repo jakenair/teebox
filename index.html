@@ -11450,14 +11450,6 @@ A['sign-in-google']          = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
-    // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
-    // Surface the raw error code + message so we can see WHICH layer failed
-    // (native plugin vs web fallback) when the user reports "Could not sign in".
-    // Includes IS_NATIVE / plugin presence flags so we can tell whether the
-    // plugin even registered. Remove this branch once auth is confirmed working.
-    const _diagNative = (typeof window.IS_NATIVE !== 'undefined') ? window.IS_NATIVE : 'undef';
-    const _diagPlugin = (typeof window.FBAuthPlugin !== 'undefined' && window.FBAuthPlugin) ? 'yes' : 'no';
-    msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] google sign-in failed:', code, e && e.message);
     restoreBtn();
@@ -11531,10 +11523,6 @@ A['sign-in-apple']           = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
-    // TODO: revert before launch — TEMP DEBUG (TestFlight Build 31 auth diag)
-    const _diagNative = (typeof window.IS_NATIVE !== 'undefined') ? window.IS_NATIVE : 'undef';
-    const _diagPlugin = (typeof window.FBAuthPlugin !== 'undefined' && window.FBAuthPlugin) ? 'yes' : 'no';
-    msg += ` [diag native=${_diagNative} plugin=${_diagPlugin} code=${code || 'none'} msg=${(e && e.message) || 'none'}]`;
     if (err) err.textContent = msg;
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();
