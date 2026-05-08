@@ -7,6 +7,10 @@ repo.
 Estimated wall-clock time: **2–4 weeks** (most of it is Apple's review
 queue and the developer-account approval window).
 
+> **Web deploy status**
+> - **Current (live):** GitHub Pages — `teeboxmarket.com` is served from `main` via the `CNAME` file. Deploy = `git push origin main` (or `npm run launch:deploy`).
+> - **Post-migration (planned):** Firebase Hosting — deploy = `npm run deploy:hosting` (builds `dist/` and pushes to `teebox-market` Firebase project). The `firebase.json` `hosting` block is already configured (security headers, SPA rewrites, cache-control). See [`docs/MIGRATION_FIREBASE_HOSTING.md`](docs/MIGRATION_FIREBASE_HOSTING.md) for the cutover playbook.
+
 ---
 
 ## 0. What's already done in the repo
@@ -285,11 +289,14 @@ Apple asks what data you collect. Answers for TeeBox:
 ## Reference: the build script
 
 ```
-npm run build:web   # rm -rf dist && cp …
-npm run cap:sync    # build:web + npx cap sync
-npm run cap:ios     # cap:sync + opens Xcode
-npm run cap:android # cap:sync + opens Android Studio
-npm run cap:icons   # regenerate all platform icons from resources/
+npm run build:web        # rm -rf dist && cp …
+npm run cap:sync         # build:web + npx cap sync
+npm run cap:ios          # cap:sync + opens Xcode
+npm run cap:android      # cap:sync + opens Android Studio
+npm run cap:icons        # regenerate all platform icons from resources/
+npm run deploy:hosting   # POST-MIGRATION: build:web + firebase deploy --only hosting
+                         # (no-op-equivalent today; activates once teeboxmarket.com
+                         #  DNS is cut over to Firebase — see docs/MIGRATION_FIREBASE_HOSTING.md)
 ```
 
 ## Reference: bundle identifier

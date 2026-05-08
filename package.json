@@ -13,7 +13,9 @@
     "launch:preflight": "bash scripts/launch-preflight.sh",
     "launch:deploy": "bash scripts/launch-deploy.sh",
     "launch:smoke": "less scripts/launch-smoke.md",
-    "backfill:stats": "node scripts/backfill-global-stats.mjs"
+    "backfill:stats": "node scripts/backfill-global-stats.mjs",
+    "//deploy:hosting": "POST-MIGRATION default deploy path: builds dist/ and pushes to Firebase Hosting (replaces 'git push' GitHub Pages flow once teeboxmarket.com DNS points at Firebase)",
+    "deploy:hosting": "npm run build:web && npx --yes firebase-tools deploy --only hosting --project teebox-market"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
