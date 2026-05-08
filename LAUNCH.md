@@ -202,6 +202,18 @@ Step-by-step instructions for all three (with screenshots-of-where-to-click
 detail and a failure-mode lookup table) live in
 [`docs/AUTH_TROUBLESHOOTING.md`](docs/AUTH_TROUBLESHOOTING.md).
 
+### Should-do (post-launch enhancement)
+
+- **Enable web Apple Sign-In** — currently the only sign-in flow that
+  doesn't work on the web (native iOS Apple sign-in is fine). Requires
+  ~20 min of console work: register an Apple Services ID
+  (`com.teeboxmarket.app.signin`), generate a `.p8` key, drop Apple's
+  domain-verification file into `.well-known/`, and paste credentials
+  into the Firebase Apple provider's "OAuth code flow configuration".
+  Repo-side scaffolding (placeholder verification file, `firebase.json`
+  `text/plain` header rule) is already in place — see Phase A→D in
+  [`docs/AUTH_TROUBLESHOOTING.md` §2](docs/AUTH_TROUBLESHOOTING.md#2-web-apple-sign-in--services-id-setup-one-time-20-min).
+
 ---
 
 ## 8. App Store Connect submission (iOS)

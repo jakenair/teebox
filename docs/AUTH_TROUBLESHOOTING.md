@@ -84,7 +84,7 @@ While in the consoles, also verify:
 
 ---
 
-## 2. Web Apple sign-in — Services ID setup (one-time)
+## 2. Web Apple sign-in — Services ID setup (one-time, ~20 min)
 
 Apple Sign-In on the web is **completely separate** from native iOS
 Apple Sign-In. The native iOS flow uses the App ID's "Sign In with
@@ -92,79 +92,135 @@ Apple" capability and works without any extra setup once the
 entitlement is on (already done — see commit `c4fe9ce`). The web
 flow needs:
 
-- An Apple **Services ID** (think: client ID for the web)
+- An Apple **Services ID** (think: client ID for the web — must be a
+  different identifier from the iOS App ID)
 - A private key (`.p8` file) authorizing that Services ID
+- A domain-association file served at
+  `https://teeboxmarket.com/.well-known/apple-developer-domain-association.txt`
+  to prove ownership of the domain to Apple
 - Those credentials wired into Firebase's Apple provider so it can
   exchange Apple's authorization code for an ID token server-side
 
-Until this is done, web Apple sign-in will fail with either
-`auth/operation-not-allowed` or `auth/internal-error`.
+Until this is done, web Apple sign-in fails with `auth/operation-not-allowed`
+and the in-app catch surfaces "Apple Sign In is not enabled yet. Use email
+or Google for now." (by design).
 
-### Step 2A. Apple Developer Console — create the Services ID
+### Identifiers you'll need
 
-1. Sign in at https://developer.apple.com/account → **Certificates,
-   Identifiers & Profiles** → **Identifiers**.
-2. Filter by **Services IDs** (top-right dropdown). Click the **+**.
-3. Select **Services IDs** → **Continue**.
-4. **Description**: `TeeBox Market Web`
-   **Identifier**: `com.teeboxmarket.app.web` (must be different from
-   the App ID `com.teeboxmarket.app` — this is a hard Apple rule).
-   Click **Continue** → **Register**.
-5. Re-open the Services ID you just made. Tick **Sign In with Apple**
+| Field | Value |
+|---|---|
+| Apple Team ID | `L434SWLF3L` |
+| iOS App ID (already exists) | `com.teeboxmarket.app` |
+| **New** Services ID (to be created in Phase A) | `com.teeboxmarket.app.signin` |
+| Apple Developer login | `jacobnair2002@icloud.com` |
+| Firebase login | `jakenair23@gmail.com` |
+| Firebase project | `teebox-market` |
+| Firebase auth handler URL | `https://teebox-market.firebaseapp.com/__/auth/handler` |
+| Production domain | `teeboxmarket.com` |
+
+### Phase A — Apple Developer Console: create the Services ID
+
+Sign in as `jacobnair2002@icloud.com` at https://developer.apple.com/account.
+
+1. **Certificates, IDs & Profiles** → **Identifiers** → click **+**.
+2. Choose **Services IDs** → **Continue**.
+3. **Description**: `TeeBox Web Sign In`.
+4. **Identifier**: `com.teeboxmarket.app.signin`
+   (must be **different** from the iOS App ID `com.teeboxmarket.app` —
+   Apple rejects matching identifiers).
+5. Click **Continue** → **Register**.
+6. Click the new Services ID in the list → check **Sign in with Apple**
    → click **Configure**.
-6. **Primary App ID**: pick `com.teeboxmarket.app`.
-7. **Domains and Subdomains** (no `https://`, no trailing slash):
+7. **Primary App ID**: select `com.teeboxmarket.app`.
+8. **Domains and Subdomains** (no `https://`, no `www.`, no trailing slash):
    ```
    teeboxmarket.com
-   www.teeboxmarket.com
-   teebox-market.firebaseapp.com
    ```
-8. **Return URLs** (one per line, full URL):
+9. **Return URLs**:
    ```
    https://teebox-market.firebaseapp.com/__/auth/handler
    ```
-9. Click **Next** → **Done** → **Continue** → **Save**.
+10. Click **Next** → **Done** → **Continue** → **Save**.
+11. Apple now prompts to **verify domain ownership**. **Download** the
+    `apple-developer-domain-association.txt` file Apple provides — keep
+    that browser tab open.
+12. Replace the placeholder in the repo at
+    `.well-known/apple-developer-domain-association.txt` with Apple's exact
+    file contents (do not edit, do not add a trailing newline that wasn't
+    there).
+13. Deploy:
+    - **GitHub Pages (current)**: `git add .well-known && git commit -m "auth: apple domain verification" && git push`
+    - **Firebase Hosting (post-migration)**: `npm run deploy:hosting`
+    Then verify the file is live by opening
+    `https://teeboxmarket.com/.well-known/apple-developer-domain-association.txt`
+    in a browser — the response body must match Apple's content **byte-for-byte**.
+14. Back in Apple Developer Console: click **Verify** for the domain.
+    Should flip to "Verified" within a few seconds. If it errors, hard-refresh
+    the file URL (cache) and re-click Verify.
 
-> Apple may prompt you to verify domain ownership by uploading a file
-> to `/.well-known/apple-developer-domain-association.txt`. If so, save
-> that file and ask Claude Code to drop it into the repo's `.well-known/`
-> folder; commit + redeploy; click **Verify** on Apple's UI.
+> The `firebase.json` `hosting.headers` block already pins
+> `Content-Type: text/plain; charset=utf-8` for this path under Firebase
+> Hosting. GitHub Pages serves `.txt` as `text/plain` by default, so it
+> works either way.
 
-### Step 2B. Apple Developer Console — generate the private key
+### Phase B — Apple Developer Console: generate the Sign in with Apple key
 
-1. Same console → **Keys** (left nav) → **+**.
-2. **Key Name**: `TeeBox Sign In with Apple`.
-3. Tick **Sign in with Apple** → click **Configure** next to it.
-4. **Primary App ID**: `com.teeboxmarket.app`. Save.
-5. Click **Continue** → **Register** → **Download** the `.p8` file.
-   **You can only download it once.** Store it in a password manager.
-6. Note the **Key ID** (10-char string) shown on the same page.
-7. Note your **Team ID** — top-right corner of the Apple Developer site,
-   under your name (10-char string).
+Still signed in as `jacobnair2002@icloud.com`.
 
-### Step 2C. Firebase Console — wire Apple provider
+1. **Keys** (left nav) → click **+**.
+2. **Key Name**: `TeeBox Sign In with Apple Key`.
+3. Check **Sign in with Apple** → click **Configure** next to it.
+4. **Primary App ID**: select `com.teeboxmarket.app`
+   (the iOS App ID — **not** the new Services ID; Apple wants the
+   original App ID here).
+5. **Save** → **Continue** → **Register**.
+6. **Download the `.p8` file.** ⚠️ **You can ONLY download it once.**
+   Save it to a password manager (e.g. 1Password) immediately. If you
+   lose it, you have to revoke and regenerate, which means re-pasting
+   into Firebase.
+7. Note the **Key ID** shown on this page (10-char alphanumeric string).
+8. Note your **Team ID**: `L434SWLF3L` (10-char, also visible top-right
+   in your account membership view).
 
-1. Firebase Console → **Authentication** → **Sign-in method**.
-2. Click the **Apple** row (or **Add new provider** → Apple if it's not
-   there yet).
-3. **Enable** the toggle.
-4. **Services ID**: paste `com.teeboxmarket.app.web` (from Step 2A.4).
-5. Expand **OAuth code flow configuration** (this is the section the
-   web flow needs — native iOS doesn't):
-   - **Apple Team ID**: paste from Step 2B.7.
-   - **Key ID**: paste from Step 2B.6.
-   - **Private key**: paste the contents of the `.p8` file
-     (including `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----`
-     lines).
-6. Click **Save**.
+### Phase C — Firebase Console: wire the Apple provider
 
-### Verify Apple web
+Sign in as `jakenair23@gmail.com` at https://console.firebase.google.com.
 
-1. Incognito Chrome → https://teeboxmarket.com/?signin=1
+1. Open the **teebox-market** project → **Authentication** →
+   **Sign-in method** tab.
+2. Click the **Apple** row in the providers list (it's already enabled
+   for native iOS — you're just expanding the configuration).
+3. Expand **OAuth code flow configuration** (this section is **only**
+   used by web; native iOS doesn't read it).
+4. **Services ID**: `com.teeboxmarket.app.signin` (from Phase A step 4).
+5. **Apple Team ID**: `L434SWLF3L`.
+6. **Key ID**: paste the value from Phase B step 7.
+7. **Private key**: paste the **full contents** of the `.p8` file —
+   this includes the `-----BEGIN PRIVATE KEY-----` line, the body, and
+   the `-----END PRIVATE KEY-----` line. Don't trim or alter anything.
+8. Click **Save**.
+
+### Phase D — Verify it works
+
+1. Hard-refresh https://teeboxmarket.com (or open in an incognito window
+   to bypass the service worker).
 2. Click **Continue with Apple**.
-3. Apple's `appleid.apple.com` popup opens. Sign in with an Apple ID.
-4. On first auth Apple asks "Share My Email" / "Hide My Email" — pick
-   either. After confirmation the popup closes and the user is signed in.
+3. Apple's `appleid.apple.com` popup opens. Sign in with any Apple ID.
+4. First auth: Apple asks "Share My Email" / "Hide My Email" — either is
+   fine. The popup closes and you land back in TeeBox, signed in.
+5. Confirm in **Firebase Console → Authentication → Users** that the new
+   user row shows `apple.com` as the provider.
+
+### Common errors and fixes
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `auth/operation-not-allowed` | Phase C not completed (Firebase OAuth code flow blank). | Re-check Services ID, Key ID, Team ID, `.p8` contents in Firebase Console. |
+| `auth/invalid-credential` | `.p8` was not pasted in full (BEGIN/END lines stripped). | Re-paste, including both delimiter lines. |
+| "Domain not verified" in Apple console | Phase A steps 13/14 weren't done, or the deployed file doesn't match Apple's. | Open the file URL in a browser and diff against what Apple gave you. Redeploy. Click **Verify** again. |
+| 404 on `/.well-known/apple-developer-domain-association.txt` | `.well-known/` not deployed. | Confirm the file exists in `dist/.well-known/` after `npm run build:web`. The `build:web` script already does `(test -d .well-known && cp -R .well-known dist/.well-known || true)`. |
+| `auth/popup-closed-by-user` after Apple popup | User dismissed the popup. | Silent-retry by app. |
+| Works on `teebox-market.firebaseapp.com` but not `teeboxmarket.com` | `teeboxmarket.com` not on Firebase **Authorized domains** list. | Firebase Console → Auth → Settings → Authorized domains → add it. |
 
 ---
 
