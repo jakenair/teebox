@@ -11748,7 +11748,11 @@ A['sign-in-google']          = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
-    if (err) err.textContent = msg;
+    // TODO: revert before launch — TEMP DEBUG. Surface the real Firebase
+    // error code + message inline so we can see WHICH error fell through to
+    // the generic "Could not sign in" branch on TestFlight, where Web
+    // Inspector isn't easily reachable.
+    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString().substring(0, 200) + ']';
     console.warn('[auth] google sign-in failed:', code, e && e.message);
     restoreBtn();
   }
@@ -11843,7 +11847,9 @@ A['sign-in-apple']           = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
-    if (err) err.textContent = msg;
+    // TODO: revert before launch — TEMP DEBUG. Same diag surface as Google
+    // catch above. Tells us the actual error code on TestFlight.
+    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString().substring(0, 200) + ']';
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();
   }
