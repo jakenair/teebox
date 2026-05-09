@@ -4316,10 +4316,28 @@ window.confirmPayment = async function() {
   //      `return true;` to `return request.app != null;` and
   //      redeploy with `firebase deploy --only firestore:rules`.
   // ──────────────────────────────────────────────────────────
-  initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
-    isTokenAutoRefreshEnabled: true,
-  });
+  // CRITICAL: skip App Check entirely on native (Capacitor) builds.
+  // ReCaptchaEnterpriseProvider expects a real browser top-frame origin and
+  // hangs forever in Capacitor's `capacitor://localhost` WebView while trying
+  // to mint a token. Once initialized, the Firebase Auth SDK attaches an
+  // App Check token to every Identity Toolkit request, so a hung mint =
+  // hung signInWithCredential() = stuck "Signing in…" modal. Confirmed via
+  // Build 40 diagnostics: both flows stop at G5/A5 ("calling
+  // signInWithCredential") and never reach G6/A6.
+  //
+  // Server-side `appCheckOk()` returns `true` (not enforcing), so skipping
+  // the client init is safe — no requests will be rejected. We only lose
+  // monitoring telemetry on the iOS app, which we weren't using yet.
+  // Re-introduce when Firebase ships a Capacitor-friendly attestation
+  // provider (DeviceCheck / AppAttest) and we wire it conditionally.
+  const Cap = (typeof window !== 'undefined') ? window.Capacitor : null;
+  const isNativeBoot = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
+  if (!isNativeBoot) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
 
   const auth = getAuth(app);
   const db = getFirestore(app);
