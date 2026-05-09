@@ -11695,8 +11695,17 @@ A['sign-in-google']          = async (btn) => {
       window.__authDiag('G4 building cred');
       const cred = window.GoogleAuthProvider.credential(idToken, accessToken);
       window.__authDiag('G5 calling signInWithCredential');
-      await window.signInWithCredential(window.firebaseAuth, cred);
-      window.__authDiag('G6 signInWithCredential resolved — auth state should propagate');
+      // 15s timeout race so we don't hang forever if signInWithCredential
+      // stalls in WKWebView. If timeout fires, throw a recognizable error
+      // so the catch block surfaces it rather than leaving "Signing in..."
+      // on screen indefinitely.
+      const _g5Start = Date.now();
+      await Promise.race([
+        window.signInWithCredential(window.firebaseAuth, cred),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('signInWithCredential timed out after 15s')), 15000)),
+      ]);
+      const _g5Ms = Date.now() - _g5Start;
+      window.__authDiag('G6 signInWithCredential resolved in ' + _g5Ms + 'ms — auth state should propagate');
       // Belt-and-suspenders cleanup. Previously we relied solely on
       // onAuthStateChanged to hide the auth screen, but on the native
       // plugin path the listener can race with this resolve, leaving
@@ -11751,10 +11760,9 @@ A['sign-in-google']          = async (btn) => {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
     // TODO: revert before launch — TEMP DEBUG. Surface the real Firebase
-    // error code + message inline so we can see WHICH error fell through to
-    // the generic "Could not sign in" branch on TestFlight, where Web
-    // Inspector isn't easily reachable.
-    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString().substring(0, 200) + ']';
+    // error code + message inline. NOT truncated — we need full iOS
+    // NSError descriptions for AuthenticationServices errors.
+    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString() + ']';
     console.warn('[auth] google sign-in failed:', code, e && e.message);
     restoreBtn();
   }
@@ -11850,8 +11858,9 @@ A['sign-in-apple']           = async (btn) => {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
     // TODO: revert before launch — TEMP DEBUG. Same diag surface as Google
-    // catch above. Tells us the actual error code on TestFlight.
-    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString().substring(0, 200) + ']';
+    // catch. NOT truncated — we need to see Apple AuthorizationError
+    // numbers (1000=cancel, 1001=failed, 1004=notHandled, etc.).
+    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString() + ']';
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();
   }
