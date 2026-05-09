@@ -4330,9 +4330,11 @@ window.confirmPayment = async function() {
   // monitoring telemetry on the iOS app, which we weren't using yet.
   // Re-introduce when Firebase ships a Capacitor-friendly attestation
   // provider (DeviceCheck / AppAttest) and we wire it conditionally.
-  const Cap = (typeof window !== 'undefined') ? window.Capacitor : null;
-  const isNativeBoot = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
-  if (!isNativeBoot) {
+  // (NB: don't redeclare `Cap` here — it's already declared further down
+  //  in this same module at the auth-init block. Use a one-shot temp.)
+  const _capForAppCheck = (typeof window !== 'undefined') ? window.Capacitor : null;
+  const _isNativeForAppCheck = !!(_capForAppCheck && _capForAppCheck.isNativePlatform && _capForAppCheck.isNativePlatform());
+  if (!_isNativeForAppCheck) {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
       isTokenAutoRefreshEnabled: true,
