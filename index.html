@@ -175,9 +175,11 @@
   .bid-withdraw { margin-left:auto; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 50px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
   .bid-withdraw:hover { background: var(--red-100); border-color: var(--red-500); color: var(--red-500); }
   .modal-fineprint { font-size: 11px; color: var(--gray-500); margin-top: -0.5rem; margin-bottom: 0.75rem; }
-  #reviewStars .star-pick[data-active="1"] { color: var(--gold-400); }
+  /* Star icons on white surfaces use gold-600 (4.87:1 on white — passes AA).
+     gold-400 was 1.96:1 — failed contrast for text-sized glyphs. */
+  #reviewStars .star-pick[data-active="1"] { color: var(--gold-600); }
   #reviewStars .star-pick[data-active="0"] { color: var(--gray-300); }
-  .stars { display: inline-flex; gap: 1px; color: var(--gold-400); font-size: 1em; vertical-align: middle; }
+  .stars { display: inline-flex; gap: 1px; color: var(--gold-600); font-size: 1em; vertical-align: middle; }
   .stars .ico { width: 1em; height: 1em; }
   .review-row { padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
   .review-row:last-child { border-bottom: none; }
@@ -1208,8 +1210,8 @@
   @media (min-width: 720px) { .cat-bar { padding: 0 1.5rem; } }
   .cat-pill {
     background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.92);
     border-radius: 50px; padding: 6px 16px;
     font-family: var(--font-body); font-size: 13px; font-weight: 500;
     cursor: pointer;
@@ -1311,7 +1313,10 @@
     padding: 1.5px;
     background: linear-gradient(120deg, #d6a900, #f0c850, #d6a900, #f0c850, #d6a900);
     background-size: 300% 100%;
-    animation: verifiedGoldShift 4s ease-in-out infinite;
+    /* Was `infinite` — every verified card was a perpetual motion magnet,
+       stealing attention from real signal (price, condition). Now plays
+       three drift cycles and rests. Reduced-motion users get no animation. */
+    animation: verifiedGoldShift 4s ease-in-out 3;
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
@@ -1361,7 +1366,7 @@
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
   .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
   .product-body { padding: 14px 14px 16px; }
-  .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-500); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
   .brand-link { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
   .brand-link:hover, .brand-link:focus { color: var(--green-700); text-decoration: underline; outline: none; }
   /* Active brand filter chip — sits in the filter row, click to clear */
@@ -1373,24 +1378,30 @@
      so a 0-review seller leaves no visual gap on the card. */
   .product-rating { font-size: 11.5px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; line-height: 1; min-height: 0; display: flex; align-items: center; gap: 4px; }
   .product-rating:empty { display: none; }
-  .product-rating .pr-star { color: var(--gold-500); font-size: 12px; }
-  .product-rating .pr-count { color: var(--gray-400); font-weight: 500; }
+  .product-rating .pr-star { color: var(--gold-700, #a07a12); font-size: 12px; }
+  .product-rating .pr-count { color: var(--gray-500); font-weight: 500; }
   .product-market { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--gray-100); padding-top: 10px; margin-top: 4px; }
-  .market-col label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-400); margin-bottom: 2px; }
+  .market-col label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 2px; }
   .market-bid { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--green-600); }
-  .market-ask { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--red-500); }
+  /* Ask is the buyer's commitment anchor — promoted to 1.25rem/800 so it
+     out-weighs title, brand, and image badges by ~1.4×. Audit fix. */
+  .market-ask { font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: var(--red-500); }
   .product-change { font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 50px; }
-  .product-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-  .btn-buy, .btn-sell-sm { border: none; border-radius: var(--radius-sm); padding: 8px 4px; font-family: var(--font-body); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: var(--transition); }
-  .btn-buy { background: var(--green-600); color: var(--white); }
-  .btn-sell-sm { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-200); }
+  /* Single full-width Buy on each card — the per-card "Sell" button was
+     noise on a buyer-facing surface and competed with the primary action. */
+  .product-btns { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+  .btn-buy { border: none; border-radius: var(--radius-sm); padding: 10px 8px; font-family: var(--font-body); font-size: 13.5px; font-weight: 700; cursor: pointer; transition: var(--transition); background: var(--green-600); color: var(--white); }
+  /* Retained for any legacy callers; new product cards do not render this. */
+  .btn-sell-sm { display: none; }
 
-  /* TICKER */
+  /* TICKER — slowed to 60s (was 30s) and prices softened to 0.85 alpha
+     so the moving strip no longer competes with the product grid. */
   .ticker-wrap { background: var(--green-950); padding: 10px 0; overflow: hidden; }
-  .ticker-track { display: flex; animation: ticker 30s linear infinite; width: max-content; }
+  .ticker-track { display: flex; animation: ticker 60s linear infinite; width: max-content; }
+  @media (prefers-reduced-motion: reduce) { .ticker-track { animation: none; } }
   .ticker-item { display: flex; align-items: center; gap: 8px; padding: 0 1.5rem; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
   .ticker-name { font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.7); }
-  .ticker-price { font-size: 13px; font-weight: 700; color: var(--white); font-family: var(--font-display); }
+  .ticker-price { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); font-family: var(--font-display); }
   .ticker-chg { font-size: 11.5px; font-weight: 600; }
   .ticker-up { color: #6ed492; } .ticker-dn { color: #f4948b; }
   @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
@@ -1642,16 +1653,23 @@
   .detail-brand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 4px; }
   .detail-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; line-height: 1.3; }
   .detail-condition { display: inline-flex; align-items: center; gap: 6px; background: var(--green-50); color: var(--green-700); border-radius: 50px; padding: 4px 12px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
-  .detail-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
-  .detail-price-box { border-radius: var(--radius-md); padding: 12px; text-align: center; }
-  .detail-price-box.bid { background: #edf7f0; border: 1.5px solid #b5dfc0; }
+  /* Ask is the buyer's commitment anchor — hero size, full-width.
+     Bid is a market-depth indicator, demoted to inline subtitle below.
+     This eliminates the cognitive split between two equally-weighted
+     prices. (Audit fix.) */
+  .detail-prices { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 1rem; }
+  .detail-price-box { border-radius: var(--radius-md); padding: 14px 18px; text-align: left; }
   .detail-price-box.ask { background: #fde8e6; border: 1.5px solid #f4b5af; }
+  /* Bid box collapses to a one-line inline subtitle. Same color family,
+     much smaller, sits visually subordinate to Ask. */
+  .detail-price-box.bid { background: transparent; border: 0; padding: 0 4px; }
   .detail-price-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .detail-price-box.bid .detail-price-lbl { color: var(--green-600); }
+  .detail-price-box.bid .detail-price-lbl { display: none; }
   .detail-price-box.ask .detail-price-lbl { color: var(--red-500); }
-  .detail-price-val { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; }
-  .detail-price-box.bid .detail-price-val { color: var(--green-600); }
-  .detail-price-box.ask .detail-price-val { color: var(--red-500); }
+  .detail-price-val { font-family: var(--font-display); font-weight: 800; }
+  .detail-price-box.ask .detail-price-val { color: var(--red-500); font-size: 2.2rem; line-height: 1.05; }
+  .detail-price-box.bid .detail-price-val { color: var(--gray-600); font-size: 13px; font-weight: 600; display: inline; }
+  .detail-price-box.bid::before { content: 'Highest bid: '; font-size: 13px; font-weight: 600; color: var(--gray-500); }
   .detail-desc { font-size: 13.5px; color: var(--gray-600); line-height: 1.7; margin-bottom: 1.25rem; }
   /* "More like this" row at the bottom of the listing detail modal.
      Horizontal scroll of compact thumbnails — same category as the
@@ -1671,11 +1689,31 @@
   .mlt-brand { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mlt-name { font-size: 12.5px; font-weight: 600; color: var(--gray-900); line-height: 1.3; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .mlt-price { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--gray-900); margin-top: 4px; }
+  /* Detail CTAs — one primary full-width, two secondary half-width grid,
+     one tertiary text link. Replaces a column of 4 equal-weight buttons
+     that buried Buy Now. Trust strip sits directly above on the same
+     vertical rhythm so the protection signal lands at the highest-anxiety
+     moment. (Audit fix.) */
   .detail-actions { display: flex; flex-direction: column; gap: 10px; }
-  .btn-buy-now { background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 14px; font-family: var(--font-body); font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); width: 100%; }
+  .detail-trust-strip { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 12px; font-size: 12px; color: var(--gray-600); background: var(--green-50, #f1f7f3); border-radius: var(--radius-md); }
+  .detail-trust-strip span { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+  .detail-secondary-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-buy-now { background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 16px; font-family: var(--font-body); font-size: 17px; font-weight: 800; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-buy-now:hover { background: var(--green-500); }
-  .btn-place-bid { background: var(--gray-100); color: var(--gray-900); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 13px; font-family: var(--font-body); font-size: 15px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; }
-  .btn-place-bid:hover { background: var(--gray-200); }
+  /* Demoted from primary full-width — secondary half-width, lighter weight. */
+  .btn-place-bid { background: var(--gray-100); color: var(--gray-700); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; opacity: 0.92; }
+  .btn-place-bid:hover { background: var(--gray-200); opacity: 1; }
+  /* Make Offer matches Place-Bid weight; both are clearly subordinate. */
+  .btn-make-offer { background: var(--gray-100); color: var(--gray-700); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; opacity: 0.92; }
+  .btn-make-offer:hover { background: var(--gray-200); opacity: 1; }
+  /* Message Seller demoted to a text link — buyers who want to ask
+     before buying still see the option, but it doesn't compete with Buy. */
+  .btn-message-seller-link { background: none; border: 0; padding: 8px 4px 0; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--green-700); cursor: pointer; text-align: center; width: 100%; text-decoration: underline; }
+  .btn-message-seller-link:hover { color: var(--green-800, #143d1f); }
+  /* Sticky on mobile so the CTA + trust strip stay reachable while scrolling. */
+  @media (max-width: 720px) {
+    .detail-actions { position: sticky; bottom: 0; background: var(--white); padding-top: 12px; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); z-index: 4; }
+  }
 
   /* SELL MODAL */
   .sell-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 1rem; overflow-y: auto; }
@@ -1800,7 +1838,10 @@
   .search-res-img { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; overflow: hidden; flex-shrink: 0; }
   .search-res-img img { width: 100%; height: 100%; object-fit: cover; }
   .search-res-name { font-size: 14px; font-weight: 600; color: var(--gray-900); }
-  .search-res-cat { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+  .search-res-cat { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  /* Search-result price gets a color punch and weight bump so it pops
+     within each row instead of disappearing alongside the title. */
+  .search-res-price { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--green-700); margin-left: 8px; flex-shrink: 0; }
   .search-res-price { margin-left: auto; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 
   /* DESKTOP REFINEMENTS (≥901px) */
@@ -3617,14 +3658,15 @@
         </div>
       </div>
       <div class="hero-featured" id="heroFeatured">
-        <div class="feat-card feat-card-big" data-action="handle-sell" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:240px;">
+        <!-- Simplified — the previous version was a second CTA cluster
+             (List an Item + Browse Marketplace) competing with the hero's
+             primary Shop Now / Start Selling pair, freezing first-time
+             users. Now a single info card that reinforces value without
+             a competing button stack. -->
+        <div class="feat-card feat-card-big" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:240px;padding:20px;">
           <div class="feat-label" style="margin-bottom:6px;">Brand New Marketplace</div>
           <div class="feat-name" style="font-size:18px;line-height:1.3;margin-bottom:8px;">Be one of the first to list on TeeBox.</div>
-          <div style="color:rgba(255,255,255,0.6);font-size:13px;line-height:1.5;margin-bottom:14px;max-width:300px;">Real peer-to-peer prices. Stripe-secured payouts. 6.5% seller fee — the lowest in golf.</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-            <button class="btn-primary" data-action="handle-sell" style="padding:8px 18px;font-size:13px;">List an Item</button>
-            <button class="btn-outline" data-action="open-modal-buy" style="padding:8px 18px;font-size:13px;">Browse Marketplace</button>
-          </div>
+          <div style="color:rgba(255,255,255,0.7);font-size:13px;line-height:1.5;max-width:300px;">Real peer-to-peer prices. Stripe-secured payouts. 6.5% seller fee — the lowest in golf.</div>
         </div>
       </div>
     </div>
@@ -3744,8 +3786,8 @@
         <div class="detail-name" id="detailName"></div>
         <div class="detail-condition" id="detailCondition"></div>
         <div class="detail-prices">
-          <div class="detail-price-box bid"><div class="detail-price-lbl">Highest Bid</div><div class="detail-price-val" id="detailBid"></div></div>
-          <div class="detail-price-box ask"><div class="detail-price-lbl">Lowest Ask</div><div class="detail-price-val" id="detailAsk"></div></div>
+          <div class="detail-price-box ask"><div class="detail-price-lbl">Price</div><div class="detail-price-val" id="detailAsk"></div></div>
+          <div class="detail-price-box bid"><div class="detail-price-val" id="detailBid"></div></div>
         </div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
@@ -3762,10 +3804,16 @@
           <span class="qty-remaining" id="detailQtyRemaining"></span>
         </div>
         <div class="detail-actions">
+          <div class="detail-trust-strip" aria-label="Buyer protection">
+            <span title="Buyer protection — funds held until you confirm delivery"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
+            <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
+          </div>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
-          <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
-          <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="detail-make-offer">Make Offer</button>
-          <button class="btn-message-seller" data-action="detail-message-seller">Message Seller</button>
+          <div class="detail-secondary-row">
+            <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
+            <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="detail-make-offer">Make Offer</button>
+          </div>
+          <button class="btn-message-seller-link" data-action="detail-message-seller">Have a question? Message the seller</button>
         </div>
       </div>
       <!-- "More like this" — populated by openDetailModal. Hidden when no
@@ -5687,7 +5735,6 @@ function buildProducts(filter) {
         `</div>`+
         `<div class="product-btns">`+
           `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
-          `<button class="btn-sell-sm" data-action="handle-sell">Sell</button>`+
         `</div>`+
       `</div>`+
     `</div>`;
