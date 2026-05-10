@@ -4284,7 +4284,7 @@ window.confirmPayment = async function() {
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
   // Resend from `noreply@teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
-  import { getAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, setPersistence, browserLocalPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -4342,6 +4342,28 @@ window.confirmPayment = async function() {
   }
 
   const auth = getAuth(app);
+
+  // CRITICAL: on Capacitor (iOS WKWebView), Firebase Auth's default IndexedDB
+  // persistence stalls inside signInWithCredential() — the SDK awaits
+  // IndexedDB writes that never resolve in WKWebView's odd storage context.
+  // Confirmed in Build 44: both Google (G5) and Apple (A5) hang at the
+  // signInWithCredential await. Switching to in-memory persistence on
+  // native sidesteps the IndexedDB code path entirely.
+  //
+  // Tradeoff: signed-in state doesn't persist across cold launches on
+  // native — user must sign in each launch. Capacitor's webview discards
+  // memory anyway when the OS kills the process, so this is fine for v1.
+  // (Web stays on browserLocalPersistence — works correctly.)
+  if (_isNativeForAppCheck) {
+    setPersistence(auth, inMemoryPersistence).catch((e) => {
+      console.warn('[auth] setPersistence(inMemory) failed:', e && e.message);
+    });
+  } else {
+    setPersistence(auth, browserLocalPersistence).catch((e) => {
+      console.warn('[auth] setPersistence(browserLocal) failed:', e && e.message);
+    });
+  }
+
   const db = getFirestore(app);
   const storage = getStorage(app);
   const fns = getFunctions(app);
