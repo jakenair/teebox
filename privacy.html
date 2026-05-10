@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- TeeBox Privacy Policy. Drafted with reasonable diligence but NOT legal advice. Have counsel review before any material change. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -112,7 +113,7 @@
 </header>
 <main>
   <h1>Privacy Policy</h1>
-  <p class="meta">Last updated: May 7, 2026</p>
+  <p class="meta">Last updated: May 10, 2026</p>
 
   <div class="summary">
     <h3>The short version</h3>
@@ -128,11 +129,14 @@
   <h3>Information you give us</h3>
   <ul>
     <li><strong>Account information.</strong> When you create an account we collect your email address and password (passwords are stored as a salted hash by Firebase Authentication; we cannot read them). If you choose phone-number sign-in instead, we collect your phone number for verification.</li>
-    <li><strong>Profile information.</strong> A display name, optional profile photo, optional short bio, and an optional location (a free-text city/state you type in — we do not read your device's GPS), if you choose to add them.</li>
+    <li><strong>Profile information.</strong> A display name, optional profile photo, optional short bio, and an optional location (a free-text city/state you type in — we do not read your device's GPS), if you choose to add them. You can also optionally add a golf handicap, a list of clubs in your bag, and pin one of your listings to the top of your profile.</li>
     <li><strong>Listings.</strong> When you list an item for sale we collect the title, brand, category, condition, asking price, description, and photos you upload.</li>
-    <li><strong>Transactions.</strong> When you buy or sell, we record the listing, price, buyer/seller IDs, order status, shipment tracking number and carrier (when the seller provides one), timestamps, and any messages exchanged. Shipping addresses are entered into Stripe at checkout and shared with the seller for fulfillment; we do not store the buyer's full address on TeeBox servers.</li>
+    <li><strong>Transactions.</strong> When you buy or sell, we record the listing, price, buyer/seller IDs, order status, shipment tracking number and carrier (when the seller provides one), timestamps, and any messages exchanged.</li>
+    <li><strong>Shipping address.</strong> When you buy an item, you provide a shipping address via Stripe's secure checkout. The address is stored on the order record and shared with the seller for fulfillment. It is never shared with any other party.</li>
     <li><strong>Messages.</strong> Direct messages between buyers and sellers are stored so the recipient can read them when they next open the app.</li>
     <li><strong>Reviews and ratings.</strong> After a completed sale, buyers can leave a star rating and written review of the seller. Reviews are public on the seller's profile.</li>
+    <li><strong>Watchlist and saved searches.</strong> Items you favorite ("watch") and search terms you save are stored on your account so you can find them again. You can opt in to push notifications when a new listing matches a saved search.</li>
+    <li><strong>Game scores.</strong> If you play the daily Logo Bingo game, your score and display name appear on a public leaderboard.</li>
     <li><strong>Support communications.</strong> Email or in-app messages you send us about a problem or question.</li>
   </ul>
 
@@ -140,6 +144,7 @@
   <ul>
     <li><strong>Authentication tokens.</strong> A Firebase Authentication session token so you stay signed in.</li>
     <li><strong>Device and connection data.</strong> Standard server-side request logs (IP address, user agent, timestamp) used to detect abuse and operate the service. These logs are kept for a limited period and are not used to build advertising profiles.</li>
+    <li><strong>Push notification tokens.</strong> If you grant notification permission, we collect a Firebase Cloud Messaging (FCM) device token and a truncated user-agent string. The token is stored at <code>users/{uid}/fcmTokens/{token}</code> and used to send new-message alerts, price-drop alerts, order updates, and saved-search matches. Tokens that fail delivery are pruned automatically, you can revoke notifications at any time in your OS settings, and all tokens are deleted when you delete your account.</li>
   </ul>
 
   <h3>Information we do <em>not</em> collect</h3>
@@ -171,18 +176,37 @@
   </ul>
 
   <h2>5. Service providers we share data with</h2>
-  <p>We use a small number of trusted service providers to operate TeeBox. We share with them only the information they need to perform their function, and they are contractually bound to use it only on our behalf.</p>
+  <p>We use a small number of trusted service providers ("subprocessors") to operate TeeBox. We share with them only the information they need to perform their function, and they are contractually bound to use it only on our behalf.</p>
   <ul>
-    <li><strong>Google Firebase</strong> — authentication, database, file storage, and serverless functions. <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Firebase Privacy</a></li>
-    <li><strong>Stripe</strong> — payment processing and payouts to sellers. Stripe receives the payment information you enter at checkout directly. <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Stripe Privacy</a></li>
+    <li><strong>Google Firebase</strong> — authentication, database, file storage, push notifications, and serverless functions. <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Firebase Privacy</a></li>
+    <li><strong>Stripe</strong> — payment processing, payouts to sellers, and Pro Seller subscription billing. Stripe receives the payment information you enter at checkout directly. <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Stripe Privacy</a> &middot; <a href="https://stripe.com/legal/dpa" target="_blank" rel="noopener noreferrer">Stripe DPA</a></li>
+    <li><strong>Stripe Identity</strong> — for high-value seller verification, captures a selfie and a photo of your government-issued ID for identity verification. This data goes directly to Stripe and is not stored on TeeBox servers (see Section 6). <a href="https://stripe.com/legal/dpa" target="_blank" rel="noopener noreferrer">Stripe DPA</a></li>
+    <li><strong>Google Cloud Vision (SafeSearch)</strong> — every uploaded listing photo is automatically scanned for adult, violent, or otherwise prohibited content. Photos are sent to Google Cloud Vision for analysis and not retained by Google beyond that request. <a href="https://cloud.google.com/terms/data-processing-addendum" target="_blank" rel="noopener noreferrer">Google Cloud DPA</a></li>
+    <li><strong>Google Gemini 1.5 Flash</strong> — if you use the optional AI price-suggestion or AI draft-description features, your listing title, brand, category, condition, and up to three photos are sent to Google's Gemini API (<code>generativelanguage.googleapis.com</code>) to generate the suggestion. These features are opt-in and only run when you tap the AI assist button. <a href="https://cloud.google.com/terms/data-processing-addendum" target="_blank" rel="noopener noreferrer">Google Cloud DPA</a></li>
+    <li><strong>Resend</strong> — transactional email delivery (account verification, receipts, password resets, order updates). Resend receives your email address, display name, and the body of the email being sent. <a href="https://resend.com/legal/dpa" target="_blank" rel="noopener noreferrer">Resend DPA</a></li>
+    <li><strong>Plausible Analytics</strong> — cookieless, privacy-preserving pageview analytics. Plausible receives the page URL, referrer, and a country-level location derived from a hashed IP. No cookies are set and no cross-site identifier is used. <a href="https://plausible.io/dpa" target="_blank" rel="noopener noreferrer">Plausible DPA</a></li>
     <li><strong>Apple App Store / Google Play</strong> — app distribution and crash reporting (only if you've opted into device-level diagnostics in your OS settings).</li>
   </ul>
+  <h3>High-sensitivity data: Stripe Identity</h3>
+  <p>Sellers who request identity verification (typically required for high-value listings or higher payout limits) submit a selfie and a government-issued photo ID. This biometric and identity data is captured by Stripe Identity's hosted flow and transmitted directly to Stripe — TeeBox never stores the selfie or ID image on its own servers. TeeBox only receives the verification outcome (pass / fail / pending) and a Stripe verification session ID. Retention of the selfie and ID image is governed by Stripe's policies; see the <a href="https://stripe.com/legal/dpa" target="_blank" rel="noopener noreferrer">Stripe DPA</a> and <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Stripe Privacy Policy</a> for details.</p>
+
+  <h3>Pro Seller subscription billing</h3>
+  <p>Pro Seller is an optional $14.99/month subscription billed through Stripe. Subscribing creates a Stripe Customer record with your billing details and invoice history; the subscription state (active, past-due, canceled) is mirrored to your TeeBox user record so we can display the correct features. Refunds for subscriptions purchased on iOS via the App Store are handled by Apple per their policies — see <a href="https://support.apple.com/HT204084" target="_blank" rel="noopener noreferrer">support.apple.com/HT204084</a>. Refunds for subscriptions purchased on the web are handled by TeeBox and Stripe on a case-by-case basis.</p>
+
   <p>We may also disclose information when we have a good-faith belief it is required by law (subpoena, court order, lawful regulatory request) or necessary to protect the safety of our users.</p>
 
   <h2>6. Data retention</h2>
-  <p>We keep your account information for as long as your account is active. If you close your account, we delete or anonymize your personal information within 30 days, except for records we are legally required to retain (for example, transaction records for tax purposes are kept for up to 7 years). Public listings you posted may remain visible in archived form (with the seller name removed) where another user has interacted with them, to preserve the integrity of historical orders.</p>
+  <p>We keep your account information for as long as your account is active. Account deletion is processed immediately upon request — when you delete your account from inside the app (Account → Delete Account) or by emailing us, your profile, listings, messages, watchlist, saved searches, and FCM tokens are removed right away. We retain certain records (orders, tax records, payout records, and dispute records) for up to 7 years as required by law and to preserve marketplace integrity. Public listings you posted may remain visible in archived form (with the seller name removed) where another user has interacted with them, to preserve the integrity of historical orders.</p>
 
-  <h2>7. Your rights</h2>
+  <h2 id="cookies">7. Cookies and similar technologies</h2>
+  <p>TeeBox uses a minimal set of storage technologies. We do <em>not</em> use advertising or cross-site tracking cookies.</p>
+  <ul>
+    <li><strong>Essential / functional.</strong> Firebase Authentication persists your sign-in using browser <code>localStorage</code> on the web and in secure in-memory storage on iOS. Stripe sets its own cookies on <code>js.stripe.com</code> when you reach a payment screen — these are third-party cookies required to process the payment securely.</li>
+    <li><strong>Analytics.</strong> Plausible Analytics is fully cookieless and does not set any identifier in your browser.</li>
+    <li><strong>No advertising or tracking cookies.</strong> We do not embed ad networks, retargeting pixels, or social media trackers.</li>
+  </ul>
+
+  <h2>8. Your rights</h2>
   <p>Regardless of where you live, you can:</p>
   <ul>
     <li><strong>Access</strong> — request a copy of the personal information we hold about you.</li>
@@ -193,19 +217,42 @@
   </ul>
   <p>To exercise any of these rights, email <a href="mailto:privacy@teeboxmarket.com">privacy@teeboxmarket.com</a> from the email address associated with your account. We respond within 30 days.</p>
 
-  <h2>8. Children</h2>
+  <h2 id="ccpa">9. California privacy rights (CCPA / CPRA)</h2>
+  <p>This section is a Notice at Collection for California residents under Cal. Civ. Code §1798.140. It describes the categories of personal information we collect, where we get it, why we use it, and whether we sell or share it.</p>
+
+  <h3>Categories of personal information we collect</h3>
+  <ul>
+    <li><strong>Identifiers</strong> — name, email address, phone number (optional, only if you choose phone sign-in), Firebase UID, and IP address (server-logged). <em>Source:</em> you, and automatically from your device. <em>Purpose:</em> account creation, authentication, fraud prevention. <em>Sold/shared:</em> No.</li>
+    <li><strong>Customer records</strong> — shipping address (collected at checkout via Stripe) and billing information (collected by Stripe). <em>Source:</em> you, via Stripe's checkout. <em>Purpose:</em> to deliver purchases and process payments. <em>Sold/shared:</em> No.</li>
+    <li><strong>Commercial information</strong> — purchase history, watchlist, saved searches, and listing activity. <em>Source:</em> you, through your use of TeeBox. <em>Purpose:</em> operate the marketplace and personalize your experience. <em>Sold/shared:</em> No.</li>
+    <li><strong>Internet or other electronic network activity</strong> — app usage and aggregate pageview data (via Plausible — anonymous and cookieless). <em>Source:</em> automatically from your device. <em>Purpose:</em> to understand which features are used and improve the product. <em>Sold/shared:</em> No.</li>
+    <li><strong>Geolocation data</strong> — country-level only, derived from your IP address. We never collect GPS or precise location. <em>Source:</em> automatically from your IP. <em>Purpose:</em> coarse analytics and fraud signals. <em>Sold/shared:</em> No.</li>
+    <li><strong>Inferences</strong> — drawn from your listing activity (for example, an AI price suggestion based on the item you are listing). <em>Source:</em> derived by us from data you provide. <em>Purpose:</em> the AI assist features you choose to use. <em>Sold/shared:</em> No.</li>
+    <li><strong>Biometric and identity information (sellers only, optional)</strong> — a selfie and a government-issued photo ID, collected only if you request seller identity verification. This data goes directly to Stripe Identity and is not stored on TeeBox servers. <em>Source:</em> you, via Stripe Identity. <em>Purpose:</em> identity verification for high-value seller activity. <em>Sold/shared:</em> No.</li>
+  </ul>
+
+  <h3>We do not sell or share personal information</h3>
+  <p>TeeBox does not sell your personal information and does not share it for cross-context behavioral advertising, as those terms are defined under the California Consumer Privacy Act and California Privacy Rights Act (Cal. Civ. Code §1798.135). We have not done so in the past 12 months, and we do not have any plans to start.</p>
+
+  <h3>Global Privacy Control (GPC)</h3>
+  <p>TeeBox honors the <a href="https://globalprivacycontrol.org/" target="_blank" rel="noopener noreferrer">Global Privacy Control</a> browser signal as a valid opt-out of sale/sharing. Because we do not sell or share personal information to begin with, the GPC signal does not change how we process your data — but we publicly acknowledge the standard and will continue to honor it if our practices ever change.</p>
+
+  <h3>Exercising your California rights</h3>
+  <p>California residents may request to know, correct, delete, or receive a portable copy of their personal information, and may not be discriminated against for exercising these rights. To make a request, email <a href="mailto:privacy@teeboxmarket.com">privacy@teeboxmarket.com</a> from the address on your account. We will verify your identity through the email or in-app account you control before fulfilling the request.</p>
+
+  <h2>10. Children</h2>
   <p>TeeBox is not directed to children under 13 and we do not knowingly collect personal information from children under 13. If you believe a child has signed up for TeeBox, contact us and we will delete the account.</p>
 
-  <h2>9. Security</h2>
+  <h2>11. Security</h2>
   <p>We use industry-standard safeguards to protect your information, including encryption in transit (HTTPS), encryption at rest (Firebase / Stripe), salted password hashing, and least-privilege access controls. No system is perfectly secure — if we ever discover a breach affecting your data, we will notify you and the appropriate authorities as required by law.</p>
 
-  <h2>10. International transfers</h2>
+  <h2>12. International transfers</h2>
   <p>TeeBox is operated from the United States. If you access TeeBox from outside the US, you consent to your information being transferred to and processed in the US, where data protection laws may differ from those in your country.</p>
 
-  <h2>11. Changes to this policy</h2>
+  <h2>13. Changes to this policy</h2>
   <p>We may update this policy from time to time. When we make a material change, we will update the "Last updated" date at the top of this page and notify users in the app. Your continued use of TeeBox after a change means you accept the updated policy.</p>
 
-  <h2>12. Contact</h2>
+  <h2>14. Contact</h2>
   <p>Questions, requests, or complaints? Reach us at:</p>
   <ul>
     <li>Email: <a href="mailto:privacy@teeboxmarket.com">privacy@teeboxmarket.com</a></li>

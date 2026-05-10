@@ -29,6 +29,18 @@ service cloud.firestore {
         ];
     }
 
+    // Email-verified gate. Used to block write-heavy actions (listing
+    // creation, profile-significant user-doc updates) until the user
+    // has clicked the verification link. Phone-only sign-ins don't have
+    // this claim, so we accept either email_verified==true OR phone
+    // sign-in (token.firebase.sign_in_provider == 'phone') so we don't
+    // lock phone users out of basic flows.
+    function isEmailVerified() {
+      return request.auth != null
+        && (request.auth.token.email_verified == true
+            || request.auth.token.firebase.sign_in_provider == 'phone');
+    }
+
     // ─────────────────────────────────────────────
     // LISTINGS
     //   read:   public
@@ -45,6 +57,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null
         && appCheckOk()
+        && isEmailVerified()
         && request.resource.data.sellerId == request.auth.uid
         && isValidListingCreate(request.resource.data);
 
@@ -192,6 +205,7 @@ service cloud.firestore {
 
       allow update: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
+        && isEmailVerified()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
 
@@ -228,6 +242,21 @@ service cloud.firestore {
 
     // pricesIndex — server-only state for price-drop diffing.
     match /pricesIndex/{listingId} {
+      allow read, write: if false;
+    }
+
+    // processedStripeEvents — server-only marker collection used by
+    // the Stripe webhook to deduplicate redelivered events. Doc id
+    // is the Stripe event.id; presence of the doc means we already
+    // processed that event.
+    match /processedStripeEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    // pendingOrders — server-only placeholder for payment_intents that
+    // are still in the `processing` state (ACH, etc.). The order doc
+    // is created only on payment_intent.succeeded.
+    match /pendingOrders/{piId} {
       allow read, write: if false;
     }
 

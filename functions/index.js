@@ -86,12 +86,20 @@ async function getAuthedUser(req) {
   if (!authHeader.startsWith("Bearer ")) return null;
   const idToken = authHeader.substring(7);
   try {
-    return await admin.auth().verifyIdToken(idToken);
+    // Pass checkRevoked=true so server-side revocations (logout-everywhere,
+    // password reset, tier change, seller-verification) take effect on the
+    // very next API call rather than waiting for the 1h ID-token TTL.
+    return await admin.auth().verifyIdToken(idToken, true);
   } catch (err) {
     logger.warn("Invalid ID token:", err.message);
     return null;
   }
 }
+
+// SHA-256 prefix of an email, used in error logs to avoid leaking PII while
+// still letting us trace a recurring failure to a specific account.
+const emailHash = (e) => e ? require("crypto").createHash("sha256")
+    .update(String(e)).digest("hex").slice(0, 12) : null;
 
 // ─────────────────────────────────────────────────────────────
 // checkRateLimit — generic per-UID rolling-window throttle.
@@ -176,6 +184,11 @@ exports.createPaymentIntent = onRequest(
     if (!authUser) {
       return res.status(401).json({error: "Not authenticated"});
     }
+    if (!authUser.email_verified) {
+      return res.status(412).json({
+        error: "Please verify your email before continuing.",
+      });
+    }
     const buyerId = authUser.uid;
 
     const {listingId, quantity} = req.body || {};
@@ -235,14 +248,23 @@ exports.createPaymentIntent = onRequest(
         }
 
         // Multi-quantity stock check. quantity / quantitySold default to 1/0
-        // for legacy single-unit listings.
+        // for legacy single-unit listings. quantityReserved tracks units
+        // currently held in PI-pending state across concurrent buyers so a
+        // race can't oversell — e.g. two buyers reserving the last unit
+        // simultaneously. Lazy-reset: if the listing's pendingUntil window
+        // has already elapsed we treat current reserved as 0 so the next
+        // buyer can take over rather than wait for a sweeper.
         const totalQty = Math.max(1, Number(listing.quantity || 1));
         const soldQty = Math.max(0, Number(listing.quantitySold || 0));
         const remaining = totalQty - soldQty;
-        if (qty > remaining) {
+        const reservedNow = (pendingUntilMs > 0 && pendingUntilMs < now)
+          ? 0
+          : Math.max(0, Number(listing.quantityReserved || 0));
+        if (qty + reservedNow > remaining) {
+          const free = Math.max(0, remaining - reservedNow);
           throw new HttpError(
             409,
-            `Only ${remaining} in stock — please reduce your quantity.`
+            `Only ${free} available right now — please try a smaller quantity.`
           );
         }
 
@@ -255,21 +277,25 @@ exports.createPaymentIntent = onRequest(
         // For multi-stock listings, only flip to "pending" when the LAST
         // unit is being reserved. Otherwise keep status active so other
         // buyers can keep purchasing remaining units in parallel.
-        const isLastUnit = (qty === remaining);
+        const isLastUnit = (qty + reservedNow === remaining);
+        const newReserved = reservedNow + qty;
         tx.update(listingRef, isLastUnit ? {
           status: "pending",
           pendingBuyer: buyerId,
           pendingUntil: admin.firestore.Timestamp.fromMillis(
             now + PENDING_WINDOW_MS
           ),
+          quantityReserved: newReserved,
         } : {
           // Reserve units atomically without locking the whole listing.
-          // The Stripe webhook commits the increment to quantitySold;
-          // here we just keep the listing active.
+          // The Stripe webhook commits the increment to quantitySold and
+          // decrements quantityReserved in the same tx; here we just keep
+          // the listing active.
           pendingBuyer: buyerId,
           pendingUntil: admin.firestore.Timestamp.fromMillis(
             now + PENDING_WINDOW_MS
           ),
+          quantityReserved: newReserved,
         });
 
         return {
@@ -306,14 +332,39 @@ exports.createPaymentIntent = onRequest(
       const platformFeeCents = Math.round(reservation.priceCents * feeRate);
       const sellerPayoutCents = reservation.priceCents - platformFeeCents;
 
+      // Roll back the reservation: revert status if we flipped it, clear
+      // pending pointers, and decrement quantityReserved by exactly the
+      // qty this request added. Shared between the seller-not-onboarded
+      // branch and the Stripe-API-throw catch below.
+      const rollbackReservation = async () => {
+        try {
+          await db.runTransaction(async (tx) => {
+            const snap = await tx.get(listingRef);
+            if (!snap.exists) return;
+            const cur = snap.data();
+            const curReserved = Math.max(
+              0, Number(cur.quantityReserved || 0));
+            const nextReserved = Math.max(0, curReserved - reservation.qty);
+            const update = {
+              pendingBuyer: admin.firestore.FieldValue.delete(),
+              pendingUntil: admin.firestore.FieldValue.delete(),
+              pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
+              quantityReserved: nextReserved,
+            };
+            // Only flip status back to active if we were the ones who
+            // moved it to pending (last-unit reservation).
+            if (cur.status === "pending" && reservation.isLastUnit) {
+              update.status = "active";
+            }
+            tx.update(listingRef, update);
+          });
+        } catch (rollbackErr) {
+          logger.error("createPaymentIntent: rollback failed", rollbackErr);
+        }
+      };
+
       if (!stripeAccountId || !stripeChargesEnabled) {
-        // Roll back the reservation we just made so the listing doesn't
-        // sit in `pending` forever.
-        await listingRef.update({
-          status: "active",
-          pendingBuyer: admin.firestore.FieldValue.delete(),
-          pendingUntil: admin.firestore.FieldValue.delete(),
-        }).catch(() => {});
+        await rollbackReservation();
         return res.status(409).json({
           error: "This seller hasn't finished setting up payouts yet. " +
             "Please come back in a bit, or message them via the listing.",
@@ -325,9 +376,11 @@ exports.createPaymentIntent = onRequest(
       // Truncate description to Stripe's 1000-char limit, defensively.
       const description = `teebox — ${reservation.title}`.slice(0, 200);
 
-      // Idempotency: same buyer + listing + 5-minute bucket → same PI.
-      // Stops a duplicate-charge race if the client retries Pay Now.
-      const idempotencyKey = `pi_${listingId}_${buyerId}_${Math.floor(
+      // Idempotency: same buyer + listing + qty + 5-minute bucket → same
+      // PI. Including qty in the key matters: without it, a buyer who
+      // tweaks the quantity selector and retries within 5 min would get
+      // back the original PI for the wrong amount.
+      const idempotencyKey = `pi_${listingId}_${buyerId}_${reservation.qty}_${Math.floor(
         Date.now() / (5 * 60 * 1000)
       )}`;
 
@@ -335,37 +388,47 @@ exports.createPaymentIntent = onRequest(
       // automatically transfers (priceCents - applicationFee) to the
       // seller's connected account. Stripe handles the split — no manual
       // payouts, no holding funds on our books.
-      const paymentIntent = await stripeClient.paymentIntents.create(
-        {
-          amount: reservation.priceCents,
-          currency: "usd",
-          automatic_payment_methods: {enabled: true},
-          payment_method_options: {
-            card: {request_three_d_secure: "automatic"},
+      let paymentIntent;
+      try {
+        paymentIntent = await stripeClient.paymentIntents.create(
+          {
+            amount: reservation.priceCents,
+            currency: "usd",
+            automatic_payment_methods: {enabled: true},
+            payment_method_options: {
+              card: {request_three_d_secure: "automatic"},
+            },
+            description,
+            statement_descriptor_suffix: "TEEBOX",
+            // ── Connect bits ──
+            application_fee_amount: platformFeeCents,
+            transfer_data: {destination: stripeAccountId},
+            // Charge the seller's account for any disputes/refunds rather
+            // than the platform — keeps platform liability bounded.
+            on_behalf_of: stripeAccountId,
+            metadata: {
+              listingId,
+              buyerId,
+              sellerId: reservation.sellerId || "",
+              stripeAccountId,
+              platformFeeCents: String(platformFeeCents),
+              sellerPayoutCents: String(sellerPayoutCents),
+              quantity: String(reservation.qty),
+              unitPriceCents: String(reservation.unitPriceCents),
+              sellerTier,
+              feeRateBps: String(Math.round(feeRate * 10000)),
+            },
           },
-          description,
-          statement_descriptor_suffix: "TEEBOX",
-          // ── Connect bits ──
-          application_fee_amount: platformFeeCents,
-          transfer_data: {destination: stripeAccountId},
-          // Charge the seller's account for any disputes/refunds rather
-          // than the platform — keeps platform liability bounded.
-          on_behalf_of: stripeAccountId,
-          metadata: {
-            listingId,
-            buyerId,
-            sellerId: reservation.sellerId || "",
-            stripeAccountId,
-            platformFeeCents: String(platformFeeCents),
-            sellerPayoutCents: String(sellerPayoutCents),
-            quantity: String(reservation.qty),
-            unitPriceCents: String(reservation.unitPriceCents),
-            sellerTier,
-            feeRateBps: String(Math.round(feeRate * 10000)),
-          },
-        },
-        {idempotencyKey}
-      );
+          {idempotencyKey}
+        );
+      } catch (stripeErr) {
+        // Stripe API blew up — we successfully reserved the listing but
+        // failed to create the PI. Roll the reservation back so the
+        // listing doesn't sit in pending until the sweeper cleans it.
+        logger.error("createPaymentIntent: Stripe API threw", stripeErr);
+        await rollbackReservation();
+        throw stripeErr;
+      }
 
       await listingRef.update({pendingPaymentIntentId: paymentIntent.id});
 
@@ -417,6 +480,41 @@ exports.stripeWebhook = onRequest(
     }
 
     try {
+      // ── Event-id replay protection ──
+      // Stripe retries on any non-2xx and also occasionally redelivers
+      // events even on 200 (e.g. webhook timing out, dashboard "Resend").
+      // Without this guard, handlePaymentSucceeded's per-order tx
+      // protects against double-recording, but the rollup writes (price
+      // history, globalStats) would double-count. An atomic create on
+      // processedStripeEvents/{event.id} fails with ALREADY_EXISTS the
+      // second time the event lands, so we short-circuit before any
+      // handler runs.
+      const db = admin.firestore();
+      const eventRef = db.collection("processedStripeEvents").doc(event.id);
+      try {
+        await eventRef.create({
+          type: event.type,
+          receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (createErr) {
+        // Firestore "already exists" surfaces as code 6 in gRPC numeric
+        // form or "ALREADY_EXISTS" / "already-exists" in the string form
+        // depending on the SDK version — accept any of them.
+        const c = createErr && (createErr.code || createErr.status);
+        const isDuplicate = c === 6 || c === "ALREADY_EXISTS" ||
+          c === "already-exists" || String(c || "").toLowerCase()
+              .includes("already");
+        if (isDuplicate) {
+          logger.info(
+            `Duplicate Stripe event ${event.id} (${event.type}) — skipping`);
+          return res.json({received: true, duplicate: true});
+        }
+        // Unknown error writing the marker — log and continue. If we
+        // can't write to Firestore the handler below will also fail
+        // and Stripe will retry.
+        logger.error("processedStripeEvents create failed", createErr);
+      }
+
       switch (event.type) {
         case "payment_intent.succeeded":
           await handlePaymentSucceeded(event.data.object);
@@ -425,14 +523,35 @@ exports.stripeWebhook = onRequest(
         case "payment_intent.canceled":
           await releaseListingOnFailure(event.data.object);
           break;
+        case "payment_intent.processing":
+          await handlePaymentProcessing(event.data.object);
+          break;
         case "account.updated":
           // Seller's Connect status changed (finished onboarding,
           // requirement added, etc.). Mirror it into Firestore so the
           // app can gate Buy Now + show payout-status banners.
           await syncConnectAccountStatus(event.data.object);
           break;
+        case "account.application.deauthorized":
+          await handleAccountDeauthorized(event);
+          break;
         case "charge.dispute.created":
           await handleDisputeOpened(event.data.object);
+          break;
+        case "charge.dispute.funds_withdrawn":
+          await handleDisputeFundsWithdrawn(
+              event.data.object, stripeClient);
+          break;
+        case "charge.dispute.funds_reinstated":
+          await handleDisputeFundsReinstated(event.data.object);
+          break;
+        case "payout.failed":
+          await handlePayoutFailed(event);
+          break;
+        case "identity.verification_session.verified":
+        case "identity.verification_session.requires_input":
+        case "identity.verification_session.canceled":
+          await handleIdentitySessionUpdate(event);
           break;
         // ── Pro Seller subscription lifecycle ──
         // We listen on the subscription object directly (rather than
@@ -454,7 +573,23 @@ exports.stripeWebhook = onRequest(
       return res.json({received: true});
     } catch (err) {
       logger.error(`Error handling ${event.type}:`, err);
-      return res.status(500).send("Error processing webhook");
+      // Classify the error so we don't burn Stripe's retry budget on
+      // permanently-broken events. Firestore "unavailable" / "deadline
+      // exceeded" are transient — return 500 so Stripe retries with
+      // exponential backoff. Anything else is permanent (bad metadata,
+      // unknown listing/account shape, etc.) — return 200 so Stripe
+      // stops retrying. The event will still be visible in our
+      // Cloud Functions logs for manual triage.
+      const code = err && (err.code || err.status);
+      const transient = code === 14 || code === 4 ||
+        code === "UNAVAILABLE" || code === "DEADLINE_EXCEEDED" ||
+        code === "unavailable" || code === "deadline-exceeded" ||
+        code === "internal" ||
+        (typeof code === "string" && /unavailable|deadline/i.test(code));
+      if (transient) {
+        return res.status(500).send("Error processing webhook (retryable)");
+      }
+      return res.status(200).json({received: true, error: "permanent"});
     }
   }
 );
@@ -535,7 +670,18 @@ async function handleSubscriptionUpsert(sub) {
   // For status='incomplete' we don't downgrade — the user just hasn't
   // paid yet. They stay on whatever tier they had before.
   await userDoc.ref.set(update, {merge: true});
-  if (update.tier) await mirrorTierToProfile(userDoc.id, update.tier === "pro");
+  if (update.tier) {
+    await mirrorTierToProfile(userDoc.id, update.tier === "pro");
+    // Revoke refresh tokens so the new tier propagates immediately —
+    // otherwise the user's stale ID token (up to 1h old) would still
+    // report the previous tier when the client reads custom claims.
+    try {
+      await admin.auth().revokeRefreshTokens(userDoc.id);
+    } catch (e) {
+      logger.warn(
+        `revokeRefreshTokens after tier change failed for ${userDoc.id}: ${e.message}`);
+    }
+  }
   logger.info(
     `Subscription ${sub.id} → ${status} for ${userDoc.id} ` +
     `(tier=${update.tier || "unchanged"})`,
@@ -585,18 +731,351 @@ async function syncConnectAccountStatus(account) {
 async function handleDisputeOpened(dispute) {
   if (!dispute || !dispute.payment_intent) return;
   const db = admin.firestore();
-  // Tag the order doc so the seller dashboard can surface the dispute,
-  // and so /orders queries can flag affected items in red.
   const orderRef = db.collection("orders").doc(dispute.payment_intent);
-  await orderRef.set({
-    disputed: true,
-    disputeId: dispute.id,
-    disputeReason: dispute.reason || "",
-    disputeAmountCents: dispute.amount || 0,
-    disputeStatus: dispute.status || "needs_response",
-    disputeCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, {merge: true});
+
+  // Wrap in a tx so disputeCreatedAt is written ONCE — on the very first
+  // dispute event for the order. Subsequent dispute updates (status
+  // changes, additional evidence requested) re-fire the webhook and we
+  // don't want to clobber the original timestamp the seller's evidence
+  // deadline counter is anchored on.
+  let sellerId = null;
+  let listingTitle = "your listing";
+  let evidenceDueByMs = null;
+  try {
+    const due = dispute.evidence_details && dispute.evidence_details.due_by;
+    if (due) evidenceDueByMs = Number(due) * 1000;
+  } catch (_e) { /* ignore */ }
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(orderRef);
+    const existing = snap.exists ? snap.data() : {};
+    sellerId = existing.sellerId || null;
+    const update = {
+      disputed: true,
+      disputeId: dispute.id,
+      disputeReason: dispute.reason || "",
+      disputeAmountCents: dispute.amount || 0,
+      disputeStatus: dispute.status || "needs_response",
+    };
+    if (!existing.disputeCreatedAt) {
+      update.disputeCreatedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+    if (evidenceDueByMs) {
+      update.disputeEvidenceDueBy =
+          admin.firestore.Timestamp.fromMillis(evidenceDueByMs);
+    }
+    tx.set(orderRef, update, {merge: true});
+  });
+
+  // Pull the order doc fresh so we have sellerId + listingTitle for the
+  // notification fan-out. We do this outside the tx to avoid the
+  // transaction having to re-read after we've already written.
+  if (sellerId) {
+    try {
+      const orderSnap = await orderRef.get();
+      if (orderSnap.exists) {
+        const o = orderSnap.data();
+        sellerId = sellerId || o.sellerId;
+        if (o.listingId) {
+          const lsnap = await db.collection("listings").doc(o.listingId)
+              .get().catch(() => null);
+          if (lsnap && lsnap.exists) {
+            listingTitle = lsnap.data().title || listingTitle;
+          }
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+  }
+
+  // Notify the seller via email + push + in-app notification.
+  if (sellerId) {
+    try {
+      const seller = await lookupUser(sellerId).catch(() => null);
+      const orderShort = String(dispute.payment_intent || "")
+          .replace(/^pi_/, "").slice(0, 8);
+      const dueStr = evidenceDueByMs
+        ? new Date(evidenceDueByMs).toUTCString()
+        : "soon (check Stripe Dashboard)";
+      // 1. In-app notification — also fires pushNotificationDispatch.
+      await writeNotification(sellerId, {
+        kind: "chargeback",
+        type: "chargeback",
+        orderId: dispute.payment_intent,
+        listingTitle,
+        disputeId: dispute.id,
+        reason: dispute.reason || "",
+        amountCents: dispute.amount || 0,
+      }).catch((e) => logger.warn("chargeback notif failed", e));
+      // 2. Email — Resend may be off in dev (sendEmail no-ops silently
+      // when RESEND_API_KEY isn't set).
+      if (seller && seller.email) {
+        const body = `<p>A chargeback was opened on order
+          <strong>#${orderShort}</strong> (${listingTitle}).</p>
+          <p><strong>Reason:</strong> ${dispute.reason || "unspecified"}</p>
+          <p><strong>Amount:</strong>
+            $${((dispute.amount || 0) / 100).toFixed(2)}</p>
+          <p style="margin-top:18px;"><strong>Evidence deadline:</strong>
+            ${dueStr}. If you don't respond by then, the dispute will
+            automatically resolve in the cardholder's favor and your
+            seller account will be debited the disputed amount.</p>
+          <p>Reply with shipment proof, tracking, and any seller-buyer
+            messages from the Stripe Dashboard.</p>`;
+        await sendEmail({
+          to: seller.email,
+          subject: `Chargeback received on order #${orderShort}`,
+          html: emailShell(
+              "Chargeback received", body, "Open Stripe Dashboard",
+              "https://dashboard.stripe.com/disputes"),
+        }).catch((e) => logger.warn("chargeback email failed", e));
+      }
+    } catch (notifyErr) {
+      logger.warn(
+        `handleDisputeOpened: notification fan-out failed: ${notifyErr.message}`);
+    }
+  }
+
   logger.warn(`Dispute opened on order ${dispute.payment_intent}: ${dispute.reason}`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// handleDisputeFundsWithdrawn — Stripe pulled money back from the
+// destination account to cover the chargeback. We respond by reversing
+// the original transfer (with refund_application_fee=true so the seller
+// — not the platform — also eats their share of the fee). The order is
+// tagged with disputeFundsWithdrawn so the seller dashboard can show a
+// clear "balance debited" status.
+// ─────────────────────────────────────────────────────────────
+async function handleDisputeFundsWithdrawn(dispute, stripeClient) {
+  if (!dispute || !dispute.payment_intent) return;
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(dispute.payment_intent);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) {
+    logger.warn(
+      `funds_withdrawn for unknown order ${dispute.payment_intent}`);
+    return;
+  }
+  const order = orderSnap.data();
+
+  let transferId = order.transferId || null;
+  // Backstop: if we didn't capture the transfer id when the PI succeeded
+  // (e.g. older orders, or transfer was created async), pull it from the
+  // PI now via Stripe.
+  if (!transferId) {
+    try {
+      const pi = await stripeClient.paymentIntents.retrieve(
+          dispute.payment_intent, {expand: ["charges.data.transfer"]});
+      const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
+      transferId = ch && ch.transfer
+        ? (typeof ch.transfer === "string" ? ch.transfer : ch.transfer.id)
+        : null;
+    } catch (e) {
+      logger.warn("funds_withdrawn: PI retrieve failed", e.message);
+    }
+  }
+
+  if (!transferId) {
+    logger.error(
+      `funds_withdrawn: no transferId for ${dispute.payment_intent}; ` +
+      "cannot reverse seller payout");
+    await orderRef.set({
+      disputeFundsWithdrawn: true,
+      sellerDebited: false,
+      disputeFundsWithdrawnAt:
+        admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+    return;
+  }
+
+  const sellerPayoutCents = Number(order.sellerPayoutCents || 0);
+  try {
+    await stripeClient.transfers.createReversal(transferId, {
+      amount: sellerPayoutCents > 0 ? sellerPayoutCents : undefined,
+      refund_application_fee: true,
+      metadata: {
+        reason: "chargeback",
+        disputeId: dispute.id,
+      },
+    });
+  } catch (revErr) {
+    logger.error("funds_withdrawn: transfer reversal failed", revErr);
+  }
+
+  await orderRef.set({
+    disputeFundsWithdrawn: true,
+    sellerDebited: true,
+    disputeFundsWithdrawnAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+}
+
+// ─────────────────────────────────────────────────────────────
+// handleDisputeFundsReinstated — Stripe reversed the withdrawal because
+// the dispute was won. We can't undo our transfer reversal, but we
+// note it on the order so the dashboard reflects reality.
+// ─────────────────────────────────────────────────────────────
+async function handleDisputeFundsReinstated(dispute) {
+  if (!dispute || !dispute.payment_intent) return;
+  const db = admin.firestore();
+  await db.collection("orders").doc(dispute.payment_intent).set({
+    disputeFundsReinstated: true,
+    disputeFundsReinstatedAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+    disputeStatus: dispute.status || "won",
+  }, {merge: true});
+  logger.info(`Dispute funds reinstated on ${dispute.payment_intent}`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// handlePayoutFailed — Stripe couldn't deposit to the seller's bank.
+// Notify them so they can update their account before the next attempt.
+// ─────────────────────────────────────────────────────────────
+async function handlePayoutFailed(event) {
+  const accountId = event && event.account;
+  const payout = event && event.data && event.data.object;
+  if (!accountId || !payout) return;
+  const db = admin.firestore();
+  const usersSnap = await db.collection("users")
+      .where("stripeAccountId", "==", accountId).limit(1).get();
+  if (usersSnap.empty) {
+    logger.warn(`payout.failed for unknown account ${accountId}`);
+    return;
+  }
+  const uid = usersSnap.docs[0].id;
+  const amountCents = Number(payout.amount || 0);
+  const failureMsg = payout.failure_message ||
+      payout.failure_code || "unknown reason";
+  await writeNotification(uid, {
+    kind: "payout_failed",
+    type: "payout_failed",
+    amountCents,
+    failureMessage: failureMsg,
+    payoutId: payout.id || null,
+  }).catch((e) => logger.warn("payout_failed notif failed", e));
+
+  try {
+    const seller = await lookupUser(uid);
+    if (seller && seller.email) {
+      const body = `<p>Stripe couldn't deposit
+        <strong>$${(amountCents / 100).toFixed(2)}</strong> into your bank
+        account.</p>
+        <p><strong>Reason:</strong> ${failureMsg}</p>
+        <p>Open your Stripe Dashboard to update your bank account and
+        retry the payout.</p>`;
+      await sendEmail({
+        to: seller.email,
+        subject: "Payout failed — action required",
+        html: emailShell(
+            "Payout failed", body, "Open Stripe Dashboard",
+            "https://dashboard.stripe.com/payouts"),
+      });
+    }
+  } catch (e) {
+    logger.warn("payout_failed: email fan-out failed", e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// handleAccountDeauthorized — seller disconnected the Stripe Connect
+// account from our platform (e.g. via Stripe Dashboard). Clear their
+// payouts state so the buy flow refuses to charge buyers for items
+// the seller can no longer get paid for.
+// ─────────────────────────────────────────────────────────────
+async function handleAccountDeauthorized(event) {
+  const accountId = event && (event.account ||
+      (event.data && event.data.object && event.data.object.id));
+  if (!accountId) return;
+  const db = admin.firestore();
+  const usersSnap = await db.collection("users")
+      .where("stripeAccountId", "==", accountId).limit(1).get();
+  if (usersSnap.empty) {
+    logger.warn(`account.deauthorized for unknown account ${accountId}`);
+    return;
+  }
+  const ref = usersSnap.docs[0].ref;
+  await ref.update({
+    stripeAccountId: admin.firestore.FieldValue.delete(),
+    stripeChargesEnabled: false,
+    stripePayoutsEnabled: false,
+    stripeDetailsSubmitted: false,
+    stripeAccountDeauthorizedAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+  });
+  logger.info(`Cleared Connect state for ${usersSnap.docs[0].id} ` +
+    `(account ${accountId} deauthorized)`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// handlePaymentProcessing — ACH / SEPA / wallet redirects can sit in
+// `processing` for hours-to-days before settling. Record a placeholder
+// pendingOrder so the listing stays reserved during that window and we
+// don't trigger releaseListingOnFailure if the PI never reaches a
+// terminal failure event.
+// ─────────────────────────────────────────────────────────────
+async function handlePaymentProcessing(pi) {
+  if (!pi || !pi.id) return;
+  const db = admin.firestore();
+  const {listingId, buyerId, sellerId} = pi.metadata || {};
+  const amountCents = Number(pi.amount || 0);
+  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
+  const pendingUntilMs = Date.now() + TEN_DAYS_MS;
+  await db.collection("pendingOrders").doc(pi.id).set({
+    paymentIntentId: pi.id,
+    listingId: listingId || null,
+    buyerId: buyerId || null,
+    sellerId: sellerId || null,
+    amountCents,
+    processingStartedAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+    pendingUntil:
+      admin.firestore.Timestamp.fromMillis(pendingUntilMs),
+  }, {merge: true});
+  if (listingId) {
+    try {
+      await db.collection("listings").doc(listingId).set({
+        pendingUntil:
+          admin.firestore.Timestamp.fromMillis(pendingUntilMs),
+      }, {merge: true});
+    } catch (e) {
+      logger.warn("payment.processing: listing extend failed", e.message);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// handleIdentitySessionUpdate — Stripe Identity verification finished,
+// needs more input, or was canceled. Flip the corresponding flags on
+// users/{uid} so the app can gate identity-required surfaces.
+// ─────────────────────────────────────────────────────────────
+async function handleIdentitySessionUpdate(event) {
+  const obj = event && event.data && event.data.object;
+  if (!obj) return;
+  const uid = obj.metadata && obj.metadata.uid;
+  if (!uid) {
+    logger.warn(
+      `identity event ${event.type} missing metadata.uid`);
+    return;
+  }
+  const db = admin.firestore();
+  const update = {
+    identityUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (event.type === "identity.verification_session.verified") {
+    update.identityVerified = true;
+    update.identityPending = false;
+    update.identityVerifiedAt =
+      admin.firestore.FieldValue.serverTimestamp();
+  } else if (event.type === "identity.verification_session.requires_input") {
+    update.identityVerified = false;
+    update.identityPending = true;
+    update.identityRequiresInput = true;
+  } else if (event.type === "identity.verification_session.canceled") {
+    update.identityVerified = false;
+    update.identityPending = false;
+    update.identityCanceledAt =
+      admin.firestore.FieldValue.serverTimestamp();
+  }
+  await db.collection("users").doc(uid).set(update, {merge: true});
 }
 
 async function handlePaymentSucceeded(pi) {
@@ -612,10 +1091,30 @@ async function handlePaymentSucceeded(pi) {
   } = pi.metadata || {};
   const orderQty = Math.max(1, parseInt(quantity || "1", 10));
 
+  // Capture the destination-charge transferId so charge.dispute.
+  // funds_withdrawn can reverse it without a round-trip back to Stripe.
+  // PI shape: pi.charges.data[0].transfer is the Connect transfer object
+  // (or its id string, depending on expand state).
+  let transferId = null;
+  try {
+    const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
+    if (ch && ch.transfer) {
+      transferId = typeof ch.transfer === "string"
+        ? ch.transfer
+        : ch.transfer.id || null;
+    }
+  } catch (_e) { /* tolerate missing fields */ }
+
   const orderRef = db.collection("orders").doc(pi.id);
   const listingRef = listingId
     ? db.collection("listings").doc(listingId)
     : null;
+
+  // alreadyProcessed flag lets us skip the priceHistory + globalStats
+  // rollups below when the order doc already existed — without this,
+  // a webhook redelivery would double-count GMV on the homepage and
+  // append a duplicate sale to the model's sparkline.
+  let alreadyProcessed = false;
 
   await db.runTransaction(async (tx) => {
     const [existingOrder, listingSnap] = await Promise.all([
@@ -625,6 +1124,7 @@ async function handlePaymentSucceeded(pi) {
 
     if (existingOrder.exists) {
       logger.info(`Order ${pi.id} already processed, skipping`);
+      alreadyProcessed = true;
       return;
     }
 
@@ -640,6 +1140,7 @@ async function handlePaymentSucceeded(pi) {
       unitPriceCents: Number(unitPriceCents) || pi.amount,
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
+      transferId: transferId || null,
       status: "paid",
       fulfillmentStatus: "awaiting_seller_shipment",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -650,9 +1151,16 @@ async function handlePaymentSucceeded(pi) {
       const totalQty = Math.max(1, Number(listing.quantity || 1));
       const newSold = Math.max(0, Number(listing.quantitySold || 0)) + orderQty;
       const fullySold = newSold >= totalQty;
+      // Decrement quantityReserved by exactly the orderQty that this PI
+      // had reserved, clamped at 0. Increment quantitySold in the same
+      // tx so the two counters never drift.
+      const curReserved = Math.max(
+          0, Number(listing.quantityReserved || 0));
+      const nextReserved = Math.max(0, curReserved - orderQty);
       tx.update(listingRef, fullySold ? {
         status: "sold",
         quantitySold: newSold,
+        quantityReserved: nextReserved,
         soldAt: admin.firestore.FieldValue.serverTimestamp(),
         soldTo: buyerId || null,
         orderId: pi.id,
@@ -663,6 +1171,7 @@ async function handlePaymentSucceeded(pi) {
         // Multi-stock: bump sold count, keep listing active for remaining units.
         status: "active",
         quantitySold: newSold,
+        quantityReserved: nextReserved,
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
@@ -671,6 +1180,9 @@ async function handlePaymentSucceeded(pi) {
       logger.warn(`Listing ${listingId} not found for order ${pi.id}`);
     }
   });
+
+  // Early-out on redelivery so we never double-count rollups.
+  if (alreadyProcessed) return;
 
   // After the order/listing transaction commits, append the sale to
   // the public priceHistory document for this model so the detail
@@ -727,8 +1239,9 @@ async function handlePaymentSucceeded(pi) {
 
 async function releaseListingOnFailure(pi) {
   const db = admin.firestore();
-  const {listingId} = pi.metadata || {};
+  const {listingId, quantity} = pi.metadata || {};
   if (!listingId) return;
+  const releasedQty = Math.max(1, parseInt(quantity || "1", 10));
 
   const listingRef = db.collection("listings").doc(listingId);
 
@@ -737,17 +1250,39 @@ async function releaseListingOnFailure(pi) {
     if (!snap.exists) return;
     const listing = snap.data();
 
-    if (
-      listing.status === "pending" &&
-      listing.pendingPaymentIntentId === pi.id
-    ) {
+    const matchesThisPI = listing.pendingPaymentIntentId === pi.id;
+    const isPending = listing.status === "pending";
+    // We decrement quantityReserved whenever this PI matches even on
+    // multi-stock listings that stayed `active` — otherwise concurrent
+    // buyers would see stale reservation counts. Clamp at 0 so a
+    // double-fired failure event can't drag it negative.
+    const curReserved = Math.max(
+        0, Number(listing.quantityReserved || 0));
+    const nextReserved = Math.max(0, curReserved - releasedQty);
+
+    if (isPending && matchesThisPI) {
       tx.update(listingRef, {
         status: "active",
+        quantityReserved: nextReserved,
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
       });
       logger.info(`Released listing ${listingId} after PI ${pi.id} failed`);
+    } else if (matchesThisPI) {
+      // Multi-stock listing stayed active — just unwind the reservation.
+      tx.update(listingRef, {
+        quantityReserved: nextReserved,
+        pendingBuyer: admin.firestore.FieldValue.delete(),
+        pendingUntil: admin.firestore.FieldValue.delete(),
+        pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
+      });
+    } else if (curReserved > 0 && listing.pendingPaymentIntentId == null) {
+      // Stale reservation cleanup edge-case: no PI pointer but reserved
+      // count > 0. Best-effort decrement so we don't leak units.
+      tx.update(listingRef, {
+        quantityReserved: nextReserved,
+      });
     }
   });
 }
@@ -869,6 +1404,11 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
+  if (!request.auth.token || !request.auth.token.email_verified) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Please verify your email before continuing.");
+  }
   const uid = request.auth.uid;
   const phone = request.auth.token.phone_number || null;
   const data = request.data || {};
@@ -892,6 +1432,16 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
     {merge: true}
   );
 
+  // Revoke refresh tokens so the seller-verified state propagates
+  // immediately on the next API call (otherwise the listing-create
+  // rules check would block until the existing ID token expires).
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+  } catch (e) {
+    logger.warn(
+      `revokeRefreshTokens after sellerVerified failed for ${uid}: ${e.message}`);
+  }
+
   return {verified: true};
 });
 
@@ -907,7 +1457,11 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
 //   Uses the admin SDK so it bypasses Firestore rules and works
 //   without a recent re-authentication on the client.
 // ─────────────────────────────────────────────────────────────
-exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, async (request) => {
+exports.deleteUserAccount = onCall({
+  ...USER_CALLABLE,
+  timeoutSeconds: 300,
+  secrets: [stripeSecret],
+}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
@@ -915,16 +1469,22 @@ exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, asyn
   const db = admin.firestore();
   const now = admin.firestore.FieldValue.serverTimestamp();
 
-  // Cap at 400 (under Firestore's 500-op batch limit). Seller accounts
-  // with more than 400 listings are vanishingly rare today; if we hit
-  // this we should chunk the deletion across multiple batches.
-  const listingsSnap = await db.collection("listings")
-    .where("sellerId", "==", uid)
-    .limit(400)
-    .get();
-  if (!listingsSnap.empty) {
+  // ── 1. Mark all the seller's listings as removed. Page through with
+  // a cursor so we don't silently truncate at 400 like the old code did
+  // — power sellers can have hundreds of listings.
+  const LISTINGS_PAGE = 400;
+  let listingsCursor = null;
+  let listingsTouched = 0;
+  while (true) {
+    let q = db.collection("listings")
+      .where("sellerId", "==", uid)
+      .orderBy("__name__")
+      .limit(LISTINGS_PAGE);
+    if (listingsCursor) q = q.startAfter(listingsCursor);
+    const snap = await q.get();
+    if (snap.empty) break;
     const batch = db.batch();
-    listingsSnap.forEach((doc) => {
+    snap.forEach((doc) => {
       batch.update(doc.ref, {
         status: "removed",
         removedAt: now,
@@ -932,8 +1492,115 @@ exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, asyn
       });
     });
     await batch.commit();
+    listingsTouched += snap.size;
+    if (snap.size < LISTINGS_PAGE) break;
+    listingsCursor = snap.docs[snap.docs.length - 1];
   }
 
+  // ── 2. Recursively delete user-owned subcollections. These hold PII
+  // (saved searches, FCM tokens, watchlist, notifications, rate limits)
+  // that we shouldn't keep around after a deletion request.
+  const deleteSubcollection = async (path) => {
+    const PAGE = 500;
+    while (true) {
+      const snap = await db.collection(path).limit(PAGE).get();
+      if (snap.empty) return;
+      const batch = db.batch();
+      snap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      if (snap.size < PAGE) return;
+    }
+  };
+  const subcollections = [
+    "watchlist",
+    "savedSearches",
+    "fcmTokens",
+    "notifications",
+    "rateLimits",
+  ];
+  for (const sub of subcollections) {
+    try {
+      await deleteSubcollection(`users/${uid}/${sub}`);
+    } catch (e) {
+      logger.warn(`deleteUserAccount: ${sub} sweep failed: ${e.message}`);
+    }
+  }
+
+  // ── 3. Storage prefixes — wipe listing photos + avatars for this UID.
+  // Stripping these lets us free bucket cost and honor the data-deletion
+  // request. We don't fail-stop on bucket errors (e.g. wrong project) —
+  // the auth deletion below is the user-visible "done" signal.
+  try {
+    const bucket = admin.storage().bucket();
+    await bucket.deleteFiles({prefix: `listings/${uid}/`})
+        .catch((e) => logger.warn(`listings/${uid}/ wipe failed`, e.message));
+    await bucket.deleteFiles({prefix: `avatars/${uid}/`})
+        .catch((e) => logger.warn(`avatars/${uid}/ wipe failed`, e.message));
+  } catch (e) {
+    logger.warn(`deleteUserAccount: Storage sweep failed: ${e.message}`);
+  }
+
+  // ── 4. Pull the user doc so we can grab Stripe ids before clearing.
+  let userSnap;
+  try {
+    userSnap = await db.doc(`users/${uid}`).get();
+  } catch (_e) { userSnap = null; }
+  const userData = (userSnap && userSnap.exists) ? userSnap.data() : {};
+
+  // ── 5. Stripe customer + subscription teardown. Best-effort: Stripe
+  // refuses to delete accounts with balance/dispute history, and we
+  // don't want that to block the user's account deletion request.
+  if (userData.stripeCustomerId) {
+    try {
+      const stripeClient = stripe(stripeSecret.value());
+      // Cancel any active subscriptions first — `customers.del` returns
+      // success even if subs are still active, but they keep billing,
+      // which we never want.
+      try {
+        const subs = await stripeClient.subscriptions.list({
+          customer: userData.stripeCustomerId,
+          status: "all",
+          limit: 20,
+        });
+        for (const s of (subs.data || [])) {
+          if (s.status === "active" || s.status === "trialing" ||
+              s.status === "past_due" || s.status === "unpaid") {
+            await stripeClient.subscriptions.cancel(s.id)
+                .catch((e) => logger.warn(
+                    `subs.cancel ${s.id} failed`, e.message));
+          }
+        }
+      } catch (e) {
+        logger.warn(
+            `deleteUserAccount: subs.list failed: ${e.message}`);
+      }
+      await stripeClient.customers.del(userData.stripeCustomerId)
+          .catch((e) => logger.warn(
+              `customers.del ${userData.stripeCustomerId} failed`,
+              e.message));
+    } catch (e) {
+      logger.warn(`deleteUserAccount: Stripe customer teardown ${e.message}`);
+    }
+  }
+
+  if (userData.stripeAccountId) {
+    try {
+      const stripeClient = stripe(stripeSecret.value());
+      await stripeClient.accounts.del(userData.stripeAccountId)
+          .catch((e) => logger.warn(
+              `accounts.del ${userData.stripeAccountId} failed`,
+              e.message));
+    } catch (e) {
+      logger.warn(`deleteUserAccount: Stripe account teardown ${e.message}`);
+    }
+  }
+
+  // ── 6. Anonymize the public profile. We keep the doc rather than
+  // deleting it so order/dispute history rendered on the other party's
+  // side still resolves (the listing renders "Deleted user").
+  // NOTE: Skipping message anonymization (would damage marketplace
+  // trust + delete legitimate conversation history). Display name is
+  // shown as "Deleted user" anywhere their handle would normally appear.
   await db.doc(`profiles/${uid}`).set({
     displayName: "Deleted user",
     bio: "",
@@ -944,14 +1611,28 @@ exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, asyn
     deletedAt: now,
   }, {merge: true});
 
+  // ── 7. Clear the private user doc. We zero out Stripe references and
+  // tier as well as the existing fields so a future Auth-record re-use
+  // (same uid in a new sign-up) can't inherit stale Connect/customer
+  // state from the deleted account.
   await db.doc(`users/${uid}`).set({
     phone: null,
     displayName: "Deleted user",
     deleted: true,
     deletedAt: now,
     sellerVerified: false,
+    stripeCustomerId: admin.firestore.FieldValue.delete(),
+    stripeAccountId: admin.firestore.FieldValue.delete(),
+    stripeChargesEnabled: false,
+    stripePayoutsEnabled: false,
+    stripeDetailsSubmitted: false,
+    tier: "free",
+    watchlist: admin.firestore.FieldValue.delete(),
+    blocked: admin.firestore.FieldValue.delete(),
   }, {merge: true});
 
+  // ── 8. Finally delete the Auth record. This frees the phone number
+  // and signs the user out everywhere.
   try {
     await admin.auth().deleteUser(uid);
   } catch (err) {
@@ -959,8 +1640,10 @@ exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, asyn
     throw new HttpsError("internal", "Could not finalize account deletion");
   }
 
-  logger.info(`User account ${uid} deleted at user request`);
-  return {deleted: true};
+  logger.info(
+    `User account ${uid} deleted at user request ` +
+    `(listings=${listingsTouched})`);
+  return {deleted: true, listingsRemoved: listingsTouched};
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -1055,8 +1738,16 @@ async function _verifyAppleIdToken(idToken, rawNonce) {
   }
   // Apple's `nonce` claim is SHA-256(rawNonce) base64url-encoded
   // (Firebase's plugin hashes it before passing to ASAuthorization).
-  // If the client sent rawNonce, verify it matches.
-  if (rawNonce && payload.nonce) {
+  // Tightened: always verify when Apple included a nonce in the token,
+  // even if the client didn't pass us a rawNonce. The previous gate
+  // `rawNonce && payload.nonce` skipped the check whenever the client
+  // omitted rawNonce, defeating Apple's replay protection.
+  if (payload.nonce) {
+    if (!rawNonce || typeof rawNonce !== "string") {
+      throw new HttpsError(
+        "unauthenticated",
+        "Apple sign-in requires a rawNonce when the id_token has one.");
+    }
     const hashed = crypto
         .createHash("sha256")
         .update(String(rawNonce))
@@ -1090,11 +1781,27 @@ async function _verifyAppleIdToken(idToken, rawNonce) {
 async function _findOrCreateUser(provider, verified) {
   const auth = admin.auth();
   // 1. Try to find by email first — email is the natural primary key.
+  //    SECURITY: Only fuse accounts when the incoming provider matches
+  //    one of the providers already on file. Otherwise an attacker who
+  //    controls an Apple/Google account for someone else's email could
+  //    take over their existing password account just by signing in.
+  //    Force the user to sign in with the original method first and
+  //    explicitly link the new provider from settings.
   if (verified.email) {
     try {
       const existing = await auth.getUserByEmail(verified.email);
+      const matches = (existing.providerData || []).some(
+          (p) => p && p.providerId === provider);
+      if (!matches) {
+        throw new HttpsError(
+          "already-exists",
+          "This email is registered with a different sign-in method. " +
+          "Sign in with that method first, then link this provider " +
+          "from settings.");
+      }
       return existing.uid;
     } catch (err) {
+      if (err instanceof HttpsError) throw err;
       if (err.code !== "auth/user-not-found") throw err;
     }
   }
@@ -1133,6 +1840,18 @@ exports.exchangeIdTokenForCustomToken = onCall(
             "providerId must be google.com or apple.com",
         );
       }
+      // Apple replay protection — force the client to send the raw
+      // nonce that was hashed into the id_token. Without it,
+      // _verifyAppleIdToken can't verify and we'd be accepting any
+      // valid-shape Apple token (incl. replays from another app).
+      if (providerId === "apple.com") {
+        if (typeof rawNonce !== "string" || !rawNonce) {
+          throw new HttpsError(
+              "invalid-argument",
+              "rawNonce required for Apple sign-in",
+          );
+        }
+      }
       let verified;
       try {
         if (providerId === "google.com") {
@@ -1163,10 +1882,17 @@ exports.exchangeIdTokenForCustomToken = onCall(
       try {
         uid = await _findOrCreateUser(providerId, verified);
       } catch (err) {
+        // Propagate the explicit "already-exists" pre-takeover error so
+        // the client can show the right "sign in with the other method"
+        // copy. Anything else gets bucketed as internal.
+        if (err instanceof HttpsError) throw err;
         logger.error("exchangeIdTokenForCustomToken: _findOrCreateUser failed", {
           providerId,
           sub: verified && verified.sub,
-          email: verified && verified.email,
+          // Email PII redacted to a short SHA-256 prefix so the log is
+          // still useful for grouping duplicate failures without
+          // exposing the user's address.
+          emailHash: emailHash(verified && verified.email),
           errCode: err && err.code,
           errMessage: err && err.message,
           errStack: err && err.stack,
@@ -2840,6 +3566,22 @@ exports.sendBrandedPasswordReset = onCall(
       return {ok: true};
     }
 
+    // Revoke existing sessions on other devices. If an attacker still
+    // has a stolen ID token (or the user just wants a clean reset),
+    // this kills it server-side. We do this BEFORE sending the email
+    // so a race where the user clicks the link before the revoke lands
+    // is impossible. Best-effort lookup — failures don't block the
+    // email send.
+    try {
+      const u = await admin.auth().getUserByEmail(email).catch(() => null);
+      if (u && u.uid) {
+        await admin.auth().revokeRefreshTokens(u.uid);
+      }
+    } catch (e) {
+      logger.warn(
+        `sendBrandedPasswordReset: revokeRefreshTokens failed: ${e.message}`);
+    }
+
     if (resetUrl) {
       const body = `<p>We received a request to reset your TeeBox password.
         Click the button below to set a new one. If you didn't make this
@@ -2949,6 +3691,11 @@ exports.createStripeOnboardingLink = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
+    if (!request.auth.token || !request.auth.token.email_verified) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Please verify your email before continuing.");
+    }
     const uid = request.auth.uid;
     const db = admin.firestore();
     const stripeClient = stripe(stripeSecret.value());
@@ -3041,6 +3788,64 @@ exports.getStripeAccountStatus = onCall(
     };
   },
 );
+
+// ─────────────────────────────────────────────────────────────
+// createStripeLoginLink (callable)
+//   Mints a single-use Stripe Express dashboard login URL for the
+//   authenticated seller. Lets them check their payout history, KYC
+//   status, etc. without us re-implementing all of that UI.
+//
+//   TODO(audit): wire from Account hub UI — currently nothing in the
+//   client calls this function. Add a "Manage payouts" button on the
+//   account screen that resolves this and opens the URL in a new tab.
+// ─────────────────────────────────────────────────────────────
+exports.createStripeLoginLink = onCall(
+  {secrets: [stripeSecret], ...USER_CALLABLE},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.exists ? userSnap.data() : {};
+    if (!user.stripeAccountId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Finish Stripe onboarding before opening the dashboard.");
+    }
+    try {
+      const stripeClient = stripe(stripeSecret.value());
+      const result = await stripeClient.accounts.createLoginLink(
+          user.stripeAccountId);
+      return {url: result.url};
+    } catch (err) {
+      logger.error("createStripeLoginLink failed", err);
+      throw new HttpsError("internal", "Could not open Stripe dashboard.");
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// revokeMySession (callable)
+//   Server-side refresh-token revoke for "sign out everywhere" + as a
+//   pre-step before client-side fbSignOut. The next verifyIdToken with
+//   checkRevoked=true (we pass true in getAuthedUser) will reject any
+//   ID token issued before this revoke timestamp.
+// ─────────────────────────────────────────────────────────────
+exports.revokeMySession = onCall(USER_CALLABLE, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const uid = request.auth.uid;
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+  } catch (err) {
+    logger.error(`revokeMySession failed for ${uid}`, err);
+    throw new HttpsError("internal", "Could not sign out.");
+  }
+  return {revoked: true};
+});
 
 // ─────────────────────────────────────────────────────────────
 // PRO SELLER — subscription checkout + customer portal
@@ -3171,39 +3976,150 @@ exports.refundOrder = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
-    const {orderId, reason} = request.data || {};
+    const {orderId, reason, amount} = request.data || {};
     if (!orderId || typeof orderId !== "string") {
       throw new HttpsError("invalid-argument", "orderId required");
     }
     const db = admin.firestore();
     const orderRef = db.collection("orders").doc(orderId);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) {
+
+    // ── Pre-flight read (outside tx) just to validate the caller before
+    // we burn a Stripe API call. The authoritative re-check happens
+    // inside the tx below, after the Stripe refund succeeds.
+    const preSnap = await orderRef.get();
+    if (!preSnap.exists) {
       throw new HttpsError("not-found", "Order not found");
     }
-    const order = orderSnap.data();
-    // Only the seller (or platform-admin in the future) can refund.
-    if (order.sellerId !== request.auth.uid) {
-      throw new HttpsError("permission-denied", "Only the seller can refund this order.");
+    const pre = preSnap.data();
+    if (pre.sellerId !== request.auth.uid) {
+      throw new HttpsError(
+        "permission-denied", "Only the seller can refund this order.");
     }
-    if (order.refunded) {
-      throw new HttpsError("failed-precondition", "Order is already refunded.");
+    if (pre.refunded && !Number.isFinite(Number(amount))) {
+      throw new HttpsError(
+        "failed-precondition", "Order is already refunded.");
     }
+
+    // Optional partial-refund amount in cents. Must be > 0, must not
+    // exceed (orderAmount - alreadyRefunded). Falls through to a full
+    // refund when amount is omitted.
+    const orderAmountCents = Number(pre.amountCents ||
+        Math.round(Number(pre.amount || 0) * 100));
+    const priorRefundedCents = Number(pre.refundedAmountCents || 0);
+    let refundAmountCents = null;
+    if (amount != null) {
+      const parsed = parseInt(amount, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new HttpsError(
+          "invalid-argument", "amount must be a positive integer (cents).");
+      }
+      if (parsed + priorRefundedCents > orderAmountCents) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Refund exceeds remaining balance ($${
+            ((orderAmountCents - priorRefundedCents) / 100).toFixed(2)}).`);
+      }
+      refundAmountCents = parsed;
+    }
+
     const stripeClient = stripe(stripeSecret.value());
-    const refund = await stripeClient.refunds.create({
+
+    // Call Stripe BETWEEN the validation read and the commit-side
+    // listing rollback tx. The tx wraps the rollback writes only —
+    // Stripe calls can't sit inside a Firestore tx (they're network
+    // ops and tx retries would double-charge).
+    const refundParams = {
       payment_intent: orderId,
       reason: ["duplicate", "fraudulent", "requested_by_customer"]
         .includes(reason) ? reason : "requested_by_customer",
       refund_application_fee: true,
       reverse_transfer: true,
+    };
+    if (refundAmountCents != null) refundParams.amount = refundAmountCents;
+
+    let refund;
+    try {
+      // Idempotency key so a transient client retry can't issue a
+      // second refund. Stripe replays the cached refund for the same
+      // key. Key is order-scoped — partial refunds on the same order
+      // need distinct calls (Stripe enforces this server-side).
+      refund = await stripeClient.refunds.create(refundParams, {
+        idempotencyKey: `refund_${orderId}` +
+          (refundAmountCents != null ? `_${refundAmountCents}` : ""),
+      });
+    } catch (stripeErr) {
+      logger.error("refundOrder: Stripe API failed", stripeErr);
+      throw new HttpsError("internal",
+          `Refund failed: ${stripeErr.message || "unknown"}`);
+    }
+
+    const isFullRefund = (refundAmountCents == null) ||
+        (refundAmountCents + priorRefundedCents >= orderAmountCents);
+
+    // Commit-side tx: roll back listing inventory + flag the order as
+    // refunded. The Stripe refund is already done at this point; if
+    // the tx fails, the order doc just won't reflect it and we log —
+    // a follow-up admin sync can patch it.
+    await db.runTransaction(async (tx) => {
+      const orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists) {
+        throw new Error(`order ${orderId} vanished mid-refund`);
+      }
+      const order = orderSnap.data();
+      const qty = Math.max(1, Number(order.quantity || 1));
+      const listingId = order.listingId;
+      let listingSnap = null;
+      let listingRef = null;
+      if (listingId) {
+        listingRef = db.collection("listings").doc(listingId);
+        listingSnap = await tx.get(listingRef);
+      }
+
+      const orderUpdate = {
+        refundId: refund.id,
+        refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+        refundedAmountCents: priorRefundedCents +
+            (refundAmountCents != null ? refundAmountCents : orderAmountCents),
+      };
+      if (isFullRefund) {
+        orderUpdate.refunded = true;
+        orderUpdate.status = "refunded";
+        orderUpdate.fulfillmentStatus = "refunded";
+      } else {
+        orderUpdate.partiallyRefunded = true;
+      }
+      tx.update(orderRef, orderUpdate);
+
+      // Only restore inventory on a FULL refund — partial refunds keep
+      // the unit "sold" from the listing's perspective.
+      if (isFullRefund && listingRef && listingSnap && listingSnap.exists) {
+        const listing = listingSnap.data();
+        const totalQty = Math.max(1, Number(listing.quantity || 1));
+        const curSold = Math.max(0, Number(listing.quantitySold || 0));
+        const nextSold = Math.max(0, curSold - qty);
+        // Only flip status back to active if there's remaining sellable
+        // inventory. Listings that were `removed` / `expired` stay in
+        // whatever terminal state they were in.
+        const remaining = totalQty - nextSold;
+        const update = {
+          quantitySold: nextSold,
+          soldAt: admin.firestore.FieldValue.delete(),
+          soldTo: admin.firestore.FieldValue.delete(),
+          orderId: admin.firestore.FieldValue.delete(),
+        };
+        if (listing.status === "sold" && remaining > 0) {
+          update.status = "active";
+        }
+        tx.update(listingRef, update);
+      }
     });
-    await orderRef.update({
-      refunded: true,
+
+    return {
       refundId: refund.id,
-      refundedAt: admin.firestore.FieldValue.serverTimestamp(),
-      fulfillmentStatus: "refunded",
-    });
-    return {refundId: refund.id, status: refund.status};
+      status: refund.status,
+      amountCents: refund.amount,
+      fullRefund: isFullRefund,
+    };
   },
 );
 
@@ -3222,6 +4138,11 @@ exports.generateListingDescription = onCall(
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in.");
+    }
+    if (!request.auth.token || !request.auth.token.email_verified) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Please verify your email before continuing.");
     }
     const uid = request.auth.uid;
     const data = request.data || {};
@@ -3391,6 +4312,11 @@ exports.suggestListingPrice = onCall(
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in.");
+    }
+    if (!request.auth.token || !request.auth.token.email_verified) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Please verify your email before continuing.");
     }
     const uid = request.auth.uid;
     const data = request.data || {};

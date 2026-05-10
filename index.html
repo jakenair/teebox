@@ -1092,6 +1092,13 @@
   .terms-check span { font-size: 13px; color: var(--gray-700); line-height: 1.5; }
   .terms-check span strong { color: var(--green-600); }
   .verify-footer { display: flex; gap: 10px; padding: 0 1.5rem 1.5rem; }
+  /* When the verify modal is reopened post-acceptance ("View Seller Agreement")
+     we hide the acceptance checkbox + footer and reveal the read-only Close
+     button so users can re-read the same 15 clauses without re-accepting. */
+  .verify-backdrop.readonly-mode .terms-check,
+  .verify-backdrop.readonly-mode .verify-footer { display: none; }
+  .verify-backdrop:not(.readonly-mode) .verify-readonly-footer { display: none; }
+  .verify-readonly-footer { display: flex; padding: 0 1.5rem 1.5rem; }
 
   /* NAV */
   nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; height: var(--nav-h); background: var(--green-900); display: flex; align-items: center; padding: 0 2rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
@@ -2639,6 +2646,20 @@
         You agree that TeeBox is not liable for any loss or damages arising from a transaction. You will indemnify TeeBox against any claim, fee, or expense related to your listings or conduct on the platform. Disputes between buyers and sellers must first attempt resolution through the in-app messaging.
         <h4>8. Governing Law</h4>
         These terms are governed by the laws of the State of Illinois. Any dispute will be resolved in the state or federal courts of Cook County, Illinois.
+        <h4>9. Prohibited Items</h4>
+        No counterfeit or replica clubs, shafts, putters, or balls. No stolen merchandise. No tour-only or non-conforming equipment misrepresented as USGA-conforming. No range balls or driving-range pickup balls. No items obtained via warranty fraud or as tournament samples not authorized for resale. No used gloves, hats, or items with bodily-fluid contamination. No firearms, ammunition, or weapons even if golf-adjacent. Violation results in immediate listing removal and account suspension.
+        <h4>10. Intellectual Property Representations</h4>
+        You represent that every item listed is genuine, not counterfeit, and that your listing photos and descriptions do not infringe any third party's copyright, trademark, or right of publicity. You indemnify TeeBox against all IP claims arising from your listings.
+        <h4>11. Stripe Connected Account Agreement</h4>
+        By becoming a seller, you separately agree to the <a href="https://stripe.com/legal/ssa" target="_blank" rel="noopener noreferrer">Stripe Services Agreement</a> and the <a href="https://stripe.com/legal/connect-account" target="_blank" rel="noopener noreferrer">Stripe Connected Account Agreement</a>. TeeBox is not party to your relationship with Stripe.
+        <h4>12. Tax Reporting</h4>
+        Stripe will issue Form 1099-K to sellers who exceed federal IRS reporting thresholds. You consent to Stripe collecting your TIN/SSN and reporting your earnings. You are solely responsible for the tax treatment of your sales.
+        <h4>13. Chargebacks</h4>
+        If a buyer initiates a chargeback that is decided in the buyer's favor by the card network, the chargeback amount plus any network fee will be deducted from your payout balance or future payouts. TeeBox does not guarantee the result of any chargeback dispute.
+        <h4>14. Account Suspension and Appeal</h4>
+        TeeBox may suspend a seller for confirmed counterfeit listings, failure to ship two or more sold orders, buyer-protection findings against the seller, repeated policy violations, or DMCA/counterfeit takedowns. We will notify you by email and you may appeal within 14 days by emailing <a href="mailto:appeals@teeboxmarket.com">appeals@teeboxmarket.com</a>. Our decision on appeal is final.
+        <h4>15. Off-Platform Circumvention</h4>
+        Soliciting or completing a sale outside TeeBox after a buyer has contacted you through the platform is prohibited. First violation: warning. Second: permanent suspension and forfeiture of pending payouts.
       </div>
       <label class="terms-check">
         <input type="checkbox" id="termsCheckbox" />
@@ -2647,6 +2668,9 @@
       <div class="verify-footer">
         <button class="btn-full ghost" data-action="close-verify">Cancel</button>
         <button class="btn-full green" id="becomeSellerBtn" data-action="become-seller" disabled style="opacity:0.5">Agree & Become a Seller</button>
+      </div>
+      <div class="verify-readonly-footer">
+        <button class="btn-full ghost" data-action="close-seller-agreement" type="button" style="flex:1">Close</button>
       </div>
     </div>
   </div>
@@ -2686,6 +2710,7 @@
       <button class="btn-pro-upgrade" data-action="upgrade-to-pro" id="proUpgradeBtn" type="button">Upgrade now</button>
       <button class="btn-full ghost" data-action="close-info" type="button">Maybe later</button>
       <p class="pro-modal-fineprint">Billed monthly via Stripe. Subscription auto-renews until canceled.</p>
+      <p class="pro-modal-fineprint">Subscription refunds are handled by Apple, not TeeBox. To request a refund, visit <a href="https://support.apple.com/HT204084" target="_blank" rel="noopener">Apple Support</a>.</p>
     </div>
   </div>
 </div>
@@ -3047,7 +3072,7 @@
       <p>Sellers must ship sold items within 3 business days using a tracked, insured carrier. Risk of loss passes to the buyer upon delivery to the carrier. Disputes about lost or damaged items must be pursued first with the carrier and the seller.</p>
 
       <h4>7. Disputes &amp; Buyer Protection</h4>
-      <p>If you have a problem with a transaction, contact the other party first via in-app messaging. If you cannot resolve it, contact <a href="mailto:disputes@teeboxmarket.com">disputes@teeboxmarket.com</a> within 14 days of the delivery date. TeeBox may, at its discretion, mediate, refund, or remove a member from the platform, but is not obligated to do so and is not financially liable for losses arising from a transaction.</p>
+      <p>If you have a problem with a transaction, contact the other party first via in-app messaging. If you cannot resolve it, contact <a href="mailto:disputes@teeboxmarket.com">disputes@teeboxmarket.com</a> within 7 days of the delivery date. TeeBox may, at its discretion, mediate, refund, or remove a member from the platform, but is not obligated to do so and is not financially liable for losses arising from a transaction.</p>
 
       <h4>8. Prohibited Conduct</h4>
       <p>You agree not to: (a) post counterfeit, stolen, or illegal items; (b) use the platform to circumvent the in-app payment system or to facilitate off-platform sales; (c) harass other members; (d) probe, scan, or attempt to compromise the security of the service; (e) use the service for any unlawful purpose.</p>
@@ -3079,22 +3104,18 @@
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="info-body">
-      <p class="info-meta">Last updated: April 28, 2026</p>
-
-      <h4>What we collect</h4>
-      <p>When you sign up we collect your email address to verify your account and let you sign back in. When you list or purchase items, we collect the listing data you provide and a transaction record. Stripe collects payment information directly — we never store card numbers on TeeBox servers.</p>
-
-      <h4>How we use it</h4>
-      <p>We use this information to operate the marketplace: showing your listings to other members, routing payments and payouts, communicating with you about your account, and detecting fraud. We do not sell your personal information and we do not use it for third-party advertising.</p>
-
-      <h4>Who can see what</h4>
-      <p>Listings and seller display names are public. Your email address is private to your account and is never shown to other members. Conversations are visible only to the two members in them. Order records are visible only to the buyer and seller of that order.</p>
-
-      <h4>Cookies &amp; analytics</h4>
-      <p>The site uses functional cookies for sign-in (Firebase Authentication) and payments (Stripe). We do not use third-party advertising trackers, behavioral analytics, or cross-site tracking.</p>
-
-      <h4>Your rights</h4>
-      <p>You can request a copy or deletion of your data, or close your account, at any time by emailing <a href="mailto:privacy@teeboxmarket.com">privacy@teeboxmarket.com</a>. Account deletion is also available from inside the app under Account → Delete Account.</p>
+      <!--
+        Previously this modal held an inline ~5-section copy of the policy
+        that drifted out of sync with /privacy.html. The canonical source
+        is now /privacy.html — surface a single "Read our full Privacy
+        Policy" button so we only maintain one document. The trigger
+        (open-privacy data-action) is unchanged so existing call sites
+        keep working; only the body content changed.
+      -->
+      <p>Your privacy matters. We've moved the full Privacy Policy to its own page so it stays current and easy to read.</p>
+      <div style="display:flex;justify-content:center;margin-top:1rem;">
+        <button class="btn-full green" data-action="open-privacy-full" type="button">Read our full Privacy Policy</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3442,6 +3463,34 @@
       </a>
       <a href="#" class="mobile-nav-link danger" data-action="open-delete-account">
         <span class="mobile-nav-link-label">Delete Account</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+    </div>
+
+    <div class="mobile-nav-section">
+      <span class="mobile-nav-section-label">Legal</span>
+      <a href="#" class="mobile-nav-link" data-action="open-terms-page">
+        <span class="mobile-nav-link-label">Terms of Service</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-privacy-full">
+        <span class="mobile-nav-link-label">Privacy Policy</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-dmca">
+        <span class="mobile-nav-link-label">DMCA Policy</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-refund-policy">
+        <span class="mobile-nav-link-label">Refund Policy</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-acceptable-use">
+        <span class="mobile-nav-link-label">Acceptable Use</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-seller-agreement">
+        <span class="mobile-nav-link-label">View Seller Agreement</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
     </div>
@@ -3855,6 +3904,14 @@
         </div>
       </div>
 
+      <!-- Stripe Address Element — captures shipping address.
+           Required: privacy.html promises we collect shipping addresses,
+           and the backend reads pi.shipping in handlePaymentSucceeded. -->
+      <div class="modal-input-row" style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Ship to</div>
+        <div id="address-element" style="min-height:48px;"></div>
+      </div>
+
       <!-- Stripe Payment Element — auto-renders Apple Pay, Google Pay, Link, Card -->
       <div class="modal-input-row" style="margin-bottom:10px;">
         <div id="payment-element" style="min-height:48px;"></div>
@@ -3919,9 +3976,59 @@ const CLOUD_FUNCTION_URL = 'https://us-central1-teebox-market.cloudfunctions.net
 let stripeInstance = null;
 let stripeElements = null;       // current Elements instance (rebuilt per checkout — clientSecret is per-PI)
 let paymentElement = null;       // the mounted Payment Element
+let addressElement = null;       // shipping AddressElement — required by /privacy.html promise
 let checkoutProduct = null;
 let checkoutClientSecret = null; // PaymentIntent client secret for the open checkout
 let paymentElementLoading = false; // guard against double-fire on rapid re-clicks
+
+// Handle the redirect-back leg of confirmPayment for payment methods that
+// require a 3DS / bank-redirect step. Stripe redirects the buyer to
+// `return_url` with ?payment_intent_client_secret in the URL — we look that
+// up and surface a toast matching the PI status. If the buyer never left
+// (Apple Pay / G Pay / instant card), this is a no-op.
+(function handleStripeRedirectReturn() {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!window.location || !window.location.search) return;
+    if (!window.location.search.includes('checkout=complete')) return;
+    const sp = new URLSearchParams(window.location.search);
+    const clientSecret = sp.get('payment_intent_client_secret');
+    // Strip the redirect-query so a refresh doesn't replay the toast.
+    try {
+      const u = new URL(window.location.href);
+      ['checkout', 'payment_intent', 'payment_intent_client_secret', 'redirect_status']
+        .forEach(k => u.searchParams.delete(k));
+      window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (_e) {}
+    if (!clientSecret) return;
+    // Stripe.js may not be loaded yet — give it a short retry window.
+    const tryRetrieve = (attemptsLeft) => {
+      if (typeof Stripe !== 'function') {
+        if (attemptsLeft > 0) {
+          setTimeout(() => tryRetrieve(attemptsLeft - 1), 300);
+        }
+        return;
+      }
+      try {
+        if (!stripeInstance) stripeInstance = Stripe(STRIPE_PK);
+        stripeInstance.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
+          if (!paymentIntent) return;
+          const status = paymentIntent.status;
+          if (status === 'succeeded') {
+            if (window.showToast) showToast('Payment successful — your order is confirmed.', 'success');
+          } else if (status === 'processing') {
+            if (window.showToast) showToast('Payment is processing — we will email you when it confirms.', 'info');
+          } else if (status === 'requires_payment_method') {
+            if (window.showToast) showToast('Payment was not completed. Please try a different payment method.', 'error');
+          } else {
+            if (window.showToast) showToast('Payment status: ' + status, 'info');
+          }
+        }).catch(() => {});
+      } catch (_e) {}
+    };
+    tryRetrieve(10);
+  } catch (_e) {}
+})();
 
 function ensureStripeLoaded() {
   if (!stripeInstance && typeof Stripe === 'function') {
@@ -4020,6 +4127,10 @@ async function mountPaymentElement(product) {
       try { paymentElement.unmount(); } catch (_e) {}
       paymentElement = null;
     }
+    if (addressElement) {
+      try { addressElement.unmount(); } catch (_e) {}
+      addressElement = null;
+    }
 
     stripeElements = stripeInstance.elements({
       clientSecret: checkoutClientSecret,
@@ -4045,6 +4156,17 @@ async function mountPaymentElement(product) {
       // Surface live validation errors as the buyer types/selects.
       setCheckoutError(ev.error ? ev.error.message : '');
     });
+
+    // Address Element — US-only shipping. Default the recipient name to
+    // the signed-in user's displayName when we have it so they don't have
+    // to retype it. The backend reads pi.shipping in handlePaymentSucceeded.
+    const _displayName = (window.CURRENT_USER && (window.CURRENT_USER.displayName || '')) || '';
+    addressElement = stripeElements.create('address', {
+      mode: 'shipping',
+      allowedCountries: ['US'],
+      defaultValues: _displayName ? { name: _displayName } : undefined,
+    });
+    addressElement.mount('#address-element');
   } finally {
     paymentElementLoading = false;
   }
@@ -4166,6 +4288,10 @@ window.closeCheckoutDirect = function() {
     try { paymentElement.unmount(); } catch (_e) {}
     paymentElement = null;
   }
+  if (addressElement) {
+    try { addressElement.unmount(); } catch (_e) {}
+    addressElement = null;
+  }
   stripeElements = null;
   checkoutClientSecret = null;
   // Reset the Pay button back to its default action so a stale "Try again"
@@ -4192,12 +4318,48 @@ window.confirmPayment = async function() {
   setCheckoutError('');
 
   try {
+    // Pull the shipping address out of the AddressElement before we
+    // confirm. If it's incomplete, Stripe returns { complete: false }
+    // and we surface a friendly error instead of letting confirmPayment
+    // fail with a less-obvious "your card was declined"-style message.
+    let shippingForStripe = null;
+    if (addressElement) {
+      try {
+        const av = await addressElement.getValue();
+        if (!av || !av.complete) {
+          setCheckoutError('Please enter a complete shipping address.');
+          btn.disabled = false;
+          btn.textContent = originalLabel || 'Pay Now';
+          return;
+        }
+        if (av.value) {
+          shippingForStripe = {
+            name: av.value.name || (window.CURRENT_USER && window.CURRENT_USER.displayName) || '',
+            address: av.value.address || null,
+          };
+        }
+      } catch (_e) {
+        setCheckoutError('Could not read shipping address. Please try again.');
+        btn.disabled = false;
+        btn.textContent = originalLabel || 'Pay Now';
+        return;
+      }
+    }
+
     // confirmPayment handles 3DS / wallet flows internally. With
     // redirect:'if_required' the buyer stays on-page for cards that
     // don't need redirection (Apple Pay, Google Pay, most US cards).
+    // confirmParams.shipping is forwarded into the PI so the backend's
+    // handlePaymentSucceeded can persist it onto the order. return_url
+    // is required by Stripe whenever a redirect-based method (3DS / Klarna /
+    // bank-redirect) may be selected even with redirect:'if_required'.
     const { error, paymentIntent } = await stripeInstance.confirmPayment({
       elements: stripeElements,
       redirect: 'if_required',
+      confirmParams: {
+        return_url: 'https://teeboxmarket.com/?checkout=complete',
+        shipping: shippingForStripe || undefined,
+      },
     });
 
     if (error) {
@@ -4280,6 +4442,16 @@ window.confirmPayment = async function() {
   };
 
   const app = initializeApp(firebaseConfig);
+
+  // ──────────────────────────────────────────────────────────
+  // Global Privacy Control — honour the browser-level "do not sell
+  // or share" signal. We don't run third-party ads/trackers today,
+  // but capturing it on window lets downstream code (analytics, future
+  // SDKs) gate on it without re-reading navigator on every call.
+  // ──────────────────────────────────────────────────────────
+  if (typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true) {
+    window.__gpc = true;
+  }
 
   // ──────────────────────────────────────────────────────────
   // App Check — registers a reCAPTCHA Enterprise token with every
@@ -4667,8 +4839,10 @@ window.confirmPayment = async function() {
       const code = e && e.code;
       let msg = 'Sign-in failed. Try again.';
       if (code === 'auth/invalid-email') msg = 'That email address doesn’t look right. Double-check and try again.';
-      else if (code === 'auth/user-not-found') msg = 'No account found for this email. Tap "Create Account" to sign up.';
-      else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') msg = 'Email or password is incorrect.';
+      // Note: `auth/user-not-found` collapsed into the same message as wrong-password
+      // to avoid leaking account-existence (email enumeration). All three codes get
+      // the identical "Email or password is incorrect." copy.
+      else if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') msg = 'Email or password is incorrect.';
       else if (code === 'auth/missing-password') msg = 'Please enter your password.';
       else if (code === 'auth/user-disabled') msg = 'This account has been disabled. Contact support@teeboxmarket.com for help.';
       else if (code === 'auth/email-already-in-use') {
@@ -4791,6 +4965,16 @@ window.confirmPayment = async function() {
       const errEmail = document.getElementById('authErrorEmail');
       if (errEmail) errEmail.textContent = '';
     } catch (_) {}
+    // Best-effort: revoke server-side sessions / refresh tokens for THIS
+    // user BEFORE we tell Firebase Auth to forget them locally. If the
+    // callable fails (network, cold start, function not deployed yet),
+    // swallow the error — local sign-out must still complete.
+    try {
+      const revokeMySession = httpsCallable(fns, 'revokeMySession');
+      await revokeMySession({});
+    } catch (e) {
+      console.warn('[auth] revokeMySession failed (non-blocking):', e && e.message);
+    }
     // Sign out from both SDKs to keep their states aligned.
     if (IS_NATIVE && FBAuthPlugin) {
       try { await FBAuthPlugin.signOut(); } catch {}
@@ -7541,7 +7725,7 @@ function renderShopTables() {
     soldEl.innerHTML = `
       <table class="dash-table">
         <thead>
-          <tr><th>Item</th><th>Buyer</th><th>Sale Price</th><th>Status</th><th></th></tr>
+          <tr><th>Item</th><th>Buyer</th><th>Ship To</th><th>Sale Price</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           ${orders.map(o => {
@@ -7552,10 +7736,32 @@ function renderShopTables() {
               shipped:                  'Shipped' + (o.trackingNumber ? ' · ' + escapeHtml(o.trackingNumber) : ''),
               delivered:                'Delivered',
               reviewed:                 'Reviewed',
-            })[stage] || stage;
-            const shipBtn = stage === 'awaiting_seller_shipment'
+            })[stage] || (o.refunded ? 'Refunded' : stage);
+            const shipBtn = stage === 'awaiting_seller_shipment' && !o.refunded
               ? `<button class="ship-btn" data-action="mark-shipped" data-order-id="${escapeHtml(String(o.id))}">Mark Shipped</button>`
               : '';
+            // "Refund Order" is visible to the seller only while the order is
+            // pre-fulfillment-but-paid AND not already refunded. We treat any
+            // stage other than reviewed/delivered as still-refundable for the
+            // UI surface; the Cloud Function gates the actual action.
+            const canRefund = !o.refunded
+              && o.status === 'paid'
+              && (stage === 'awaiting_seller_shipment' || stage === 'shipped');
+            const refundBtn = canRefund
+              ? `<button class="ship-btn" style="background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);margin-left:6px;" data-action="refund-order" data-order-id="${escapeHtml(String(o.id))}" title="Issue a full refund to the buyer">Refund Order</button>`
+              : '';
+            // Buyer-side shipping address (captured at checkout via Stripe
+            // AddressElement, persisted by the webhook). Print address only —
+            // never email/phone — to keep PII in the dashboard minimal.
+            const sh = o.shipping || null;
+            const a = sh && sh.address ? sh.address : null;
+            const shipCell = a
+              ? `<div style="font-size:12px;color:var(--gray-700);max-width:200px;line-height:1.35">
+                   <div style="font-weight:600">${escapeHtml(sh.name || '—')}</div>
+                   <div>${escapeHtml([a.line1, a.line2].filter(Boolean).join(', '))}</div>
+                   <div>${escapeHtml([a.city, a.state, a.postal_code].filter(Boolean).join(', '))}</div>
+                 </div>`
+              : '<span style="color:var(--gray-400);font-size:12px">—</span>';
             return `
               <tr>
                 <td>
@@ -7568,9 +7774,10 @@ function renderShopTables() {
                   </div>
                 </td>
                 <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
+                <td>${shipCell}</td>
                 <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
                 <td style="color:var(--gray-500);font-size:12px">${stageLabel}</td>
-                <td>${shipBtn}</td>
+                <td>${shipBtn}${refundBtn}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -8985,6 +9192,34 @@ async function confirmShip() {
   }
 }
 window.confirmShip = confirmShip;
+
+// Seller-initiated refund. Reuses the `refundOrder` HTTPS callable on the
+// backend. We rely on the server to enforce the actual permission gate
+// (sellerId match + status check) but mirror the obvious cases in the UI
+// so we don't fire an unwinnable call.
+async function refundOrder(orderId) {
+  if (!orderId || !window.CURRENT_USER) return;
+  if (!confirm('Are you sure? Refunding cannot be undone.')) return;
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'refundOrder');
+    await fn({ orderId });
+    if (window.showToast) showToast('Refund issued. The buyer has been notified.', 'success');
+    // Re-pull the seller's shop data so the row flips to "Refunded" and the
+    // Refund button disappears without a hard reload.
+    if (typeof loadShopData === 'function') {
+      try { await loadShopData(); } catch (_e) {}
+    }
+  } catch (e) {
+    console.error('refundOrder failed:', e);
+    const msg = (e && (e.message || e.details)) || 'Could not refund this order.';
+    if (window.showToast) showToast(msg, 'error');
+    else alert(msg);
+  }
+}
+window.refundOrder = refundOrder;
 
 async function confirmDelivery(orderId) {
   if (!orderId || !window.CURRENT_USER) return;
@@ -11149,6 +11384,30 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">About TeeBox</span>
              <span class="account-hub-chev">›</span>
            </button>
+           <button class="account-hub-item" data-action="open-terms-page" type="button">
+             <span class="account-hub-label">Terms of Service</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-privacy-full" type="button">
+             <span class="account-hub-label">Privacy Policy</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-dmca" type="button">
+             <span class="account-hub-label">DMCA Policy</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-refund-policy" type="button">
+             <span class="account-hub-label">Refund Policy</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-acceptable-use" type="button">
+             <span class="account-hub-label">Acceptable Use</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-seller-agreement" type="button">
+             <span class="account-hub-label">View Seller Agreement</span>
+             <span class="account-hub-chev">›</span>
+           </button>
          </div>
        </div>`
     : '';
@@ -12178,6 +12437,7 @@ A['purge-empty-listings']    = () => { if (!window.requireAuth('to clean up your
 A['mark-shipped']            = (el) => { if (!window.requireAuth('to mark this order shipped')) return; markShipped(el.dataset.orderId); };
 A['confirm-ship']            = () => { if (!window.requireAuth('to confirm shipment')) return; confirmShip(); };
 A['confirm-delivery']        = (el) => { if (!window.requireAuth('to confirm delivery')) return; confirmDelivery(el.dataset.orderId); };
+A['refund-order']            = (el) => { if (!window.requireAuth('to refund this order')) return; refundOrder(el.dataset.orderId); };
 A['report-problem']          = (el) => { if (!window.requireAuth('to report a problem with this order')) return; openDispute(el.dataset.orderId); };
 A['submit-dispute']          = () => { if (!window.requireAuth('to submit your dispute')) return; submitDispute(); };
 A['accept-bid']              = (el) => { if (!window.requireAuth('to accept this bid')) return; acceptBid(el.dataset.bidId); };
@@ -12264,6 +12524,46 @@ A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
 A['close-info']              = () => document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+// Open a legal page in the system browser on native (Capacitor.Browser),
+// or a plain new tab on web. Used by the Account hub + mobile slide-out
+// links pointing at /terms.html, /privacy.html, /dmca.html, /refunds.html,
+// /acceptable-use.html and the redirect button inside the privacy modal.
+function openLegalUrl(path) {
+  try {
+    const Cap = window.Capacitor;
+    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      const Browser = Cap.Plugins && Cap.Plugins.Browser;
+      if (Browser && typeof Browser.open === 'function') {
+        Browser.open({ url: 'https://teeboxmarket.com' + path }).catch(() => {
+          window.open(path, '_blank', 'noopener,noreferrer');
+        });
+        return;
+      }
+    }
+  } catch (_e) {}
+  window.open(path, '_blank', 'noopener,noreferrer');
+}
+A['open-privacy-full']       = () => openLegalUrl('/privacy.html');
+A['open-terms-page']         = () => openLegalUrl('/terms.html');
+A['open-dmca']               = () => openLegalUrl('/dmca.html');
+A['open-refund-policy']      = () => openLegalUrl('/refunds.html');
+A['open-acceptable-use']     = () => openLegalUrl('/acceptable-use.html');
+// Re-show the seller-agreement modal in read-only mode after acceptance.
+// The verify modal is reused so we maintain a single source of truth for
+// the 8-clause body; we just hide the checkbox + footer buttons and add
+// a Close button. State is restored when the modal closes.
+A['open-seller-agreement']   = () => {
+  const back = document.getElementById('verifyBackdrop');
+  if (!back) return;
+  back.classList.add('readonly-mode');
+  back.classList.add('open');
+};
+A['close-seller-agreement']  = () => {
+  const back = document.getElementById('verifyBackdrop');
+  if (!back) return;
+  back.classList.remove('open');
+  back.classList.remove('readonly-mode');
+};
 function openInfo(id) {
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
   const el = document.getElementById(id);

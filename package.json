@@ -4,7 +4,7 @@
   "description": "TeeBox — peer-to-peer marketplace for golfers",
   "private": true,
   "scripts": {
-    "build:web": "node scripts/generate-logos-manifest.mjs && node scripts/generate-og-images.mjs && rm -rf dist && mkdir -p dist && cp index.html bingo.html bingo-courses.js sw.js firebase-messaging-sw.js manifest.webmanifest offline.html privacy.html support.html 404.html favicon.svg icon.svg icon-maskable.svg icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/ && cp -R assets dist/assets && cp -R brand dist/brand && (test -d .well-known && cp -R .well-known dist/.well-known || true) && echo '✓ web bundle written to dist/' && mkdir -p ios/App/App/public && rsync -a --omit-dir-times dist/ ios/App/App/public/ && echo '✓ ios bundle synced to ios/App/App/public/'",
+    "build:web": "node scripts/generate-logos-manifest.mjs && node scripts/generate-og-images.mjs && rm -rf dist && mkdir -p dist && cp index.html bingo.html bingo-courses.js sw.js firebase-messaging-sw.js manifest.webmanifest offline.html privacy.html support.html dmca.html terms.html refunds.html acceptable-use.html 404.html favicon.svg icon.svg icon-maskable.svg icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/ && cp -R assets dist/assets && cp -R brand dist/brand && (test -d .well-known && cp -R .well-known dist/.well-known || true) && echo '✓ web bundle written to dist/' && mkdir -p ios/App/App/public && rsync -a --omit-dir-times dist/ ios/App/App/public/ && echo '✓ ios bundle synced to ios/App/App/public/'",
     "og:gen": "node scripts/generate-og-images.mjs",
     "cap:sync": "npm run build:web && npx cap sync",
     "cap:ios": "npm run cap:sync && npx cap open ios",
