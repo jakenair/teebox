@@ -965,29 +965,209 @@ exports.deleteUserAccount = onCall({...USER_CALLABLE, timeoutSeconds: 120}, asyn
 
 // ─────────────────────────────────────────────────────────────
 // exchangeIdTokenForCustomToken
-//   Bridges native iOS Firebase auth (via @capacitor-firebase/authentication
-//   plugin) to the Web SDK auth state used by Firestore/Storage on the same
-//   page. The native plugin signs in via APNs silent push (no reCAPTCHA),
-//   then the client sends us its native ID token; we mint a custom token
-//   for the same UID, and the client signs the Web SDK in with that.
+//   Bridges native iOS OAuth (Google / Apple via the Capacitor
+//   @capacitor-firebase/authentication plugin) to the Firebase JS
+//   SDK auth instance running inside the WKWebView.
+//
+//   Why we don't just call signInWithCredential() on the client:
+//   on iOS WKWebView the JS-SDK's signInWithCredential() path hangs
+//   indefinitely at the identitytoolkit accounts:signInWithIdp call
+//   (confirmed at G5/A5 across Builds 40-45 even after switching
+//   to inMemoryPersistence). signInWithCustomToken() uses a different
+//   identitytoolkit endpoint (accounts:signInWithCustomToken) which
+//   does NOT hang in WKWebView. So we mint a custom token server-side
+//   and the client signs in with that.
+//
+//   Inputs (callable):
+//     { idToken, providerId, rawNonce? }
+//       providerId: 'google.com' | 'apple.com'
+//       rawNonce:   required for Apple (the un-hashed nonce that the
+//                   plugin generated; Apple's id_token includes the
+//                   SHA-256 hash of it in the `nonce` claim)
+//
+//   Verification:
+//     - Google: google-auth-library.OAuth2Client.verifyIdToken with
+//       the iOS OAuth client_id as audience.
+//     - Apple: fetch JWKS from https://appleid.apple.com/auth/keys,
+//       jwt-verify with issuer = https://appleid.apple.com and
+//       audience = the iOS bundle ID (com.teeboxmarket.app). If
+//       rawNonce is provided, also confirm sha256(rawNonce) == nonce.
+//
+//   Then look up (or create) a Firebase Auth user keyed off the
+//   verified email + provider sub, and mint a custom token.
+//
+//   Rate limit: 20 exchanges/min/sub (per OAuth subject id) — generous
+//   enough that retries on flaky networks don't trip it, but tight
+//   enough that a stolen idToken can't be replayed thousands of times.
 // ─────────────────────────────────────────────────────────────
-exports.exchangeIdTokenForCustomToken = onCall(async (request) => {
-  const idToken = request.data && request.data.idToken;
-  if (!idToken) {
-    throw new HttpsError("invalid-argument", "idToken required");
+
+// iOS GoogleSignIn client ID (from ios/App/App/GoogleService-Info.plist).
+// Tokens minted by the Capacitor plugin's native Google flow have this
+// value in `aud`. Hard-coded rather than secret — these are public
+// identifiers, like the firebaseConfig in index.html.
+const IOS_GOOGLE_CLIENT_ID =
+    "982122063122-1pjjhvrnpcqhfvaumi9hlmvtsgnlm8kb.apps.googleusercontent.com";
+// Web Auth client ID used by the Firebase JS SDK when running in a
+// browser. Accept both audiences so the same Cloud Function can serve
+// the (currently unused) web-side bridge if we ever need it.
+const WEB_GOOGLE_CLIENT_ID =
+    "982122063122-web.apps.googleusercontent.com"; // placeholder; web flow uses popup
+// Apple audience = iOS bundle id.
+const APPLE_BUNDLE_ID = "com.teeboxmarket.app";
+// Lazy singletons — instantiated on first call so cold-start cost
+// only hits the first auth attempt, not unrelated requests.
+let _googleAuthClient = null;
+let _appleJwks = null;
+
+async function _verifyGoogleIdToken(idToken) {
+  const {OAuth2Client} = require("google-auth-library");
+  if (!_googleAuthClient) _googleAuthClient = new OAuth2Client();
+  const ticket = await _googleAuthClient.verifyIdToken({
+    idToken,
+    audience: [IOS_GOOGLE_CLIENT_ID, WEB_GOOGLE_CLIENT_ID],
+  });
+  const payload = ticket.getPayload();
+  if (!payload || !payload.sub) {
+    throw new HttpsError("unauthenticated", "Google token has no sub");
   }
-  let decoded;
+  return {
+    sub: payload.sub,
+    email: payload.email || null,
+    emailVerified: payload.email_verified === true,
+    name: payload.name || null,
+  };
+}
+
+async function _verifyAppleIdToken(idToken, rawNonce) {
+  const jose = require("jose");
+  const crypto = require("crypto");
+  if (!_appleJwks) {
+    _appleJwks = jose.createRemoteJWKSet(
+        new URL("https://appleid.apple.com/auth/keys"),
+    );
+  }
+  const {payload} = await jose.jwtVerify(idToken, _appleJwks, {
+    issuer: "https://appleid.apple.com",
+    audience: APPLE_BUNDLE_ID,
+  });
+  if (!payload || !payload.sub) {
+    throw new HttpsError("unauthenticated", "Apple token has no sub");
+  }
+  // Apple's `nonce` claim is SHA-256(rawNonce) base64url-encoded
+  // (Firebase's plugin hashes it before passing to ASAuthorization).
+  // If the client sent rawNonce, verify it matches.
+  if (rawNonce && payload.nonce) {
+    const hashed = crypto
+        .createHash("sha256")
+        .update(String(rawNonce))
+        .digest("hex");
+    // Apple may return either the hex hash or the base64url-encoded
+    // hash depending on SDK version — accept both shapes.
+    const hashedB64 = crypto
+        .createHash("sha256")
+        .update(String(rawNonce))
+        .digest("base64")
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_");
+    if (payload.nonce !== hashed && payload.nonce !== hashedB64) {
+      logger.warn("Apple nonce mismatch", {
+        claimed: payload.nonce,
+        expectedHex: hashed,
+      });
+      throw new HttpsError("unauthenticated", "Apple nonce mismatch");
+    }
+  }
+  return {
+    sub: payload.sub,
+    email: payload.email || null,
+    emailVerified: payload.email_verified === true ||
+        payload.email_verified === "true",
+    name: null, // Apple only returns name on first sign-in via separate field
+  };
+}
+
+async function _findOrCreateUser(provider, verified) {
+  const auth = admin.auth();
+  // 1. Try to find by email first — email is the natural primary key.
+  if (verified.email) {
+    try {
+      const existing = await auth.getUserByEmail(verified.email);
+      return existing.uid;
+    } catch (err) {
+      if (err.code !== "auth/user-not-found") throw err;
+    }
+  }
+  // 2. Fall back to provider:sub (deterministic UID so repeat sign-ins
+  //    without an email — e.g. Apple "Hide My Email" later revoked —
+  //    still land on the same account).
+  const synthUid = `${provider.replace(".", "_")}_${verified.sub}`.slice(0, 128);
   try {
-    decoded = await admin.auth().verifyIdToken(idToken);
+    const existing = await auth.getUser(synthUid);
+    return existing.uid;
   } catch (err) {
-    logger.warn(`Token exchange — bad idToken: ${err.message}`);
-    throw new HttpsError("unauthenticated", "Invalid ID token");
+    if (err.code !== "auth/user-not-found") throw err;
   }
-  const additionalClaims = {};
-  if (decoded.phone_number) additionalClaims.phone_number = decoded.phone_number;
-  const customToken = await admin.auth().createCustomToken(decoded.uid, additionalClaims);
-  return {customToken};
-});
+  // 3. Create.
+  const created = await auth.createUser({
+    uid: synthUid,
+    email: verified.email || undefined,
+    emailVerified: verified.emailVerified,
+    displayName: verified.name || undefined,
+  });
+  return created.uid;
+}
+
+exports.exchangeIdTokenForCustomToken = onCall(
+    {...USER_CALLABLE},
+    async (request) => {
+      const idToken = request.data && request.data.idToken;
+      const providerId = request.data && request.data.providerId;
+      const rawNonce = request.data && request.data.rawNonce;
+      if (!idToken || typeof idToken !== "string") {
+        throw new HttpsError("invalid-argument", "idToken required");
+      }
+      if (providerId !== "google.com" && providerId !== "apple.com") {
+        throw new HttpsError(
+            "invalid-argument",
+            "providerId must be google.com or apple.com",
+        );
+      }
+      let verified;
+      try {
+        if (providerId === "google.com") {
+          verified = await _verifyGoogleIdToken(idToken);
+        } else {
+          verified = await _verifyAppleIdToken(idToken, rawNonce);
+        }
+      } catch (err) {
+        if (err instanceof HttpsError) throw err;
+        logger.warn(`Token exchange — bad ${providerId} idToken: ${err.message}`);
+        throw new HttpsError("unauthenticated", "Invalid ID token");
+      }
+
+      // Rate limit replays on the same OAuth subject. We use the verified
+      // sub as the synthetic "uid" key so this works pre-Firebase-auth.
+      // 20/min is generous (network retries, etc) but stops a leaked token
+      // from being replayed indefinitely.
+      const rlKey = `${providerId}:${verified.sub}`.slice(0, 100);
+      const rl = await checkRateLimit(`oauth_${rlKey}`, "exchangeIdToken", 20);
+      if (!rl.ok) {
+        throw new HttpsError(
+            "resource-exhausted",
+            "Too many sign-in attempts. Please wait a moment and try again.",
+        );
+      }
+
+      const uid = await _findOrCreateUser(providerId, verified);
+      const additionalClaims = {};
+      if (verified.email) additionalClaims.email = verified.email;
+      const customToken = await admin.auth().createCustomToken(
+          uid, additionalClaims,
+      );
+      return {customToken};
+    },
+);
 
 // ─────────────────────────────────────────────────────────────
 // onReviewCreated (Firestore trigger)

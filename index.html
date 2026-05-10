@@ -4284,7 +4284,7 @@ window.confirmPayment = async function() {
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
   // Resend from `noreply@teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
-  import { getAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, setPersistence, browserLocalPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -4546,7 +4546,13 @@ window.confirmPayment = async function() {
     window.GoogleAuthProvider = GoogleAuthProvider;
     window.OAuthProvider = OAuthProvider;
     window.signInWithCredential = signInWithCredential;
+    window.signInWithCustomToken = signInWithCustomToken;
     window.signInWithPopup = signInWithPopup;
+    // Expose the Functions instance + httpsCallable so the regular-script
+    // auth handlers can call `exchangeIdTokenForCustomToken` directly
+    // without dynamically re-importing firebase-functions on each tap.
+    window.firebaseFns = fns;
+    window.firebaseHttpsCallable = httpsCallable;
   } catch (_) {}
 
   if (IS_NATIVE && FBAuthPlugin) {
@@ -11701,11 +11707,26 @@ A['sign-in-google']          = async (btn) => {
     // subspec — without it, the GIDSignIn flow is compiled out and
     // signInWithGoogle() hangs forever with no result and no error.)
     if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithGoogle === 'function') {
+      // Custom-token-exchange path. Why we don't call signInWithCredential
+      // directly: in WKWebView (Capacitor iOS) the JS-SDK's
+      // signInWithCredential -> identitytoolkit accounts:signInWithIdp
+      // request hangs indefinitely (confirmed at G5 across Builds 40-45,
+      // including after switching to inMemoryPersistence). The
+      // accounts:signInWithCustomToken endpoint, by contrast, completes
+      // normally in WKWebView. So:
+      //   1. Plugin signs in natively (skipNativeAuth: false default —
+      //      iOS-side Firebase Auth may also receive the credential, but
+      //      that doesn't affect us).
+      //   2. We send the Google idToken to the
+      //      `exchangeIdTokenForCustomToken` Cloud Function, which
+      //      verifies it against Google's public keys and mints a
+      //      Firebase custom token.
+      //   3. We call signInWithCustomToken on the JS SDK — that path
+      //      WORKS in WKWebView, onAuthStateChanged fires, modal closes.
       window.__authDiag('G2 calling FBAuthPlugin.signInWithGoogle');
       const result = await window.FBAuthPlugin.signInWithGoogle();
       const idToken = result && result.credential && result.credential.idToken;
-      const accessToken = result && result.credential && result.credential.accessToken;
-      window.__authDiag('G3 plugin returned idToken=' + (idToken ? idToken.length : 0) + ' accessToken=' + (accessToken ? accessToken.length : 0));
+      window.__authDiag('G3 plugin returned idToken=' + (idToken ? idToken.length : 0));
       if (!idToken) {
         // Plugin returned without a token — usually means the user backed
         // out of the Google sheet. Treat as silent cancel and just
@@ -11714,20 +11735,25 @@ A['sign-in-google']          = async (btn) => {
         restoreBtn();
         return;
       }
-      window.__authDiag('G4 building cred');
-      const cred = window.GoogleAuthProvider.credential(idToken, accessToken);
-      window.__authDiag('G5 calling signInWithCredential');
-      // 15s timeout race so we don't hang forever if signInWithCredential
-      // stalls in WKWebView. If timeout fires, throw a recognizable error
-      // so the catch block surfaces it rather than leaving "Signing in..."
-      // on screen indefinitely.
-      const _g5Start = Date.now();
+      window.__authDiag('G4 calling exchangeIdTokenForCustomToken');
+      const exchange = window.firebaseHttpsCallable(window.firebaseFns, 'exchangeIdTokenForCustomToken');
+      const exchangeRes = await exchange({ idToken, providerId: 'google.com' });
+      const customToken = exchangeRes && exchangeRes.data && exchangeRes.data.customToken;
+      window.__authDiag('G5 got customToken=' + (customToken ? customToken.length : 0));
+      if (!customToken) {
+        throw new Error('Token exchange returned no customToken');
+      }
+      window.__authDiag('G6 calling signInWithCustomToken');
+      // 15s timeout race kept as a defensive net — signInWithCustomToken
+      // is the path we believe works in WKWebView, but if anything
+      // regresses we still want to surface an error rather than freeze.
+      const _g6Start = Date.now();
       await Promise.race([
-        window.signInWithCredential(window.firebaseAuth, cred),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('signInWithCredential timed out after 15s')), 15000)),
+        window.signInWithCustomToken(window.firebaseAuth, customToken),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('signInWithCustomToken timed out after 15s')), 15000)),
       ]);
-      const _g5Ms = Date.now() - _g5Start;
-      window.__authDiag('G6 signInWithCredential resolved in ' + _g5Ms + 'ms — auth state should propagate');
+      const _g6Ms = Date.now() - _g6Start;
+      window.__authDiag('G7 signed in via customToken in ' + _g6Ms + 'ms');
       // Belt-and-suspenders cleanup. Previously we relied solely on
       // onAuthStateChanged to hide the auth screen, but on the native
       // plugin path the listener can race with this resolve, leaving
@@ -11807,32 +11833,46 @@ A['sign-in-apple']           = async (btn) => {
     // the JS Auth instance so Firestore/Storage/Functions get an authed user.
     window.__authDiag('A1 native=' + (!!window.IS_NATIVE) + ' plugin=' + (!!window.FBAuthPlugin));
     if (window.IS_NATIVE && window.FBAuthPlugin && typeof window.FBAuthPlugin.signInWithApple === 'function') {
-      // skipNativeAuth: true is REQUIRED for Apple. Apple identity tokens
-      // are single-use, and without this option the plugin would also
-      // sign-in with native Firebase iOS SDK using the same idToken,
-      // consuming it. When our JS-side signInWithCredential then tries
-      // to use the same token, Firebase rejects with
-      // auth/missing-or-invalid-nonce ("Duplicate credential received").
-      // (Google ID tokens are reusable within their validity window so
-      // Google sign-in works without this flag — but it would also be
-      // safe to add there.)
+      // Custom-token-exchange path (same rationale as Google above —
+      // signInWithCredential hangs in WKWebView, signInWithCustomToken
+      // doesn't). For Apple specifically:
+      //   - skipNativeAuth: true keeps the iOS Firebase SDK from
+      //     consuming the single-use Apple identity token (Apple
+      //     id_tokens are one-shot — without this flag the plugin
+      //     burns it during native auth and our exchange call would
+      //     get a "Duplicate credential" / nonce error from Apple).
+      //   - The plugin generates a random nonce, hashes it with
+      //     SHA-256, and includes the hash in the ASAuthorization
+      //     request. We forward the un-hashed `rawNonce` to the
+      //     Cloud Function so it can verify the hash inside Apple's
+      //     id_token.
       window.__authDiag('A2 calling FBAuthPlugin.signInWithApple');
       const result = await window.FBAuthPlugin.signInWithApple({ skipNativeAuth: true });
-      window.__authDiag('A3 plugin returned idToken=' + (result && result.credential && result.credential.idToken ? 'yes' : 'no'));
       const idToken = result && result.credential && result.credential.idToken;
       const rawNonce = result && result.credential && result.credential.nonce;
+      window.__authDiag('A3 plugin returned idToken=' + (idToken ? idToken.length : 0) + ' nonce=' + (rawNonce ? 'yes' : 'no'));
       if (!idToken) {
         // User backed out — silent restore.
         window.__authDiag('A3a no idToken — silent cancel');
         restoreBtn();
         return;
       }
-      window.__authDiag('A4 building OAuthProvider cred');
-      const provider = new window.OAuthProvider('apple.com');
-      const cred = provider.credential({ idToken, rawNonce });
-      window.__authDiag('A5 calling signInWithCredential');
-      await window.signInWithCredential(window.firebaseAuth, cred);
-      window.__authDiag('A6 signInWithCredential resolved');
+      window.__authDiag('A4 calling exchangeIdTokenForCustomToken');
+      const exchange = window.firebaseHttpsCallable(window.firebaseFns, 'exchangeIdTokenForCustomToken');
+      const exchangeRes = await exchange({ idToken, providerId: 'apple.com', rawNonce });
+      const customToken = exchangeRes && exchangeRes.data && exchangeRes.data.customToken;
+      window.__authDiag('A5 got customToken=' + (customToken ? customToken.length : 0));
+      if (!customToken) {
+        throw new Error('Token exchange returned no customToken');
+      }
+      window.__authDiag('A6 calling signInWithCustomToken');
+      const _a6Start = Date.now();
+      await Promise.race([
+        window.signInWithCustomToken(window.firebaseAuth, customToken),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('signInWithCustomToken timed out after 15s')), 15000)),
+      ]);
+      const _a6Ms = Date.now() - _a6Start;
+      window.__authDiag('A7 signed in via customToken in ' + _a6Ms + 'ms');
       // Same race-safety as the Google path. If the onAuthStateChanged
       // listener hasn't already started fading the modal out, force it.
       const _as = document.getElementById('authScreen');
