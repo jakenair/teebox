@@ -1159,13 +1159,43 @@ exports.exchangeIdTokenForCustomToken = onCall(
         );
       }
 
-      const uid = await _findOrCreateUser(providerId, verified);
+      let uid;
+      try {
+        uid = await _findOrCreateUser(providerId, verified);
+      } catch (err) {
+        logger.error("exchangeIdTokenForCustomToken: _findOrCreateUser failed", {
+          providerId,
+          sub: verified && verified.sub,
+          email: verified && verified.email,
+          errCode: err && err.code,
+          errMessage: err && err.message,
+          errStack: err && err.stack,
+        });
+        throw new HttpsError(
+            "internal",
+            `findOrCreateUser: ${err && err.message ? err.message : "unknown"}`,
+        );
+      }
       const additionalClaims = {};
-      if (verified.email) additionalClaims.email = verified.email;
-      const customToken = await admin.auth().createCustomToken(
-          uid, additionalClaims,
-      );
-      return {customToken};
+      // Note: do NOT include `email` in additional claims — it's a reserved
+      // Firebase JWT claim and `createCustomToken` will reject it.
+      try {
+        const customToken = await admin.auth().createCustomToken(
+            uid, additionalClaims,
+        );
+        return {customToken};
+      } catch (err) {
+        logger.error("exchangeIdTokenForCustomToken: createCustomToken failed", {
+          uid,
+          errCode: err && err.code,
+          errMessage: err && err.message,
+          errStack: err && err.stack,
+        });
+        throw new HttpsError(
+            "internal",
+            `createCustomToken: ${err && err.message ? err.message : "unknown"}`,
+        );
+      }
     },
 );
 
