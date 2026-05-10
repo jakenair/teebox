@@ -11736,9 +11736,25 @@ A['sign-in-google']          = async (btn) => {
         return;
       }
       window.__authDiag('G4 calling exchangeIdTokenForCustomToken');
-      const exchange = window.firebaseHttpsCallable(window.firebaseFns, 'exchangeIdTokenForCustomToken');
-      const exchangeRes = await exchange({ idToken, providerId: 'google.com' });
-      const customToken = exchangeRes && exchangeRes.data && exchangeRes.data.customToken;
+      // Use plain fetch instead of httpsCallable. Cloud Function logs (Build
+      // 47) confirmed httpsCallable hangs in iOS WKWebView before the HTTP
+      // request leaves the device — never reaches the function. Same family
+      // of WKWebView issue as signInWithCredential. fetch() routes through
+      // Capacitor's native networking and works correctly.
+      const _exchangeRes = await Promise.race([
+        fetch('https://us-central1-teebox-market.cloudfunctions.net/exchangeIdTokenForCustomToken', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { idToken, providerId: 'google.com' } }),
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('exchange fetch timed out after 15s')), 15000)),
+      ]);
+      if (!_exchangeRes.ok) {
+        const _errText = await _exchangeRes.text().catch(() => '');
+        throw new Error('exchange HTTP ' + _exchangeRes.status + ': ' + _errText.substring(0, 200));
+      }
+      const _exchangeJson = await _exchangeRes.json();
+      const customToken = _exchangeJson && _exchangeJson.result && _exchangeJson.result.customToken;
       window.__authDiag('G5 got customToken=' + (customToken ? customToken.length : 0));
       if (!customToken) {
         throw new Error('Token exchange returned no customToken');
@@ -11858,9 +11874,21 @@ A['sign-in-apple']           = async (btn) => {
         return;
       }
       window.__authDiag('A4 calling exchangeIdTokenForCustomToken');
-      const exchange = window.firebaseHttpsCallable(window.firebaseFns, 'exchangeIdTokenForCustomToken');
-      const exchangeRes = await exchange({ idToken, providerId: 'apple.com', rawNonce });
-      const customToken = exchangeRes && exchangeRes.data && exchangeRes.data.customToken;
+      // Plain fetch — see Google handler comment for rationale.
+      const _aExchangeRes = await Promise.race([
+        fetch('https://us-central1-teebox-market.cloudfunctions.net/exchangeIdTokenForCustomToken', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { idToken, providerId: 'apple.com', rawNonce } }),
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('exchange fetch timed out after 15s')), 15000)),
+      ]);
+      if (!_aExchangeRes.ok) {
+        const _errText = await _aExchangeRes.text().catch(() => '');
+        throw new Error('exchange HTTP ' + _aExchangeRes.status + ': ' + _errText.substring(0, 200));
+      }
+      const _aExchangeJson = await _aExchangeRes.json();
+      const customToken = _aExchangeJson && _aExchangeJson.result && _aExchangeJson.result.customToken;
       window.__authDiag('A5 got customToken=' + (customToken ? customToken.length : 0));
       if (!customToken) {
         throw new Error('Token exchange returned no customToken');
