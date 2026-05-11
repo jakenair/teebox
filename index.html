@@ -4558,8 +4558,14 @@ window.confirmPayment = async function() {
   // Tradeoff on native: signed-in state doesn't persist across cold
   // launches — user signs in each launch. Capacitor's webview discards
   // memory on OS kill anyway, so this is fine for v1.
+  // Native uses an array fallback: localStorage first (survives page
+  // navigations like /terms.html, /brand/*.html — without this, every
+  // hard nav signs the user out), in-memory as backstop if localStorage
+  // is unavailable. We avoid indexedDBLocalPersistence — IndexedDB init
+  // hangs in WKWebView, which was the original bug we worked around with
+  // inMemoryPersistence-only. localStorage is sync + reliable.
   const auth = _isNativeForAppCheck
-    ? initializeAuth(app, { persistence: inMemoryPersistence })
+    ? initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] })
     : getAuth(app);
   if (!_isNativeForAppCheck) {
     setPersistence(auth, browserLocalPersistence).catch((e) => {
@@ -12576,19 +12582,28 @@ A['close-info']              = () => document.querySelectorAll('.info-backdrop.o
 // links pointing at /terms.html, /privacy.html, /dmca.html, /refunds.html,
 // /acceptable-use.html and the redirect button inside the privacy modal.
 function openLegalUrl(path) {
+  // On Capacitor iOS, window.open('/foo.html', '_blank') is silently
+  // blocked by WKWebView and @capacitor/browser isn't installed yet.
+  // Same-window navigation works because the legal pages are bundled
+  // into the iOS app (ios/App/App/public/) and Firebase Auth now uses
+  // browserLocalPersistence so the session survives the nav.
   try {
     const Cap = window.Capacitor;
     if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
       const Browser = Cap.Plugins && Cap.Plugins.Browser;
       if (Browser && typeof Browser.open === 'function') {
         Browser.open({ url: 'https://teeboxmarket.com' + path }).catch(() => {
-          window.open(path, '_blank', 'noopener,noreferrer');
+          window.location.href = path;
         });
         return;
       }
+      window.location.href = path;
+      return;
     }
   } catch (_e) {}
-  window.open(path, '_blank', 'noopener,noreferrer');
+  // Web: try popup first, fall back to same-window nav.
+  const w = window.open(path, '_blank', 'noopener,noreferrer');
+  if (!w) window.location.href = path;
 }
 A['open-privacy-full']       = () => openLegalUrl('/privacy.html');
 A['open-terms-page']         = () => openLegalUrl('/terms.html');
