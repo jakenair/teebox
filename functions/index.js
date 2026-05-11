@@ -1141,6 +1141,12 @@ async function handlePaymentSucceeded(pi) {
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
       transferId: transferId || null,
+      // Buyer's shipping destination from Stripe AddressElement.
+      // Without this the seller has no way to know where to ship —
+      // previously the field was never written and the Sold-tab Ship-To
+      // column always rendered "—". (Launch blocker fix.)
+      shipping: pi.shipping || null,
+      receiptEmail: pi.receipt_email || null,
       status: "paid",
       fulfillmentStatus: "awaiting_seller_shipment",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2142,6 +2148,50 @@ exports.incrementListingMessage = onDocumentCreated(
 );
 
 // ─────────────────────────────────────────────────────────────
+// syncWatchlistCount (Firestore trigger)
+//   Watchlist is stored as a map on users/{uid}.watchlist (not a
+//   subcollection). When the user doc updates, diff before/after
+//   to find listings added/removed, then ±1 listings/{id}.watchlistCount
+//   accordingly. Without this trigger, watchlistCount is read by the
+//   dashboard but never written — every listing shows 0 watchers.
+// ─────────────────────────────────────────────────────────────
+exports.syncWatchlistCount = onDocumentUpdated(
+  {document: "users/{uid}", ...LIGHT_TRIGGER},
+  async (event) => {
+    try {
+      const before = (event.data && event.data.before && event.data.before.data()) || {};
+      const after = (event.data && event.data.after && event.data.after.data()) || {};
+      const beforeIds = new Set(Object.keys(before.watchlist || {}));
+      const afterIds = new Set(Object.keys(after.watchlist || {}));
+      const added = [];
+      const removed = [];
+      for (const id of afterIds) if (!beforeIds.has(id)) added.push(id);
+      for (const id of beforeIds) if (!afterIds.has(id)) removed.push(id);
+      if (added.length === 0 && removed.length === 0) return;
+      const db = admin.firestore();
+      const batch = db.batch();
+      for (const id of added) {
+        batch.set(
+            db.collection("listings").doc(id),
+            {watchlistCount: admin.firestore.FieldValue.increment(1)},
+            {merge: true},
+        );
+      }
+      for (const id of removed) {
+        batch.set(
+            db.collection("listings").doc(id),
+            {watchlistCount: admin.firestore.FieldValue.increment(-1)},
+            {merge: true},
+        );
+      }
+      await batch.commit();
+    } catch (err) {
+      logger.error("syncWatchlistCount error", err);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
 // aggregateSellerStats (Firestore trigger)
 //   When an order transitions to fulfillmentStatus='delivered',
 //   roll up sales count + revenue onto the seller's profile.
@@ -2283,7 +2333,12 @@ function listingMatchesSavedSearch(listing, query) {
   if (!query || typeof query !== "object") return false;
 
   if (query.category) {
-    const lc = String(listing.category || "").toLowerCase();
+    // Listings store category as `cat` (per sell-form), older docs may
+    // have `category`. Accept either. (Bug fix: previously only checked
+    // listing.category, which meant every saved search with a category
+    // filter silently returned false for every listing ever created —
+    // saved-search match notifications never fired for category filters.)
+    const lc = String(listing.cat || listing.category || "").toLowerCase();
     if (lc !== String(query.category).toLowerCase()) return false;
   }
 
@@ -4229,7 +4284,7 @@ exports.generateListingDescription = onCall(
     }
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
-      "gemini-1.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
+      "gemini-2.0-flash:generateContent?key=" + encodeURIComponent(apiKey);
 
     let aiResp;
     try {
@@ -4493,7 +4548,7 @@ exports.suggestListingPrice = onCall(
     }
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
-      "gemini-1.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
+      "gemini-2.0-flash:generateContent?key=" + encodeURIComponent(apiKey);
 
     let aiResp;
     try {
