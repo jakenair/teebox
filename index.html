@@ -2141,6 +2141,18 @@
   .bingo-share-btn { background: var(--gold-500); color: var(--green-950); border: none; border-radius: 50px; padding: 8px 14px; font-family: var(--font-body); font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; }
   .bingo-share-btn:hover { background: var(--gold-400); }
   .bingo-share-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Tiny pill that surfaces offline / pending-sync status in the bingo
+     header. Hidden by default — JS reveals it via [data-mode] when the
+     connection drops or the local queue has unsynced games. */
+  .bingo-net-pill { display: none; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-family: var(--font-body); font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; line-height: 1.4; margin-top: 2px; }
+  .bingo-net-pill[data-mode="offline"] { display: inline-flex; background: rgba(255,255,255,0.14); color: #ffd9a3; border: 1px solid rgba(255,217,163,0.35); }
+  .bingo-net-pill[data-mode="pending"] { display: inline-flex; background: rgba(255,255,255,0.12); color: #ffe9b5; border: 1px solid rgba(255,233,181,0.3); }
+  .bingo-net-pill[data-mode="synced"] { display: inline-flex; background: rgba(120,200,140,0.18); color: #cfe9d4; border: 1px solid rgba(207,233,212,0.4); }
+  .bingo-net-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  /* Stale-puzzle banner — shown above the grid when we had to fall back to
+     yesterday's cached puzzle because today's couldn't be fetched. */
+  .bingo-stale-banner { display: none; margin: 0 0 14px 0; padding: 10px 14px; border-radius: 10px; background: rgba(214, 169, 0, 0.14); border: 1px solid rgba(214, 169, 0, 0.45); color: var(--green-900); font-size: 13px; font-weight: 600; line-height: 1.4; }
+  .bingo-stale-banner.show { display: block; }
   .bingo-body { flex: 1; padding: 1.25rem; max-width: 560px; width: 100%; margin: 0 auto; }
   .bingo-brand { text-align: center; padding: 24px 16px 16px; max-width: 560px; width: 100%; margin: 0 auto; border-bottom: 1px solid rgba(214, 169, 0, 0.28); position: relative; }
   .bingo-brand::after { content: ''; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); width: 64px; height: 2px; background: var(--gold-500); border-radius: 2px; }
@@ -2352,6 +2364,40 @@
   @keyframes bingoBannerIn {
     0%   { transform: translateY(-12px) scale(0.96); opacity: 0; }
     100% { transform: translateY(0) scale(1);        opacity: 1; }
+  }
+
+  /* Percentile + friends + streak panel — renders below the win banner
+     once the server-side aggregation finishes. Owned by loadBingoResults
+     in the bingo module below. Plain white card, doesn't compete visually
+     with the green hero banner above it. */
+  .bingo-results-panel {
+    background: var(--white); color: var(--gray-900);
+    border-radius: var(--radius-lg); padding: 14px 16px;
+    margin: 0 0 1.1rem; text-align: left;
+    border: 1px solid var(--gray-200);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+  }
+  .bingo-results-panel .brp-headline {
+    font-family: var(--font-display); font-size: 1.05rem; font-weight: 800;
+    color: var(--green-700); display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .bingo-results-panel .brp-row {
+    display: flex; align-items: center; gap: 8px; color: var(--gray-700);
+    font-size: 13px; padding: 2px 0;
+  }
+  .bingo-results-panel .brp-streak {
+    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--gray-200);
+    color: var(--gold-700, #8a6f2e); font-weight: 600;
+  }
+  .bingo-results-panel .brp-loading {
+    color: var(--gray-500); font-style: italic; font-size: 13px;
+  }
+  .bingo-results-panel .brp-cta {
+    display: inline-block; margin-top: 6px; font-size: 12px;
+    color: var(--green-700); text-decoration: underline; cursor: pointer;
+    background: none; border: none; padding: 0; font-family: inherit;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -3567,6 +3613,7 @@
     <div class="bingo-titlewrap">
       <div class="bingo-title">Logo Bingo</div>
       <div class="bingo-date" id="bingoDateLbl">—</div>
+      <span class="bingo-net-pill" id="bingoNetPill" aria-live="polite"><span class="dot"></span><span class="bingo-net-pill-text">Offline</span></span>
     </div>
     <button class="bingo-share-btn" data-action="bingo-share" id="bingoShareTopBtn" type="button" disabled>Share</button>
   </header>
@@ -3586,6 +3633,9 @@
         <span class="bingo-stat-l">Streak</span>
         <span class="bingo-stat-v" id="bingoStreakLbl">0d</span>
       </div>
+    </div>
+    <div class="bingo-stale-banner" id="bingoStaleBanner" role="status">
+      Showing yesterday&rsquo;s puzzle &mdash; reconnect to load today&rsquo;s.
     </div>
     <div class="bingo-grid" id="bingoGrid"></div>
     <div class="bingo-footer">
@@ -14694,6 +14744,336 @@ if (uploadZone) {
     try { localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); } catch {}
   }
 
+  // ── Offline play: puzzle cache + sync queue ────────────────────────────
+  // The bingo tab MUST work at the golf course with no signal. To get
+  // there we:
+  //   1. Cache the day's puzzle metadata (the 9 course IDs/names) in
+  //      localStorage so the page can re-render the grid from cold even
+  //      offline.
+  //   2. Tell the service worker to pre-cache the 9 logo PNGs so the
+  //      tiles aren't broken-image icons offline.
+  //   3. Mirror every tap to localStorage via the existing persist().
+  //   4. Queue a debounced sync to the syncBingoProgress callable. If
+  //      we're offline, the queue drains on the next `online` event.
+  // Items 1-3 already make the round playable; item 4 keeps the server's
+  // gameScores / streak / leaderboard in agreement with the local copy.
+  const PUZZLE_CACHE_KEY = (date) => `teebox.bingo.puzzle.${date}`;
+  const SYNC_QUEUE_KEY = 'teebox.bingo.syncQueue';
+  const ENSURE_READY_KEY = 'teebox.bingo.ensureReadyOn'; // last-run YYYY-MM-DD
+  let __bingoSyncDebounceTimer = null;
+  let __bingoSyncInFlight = false;
+  let __bingoPuzzleStale = false;     // true if we fell back to yesterday's puzzle
+
+  // Cache the puzzle metadata (course IDs, names, logo URLs) so we can
+  // rebuild today's grid even with the network completely gone. The
+  // course pool in bingo-courses.js ships with the bundle, but we still
+  // cache the selection so a future server-driven daily list would slot
+  // in the same way. (The earlier `generateDailyBingoPuzzle` Cloud
+  // Function was deleted 2026-05-12 — see BINGO_CLEANUP.md.)
+  function cacheTodaysPuzzle(date, courses) {
+    if (!Array.isArray(courses) || courses.length !== 9) return;
+    try {
+      const minimal = courses.map((c) => ({
+        id: c.id,
+        shortName: c.shortName,
+        // courseLogoUrl() will rebuild from id at runtime; we cache the
+        // resolved URL too so the SW pre-cache message can target the
+        // exact same string the renderer asks for.
+        logoUrl: courseLogoUrl(c),
+      }));
+      localStorage.setItem(
+        PUZZLE_CACHE_KEY(date),
+        JSON.stringify({date, courses: minimal, cachedAt: Date.now()})
+      );
+    } catch {}
+  }
+  function readCachedPuzzle(date) {
+    try {
+      const raw = localStorage.getItem(PUZZLE_CACHE_KEY(date));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || obj.date !== date || !Array.isArray(obj.courses) || obj.courses.length !== 9) {
+        return null;
+      }
+      return obj;
+    } catch { return null; }
+  }
+  // Resolve a cached puzzle's minimal entries back to full COURSES rows so
+  // the rest of the game (matchesCourse, etc.) still has aliases/location.
+  function hydrateCachedPuzzleToCourses(cached) {
+    if (!cached) return null;
+    const out = [];
+    for (const c of cached.courses) {
+      const full = COURSES.find((x) => x.id === c.id);
+      if (full) out.push(full);
+      else out.push({
+        id: c.id, name: c.shortName, shortName: c.shortName,
+        aliases: [], location: '', architect: '', logo: '', logoUrl: c.logoUrl || '',
+      });
+    }
+    return out;
+  }
+
+  // Pull today's puzzle into local cache. Today the selection is
+  // deterministic from dailySeed() — that runs synchronously so we never
+  // need the network to *compute* it. This function exists so that:
+  //   • the localStorage cache reflects the courses we'll render (for
+  //     other tabs / cold-load offline)
+  //   • we have a single hook to swap in a server-driven daily list
+  //     later without scattering offline logic.
+  async function loadTodaysBingoPuzzle() {
+    const date = todayUTC();
+    // Cache hit → use it. dailySeed() output is stable so we still
+    // reconcile against the live computation in case the seed string
+    // bumped (rare; would mean an in-flight code change).
+    const cached = readCachedPuzzle(date);
+    if (cached) {
+      __bingoPuzzleStale = false;
+      const hydrated = hydrateCachedPuzzleToCourses(cached);
+      // Belt-and-suspenders: if the cached ids don't all resolve, fall
+      // through to live dailySeed() which is guaranteed valid.
+      if (hydrated && hydrated.every(Boolean)) return hydrated;
+    }
+    try {
+      // dailySeed is sync + offline-safe; this branch is "compute the
+      // canonical answer from local data and cache it".
+      const courses = dailySeed(date);
+      cacheTodaysPuzzle(date, courses);
+      __bingoPuzzleStale = false;
+      return courses;
+    } catch (err) {
+      // Truly degenerate path — fall back to the most recent cached
+      // puzzle we have, even if it's not for today.
+      const fallback = findMostRecentCachedPuzzle();
+      if (fallback) {
+        __bingoPuzzleStale = true;
+        return hydrateCachedPuzzleToCourses(fallback);
+      }
+      throw err;
+    }
+  }
+  function findMostRecentCachedPuzzle() {
+    try {
+      let best = null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('teebox.bingo.puzzle.')) continue;
+        const obj = JSON.parse(localStorage.getItem(k) || 'null');
+        if (!obj || !obj.date) continue;
+        if (!best || obj.date > best.date) best = obj;
+      }
+      return best;
+    } catch { return null; }
+  }
+
+  // Send today's logo URLs to the service worker. The SW caches them in a
+  // dedicated namespace so the user can still see the tiles offline. Skip
+  // when there's no SW (private browsing, older Safari, native WebView
+  // without registration yet) — the browser HTTP cache covers most cases.
+  function precacheBingoLogos(courses) {
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      const ctrl = navigator.serviceWorker.controller;
+      if (!ctrl) return;
+      const urls = courses
+        .map((c) => courseLogoUrl(c))
+        .filter((u) => typeof u === 'string' && u.length > 0);
+      if (!urls.length) return;
+      ctrl.postMessage({type: 'CACHE_BINGO_LOGOS', urls});
+    } catch {}
+  }
+
+  // Called on app open (not just bingo-tab open) so by the time the user
+  // navigates to bingo offline, the puzzle + logos are pinned. Throttled
+  // to once per UTC day to avoid redundant work.
+  async function ensureBingoOfflineReady() {
+    try {
+      const today = todayUTC();
+      let last = null;
+      try { last = localStorage.getItem(ENSURE_READY_KEY); } catch {}
+      if (last === today) return;
+      const courses = await loadTodaysBingoPuzzle();
+      precacheBingoLogos(courses);
+      try { localStorage.setItem(ENSURE_READY_KEY, today); } catch {}
+    } catch (err) {
+      // Best-effort — the synchronous dailySeed() path makes this
+      // basically un-failable in practice.
+      console.warn('[bingo] ensureBingoOfflineReady failed:', err);
+    }
+  }
+  // Expose for the app-open hook below.
+  window.ensureBingoOfflineReady = ensureBingoOfflineReady;
+
+  // Sync queue helpers. Each entry is just a date string — the actual
+  // payload is read fresh from localStorage at drain time so a tap
+  // *after* enqueue is still included in the eventual sync.
+  function readSyncQueue() {
+    try {
+      const raw = localStorage.getItem(SYNC_QUEUE_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
+    } catch { return []; }
+  }
+  function writeSyncQueue(arr) {
+    try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(arr)); } catch {}
+  }
+  function enqueueBingoSync(date) {
+    const q = readSyncQueue();
+    if (!q.includes(date)) {
+      q.push(date);
+      writeSyncQueue(q);
+    }
+    updateBingoNetPill();
+    scheduleBingoSync();
+  }
+  function scheduleBingoSync() {
+    // Debounce: 10s after the last tap, or immediately on solve via
+    // flushBingoSync().
+    if (__bingoSyncDebounceTimer) clearTimeout(__bingoSyncDebounceTimer);
+    __bingoSyncDebounceTimer = setTimeout(() => {
+      __bingoSyncDebounceTimer = null;
+      drainBingoSyncQueue().catch(() => {});
+    }, 10000);
+  }
+  function flushBingoSync() {
+    if (__bingoSyncDebounceTimer) {
+      clearTimeout(__bingoSyncDebounceTimer);
+      __bingoSyncDebounceTimer = null;
+    }
+    drainBingoSyncQueue().catch(() => {});
+  }
+  async function drainBingoSyncQueue() {
+    if (__bingoSyncInFlight) return;
+    if (!navigator.onLine) return;
+    const u = window.CURRENT_USER;
+    if (!u || !u.uid) return;             // anonymous: nothing to sync
+    const q = readSyncQueue();
+    if (!q.length) { updateBingoNetPill(); return; }
+    __bingoSyncInFlight = true;
+    let didSyncAny = false;
+    try {
+      const {getFunctions, httpsCallable} = await import(
+        'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js'
+      );
+      const fns = getFunctions();
+      const sync = httpsCallable(fns, 'syncBingoProgress');
+      // Copy the queue — we mutate the real one as we go.
+      const dates = [...q];
+      for (const date of dates) {
+        const state = loadGameState(date);
+        if (!state || !Array.isArray(state.cells) || state.cells.length !== 9) {
+          // Nothing meaningful to send for this date — drop from queue.
+          removeFromQueue(date);
+          continue;
+        }
+        const totalAttempts = state.cells.reduce(
+          (acc, c) => acc + (Number(c && c.attempts) || 0),
+          0
+        );
+        const completed = state.cells.every(
+          (c) => c && (c.state === 'correct' || c.state === 'revealed')
+        );
+        const correctCount = state.cells.filter(
+          (c) => c && c.state === 'correct'
+        ).length;
+        const resolvedTimes = state.cells
+          .map((c) => (c && Number.isFinite(c.resolvedAt) ? c.resolvedAt : null))
+          .filter((x) => x !== null);
+        const tapTimes = state.cells
+          .map((c) => (c && Number.isFinite(c.tappedAt) ? c.tappedAt : null))
+          .filter((x) => x !== null);
+        const startedAt = tapTimes.length ? Math.min(...tapTimes) : null;
+        const solvedAt = completed && resolvedTimes.length ? Math.max(...resolvedTimes) : null;
+        try {
+          await sync({
+            date,
+            cells: state.cells,
+            solvedAt,
+            attempts: totalAttempts,
+            startedAt,
+            clientWonAt: correctCount === 9 ? solvedAt : null,
+          });
+          removeFromQueue(date);
+          didSyncAny = true;
+        } catch (err) {
+          // Network blip / rules failure / etc. Leave it queued; we'll
+          // retry on the next online event or page load.
+          console.warn('[bingo] sync failed for', date, err && err.code || err);
+          // Don't keep hammering — break out and let the next trigger retry.
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn('[bingo] drainBingoSyncQueue init failed:', err);
+    } finally {
+      __bingoSyncInFlight = false;
+      updateBingoNetPill();
+      if (didSyncAny) {
+        showSyncedToast();
+        // Now that the server has the win, the onBingoWinAggregate
+        // trigger will fire ~1s later. Wait briefly and retry the
+        // results panel load — if the first call (from maybeFinish)
+        // came back { pending: true } this picks up the real numbers.
+        // Reset the loaded flag so this second attempt is allowed.
+        if (typeof loadBingoResults === 'function'
+            && document.getElementById('bingoResultsPanel')) {
+          setTimeout(() => {
+            __bingoResultsLoaded = false;
+            loadBingoResults(TODAY);
+          }, 1500);
+        }
+      }
+    }
+  }
+  function removeFromQueue(date) {
+    const q = readSyncQueue().filter((d) => d !== date);
+    writeSyncQueue(q);
+  }
+  function showSyncedToast() {
+    // Brief "Synced" pill animation on the bingo header pill, only if
+    // the bingo screen is open. Otherwise the next time the user opens
+    // bingo they'll see no pending state, which is its own cue.
+    const screen = document.getElementById('bingoScreen');
+    if (!screen || !screen.classList.contains('open')) return;
+    const pill = document.getElementById('bingoNetPill');
+    if (!pill) return;
+    pill.setAttribute('data-mode', 'synced');
+    const lbl = pill.querySelector('.bingo-net-pill-text');
+    if (lbl) lbl.textContent = 'Synced';
+    setTimeout(updateBingoNetPill, 1800);
+  }
+  function updateBingoNetPill() {
+    const pill = document.getElementById('bingoNetPill');
+    if (!pill) return;
+    const lbl = pill.querySelector('.bingo-net-pill-text');
+    const queued = readSyncQueue().length;
+    if (!navigator.onLine) {
+      pill.setAttribute('data-mode', 'offline');
+      if (lbl) lbl.textContent = queued ? 'Offline — pending sync' : 'Offline';
+    } else if (queued > 0) {
+      pill.setAttribute('data-mode', 'pending');
+      if (lbl) lbl.textContent = 'Pending sync';
+    } else {
+      pill.removeAttribute('data-mode');
+    }
+  }
+  function updateBingoStaleBanner() {
+    const banner = document.getElementById('bingoStaleBanner');
+    if (!banner) return;
+    banner.classList.toggle('show', !!__bingoPuzzleStale);
+  }
+
+  // Wire connection-change events. We don't gate the page on this — we
+  // just nudge the UI + try to drain the queue once we come back.
+  window.addEventListener('online',  () => {
+    updateBingoNetPill();
+    drainBingoSyncQueue().catch(() => {});
+  });
+  window.addEventListener('offline', () => {
+    updateBingoNetPill();
+  });
+
   // ── Game wiring ────────────────────────────────────────────────────────
   const TODAY = todayUTC();
   let game = {
@@ -14728,6 +15108,10 @@ if (uploadZone) {
       completed: isComplete(),
       savedAt: Date.now(),
     });
+    // Local-first: the tap UI does not await the server. We just enqueue
+    // a debounced sync; drainBingoSyncQueue() handles offline-replay,
+    // signed-out users, and rate-limiting.
+    try { enqueueBingoSync(TODAY); } catch {}
   }
   function scoreCount() {
     return game.cells.filter(c => c.state === 'correct').length;
@@ -14868,8 +15252,16 @@ if (uploadZone) {
         `;
         body.insertBefore(banner, gridEl);
       }
+      // Reload-of-completed path: kick off the results panel load.
+      // loadBingoResults is idempotent and a no-op for anonymous users
+      // / offline / already-loaded states.
+      try {
+        if (typeof loadBingoResults === 'function') loadBingoResults(TODAY);
+      } catch (_e) {}
     } else if (!completed && existingBanner) {
       existingBanner.remove();
+      const oldPanel = document.getElementById('bingoResultsPanel');
+      if (oldPanel) oldPanel.remove();
     }
     if (completed) {
       if (msg) {
@@ -14911,6 +15303,33 @@ if (uploadZone) {
       screen.setAttribute('aria-hidden', 'false');
     }
     document.body.style.overflow = 'hidden';
+
+    // Offline-readiness pass. Runs async; the synchronous render() below
+    // works either way because game.courses is already populated from
+    // dailySeed (offline-safe). The async path just refreshes the
+    // localStorage puzzle cache + nudges the SW to pre-cache the 9 logos
+    // so the user can still play this puzzle if the network drops mid-round.
+    (async () => {
+      try {
+        const courses = await loadTodaysBingoPuzzle();
+        // If loader fell back to yesterday's cached puzzle, swap it into
+        // the active game and re-render — but only when the user has no
+        // progress yet on the current courses. Mid-round we'd otherwise
+        // strand their resolved tiles against the wrong logos.
+        const noProgress = !game.cells || game.cells.every(c => !c || c.state === 'pending');
+        if (__bingoPuzzleStale && Array.isArray(courses) && courses.length === 9 && noProgress) {
+          game.courses = courses;
+          render();
+        }
+        precacheBingoLogos(courses);
+        updateBingoStaleBanner();
+      } catch {}
+    })();
+    updateBingoNetPill();
+    updateBingoStaleBanner();
+    // If we came back online while bingo was closed, drain any pending sync.
+    drainBingoSyncQueue().catch(() => {});
+
     render();
     loadLeaderboard(currentLbTab);
 
@@ -15349,10 +15768,23 @@ if (uploadZone) {
         body.insertBefore(banner, grid);
       }
       announceLive(`Puzzle complete. ${score} of 9 correct. Streak ${s.count}.`);
+      // Spin up the percentile / friends / streak panel below the banner.
+      // The server may not have aggregated this solve yet (race between
+      // the sync POST and the onBingoWinAggregate trigger) — in that case
+      // the callable returns { pending: true } and we'll show "calculating"
+      // until drainBingoSyncQueue's success handler retries us.
+      try {
+        if (typeof loadBingoResults === 'function') loadBingoResults(TODAY);
+      } catch (_e) {}
     }, 650);
 
     // Best-effort leaderboard write
     writeLeaderboardScore(score, s.count).catch(() => { /* swallow */ });
+    // Flush the local sync queue immediately on solve — no need to wait
+    // for the 10s debounce when the user just hit the most engagement-
+    // worthy moment of the round. If we're offline this is a no-op and
+    // the next `online` event will drain the queue.
+    try { enqueueBingoSync(TODAY); flushBingoSync(); } catch {}
   }
 
   async function writeLeaderboardScore(correctCount, streak) {
@@ -15460,6 +15892,23 @@ if (uploadZone) {
   A['open-bingo']           = () => openBingo();
   // Expose for the deep-link / guest-mode hand-off in the auth flow.
   window.openBingo = openBingo;
+
+  // Kick the offline-readiness pass on app open so the puzzle + 9 logos are
+  // pinned locally before the user navigates to bingo. Idle-callback first
+  // so we don't fight with the marketplace's initial render; setTimeout
+  // fallback for Safari which historically delayed requestIdleCallback.
+  const __kickReady = () => { ensureBingoOfflineReady().catch(() => {}); };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(__kickReady, {timeout: 4000});
+  } else {
+    setTimeout(__kickReady, 1500);
+  }
+  // Also drain any queued syncs on load if we're already online. This
+  // covers the case where the user solved the puzzle offline yesterday
+  // and is reopening the app today on wifi.
+  if (navigator.onLine) {
+    setTimeout(() => drainBingoSyncQueue().catch(() => {}), 2000);
+  }
   // Handle ?play=bingo deep-link from shared messages. If the user is signed
   // in (or already in guest mode), open Bingo immediately. Otherwise stash the
   // intent and the auth-screen guest button will pick it up.
@@ -15526,6 +15975,168 @@ if (uploadZone) {
       }
     });
   }
+
+  // ── Leaderboard results panel ──────────────────────────────────────────
+  //
+  // After a win, ask the server for four things:
+  //   1. Global daily percentile
+  //   2. Country daily percentile (if user has country set)
+  //   3. Friends board (top 10 + your rank)
+  //   4. Global streak record + your personal best
+  //
+  // The win banner shows immediately on solve; this panel slots in below
+  // it once the server-side aggregation finishes (usually 1–3s after the
+  // last sync). All four calls run in parallel; any failure is rendered
+  // as a quiet drop-out (we render the others) rather than blocking.
+  //
+  // Network model: drainBingoSyncQueue is the only path that writes
+  // users/{uid}/bingoGames/{date} — once it succeeds the
+  // onBingoWinAggregate trigger fires and the percentile callable can
+  // answer. If the user is offline we render "Will calculate when you
+  // reconnect" and let drainBingoSyncQueue re-trigger us on next online.
+  let __bingoResultsLoaded = false;
+  let __bingoResultsLoading = false;
+  function ensureResultsPanelHost() {
+    let panel = document.getElementById('bingoResultsPanel');
+    if (panel) return panel;
+    const banner = document.getElementById('bingoResultBanner');
+    if (!banner) return null;
+    panel = document.createElement('div');
+    panel.id = 'bingoResultsPanel';
+    panel.className = 'bingo-results-panel';
+    panel.innerHTML = '<div class="brp-loading">Calculating your rank…</div>';
+    banner.insertAdjacentElement('afterend', panel);
+    return panel;
+  }
+  function renderResultsOffline() {
+    const panel = ensureResultsPanelHost();
+    if (!panel) return;
+    panel.innerHTML =
+      '<div class="brp-loading">Will calculate when you reconnect.</div>';
+  }
+  function flagEmoji(cc) {
+    // ISO-3166 alpha-2 → regional indicator emoji. Falls back to a globe.
+    if (!cc || typeof cc !== 'string' || cc.length !== 2) return '🌎';
+    const code = cc.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) return '🌎';
+    return String.fromCodePoint(
+      0x1F1E6 + (code.charCodeAt(0) - 65),
+      0x1F1E6 + (code.charCodeAt(1) - 65),
+    );
+  }
+  function renderResultsPanel(panel, results) {
+    const { global, country, friends, streak } = results;
+    const lines = [];
+    // Headline — global percentile is the hero number.
+    if (global && global.solved && Number.isInteger(global.percentile)) {
+      lines.push(
+        '<div class="brp-headline">🏆 You scored higher than ' +
+        global.percentile + '% of players today</div>'
+      );
+    } else if (global && global.pending) {
+      lines.push(
+        '<div class="brp-headline">🏆 Your rank is being calculated…</div>'
+      );
+    } else {
+      lines.push(
+        '<div class="brp-headline">🏆 Your rank will be ready shortly</div>'
+      );
+    }
+    // Per-scope detail row
+    const detail = [];
+    if (global && Number.isInteger(global.percentile)) {
+      detail.push('🌎 ' + global.percentile + '% globally');
+    }
+    if (country && country.countrySet && Number.isInteger(country.percentile)) {
+      detail.push(
+        flagEmoji(country.country) + ' ' + country.percentile +
+        '% in ' + country.country
+      );
+    }
+    if (friends && Number.isInteger(friends.friendsWhoSolved)
+        && Number.isInteger(friends.totalFriends) && friends.totalFriends > 0) {
+      detail.push(
+        '👥 Beat ' + friends.friendsWhoSolved + ' of ' +
+        friends.totalFriends + ' friends'
+      );
+    }
+    if (detail.length) {
+      const esc = window.safeText || (function (s) { return s; });
+      lines.push(
+        '<div class="brp-row">' + detail.map(esc).join(' · ') + '</div>'
+      );
+    }
+    // Country row: HIDDEN ENTIRELY when the user has no country field set
+    // (countrySet === false). Adding country is gated on the users/{uid}
+    // rules whitelist + profile-edit UI — see BINGO_LEADERBOARD_PREREQS.md.
+    // The detail-row block above already only renders a country bullet
+    // when countrySet && Number.isInteger(percentile), so there's nothing
+    // to render here. Friends row is similarly suppressed when
+    // totalFriends === 0. Global percentile + streak always show.
+    // Streak block
+    if (streak) {
+      const your = Number(streak.yourBestStreak) || 0;
+      const all = streak.allTimeLongestStreak;
+      const bits = [];
+      if (your > 0) bits.push('🔥 Your best streak: ' + your +
+        ' day' + (your === 1 ? '' : 's'));
+      if (all && Number(all.streak) > 0) {
+        bits.push('Global record: ' + all.streak +
+          ' day' + (all.streak === 1 ? '' : 's'));
+      }
+      if (bits.length) {
+        lines.push('<div class="brp-streak">' + bits.join(' · ') + '</div>');
+      }
+    }
+    panel.innerHTML = lines.join('');
+  }
+  async function loadBingoResults(date) {
+    // Idempotent — calling twice while the first call is in flight or
+    // after it succeeded is a no-op.
+    if (__bingoResultsLoaded || __bingoResultsLoading) return;
+    const u = window.CURRENT_USER;
+    if (!u || !u.uid) return;       // anonymous, no server-side rank
+    const panel = ensureResultsPanelHost();
+    if (!panel) return;
+    if (!navigator.onLine) { renderResultsOffline(); return; }
+    __bingoResultsLoading = true;
+    try {
+      const { getFunctions, httpsCallable } = await import(
+        'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js'
+      );
+      const fns = getFunctions();
+      const callP = (name) => httpsCallable(fns, name)({ date })
+        .then((r) => (r && r.data) || null)
+        .catch((e) => {
+          console.warn('[bingo] callable failed:', name, e && e.code || e);
+          return null;
+        });
+      // Streak callable doesn't take a date — wrap separately so all
+      // four resolve under one Promise.all.
+      const streakP = httpsCallable(fns, 'getBingoGlobalStreakRecord')({})
+        .then((r) => (r && r.data) || null)
+        .catch(() => null);
+      const [global, country, friends, streak] = await Promise.all([
+        callP('getBingoPercentile'),
+        callP('getBingoCountryPercentile'),
+        callP('getBingoFriendsBoard'),
+        streakP,
+      ]);
+      renderResultsPanel(panel, { global, country, friends, streak });
+      // Mark loaded only if the server has actually aggregated; a
+      // pending state lets us retry on the next openBingo() call.
+      if (global && global.synced && !global.pending) {
+        __bingoResultsLoaded = true;
+      }
+    } catch (err) {
+      console.warn('[bingo] loadBingoResults failed:', err);
+      panel.innerHTML =
+        '<div class="brp-loading">Couldn\'t load your rank — try again later.</div>';
+    } finally {
+      __bingoResultsLoading = false;
+    }
+  }
+  window.loadBingoResults = loadBingoResults;
 
   // Hydrate state on load (so the badge / stat row reads correctly even
   // before the screen is opened, in case we add a "today's score" preview

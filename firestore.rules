@@ -238,6 +238,16 @@ service cloud.firestore {
       match /watchlist/{listingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Logo Bingo durable game mirror. Doc id is the YYYY-MM-DD UTC date.
+      // Written exclusively by the syncBingoProgress callable (Admin SDK
+      // bypasses these rules); the local localStorage copy is the
+      // source of truth for the running game. Owner can read so the
+      // client can hydrate cross-device once we wire that up.
+      match /bingoGames/{date} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
     }
 
     // pricesIndex — server-only state for price-drop diffing.
@@ -822,14 +832,12 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
-    // DAILY GAMES — Logo Bingo daily puzzle. Doc id is YYYY-MM-DD so
-    // every player on a given day gets the same 9 courses. Public
-    // read; created by a scheduled Cloud Function only.
+    // DAILY GAMES — REMOVED 2026-05-12. The dailyGames/{date} collection
+    // was unused: the bingo client derives its daily puzzle locally via
+    // a deterministic seeded shuffle of bingo-courses.js. The matching
+    // scheduled Cloud Function (generateDailyBingoPuzzle) was deleted
+    // from functions/index.js in the same change. See BINGO_CACHING_AUDIT.md.
     // ─────────────────────────────────────────────
-    match /dailyGames/{date} {
-      allow read: if true;
-      allow create, update, delete: if false;
-    }
 
     // ─────────────────────────────────────────────
     // GAME SCORES — Logo Bingo leaderboard. Doc id is `{date}_{uid}`
@@ -864,6 +872,35 @@ service cloud.firestore {
       allow update: if false;
 
       allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // BINGO LEADERBOARDS — pre-aggregated histogram of Logo Bingo solve
+    // times per day. Doc id is YYYY-MM-DD (mirrors dailyGames). Owned
+    // by the onBingoWinAggregate trigger (Admin SDK); clients only
+    // read. Auth required so anonymous scrapers can't snapshot the
+    // histogram, and to attribute load to identified users.
+    //   bingoLeaderboard/{date}                 → global histogram
+    //   bingoLeaderboard/{date}/countries/{cc}  → country-scoped histogram
+    // ─────────────────────────────────────────────
+    match /bingoLeaderboard/{date} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if false;
+
+      match /countries/{countryCode} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // BINGO GLOBAL STATS — singleton doc tracking the all-time longest
+    // Logo Bingo streak (and the currently active leader). Written by
+    // onBingoWinAggregate (Admin SDK) only.
+    // ─────────────────────────────────────────────
+    match /bingoGlobalStats/{docId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if false;
     }
 
     // ─────────────────────────────────────────────

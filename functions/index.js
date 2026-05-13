@@ -2696,86 +2696,29 @@ exports.aggregateSellerStats = onDocumentUpdated(
 );
 
 // ─────────────────────────────────────────────────────────────
-// generateDailyBingoPuzzle (scheduled, daily 00:00 UTC)
-//   Picks 9 random course IDs from the Logo Bingo course pool
-//   and writes them to dailyGames/{YYYY-MM-DD}. Idempotent: if
-//   today's doc already exists, the function exits without
-//   overwriting it. Course pool is baked in here (mirrors
-//   /bingo-courses.js) so the function has no client coupling.
+// generateDailyBingoPuzzle — DELETED 2026-05-12.
+//
+// This scheduled function previously wrote dailyGames/{YYYY-MM-DD}
+// with 9 randomly-picked course IDs, but no client ever read the
+// collection (the bingo client derives its daily puzzle locally via
+// a deterministic seeded shuffle of bingo-courses.js — see
+// `dailySeed` in index.html). The function used Math.random(), so
+// even if a reader appeared it would disagree with the client's
+// deterministic output.
+//
+// Removed: the scheduled job, the BINGO_COURSE_POOL constant, the
+// pickNRandom helper, and the local todayUtcDateKey helper.
+// SCHEDULED_BATCH (sizing preset) is retained — used by other jobs.
+//
+// Post-deploy action required: run `firebase deploy --only functions`
+// to delete the function from the live Cloud Functions deployment.
+// Until then, the scheduled job will continue to run in production
+// against an empty BINGO_COURSE_POOL signature (well, it will run
+// the OLD deployed code unchanged — only the next deploy retires it).
+//
+// The corresponding /dailyGames/{date} rule was also removed from
+// firestore.rules. See BINGO_CACHING_AUDIT.md for original analysis.
 // ─────────────────────────────────────────────────────────────
-const BINGO_COURSE_POOL = [
-  "augusta-national", "pine-valley", "cypress-point", "pebble-beach",
-  "shinnecock-hills", "oakmont", "merion-east", "national-golf-links",
-  "fishers-island", "sand-hills", "pacific-dunes", "bandon-dunes",
-  "old-macdonald", "bandon-trails", "sheep-ranch", "chicago-golf-club",
-  "winged-foot-west", "seminole", "los-angeles-cc-north", "riviera",
-  "oakland-hills-south", "olympic-club-lake", "san-francisco-gc",
-  "baltusrol-lower", "bethpage-black", "pinehurst-no-2", "whistling-straits",
-  "erin-hills", "tpc-sawgrass", "kiawah-ocean", "harbour-town", "tobacco-road",
-  "streamsong-red", "streamsong-blue", "streamsong-black", "cabot-citrus-farms",
-  "inverness", "crystal-downs", "prairie-dunes", "oak-hill-east", "medinah-3",
-  "quaker-ridge", "wade-hampton", "east-lake", "whispering-pines",
-  "castle-pines", "shadow-creek", "friars-head", "somerset-hills", "maidstone",
-  "st-andrews-old", "muirfield", "royal-dornoch", "turnberry-ailsa",
-  "carnoustie", "north-berwick", "kingsbarns", "cruden-bay", "machrihanish",
-  "machrihanish-dunes", "castle-stuart", "royal-troon", "royal-county-down",
-  "royal-portrush-dunluce", "ballybunion-old", "lahinch", "portmarnock",
-  "european-club", "royal-st-georges", "sunningdale-old", "royal-birkdale",
-  "royal-lytham", "royal-liverpool", "swinley-forest", "walton-heath-old",
-  "morfontaine", "les-bordes", "valderrama", "royal-melbourne-west",
-  "kingston-heath", "barnbougle-dunes", "barnbougle-lost-farm", "cape-wickham",
-  "new-south-wales", "tara-iti", "cape-kidnappers", "cabot-cliffs",
-  "cabot-links", "st-georges-canada", "hamilton-gcc", "hirono", "kawana-fuji",
-  "tokyo-gc",
-];
-
-function pickNRandom(arr, n) {
-  // Fisher-Yates partial shuffle, n items.
-  const copy = arr.slice();
-  for (let i = 0; i < n; i++) {
-    const j = i + Math.floor(Math.random() * (copy.length - i));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, n);
-}
-
-function todayUtcDateKey() {
-  // YYYY-MM-DD in UTC.
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-exports.generateDailyBingoPuzzle = onSchedule(
-  {schedule: "every day 00:00", timeZone: "UTC", ...SCHEDULED_BATCH},
-  async () => {
-    try {
-      const db = admin.firestore();
-      const dateKey = todayUtcDateKey();
-      const ref = db.collection("dailyGames").doc(dateKey);
-      const existing = await ref.get();
-      if (existing.exists) {
-        logger.info(
-          `generateDailyBingoPuzzle: ${dateKey} already exists, skipping`
-        );
-        return;
-      }
-      const courses = pickNRandom(BINGO_COURSE_POOL, 9);
-      await ref.set({
-        date: dateKey,
-        courses,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      logger.info(
-        `generateDailyBingoPuzzle: wrote ${dateKey} with 9 courses`
-      );
-    } catch (err) {
-      logger.error("generateDailyBingoPuzzle error", err);
-    }
-  }
-);
 
 // ─────────────────────────────────────────────────────────────
 // notifyOnSavedSearchMatch (Firestore trigger)
@@ -5718,6 +5661,11 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 // ─────────────────────────────────────────────────────────────
 Object.assign(exports, require("./pushTriggers"));
 
+// Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
+// Isolated in its own file so deploys can't blast-radius the offer / order
+// triggers above. See bingoPushTriggers.js for the schedule + de-dupe logic.
+Object.assign(exports, require("./bingoPushTriggers"));
+
 // Email system (transactional + security + lifecycle + webhooks).
 // All Cloud Functions for email live in ./emailTriggers — see that file
 // + EMAIL_OPS_RUNBOOK.md for ramp + DNS + bounce-handling docs.
@@ -5728,3 +5676,19 @@ Object.assign(exports, require("./emailTriggers"));
 // by handleSubscriptionUpsert + handleSubscriptionDeleted. See
 // PREMIUM_NOTIFICATIONS_TEST.md for the verification runbook.
 Object.assign(exports, require("./subscriptionLifecycle"));
+
+// Logo Bingo offline-play sync. Receives the local game state from the
+// client after a tap or on reconnect-drain and writes the durable mirror
+// to users/{uid}/bingoGames/{date}. See ./bingoSync.js for the validation
+// model.
+Object.assign(exports, require("./bingoSync"));
+
+// Logo Bingo leaderboards — daily-percentile / friends / country /
+// global-streak surfaces. Reacts to users/{uid}/bingoGames/{date}
+// creates (written by syncBingoProgress in ./bingoSync.js) via the
+// onBingoWinAggregate trigger; exposes four callables for the post-win
+// results panel in index.html (getBingoPercentile,
+// getBingoCountryPercentile, getBingoFriendsBoard,
+// getBingoGlobalStreakRecord).
+Object.assign(exports, require("./bingoLeaderboards"));
+
