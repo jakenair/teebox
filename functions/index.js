@@ -5722,3 +5722,9 @@ Object.assign(exports, require("./pushTriggers"));
 // All Cloud Functions for email live in ./emailTriggers — see that file
 // + EMAIL_OPS_RUNBOOK.md for ramp + DNS + bounce-handling docs.
 Object.assign(exports, require("./emailTriggers"));
+
+// Premium subscription lifecycle (email + push). Observes users/{uid}
+// tier / proSubscriptionStatus / proCancelAtPeriodEnd transitions written
+// by handleSubscriptionUpsert + handleSubscriptionDeleted. See
+// PREMIUM_NOTIFICATIONS_TEST.md for the verification runbook.
+Object.assign(exports, require("./subscriptionLifecycle"));
