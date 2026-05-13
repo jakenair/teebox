@@ -5677,6 +5677,10 @@ Object.assign(exports, require("./emailTriggers"));
 // PREMIUM_NOTIFICATIONS_TEST.md for the verification runbook.
 Object.assign(exports, require("./subscriptionLifecycle"));
 
+// Daily Pro Seller subscription smoke test (04:00 ET). See
+// SMOKE_TEST_OPS.md for the runbook + secret setup.
+Object.assign(exports, require("./smokeTest"));
+
 // Logo Bingo offline-play sync. Receives the local game state from the
 // client after a tap or on reconnect-drain and writes the durable mirror
 // to users/{uid}/bingoGames/{date}. See ./bingoSync.js for the validation
