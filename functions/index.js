@@ -5710,6 +5710,14 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   return {ok: true, messageId: msgRef.id};
 });
 
+// ─────────────────────────────────────────────────────────────
+// Push notification triggers (offer / order / payout / saved-search).
+// Lives in its own file to keep this monolith from growing further.
+// Re-exports its onDocumentCreated/Updated handlers via this require —
+// `firebase deploy --only functions` picks them up automatically.
+// ─────────────────────────────────────────────────────────────
+Object.assign(exports, require("./pushTriggers"));
+
 // Email system (transactional + security + lifecycle + webhooks).
 // All Cloud Functions for email live in ./emailTriggers — see that file
 // + EMAIL_OPS_RUNBOOK.md for ramp + DNS + bounce-handling docs.

@@ -4865,11 +4865,18 @@ window.confirmPayment = async function() {
       loadListings();
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
       if (window.hydrateWatchlist) window.hydrateWatchlist();
+      // Hydrate blocked-users set so buildProducts can client-filter
+      // their listings before the next paint.
+      if (window.hydrateBlockedUsers) window.hydrateBlockedUsers().then(() => {
+        if (typeof buildProducts === 'function') buildProducts();
+      });
       setTimeout(() => { if (window.maybePromptReview) window.maybePromptReview(); }, 2000);
       // Best-effort FCM push subscription (web only — iOS native uses APNs
       // already wired in AppDelegate). Asks for permission once we know the
       // user signed in. If they decline we never re-prompt this session.
       setTimeout(() => { try { window.maybeRegisterPush && window.maybeRegisterPush(); } catch(_e){} }, 4000);
+      // Native (Capacitor) push wiring. No-op on web. Idempotent.
+      setTimeout(() => { try { window.maybeRegisterPushNative && window.maybeRegisterPushNative(); } catch(_e){} }, 4200);
     } else {
       // Guest mode: keep authScreen hidden, let people browse + play Bingo.
       // Anything that needs auth (buy, sell, watchlist, account) routes
@@ -5323,8 +5330,33 @@ window.confirmPayment = async function() {
         { merge: true }
       );
       onMessage(messaging, (payload) => {
-        // Foreground messages — show a toast since the SW notification
-        // is suppressed when the page has focus.
+        // Foreground messages — the SW notification is suppressed when
+        // the page has focus, so we apply per-type in-app behavior here.
+        const data = (payload && payload.data) || {};
+        if (data.type === 'message' || data.kind === 'message') {
+          // New chat message arrived while the app is focused.
+          const cid = data.conversationId || data.threadId || '';
+          // 1. If the user is already in that exact thread, do nothing —
+          //    the onSnapshot listener will paint the new message.
+          if (cid && currentChat && currentChat.conversationId === cid) {
+            return;
+          }
+          // 2. Bump the inbox unread badge silently. No banner toast —
+          //    user is in-app already.
+          try { if (typeof refreshUnreadBadge === 'function') refreshUnreadBadge(); } catch (_e) {}
+          // 3. If the inbox panel is open, refresh its list so the new
+          //    last-message preview shows up.
+          try {
+            const inbox = document.getElementById('inboxBackdrop');
+            if (inbox && inbox.classList.contains('open') &&
+                typeof loadInbox === 'function') {
+              loadInbox();
+            }
+          } catch (_e) {}
+          return;
+        }
+        // Default fallback for non-message kinds — toast the title so
+        // the user gets *some* signal.
         const t = (payload.notification && payload.notification.title) || 'New notification';
         if (window.showToast) window.showToast(t, 'info');
       });
@@ -5333,6 +5365,516 @@ window.confirmPayment = async function() {
       console.warn('push register failed', err && err.code || err);
     }
   };
+
+  // ──────────────────────────────────────────────────────────
+  // Push deep-link router — single entry point for any tap on a
+  // notification, whether it came from the SW notificationclick
+  // (web), @capacitor/push-notifications pushNotificationActionPerformed
+  // (native iOS/Android), or a custom-scheme URL (teebox://...).
+  //
+  // Accepts a payload of:
+  //   { type, conversationId?, listingId?, offerId?, orderId?, url? }
+  // and dispatches to the appropriate in-app opener. Safe to call
+  // before the openers are defined — falls back to setting the URL hash
+  // and letting the existing router pick it up on next paint.
+  // ──────────────────────────────────────────────────────────
+  window.routePushNotificationTap = function(data) {
+    try {
+      const d = data || {};
+      const url = String(d.url || '');
+      // Parse teebox:// custom-scheme URLs (set by server in payload.deepLink).
+      // teebox://conversation/{cid}  → open chat
+      // teebox://offer/{offerId}     → open offer (handled elsewhere)
+      // teebox://order/{orderId}     → open order (handled elsewhere)
+      let type = String(d.type || d.kind || '');
+      let conversationId = String(d.conversationId || '');
+      if (!conversationId && url) {
+        const m = url.match(/^teebox:\/\/conversation\/([^/?#]+)/i);
+        if (m) { conversationId = decodeURIComponent(m[1]); type = type || 'message'; }
+      }
+      if (type === 'message' && conversationId) {
+        if (typeof openChatFromConversation === 'function') {
+          // Defer one tick so any modal-close logic settles first.
+          setTimeout(() => openChatFromConversation(conversationId), 0);
+        } else {
+          // Router fallback — the hash-based deep-link picker (if present)
+          // can pick this up on next paint.
+          try { window.location.hash = '#chat/' + encodeURIComponent(conversationId); } catch (_e) {}
+        }
+        return;
+      }
+      // Unrecognised type — surface a toast so the user gets feedback.
+      if (window.showToast) window.showToast('Opening…', 'info');
+    } catch (e) { console.warn('routePushNotificationTap failed', e); }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Capacitor native push wiring (@capacitor/push-notifications).
+  //   • Requests permission once per session
+  //   • Registers, captures FCM/APNs token
+  //   • Persists token to users/{uid}/fcmTokens/{token}
+  //   • Foreground pushReceived → in-app behavior (badge bump,
+  //     no banner if in same thread)
+  //   • pushNotificationActionPerformed (tap) → routePushNotificationTap
+  //
+  // No-op on the web — Capacitor.isNativePlatform() returns false there
+  // and we fall through to the existing maybeRegisterPush web flow.
+  // ──────────────────────────────────────────────────────────
+  window.maybeRegisterPushNative = async function() {
+    try {
+      const Cap = window.Capacitor;
+      if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return;
+      if (!window.CURRENT_USER) return;
+      // Plugin id matches @capacitor/push-notifications.
+      const Push = Cap.Plugins && Cap.Plugins.PushNotifications;
+      if (!Push) return; // plugin not installed yet — parallel agent owns this
+      // Idempotent: don't re-register if listeners are already wired.
+      if (window.__pushNativeWired) return;
+      window.__pushNativeWired = true;
+
+      // Permission. iOS shows the system sheet here.
+      let perm = await Push.checkPermissions();
+      if (perm.receive !== 'granted') {
+        perm = await Push.requestPermissions();
+      }
+      if (perm.receive !== 'granted') {
+        window.__pushNativeWired = false; // allow re-try after a settings change
+        return;
+      }
+      await Push.register();
+
+      Push.addListener('registration', async (t) => {
+        try {
+          const token = (t && t.value) || '';
+          if (!token || !window.CURRENT_USER) return;
+          const { setDoc, doc, serverTimestamp } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          await setDoc(
+            doc(db, 'users', window.CURRENT_USER.uid, 'fcmTokens', token),
+            {
+              createdAt: serverTimestamp(),
+              platform: (Cap.getPlatform && Cap.getPlatform()) || 'native',
+              userAgent: navigator.userAgent.slice(0, 200),
+            },
+            { merge: true }
+          );
+        } catch (e) { console.warn('native push token persist failed', e); }
+      });
+
+      Push.addListener('registrationError', (err) => {
+        console.warn('native push registrationError', err);
+      });
+
+      // Foreground push — same in-app behavior as the web onMessage handler.
+      Push.addListener('pushNotificationReceived', (notif) => {
+        try {
+          const data = (notif && notif.data) || {};
+          if (data.type === 'message' || data.kind === 'message') {
+            const cid = data.conversationId || data.threadId || '';
+            // Already in that thread → snapshot delivers it; do nothing.
+            if (cid && currentChat && currentChat.conversationId === cid) return;
+            // Bump unread badge + refresh inbox if visible.
+            try { if (typeof refreshUnreadBadge === 'function') refreshUnreadBadge(); } catch (_e) {}
+            try {
+              const inbox = document.getElementById('inboxBackdrop');
+              if (inbox && inbox.classList.contains('open') &&
+                  typeof loadInbox === 'function') {
+                loadInbox();
+              }
+            } catch (_e) {}
+          }
+        } catch (e) { console.warn('pushNotificationReceived handler failed', e); }
+      });
+
+      // Tap routing.
+      Push.addListener('pushNotificationActionPerformed', (action) => {
+        try {
+          const data = (action && action.notification && action.notification.data) || {};
+          window.routePushNotificationTap(data);
+        } catch (e) { console.warn('pushNotificationActionPerformed failed', e); }
+      });
+    } catch (err) {
+      console.warn('maybeRegisterPushNative failed', err && err.code || err);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Service-worker → page bridge for web push taps. The SW posts a
+  // message to the page after notificationclick so we can route into
+  // the in-app opener instead of relying on a navigation that loses
+  // SPA state. SW changes (sending the message) are tracked separately
+  // — this side is forward-compatible if the SW omits the message.
+  // ──────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        const d = (event && event.data) || {};
+        if (d && d.type === 'push-tap') {
+          window.routePushNotificationTap(d.payload || {});
+        }
+      });
+    } catch (_e) {}
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Push notifications — CONTEXTUAL pre-permission flow.
+  //
+  // We don't ask for push permission on first launch. Callers invoke
+  //   window.maybePromptForPush('first-listing' | 'first-watchlist'
+  //                              | 'first-offer')
+  // after the matching action. We:
+  //   1. Skip if iOS permission is already 'granted' or 'denied'.
+  //   2. Skip if this context was shown in the last 30 days (cooldown).
+  //   3. Otherwise open a custom modal explaining the value. ONLY if
+  //      the user taps "Turn on" do we trigger the OS dialog.
+  //   4. Record the answer in users/{uid}.pushPromptHistory so we don't
+  //      re-prompt the same context for at least 30 days.
+  // This preserves the "ask later" option iOS would otherwise burn.
+  // ──────────────────────────────────────────────────────────
+  const PUSH_PROMPT_COPY = {
+    'first-listing': {
+      title: 'Get buyer alerts',
+      body: "Get notified the moment a buyer responds about your listing — offers, questions, and updates.",
+    },
+    'first-watchlist': {
+      title: 'Track price drops',
+      body: "We'll alert you when the price drops on anything you're watching.",
+    },
+    'first-offer': {
+      title: 'Hear back fast',
+      body: "Get notified the moment the seller responds to your offer.",
+    },
+  };
+  const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
+  window.maybePromptForPush = async function(context) {
+    try {
+      if (!window.CURRENT_USER) return;
+      const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (!('Notification' in window) && !isNative) return;
+      if (!isNative && typeof Notification !== 'undefined') {
+        if (Notification.permission === 'granted') {
+          if (window.maybeRegisterPush) window.maybeRegisterPush();
+          return;
+        }
+        if (Notification.permission === 'denied') return;
+      }
+      if (isNative) {
+        const Push = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+        if (Push && typeof Push.checkPermissions === 'function') {
+          const perm = await Push.checkPermissions();
+          if (perm.receive === 'granted') {
+            // Already granted on a previous launch — make sure listeners are wired.
+            if (window.maybeRegisterPushNative) window.maybeRegisterPushNative();
+            return;
+          }
+          if (perm.receive === 'denied') return;
+        }
+      }
+      const copy = PUSH_PROMPT_COPY[context];
+      if (!copy) return;
+
+      const { getDoc, setDoc, doc, arrayUnion } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const uRef = doc(db, 'users', window.CURRENT_USER.uid);
+      const uSnap = await getDoc(uRef);
+      const history = (uSnap.exists() && uSnap.data().pushPromptHistory) || [];
+      const lastForContext = history.filter(h => h.context === context).pop();
+      if (lastForContext) {
+        const lastMs = lastForContext.shownAt && lastForContext.shownAt.toMillis
+          ? lastForContext.shownAt.toMillis()
+          : new Date(lastForContext.shownAt || 0).getTime();
+        if (Date.now() - lastMs < PUSH_PROMPT_COOLDOWN_MS) return;
+      }
+      if (history.some(h => h.answered === 'yes')) return;
+
+      document.getElementById('pushPrePromptTitle').textContent = copy.title;
+      document.getElementById('pushPrePromptBody').textContent = copy.body;
+      const back = document.getElementById('pushPrePromptBackdrop');
+      back.dataset.pushContext = context;
+      back.classList.add('open');
+
+      await setDoc(uRef, {
+        pushPromptHistory: arrayUnion({
+          context,
+          shownAt: new Date().toISOString(),
+          answered: 'pending',
+        }),
+      }, { merge: true });
+    } catch (err) {
+      console.warn('maybePromptForPush failed', err && err.code || err);
+    }
+  };
+
+  /** User tapped a button in the pre-permission modal. answer is 'yes'|'no'. */
+  window._handlePushPromptAnswer = async function(answer) {
+    try {
+      const back = document.getElementById('pushPrePromptBackdrop');
+      const context = back.dataset.pushContext || '';
+      back.classList.remove('open');
+      if (window.CURRENT_USER) {
+        const { getDoc, setDoc, doc } =
+          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+        const uRef = doc(db, 'users', window.CURRENT_USER.uid);
+        const uSnap = await getDoc(uRef);
+        const history = (uSnap.exists() && uSnap.data().pushPromptHistory) || [];
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].context === context && history[i].answered === 'pending') {
+            history[i].answered = answer;
+            break;
+          }
+        }
+        await setDoc(uRef, { pushPromptHistory: history }, { merge: true });
+      }
+      if (answer !== 'yes') return;
+
+      const Cap = window.Capacitor;
+      if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+        // Defer to the existing native wiring — it will request perms +
+        // register if not already wired.
+        if (window.maybeRegisterPushNative) window.maybeRegisterPushNative();
+        return;
+      }
+      if (window.maybeRegisterPush) window.maybeRegisterPush();
+    } catch (err) {
+      console.warn('push prompt answer failed', err);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Push PREFERENCES modal (Account hub → Notifications).
+  // Reads/writes users/{uid}.pushPrefs.
+  // ──────────────────────────────────────────────────────────
+  const PUSH_PREF_CATEGORIES = [
+    { key: 'messages',     label: 'Messages',       hint: 'New messages from buyers and sellers' },
+    { key: 'offers',       label: 'Offers',         hint: 'New offers, accepts, declines, counters' },
+    { key: 'orders',       label: 'Orders',         hint: 'Sold, shipped, delivered, funds released' },
+    { key: 'savedSearches',label: 'Saved searches', hint: 'Daily digest of new matches' },
+    { key: 'priceDrops',   label: 'Price drops',    hint: 'Alerts on watchlist items' },
+    { key: 'bingo',        label: 'Logo Bingo',     hint: 'Daily puzzle reminder + streak alerts' },
+    { key: 'news',         label: 'News & updates', hint: 'Occasional product announcements' },
+  ];
+  const PUSH_PREF_DEFAULTS = {
+    messages: true, offers: true, orders: true,
+    savedSearches: true, priceDrops: true, news: false,
+    bingo: true,
+    quietHours: { start: '21:00', end: '08:00', tz: 'America/New_York' },
+  };
+  // Bingo sub-preferences — only meaningful when pushPrefs.bingo === true.
+  // dailyReminder fires the morning "puzzle is live" push at reminderHour
+  // local time. streakSaver fires the 9pm "don't lose your streak" alert
+  // for users with streak >= 7 who haven't played today.
+  const BINGO_PUSH_PREF_DEFAULTS = {
+    dailyReminder: true,
+    reminderHour: 8,
+    streakSaver: true,
+  };
+
+  window.openPushPrefs = async function() {
+    if (!window.CURRENT_USER) {
+      if (window.requireAuth) window.requireAuth('to manage notifications', () => window.openPushPrefs());
+      return;
+    }
+    const back = document.getElementById('pushPrefsBackdrop');
+    const body = document.getElementById('pushPrefsBody');
+    back.classList.add('open');
+    body.innerHTML = '<div class="profile-loading">Loading…</div>';
+
+    let prefs = { ...PUSH_PREF_DEFAULTS };
+    let bingoPrefs = { ...BINGO_PUSH_PREF_DEFAULTS };
+    try {
+      const { getDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+      if (snap.exists()) {
+        const d = snap.data() || {};
+        if (d.pushPrefs) {
+          prefs = { ...PUSH_PREF_DEFAULTS, ...d.pushPrefs };
+          prefs.quietHours = { ...PUSH_PREF_DEFAULTS.quietHours, ...(d.pushPrefs.quietHours || {}) };
+        }
+        if (d.bingoPushPrefs) {
+          bingoPrefs = { ...BINGO_PUSH_PREF_DEFAULTS, ...d.bingoPushPrefs };
+        }
+      }
+    } catch (_e) {}
+
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || prefs.quietHours.tz;
+    // Render the reminder-hour <select> options 0..23 with a friendlier
+    // 12-hour label so the picker doesn't show "13" / "20" out of context.
+    const hourOptions = Array.from({ length: 24 }, (_, h) => {
+      const label = h === 0 ? '12 AM'
+        : h < 12 ? `${h} AM`
+        : h === 12 ? '12 PM'
+        : `${h - 12} PM`;
+      const sel = h === Number(bingoPrefs.reminderHour) ? 'selected' : '';
+      return `<option value="${h}" ${sel}>${label}</option>`;
+    }).join('');
+    body.innerHTML = `
+      <div class="push-prefs-list" style="display:flex;flex-direction:column;gap:10px;">
+        ${PUSH_PREF_CATEGORIES.map(c => `
+          <label class="push-pref-row" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--white);cursor:pointer;">
+            <span style="display:flex;flex-direction:column;min-width:0;">
+              <span style="font-weight:600;color:var(--gray-900)">${c.label}</span>
+              <span style="font-size:12px;color:var(--gray-500)">${c.hint}</span>
+            </span>
+            <input type="checkbox" data-push-pref="${c.key}" ${prefs[c.key] ? 'checked' : ''}
+                   style="width:22px;height:22px;accent-color:#1f4827;flex-shrink:0;">
+          </label>
+        `).join('')}
+      </div>
+      <div style="margin-top:18px;padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--white);">
+        <div style="font-weight:600;margin-bottom:8px;">Logo Bingo</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px;">
+          Daily puzzle nudges. Disable the Logo Bingo category above to silence both.
+        </div>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;">
+          <span style="display:flex;flex-direction:column;min-width:0;">
+            <span style="font-weight:600;color:var(--gray-900)">Morning reminder</span>
+            <span style="font-size:12px;color:var(--gray-500)">"Today's puzzle is live"</span>
+          </span>
+          <input type="checkbox" id="bingoDailyReminder" ${bingoPrefs.dailyReminder ? 'checked' : ''}
+                 style="width:22px;height:22px;accent-color:#1f4827;flex-shrink:0;">
+        </label>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;">
+          <span style="display:flex;flex-direction:column;min-width:0;">
+            <span style="font-weight:600;color:var(--gray-900)">Reminder time</span>
+            <span style="font-size:12px;color:var(--gray-500)">When to send your morning reminder</span>
+          </span>
+          <select id="bingoReminderHour" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:6px;background:var(--white);">
+            ${hourOptions}
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;">
+          <span style="display:flex;flex-direction:column;min-width:0;">
+            <span style="font-weight:600;color:var(--gray-900)">Streak saver (9pm)</span>
+            <span style="font-size:12px;color:var(--gray-500)">Warn me if my 7+ day streak is at risk</span>
+          </span>
+          <input type="checkbox" id="bingoStreakSaver" ${bingoPrefs.streakSaver ? 'checked' : ''}
+                 style="width:22px;height:22px;accent-color:#1f4827;flex-shrink:0;">
+        </label>
+      </div>
+      <div style="margin-top:18px;padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--white);">
+        <div style="font-weight:600;margin-bottom:8px;">Quiet hours</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px;">
+          Non-urgent notifications won't disturb you in this window. Urgent items (offer expiring soon, dispute opened) still come through.
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;">From
+            <input type="time" id="pushQuietStart" value="${prefs.quietHours.start}"
+                   style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:6px;">
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;">To
+            <input type="time" id="pushQuietEnd" value="${prefs.quietHours.end}"
+                   style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:6px;">
+          </label>
+          <span style="font-size:12px;color:var(--gray-500);">${tz}</span>
+        </div>
+      </div>
+      <div class="profile-actions" style="margin-top:18px;">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full green" data-action="save-push-prefs">Save</button>
+      </div>
+    `;
+    body.dataset.tz = tz;
+  };
+
+  window.savePushPrefs = async function() {
+    if (!window.CURRENT_USER) return;
+    const body = document.getElementById('pushPrefsBody');
+    const toggles = body.querySelectorAll('input[data-push-pref]');
+    const next = {};
+    toggles.forEach(t => { next[t.dataset.pushPref] = !!t.checked; });
+    next.quietHours = {
+      start: document.getElementById('pushQuietStart').value || '21:00',
+      end: document.getElementById('pushQuietEnd').value || '08:00',
+      tz: body.dataset.tz || 'America/New_York',
+    };
+    // Bingo sub-prefs ride on a sibling field (bingoPushPrefs) so the
+    // server-side scheduled function can filter on them via a single
+    // equality query without paging the whole pushPrefs blob.
+    const bingoNext = {
+      dailyReminder: !!(document.getElementById('bingoDailyReminder') || {}).checked,
+      reminderHour: Number((document.getElementById('bingoReminderHour') || {}).value || 8),
+      streakSaver: !!(document.getElementById('bingoStreakSaver') || {}).checked,
+    };
+    try {
+      const { setDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+        { pushPrefs: next, bingoPushPrefs: bingoNext }, { merge: true });
+      if (window.showToast) window.showToast('Notification preferences saved.');
+      document.getElementById('pushPrefsBackdrop').classList.remove('open');
+    } catch (err) {
+      console.error('savePushPrefs failed', err);
+      if (window.showToast) window.showToast('Could not save. Try again.');
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Extended deep-link router. The existing routePushNotificationTap
+  // (above) handles `message` types only — extend here to cover
+  // offer/order/listing/search/payouts/price-drop URLs from the
+  // server `data.url` payload (e.g. teebox://offer/{id}).
+  // We wrap, preserving the original handler.
+  // ──────────────────────────────────────────────────────────
+  (function extendDeepLinkRouter() {
+    const inner = window.routePushNotificationTap;
+    window.routePushNotificationTap = function(data) {
+      try {
+        const d = data || {};
+        const url = String(d.url || d.deepLink || '');
+        let host = '', segs = [];
+        try {
+          if (url) {
+            const u = new URL(url);
+            host = u.host || u.hostname || '';
+            segs = (u.pathname || '').split('/').filter(Boolean);
+          }
+        } catch (_e) {}
+        const entity = host || segs[0] || '';
+        const id = host ? segs[0] : segs[1];
+
+        switch (entity) {
+          case 'offer':
+            if (window.openMyOffers) { window.openMyOffers(); return; }
+            break;
+          case 'order':
+            if (window.openOrders) { window.openOrders(); return; }
+            break;
+          case 'listing':
+            if (id && window.openDetailModal) { window.openDetailModal(id); return; }
+            break;
+          case 'search':
+            if (window.openSavedSearches) { window.openSavedSearches(); return; }
+            break;
+          case 'payouts':
+            if (window.openShopDashboard) { window.openShopDashboard(); return; }
+            break;
+          case 'bingo':
+            // teebox://bingo from the daily reminder + streak-saver pushes.
+            // If openBingo is wired (it is, once the bingo widget bootstraps)
+            // call it directly; otherwise fall back to the hash router so
+            // the page can pick it up on next paint.
+            if (typeof window.openBingo === 'function') {
+              setTimeout(() => { try { window.openBingo(); } catch (_e) {} }, 0);
+            } else {
+              try { window.location.hash = '#bingo'; } catch (_e) {}
+            }
+            return;
+          case 'conversation':
+          case 'message':
+          case 'inbox':
+            // fall through to inner handler — it already covers chat.
+            break;
+        }
+        // Fall through to the message-agent's handler.
+        if (typeof inner === 'function') inner(data);
+      } catch (e) {
+        console.warn('extended routePushNotificationTap failed', e);
+        if (typeof inner === 'function') inner(data);
+      }
+    };
+  })();
 
   window.onTermsCheck = function() {
     const checked = document.getElementById('termsCheckbox').checked;
@@ -5589,6 +6131,10 @@ window.confirmPayment = async function() {
       closeSellModalDirect();
       showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'), 'success');
       loadListings();
+      // Contextual push prompt: ask once the seller has their first listing
+      // up, framed as "get notified when buyers respond". Cooldown logic
+      // inside maybePromptForPush handles repeat-suppression.
+      setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-listing'); } catch (_e) {} }, 1500);
     } catch(e) {
       console.error('[submitListing] failed:', e?.code, e?.message, e);
       const code = e?.code || '';
@@ -6880,6 +7426,70 @@ window.withdrawBid = withdrawBid;
 // ═══════════════════════════════════════════════════════════
 let currentChat = { conversationId: null, listing: null, otherUserId: null };
 let unsubscribeMessages = null;
+
+// ─── Presence wiring for new-message push suppression ───────────────────
+// Writes presence/{uid}: { currentlyViewingConversation: cid, lastHeartbeatAt }
+// while a chat thread is open. The notifyNewMessage Cloud Function reads
+// this to skip pushes for a recipient who is already in the thread.
+// Best-effort: if the app is killed abruptly the doc stays stale for at
+// most 30s (the server's PRESENCE_WINDOW_MS) before pushes resume.
+let _presenceHeartbeatTimer = null;
+async function _writePresence(conversationId) {
+  if (!window.CURRENT_USER) return;
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    await setDoc(
+      doc(firestoreDb, 'presence', window.CURRENT_USER.uid),
+      {
+        currentlyViewingConversation: conversationId,
+        lastHeartbeatAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    // Presence is non-critical — recipient just gets a push they didn't
+    // strictly need. Don't surface to the user.
+  }
+}
+function _startPresenceHeartbeat(conversationId) {
+  _stopPresenceHeartbeat();
+  if (!conversationId) return;
+  _writePresence(conversationId);
+  // 25s cadence (under the 30s server window) so a missed beat doesn't
+  // immediately flip the recipient back to push-eligible.
+  _presenceHeartbeatTimer = setInterval(() => _writePresence(conversationId), 25000);
+}
+function _stopPresenceHeartbeat() {
+  if (_presenceHeartbeatTimer) { clearInterval(_presenceHeartbeatTimer); _presenceHeartbeatTimer = null; }
+}
+async function _clearPresence() {
+  _stopPresenceHeartbeat();
+  if (!window.CURRENT_USER) return;
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    await setDoc(
+      doc(firestoreDb, 'presence', window.CURRENT_USER.uid),
+      {
+        currentlyViewingConversation: null,
+        lastHeartbeatAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (e) { /* best-effort */ }
+}
+// Pause heartbeat when the tab/app is backgrounded so a phone in pocket
+// doesn't keep suppressing pushes for the user. Resume on visibility.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    _stopPresenceHeartbeat();
+  } else if (currentChat && currentChat.conversationId) {
+    _startPresenceHeartbeat(currentChat.conversationId);
+  }
+});
 
 async function openChatForListing(listingId) {
   if (typeof window.requireAuth === 'function') {
@@ -9966,6 +10576,8 @@ async function submitOffer() {
     });
     document.getElementById('makeOfferBackdrop').classList.remove('open');
     showToast('Offer sent to seller. They have 48 hours to respond.', 'success');
+    // Contextual push prompt — first offer made, frame "hear back fast".
+    setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-offer'); } catch (_e) {} }, 1500);
   } catch (e) {
     console.error('submitOffer failed:', e);
     showToast('Could not send offer.');
@@ -11444,6 +12056,8 @@ async function toggleWatch(productId) {
         { watchlist: { [id]: entry } }, { merge: true });
       fav.add(productId);
       showToast('Liked!');
+      // Contextual push prompt — first item added to watchlist.
+      setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
     buildProducts();
   } catch (e) {
