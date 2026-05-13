@@ -2312,7 +2312,7 @@ export const COURSES = [
     name: 'Childress Hall',
     shortName: 'Childress Hall',
     aliases: [],
-    location: 'United States',
+    location: 'Texas',
     architect: '',
     logo: '',
     logoUrl: '',
