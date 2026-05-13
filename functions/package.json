@@ -8,7 +8,9 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "build:emails": "esbuild emails/**/*.jsx --bundle --platform=node --format=cjs --target=node22 --outdir=emails-build --jsx=automatic --external:@react-email/components --external:@react-email/render --external:react --external:react-dom --loader:.jsx=jsx --log-level=warning",
+    "predeploy": "npm run build:emails"
   },
   "engines": {
     "node": "22"
@@ -16,16 +18,20 @@
   "main": "index.js",
   "dependencies": {
     "@google-cloud/vision": "^4.3.2",
+    "@react-email/components": "^0.0.21",
+    "@react-email/render": "^1.0.1",
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.0",
     "google-auth-library": "^10.6.2",
     "jose": "^6.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "resend": "^6.12.2",
     "sharp": "^0.34.0",
     "stripe": "^22.0.2"
   },
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "firebase-functions-test": "^3.4.1"
-  },
-  "private": true
+  }
 }

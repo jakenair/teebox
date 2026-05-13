@@ -218,11 +218,25 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
 
+      // Strict allow-list. Any field not listed here is server-managed and
+      // cannot be written by clients. Server-only fields explicitly include
+      // (non-exhaustive): emailPrefs, emailPrefsUpdatedAt, emailSuppressed,
+      // sellerVerified, tier, proSubscriptionStatus, frozen, frozenAt,
+      // marketingConsent (GDPR audit trail — see GDPR_CONSENT_SCHEMA.md;
+      // client MUST use the updateMarketingConsent callable), and
+      // marketingBannerDismissedAt (set via dismissMarketingBanner callable).
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
              ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
 
+      // Same allow-list on update. GDPR consent fields (marketingConsent,
+      // marketingBannerDismissedAt) are deliberately excluded — they must
+      // round-trip through the updateMarketingConsent /
+      // dismissMarketingBanner callables so the server can stamp
+      // serverTimestamp() and append the audit-trail history. A diff that
+      // touches a server-only field is rejected outright (hasOnly() is
+      // exact-match, not subset).
       allow update: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && isEmailVerified()

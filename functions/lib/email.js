@@ -39,9 +39,16 @@ const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const UNSUBSCRIBE_SECRET = defineSecret("UNSUBSCRIBE_HMAC_SECRET");
 
 const FROM_NAME = "TeeBox";
-const FROM_ADDRESS = "no-reply@mail.teeboxmarket.com";
+// Separate transactional + marketing From addresses keeps the two
+// reputation pools independent on the receiving side (Gmail Postmaster,
+// Microsoft SNDS treat them as different identities). A bounce spike on
+// marketing won't drag down transactional inboxing.
+const FROM_ADDRESS = "noreply@mail.teeboxmarket.com";        // transactional
+const FROM_ADDRESS_MARKETING = "hello@mail.teeboxmarket.com"; // marketing / Broadcasts
 const FROM = `${FROM_NAME} <${FROM_ADDRESS}>`;
-const REPLY_TO = "support@teeboxmarket.com";
+const FROM_MARKETING = `${FROM_NAME} <${FROM_ADDRESS_MARKETING}>`;
+const REPLY_TO = "support@teeboxmarket.com";              // transactional
+const REPLY_TO_MARKETING = "noreply@mail.teeboxmarket.com"; // marketing — no human reply expected
 const COMPANY_NAME = "TeeBox, Inc.";
 const COMPANY_ADDRESS = "16649 Oak Park Ave, Ste H #1160, Tinley Park, IL 60477, USA";
 const BASE_URL = "https://teeboxmarket.com";
@@ -66,8 +73,29 @@ const CATEGORIES = Object.freeze({
 
 const TRANSACTIONAL_CATEGORIES = new Set([CATEGORIES.TRANSACTIONAL]);
 
+/**
+ * Marketing categories — gated on GDPR-compliant affirmative consent
+ * (users/{uid}.marketingConsent.granted === true). Adding a category here
+ * makes it require opt-in; removing makes it transactional-equivalent
+ * (don't do that without legal review).
+ */
+const MARKETING_CATEGORIES = new Set([
+  CATEGORIES.SAVED_SEARCH,
+  CATEGORIES.PRICE_DROP,
+  CATEGORIES.ABANDONED_DRAFT,
+  CATEGORIES.ABANDONED_CART,
+  CATEGORIES.REVIEW_REQUEST,
+  CATEGORIES.WIN_BACK,
+  CATEGORIES.WEEKLY_DIGEST,
+  CATEGORIES.PRODUCT_UPDATES,
+]);
+
 function isTransactional(category) {
   return TRANSACTIONAL_CATEGORIES.has(category);
+}
+
+function isMarketing(category) {
+  return MARKETING_CATEGORIES.has(category);
 }
 
 /**
@@ -153,10 +181,27 @@ function getRender() {
 }
 
 /**
- * Check Firestore suppression + preference center.
+ * Check Firestore suppression + preference center + GDPR marketing consent.
+ *
+ * Order of checks:
+ *   1. Transactional categories bypass everything (caller is responsible
+ *      for not classifying marketing as transactional).
+ *   2. emailSuppressions/{uid} doc → hard suppress (bounce/complaint).
+ *   3. users/{uid}.emailSuppressed === true → user-requested suppression.
+ *   4. Marketing categories require users/{uid}.marketingConsent.granted
+ *      === true (GDPR Art. 6(1)(a) / Art. 7 affirmative opt-in). Missing
+ *      consent field = no consent.
+ *   5. emailPrefs[category] === false → per-category opt-out (lets a user
+ *      keep marketing consent globally but unsubscribe from one channel).
+ *
  * Returns { allowed: boolean, reason?: string }.
  */
 async function preflightAllowed({uid, to, category}) {
+  // Transactional bypasses prefs + consent. A hard-bounce-suppressed
+  // address still gets transactional attempts; Resend's suppression
+  // list catches them at the send layer if the bounce was theirs.
+  // (Matches original behavior — change here would affect order
+  // confirmation deliverability and isn't in scope for this commit.)
   if (isTransactional(category)) return {allowed: true};
   if (!uid) return {allowed: true}; // no uid, no prefs to check
   const db = admin.firestore();
@@ -171,6 +216,15 @@ async function preflightAllowed({uid, to, category}) {
     const data = userSnap.exists ? userSnap.data() : {};
     if (data.emailSuppressed === true) {
       return {allowed: false, reason: "user-suppressed"};
+    }
+    // GDPR marketing-consent gate. Applies to all marketing categories.
+    // Reason is dash-delimited to match the existing `skipped-${reason}`
+    // status convention in recordSend (yields skipped-no-marketing-consent).
+    if (isMarketing(category)) {
+      const consent = data.marketingConsent;
+      if (!consent || consent.granted !== true) {
+        return {allowed: false, reason: "no-marketing-consent"};
+      }
     }
     const prefs = data.emailPrefs || {};
     if (prefs[category] === false) {
@@ -256,13 +310,20 @@ async function sendEmail(opts) {
     template,
     tags = [],
     headers = {},
-    replyTo = REPLY_TO,
+    replyTo,
+    idempotencyKey: explicitIdempotencyKey,
   } = opts || {};
 
   if (!to || !subject) {
     logger.warn("sendEmail: missing to/subject", {to, subject});
     return {skipped: true, reason: "missing-fields"};
   }
+
+  // Pick From/Reply-To per category. Marketing uses a separate sending
+  // identity to keep transactional reputation insulated.
+  const isMarketingCat = isMarketing(category);
+  const fromAddr = isMarketingCat ? FROM_MARKETING : FROM;
+  const replyToAddr = replyTo || (isMarketingCat ? REPLY_TO_MARKETING : REPLY_TO);
 
   // Preference + suppression check.
   const gate = await preflightAllowed({uid, to, category});
@@ -311,17 +372,24 @@ async function sendEmail(opts) {
     ...tags,
   ].slice(0, 10);
 
+  // Idempotency key: caller can provide one (recommended for doc-trigger
+  // sends where the trigger may replay), else derive a deterministic one
+  // from template + uid + minute-bucket. Resend treats duplicate keys
+  // within 24h as the same send and skips re-delivery.
+  const idempotencyKey = explicitIdempotencyKey ||
+    `${template || "send"}-${uid || "anon"}-${Math.floor(Date.now() / 60000)}`;
+
   try {
     const result = await resend.emails.send({
-      from: FROM,
+      from: fromAddr,
       to,
       subject,
       html,
       text: text || undefined,
-      reply_to: replyTo,
+      reply_to: replyToAddr,
       headers: finalHeaders,
       tags: finalTags,
-    });
+    }, {idempotencyKey});
     const resendId = (result && result.data && result.data.id) || null;
     await recordSend({to, uid, category, template, status: "sent", resendId});
     return {sent: true, id: resendId};
@@ -348,7 +416,9 @@ module.exports = {
   makeUnsubscribeUrl,
   verifyUnsubscribeToken,
   isTransactional,
+  isMarketing,
   CATEGORIES,
+  MARKETING_CATEGORIES,
   RESEND_API_KEY,
   UNSUBSCRIBE_SECRET,
   FROM,

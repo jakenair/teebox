@@ -57,12 +57,20 @@ const SCHED_FN = {
 };
 
 // ─── Template loader (lazy + tolerant of missing compiled output) ──────
+// Loads from ./emails-build/ (built by `npm run build:emails`, hooked
+// via predeploy in functions/package.json). Falls back to ./emails/
+// (raw JSX) for legacy compatibility — that fallback won't actually
+// render but it lets node --check pass during a partial rollout.
 function getTemplate(category, name) {
   try {
-    return require(`./emails/${category}/${name}`);
-  } catch (e) {
-    logger.warn(`getTemplate: ${category}/${name} not loaded`, e.message);
-    return null;
+    return require(`./emails-build/${category}/${name}`);
+  } catch (e1) {
+    try {
+      return require(`./emails/${category}/${name}`);
+    } catch (e2) {
+      logger.warn(`getTemplate: ${category}/${name} not loaded`, e2.message);
+      return null;
+    }
   }
 }
 
@@ -162,9 +170,15 @@ exports.resendWebhook = onRequest(
       } catch (_e) {
         secret = null;
       }
-      if (!secret) {
-        logger.warn("resendWebhook: secret not configured — skipping verify");
-      } else if (!verifySvix(req, secret)) {
+      // Fail closed: if no secret is configured, refuse the request rather
+      // than accept un-verified webhooks. Operator must set the secret before
+      // any webhook event is honored. Returns 503 so Resend retries until the
+      // misconfiguration is fixed.
+      if (!secret || secret.startsWith("placeholder_")) {
+        logger.error("resendWebhook: RESEND_WEBHOOK_SECRET unset or placeholder — refusing request");
+        return res.status(503).send("webhook secret not configured");
+      }
+      if (!verifySvix(req, secret)) {
         logger.warn("resendWebhook: bad signature");
         return res.status(400).send("bad signature");
       }
@@ -541,52 +555,13 @@ exports.sendSecurityEmail = onCall(
 // D. LIFECYCLE — scheduled functions
 // ═══════════════════════════════════════════════════════════════════════
 
-// Hourly: saved-search match digest. Throttle 1x/24h per (user, search).
-exports.savedSearchMatchScheduler = onSchedule(
-    {schedule: "every 1 hours", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
-    async () => {
-      const db = admin.firestore();
-      const cutoff = Date.now() - 60 * 60 * 1000;
-      const searches = await db
-          .collection("savedSearches")
-          .where("active", "==", true)
-          .limit(500)
-          .get();
-      for (const doc of searches.docs) {
-        const s = doc.data();
-        const lastSentMs = s.lastNotifiedAt && s.lastNotifiedAt.toMillis ?
-          s.lastNotifiedAt.toMillis() : 0;
-        if (Date.now() - lastSentMs < 24 * 60 * 60 * 1000) continue;
-        const matchesSnap = await db
-            .collection("listings")
-            .where("createdAt", ">", new Date(cutoff))
-            .where("matchTags", "array-contains-any", (s.tags || []).slice(0, 10))
-            .limit(6)
-            .get()
-            .catch(() => null);
-        const matches = matchesSnap ?
-          matchesSnap.docs.map((d) => ({id: d.id, ...d.data()})) :
-          [];
-        if (!matches.length) continue;
-        const userSnap = await db.collection("users").doc(s.uid).get();
-        if (!userSnap.exists) continue;
-        const user = {uid: userSnap.id, ...userSnap.data()};
-        if (!user.email) continue;
-        await sendTemplated({
-          category: CATEGORIES.SAVED_SEARCH,
-          templateCategory: "lifecycle",
-          templateName: "SavedSearchMatch",
-          to: user.email,
-          uid: user.uid,
-          ctx: {user, search: {id: doc.id, ...s}, matches},
-        });
-        await doc.ref.set(
-            {lastNotifiedAt: admin.firestore.FieldValue.serverTimestamp()},
-            {merge: true},
-        );
-      }
-    },
-);
+// Hourly saved-search match digest lives in missingProducers.js as
+// `savedSearchMatchSchedulerV2`. The original V1 implementation that
+// previously sat here queried `where("active","==",true)` and
+// `array-contains-any("matchTags", ...)` — neither field exists on the
+// canonical `savedSearches/{id}` doc shape, so it returned zero results
+// and burned ~720 invocations/month. Removed 2026-05; see
+// EMAIL_REAUDIT_DIFF.md for the audit trail.
 
 // Daily 09:00 UTC: abandoned-draft sweep.
 exports.abandonedDraftScheduler = onSchedule(

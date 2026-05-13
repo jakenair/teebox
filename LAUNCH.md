@@ -29,6 +29,35 @@ queue and the developer-account approval window).
 
 ---
 
+## 🚨 Pre-launch gating items (must complete before flipping app to public availability)
+
+These are blocking for **public launch**, not for internal/TestFlight testing. Each item costs money or has propagation lead time, so list them now.
+
+- [ ] **Upgrade Resend from Free → Pro plan** ($20/mo, 50,000 emails/month).
+      Free tier caps at 100 emails/day — fine for testing + the daily smoke test
+      (~4 emails/day), but will start dropping mail the moment we get any user
+      volume. Upgrade at <https://resend.com/billing> the day before launch.
+      Daily smoke test continues working unchanged on Pro.
+      Monitoring: `checkEmailUsage` Cloud Function (hourly) alerts at 70/day
+      via Cloud Logging ERROR + Firestore `emailUsageAlerts/*` + optional
+      `SMOKE_ALERT_WEBHOOK` POST — when you see that alert, upgrade.
+- [ ] **Publish all DNS records** at Squarespace per `DNS_RECORDS_CHECKLIST.md`
+      (apex SPF + DMARC, mail subdomain SPF + DKIM + DMARC, ImprovMX MX records).
+- [ ] **Verify `mail.teeboxmarket.com` in Resend dashboard** — all rows green.
+- [ ] **ImprovMX forwarders configured** for support@, legal@, press@, hello@, jake@.
+- [ ] **Real production secrets set** in Firebase Cloud Functions:
+      `RESEND_API_KEY` (re_live_...), `RESEND_WEBHOOK_SECRET` (whsec_...),
+      `STRIPE_TEST_SECRET_KEY` (sk_test_..., for daily smoke), `STRIPE_TEST_PRO_PRICE_ID`,
+      `SMOKE_EMAIL_INBOX`, optional `SMOKE_ALERT_WEBHOOK`.
+- [ ] **copyright.gov DMCA agent registry** updated to the new business
+      mailing address (was home address — privacy concern).
+- [ ] **Stripe Dashboard support email + business address** updated to the
+      canonical addresses (support@teeboxmarket.com, business mailbox).
+- [ ] Redeploy all functions after every secret rotation:
+      `NODE_OPTIONS="--max-old-space-size=8192" firebase deploy --only functions`
+
+---
+
 ## 1. Sign up for the developer accounts (do this first — has lead time)
 
 ### Apple Developer Program — **$99/year** — 24–48h approval

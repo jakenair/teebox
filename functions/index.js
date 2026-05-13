@@ -887,14 +887,19 @@ async function handleDisputeOpened(dispute) {
   });
 
   // Pull the order doc fresh so we have sellerId + listingTitle for the
-  // notification fan-out. We do this outside the tx to avoid the
-  // transaction having to re-read after we've already written.
+  // notification fan-out + disputes/{id} email write below. We do this
+  // outside the tx to avoid the transaction having to re-read after
+  // we've already written.
+  let orderBuyerId = null;
+  let orderListingId = null;
   if (sellerId) {
     try {
       const orderSnap = await orderRef.get();
       if (orderSnap.exists) {
         const o = orderSnap.data();
         sellerId = sellerId || o.sellerId;
+        orderBuyerId = o.buyerId || null;
+        orderListingId = o.listingId || null;
         if (o.listingId) {
           const lsnap = await db.collection("listings").doc(o.listingId)
               .get().catch(() => null);
@@ -906,16 +911,13 @@ async function handleDisputeOpened(dispute) {
     } catch (e) { /* non-fatal */ }
   }
 
-  // Notify the seller via email + push + in-app notification.
+  // Notify the seller via in-app notification (push fan-out happens
+  // inside writeNotification). Email is handled by the JSX dispute
+  // trigger (onDisputeOpenedEmail) further down — see disputes/{id}
+  // write below. We intentionally no longer send an inline-HTML email
+  // from here to avoid duplicate seller emails.
   if (sellerId) {
     try {
-      const seller = await lookupUser(sellerId).catch(() => null);
-      const orderShort = String(dispute.payment_intent || "")
-          .replace(/^pi_/, "").slice(0, 8);
-      const dueStr = evidenceDueByMs
-        ? new Date(evidenceDueByMs).toUTCString()
-        : "soon (check Stripe Dashboard)";
-      // 1. In-app notification — also fires pushNotificationDispatch.
       await writeNotification(sellerId, {
         kind: "chargeback",
         type: "chargeback",
@@ -925,31 +927,41 @@ async function handleDisputeOpened(dispute) {
         reason: dispute.reason || "",
         amountCents: dispute.amount || 0,
       }).catch((e) => logger.warn("chargeback notif failed", e));
-      // 2. Email — Resend may be off in dev (sendEmail no-ops silently
-      // when RESEND_API_KEY isn't set).
-      if (seller && seller.email) {
-        const body = `<p>A chargeback was opened on order
-          <strong>#${orderShort}</strong> (${listingTitle}).</p>
-          <p><strong>Reason:</strong> ${dispute.reason || "unspecified"}</p>
-          <p><strong>Amount:</strong>
-            $${((dispute.amount || 0) / 100).toFixed(2)}</p>
-          <p style="margin-top:18px;"><strong>Evidence deadline:</strong>
-            ${dueStr}. If you don't respond by then, the dispute will
-            automatically resolve in the cardholder's favor and your
-            seller account will be debited the disputed amount.</p>
-          <p>Reply with shipment proof, tracking, and any seller-buyer
-            messages from the Stripe Dashboard.</p>`;
-        await sendEmail({
-          to: seller.email,
-          subject: `Chargeback received on order #${orderShort}`,
-          html: emailShell(
-              "Chargeback received", body, "Open Stripe Dashboard",
-              "https://dashboard.stripe.com/disputes"),
-        }).catch((e) => logger.warn("chargeback email failed", e));
-      }
     } catch (notifyErr) {
       logger.warn(
         `handleDisputeOpened: notification fan-out failed: ${notifyErr.message}`);
+    }
+  }
+
+  // Mirror the refund pattern — write disputes/{stripeDisputeId} so the
+  // JSX email trigger (onDisputeOpenedEmail in emailTriggers.js) can fan
+  // out to BOTH buyer + seller via DisputeOpenedBuyer.jsx /
+  // DisputeOpenedSeller.jsx. Use .create() so Stripe webhook replays
+  // surface as ALREADY_EXISTS and get swallowed (idempotency).
+  try {
+    await db.collection("disputes").doc(dispute.id).create({
+      orderId: dispute.payment_intent,
+      buyerId: orderBuyerId,
+      sellerId: sellerId || null,
+      listingId: orderListingId,
+      amountCents: dispute.amount || 0,
+      currency: dispute.currency || "usd",
+      reason: dispute.reason || "",
+      stripeDisputeId: dispute.id,
+      evidenceDueBy: (dispute.evidence_details &&
+          dispute.evidence_details.due_by) || null,
+      status: dispute.status || "needs_response",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (writeErr) {
+    const code = writeErr && (writeErr.code || writeErr.status);
+    if (code === 6 || code === "already-exists" ||
+        /already exists/i.test(String(writeErr && writeErr.message))) {
+      logger.info(
+          `handleDisputeOpened: disputes/${dispute.id} already exists — Stripe replay`);
+    } else {
+      logger.warn(
+          `handleDisputeOpened: failed to write disputes/${dispute.id}: ${writeErr.message}`);
     }
   }
 
@@ -3711,6 +3723,12 @@ exports.notifyOnOfferUpdated = onDocumentUpdated(
 // ─────────────────────────────────────────────────────────────
 // notifyOnNewMessage — push (immediate) + email (when not online)
 // ─────────────────────────────────────────────────────────────
+// Throttle window: a recipient receives at most one email per
+// (thread × 4 hours). Subsequent messages within the window bump only
+// the in-app notification + a pending-count doc, so the next email
+// can advertise "N+1 new messages" rather than spamming inboxes.
+const MESSAGE_EMAIL_THROTTLE_MS = 4 * 60 * 60 * 1000;
+
 exports.notifyOnNewMessage = onDocumentCreated(
   {document: "conversations/{cid}/messages/{messageId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
   async (event) => {
@@ -3718,7 +3736,9 @@ exports.notifyOnNewMessage = onDocumentCreated(
       const msg = event.data && event.data.data();
       if (!msg) return;
       const db = admin.firestore();
+      const FieldValue = admin.firestore.FieldValue;
       const conversationId = event.params.cid;
+      const messageId = event.params.messageId;
       const senderId = msg.senderId || msg.fromUid;
       // Resolve the recipient from the parent conversation. Client only
       // writes {senderId, text, createdAt} on the message itself
@@ -3744,6 +3764,7 @@ exports.notifyOnNewMessage = onDocumentCreated(
       const fromName = (sender && sender.displayName) || "A buyer";
       const preview = String(msg.text || msg.body || "").slice(0, 120);
 
+      // In-app notification ALWAYS fires (badge / inbox dot).
       await writeNotification(recipientUid, {
         kind: "new-message",
         listingId,
@@ -3751,20 +3772,86 @@ exports.notifyOnNewMessage = onDocumentCreated(
         fromName,
         preview,
       });
-      // Mail an immediate digest only if the recipient has email AND the
-      // message isn't from themselves. A future enhancement would batch
-      // these into a daily digest if recipients complain.
-      if (recipient && recipient.email) {
-        const safePreview = preview.replace(/[<>]/g, "");
-        const body = `<p><strong>${fromName}</strong> sent you a message:</p>
-          <blockquote style="border-left:3px solid #c5a253;padding:8px 14px;
-            margin:14px 0;color:#4a4a4a;font-style:italic;">${safePreview}</blockquote>
-          <p>Reply in the app — buyers and sellers chat directly inside TeeBox.</p>`;
-        await sendEmail({
-          to: recipient.email,
-          subject: `New message from ${fromName}`,
-          html: emailShell(`Message from ${fromName}`, body, "Open Inbox", `${APP_URL}/?inbox=1`),
-        });
+
+      // Phone-only / no-email recipients: nothing else to do.
+      if (!recipient || !recipient.email) return;
+
+      // ── Throttling: read the recipient's last-email-sent timestamp for
+      // this thread. If we're inside the 4-hour cooldown, bump a
+      // pending-count doc and exit (no email send).
+      const userRef = db.doc(`users/${recipientUid}`);
+      const pendingRef = db
+        .collection("conversations").doc(conversationId)
+        .collection("pendingNotifyCounts").doc(recipientUid);
+
+      const now = Date.now();
+      const userSnap = await userRef.get();
+      const lastByThread =
+        (userSnap.exists && userSnap.data().lastMessageNotificationByThread) || {};
+      const lastAt = lastByThread[conversationId];
+      const lastAtMs =
+        (lastAt && typeof lastAt.toMillis === "function" && lastAt.toMillis()) ||
+        (typeof lastAt === "number" ? lastAt : 0);
+
+      if (lastAtMs && (now - lastAtMs) < MESSAGE_EMAIL_THROTTLE_MS) {
+        await pendingRef.set({
+          count: FieldValue.increment(1),
+          lastMessageId: messageId,
+          lastAt: FieldValue.serverTimestamp(),
+        }, {merge: true});
+        logger.info(
+          `notifyOnNewMessage: throttled — last email ${Math.round((now - lastAtMs) / 60000)}m ago ` +
+          `for ${recipientUid} in ${conversationId}`,
+        );
+        return;
+      }
+
+      // Outside the cooldown (or first message): include any pending
+      // batched count in the subject, then send + clear the pending doc.
+      let batchedCount = 0;
+      try {
+        const pendingSnap = await pendingRef.get();
+        if (pendingSnap.exists) {
+          batchedCount = Number(pendingSnap.data().count || 0);
+        }
+      } catch (e) {
+        logger.warn("notifyOnNewMessage: pending read failed", e);
+      }
+
+      const totalNew = batchedCount + 1;
+      const subject = totalNew > 1
+        ? `You have ${totalNew} new messages from ${fromName}`
+        : `New message from ${fromName}`;
+      const safePreview = preview.replace(/[<>]/g, "");
+      const headline = totalNew > 1
+        ? `${totalNew} new messages from ${fromName}`
+        : `Message from ${fromName}`;
+      const intro = totalNew > 1
+        ? `<p><strong>${fromName}</strong> sent you ${totalNew} new messages. Latest:</p>`
+        : `<p><strong>${fromName}</strong> sent you a message:</p>`;
+      const body = `${intro}
+        <blockquote style="border-left:3px solid #c5a253;padding:8px 14px;
+          margin:14px 0;color:#4a4a4a;font-style:italic;">${safePreview}</blockquote>
+        <p>Reply in the app — buyers and sellers chat directly inside TeeBox.</p>`;
+      await sendEmail({
+        to: recipient.email,
+        subject,
+        html: emailShell(headline, body, "Open Inbox", `${APP_URL}/?inbox=1`),
+      });
+
+      // Stamp the watermark (per-thread) so the next 4 hours are silent.
+      await userRef.set({
+        lastMessageNotificationByThread: {[conversationId]: FieldValue.serverTimestamp()},
+      }, {merge: true});
+
+      // Clear the batched-count doc — it's been folded into the email we
+      // just sent.
+      if (batchedCount > 0) {
+        try {
+          await pendingRef.delete();
+        } catch (e) {
+          logger.warn("notifyOnNewMessage: pending delete failed", e);
+        }
       }
     } catch (err) {
       logger.error("notifyOnNewMessage error", err);
@@ -4479,6 +4566,58 @@ exports.refundOrder = onCall(
         tx.update(listingRef, update);
       }
     });
+
+    // ── Email producer for the buyer-facing refund email (audit #24).
+    // The downstream onRefundEmail trigger in emailTriggers.js listens
+    // on refunds/{id} creates and emails the buyer via the
+    // RefundIssued.jsx template. Without this write the trigger never
+    // fires. Doc id = Stripe refund id → idempotent: a retried
+    // refundOrder call returns the same Stripe refund (Stripe's own
+    // idempotency key replays it) so the second create() is a no-op
+    // for the trigger (existing doc → no onCreate event).
+    //
+    // We write OUTSIDE the inventory tx for two reasons:
+    //   1. The tx wraps writes that need rollback if order/listing
+    //      state shifts mid-flight. The refund-email producer doesn't
+    //      need that — Stripe has already refunded the buyer.
+    //   2. If the inventory tx fails we still want the buyer to get
+    //      their refund email (the refund itself succeeded). Putting
+    //      it after the tx means we always email on a successful
+    //      Stripe refund, even if Firestore inventory rollback fails.
+    const refundDocAmountCents = refundAmountCents != null ?
+        refundAmountCents : orderAmountCents;
+    try {
+      await db.collection("refunds").doc(refund.id).create({
+        orderId,
+        buyerId: pre.buyerId || null,
+        sellerId: pre.sellerId,
+        listingId: pre.listingId || null,
+        amount: refundDocAmountCents / 100,
+        amountCents: refundDocAmountCents,
+        currency: refund.currency || "usd",
+        reason: refundParams.reason,
+        stripeRefundId: refund.id,
+        refundedBy: request.auth.uid,
+        fullRefund: isFullRefund,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (writeErr) {
+      // `create()` throws ALREADY_EXISTS if the doc already exists,
+      // which means a previous run of refundOrder for this same Stripe
+      // refund id already wrote it. That's the desired idempotency
+      // path — swallow it so we don't fail the callable. Any other
+      // error: log but don't throw, because the Stripe refund DID
+      // succeed and we already returned that fact to the seller.
+      const code = writeErr && (writeErr.code || writeErr.status);
+      if (code === 6 || code === "already-exists" ||
+          /already exists/i.test(String(writeErr && writeErr.message))) {
+        logger.info(
+            `refundOrder: refunds/${refund.id} already exists — skip`);
+      } else {
+        logger.error(
+            `refundOrder: refunds/${refund.id} write failed`, writeErr);
+      }
+    }
 
     return {
       refundId: refund.id,
@@ -5530,6 +5669,12 @@ Object.assign(exports, require("./bingoPushTriggers"));
 // + EMAIL_OPS_RUNBOOK.md for ramp + DNS + bounce-handling docs.
 Object.assign(exports, require("./emailTriggers"));
 
+// GDPR marketing-consent capture (updateMarketingConsent +
+// dismissMarketingBanner callables). Required by lib/email.js
+// preflightAllowed() for any marketing-category send. See
+// GDPR_CONSENT_SCHEMA.md for the field shape + audit-trail design.
+Object.assign(exports, require("./gdprConsent"));
+
 // Premium subscription lifecycle (email + push). Observes users/{uid}
 // tier / proSubscriptionStatus / proCancelAtPeriodEnd transitions written
 // by handleSubscriptionUpsert + handleSubscriptionDeleted. See
@@ -5555,3 +5700,40 @@ Object.assign(exports, require("./bingoSync"));
 // getBingoGlobalStreakRecord).
 Object.assign(exports, require("./bingoLeaderboards"));
 
+// Daily transactional email smoke test (04:00 ET). Sends 4 templates to
+// SMOKE_EMAIL_INBOX via Resend, waits 60s, verifies last_event via the
+// Resend API. See EMAIL_SMOKE_OPS.md for the runbook + secret setup.
+Object.assign(exports, require("./emailSmokeTest"));
+
+// AbandonedCart lifecycle scheduler — daily 15:00 ET. Sends the
+// AbandonedCart email to users with >=$100 of watchlist value, no purchase
+// in the last 7d, no abandonedCart email in the last 30d, and GDPR
+// marketing consent. See ./abandonedCartTrigger.js for the heuristic.
+Object.assign(exports, require("./abandonedCartTrigger"));
+
+// Missing email producers per EMAIL_TRIGGER_AUDIT.md sections #23, #24,
+// #26, #27. Wires a Stripe Connect webhook (payout.paid → payouts/{id}),
+// the saved-search match scheduler V2 (correct schema), and the price-
+// drop producer+emailer. See ./missingProducers.js header for detail.
+// NOTE: Producer 2 (refund-issued) is wired inline in `refundOrder`
+// above — it writes refunds/{stripeRefundId} after the Stripe refund
+// succeeds.
+Object.assign(exports, require("./missingProducers"));
+
+// Marketing pause-30-days toggle (setMarketingPause callable). Writes
+// users/{uid}.marketingPausedUntil so the email send gate can skip
+// marketing-cat sends without revoking GDPR consent. Backs the
+// "Pause all marketing" toggle in account-settings → Email preferences.
+Object.assign(exports, require("./emailPauseToggle"));
+
+// Security + listing-live email producers per EMAIL_TRIGGER_AUDIT.md
+// sections #2, #4, #5, #6, #7, #8, #9. Exposes `notifySecurityEvent`
+// (callable, fired from index.html security handlers after a successful
+// password / email / payout / deletion / verify event) and the
+// `onListingLive` Firestore trigger. See ./securityEmailTriggers.js
+// header for the metadata-capture + idempotency policy.
+Object.assign(exports, require("./securityEmailTriggers"));
+
+
+// Email usage monitor — alerts when Resend Free-tier 100/day cap approaches.
+Object.assign(exports, require("./emailUsageMonitor"));

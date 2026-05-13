@@ -1075,6 +1075,29 @@
   .auth-guest-btn:active { transform: scale(0.98); }
   .auth-guest-btn-label { font-size: 14px; font-weight: 700; }
   .auth-guest-btn-sub { font-size: 11.5px; font-weight: 500; color: var(--gray-500); }
+  /* GDPR marketing-consent checkbox — sign-up only. Default UNCHECKED;
+     this is an opt-in (affirmative consent) per GDPR Art. 6(1)(a) and
+     Art. 7. Visually distinct from the implicit Terms agreement (Terms
+     are a precondition of the contract; marketing is optional). */
+  .auth-marketing-consent { display: none; align-items: flex-start; gap: 9px; text-align: left; background: var(--gray-50, #f7f7f8); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 12px; margin: 8px 0 6px; cursor: pointer; }
+  .auth-marketing-consent.show { display: flex; }
+  .auth-marketing-consent input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--green-600); cursor: pointer; }
+  .auth-marketing-consent .auth-marketing-label { font-size: 12.5px; line-height: 1.45; color: var(--gray-700); }
+  .auth-marketing-consent .auth-marketing-label strong { color: var(--gray-900); font-weight: 600; }
+  /* One-time re-opt-in banner for the migrated cohort (users w/ no
+     marketingConsent record). Non-modal, dismissible, top-of-page. */
+  .marketing-reopt-banner { display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 540px; background: var(--white); border: 1px solid var(--gray-200); border-left: 4px solid var(--green-600); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 14px 16px; z-index: 1200; font-family: var(--font-body); }
+  .marketing-reopt-banner.show { display: block; }
+  .marketing-reopt-banner .mrb-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .marketing-reopt-banner .mrb-body { font-size: 13px; line-height: 1.45; color: var(--gray-600); margin-bottom: 10px; }
+  .marketing-reopt-banner .mrb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .marketing-reopt-banner .mrb-btn { flex: 1 1 auto; min-width: 120px; border: none; border-radius: var(--radius-md); padding: 9px 12px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+  .marketing-reopt-banner .mrb-btn.primary { background: var(--green-600); color: var(--white); }
+  .marketing-reopt-banner .mrb-btn.primary:hover { background: var(--green-500); }
+  .marketing-reopt-banner .mrb-btn.secondary { background: var(--gray-100); color: var(--gray-700); }
+  .marketing-reopt-banner .mrb-btn.secondary:hover { background: var(--gray-200); }
+  .marketing-reopt-banner .mrb-close { position: absolute; top: 6px; right: 8px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--gray-400); cursor: pointer; padding: 4px; }
+  .marketing-reopt-banner .mrb-close:hover { color: var(--gray-700); }
   .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--gray-400); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .auth-google-btn {
@@ -2782,6 +2805,12 @@
       <div class="auth-desc" id="emailDesc">Enter your email and password to continue.</div>
       <input class="auth-input email-input" type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <input class="auth-input email-input" type="password" id="passwordInput" placeholder="Password (8+ characters)" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <!-- GDPR marketing-consent checkbox. Hidden on sign-in; shown on
+           Create Account. Default unchecked — affirmative opt-in only. -->
+      <label class="auth-marketing-consent" id="marketingConsentRow" for="marketingConsentInput">
+        <input type="checkbox" id="marketingConsentInput" />
+        <span class="auth-marketing-label"><strong>Send me product updates, saved-search matches, and price drop alerts.</strong> You can unsubscribe anytime.</span>
+      </label>
       <div class="auth-error" id="authErrorEmail"></div>
       <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
       <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
@@ -2812,6 +2841,20 @@
       <button type="button" class="signin-prompt-primary" data-action="show-auth-from-prompt">Sign In</button>
       <button type="button" class="signin-prompt-secondary" data-action="dismiss-sign-in-prompt">Maybe later</button>
     </div>
+  </div>
+</div>
+
+<!-- GDPR re-opt-in banner. Shown once per signed-in session for users
+     whose marketingConsent field is missing OR granted === false AND
+     who haven't already dismissed it (marketingBannerDismissedAt unset).
+     Non-modal so it never blocks app usage. -->
+<div class="marketing-reopt-banner" id="marketingReoptBanner" role="region" aria-label="Marketing email opt-in">
+  <button type="button" class="mrb-close" data-action="dismiss-marketing-banner" aria-label="Close">×</button>
+  <div class="mrb-title">Get personalized golf deals</div>
+  <div class="mrb-body">We only send marketing email when you ask us to. Want saved-search matches, price drop alerts, and weekly deal roundups in your inbox?</div>
+  <div class="mrb-actions">
+    <button type="button" class="mrb-btn primary" data-action="marketing-opt-in">Yes, send me deals</button>
+    <button type="button" class="mrb-btn secondary" data-action="marketing-opt-out">No thanks</button>
   </div>
 </div>
 
@@ -3100,6 +3143,23 @@
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="info-body" id="pushPrefsBody">
+      <div class="profile-loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL PREFERENCES modal (Account hub → Email preferences).
+     Reads users/{uid}.emailPrefs + marketingConsent + marketingPausedUntil.
+     Writes via updateEmailPreferences (per-cat) + setMarketingPause (pause)
+     + updateMarketingConsent (re-enable from disabled state).
+     Deep-link route: /?prefs=email opens this modal on app boot. -->
+<div class="modal-backdrop info-backdrop" id="emailPrefsBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Email preferences</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="emailPrefsBody">
       <div class="profile-loading">Loading…</div>
     </div>
   </div>
@@ -4184,6 +4244,14 @@
   </div>
 </div>
 
+<!-- STRIPE REQUIRED MODAL -->
+<!--
+  Gates the publish-listing flow (submitListing) when the seller has not
+  finished Stripe Connect KYC. Surfaces a friendly explainer + a one-click
+  "Set up payouts" CTA that fires the existing A['stripe-connect'] action.
+  Reuses the sell-modal-backdrop / sell-modal styles so it visually matches
+  the rest of the seller UX without a new CSS rule.
+-->
 <div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
   <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
     <div class="modal-header">
@@ -4930,6 +4998,11 @@ window.confirmPayment = async function() {
         window.__pendingDeepLink = null;
         setTimeout(() => { try { window.openBingo && window.openBingo(); } catch {} }, 300);
       }
+      // ?prefs=email — fired from the unsubscribe-success page CTA.
+      if (window.__pendingDeepLink === 'email-prefs') {
+        window.__pendingDeepLink = null;
+        setTimeout(() => { try { window.openEmailPrefs && window.openEmailPrefs(); } catch {} }, 400);
+      }
       const badge = document.getElementById('userBadge');
       badge.style.display = 'inline-flex';
       // Show "Welcome, {first name}" when the user has set a profile name.
@@ -4965,6 +5038,38 @@ window.confirmPayment = async function() {
       setTimeout(() => { try { window.maybeRegisterPush && window.maybeRegisterPush(); } catch(_e){} }, 4000);
       // Native (Capacitor) push wiring. No-op on web. Idempotent.
       setTimeout(() => { try { window.maybeRegisterPushNative && window.maybeRegisterPushNative(); } catch(_e){} }, 4200);
+      // Email-verified confirmation email — fires once per user, the
+      // first time onAuthStateChanged sees `emailVerified === true`
+      // for an email-provider account. Idempotency is enforced
+      // server-side via users/{uid}.emailVerifiedNotifiedAt in
+      // ./functions/securityEmailTriggers.js, so a refresh / repeat
+      // sign-in does NOT cause a second send. We delay 4500ms to let
+      // checkSellerStatus + Firestore hydrate finish first.
+      setTimeout(() => {
+        try {
+          const u = window.CURRENT_USER;
+          if (!u || !u.email || !u.emailVerified) return;
+          // Only fire for email/password accounts. Google/Apple sign-in
+          // returns emailVerified=true at signup; we don't want a
+          // "your email is verified" email on every fresh Google login.
+          const isEmailProvider = (u.providerData || []).some(
+              (p) => p && p.providerId === 'password');
+          if (!isEmailProvider) return;
+          (async () => {
+            const { getFunctions, httpsCallable } =
+              await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+            const fns = getFunctions();
+            const notify = httpsCallable(fns, 'notifySecurityEvent');
+            await notify({
+              eventType: 'email_verified',
+              metadata: {
+                userAgent: (navigator && navigator.userAgent) || null,
+              },
+            }).catch((e) => console.warn(
+                'notifySecurityEvent(email_verified) failed:', e));
+          })();
+        } catch (_e) { /* swallow */ }
+      }, 4500);
     } else {
       // Guest mode: keep authScreen hidden, let people browse + play Bingo.
       // Anything that needs auth (buy, sell, watchlist, account) routes
@@ -5042,12 +5147,69 @@ window.confirmPayment = async function() {
           await setDoc(doc(db, 'users', uid), { displayName: '' }, { merge: true });
         } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
       }
+      // GDPR re-opt-in banner. Show once if (a) no marketingConsent
+      // doc OR consent.granted === false AND (b) the user hasn't
+      // dismissed it before. We do NOT show it for users mid-signup
+      // who just answered the in-form checkbox — the signup callable
+      // writes marketingConsent so they fail the (a) test.
+      try {
+        const consent = data && data.marketingConsent;
+        const dismissed = data && data.marketingBannerDismissedAt;
+        const needsReopt = !consent || consent.granted !== true;
+        if (needsReopt && !dismissed) {
+          // Defer slightly so the auth-screen fade-out doesn't fight
+          // the banner appearing.
+          setTimeout(() => {
+            const b = document.getElementById('marketingReoptBanner');
+            if (b) b.classList.add('show');
+          }, 400);
+        }
+      } catch (e) { /* banner is non-essential — never fail sign-in over it */ }
     } catch (e) {
       console.warn('checkSellerStatus failed:', e && e.code || e);
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
     }
   }
+
+  // GDPR consent banner action handlers. All three route through Cloud
+  // Function callables so the server stamps serverTimestamp() and the
+  // audit-trail history is un-spoofable. We close the banner optimistically
+  // — if the callable fails the user can still use the prefs center later.
+  function hideMarketingBanner() {
+    const b = document.getElementById('marketingReoptBanner');
+    if (b) b.classList.remove('show');
+  }
+  window.__actions = window.__actions || {};
+  window.__actions['marketing-opt-in'] = async function() {
+    hideMarketingBanner();
+    try {
+      const fn = httpsCallable(fns, 'updateMarketingConsent');
+      await fn({ granted: true, source: 'banner_reopt' });
+      if (window.showToast) showToast('You\'re in — we\'ll send personalized deals.', 'success');
+    } catch (e) {
+      console.warn('marketing-opt-in failed:', e && e.code || e);
+      if (window.showToast) showToast('Couldn\'t save your choice. Try again from Account → Email Preferences.', 'error');
+    }
+  };
+  window.__actions['marketing-opt-out'] = async function() {
+    hideMarketingBanner();
+    try {
+      const fn = httpsCallable(fns, 'updateMarketingConsent');
+      await fn({ granted: false, source: 'banner_reopt' });
+    } catch (e) {
+      console.warn('marketing-opt-out failed:', e && e.code || e);
+    }
+  };
+  window.__actions['dismiss-marketing-banner'] = async function() {
+    hideMarketingBanner();
+    try {
+      const fn = httpsCallable(fns, 'dismissMarketingBanner');
+      await fn({});
+    } catch (e) {
+      console.warn('dismiss-marketing-banner failed:', e && e.code || e);
+    }
+  };
 
   // ──────────────────────────────────────────────────────────
   // Capacitor wiring: native plugins surface OAuth (Google / Apple) results
@@ -5156,6 +5318,13 @@ window.confirmPayment = async function() {
     document.querySelectorAll('.auth-emailmode-toggle .auth-mode-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.emailmode === emailMode);
     });
+    // GDPR: marketing-opt-in checkbox is sign-up only. Reset to unchecked
+    // every time we enter sign-up mode so a stale "yes" from a previous
+    // attempt can't be re-submitted unintentionally.
+    const mkt = document.getElementById('marketingConsentRow');
+    const mktInput = document.getElementById('marketingConsentInput');
+    if (mkt) mkt.classList.toggle('show', !isSignIn);
+    if (mktInput && isSignIn) mktInput.checked = false;
   }
   window.setEmailMode = function(mode) {
     if (mode !== 'signin' && mode !== 'signup') return;
@@ -5188,6 +5357,11 @@ window.confirmPayment = async function() {
       if (emailMode === 'signin') {
         await signInWithEmailAndPassword(auth, email, pw);
       } else {
+        // GDPR: read marketing-consent checkbox state BEFORE awaiting any
+        // network call. If we read it after sign-up we race with the user
+        // dismissing the form (or autofill state changes).
+        const mktInput = document.getElementById('marketingConsentInput');
+        const marketingConsentGranted = !!(mktInput && mktInput.checked);
         const cred = await createUserWithEmailAndPassword(auth, email, pw);
         // Bootstrap the users/{uid} doc so downstream code (watchlist,
         // blocking, seller verification merges) has a doc to merge into.
@@ -5198,6 +5372,20 @@ window.confirmPayment = async function() {
         try {
           await setDoc(doc(db, 'users', cred.user.uid), { displayName: '' }, { merge: true });
         } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
+        // GDPR: record the marketing-consent decision via the callable.
+        // The callable (server-side) writes the audit trail to
+        // users/{uid}.marketingConsent and cascades emailPrefs.* on opt-in.
+        // We ALWAYS call this — even on "no" — so the audit trail records
+        // an explicit refusal (important for compliance, makes the
+        // re-opt-in banner skip this user).
+        try {
+          const setMktConsent = httpsCallable(fns, 'updateMarketingConsent');
+          await setMktConsent({ granted: marketingConsentGranted, source: 'signup' });
+        } catch (e) {
+          // Non-fatal: user still has an account; banner will catch them
+          // on next session if the consent write failed.
+          console.warn('updateMarketingConsent (signup) failed:', e && e.code || e);
+        }
         // Fire-and-forget: send the branded verification email via our
         // Cloud Function (Resend-powered, DKIM/SPF-signed). Failure here
         // doesn't block sign-up — the user still has an account, they
@@ -5895,6 +6083,270 @@ window.confirmPayment = async function() {
     } catch (err) {
       console.error('savePushPrefs failed', err);
       if (window.showToast) window.showToast('Could not save. Try again.');
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // EMAIL PREFERENCES modal (Account hub → Email preferences).
+  // Reads users/{uid}.emailPrefs + marketingConsent + marketingPausedUntil
+  // and writes via the updateEmailPreferences / setMarketingPause /
+  // updateMarketingConsent callables. Linked from the unsubscribe.html
+  // success page via the /?prefs=email deep-link (handled below).
+  //
+  // Per-toggle save is debounced 200ms to absorb double-taps. Each row
+  // shows an inline "Saved" pill for 1.5s after a successful write.
+  // ──────────────────────────────────────────────────────────
+  const EMAIL_PREF_ROWS = [
+    // info-only — transactional cannot be disabled; rendered grayed out.
+    { key: 'transactional', label: 'Order updates',
+      hint: 'Required for transaction notifications (purchase receipt, shipped, delivered)',
+      kind: 'info', marketing: false },
+    // messages + offers: per-row real-time channel is managed via the
+    // Notifications panel (pushPrefs.messages / pushPrefs.offers). We show
+    // them here for discoverability + cross-link, but they're info-only
+    // from this surface — the backend updateEmailPreferences allow-list
+    // is marketing-only by design.
+    { key: 'messages', label: 'New messages',
+      hint: 'Managed under Account → Notifications', kind: 'xref',
+      xref: 'open-push-prefs', marketing: false },
+    { key: 'offers', label: 'Offers received and updated',
+      hint: 'Managed under Account → Notifications', kind: 'xref',
+      xref: 'open-push-prefs', marketing: false },
+    // marketing toggles — keys must match PREF_KEYS in emailTriggers.js
+    { key: 'savedSearchMatches', label: 'Saved search matches',
+      hint: 'Daily email digest of new listings matching your saved searches',
+      kind: 'toggle', marketing: true },
+    { key: 'priceDrops', label: 'Price drops on watched items',
+      hint: 'When a seller cuts the price on something you watchlisted',
+      kind: 'toggle', marketing: true },
+    { key: 'weeklyDigest', label: 'Weekly deals digest',
+      hint: 'Curated weekly newsletter — top deals + new arrivals',
+      kind: 'toggle', marketing: true },
+    { key: 'abandonedCart', label: 'Cart reminders',
+      hint: 'A nudge when you have items in your cart you haven\'t bought',
+      kind: 'toggle', marketing: true },
+    { key: 'productUpdates', label: 'Product updates from TeeBox',
+      hint: 'Occasional announcements about new features',
+      kind: 'toggle', marketing: true },
+  ];
+  // Match the marketing default-on cascade in gdprConsent.js.
+  const EMAIL_PREF_DEFAULTS = {
+    savedSearchMatches: true,
+    priceDrops: true,
+    abandonedDraft: true,
+    abandonedCart: true,
+    reviewRequests: true,
+    winBack: true,
+    weeklyDigest: true,
+    productUpdates: true,
+  };
+
+  // Per-key debounce buckets — fires the callable 200ms after the last
+  // toggle for a given category, swallowing rapid flap.
+  const _emailPrefDebounce = {};
+
+  function _formatPauseDate(ts) {
+    try {
+      const ms = typeof ts === 'number' ? ts
+        : (ts && typeof ts.toMillis === 'function') ? ts.toMillis()
+        : (ts && ts.seconds) ? ts.seconds * 1000
+        : null;
+      if (!ms) return '';
+      return new Date(ms).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+      });
+    } catch (_) { return ''; }
+  }
+
+  window.openEmailPrefs = async function() {
+    if (!window.CURRENT_USER) {
+      if (window.requireAuth) window.requireAuth('to manage email preferences', () => window.openEmailPrefs());
+      return;
+    }
+    const back = document.getElementById('emailPrefsBackdrop');
+    const body = document.getElementById('emailPrefsBody');
+    back.classList.add('open');
+    body.innerHTML = '<div class="profile-loading">Loading…</div>';
+
+    let prefs = { ...EMAIL_PREF_DEFAULTS };
+    let consentGranted = true;
+    let pausedUntilMs = 0;
+    try {
+      const { getDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      // Bypass any cached snapshot — preference state is rarely-changed
+      // and we want to reflect the latest server truth (e.g. after an
+      // email-footer one-click unsubscribe completed seconds ago).
+      const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+      if (snap.exists()) {
+        const d = snap.data() || {};
+        if (d.emailPrefs && typeof d.emailPrefs === 'object') {
+          prefs = { ...EMAIL_PREF_DEFAULTS, ...d.emailPrefs };
+        }
+        // Consent state — missing/false counts as "not granted" so we
+        // surface the re-enable banner. If consent was never recorded
+        // (legacy users), we still treat the marketing toggles as off.
+        if (d.marketingConsent && typeof d.marketingConsent === 'object') {
+          consentGranted = d.marketingConsent.granted === true;
+        } else {
+          consentGranted = false;
+        }
+        if (d.marketingPausedUntil) {
+          const m = (typeof d.marketingPausedUntil.toMillis === 'function')
+            ? d.marketingPausedUntil.toMillis()
+            : (d.marketingPausedUntil.seconds ? d.marketingPausedUntil.seconds * 1000 : 0);
+          if (m > Date.now()) pausedUntilMs = m;
+        }
+      } else {
+        consentGranted = false;
+      }
+    } catch (e) {
+      console.warn('openEmailPrefs load failed', e);
+    }
+
+    const marketingLocked = !consentGranted || pausedUntilMs > 0;
+
+    // Build the banner stack — at most one banner is shown at a time;
+    // pause takes precedence over consent-off because resuming the pause
+    // is the simpler/cheaper recovery (no GDPR round-trip).
+    let bannerHtml = '';
+    if (pausedUntilMs > 0) {
+      bannerHtml = `
+        <div class="email-prefs-banner" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #e0d09a;border-radius:var(--radius-md);background:#fff8df;color:#5b4500;margin-bottom:14px;">
+          <span style="flex:1;font-size:13.5px;line-height:1.45;">
+            Marketing paused until <strong>${_formatPauseDate(pausedUntilMs)}</strong>. Resume anytime.
+          </span>
+          <button class="btn-full ghost" data-action="email-prefs-resume" type="button" style="white-space:nowrap;padding:6px 12px;font-size:13px;">Resume</button>
+        </div>`;
+    } else if (!consentGranted) {
+      bannerHtml = `
+        <div class="email-prefs-banner" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #d1d5db;border-radius:var(--radius-md);background:#f9fafb;color:#374151;margin-bottom:14px;">
+          <span style="flex:1;font-size:13.5px;line-height:1.45;">
+            Marketing emails are disabled. Re-enable to manage individual categories.
+          </span>
+          <button class="btn-full green" data-action="email-prefs-enable-marketing" type="button" style="white-space:nowrap;padding:6px 12px;font-size:13px;">Re-enable</button>
+        </div>`;
+    }
+
+    const pauseToggleHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:#fbfaf6;margin-bottom:14px;">
+        <span style="display:flex;flex-direction:column;min-width:0;">
+          <span style="font-weight:600;color:var(--gray-900)">Pause all marketing for 30 days</span>
+          <span style="font-size:12px;color:var(--gray-500)">Transactional and security emails are not affected.</span>
+        </span>
+        <input type="checkbox" id="emailPrefsPauseToggle" ${pausedUntilMs > 0 ? 'checked' : ''}
+               style="width:22px;height:22px;accent-color:#1f4827;flex-shrink:0;">
+      </div>`;
+
+    const rowsHtml = EMAIL_PREF_ROWS.map((r) => {
+      const isOn = r.kind === 'info' ? true : !!prefs[r.key];
+      const disabled = r.kind === 'info'
+        || r.kind === 'xref'
+        || (r.marketing && marketingLocked);
+      const opacity = disabled ? '0.55' : '1';
+      const inputAttrs = r.kind === 'info'
+        ? `checked disabled aria-disabled="true"`
+        : r.kind === 'xref'
+          ? `disabled aria-disabled="true"`
+          : `${isOn ? 'checked' : ''} data-email-pref="${r.key}" ${disabled ? 'disabled' : ''}`;
+      const trailing = r.kind === 'xref'
+        ? `<button class="btn-full ghost" data-action="${r.xref}" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap;">Open</button>`
+        : `<span class="email-prefs-saved" data-saved-for="${r.key}" style="font-size:12px;color:#0a7a3a;min-width:48px;text-align:right;opacity:0;transition:opacity .2s;">Saved</span>
+           <input type="checkbox" ${inputAttrs}
+                  style="width:22px;height:22px;accent-color:#1f4827;flex-shrink:0;">`;
+      return `
+        <label class="email-pref-row" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--white);opacity:${opacity};${disabled ? '' : 'cursor:pointer;'}">
+          <span style="display:flex;flex-direction:column;min-width:0;">
+            <span style="font-weight:600;color:var(--gray-900)">${r.label}</span>
+            <span style="font-size:12px;color:var(--gray-500)">${r.hint}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            ${trailing}
+          </span>
+        </label>`;
+    }).join('');
+
+    body.innerHTML = `
+      ${bannerHtml}
+      ${pauseToggleHtml}
+      <div class="email-prefs-list" style="display:flex;flex-direction:column;gap:10px;">
+        ${rowsHtml}
+      </div>
+      <p style="font-size:11.5px;color:var(--gray-500);margin-top:14px;line-height:1.5;">
+        We will never email you marketing offers without your consent. Transactional emails (orders, security alerts, refunds) are required and cannot be turned off.
+      </p>
+    `;
+
+    // Wire change events on the freshly-rendered toggles. We use `change`
+    // instead of the global click delegator so label-vs-input double-fire
+    // can't double-write — checkbox value is final by the time `change`
+    // fires.
+    body.querySelectorAll('input[data-email-pref]').forEach((el) => {
+      el.addEventListener('change', () => window._handleEmailPrefToggle(el));
+    });
+    const pauseEl = body.querySelector('#emailPrefsPauseToggle');
+    if (pauseEl) {
+      pauseEl.addEventListener('change', () => window._handleEmailPrefPauseToggle(pauseEl));
+    }
+  };
+
+  // Per-toggle save — fires the callable 200ms after the last change for
+  // the given category. Shows a transient "Saved" pill on success.
+  window._handleEmailPrefToggle = function(input) {
+    if (!input || !input.dataset || !input.dataset.emailPref) return;
+    const key = input.dataset.emailPref;
+    const enabled = !!input.checked;
+    clearTimeout(_emailPrefDebounce[key]);
+    _emailPrefDebounce[key] = setTimeout(async () => {
+      try {
+        const fn = httpsCallable(fns, 'updateEmailPreferences');
+        // updateEmailPreferences accepts { prefs: { [k]: boolean, ... } }
+        // and silently no-ops on keys outside its allow-list.
+        await fn({ prefs: { [key]: enabled } });
+        const pill = document.querySelector(`[data-saved-for="${key}"]`);
+        if (pill) {
+          pill.style.opacity = '1';
+          setTimeout(() => { pill.style.opacity = '0'; }, 1500);
+        }
+      } catch (e) {
+        console.warn('updateEmailPreferences failed', e && e.code || e);
+        if (window.showToast) showToast('Couldn\'t save. Try again.', 'error');
+        // Roll the toggle back so the UI matches the un-saved server.
+        try { input.checked = !enabled; } catch (_) {}
+      }
+    }, 200);
+  };
+
+  window._handleEmailPrefPauseToggle = async function(input) {
+    if (!input) return;
+    const turnOn = !!input.checked;
+    try {
+      const fn = httpsCallable(fns, 'setMarketingPause');
+      // days:0 clears the pause; days:30 sets a fresh 30-day pause.
+      await fn({ days: turnOn ? 30 : 0 });
+      if (window.showToast) {
+        showToast(turnOn ? 'Marketing paused for 30 days.' : 'Marketing resumed.');
+      }
+      // Re-render so the banner state + marketing-row disabled state stay
+      // in sync without an extra round-trip to compute the new disabled
+      // mask on the client.
+      window.openEmailPrefs();
+    } catch (e) {
+      console.warn('setMarketingPause failed', e && e.code || e);
+      if (window.showToast) showToast('Couldn\'t update pause. Try again.', 'error');
+      try { input.checked = !turnOn; } catch (_) {}
+    }
+  };
+
+  window._handleEmailPrefsEnableMarketing = async function() {
+    try {
+      const fn = httpsCallable(fns, 'updateMarketingConsent');
+      await fn({ granted: true, source: 'prefs_toggle' });
+      if (window.showToast) showToast('Marketing emails re-enabled.');
+      window.openEmailPrefs();
+    } catch (e) {
+      console.warn('updateMarketingConsent re-enable failed', e && e.code || e);
+      if (window.showToast) showToast('Couldn\'t re-enable. Try again.', 'error');
     }
   };
 
@@ -9966,6 +10418,25 @@ function closeSellModal(e) { if(e.target===document.getElementById('sellModalBac
 function closeSellModalDirect() { document.getElementById('sellModalBackdrop').classList.remove('open'); }
 window.closeSellModalDirect = closeSellModalDirect;
 
+// Stripe-required dialog. Opens the gate modal when submitListing detects
+// the seller hasn't finished Stripe Connect KYC (chargesEnabled !== true).
+// The modal's "Set up payouts" button routes to A['stripe-connect'] which
+// opens the existing Stripe Express onboarding link — no new server call
+// needed. We pass the status so future iterations can show a finer-grained
+// message (e.g. "Stripe still needs your bank account" vs. "...your SSN");
+// for now the copy is generic.
+function showStripeRequiredDialog(_status) {
+  const backdrop = document.getElementById('stripeRequiredBackdrop');
+  if (!backdrop) { showToast('Finish payout setup to publish listings.', 'error'); return; }
+  backdrop.classList.add('open');
+}
+function closeStripeRequiredDirect() {
+  const backdrop = document.getElementById('stripeRequiredBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+}
+window.showStripeRequiredDialog = showStripeRequiredDialog;
+window.closeStripeRequiredDirect = closeStripeRequiredDirect;
+
 function openSearch() {
   document.getElementById('searchOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('searchInput').focus(),50);
@@ -10445,6 +10916,10 @@ async function confirmShip() {
     const db = getFirestore();
     await updateDoc(doc(db, 'orders', orderId), {
       fulfillmentStatus: 'shipped',
+      // Mirror onto `shippingStatus` so emailTriggers.onOrderShippingStatusEmail
+      // (which keys off `shippingStatus`) actually fires the OrderShipped email.
+      // Until a Shippo webhook is in place, this manual mark-as-shipped action
+      // is the only producer of the "transit/shipped" transition.
       shippingStatus: 'shipped',
       carrier: String(carrier).slice(0, 20),
       trackingCarrier: trackingCarrier,
@@ -10501,6 +10976,9 @@ async function confirmDelivery(orderId) {
     const db = getFirestore();
     await updateDoc(doc(db, 'orders', orderId), {
       fulfillmentStatus: 'delivered',
+      // Mirror onto `shippingStatus` so emailTriggers.onOrderShippingStatusEmail
+      // fires DeliveredBuyer + DeliveredSeller, and the reviewRequestScheduler
+      // (which queries `shippingStatus == "delivered"`) picks this order up.
       shippingStatus: 'delivered',
       deliveredAt: serverTimestamp(),
     });
@@ -10750,19 +11228,7 @@ async function submitOffer() {
     showToast('Could not send offer.');
   }
 }
-function showStripeRequiredDialog(_status) {
-  const backdrop = document.getElementById('stripeRequiredBackdrop');
-  if (!backdrop) { showToast('Finish payout setup to publish listings.', 'error'); return; }
-  backdrop.classList.add('open');
-}
-function closeStripeRequiredDirect() {
-  const backdrop = document.getElementById('stripeRequiredBackdrop');
-  if (backdrop) backdrop.classList.remove('open');
-}
-window.showStripeRequiredDialog = showStripeRequiredDialog;
-window.closeStripeRequiredDirect = closeStripeRequiredDirect;
-
-  window.openMakeOfferModal = openMakeOfferModal;
+window.openMakeOfferModal = openMakeOfferModal;
 window.submitOffer = submitOffer;
 
 async function loadSellerOffers() {
@@ -12185,10 +12651,33 @@ async function confirmDeleteAccount() {
   if (!window.CURRENT_USER) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   if (err) err.textContent = '';
+  // Capture the user's email BEFORE the auth record is wiped — once
+  // `deleteUserAccount` returns, window.CURRENT_USER is gone and we
+  // can't look it up. The notifySecurityEvent callable accepts a
+  // `toOverride` so the confirmation email reaches the right inbox
+  // even after the Firebase Auth record has been destroyed.
+  const capturedEmail = (window.CURRENT_USER && window.CURRENT_USER.email) || null;
   try {
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
     const fns = getFunctions();
+    // Fire the AccountDeletionConfirmed email FIRST while the auth
+    // record still exists. Producer lives in
+    // ./functions/securityEmailTriggers.js. Best-effort — a failure
+    // here must not block the actual deletion (Apple guideline
+    // 5.1.1(vi) requires an in-app deletion path with no friction).
+    try {
+      const notify = httpsCallable(fns, 'notifySecurityEvent');
+      await notify({
+        eventType: 'account_deletion',
+        metadata: {
+          toOverride: capturedEmail,
+          userAgent: (navigator && navigator.userAgent) || null,
+        },
+      });
+    } catch (notifyErr) {
+      console.warn('notifySecurityEvent(account_deletion) failed:', notifyErr);
+    }
     const del = httpsCallable(fns, 'deleteUserAccount');
     await del({});
     document.getElementById('deleteAccountBackdrop').classList.remove('open');
@@ -12728,6 +13217,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
            </button>
            <button class="account-hub-item" data-action="open-push-prefs" type="button">
              <span class="account-hub-label">Notifications</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-email-prefs" type="button">
+             <span class="account-hub-label">Email preferences</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-blocked-users" type="button">
@@ -13910,9 +14403,23 @@ A['manage-subscription']     = async () => {
   }
 };
 A['stripe-connect']          = async () => {
-    try { closeStripeRequiredDirect(); } catch (_e) {}
   if (!window.requireAuth('to set up payouts')) return;
+  // If the Stripe-required gate modal is open, close it so the seller's
+  // listing draft is visible underneath when they return from onboarding.
+  try { closeStripeRequiredDirect(); } catch (_e) {}
   showToast('Opening Stripe…');
+  // If the user already has a payouts-enabled Connect account, this
+  // click is a CHANGE (not an initial setup) — fire the payout-method-
+  // changed security alert so a hijacker rerouting funds gets caught.
+  // We read the cached status off window.LAST_STRIPE_STATUS (set by
+  // renderStripeConnectBanner on dashboard render); if absent we skip
+  // the alert silently — we'd rather under-alert than spam every
+  // first-time onboarder. The authoritative producer for the alert
+  // would be a Stripe Connect `account.external_account.updated`
+  // webhook (open question — not yet wired in functions/index.js).
+  const wasAlreadyEnabled =
+    !!(window.LAST_STRIPE_STATUS &&
+       window.LAST_STRIPE_STATUS.payoutsEnabled);
   try {
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
@@ -13921,6 +14428,20 @@ A['stripe-connect']          = async () => {
     const res = await fn();
     const url = res && res.data && res.data.url;
     if (!url) throw new Error('No onboarding URL returned');
+    if (wasAlreadyEnabled) {
+      // Fire-and-forget. Producer lives in
+      // ./functions/securityEmailTriggers.js.
+      try {
+        const notify = httpsCallable(fns, 'notifySecurityEvent');
+        notify({
+          eventType: 'payout_method_changed',
+          metadata: {
+            userAgent: (navigator && navigator.userAgent) || null,
+          },
+        }).catch((e) => console.warn(
+            'notifySecurityEvent(payout_method_changed) failed:', e));
+      } catch (_e) { /* swallow — security alert is best-effort */ }
+    }
     // On Capacitor (iOS), open in the system browser so Stripe's OAuth
     // pages get the cookies they expect. On web, just navigate.
     const Cap = window.Capacitor;
@@ -14148,10 +14669,15 @@ A['report-message']          = (el) => {
   });
 };
 A['confirm-report']          = () => { if (!window.requireAuth('to submit your report')) return; confirmReport(); };
-A['close-stripe-required']   = () => closeStripeRequiredDirect();
-  A['open-blocked-users']      = () => { if (!window.requireAuth('to view your blocked users', () => openBlockedUsers())) return; openBlockedUsers(); };
+A['open-blocked-users']      = () => { if (!window.requireAuth('to view your blocked users', () => openBlockedUsers())) return; openBlockedUsers(); };
 A['open-push-prefs']         = () => { if (!window.requireAuth('to manage notifications', () => window.openPushPrefs())) return; window.openPushPrefs(); };
 A['save-push-prefs']         = () => { window.savePushPrefs && window.savePushPrefs(); };
+A['open-email-prefs']        = () => { if (!window.requireAuth('to manage email preferences', () => window.openEmailPrefs())) return; window.openEmailPrefs(); };
+A['email-prefs-resume']      = () => {
+  const t = document.getElementById('emailPrefsPauseToggle');
+  if (t) { t.checked = false; window._handleEmailPrefPauseToggle && window._handleEmailPrefPauseToggle(t); }
+};
+A['email-prefs-enable-marketing'] = () => { window._handleEmailPrefsEnableMarketing && window._handleEmailPrefsEnableMarketing(); };
 A['push-prompt-accept']      = () => { window._handlePushPromptAnswer && window._handlePushPromptAnswer('yes'); };
 A['push-prompt-decline']     = () => { window._handlePushPromptAnswer && window._handlePushPromptAnswer('no'); };
 A['unblock-user']            = (el) => {
@@ -14456,6 +14982,7 @@ A['vote-review-helpful']      = (el) => { if (!window.requireAuth('to vote on re
 A['open-report-review']       = (el) => { if (!window.requireAuth('to report a review')) return; openReportReview(el.dataset.reviewId); };
 A['confirm-report-review']    = () => { if (!window.requireAuth('to submit your report')) return; confirmReportReview(); };
 A['close-sell-direct']       = () => closeSellModalDirect();
+A['close-stripe-required']   = () => closeStripeRequiredDirect();
 A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
 A['ai-write-desc']            = () => { if (!window.requireAuth('to use AI description')) return; aiWriteDescription(); };
 A['ai-suggest-price']         = () => { if (!window.requireAuth('to suggest a price')) return; aiSuggestPrice(); };
@@ -16070,6 +16597,16 @@ if (uploadZone) {
         setTimeout(openBingo, 200);
       } else {
         window.__pendingDeepLink = 'bingo';
+      }
+    }
+    // ?prefs=email deep-link from the unsubscribe-success page footer.
+    // Requires sign-in (guests can't have email prefs), so stash on the
+    // auth screen and replay after sign-in if CURRENT_USER is null.
+    if (sp.get('prefs') === 'email') {
+      if (window.CURRENT_USER) {
+        setTimeout(() => { try { window.openEmailPrefs && window.openEmailPrefs(); } catch (_) {} }, 200);
+      } else {
+        window.__pendingDeepLink = 'email-prefs';
       }
     }
   } catch {}

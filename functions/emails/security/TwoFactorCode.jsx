@@ -3,9 +3,13 @@ const {Base, H1, P} = require("../layout/Base");
 const {Section, Text} = require("@react-email/components");
 
 function TwoFactorCode({user = {}, code}) {
+  // SECURITY: preview text MUST NOT include `code` — iOS/Android lock-screen
+  // banners render preview text without unlocking the device, so anyone in
+  // possession of the phone would see the code. Keep the code in the body
+  // (rendered below) only.
   return (
     <Base
-      preview={`Your TeeBox login code: ${code}. Expires in 10 minutes.`}
+      preview="A verification code for your TeeBox sign-in. Open to view."
       uid={user.uid}
       category="transactional"
     >
@@ -33,4 +37,7 @@ function TwoFactorCode({user = {}, code}) {
 }
 
 module.exports = TwoFactorCode;
-module.exports.subject = (ctx) => `Your code: ${ctx.code || ""}`.slice(0, 50);
+// SECURITY: subject must NOT contain the code — many notification surfaces
+// (lock screen, Apple Watch, smart speakers reading email) expose the
+// subject line. Keep it generic; the code is in the body.
+module.exports.subject = () => "Your TeeBox sign-in code";
