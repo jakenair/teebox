@@ -193,6 +193,12 @@
   .review-report-btn:hover { color: var(--red-500); }
   .ico.ico-fill { fill: currentColor; stroke: none; }
   /* Make-an-offer (Feature #14) */
+  /* TEMP: offer-payment flow not yet wired (createPaymentIntent always
+     uses listing.ask, never the accepted offer amount). Hide every UI
+     entry point that would let a buyer/seller create or accept a new
+     offer. Existing offer data stays viewable. Flip this off when the
+     accept-offer → buyer-pays flow ships. */
+  [data-feature="offers"] { display: none !important; }
   .btn-make-offer { background: var(--white); color: var(--gold-600, #b88a00); border: 1.5px solid var(--gold-500, #d6a900); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-make-offer:hover { background: var(--gold-50, #fff8dc); }
   .btn-make-offer:disabled { background: var(--gray-400); color: var(--white); border-color: var(--gray-400); cursor: not-allowed; }
@@ -6033,6 +6039,30 @@ window.confirmPayment = async function() {
     return out;
   };
 
+  async function shrinkForUpload(file) {
+    // Skip if already small enough — no point recompressing.
+    if (file.size < 600 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const max = 1600;
+      const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      const w = Math.round(bmp.width * scale);
+      const h = Math.round(bmp.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      bmp.close && bmp.close();
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+      return blob || file;
+    } catch (err) {
+      // HEIC on iOS Safari, or unsupported codec — fall back to raw upload.
+      // Server-side optimizeListingPhoto can still handle it via Sharp.
+      console.warn('shrinkForUpload failed, using original:', err && err.message);
+      return file;
+    }
+  }
+
   async function uploadPhotos(listingId) {
     if (selectedFiles.length === 0) return [];
     const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
@@ -6040,17 +6070,22 @@ window.confirmPayment = async function() {
     const progress = document.getElementById('uploadProgress');
     const bar = document.getElementById('uploadProgressBar');
     progress.style.display = 'block';
-    const urls = [];
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      // Path includes sellerId so storage rules can verify ownership without
-      // a cross-service firestore.get() (which was 403'ing due to consistency lag).
-      const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
+    let done = 0;
+    const total = selectedFiles.length;
+    // Parallel uploads with client-side compression. Files are shrunk to 1600px
+    // JPEG @ 0.85 quality before upload (was ~12x oversize vs. server output).
+    // Path includes sellerId so storage rules can verify ownership without
+    // a cross-service firestore.get() (which was 403'ing due to consistency lag).
+    const urls = await Promise.all(selectedFiles.map(async (file, i) => {
+      const shrunk = await shrinkForUpload(file);
+      const safeName = file.name.replace(/\.[^.]+$/, '.jpg').replace(/[^A-Za-z0-9._\-]/g, '_');
+      const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${i}_${safeName}`);
+      await uploadBytes(storageRef, shrunk);
       const url = await getDownloadURL(storageRef);
-      urls.push(url);
-      bar.style.width = `${Math.round((i+1)/selectedFiles.length*100)}%`;
-    }
+      done++;
+      bar.style.width = `${Math.round(done/total*100)}%`;
+      return url;
+    }));
     progress.style.display = 'none';
     bar.style.width = '0%';
     return urls;
@@ -10570,6 +10605,12 @@ window.__actions['delete-saved-search'] = (el) => deleteSavedSearchV2(el.dataset
 //   - Decline writes status='declined' (with confirm).
 let __pendingOfferListing = null;
 function openMakeOfferModal() {
+  // TEMP: offer-payment flow not yet wired — short-circuit so any stale
+  // entry point (deeplink, programmatic call, leftover cached UI) can't
+  // create a new offer that would land in a half-built accept-pay flow.
+  showToast('Offers are temporarily paused while we upgrade checkout — coming soon.');
+  return;
+  // eslint-disable-next-line no-unreachable
   if (typeof window.requireAuth === 'function') {
     if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return;
   } else if (!window.CURRENT_USER) { showToast('Sign in to make an offer.'); return; }
@@ -10694,8 +10735,13 @@ async function renderSellerOffers() {
     if (offers.length) { badge.textContent = String(offers.length); badge.style.display = 'inline-block'; }
     else { badge.style.display = 'none'; }
   }
+  // TEMP: offer-payment flow not yet wired — show a paused banner at
+  // the top of the seller's Offers tab. Existing offers stay visible
+  // (so data isn't lost) but the per-row Accept/Counter buttons are
+  // hidden via [data-feature="offers"] below.
+  const pausedBanner = '<div class="dash-empty" style="background:var(--gold-50,#fff8dc);border:1px solid var(--gold-500,#d6a900);color:var(--gray-800);text-align:left;padding:12px 14px;margin-bottom:12px"><div style="font-weight:600;margin-bottom:4px">Offers temporarily paused</div>We are upgrading the accept-and-pay flow. Pending offers below stay visible — new offers and acceptances are paused for now.</div>';
   if (!offers.length) {
-    el.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No pending offers</div>Buyers can tap <strong>Make Offer</strong> on your listings to negotiate.</div>';
+    el.innerHTML = pausedBanner + '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No pending offers</div>Offers are temporarily paused while we upgrade checkout.</div>';
     return;
   }
   // Build buyer-name resolution + listing snapshot in parallel.
@@ -10743,18 +10789,27 @@ async function renderSellerOffers() {
         <div class="offer-amt">$${Number(o.amount || 0).toLocaleString()}</div>
         ${ask > 0 ? `<div class="offer-pct-off">-${pctOff}% vs $${ask.toLocaleString()}</div>` : ''}
       </div>
-      <div class="offer-actions">
+      <div class="offer-actions" data-feature="offers">
         <button class="btn-accept"  data-action="accept-offer"  data-offer-id="${id}" data-listing-id="${lid}" data-buyer-id="${buy}" data-amount="${Number(o.amount||0)}">Accept</button>
         <button class="btn-counter" data-action="counter-offer" data-offer-id="${id}" data-amount="${Number(o.amount||0)}">Counter</button>
         <button class="btn-decline" data-action="decline-offer" data-offer-id="${id}">Decline</button>
       </div>
+      <div class="dash-empty" style="grid-column:1/-1;padding:8px 0 0;font-size:12.5px;color:var(--gray-500);text-align:left">Offers paused — coming soon.</div>
     </div>`;
   }).join('');
-  el.innerHTML = rows;
+  el.innerHTML = pausedBanner + rows;
 }
 window.renderSellerOffers = renderSellerOffers;
 
 async function acceptOffer(offerId, listingId, buyerId, amount) {
+  // TEMP: the accept-offer → buyer-pays flow is half-built
+  // (createPaymentIntent always uses listing.ask, never the accepted
+  // offer amount). Block acceptance until that's wired so a seller
+  // doesn't get stuck on the placeholder "Pay here: [checkout link
+  // will appear after we wire Stripe…]" chat message.
+  showToast('Offers paused — coming soon. We are upgrading the accept-and-pay flow.');
+  return;
+  // eslint-disable-next-line no-unreachable
   if (!window.CURRENT_USER || !offerId) return;
   if (!confirm(`Accept this $${Number(amount).toLocaleString()} offer? We'll open a chat with the buyer with checkout instructions.`)) return;
   try {
@@ -10942,7 +10997,7 @@ async function openMyOffers() {
       const statusCls = status === 'accepted' ? 'accepted' : status === 'declined' ? 'declined' : status === 'countered' ? 'countered' : '';
       const id = window.safeAttr(window.safeId(o.id));
       const counterRow = status === 'countered' && o.counterAmount
-        ? `<div class="offer-actions">
+        ? `<div class="offer-actions" data-feature="offers">
             <button class="btn-accept"  data-action="accept-counter"  data-offer-id="${id}">Accept $${Number(o.counterAmount).toLocaleString()}</button>
             <button class="btn-decline" data-action="decline-counter" data-offer-id="${id}">Walk away</button>
            </div>`
@@ -10977,6 +11032,12 @@ async function openMyOffers() {
 window.openMyOffers = openMyOffers;
 
 async function acceptCounter(offerId) {
+  // TEMP: counter-accept routes into the same broken accept-pay flow
+  // as acceptOffer. Block it until checkout is wired to the offer
+  // amount (today createPaymentIntent always uses listing.ask).
+  showToast('Offers paused — coming soon. We are upgrading the accept-and-pay flow.');
+  return;
+  // eslint-disable-next-line no-unreachable
   if (!window.CURRENT_USER || !offerId) return;
   if (!confirm("Accept the seller's counter? We'll open a chat with checkout details.")) return;
   try {
