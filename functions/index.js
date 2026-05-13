@@ -184,6 +184,17 @@ exports.createPaymentIntent = onRequest(
     if (!authUser) {
       return res.status(401).json({error: "Not authenticated"});
     }
+    // TODO(audit): wire IP + card fingerprint capture for ban evasion
+    // detection (see design doc). Phase 2 — no implementation in this PR.
+    // Bare-minimum block: deny a checkout from a user the admin queue
+    // has banned (users/{uid}.banned == true).
+    try {
+      const banSnap = await admin.firestore()
+          .doc(`users/${authUser.uid}`).get();
+      if (banSnap.exists && banSnap.data() && banSnap.data().banned === true) {
+        return res.status(403).json({error: "Account suspended"});
+      }
+    } catch (_e) { /* best-effort — never block legitimate checkout on Firestore hiccup */ }
     if (!authUser.email_verified) {
       return res.status(412).json({
         error: "Please verify your email before continuing.",
@@ -2253,6 +2264,344 @@ exports.incrementListingMessage = onDocumentCreated(
       logger.error("incrementListingMessage error", err);
     }
   }
+);
+
+// ─────────────────────────────────────────────────────────────
+// moderateMessage (Firestore trigger)
+//   Authoritative server-side re-scan of every new chat message
+//   for off-platform / PII content. Client runs the same detector
+//   for UX (confirm-before-send) but anything written here is what
+//   actually drives the inbound interstitial + risk-score counters.
+//
+//   On a HARD match:
+//     • writes messageFlags/{messageId} (admin-only read via rules)
+//     • increments users/{senderId}.offPlatformFlags
+//     • increments users/{recipientId}.offPlatformSoftFlags
+//     • increments conversations/{cid}.flaggedMessageCount
+//     • patches the message doc with {flagged: {severity, types[]}}
+//       so the client renders the warning on next snapshot.
+//
+//   v1 is regex + keyword only (deterministic, no per-message cost).
+//   TODO: enable Gemini classifier in v2 for ambiguous SOFT-only hits;
+//   gate by users/{uid}.modLlmCallsToday = {date, n} at 100/day/user.
+// ─────────────────────────────────────────────────────────────
+const MOD_OFF_PLATFORM_REGEXES = [
+  {name: "phone_us", severity: "HARD",
+    re: /(?:\+?1[\s.\-])?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}/},
+  {name: "email", severity: "HARD",
+    re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/},
+  {name: "messaging_url", severity: "HARD",
+    re: /\b(?:wa\.me|t\.me|signal\.me|m\.me|bit\.ly|tinyurl\.com)\/\S+/i},
+  {name: "external_marketplace", severity: "HARD",
+    re: /\b(?:ebay|mercari|grailed|golfwrx|facebook ?marketplace|fb ?marketplace|craigslist|offerup|poshmark|depop)\b/i},
+  {name: "cashtag", severity: "HARD",
+    re: /(?:^|\s)\$[a-zA-Z][a-zA-Z0-9_]{2,15}\b/},
+];
+const MOD_OFF_PLATFORM_KEYWORDS_HARD = [
+  "venmo", "zelle", "cashapp", "cash app", "paypal", "apple pay", "google pay", "gpay",
+  "wire transfer", "western union", "moneygram", "chime",
+  "btc", "bitcoin", "ethereum", "usdc", "crypto",
+  "f&f", "friends and family", "f and f", "no g&s", "no goods and services",
+  "text me at", "call me at", "signal me",
+  "whatsapp", "telegram", "wa.me", "t.me",
+  "outside teebox", "outside the app", "off the app", "off platform", "off-platform",
+  "save the fee", "save fees", "skip the fee", "cut the fee", "no fees",
+  "avoid the fee", "direct deal", "skip the platform", "pay outside", "cash only",
+  "dm me directly", "take this off teebox", "take this off the app",
+];
+const MOD_OFF_PLATFORM_KEYWORDS_SOFT = [
+  "instagram", "ig:", "insta:", "discord",
+  "meet in person", "meet up", "come pick up", "local pickup",
+];
+
+function modEscapeKw(k) {
+  return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function modDetectOffPlatform(text) {
+  if (!text) return {matched: false, severity: null, types: [], patterns: []};
+  const s = String(text);
+  const lc = s.toLowerCase();
+  const patterns = [];
+  const types = new Set();
+  let severity = null;
+  for (const p of MOD_OFF_PLATFORM_REGEXES) {
+    const m = s.match(p.re);
+    if (m) {
+      patterns.push({type: "regex", name: p.name, match: m[0].slice(0, 80)});
+      types.add(p.name);
+      if (p.severity === "HARD") severity = "HARD";
+      else if (!severity) severity = "SOFT";
+    }
+  }
+  for (const kw of MOD_OFF_PLATFORM_KEYWORDS_HARD) {
+    if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(lc)) {
+      patterns.push({type: "keyword", name: kw, severity: "HARD"});
+      types.add("kw:" + kw);
+      severity = "HARD";
+    }
+  }
+  if (severity !== "HARD") {
+    for (const kw of MOD_OFF_PLATFORM_KEYWORDS_SOFT) {
+      if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(lc)) {
+        patterns.push({type: "keyword", name: kw, severity: "SOFT"});
+        types.add("kw:" + kw);
+        if (!severity) severity = "SOFT";
+      }
+    }
+  }
+  return {
+    matched: patterns.length > 0,
+    severity,
+    types: Array.from(types),
+    patterns: patterns.slice(0, 12),
+  };
+}
+
+exports.moderateMessage = onDocumentCreated(
+  {
+    document: "conversations/{cid}/messages/{messageId}",
+    ...LIGHT_TRIGGER,
+    secrets: [geminiSecret],
+  },
+  async (event) => {
+    try {
+      const msg = event.data && event.data.data();
+      if (!msg) return;
+      const text = msg.text || "";
+      if (!text) return;
+
+      // TODO: enable Gemini classifier in v2 for ambiguous SOFT-only
+      // messages. v1 is deterministic regex + keyword only.
+      const det = modDetectOffPlatform(text);
+      if (!det.matched) return;
+
+      const db = admin.firestore();
+      const cid = event.params.cid;
+      const messageId = event.params.messageId;
+      const senderId = msg.senderId || msg.fromUid || null;
+
+      // Resolve the recipient from the parent conversation's participants.
+      let recipientId = null;
+      let listingId = msg.listingId || null;
+      try {
+        const convSnap = await db.collection("conversations").doc(cid).get();
+        if (convSnap.exists) {
+          const conv = convSnap.data() || {};
+          listingId = listingId || conv.listingId || null;
+          const parts = Array.isArray(conv.participants) ? conv.participants : [];
+          recipientId = parts.find((u) => u && u !== senderId) || null;
+        }
+      } catch (e) {
+        logger.warn("moderateMessage: conv lookup failed", e);
+      }
+
+      const FieldValue = admin.firestore.FieldValue;
+      const flagDoc = {
+        messageId,
+        conversationId: cid,
+        listingId,
+        senderId,
+        recipientId,
+        severity: det.severity,
+        types: det.types,
+        patterns: det.patterns,
+        textPreview: text.slice(0, 240),
+        createdAt: FieldValue.serverTimestamp(),
+      };
+
+      // Best-effort fan-out: flag doc first (the audit trail), then the
+      // counters and the message-doc patch. Each await is isolated so one
+      // missing/locked doc can't bury the others.
+      try {
+        await db.collection("messageFlags").doc(messageId).set(flagDoc);
+      } catch (e) {
+        logger.warn("moderateMessage: messageFlags write failed", e);
+      }
+
+      try {
+        await db.collection("conversations").doc(cid).set({
+          flaggedMessageCount: FieldValue.increment(1),
+          lastFlaggedAt: FieldValue.serverTimestamp(),
+        }, {merge: true});
+      } catch (e) {
+        logger.warn("moderateMessage: conv counter failed", e);
+      }
+
+      if (senderId) {
+        const senderInc = det.severity === "HARD" ?
+          {offPlatformFlags: FieldValue.increment(1)} :
+          {offPlatformSoftFlags: FieldValue.increment(1)};
+        try {
+          await db.collection("users").doc(senderId).set(senderInc, {merge: true});
+        } catch (e) {
+          logger.warn("moderateMessage: sender counter failed", e);
+        }
+      }
+      if (recipientId) {
+        // Recipient always gets a soft increment so the system tracks
+        // both ends of every flagged exchange.
+        try {
+          await db.collection("users").doc(recipientId).set({
+            offPlatformSoftFlags: FieldValue.increment(1),
+          }, {merge: true});
+        } catch (e) {
+          logger.warn("moderateMessage: recipient counter failed", e);
+        }
+      }
+
+      // Patch the message doc so the existing onSnapshot listener picks
+      // up the flag and renders the interstitial on the recipient's UI.
+      try {
+        await event.data.ref.update({
+          flagged: {severity: det.severity, types: det.types},
+        });
+      } catch (e) {
+        logger.warn("moderateMessage: msg patch failed", e);
+      }
+
+      logger.info(
+          `moderateMessage: flagged ${messageId} severity=${det.severity} types=${det.types.join(",")}`,
+      );
+    } catch (err) {
+      logger.error("moderateMessage error", err);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// ADMIN MODERATION ACTIONS — banUser / suspendUser /
+//   takeDownListing / onReportCreate.
+//
+//   adminGate() — single source of truth for who can call the
+//   privileged onCall functions. Keep ADMIN_EMAILS in sync with the
+//   front-end MODERATION_ADMIN_EMAILS list and the isAdmin() helper
+//   inside firestore.rules / storage.rules.
+//
+//   Every admin action writes to adminActions/{auto} with admin uid,
+//   email, target ref, reason, and a serverTimestamp — the runbook
+//   relies on this audit log for "who removed listing X" forensics.
+// ─────────────────────────────────────────────────────────────
+const ADMIN_MOD_EMAILS = new Set(["jakenair23@gmail.com"]);
+
+function adminGate(req) {
+  if (!req.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required");
+  }
+  const email = (req.auth.token && req.auth.token.email) || "";
+  const verified = !!(req.auth.token && req.auth.token.email_verified);
+  if (!verified || !ADMIN_MOD_EMAILS.has(String(email).toLowerCase())) {
+    throw new HttpsError("permission-denied", "Admin only");
+  }
+}
+
+async function logAdminAction(req, action, targetType, targetId, reason, metadata) {
+  try {
+    await admin.firestore().collection("adminActions").add({
+      adminUid: req.auth.uid,
+      adminEmail: req.auth.token && req.auth.token.email,
+      action,
+      targetType,
+      targetId,
+      reason: reason || "",
+      metadata: metadata || {},
+      performedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    logger.warn("logAdminAction failed", e);
+  }
+}
+
+exports.banUser = onCall({...USER_CALLABLE}, async (req) => {
+  adminGate(req);
+  const {uid, reason} = req.data || {};
+  if (!uid || typeof uid !== "string") {
+    throw new HttpsError("invalid-argument", "uid required");
+  }
+  const db = admin.firestore();
+  await db.doc(`users/${uid}`).set({
+    banned: true,
+    bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+    banReason: String(reason || "").slice(0, 500),
+  }, {merge: true});
+  // Revoke any active sessions so the user is signed out on next API call.
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+  } catch (e) {
+    logger.warn("banUser: revokeRefreshTokens failed", e);
+  }
+  // Pull all of their active listings off the marketplace.
+  const ls = await db.collection("listings")
+      .where("sellerId", "==", uid)
+      .where("status", "==", "active").get();
+  if (!ls.empty) {
+    const batch = db.batch();
+    ls.forEach((d) => batch.update(d.ref, {
+      status: "removed",
+      removedAt: admin.firestore.FieldValue.serverTimestamp(),
+      removedReason: "admin_ban",
+    }));
+    await batch.commit();
+  }
+  await logAdminAction(req, "ban_user", "user", uid, reason, {listingsRemoved: ls.size});
+  return {ok: true, listingsRemoved: ls.size};
+});
+
+exports.suspendUser = onCall({...USER_CALLABLE}, async (req) => {
+  adminGate(req);
+  const {uid, hours, reason} = req.data || {};
+  if (!uid || typeof uid !== "string") {
+    throw new HttpsError("invalid-argument", "uid required");
+  }
+  const h = Number(hours);
+  if (!Number.isFinite(h) || h <= 0 || h > 24 * 365) {
+    throw new HttpsError("invalid-argument", "hours must be 1..8760");
+  }
+  const until = new Date(Date.now() + h * 3600 * 1000);
+  await admin.firestore().doc(`users/${uid}`).set({
+    suspended: true,
+    suspendedUntil: admin.firestore.Timestamp.fromDate(until),
+    suspendReason: String(reason || "").slice(0, 500),
+  }, {merge: true});
+  await logAdminAction(req, "suspend_user", "user", uid, reason, {hours: h});
+  return {ok: true, suspendedUntil: until.toISOString()};
+});
+
+exports.takeDownListing = onCall({...USER_CALLABLE}, async (req) => {
+  adminGate(req);
+  const {listingId, reason} = req.data || {};
+  if (!listingId || typeof listingId !== "string") {
+    throw new HttpsError("invalid-argument", "listingId required");
+  }
+  await admin.firestore().doc(`listings/${listingId}`).update({
+    status: "removed",
+    removedAt: admin.firestore.FieldValue.serverTimestamp(),
+    removedReason: String(reason || "admin_takedown").slice(0, 200),
+  });
+  await logAdminAction(req, "take_down_listing", "listing", listingId, reason);
+  return {ok: true};
+});
+
+// onReportCreate — bump users/{targetUid}.reportCount when an abuse
+// report comes in. Cheap aggregate that lets the admin queue surface
+// "this user has been reported N times" without a sub-query.
+exports.onReportCreate = onDocumentCreated(
+  {document: "reports/{reportId}", ...LIGHT_TRIGGER},
+  async (event) => {
+    try {
+      const r = event.data && event.data.data();
+      if (!r) return;
+      const targetUid = r.targetUid ||
+        (r.targetType === "user" ? r.targetId : null);
+      if (!targetUid) return;
+      await admin.firestore().doc(`users/${targetUid}`).set({
+        reportCount: admin.firestore.FieldValue.increment(1),
+        lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    } catch (err) {
+      logger.error("onReportCreate error", err);
+    }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -5011,3 +5360,352 @@ exports.backfillGlobalStats = onCall(
       return {totalGmvCents, totalSold, ordersScanned: totalSold};
     }
 );
+
+// ─────────────────────────────────────────────────────────────
+// sendMessage (onCall callable) — authoritative rate-limit + abuse
+// prevention middleware. Every in-app chat send goes through this;
+// the client no longer calls addDoc directly on the messages
+// subcollection. The four rules enforced:
+//   1. New accounts (createdAt within newAccountWindowHours): cap of
+//      newAccountMessageLimit sends. Reject with rate_limited_new_account.
+//   2. Any account: max breadthRecipientLimit DISTINCT recipients per
+//      breadthWindowHours. Reject with rate_limited_breadth.
+//   3. Identical message text to >= duplicateRecipientThreshold
+//      distinct recipients within duplicateWindowHours: hold (not
+//      delivered, queued in messageHolds/{id} for moderator review).
+//   4. PII-flagged messages (clientFlag.severity === 'HARD'): max
+//      piiPerRecipientLimit per recipient per piiPerRecipientWindowHours.
+//      First PII msg is delivered normally (existing interstitial
+//      handles UX); subsequent PII msg to the SAME recipient inside
+//      the window is held.
+//
+// Limits live in Firestore at `config/messaging` so we can tune them
+// without redeploying. Read is cached in-memory for 60s per instance
+// to avoid hot-doc reads under fan-out.
+//
+// Pruning strategy: IN-LINE on each call (we filter stale entries out
+// of the user-doc maps before counting). This trades a slightly larger
+// user-doc payload for skipping a daily collection-group scan, which
+// the prompt explicitly calls out as the cheap option.
+// ─────────────────────────────────────────────────────────────
+const MESSAGING_CONFIG_DEFAULTS = {
+  newAccountWindowHours: 24,
+  newAccountMessageLimit: 10,
+  breadthWindowHours: 1,
+  breadthRecipientLimit: 20,
+  duplicateWindowHours: 1,
+  duplicateRecipientThreshold: 3,
+  piiPerRecipientWindowHours: 24,
+  piiPerRecipientLimit: 1,
+  enabled: true,
+};
+
+// Per-instance cache. Cloud Functions v2 keeps warm instances around
+// across invocations, so this stays populated between calls in a way
+// that costs us 0 reads beyond the first per 60s window.
+let CONFIG_CACHE = {data: null, fetchedAt: 0};
+const CONFIG_TTL_MS = 60 * 1000;
+
+async function loadMessagingConfig() {
+  const now = Date.now();
+  if (CONFIG_CACHE.data && (now - CONFIG_CACHE.fetchedAt) < CONFIG_TTL_MS) {
+    return CONFIG_CACHE.data;
+  }
+  const db = admin.firestore();
+  const ref = db.collection("config").doc("messaging");
+  try {
+    const snap = await ref.get();
+    if (!snap.exists) {
+      // First read after deploy — seed defaults so admins can tune
+      // from the Firebase console immediately.
+      try {
+        await ref.set(MESSAGING_CONFIG_DEFAULTS, {merge: false});
+      } catch (e) {
+        logger.warn("loadMessagingConfig: seed failed", e);
+      }
+      CONFIG_CACHE = {data: {...MESSAGING_CONFIG_DEFAULTS}, fetchedAt: now};
+      return CONFIG_CACHE.data;
+    }
+    const data = {...MESSAGING_CONFIG_DEFAULTS, ...(snap.data() || {})};
+    CONFIG_CACHE = {data, fetchedAt: now};
+    return data;
+  } catch (err) {
+    logger.error("loadMessagingConfig: read failed, using defaults", err);
+    // Fail open with defaults — we'd rather rate-limit at the default
+    // numbers than block every send if the config doc is briefly
+    // unreachable.
+    return {...MESSAGING_CONFIG_DEFAULTS};
+  }
+}
+
+function hashMessageContent(text) {
+  const norm = String(text || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return require("crypto").createHash("sha256").update(norm).digest("hex");
+}
+
+function tsToMillis(v) {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (v.toMillis) return v.toMillis();
+  if (v._seconds) return v._seconds * 1000 + Math.floor((v._nanoseconds || 0) / 1e6);
+  if (v instanceof Date) return v.getTime();
+  return 0;
+}
+
+exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to send messages.");
+  }
+  const senderId = request.auth.uid;
+  const data = request.data || {};
+  const conversationId = String(data.conversationId || "").slice(0, 200);
+  const recipientId = String(data.recipientId || "").slice(0, 200);
+  const text = String(data.text || "");
+  const clientFlag = data.clientFlag && typeof data.clientFlag === "object" ?
+    data.clientFlag : null;
+
+  if (!conversationId || !recipientId || !text.trim()) {
+    throw new HttpsError("invalid-argument", "Missing conversationId, recipientId, or text.");
+  }
+  if (text.length > 2000) {
+    throw new HttpsError("invalid-argument", "Message too long (max 2000 chars).");
+  }
+  if (recipientId === senderId) {
+    throw new HttpsError("invalid-argument", "Cannot message yourself.");
+  }
+
+  const config = await loadMessagingConfig();
+  if (config.enabled === false) {
+    // Kill-switch: if an admin flips `enabled` to false we skip ALL
+    // rate-limit checks but still verify conversation membership and
+    // write the message via the Admin SDK.
+  }
+
+  const db = admin.firestore();
+  const FieldValue = admin.firestore.FieldValue;
+  const now = Date.now();
+  const nowTs = admin.firestore.Timestamp.now();
+
+  // Verify the conversation exists and the sender is a participant.
+  // Fail closed — the rules already enforce this on the client path,
+  // but since we write via Admin SDK we MUST re-check here.
+  const convRef = db.collection("conversations").doc(conversationId);
+  const convSnap = await convRef.get();
+  if (!convSnap.exists) {
+    throw new HttpsError("not-found", "Conversation does not exist.");
+  }
+  const conv = convSnap.data() || {};
+  const participants = Array.isArray(conv.participants) ? conv.participants : [];
+  if (!participants.includes(senderId)) {
+    throw new HttpsError("permission-denied", "Not a participant of this conversation.");
+  }
+  if (!participants.includes(recipientId)) {
+    throw new HttpsError("invalid-argument", "recipientId is not a participant.");
+  }
+
+  // Block check — same semantics as firestore.rules notBlockedByRecipient().
+  try {
+    const rUserSnap = await db.collection("users").doc(recipientId).get();
+    if (rUserSnap.exists) {
+      const blocked = (rUserSnap.data() || {}).blocked || {};
+      if (blocked && Object.prototype.hasOwnProperty.call(blocked, senderId)) {
+        throw new HttpsError("permission-denied", "Recipient has blocked you.");
+      }
+    }
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    logger.warn("sendMessage: block check failed (continuing)", e);
+  }
+
+  // Load sender user doc up-front; all four rules read it.
+  const senderRef = db.collection("users").doc(senderId);
+  const senderSnap = await senderRef.get();
+  const sender = senderSnap.exists ? (senderSnap.data() || {}) : {};
+
+  // ──── Rule 1: new-account send cap ────
+  if (config.enabled !== false) {
+    const createdAtMs = tsToMillis(sender.createdAt);
+    const newAccountWindowMs = config.newAccountWindowHours * 3600 * 1000;
+    if (createdAtMs > 0 && (now - createdAtMs) < newAccountWindowMs) {
+      // In-line decay: if lastDecayAt is older than the window, reset
+      // the counter before checking. Otherwise the user would be
+      // limited forever after their first 10 sends.
+      const lastDecayAtMs = tsToMillis(sender.lastDecayAt);
+      let counter = Number(sender.messagesSent24h) || 0;
+      if (lastDecayAtMs > 0 && (now - lastDecayAtMs) >= newAccountWindowMs) {
+        counter = 0;
+      }
+      if (counter >= config.newAccountMessageLimit) {
+        throw new HttpsError(
+            "resource-exhausted",
+            "New accounts can send a limited number of messages in their first 24 hours.",
+            {ruleId: "rate_limited_new_account"},
+        );
+      }
+    }
+  }
+
+  // ──── Rule 2: breadth cap (distinct recipients/hour) ────
+  const breadthWindowMs = config.breadthWindowHours * 3600 * 1000;
+  const recentRecipients = (sender.recentRecipients && typeof sender.recentRecipients === "object") ?
+    sender.recentRecipients : {};
+  // In-line prune: only count entries inside the window.
+  const freshRecipients = {};
+  for (const [rid, ts] of Object.entries(recentRecipients)) {
+    const ms = tsToMillis(ts);
+    if (ms > 0 && (now - ms) < breadthWindowMs) {
+      freshRecipients[rid] = ts;
+    }
+  }
+  if (config.enabled !== false) {
+    const distinctCount = Object.keys(freshRecipients).length;
+    const alreadyMessaged = Object.prototype.hasOwnProperty.call(freshRecipients, recipientId);
+    // Only NEW recipients tick the count past the limit.
+    if (!alreadyMessaged && distinctCount >= config.breadthRecipientLimit) {
+      throw new HttpsError(
+          "resource-exhausted",
+          "You're messaging too many different people too quickly.",
+          {ruleId: "rate_limited_breadth"},
+      );
+    }
+  }
+
+  // ──── Rule 3: duplicate-spam-pattern hold ────
+  const hash = hashMessageContent(text);
+  const duplicateWindowMs = config.duplicateWindowHours * 3600 * 1000;
+  const contentHashes = (sender.contentHashes && typeof sender.contentHashes === "object") ?
+    sender.contentHashes : {};
+  const existingHash = contentHashes[hash] || null;
+  let firstSentAtMs = 0;
+  let priorRecipients = [];
+  if (existingHash) {
+    firstSentAtMs = tsToMillis(existingHash.firstSentAt);
+    if (firstSentAtMs > 0 && (now - firstSentAtMs) < duplicateWindowMs) {
+      priorRecipients = Array.isArray(existingHash.recipients) ? existingHash.recipients : [];
+    } else {
+      // Stale entry; treat as fresh for this send.
+      firstSentAtMs = 0;
+      priorRecipients = [];
+    }
+  }
+  const newRecipient = !priorRecipients.includes(recipientId);
+  const wouldBeCount = priorRecipients.length + (newRecipient ? 1 : 0);
+  let heldByRule3 = false;
+  if (
+    config.enabled !== false &&
+    newRecipient &&
+    wouldBeCount >= config.duplicateRecipientThreshold
+  ) {
+    heldByRule3 = true;
+  }
+
+  // ──── Rule 4: PII-per-recipient cap ────
+  const piiWindowMs = config.piiPerRecipientWindowHours * 3600 * 1000;
+  const isHardPii = !!(clientFlag && clientFlag.severity === "HARD");
+  const piiSentTo = (sender.piiSentTo && typeof sender.piiSentTo === "object") ?
+    sender.piiSentTo : {};
+  let heldByRule4 = false;
+  if (config.enabled !== false && isHardPii) {
+    const lastPiiAtMs = tsToMillis(piiSentTo[recipientId]);
+    if (lastPiiAtMs > 0 && (now - lastPiiAtMs) < piiWindowMs) {
+      // Already sent piiPerRecipientLimit (default 1) PII msg in the
+      // window — subsequent ones get held.
+      heldByRule4 = true;
+    }
+  }
+
+  // ──── Hold path: write messageHolds/{id}, skip the convo write. ────
+  if (heldByRule3 || heldByRule4) {
+    const reason = heldByRule3 ? "duplicate_spam_pattern" : "pii_repeated_recipient";
+    const holdRef = db.collection("messageHolds").doc();
+    try {
+      await holdRef.set({
+        sender: senderId,
+        recipient: recipientId,
+        conversationId,
+        text,
+        reason,
+        hash: heldByRule3 ? hash : null,
+        clientFlag: clientFlag || null,
+        createdAt: FieldValue.serverTimestamp(),
+        status: "pending",
+      });
+    } catch (e) {
+      logger.error("sendMessage: messageHolds write failed", e);
+      throw new HttpsError("internal", "Could not queue message for review.");
+    }
+    // Don't bump counters on a held message — the user shouldn't be
+    // penalized further for one that won't reach the recipient.
+    return {ok: false, held: true, reason};
+  }
+
+  // ──── Deliver: Admin-SDK write into conversations/{cid}/messages ────
+  const messagePayload = {
+    senderId,
+    text,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+  if (clientFlag) messagePayload.clientFlag = clientFlag;
+  const msgRef = convRef.collection("messages").doc();
+  try {
+    await msgRef.set(messagePayload);
+  } catch (e) {
+    logger.error("sendMessage: message write failed", e);
+    throw new HttpsError("internal", "Could not send message.");
+  }
+
+  // Bump the conversation's last-message fields (the client used to
+  // do this; we own it now so the inbox sort and unread badge stay
+  // accurate).
+  try {
+    await convRef.set({
+      lastMessageAt: FieldValue.serverTimestamp(),
+      lastMessageText: text.slice(0, 100),
+      lastMessageSenderId: senderId,
+      lastRead: {[senderId]: FieldValue.serverTimestamp()},
+    }, {merge: true});
+  } catch (e) {
+    logger.warn("sendMessage: conv lastMessage bump failed", e);
+  }
+
+  // ──── Update sender counters / maps. Single set() with merge so
+  // every field lands atomically and we don't pay multiple writes.
+  const senderUpdate = {
+    messagesSent24h: FieldValue.increment(1),
+    lastDecayAt: sender.lastDecayAt || nowTs,
+    [`recentRecipients.${recipientId}`]: nowTs,
+  };
+  // Reset lastDecayAt if we crossed the window — keeps the counter
+  // honest under the in-line decay strategy.
+  const lastDecayAtMs = tsToMillis(sender.lastDecayAt);
+  const newAccountWindowMs = config.newAccountWindowHours * 3600 * 1000;
+  if (!lastDecayAtMs || (now - lastDecayAtMs) >= newAccountWindowMs) {
+    senderUpdate.messagesSent24h = 1;
+    senderUpdate.lastDecayAt = nowTs;
+  }
+
+  // contentHashes: append recipient to the hash bucket (or seed a
+  // fresh bucket if the previous one had aged out).
+  const updatedRecipients = priorRecipients.includes(recipientId) ?
+    priorRecipients : priorRecipients.concat([recipientId]);
+  senderUpdate[`contentHashes.${hash}`] = {
+    recipients: updatedRecipients,
+    firstSentAt: firstSentAtMs > 0 ?
+      admin.firestore.Timestamp.fromMillis(firstSentAtMs) : nowTs,
+  };
+
+  if (isHardPii) {
+    senderUpdate[`piiSentTo.${recipientId}`] = nowTs;
+  }
+
+  try {
+    await senderRef.set(senderUpdate, {merge: true});
+  } catch (e) {
+    // Counters are best-effort — the message already shipped. Log loudly
+    // so we can see if a sender starts evading rate limits because their
+    // user doc keeps failing to write.
+    logger.error("sendMessage: counter update failed", e);
+  }
+
+  return {ok: true, messageId: msgRef.id};
+});

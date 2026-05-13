@@ -841,6 +841,24 @@
   .toast.success { background: var(--green-600) !important; }
   .toast.success::before { content: '✓ '; font-weight: 800; }
 
+  /* Off-platform interstitial — sits above flagged inbound chat bubbles.
+     Bubble alignment is preserved via .msg-wrap (flex column, aligns to
+     theirs/mine the same way the bare .msg used to). */
+  .msg-wrap { display: flex; flex-direction: column; max-width: 100%; }
+  .msg-wrap.msg-theirs-wrap { align-self: flex-start; align-items: flex-start; }
+  .msg-wrap.msg-mine-wrap { align-self: flex-end; align-items: flex-end; }
+  .msg-interstitial { background:#fff8e6; border:1px solid #e8c97a; border-radius:12px;
+    padding:12px 14px; margin:6px 0; font-size:13px; color:#3a2f12; max-width:78%;
+    align-self:flex-start; }
+  .msg-interstitial-head { display:flex; align-items:center; gap:6px; margin-bottom:4px;
+    font-weight:700; color:#5a4310; }
+  .msg-interstitial-body { margin:0 0 8px 0; line-height:1.4 }
+  .msg-interstitial-actions { display:flex; gap:8px; flex-wrap:wrap }
+  .msg-interstitial-actions .btn-ghost { border:1px solid #c5a253; background:transparent;
+    color:#5a4310; padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer }
+  .msg-interstitial-actions .btn-warn { color:#8a2222; border-color:#cf8b8b }
+  .msg-wrap.msg-hidden .msg { display:none }
+
   /* Cohesive focus glow across all inputs/textareas */
   input:focus, textarea:focus, select:focus { box-shadow: 0 0 0 3px rgba(45,90,39,0.12); }
 
@@ -2054,6 +2072,22 @@
   .chat-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: var(--transition); }
   .chat-close:hover { background: rgba(255,255,255,0.2); }
   .chat-warning { background: #fef9e7; color: #856404; font-size: 12px; padding: 10px 16px; border-bottom: 1px solid #f0e5c0; flex-shrink: 0; }
+  /* Pinned listing context card — keeps the deal visible while negotiating.
+     Sits between the chat-warning strip and the chat-body so it survives
+     every renderMessages innerHTML wipe (renderMessages only touches
+     #chatBody). Click jumps back into the listing detail modal. */
+  .chat-listing-card { display: none; align-items: center; gap: 12px; padding: 10px 14px; background: var(--white); border-bottom: 1px solid var(--gray-200); cursor: pointer; flex-shrink: 0; transition: var(--transition); text-align: left; width: 100%; border-left: 0; border-right: 0; border-top: 0; font-family: inherit; }
+  .chat-listing-card.show { display: flex; }
+  .chat-listing-card:hover { background: var(--gray-50); }
+  .chat-listing-card-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--gray-100); }
+  .chat-listing-card-thumb.placeholder { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--green-700); background: var(--green-50); }
+  .chat-listing-card-body { flex: 1; min-width: 0; }
+  .chat-listing-card-title { font-weight: 600; font-size: 13px; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-listing-card-sub { font-size: 11px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .chat-listing-card-price { font-family: var(--font-display); font-weight: 700; color: var(--green-700); font-size: 14px; flex-shrink: 0; padding-left: 8px; }
+  .chat-listing-card-status { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+  .chat-listing-card-status.sold { background: var(--gray-200); color: var(--gray-700); }
+  .chat-listing-card-status.pending { background: #fff3cd; color: #856404; }
   .chat-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; background: var(--gray-50); }
   .chat-empty { text-align: center; color: var(--gray-500); font-size: 13px; padding: 2rem 1rem; margin: auto; }
   .msg { max-width: 75%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
@@ -2543,6 +2577,72 @@
     return null;
   };
 
+  // ─── Off-platform / PII detection for chat messages ───
+  // Two-tier detector: HARD severity (phone/email/payment-app keywords)
+  // triggers a confirm() before send + an interstitial above inbound
+  // messages. SOFT severity (social handles, "meet up") is logged but
+  // doesn't block UX. Server re-scans authoritatively in moderateMessage.
+  window.OFF_PLATFORM_REGEXES = [
+    { name:'phone_us',  severity:'HARD',
+      re:/(?:\+?1[\s.\-])?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}/ },
+    { name:'email',     severity:'HARD',
+      re:/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/ },
+    { name:'messaging_url', severity:'HARD',
+      re:/\b(?:wa\.me|t\.me|signal\.me|m\.me|bit\.ly|tinyurl\.com)\/\S+/i },
+    { name:'external_marketplace', severity:'HARD',
+      re:/\b(?:ebay|mercari|grailed|golfwrx|facebook ?marketplace|fb ?marketplace|craigslist|offerup|poshmark|depop)\b/i },
+    { name:'cashtag',   severity:'HARD',
+      re:/(?:^|\s)\$[a-zA-Z][a-zA-Z0-9_]{2,15}\b/ },
+  ];
+  window.OFF_PLATFORM_KEYWORDS_HARD = [
+    'venmo','zelle','cashapp','cash app','paypal','apple pay','google pay','gpay',
+    'wire transfer','western union','moneygram','chime',
+    'btc','bitcoin','ethereum','usdc','crypto',
+    'f&f','friends and family','f and f','no g&s','no goods and services',
+    'text me at','call me at','signal me',
+    'whatsapp','telegram','wa.me','t.me',
+    'outside teebox','outside the app','off the app','off platform','off-platform',
+    'save the fee','save fees','skip the fee','cut the fee','no fees',
+    'avoid the fee','direct deal','skip the platform','pay outside','cash only',
+    'dm me directly','take this off teebox','take this off the app',
+  ];
+  window.OFF_PLATFORM_KEYWORDS_SOFT = [
+    'instagram','ig:','insta:','discord',
+    'meet in person','meet up','come pick up','local pickup',
+  ];
+
+  window.detectOffPlatform = function(text){
+    if (!text) return { matched:false, severity:null, patterns:[] };
+    const s = String(text);
+    const lc = s.toLowerCase();
+    const patterns = [];
+    let severity = null;
+    for (const p of window.OFF_PLATFORM_REGEXES){
+      const m = s.match(p.re);
+      if (m){
+        patterns.push({ type:'regex', name:p.name, match:m[0].slice(0,80) });
+        if (p.severity === 'HARD') severity = 'HARD';
+        else if (!severity) severity = 'SOFT';
+      }
+    }
+    const escape = (k) => k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    for (const kw of window.OFF_PLATFORM_KEYWORDS_HARD){
+      if (new RegExp('\\b' + escape(kw) + '\\b','i').test(lc)){
+        patterns.push({ type:'keyword', name:kw, severity:'HARD' });
+        severity = 'HARD';
+      }
+    }
+    if (severity !== 'HARD'){
+      for (const kw of window.OFF_PLATFORM_KEYWORDS_SOFT){
+        if (new RegExp('\\b' + escape(kw) + '\\b','i').test(lc)){
+          patterns.push({ type:'keyword', name:kw, severity:'SOFT' });
+          if (!severity) severity = 'SOFT';
+        }
+      }
+    }
+    return { matched: patterns.length > 0, severity, patterns };
+  };
+
   // ─── Inline SVG icon library (no external font / no emojis) ───
   // Each value is a complete <svg> string sized via the .ico CSS class.
   // Using innerHTML with these is safe — they contain no user data.
@@ -2869,6 +2969,91 @@
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
         <button class="btn-full green" data-action="confirm-report-review">Submit Report</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT MODAL (shared — listings, users, messages) -->
+<div class="modal-backdrop info-backdrop" id="reportBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Report</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p class="info-meta">Thanks for keeping TeeBox safe. We'll review within 48 hours.</p>
+      <div style="margin:0.75rem 0">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Reason</label>
+        <select id="reportReason" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px">
+          <option value="counterfeit">Counterfeit / fake item</option>
+          <option value="off_platform">Trying to move deal off TeeBox</option>
+          <option value="inappropriate_content">Inappropriate content</option>
+          <option value="scam">Scam / fraud</option>
+          <option value="harassment">Harassment</option>
+          <option value="stolen_goods">Stolen goods</option>
+          <option value="wrong_category">Wrong category</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div id="reportDetailsRow" style="margin:0.75rem 0;display:none">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Details <span id="reportDetailsRequired" style="color:#b04428;display:none">(required)</span></label>
+        <textarea id="reportDetails" rows="3" maxlength="500" placeholder="Tell us a little more…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px;resize:vertical"></textarea>
+      </div>
+      <div class="profile-actions">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full green" data-action="confirm-report" id="confirmReportBtn">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────
+     PUSH NOTIFICATIONS — pre-permission modal + preferences screen
+     Pre-permission modal explains the value BEFORE we trigger the
+     iOS system dialog (which can only be shown once). If the user
+     says "Not now" we record it and skip the OS prompt — letting us
+     ask again in a different context later.
+     ───────────────────────────────────────────────────────── -->
+<div class="modal-backdrop info-backdrop" id="pushPrePromptBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title" id="pushPrePromptTitle">Stay in the loop</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p id="pushPrePromptBody" style="margin:0 0 16px;color:var(--gray-700);line-height:1.5;">
+        Turn on notifications so you don't miss what matters.
+      </p>
+      <div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-full ghost" data-action="push-prompt-decline">Not now</button>
+        <button class="btn-full green" data-action="push-prompt-accept">Turn on</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Push notification PREFERENCES modal (Account hub → Notifications). -->
+<div class="modal-backdrop info-backdrop" id="pushPrefsBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">Notifications</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="pushPrefsBody">
+      <div class="profile-loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- BLOCKED USERS MODAL -->
+<div class="modal-backdrop info-backdrop" id="blockedUsersBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Blocked users</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="blockedUsersBody">
+      <div class="profile-loading">Loading…</div>
     </div>
   </div>
 </div>
@@ -3329,6 +3514,18 @@
     <div class="chat-warning">
       <span data-ico="lock" aria-hidden="true"></span> Keep deals on TeeBox — off-platform purchases aren't protected by our buyer-protection program.
     </div>
+    <!-- Pinned listing context card. Populated on chat open by openChatUI()
+         from currentChat.listing. Sits OUTSIDE #chatBody so it survives
+         every renderMessages innerHTML wipe. Clicking jumps back to the
+         listing detail modal so either party can re-check the spec / price. -->
+    <button type="button" class="chat-listing-card" id="chatListingCard" data-action="chat-open-listing" aria-label="View listing">
+      <div class="chat-listing-card-thumb placeholder" id="chatListingCardThumb" aria-hidden="true"></div>
+      <div class="chat-listing-card-body">
+        <div class="chat-listing-card-title" id="chatListingCardTitle">Listing</div>
+        <div class="chat-listing-card-sub" id="chatListingCardSub"></div>
+      </div>
+      <div class="chat-listing-card-price" id="chatListingCardPrice"></div>
+    </button>
     <div class="chat-body" id="chatBody">
       <div class="chat-empty">Loading messages…</div>
     </div>
@@ -3813,9 +4010,10 @@
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
           <div class="detail-secondary-row">
             <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
-            <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="detail-make-offer">Make Offer</button>
+            <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="detail-make-offer" data-feature="offers">Make Offer</button>
           </div>
           <button class="btn-message-seller-link" data-action="detail-message-seller">Have a question? Message the seller</button>
+          <button class="btn-link-muted" data-action="report-listing" aria-label="Report this listing" style="background:none;border:0;color:var(--gray-500);font-size:12px;text-decoration:underline;padding:4px;cursor:pointer;">Report this listing</button>
         </div>
       </div>
       <!-- "More like this" — populated by openDetailModal. Hidden when no
@@ -4660,6 +4858,10 @@ window.confirmPayment = async function() {
       if (window.GUEST_MODE !== true && window.GUEST_MODE !== false) {
         window.GUEST_MODE = true;
       }
+      // Reset blocked-users set on sign-out so a guest sees the full
+      // marketplace (and a different account in the same tab gets a
+      // clean slate before its own hydrate fires).
+      window.MY_BLOCKED_UIDS = new Set();
       const _authScreen = document.getElementById('authScreen');
       if (_authScreen) {
         _authScreen.classList.remove('fading-out');
@@ -5583,6 +5785,12 @@ window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, ma
 function applyFilters(list) {
   const f = window.__filter;
   let out = list.slice();
+  // Hide blocked sellers' listings from the buyer's view. The Set is
+  // hydrated by hydrateBlockedUsers() on auth state change.
+  const blocked = (window.CURRENT_USER && window.MY_BLOCKED_UIDS) || null;
+  if (blocked && blocked.size) {
+    out = out.filter(p => !p.sellerId || !blocked.has(p.sellerId));
+  }
   if (f.cat && f.cat !== 'all') out = out.filter(p => p.cat === f.cat);
   if (f.brand) {
     const wanted = String(f.brand).trim().toLowerCase();
@@ -6732,13 +6940,89 @@ function openChatUI() {
   document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
   document.getElementById('chatInput').value = '';
   document.getElementById('chatBody').innerHTML = '<div class="chat-empty">Loading messages…</div>';
+  // Pinned listing context card — populate from currentChat.listing.
+  // Falls back to the conversation's denormalised listingTitle/listingCat
+  // if the full listing record didn't resolve (e.g. listing was deleted).
+  renderChatListingCard(currentChat.listing);
   document.getElementById('chatBackdrop').classList.add('open');
   setTimeout(() => document.getElementById('chatInput').focus(), 100);
+  // Begin presence heartbeat — server suppresses pushes for the
+  // recipient who's actively viewing this thread.
+  _startPresenceHeartbeat(currentChat.conversationId);
+  // Mark the conversation as read on open. openChatFromConversation does
+  // this already for the inbox-entry path, but openChat() (entered from
+  // a listing's "Message Seller") didn't — so the unread badge would
+  // stay lit on the buyer's side after they reply to the seller. This
+  // is best-effort: rule only allows updating lastRead/lastMessage*.
+  try {
+    if (currentChat && currentChat.conversationId && window.CURRENT_USER) {
+      (async () => {
+        try {
+          const { getFirestore, doc, updateDoc, serverTimestamp } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          const firestoreDb = getFirestore();
+          await updateDoc(doc(firestoreDb, 'conversations', currentChat.conversationId), {
+            [`lastRead.${window.CURRENT_USER.uid}`]: serverTimestamp(),
+          });
+        } catch (_e) { /* swallow — purely a badge nicety */ }
+      })();
+    }
+  } catch (_e) {}
+}
+
+// Render the listing context card in the chat header. Safe to call with a
+// partial listing object (we only require id+title+cat to render something
+// useful). Status pill is shown for sold/pending so a buyer pinging a
+// seller about a stale listing sees it immediately.
+function renderChatListingCard(listing) {
+  const card = document.getElementById('chatListingCard');
+  const thumb = document.getElementById('chatListingCardThumb');
+  const titleEl = document.getElementById('chatListingCardTitle');
+  const subEl = document.getElementById('chatListingCardSub');
+  const priceEl = document.getElementById('chatListingCardPrice');
+  if (!card || !thumb || !titleEl || !subEl || !priceEl) return;
+  if (!listing) { card.classList.remove('show'); return; }
+  const title = listing.title || 'Listing';
+  const brand = listing.brand || '';
+  const cond = listing.condition || '';
+  const cat = listing.cat || listing.listingCat || 'accessories';
+  const ask = Number(listing.ask || 0);
+  const status = listing.status || '';
+  titleEl.textContent = title;
+  // Sub line: "Brand · Condition" (drop empties so we don't render "· ·").
+  const subBits = [brand, cond].filter(Boolean);
+  let subText = subBits.join(' · ');
+  if (status === 'sold') subText = (subText ? subText + ' · ' : '') + 'SOLD';
+  else if (status === 'pending') subText = (subText ? subText + ' · ' : '') + 'Sale pending';
+  subEl.textContent = subText;
+  priceEl.textContent = ask > 0 ? ('$' + ask.toLocaleString()) : '';
+  // Thumb: prefer photos[0] (real listing); else fall back to category icon.
+  const photoUrl = listing.photos && listing.photos[0]
+    ? (window.safeImgUrl ? window.safeImgUrl(listing.photos[0]) : String(listing.photos[0]))
+    : '';
+  if (photoUrl) {
+    thumb.classList.remove('placeholder');
+    thumb.innerHTML = '';
+    thumb.style.backgroundImage = `url("${photoUrl.replace(/"/g, '%22')}")`;
+    thumb.style.backgroundSize = 'cover';
+    thumb.style.backgroundPosition = 'center';
+  } else {
+    thumb.classList.add('placeholder');
+    thumb.style.backgroundImage = '';
+    thumb.innerHTML = (window.CATEGORY_ICON ? window.CATEGORY_ICON(cat) : '');
+  }
+  card.classList.add('show');
 }
 
 function closeChat() {
   document.getElementById('chatBackdrop').classList.remove('open');
   if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+  // Clear presence so the server resumes sending pushes for this user.
+  _clearPresence();
+  // Reset the pinned listing card so it doesn't flash through the next
+  // openChat() call before the new listing has finished resolving.
+  const card = document.getElementById('chatListingCard');
+  if (card) card.classList.remove('show');
   currentChat = { conversationId: null, listing: null, otherUserId: null };
 }
 async function loadMessages() {
@@ -6777,12 +7061,32 @@ function renderMessages(messages) {
     return;
   }
   const myUid = window.CURRENT_USER.uid;
+  const attrEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   body.innerHTML = messages.map(m => {
     const mine = m.senderId === myUid;
     const cls = mine ? 'msg msg-mine' : 'msg msg-theirs';
     const safe = (m.text || '').replace(/[&<>"']/g, c =>
       ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-    return `<div class="${cls}">${safe}</div>`;
+    // Inbound message flagged HARD by the server-side moderateMessage
+    // trigger gets an interstitial; bubble is hidden until the user opts in.
+    // Other agents (report flow, etc.) event-delegate from #chatBody using
+    // the data-msg-id / data-sender-id attributes on .msg-wrap.
+    const showInterstitial = !mine && m.flagged && m.flagged.severity === 'HARD';
+    const wrapAlign = mine ? 'msg-mine-wrap' : 'msg-theirs-wrap';
+    const wrapCls = 'msg-wrap ' + wrapAlign + (showInterstitial ? ' msg-hidden' : '');
+    const midAttr = attrEsc(m.id);
+    const sidAttr = attrEsc(m.senderId);
+    const interstitial = showInterstitial ? `
+      <div class="msg-interstitial">
+        <div class="msg-interstitial-head">⚠ Heads up</div>
+        <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app forfeits buyer protection.</strong></p>
+        <div class="msg-interstitial-actions">
+          <button class="btn-ghost" onclick="this.closest('.msg-wrap').classList.remove('msg-hidden'); this.closest('.msg-interstitial').remove();">Show message anyway</button>
+          <button class="btn-ghost btn-warn" data-action="report-message" data-mid="${midAttr}" data-sender="${sidAttr}">Report this message</button>
+        </div>
+      </div>` : '';
+    return `<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div></div>`;
   }).join('');
   body.scrollTop = body.scrollHeight;
 }
@@ -6792,32 +7096,74 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text || !currentChat.conversationId) return;
 
+  // Off-platform detection: HARD severity (phone/email/payment app) prompts
+  // the sender to reconsider before the doc is written. Authoritative
+  // server-side re-scan happens in functions/index.js moderateMessage,
+  // which writes the `flagged` field that drives the inbound interstitial.
+  let clientFlag = null;
+  try {
+    if (typeof window.detectOffPlatform === 'function') {
+      const det = window.detectOffPlatform(text);
+      if (det && det.matched) {
+        if (det.severity === 'HARD') {
+          const ok = window.confirm("This message looks like it might be moving the deal off TeeBox. Paying outside the app forfeits buyer protection. Send anyway?");
+          if (!ok) return;
+        }
+        clientFlag = { severity: det.severity, patterns: (det.patterns || []).slice(0, 6) };
+      }
+    }
+  } catch (_e) { /* detector is best-effort; never block sending on its errors */ }
+
   const sendBtn = document.getElementById('chatSendBtn');
   sendBtn.disabled = true;
   try {
-    const { getFirestore, collection, addDoc, doc, updateDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const firestoreDb = getFirestore();
-    await addDoc(
-      collection(firestoreDb, 'conversations', currentChat.conversationId, 'messages'),
-      {
-        senderId: window.CURRENT_USER.uid,
-        text: text,
-        createdAt: serverTimestamp(),
-      }
-    );
-    // Bump conversation's lastMessageAt
-    await updateDoc(doc(firestoreDb, 'conversations', currentChat.conversationId), {
-      lastMessageAt: serverTimestamp(),
-      lastMessageText: text.slice(0, 100),
-      lastMessageSenderId: window.CURRENT_USER.uid,
-      [`lastRead.${window.CURRENT_USER.uid}`]: serverTimestamp(),
-    }); 
-    input.value = '';
-    // onSnapshot already streams the new message — no manual reload.
+    // Route through the server-side sendMessage callable — it enforces
+    // rate limits, duplicate-spam holds, and PII-per-recipient holds
+    // before Admin-SDK-writing the message into the conversation.
+    // The client no longer addDoc's directly; the server owns the
+    // conversation `lastMessageAt` bump too.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const sendFn = httpsCallable(fns, 'sendMessage');
+    const res = await sendFn({
+      conversationId: currentChat.conversationId,
+      recipientId: currentChat.otherUserId,
+      text: text,
+      clientFlag: clientFlag || null,
+    });
+    const out = (res && res.data) || {};
+    if (out.held) {
+      // Rule 3 / Rule 4 hold path — the message is in messageHolds for
+      // moderator review and was NOT written to the conversation.
+      showToast('Your message is pending review and will be sent once approved.');
+      input.value = '';
+    } else if (out.ok) {
+      input.value = '';
+      // onSnapshot already streams the new message — no manual reload.
+    } else {
+      showToast('Could not send message.');
+    }
   } catch (err) {
     console.error('Error sending message:', err);
-    showToast('Could not send message.');
+    // Map server-side rate-limit rejections to friendly toasts. The
+    // callable throws code='resource-exhausted' with details.ruleId
+    // identifying which rule fired; never expose internal counters.
+    const code = (err && err.code) || '';
+    const ruleId = (err && err.details && err.details.ruleId) || '';
+    if (code === 'functions/resource-exhausted' || code === 'resource-exhausted') {
+      if (ruleId === 'rate_limited_new_account') {
+        showToast('New accounts can only send a few messages in the first 24 hours. Try again later.');
+      } else if (ruleId === 'rate_limited_breadth') {
+        showToast("Slow down — you can message up to 20 different people an hour.");
+      } else {
+        showToast("You're sending messages too fast. Please wait a moment.");
+      }
+    } else if (code === 'functions/permission-denied' || code === 'permission-denied') {
+      showToast('You can no longer message this user.');
+    } else {
+      showToast('Could not send message.');
+    }
   } finally {
     sendBtn.disabled = false;
     input.focus();
@@ -6842,38 +7188,88 @@ function escapeInboxText(str) {
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+// Realtime global unread badge.
+//
+// Previously this polled getDocs() every 60s — fine for an idle inbox but
+// terrible during an active negotiation: the seller could be staring at
+// the tab and not see the buyer's reply for up to a minute. We now keep
+// a single onSnapshot listener on the user's 50 most-recent convs (same
+// window the polling version used) and recompute the unread count on
+// every snapshot. The open inbox piggy-backs on the same listener so
+// new messages bubble to the top of the list in realtime.
+//
+// Lifecycle: attached on auth ready, idempotent on repeat calls. The
+// load-time polling interval is gone — the listener is the source of
+// truth.
+let __unreadUnsub = null;
+let __unreadLastConvs = []; // last snapshot, reused to repaint the open inbox.
+
 async function refreshUnreadBadge() {
-  if (!window.CURRENT_USER) { updateUnreadBadge(0); return; }
+  // Back-compat shim — older code paths still call this. Attaching is
+  // idempotent so repeat calls are safe.
+  attachUnreadListener();
+}
+
+async function attachUnreadListener() {
+  if (!window.CURRENT_USER) {
+    if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
+    __unreadLastConvs = [];
+    updateUnreadBadge(0);
+    return;
+  }
+  if (__unreadUnsub) return; // already wired
   try {
-    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
+    const { getFirestore, collection, query, where, orderBy, limit, onSnapshot } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const firestoreDb = getFirestore();
-    // Only check the 50 most-recent conversations — we can't have unread
-    // messages sitting on a year-old conv that nobody is looking at, and
-    // the badge is a UX hint not an exact count.
     const q = query(
       collection(firestoreDb, 'conversations'),
       where('participants', 'array-contains', window.CURRENT_USER.uid),
       orderBy('lastMessageAt', 'desc'),
       limit(50)
     );
-    const snap = await getDocs(q);
-    const myUid = window.CURRENT_USER.uid;
-    let count = 0;
-    snap.docs.forEach(d => {
-      if (isConvUnread(d.data(), myUid)) count++;
+    __unreadUnsub = onSnapshot(q, (snap) => {
+      const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+      if (!myUid) { updateUnreadBadge(0); return; }
+      let count = 0;
+      const convs = [];
+      snap.docs.forEach(d => {
+        const data = { id: d.id, ...d.data() };
+        if (isConvUnread(data, myUid)) count++;
+        convs.push(data);
+      });
+      __unreadLastConvs = convs;
+      updateUnreadBadge(count);
+      // If the inbox is open, repaint it so the seller sees the buyer's
+      // reply bubble to the top of the list without re-opening the modal.
+      const inboxOpen = document.getElementById('inboxBackdrop');
+      if (inboxOpen && inboxOpen.classList.contains('open')) {
+        renderInbox(convs);
+      }
+    }, (err) => {
+      console.error('unread badge listener error:', err);
     });
-    updateUnreadBadge(count);
   } catch (err) {
-    console.error('Error refreshing unread badge:', err);
+    console.error('Error attaching unread listener:', err);
   }
 }
 
-// Refresh badge when user signs in and every 60 seconds
+function detachUnreadListener() {
+  if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
+  __unreadLastConvs = [];
+}
+
+// Bootstrap the listener once auth has had a chance to resolve. We re-try
+// for up to ~10s because Firebase auth init can lag the page load on
+// slow connections. Sign-in/sign-out elsewhere can re-call
+// attachUnreadListener() / detachUnreadListener() directly.
 window.addEventListener('load', () => {
-  const checkAndRefresh = () => { if (window.CURRENT_USER) refreshUnreadBadge(); };
-  setTimeout(checkAndRefresh, 2000);
-  setInterval(checkAndRefresh, 60000);
+  let tries = 0;
+  const tick = () => {
+    if (window.CURRENT_USER) { attachUnreadListener(); return; }
+    if (++tries < 5) setTimeout(tick, 2000);
+  };
+  setTimeout(tick, 1500);
 });
 async function openInbox() {
   // Defence in depth — surface the polished sign-in prompt for guests
@@ -6900,22 +7296,43 @@ function closeInbox() {
 
 async function loadInbox() {
   const body = document.getElementById('inboxBody');
-  body.innerHTML = '<div class="inbox-empty">Loading…</div>';
-  try {
-    const { getFirestore, collection, query, where, orderBy, getDocs, limit } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const firestoreDb = getFirestore();
-    const q = query(
-      collection(firestoreDb, 'conversations'),
-      where('participants', 'array-contains', window.CURRENT_USER.uid),
-      orderBy('lastMessageAt', 'desc'),
-      limit(100)
-    );
-    const snap = await getDocs(q);
-    renderInbox(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  } catch (err) {
-    console.error('Error loading inbox:', err);
-    body.innerHTML = '<div class="inbox-empty">Could not load messages.</div>';
+  // If the realtime unread listener already has a snapshot cached, render
+  // it instantly — saves a redundant getDocs() round-trip on every open.
+  if (__unreadLastConvs && __unreadLastConvs.length > 0) {
+    renderInbox(__unreadLastConvs);
+  } else {
+    body.innerHTML = '<div class="inbox-empty">Loading…</div>';
+  }
+  // Make sure the realtime listener is attached — this is what will keep
+  // the open inbox refreshed as new messages arrive (see
+  // attachUnreadListener: it calls renderInbox() on every snapshot
+  // whenever the inbox modal is open).
+  try { await attachUnreadListener(); } catch (_e) { /* swallow */ }
+  // One-shot fallback fetch — covers the cold-open case where the
+  // listener hasn't delivered its first snapshot yet (typically <500ms).
+  // After the listener fires, its snapshot takes over.
+  if (!__unreadLastConvs || __unreadLastConvs.length === 0) {
+    try {
+      const { getFirestore, collection, query, where, orderBy, getDocs, limit } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const firestoreDb = getFirestore();
+      const q = query(
+        collection(firestoreDb, 'conversations'),
+        where('participants', 'array-contains', window.CURRENT_USER.uid),
+        orderBy('lastMessageAt', 'desc'),
+        limit(100)
+      );
+      const snap = await getDocs(q);
+      // Don't clobber a snapshot the listener may have just delivered.
+      if (!__unreadLastConvs || __unreadLastConvs.length === 0) {
+        renderInbox(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    } catch (err) {
+      console.error('Error loading inbox:', err);
+      if (!__unreadLastConvs || __unreadLastConvs.length === 0) {
+        body.innerHTML = '<div class="inbox-empty">Could not load messages.</div>';
+      }
+    }
   }
 }
 
@@ -11445,7 +11862,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
          <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
          <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
        </div>`
-    : '';
+    : `<div class="profile-mod-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+         <button class="btn-full ghost" data-action="report-user" data-uid="${window.safeAttr(profile.id)}">Report seller</button>
+         <button class="btn-full ghost" data-action="block-user-from-profile" data-uid="${window.safeAttr(profile.id)}">Block</button>
+       </div>`;
 
   const accountHubHtml = isMe
     ? `<div class="profile-section profile-account-hub">
@@ -11469,6 +11889,14 @@ function renderProfileView(profile, listings, reviews, recentSold) {
            </button>
            <button class="account-hub-item" data-action="open-saved-searches" type="button">
              <span class="account-hub-label">Saved Searches</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-push-prefs" type="button">
+             <span class="account-hub-label">Notifications</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-blocked-users" type="button">
+             <span class="account-hub-label">Blocked users</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-about" type="button">
@@ -11686,6 +12114,230 @@ async function confirmReportReview() {
 }
 window.openReportReview = openReportReview;
 window.confirmReportReview = confirmReportReview;
+
+// ─────────────────────────────────────────────────────────────
+// SHARED REPORT DIALOG — listings, users, messages
+//   openReportDialog({targetType, targetId, targetUid, messageId, conversationId})
+//   submits to reports/{auto} with the extended schema (targetType,
+//   targetId, targetUid, reason, details, messageId?, conversationId?,
+//   reporterId, createdAt). Firestore rules validate.
+// ─────────────────────────────────────────────────────────────
+let __reportCtx = null;
+window.openReportDialog = function openReportDialog(target) {
+  if (!window.CURRENT_USER) { showToast('Sign in to report.'); return; }
+  __reportCtx = target || {};
+  const sel = document.getElementById('reportReason');
+  const detailsRow = document.getElementById('reportDetailsRow');
+  const detailsEl = document.getElementById('reportDetails');
+  const reqLbl = document.getElementById('reportDetailsRequired');
+  if (sel) sel.value = 'counterfeit';
+  if (detailsEl) detailsEl.value = '';
+  if (detailsRow) detailsRow.style.display = 'none';
+  if (reqLbl) reqLbl.style.display = 'none';
+  // Wire conditional textarea on change.
+  if (sel && !sel.__reportWired) {
+    sel.addEventListener('change', () => {
+      const v = sel.value;
+      const isOther = v === 'other';
+      if (detailsRow) detailsRow.style.display = (isOther || v === 'scam' || v === 'harassment') ? '' : 'none';
+      if (reqLbl) reqLbl.style.display = isOther ? '' : 'none';
+    });
+    sel.__reportWired = true;
+  }
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  document.getElementById('reportBackdrop').classList.add('open');
+};
+
+async function confirmReport() {
+  if (!window.CURRENT_USER || !__reportCtx) return;
+  const ctx = __reportCtx;
+  const reason = (document.getElementById('reportReason').value || 'other').slice(0, 60);
+  const details = String(document.getElementById('reportDetails').value || '').slice(0, 500);
+  if (reason === 'other' && !details.trim()) {
+    showToast('Please add details for "Other".');
+    return;
+  }
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const payload = {
+      reporterId: window.CURRENT_USER.uid,
+      targetType: ctx.targetType || 'user',
+      targetId: String(ctx.targetId || ''),
+      targetUid: String(ctx.targetUid || ctx.targetId || ''),
+      reason,
+      details,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    };
+    if (ctx.messageId) payload.messageId = String(ctx.messageId);
+    if (ctx.conversationId) payload.conversationId = String(ctx.conversationId);
+    await addDoc(collection(db, 'reports'), payload);
+    document.getElementById('reportBackdrop').classList.remove('open');
+    __reportCtx = null;
+    showToast("Thanks — we'll review this within 48 hours.");
+  } catch (e) {
+    console.error('confirmReport failed:', e);
+    showToast('Could not submit report.');
+  }
+}
+window.confirmReport = confirmReport;
+
+// ─────────────────────────────────────────────────────────────
+// BLOCK / UNBLOCK
+//   users/{uid}.blocked is a map: { [blockedUid]: { blockedAt } }.
+//   On auth state change we hydrate window.MY_BLOCKED_UIDS as a Set
+//   so buildProducts can client-filter blocked sellers' listings.
+// ─────────────────────────────────────────────────────────────
+window.MY_BLOCKED_UIDS = window.MY_BLOCKED_UIDS || new Set();
+
+async function hydrateBlockedUsers() {
+  if (!window.CURRENT_USER) { window.MY_BLOCKED_UIDS = new Set(); return; }
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+    const data = snap.exists() ? (snap.data() || {}) : {};
+    const blocked = data.blocked || {};
+    window.MY_BLOCKED_UIDS = new Set(Object.keys(blocked));
+  } catch (e) {
+    console.warn('hydrateBlockedUsers failed:', e && e.code || e);
+  }
+}
+window.hydrateBlockedUsers = hydrateBlockedUsers;
+
+window.blockUser = async function blockUser(uid) {
+  if (!window.CURRENT_USER) { showToast('Sign in to block users.'); return; }
+  if (!uid || uid === window.CURRENT_USER.uid) return;
+  if (!confirm("Block this user? They won't be able to message you and their listings will be hidden from your view.")) return;
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+      { blocked: { [uid]: { blockedAt: serverTimestamp() } } }, { merge: true });
+    window.MY_BLOCKED_UIDS.add(uid);
+    showToast('Blocked.');
+    if (typeof buildProducts === 'function') buildProducts();
+    if (window.loadListings) { try { window.loadListings(); } catch (_e) {} }
+  } catch (e) {
+    console.error('blockUser failed:', e);
+    showToast('Could not block user.');
+  }
+};
+
+window.unblockUser = async function unblockUser(uid) {
+  if (!window.CURRENT_USER || !uid) return;
+  try {
+    const { getFirestore, doc, updateDoc, deleteField } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await updateDoc(doc(db, 'users', window.CURRENT_USER.uid),
+      { ['blocked.' + uid]: deleteField() });
+    window.MY_BLOCKED_UIDS.delete(uid);
+    showToast('Unblocked.');
+    if (typeof buildProducts === 'function') buildProducts();
+    if (document.getElementById('blockedUsersBackdrop').classList.contains('open')) {
+      openBlockedUsers();
+    }
+  } catch (e) {
+    console.error('unblockUser failed:', e);
+    showToast('Could not unblock user.');
+  }
+};
+
+async function openBlockedUsers() {
+  if (!window.CURRENT_USER) { showToast('Sign in to manage blocked users.'); return; }
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  const body = document.getElementById('blockedUsersBody');
+  body.innerHTML = '<div class="profile-loading">Loading…</div>';
+  document.getElementById('blockedUsersBackdrop').classList.add('open');
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const meSnap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+    const blockedMap = (meSnap.exists() && meSnap.data() && meSnap.data().blocked) || {};
+    const uids = Object.keys(blockedMap);
+    if (!uids.length) {
+      body.innerHTML = '<div class="profile-loading" style="padding:1.5rem">You haven’t blocked anyone.</div>';
+      return;
+    }
+    // Fetch each profile (best-effort; missing profile -> "Unknown user").
+    const rows = await Promise.all(uids.map(async (uid) => {
+      let name = 'Unknown user';
+      try {
+        const pSnap = await getDoc(doc(db, 'profiles', uid));
+        if (pSnap.exists()) name = pSnap.data().displayName || name;
+      } catch (_e) {}
+      return `<div class="blocked-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-200)">
+        <div style="min-width:0;flex:1"><div style="font-weight:600;color:var(--gray-800)">${window.safeText(name)}</div></div>
+        <button class="btn-full ghost" style="max-width:120px" data-action="unblock-user" data-uid="${window.safeAttr(uid)}">Unblock</button>
+      </div>`;
+    }));
+    body.innerHTML = rows.join('');
+  } catch (e) {
+    console.error('openBlockedUsers failed:', e);
+    body.innerHTML = '<div class="profile-loading" style="padding:1.5rem;color:#b04428">Could not load blocked users.</div>';
+  }
+}
+window.openBlockedUsers = openBlockedUsers;
+
+// ─────────────────────────────────────────────────────────────
+// MESSAGE CONTEXT MENU — long-press on a chat bubble triggers
+//   the report dialog (events delegated on #chatBody; uses
+//   data-msg-id / data-sender-id baked into .msg-wrap by
+//   renderMessages — we never touch renderMessages).
+// ─────────────────────────────────────────────────────────────
+(function wireMessageContextMenu() {
+  const chatBody = document.getElementById('chatBody');
+  if (!chatBody || chatBody.__reportWired) return;
+  chatBody.__reportWired = true;
+  let pressTimer = null;
+  let pressedEl = null;
+  function clear() { if (pressTimer) clearTimeout(pressTimer); pressTimer = null; pressedEl = null; }
+  chatBody.addEventListener('pointerdown', (e) => {
+    const wrap = e.target.closest('.msg-wrap');
+    if (!wrap) return;
+    pressedEl = wrap;
+    pressTimer = setTimeout(() => {
+      if (pressedEl !== wrap) return;
+      const senderId = wrap.dataset.senderId;
+      if (!senderId) return;
+      if (window.CURRENT_USER && senderId === window.CURRENT_USER.uid) return;
+      const mid = wrap.dataset.msgId;
+      window.openReportDialog({
+        targetType: 'message',
+        targetId: mid || '',
+        targetUid: senderId,
+        messageId: mid || '',
+        conversationId: (typeof currentChat !== 'undefined' && currentChat && currentChat.conversationId) || null,
+      });
+      pressedEl = null;
+    }, 500);
+  });
+  chatBody.addEventListener('pointerup', clear);
+  chatBody.addEventListener('pointercancel', clear);
+  chatBody.addEventListener('pointerleave', clear);
+  // Right-click on desktop -> same flow.
+  chatBody.addEventListener('contextmenu', (e) => {
+    const wrap = e.target.closest('.msg-wrap');
+    if (!wrap) return;
+    const senderId = wrap.dataset.senderId;
+    if (!senderId || (window.CURRENT_USER && senderId === window.CURRENT_USER.uid)) return;
+    e.preventDefault();
+    const mid = wrap.dataset.msgId;
+    window.openReportDialog({
+      targetType: 'message',
+      targetId: mid || '',
+      targetUid: senderId,
+      messageId: mid || '',
+      conversationId: (typeof currentChat !== 'undefined' && currentChat && currentChat.conversationId) || null,
+    });
+  });
+})();
 
 async function renderProfileEditor() {
   if (!window.CURRENT_USER) return;
@@ -12449,6 +13101,16 @@ A['stripe-connect']          = async () => {
 A['close-inbox']             = () => closeInbox();
 A['close-chat']              = () => closeChat();
 A['send-message']            = () => { if (!window.requireAuth('to send a message')) return; sendMessage(); };
+// Pinned chat listing card → reopen the listing detail modal. Best-effort:
+// if PRODUCTS doesn't have the listing (cold open from a deep-link), bail
+// silently rather than throw — the card is purely a navigation shortcut.
+A['chat-open-listing']       = () => {
+  try {
+    const id = currentChat && currentChat.listing && currentChat.listing.id;
+    if (!id) return;
+    if (typeof window.openDetailModal === 'function') window.openDetailModal(String(id));
+  } catch (_e) { /* swallow — best-effort navigation */ }
+};
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
 A['toggle-user-menu']        = () => {
@@ -12615,6 +13277,51 @@ A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
 A['close-info']              = () => document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+A['report-listing']          = () => {
+  if (!window.requireAuth || !window.requireAuth('to report a listing')) return;
+  const id = (typeof currentDetailId !== 'undefined' && currentDetailId) || null;
+  const p = id ? (window.PRODUCTS || []).find(x => String(x.id) === String(id)) : null;
+  window.openReportDialog({
+    targetType: 'listing',
+    targetId: id,
+    targetUid: (p && p.sellerId) || null,
+  });
+};
+A['report-user']             = (el) => {
+  if (!window.requireAuth || !window.requireAuth('to report a user')) return;
+  const uid = el && el.dataset && el.dataset.uid;
+  if (!uid) return;
+  window.openReportDialog({ targetType: 'user', targetId: uid, targetUid: uid });
+};
+A['block-user-from-profile'] = (el) => {
+  if (!window.requireAuth || !window.requireAuth('to block a user')) return;
+  const uid = el && el.dataset && el.dataset.uid;
+  if (!uid) return;
+  window.blockUser(uid);
+};
+A['report-message']          = (el) => {
+  if (!window.requireAuth || !window.requireAuth('to report a message')) return;
+  const mid = el && el.dataset && el.dataset.mid;
+  const sender = el && el.dataset && el.dataset.sender;
+  window.openReportDialog({
+    targetType: 'message',
+    targetId: mid || '',
+    targetUid: sender || '',
+    messageId: mid || '',
+    conversationId: (typeof currentChat !== 'undefined' && currentChat && currentChat.conversationId) || null,
+  });
+};
+A['confirm-report']          = () => { if (!window.requireAuth('to submit your report')) return; confirmReport(); };
+A['open-blocked-users']      = () => { if (!window.requireAuth('to view your blocked users', () => openBlockedUsers())) return; openBlockedUsers(); };
+A['open-push-prefs']         = () => { if (!window.requireAuth('to manage notifications', () => window.openPushPrefs())) return; window.openPushPrefs(); };
+A['save-push-prefs']         = () => { window.savePushPrefs && window.savePushPrefs(); };
+A['push-prompt-accept']      = () => { window._handlePushPromptAnswer && window._handlePushPromptAnswer('yes'); };
+A['push-prompt-decline']     = () => { window._handlePushPromptAnswer && window._handlePushPromptAnswer('no'); };
+A['unblock-user']            = (el) => {
+  const uid = el && el.dataset && el.dataset.uid;
+  if (!uid) return;
+  window.unblockUser(uid);
+};
 // Open a legal page in the system browser on native (Capacitor.Browser),
 // or a plain new tab on web. Used by the Account hub + mobile slide-out
 // links pointing at /terms.html, /privacy.html, /dmca.html, /refunds.html,
