@@ -1,6 +1,8 @@
 {
   "name": "functions",
   "description": "Cloud Functions for Firebase",
+  "author": "Jake Nair <jake@teeboxmarket.com>",
+  "private": true,
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
