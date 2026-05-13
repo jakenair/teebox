@@ -1509,7 +1509,7 @@ exports.moderateImage = onCall({...USER_CALLABLE, memory: "512MiB"}, async (requ
 //     const { Resend } = require("resend");
 //     const resend = new Resend(RESEND_KEY.value());
 //     await resend.emails.send({
-//       from: "TeeBox <noreply@teeboxmarket.com>",
+//       from: "TeeBox <noreply@mail.teeboxmarket.com>",
 //       to: recipient.email,
 //       subject: "New message about " + (conv.listingTitle || "your listing"),
 //       text: msg.text.slice(0, 500) + "\n\nReply at https://teeboxmarket.com",
@@ -3510,7 +3510,7 @@ exports.pushNotificationDispatch = onDocumentCreated(
 //   Resend. Email failure never blocks push — they're independent.
 // ─────────────────────────────────────────────────────────────
 const RESEND_KEY = defineSecret("RESEND_API_KEY");
-const FROM_EMAIL = "TeeBox <noreply@teeboxmarket.com>";
+const FROM_EMAIL = "TeeBox <noreply@mail.teeboxmarket.com>";
 const APP_URL = "https://teeboxmarket.com";
 
 async function lookupUser(uid) {
@@ -3959,7 +3959,7 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
 //     1. Use the Admin SDK to *generate* the action link (no email
 //        is sent automatically — we get the URL back).
 //     2. Wrap it in our branded `emailShell` HTML.
-//     3. Ship it via Resend from `noreply@teeboxmarket.com`
+//     3. Ship it via Resend from `noreply@mail.teeboxmarket.com`
 //        (DKIM/SPF/DMARC-signed for deliverability).
 //
 //   Both functions are conservative on enumeration:

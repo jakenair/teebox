@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1a0e" />
+<title>TeeBox Logo Bingo — Daily Golf Course Logos</title>
+<link rel="canonical" href="https://teeboxmarket.com/?play=bingo" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="description" content="A daily golf game from TeeBox. Name the course from its logo. Share your score and challenge a friend." />
+
+<!--
+  Static OG/Twitter stub for the Bingo share link.
+  iMessage, Twitter, Facebook, and Slack scrape the link's <head> BEFORE any
+  JavaScript runs — so this static file gives them the bingo-specific preview
+  even though the actual game lives inside the SPA at /?play=bingo.
+  After the scrape, the meta-refresh + JS redirect take the human visitor
+  straight into the game.
+-->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="TeeBox Logo Bingo — Name the course" />
+<meta property="og:description" content="A daily golf game from TeeBox. Name the course from its logo. New round every day." />
+<meta property="og:url" content="https://teeboxmarket.com/bingo.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/og/og-bingo.png" />
+<meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-bingo.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="TeeBox Logo Bingo — Daily golf course logos" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="TeeBox Logo Bingo — Name the course" />
+<meta name="twitter:description" content="A daily golf game from TeeBox. Name the course from its logo. New round every day." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-bingo.png" />
+<meta name="twitter:image:alt" content="TeeBox Logo Bingo — Daily golf course logos" />
+
+<!--
+  Apple Smart App Banner — points iOS Safari visitors at the App Store listing.
+  Uses the real app-id (6763954448); update this in lockstep with index.html if
+  the App Store ID ever changes.
+-->
+<meta name="apple-itunes-app" content="app-id=6763954448, app-argument=https://teeboxmarket.com/?play=bingo" />
+
+<!-- Redirect human visitors into the SPA. Bots that obey meta-refresh still
+     read the OG tags above first, which is what we want. -->
+<meta http-equiv="refresh" content="0;url=/?play=bingo" />
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: #0b1a0e;
+    color: #f6efe1;
+    font-family: 'Iowan Old Style','Apple Garamond','Baskerville','Times New Roman',Times,serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .stub { padding: 32px; }
+  .wm { font-size: 64px; font-weight: 700; letter-spacing: -2px; }
+  .wm .tee { color: #d6a900; }
+  .msg { margin-top: 16px; opacity: 0.75; font-size: 18px;
+         font-family: -apple-system,'Helvetica Neue',Arial,sans-serif; }
+  a.btn {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 12px 24px;
+    background: #d6a900;
+    color: #0b1a0e;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-family: -apple-system,'Helvetica Neue',Arial,sans-serif;
+  }
+</style>
+</head>
+<body>
+  <main class="stub">
+    <div class="wm"><span class="tee">Tee</span>Box</div>
+    <p class="msg">Loading Logo Bingo&hellip;</p>
+    <a class="btn" href="/?play=bingo">Play Logo Bingo</a>
+  </main>
+  <script>
+    // Belt-and-suspenders redirect for browsers that ignore meta-refresh
+    // (e.g. some embedded webviews). Skips redirect for known bot UAs so
+    // scrapers can finish parsing the OG tags above.
+    (function () {
+      try {
+        var ua = (navigator.userAgent || '').toLowerCase();
+        var isBot = /bot|crawler|spider|facebookexternalhit|twitterbot|slackbot|linkedinbot|discordbot|imessage|whatsapp|telegrambot|preview/.test(ua);
+        if (!isBot) {
+          window.location.replace('/?play=bingo');
+        }
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
+</body>
+</html>

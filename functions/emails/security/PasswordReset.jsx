@@ -17,7 +17,7 @@ function PasswordReset({user = {}, resetUrl, ip}) {
       <Button href={resetUrl}>Reset password</Button>
       <P muted>
         Didn't request this? Ignore the email — your password won't change.
-        If you're seeing repeated reset emails, contact security@teeboxmarket.com.
+        If you're seeing repeated reset emails, contact support@teeboxmarket.com.
       </P>
     </Base>
   );

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeeBox</title>
+<!-- SPA fallback for GitHub Pages. Path-style deep links such as
+     /seller/<uid> and /listing/<id> 404 against static hosting; we
+     forward to the SPA root with the original path encoded so the
+     in-app router can replay it after load. -->
+<script>
+  (function () {
+    var path = location.pathname;
+    var search = location.search || '';
+    var hash = location.hash || '';
+    // Listing path → ?listing=<id>
+    var m = path.match(/^\/listing\/([^\/]+)/);
+    if (m) {
+      location.replace('/?listing=' + encodeURIComponent(m[1]) + (hash ? hash : ''));
+      return;
+    }
+    // Seller path → ?seller=<uid>
+    m = path.match(/^\/seller\/([^\/]+)/);
+    if (m) {
+      location.replace('/?seller=' + encodeURIComponent(m[1]) + (hash ? hash : ''));
+      return;
+    }
+    // Brand SEO: /brand/<slug> works directly; if it's missing, bounce home.
+    if (/^\/brand\//.test(path)) {
+      location.replace('/');
+      return;
+    }
+    // Anything else — show a friendly 404 below.
+  })();
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b1a0e; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; text-align: center; }
+  h1 { font-family: Georgia, serif; font-size: 2rem; }
+  h1 span { color: #c5a253; }
+  p { margin: 1rem 0; color: rgba(255,255,255,0.7); }
+  a { color: #c5a253; }
+</style>
+</head>
+<body>
+<h1><span>Tee</span>Box</h1>
+<p>That page doesn't exist.</p>
+<p><a href="/">Back to the marketplace →</a></p>
+</body>
+</html>

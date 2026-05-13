@@ -1,0 +1,22 @@
+### PLACEHOLDER — REPLACE WITH FILE FROM STRIPE DASHBOARD ###
+
+This file is a placeholder. Apple Pay on the web will NOT work until you:
+
+  1. Open Stripe Dashboard → Settings → Payment methods → Apple Pay → Add new domain.
+  2. Enter "teeboxmarket.com" (and any other custom domains you serve from).
+  3. Stripe will prompt you to download a verification file named:
+        apple-developer-merchantid-domain-association
+     (no extension — exactly that name).
+  4. Save it to /.well-known/apple-developer-merchantid-domain-association
+     IN THIS REPO (replace this .txt placeholder; the real file has no extension).
+  5. Commit + push so GitHub Pages serves it at:
+        https://teeboxmarket.com/.well-known/apple-developer-merchantid-domain-association
+  6. Click "Verify" in the Stripe Dashboard. Apple Pay will go live within minutes.
+
+Notes:
+  - Apple Pay verification must be re-done if you ever switch the merchant ID.
+  - Google Pay does NOT need a domain verification file — it works as soon as
+    the Stripe Payment Element loads on a Chrome / Android device with cards
+    saved.
+  - The build:web script already copies the .well-known directory into dist/,
+    so once the real file is in place it will deploy automatically.

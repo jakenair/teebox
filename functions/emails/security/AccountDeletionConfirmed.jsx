@@ -19,7 +19,7 @@ function AccountDeletionConfirmed({user = {}}) {
         records required by law.
       </P>
       <P muted>
-        Changed your mind? Email hello@teeboxmarket.com within 30 days and we
+        Changed your mind? Email support@teeboxmarket.com within 30 days and we
         can restore the account.
       </P>
     </Base>

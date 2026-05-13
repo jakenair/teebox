@@ -41,7 +41,7 @@ Verify the following before going live:
    - Icon (favicon-style): the small TeeBox mark
 
 2. **Public business info** — Settings → Public details
-   - Support email: `hello@teeboxmarket.com`
+   - Support email: `support@teeboxmarket.com`
    - Support phone: optional but adds trust to receipt footer
    - Statement descriptor: `TEEBOX PRO` (≤22 chars)
 

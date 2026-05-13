@@ -31,10 +31,10 @@ resend._domainkey.mail   IN  CNAME  <RESEND-DKIM-HOST>.resend.com.
 ;;
 ;; DMARC — start at quarantine/pct=10 for 7 days, ramp to pct=100, then
 ;; switch to p=reject after 30 days of clean reports. Aggregates go to
-;; dmarc@teeboxmarket.com (set up a mailbox or forward to a Postmark /
+;; dmarc@mail.teeboxmarket.com (set up a mailbox or forward to a Postmark /
 ;; Dmarcian aggregator).
 ;;
-_dmarc.mail     IN  TXT   "v=DMARC1; p=quarantine; pct=10; rua=mailto:dmarc@teeboxmarket.com; ruf=mailto:dmarc@teeboxmarket.com; fo=1; aspf=s; adkim=s"
+_dmarc.mail     IN  TXT   "v=DMARC1; p=quarantine; pct=10; rua=mailto:dmarc@mail.teeboxmarket.com; ruf=mailto:dmarc@mail.teeboxmarket.com; fo=1; aspf=s; adkim=s"
 
 ;;
 ;; MX — only needed if you want Resend's inbound (bounce / FBL) at the
@@ -58,7 +58,7 @@ SPF + DMARC so spoofers can't ride the brand:
 
 ```txt
 @               IN  TXT   "v=spf1 -all"
-_dmarc          IN  TXT   "v=DMARC1; p=reject; rua=mailto:dmarc@teeboxmarket.com"
+_dmarc          IN  TXT   "v=DMARC1; p=reject; rua=mailto:dmarc@mail.teeboxmarket.com"
 ```
 
 ---
@@ -94,7 +94,7 @@ turn green. Without a green DKIM, every email lands in spam.
 
 ## DMARC aggregator inbox
 
-Create `dmarc@teeboxmarket.com` as a forwarder. Recommended free
+Create `dmarc@mail.teeboxmarket.com` as a forwarder. Recommended free
 aggregators: Postmark DMARC, Dmarcian Community, Valimail Monitor.
 Aggregator inboxes parse the daily XML rolls and surface alignment
 issues in a UI.
@@ -104,11 +104,16 @@ issues in a UI.
 ## Sender identity records (for inbox / FBL completeness)
 
 ```txt
-;; Reply-to / contact aliases at the apex (these are real mailboxes,
-;; not DNS, but list them for visibility):
-;; hello@teeboxmarket.com         general support
-;; security@teeboxmarket.com      account takeover reports
-;; dmarc@teeboxmarket.com         aggregator inbox
-;; unsubscribe@teeboxmarket.com   mailto: list-unsubscribe target
-;; abuse@teeboxmarket.com         RFC 2142 contact
+;; Canonical role mailboxes at teeboxmarket.com (real forwarders, not DNS):
+;; support@teeboxmarket.com   customer support, billing, abuse, security,
+;;                            disputes, appeals, account-takeover, RFC 2142
+;; legal@teeboxmarket.com     privacy, terms, DMCA agent, copyright, IP/counterfeit
+;; press@teeboxmarket.com     press kit, media inquiries
+;; hello@teeboxmarket.com     general inbound, partnerships
+;; jake@teeboxmarket.com      founder bio, personal outreach
+;;
+;; Sending-subdomain mailboxes at mail.teeboxmarket.com:
+;; noreply@mail.teeboxmarket.com       From address on transactional email
+;; unsubscribe@mail.teeboxmarket.com   List-Unsubscribe mailto target (RFC 8058)
+;; dmarc@mail.teeboxmarket.com         DMARC aggregator inbox
 ```

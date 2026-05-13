@@ -77,7 +77,7 @@
   "contactPoint": {
     "@type": "ContactPoint",
     "contactType": "Customer Support",
-    "email": "hello@teeboxmarket.com",
+    "email": "support@teeboxmarket.com",
     "availableLanguage": "en"
   },
   "areaServed": "US"
@@ -2850,7 +2850,7 @@
         <h4>13. Chargebacks</h4>
         If a buyer initiates a chargeback that is decided in the buyer's favor by the card network, the chargeback amount plus any network fee will be deducted from your payout balance or future payouts. TeeBox does not guarantee the result of any chargeback dispute.
         <h4>14. Account Suspension and Appeal</h4>
-        TeeBox may suspend a seller for confirmed counterfeit listings, failure to ship two or more sold orders, buyer-protection findings against the seller, repeated policy violations, or DMCA/counterfeit takedowns. We will notify you by email and you may appeal within 14 days by emailing <a href="mailto:appeals@teeboxmarket.com">appeals@teeboxmarket.com</a>. Our decision on appeal is final.
+        TeeBox may suspend a seller for confirmed counterfeit listings, failure to ship two or more sold orders, buyer-protection findings against the seller, repeated policy violations, or DMCA/counterfeit takedowns. We will notify you by email and you may appeal within 14 days by emailing <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a>. Our decision on appeal is final.
         <h4>15. Off-Platform Circumvention</h4>
         Soliciting or completing a sale outside TeeBox after a buyer has contacted you through the platform is prohibited. First violation: warning. Second: permanent suspension and forfeiture of pending payouts.
       </div>
@@ -2888,7 +2888,7 @@
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
-          <div><strong>Direct support</strong> — message hello@teeboxmarket.com about disputes and payouts.</div>
+          <div><strong>Direct support</strong> — message support@teeboxmarket.com about disputes and payouts.</div>
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
@@ -3372,7 +3372,7 @@
       <p>Sellers must ship sold items within 3 business days using a tracked, insured carrier. Risk of loss passes to the buyer upon delivery to the carrier. Disputes about lost or damaged items must be pursued first with the carrier and the seller.</p>
 
       <h4>7. Disputes &amp; Buyer Protection</h4>
-      <p>If you have a problem with a transaction, contact the other party first via in-app messaging. If you cannot resolve it, contact <a href="mailto:disputes@teeboxmarket.com">disputes@teeboxmarket.com</a> within 7 days of the delivery date. TeeBox may, at its discretion, mediate, refund, or remove a member from the platform, but is not obligated to do so and is not financially liable for losses arising from a transaction.</p>
+      <p>If you have a problem with a transaction, contact the other party first via in-app messaging. If you cannot resolve it, contact <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a> within 7 days of the delivery date. TeeBox may, at its discretion, mediate, refund, or remove a member from the platform, but is not obligated to do so and is not financially liable for losses arising from a transaction.</p>
 
       <h4>8. Prohibited Conduct</h4>
       <p>You agree not to: (a) post counterfeit, stolen, or illegal items; (b) use the platform to circumvent the in-app payment system or to facilitate off-platform sales; (c) harass other members; (d) probe, scan, or attempt to compromise the security of the service; (e) use the service for any unlawful purpose.</p>
@@ -3384,7 +3384,7 @@
       <p>You agree to indemnify and hold harmless TeeBox from any claim, demand, loss, liability, or expense (including reasonable attorneys' fees) arising out of (a) your listings or transactions, (b) your breach of these Terms, or (c) your violation of any law or third-party right.</p>
 
       <h4>11. Suspension &amp; Termination</h4>
-      <p>We may suspend or terminate your account at any time for any reason, including violation of these Terms. You may close your account at any time by contacting <a href="mailto:hello@teeboxmarket.com">hello@teeboxmarket.com</a>.</p>
+      <p>We may suspend or terminate your account at any time for any reason, including violation of these Terms. You may close your account at any time by contacting <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a>.</p>
 
       <h4>12. Changes to These Terms</h4>
       <p>We may update these Terms from time to time. Material changes will be communicated via the platform. Continued use of the service after a change constitutes acceptance.</p>
@@ -4752,7 +4752,7 @@ window.confirmPayment = async function() {
   // Note: `sendPasswordResetEmail` and `sendEmailVerification` are intentionally
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
-  // Resend from `noreply@teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
+  // Resend from `noreply@mail.teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
   import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
@@ -12111,7 +12111,7 @@ async function confirmDeleteAccount() {
     try { await fbSignOutLocal(getAuth()); } catch (e) { /* already signed out */ }
   } catch (e) {
     console.error('deleteUserAccount failed:', e);
-    if (err) err.textContent = 'Could not delete account. Please try again or email privacy@teeboxmarket.com.';
+    if (err) err.textContent = 'Could not delete account. Please try again or email legal@teeboxmarket.com.';
     if (btn) { btn.disabled = false; btn.textContent = 'Delete account permanently'; }
   }
 }

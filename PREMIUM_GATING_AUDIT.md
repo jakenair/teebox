@@ -168,7 +168,7 @@ Client side:
 
 **Claim** (`index.html:2845`): "Priority support — disputes and payout questions get fast-tracked."
 
-**Reality:** No code path treats messages from a Pro user differently. Inbound emails to `hello@teeboxmarket.com` / `dmca@teeboxmarket.com` arrive in the same queue. Outgoing email triggers (`functions/emailTriggers.js`, `functions/emails/`) don't tag the sender's tier. No Zendesk-style priority flag, no SLA marker, no separate inbox routing.
+**Reality:** No code path treats messages from a Pro user differently. Inbound emails to `support@teeboxmarket.com` / `legal@teeboxmarket.com` arrive in the same queue. Outgoing email triggers (`functions/emailTriggers.js`, `functions/emails/`) don't tag the sender's tier. No Zendesk-style priority flag, no SLA marker, no separate inbox routing.
 
 **Severity:** HIGH — false advertising. A Pro subscriber paying $14.99/mo who quotes this feature in a dispute will be correct that they were told they'd get fast-tracked. If TeeBox is unable to demonstrate the fast-track existed, this is a consumer-protection risk (CA/EU "misleading commercial practices"), and any reasonable refund request based on "promised feature not delivered" is hard to refuse.
 

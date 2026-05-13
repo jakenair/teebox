@@ -41,7 +41,7 @@ const UNSUBSCRIBE_SECRET = defineSecret("UNSUBSCRIBE_HMAC_SECRET");
 const FROM_NAME = "TeeBox";
 const FROM_ADDRESS = "no-reply@mail.teeboxmarket.com";
 const FROM = `${FROM_NAME} <${FROM_ADDRESS}>`;
-const REPLY_TO = "hello@teeboxmarket.com";
+const REPLY_TO = "support@teeboxmarket.com";
 const COMPANY_NAME = "TeeBox, Inc.";
 const COMPANY_ADDRESS = "1234 Fairway Ln, Suite 200, Chicago, IL 60601, USA";
 const BASE_URL = "https://teeboxmarket.com";
@@ -299,7 +299,7 @@ async function sendEmail(opts) {
   const finalHeaders = {...headers};
   if (!isTransactional(category) && uid) {
     const unsubUrl = makeUnsubscribeUrl({uid, category});
-    finalHeaders["List-Unsubscribe"] = `<${unsubUrl}>, <mailto:unsubscribe@teeboxmarket.com?subject=unsubscribe-${category}>`;
+    finalHeaders["List-Unsubscribe"] = `<${unsubUrl}>, <mailto:unsubscribe@mail.teeboxmarket.com?subject=unsubscribe-${category}>`;
     finalHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
   }
   finalHeaders["X-Entity-Ref-ID"] =

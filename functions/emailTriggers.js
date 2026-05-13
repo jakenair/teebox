@@ -850,7 +850,7 @@ exports.freezeAccount = onRequest(
             );
       } catch (e) {
         logger.error("freezeAccount error", e);
-        return res.status(500).send("Could not freeze the account. Email security@teeboxmarket.com.");
+        return res.status(500).send("Could not freeze the account. Email support@teeboxmarket.com.");
       }
     },
 );

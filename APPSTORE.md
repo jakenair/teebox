@@ -158,7 +158,7 @@ PRIVACY & SECURITY
 
 Available now in the U.S. Your golf bag, your terms.
 
-Questions? Email hello@teeboxmarket.com
+Questions? Email support@teeboxmarket.com
 ```
 
 ### Keywords (100 char max, comma-separated, NO spaces after commas)
@@ -326,7 +326,7 @@ CONTENT MODERATION:
 TeeBox includes user-generated content (listings, photos, messages, reviews). The app has built-in reporting (per-message and per-listing), user blocking, and a dispute resolution system. Inappropriate content is reviewed and removed within 24 hours of report.
 
 CONTACT:
-For any review questions: hello@teeboxmarket.com
+For any review questions: support@teeboxmarket.com
 ```
 
 ### Contact Information (for the Apple reviewer to reach you)

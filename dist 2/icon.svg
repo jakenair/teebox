@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TeeBox">
+  <!-- Rounded dark-green background card -->
+  <rect width="512" height="512" rx="112" fill="#0b1a0e"/>
+  <rect x="20" y="20" width="472" height="472" rx="92" fill="none" stroke="#1a3020" stroke-width="3"/>
+
+  <!-- Soft radial highlight on the ball -->
+  <defs>
+    <radialGradient id="ball" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#f0cc6a"/>
+      <stop offset="60%" stop-color="#e0b840"/>
+      <stop offset="100%" stop-color="#a07a12"/>
+    </radialGradient>
+    <linearGradient id="tee" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4d8a5e"/>
+      <stop offset="100%" stop-color="#22402b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Golf ball -->
+  <circle cx="256" cy="172" r="74" fill="url(#ball)"/>
+  <!-- Dimples -->
+  <g fill="#7a5c0a" opacity="0.32">
+    <circle cx="226" cy="148" r="4.5"/>
+    <circle cx="256" cy="138" r="4.5"/>
+    <circle cx="286" cy="148" r="4.5"/>
+    <circle cx="216" cy="178" r="4.5"/>
+    <circle cx="248" cy="178" r="4.5"/>
+    <circle cx="280" cy="178" r="4.5"/>
+    <circle cx="232" cy="208" r="4.5"/>
+    <circle cx="262" cy="208" r="4.5"/>
+    <circle cx="290" cy="208" r="4.5"/>
+  </g>
+  <!-- Subtle highlight -->
+  <circle cx="226" cy="142" r="22" fill="#f0cc6a" opacity="0.45"/>
+
+  <!-- Tee cup (the saddle that holds the ball) -->
+  <path d="M 162 256 Q 256 295 350 256 L 322 300 L 190 300 Z" fill="url(#tee)"/>
+  <!-- Tee cup top rim -->
+  <path d="M 162 256 Q 256 295 350 256" fill="none" stroke="#9fcfa9" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Tee shaft tapering to a point -->
+  <path d="M 204 300 L 256 416 L 308 300 Z" fill="url(#tee)"/>
+  <!-- Highlight stripe on shaft -->
+  <path d="M 220 300 L 256 408 L 244 300 Z" fill="#4d8a5e" opacity="0.55"/>
+
+  <!-- Subtle base shadow under tee point -->
+  <ellipse cx="256" cy="426" rx="34" ry="6" fill="#000" opacity="0.25"/>
+</svg>
