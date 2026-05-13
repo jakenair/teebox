@@ -4090,7 +4090,7 @@
         </div>
         <div class="detail-actions">
           <div class="detail-trust-strip" aria-label="Buyer protection">
-            <span title="Buyer protection — funds held until you confirm delivery"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
+            <span title="Buyer protection — 7 days from delivery to open a dispute"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
             <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
           </div>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
@@ -4179,6 +4179,30 @@
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
         <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
+  <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
+    <div class="modal-header">
+      <span class="modal-title" id="stripeRequiredTitle">Complete payout setup to publish</span>
+      <button class="modal-close" data-action="close-stripe-required" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="sell-form">
+      <div class="stripe-connect-banner cta" style="margin-bottom:14px;">
+        <div>
+          <strong>TeeBox needs your bank info first</strong>
+          <span>Buyers can't pay you until Stripe verifies your account. Takes about 3 minutes — name, address, bank, and a quick ID check.</span>
+        </div>
+      </div>
+      <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
+        Your listing draft is saved. Finish Stripe onboarding, then return and hit <strong>Submit Listing</strong> again.
+      </p>
+      <div class="modal-footer" style="padding:0;margin-top:0;">
+        <button class="btn-full ghost" data-action="close-stripe-required">Not now</button>
+        <button class="btn-full green" data-action="stripe-connect">Set up payouts</button>
       </div>
     </div>
   </div>
@@ -6157,6 +6181,48 @@ window.confirmPayment = async function() {
 
   window.submitListing = async function() {
     if (!window.CURRENT_USER || !window.IS_VERIFIED_SELLER) { showToast('Please verify as a seller first.'); return; }
+    // ─────────────────────────────────────────────────────────────
+    // Stripe Connect KYC gate (C2 — E2E_TRANSACTION_LOOP_AUDIT.md).
+    // Sellers must have a Stripe Connect account with charges_enabled
+    // before they can PUBLISH a listing. Buyers can already see live
+    // listings, and `createPaymentIntent` (functions/index.js:377) will
+    // 409 if charges aren't enabled — that means a buyer reaches the
+    // checkout step on a listing they literally cannot pay for. We
+    // block at publish-time instead so the failure is surfaced to the
+    // seller, not the buyer.
+    //
+    // Edit path is not gated: this function only handles initial
+    // publish (addDoc → status: 'active'). Listing edits go through a
+    // different code path; a seller with live listings is already past
+    // this gate so re-checking would be friction.
+    // Draft saves are local-only (clearSellDraft on success); the
+    // autosave path never calls submitListing, so drafts continue to
+    // work pre-onboarding.
+    const stripeGateBtn = document.getElementById('submitListingBtn');
+    if (stripeGateBtn) { stripeGateBtn.disabled = true; stripeGateBtn.textContent = 'Checking payout setup…'; }
+    let stripeStatus = null;
+    try {
+      const fn = httpsCallable(fns, 'getStripeAccountStatus');
+      const result = await fn();
+      stripeStatus = (result && result.data) || {};
+      // Refresh the client-side cache used by the stripe-connect action
+      // (it fires a security alert when payouts were already enabled).
+      window.LAST_STRIPE_STATUS = stripeStatus;
+    } catch (e) {
+      console.error('[submitListing] getStripeAccountStatus failed:', e?.code, e?.message, e);
+      if (stripeGateBtn) { stripeGateBtn.disabled = false; stripeGateBtn.textContent = 'Submit Listing'; }
+      // Fail closed: if we can't verify Stripe state we don't publish.
+      showToast('Could not verify your payout setup. Please try again.', 'error');
+      return;
+    }
+    const chargesEnabled = !!stripeStatus.chargesEnabled;
+    if (!chargesEnabled) {
+      if (stripeGateBtn) { stripeGateBtn.disabled = false; stripeGateBtn.textContent = 'Submit Listing'; }
+      try { showStripeRequiredDialog(stripeStatus); }
+      catch (e) { console.warn('showStripeRequiredDialog failed:', e); showToast('Finish payout setup to publish listings.', 'error'); }
+      return;
+    }
+    if (stripeGateBtn) { stripeGateBtn.textContent = 'Submit Listing'; stripeGateBtn.disabled = false; }
     const title = document.getElementById('sellTitle').value.trim();
     const brand = document.getElementById('sellBrand').value.trim();
     const cat = document.getElementById('sellCat').value;
@@ -10379,6 +10445,7 @@ async function confirmShip() {
     const db = getFirestore();
     await updateDoc(doc(db, 'orders', orderId), {
       fulfillmentStatus: 'shipped',
+      shippingStatus: 'shipped',
       carrier: String(carrier).slice(0, 20),
       trackingCarrier: trackingCarrier,
       trackingNumber: tracking.slice(0, 60),
@@ -10434,6 +10501,7 @@ async function confirmDelivery(orderId) {
     const db = getFirestore();
     await updateDoc(doc(db, 'orders', orderId), {
       fulfillmentStatus: 'delivered',
+      shippingStatus: 'delivered',
       deliveredAt: serverTimestamp(),
     });
     showToast('Delivery confirmed. Thanks!');
@@ -10682,7 +10750,19 @@ async function submitOffer() {
     showToast('Could not send offer.');
   }
 }
-window.openMakeOfferModal = openMakeOfferModal;
+function showStripeRequiredDialog(_status) {
+  const backdrop = document.getElementById('stripeRequiredBackdrop');
+  if (!backdrop) { showToast('Finish payout setup to publish listings.', 'error'); return; }
+  backdrop.classList.add('open');
+}
+function closeStripeRequiredDirect() {
+  const backdrop = document.getElementById('stripeRequiredBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+}
+window.showStripeRequiredDialog = showStripeRequiredDialog;
+window.closeStripeRequiredDirect = closeStripeRequiredDirect;
+
+  window.openMakeOfferModal = openMakeOfferModal;
 window.submitOffer = submitOffer;
 
 async function loadSellerOffers() {
@@ -13830,6 +13910,7 @@ A['manage-subscription']     = async () => {
   }
 };
 A['stripe-connect']          = async () => {
+    try { closeStripeRequiredDirect(); } catch (_e) {}
   if (!window.requireAuth('to set up payouts')) return;
   showToast('Opening Stripe…');
   try {
@@ -14067,7 +14148,8 @@ A['report-message']          = (el) => {
   });
 };
 A['confirm-report']          = () => { if (!window.requireAuth('to submit your report')) return; confirmReport(); };
-A['open-blocked-users']      = () => { if (!window.requireAuth('to view your blocked users', () => openBlockedUsers())) return; openBlockedUsers(); };
+A['close-stripe-required']   = () => closeStripeRequiredDirect();
+  A['open-blocked-users']      = () => { if (!window.requireAuth('to view your blocked users', () => openBlockedUsers())) return; openBlockedUsers(); };
 A['open-push-prefs']         = () => { if (!window.requireAuth('to manage notifications', () => window.openPushPrefs())) return; window.openPushPrefs(); };
 A['save-push-prefs']         = () => { window.savePushPrefs && window.savePushPrefs(); };
 A['push-prompt-accept']      = () => { window._handlePushPromptAnswer && window._handlePushPromptAnswer('yes'); };

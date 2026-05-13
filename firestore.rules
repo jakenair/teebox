@@ -41,6 +41,18 @@ service cloud.firestore {
             || request.auth.token.firebase.sign_in_provider == 'phone');
     }
 
+    // Stripe Connect KYC gate. Reads the seller's user doc and asserts
+    // `stripeChargesEnabled == true`. The user doc is the source of
+    // truth — it's written by the Connect webhook
+    // (functions/index.js:839) on every Stripe `account.updated` event
+    // and refreshed by the getStripeAccountStatus callable. We do NOT
+    // trust a client-side claim here because clients can't be allowed
+    // to flip their own onboarding state.
+    function sellerStripeReady(uid) {
+      return get(/databases/$(database)/documents/users/$(uid))
+        .data.get('stripeChargesEnabled', false) == true;
+    }
+
     // ─────────────────────────────────────────────
     // LISTINGS
     //   read:   public
@@ -59,7 +71,15 @@ service cloud.firestore {
         && appCheckOk()
         && isEmailVerified()
         && request.resource.data.sellerId == request.auth.uid
-        && isValidListingCreate(request.resource.data);
+        && isValidListingCreate(request.resource.data)
+        // Stripe Connect KYC gate (C2). Sellers must have a Connect
+        // account with charges_enabled=true before they can publish a
+        // listing. The user-doc field is kept in sync by the
+        // `stripeConnectAccountUpdated` webhook handler
+        // (functions/index.js:839) and by getStripeAccountStatus
+        // (functions/index.js:4177). Client-side `submitListing` is the
+        // primary gate; this rule is the backstop.
+        && sellerStripeReady(request.auth.uid);
 
       allow update: if request.auth != null
         && appCheckOk()

@@ -49,8 +49,8 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
       </Section>
       <Button href={orderUrl}>View order</Button>
       <P muted>
-        Funds are held by TeeBox until you confirm the item arrived as described.
-        You have 3 days after delivery to open a dispute if anything's off.
+        If your item arrives not as described or never ships, open a dispute
+        from the order page — you have 7 days from delivery and we'll mediate.
       </P>
     </Base>
   );

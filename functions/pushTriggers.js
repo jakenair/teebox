@@ -255,8 +255,8 @@ exports.pushOnOrderUpdated = onDocumentUpdated(
       if (before.fulfillmentStatus === "shipped"
           && after.fulfillmentStatus === "delivered") {
         await sendPush(after.buyerId, {
-          title: "Delivered — inspection window started",
-          body: "48h to confirm or report. Tap to manage your order.",
+          title: "Your order was delivered",
+          body: "If anything's wrong, open a dispute within 7 days.",
           deepLink: `teebox://order/${orderId}`,
           imageUrl: photo || "",
           kind: "order-delivered-buyer",
@@ -265,7 +265,7 @@ exports.pushOnOrderUpdated = onDocumentUpdated(
 
         await sendPush(after.sellerId, {
           title: "Buyer received your item",
-          body: "Funds release in 48h unless the buyer reports an issue.",
+          body: "Your payout will appear on Stripe's standard schedule.",
           deepLink: `teebox://order/${orderId}`,
           imageUrl: photo || "",
           kind: "order-delivered-seller",

@@ -8,21 +8,21 @@ function DeliveredBuyer({order = {}, buyer = {}, listing = {}}) {
 
   return (
     <Base
-      preview={`${title} was delivered. You have 3 days to confirm or dispute.`}
+      preview={`${title} was delivered. Open a dispute within 7 days if anything's off.`}
       uid={buyer.uid}
       category="transactional"
     >
       <H1>Delivered. Take a look.</H1>
       <P>
         <strong>{title}</strong> just hit your doorstep. Take a moment to inspect
-        it. If everything checks out, confirm receipt so the seller gets paid —
-        otherwise, you have 3 days to open a dispute.
+        it. If anything's wrong, open a dispute from the order page within 7 days
+        of delivery and we'll mediate.
       </P>
-      <Button href={url}>Confirm or dispute</Button>
-      <Section style={{margin: "24px 0", padding: "12px", backgroundColor: "#fee2e2", borderRadius: "6px"}}>
-        <Text style={{margin: 0, fontSize: "13px", color: "#7f1d1d"}}>
-          <strong>Note:</strong> if you do nothing, funds release automatically
-          to the seller after 3 days. Keep all packaging until you're satisfied.
+      <Button href={url}>View order</Button>
+      <Section style={{margin: "24px 0", padding: "12px", backgroundColor: "#fef3c7", borderRadius: "6px"}}>
+        <Text style={{margin: 0, fontSize: "13px", color: "#78350f"}}>
+          <strong>Tip:</strong> keep all packaging until you're satisfied. After
+          7 days, the dispute window closes.
         </Text>
       </Section>
     </Base>

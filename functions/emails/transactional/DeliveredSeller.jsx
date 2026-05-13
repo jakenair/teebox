@@ -8,20 +8,20 @@ function DeliveredSeller({order = {}, seller = {}, listing = {}}) {
 
   return (
     <Base
-      preview={`Delivered. Funds release in 3 days unless the buyer disputes.`}
+      preview={`Delivered. Your payout will appear on your Stripe schedule.`}
       uid={seller.uid}
       category="transactional"
     >
-      <H1>Delivered. Funds release in 3 days.</H1>
+      <H1>Buyer received your item.</H1>
       <P>
-        Your buyer received <strong>{title}</strong>. TeeBox holds the funds for
-        72 hours so the buyer can confirm or dispute. Assuming no issues, we'll
-        release <strong>{payout}</strong> to your payout method automatically.
+        Your buyer received <strong>{title}</strong>. Your payout of{" "}
+        <strong>{payout}</strong> will appear on your Stripe payout schedule —
+        typically 1–2 business days, depending on your bank.
       </P>
       <Button href={url}>View order</Button>
       <P muted>
-        Payouts arrive in 1–2 business days after release, depending on your
-        bank.
+        Buyers have 7 days from delivery to open a dispute. If one is filed,
+        we'll notify you so you can respond.
       </P>
     </Base>
   );
@@ -33,4 +33,4 @@ function formatUsd(cents) {
 }
 
 module.exports = DeliveredSeller;
-module.exports.subject = () => "Delivered — payout pending";
+module.exports.subject = () => "Buyer received your item";

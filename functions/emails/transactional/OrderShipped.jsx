@@ -25,8 +25,8 @@ function OrderShipped({order = {}, buyer = {}, listing = {}, tracking = {}}) {
       {eta ? <P>Estimated delivery: <strong>{eta}</strong>.</P> : null}
       <Button href={trackUrl}>Track package</Button>
       <P muted>
-        Once it arrives, you'll have 3 days to inspect and confirm. If anything's
-        wrong, open a dispute from the order page — don't toss the packaging.
+        Once it arrives, inspect it right away. If anything's wrong, open a
+        dispute from the order page within 7 days — don't toss the packaging.
       </P>
     </Base>
   );
