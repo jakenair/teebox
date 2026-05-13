@@ -31,7 +31,7 @@ const {
 const {makeUnsubscribeUrl} = require("../../lib/email");
 
 const COMPANY_NAME = "TeeBox, Inc.";
-const COMPANY_ADDRESS = "1234 Fairway Ln, Suite 200, Chicago, IL 60601, USA";
+const COMPANY_ADDRESS = "16649 Oak Park Ave, Ste H #1160, Tinley Park, IL 60477, USA";
 const SUPPORT_EMAIL = "support@teeboxmarket.com";
 const LOGO_URL = "https://teeboxmarket.com/icon-192.png";
 
