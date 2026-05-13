@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unsubscribe — TeeBox</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.svg" />
+  <style>
+    :root {
+      --green-900: #0b3d2e;
+      --gold-500: #d6a900;
+      --gray-900: #111827;
+      --gray-600: #4b5563;
+      --gray-300: #d1d5db;
+      --bg: #f5f7f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--gray-900);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+    header {
+      background: var(--green-900);
+      color: var(--gold-500);
+      padding: 20px 24px;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    main { padding: 28px 24px; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    p { font-size: 15px; line-height: 22px; color: var(--gray-600); margin: 0 0 16px; }
+    .status { font-size: 14px; padding: 12px; border-radius: 6px; margin: 0 0 16px; }
+    .status.ok { background: #ecfdf5; color: #065f46; }
+    .status.err { background: #fef2f2; color: #991b1b; }
+    .status.loading { background: #f3f4f6; color: var(--gray-600); }
+    a.btn {
+      display: inline-block;
+      background: var(--gold-500);
+      color: var(--green-900);
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .links { font-size: 13px; color: var(--gray-600); }
+    .links a { color: var(--green-900); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>TEEBOX</header>
+    <main>
+      <div id="status" class="status loading">Processing your request…</div>
+      <h1 id="title">Email preferences</h1>
+      <p id="message">
+        We're updating your email preferences. This should only take a moment.
+      </p>
+      <p class="links">
+        <a href="https://teeboxmarket.com/">Back to TeeBox</a>
+        &nbsp;·&nbsp;
+        <a href="mailto:hello@teeboxmarket.com">Need help?</a>
+      </p>
+    </main>
+  </div>
+
+<script>
+(function () {
+  // Endpoint for the handleUnsubscribe Cloud Function. Default to the
+  // us-central1 v2 invoker URL; if a custom domain or rewrite is used,
+  // change this to "/api/unsubscribe" and add a hosting rewrite.
+  var ENDPOINT = "https://us-central1-teebox-market.cloudfunctions.net/handleUnsubscribe";
+
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get("t");
+  var statusEl = document.getElementById("status");
+  var titleEl = document.getElementById("title");
+  var msgEl = document.getElementById("message");
+
+  function setOk(category) {
+    statusEl.className = "status ok";
+    statusEl.textContent = "Unsubscribed.";
+    titleEl.textContent = "You're unsubscribed";
+    msgEl.innerHTML =
+      "We won't email you about <strong>" +
+      escapeHtml(prettyCategory(category)) +
+      "</strong> anymore. Transactional emails (orders, security alerts) will continue. " +
+      'Manage all preferences from <a href="https://teeboxmarket.com/account?tab=email">your account settings</a>.';
+  }
+  function setErr(error) {
+    statusEl.className = "status err";
+    statusEl.textContent = "Couldn't process this link.";
+    titleEl.textContent = "Link not valid";
+    msgEl.textContent =
+      error === "expired" ?
+        "This unsubscribe link expired. Sign in and update your preferences from your account settings, or email hello@teeboxmarket.com." :
+        "We couldn't verify this unsubscribe link. Sign in and update your preferences from your account settings.";
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function prettyCategory(c) {
+    var map = {
+      savedSearchMatches: "saved-search matches",
+      priceDrops: "price drops",
+      abandonedDraft: "draft reminders",
+      abandonedCart: "watchlist reminders",
+      reviewRequests: "review requests",
+      winBack: "win-back emails",
+      weeklyDigest: "the weekly digest",
+      productUpdates: "product updates"
+    };
+    return map[c] || (c || "this category");
+  }
+
+  if (!token) {
+    setErr("missing");
+    return;
+  }
+
+  // RFC 8058 — one-click POST. Both POST and GET supported on the
+  // backend; we use POST to make it work even when the user isn't signed in.
+  fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ t: token })
+  })
+    .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+    .then(function (j) {
+      if (j && j.ok) setOk(j.category);
+      else setErr((j && j.error) || "unknown");
+    })
+    .catch(function () { setErr("network"); });
+})();
+</script>
+</body>
+</html>

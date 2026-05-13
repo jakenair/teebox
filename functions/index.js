@@ -5709,3 +5709,8 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 
   return {ok: true, messageId: msgRef.id};
 });
+
+// Email system (transactional + security + lifecycle + webhooks).
+// All Cloud Functions for email live in ./emailTriggers — see that file
+// + EMAIL_OPS_RUNBOOK.md for ramp + DNS + bounce-handling docs.
+Object.assign(exports, require("./emailTriggers"));

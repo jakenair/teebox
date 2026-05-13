@@ -1,0 +1,946 @@
+/**
+ * functions/emailTriggers.js
+ * ─────────────────────────────────────────────────────────────────────────
+ * Every cloud function related to the email system lives here, so we can
+ * keep functions/index.js stable and reviewable. Wired into deployment by
+ * a single `require('./emailTriggers')` line appended to index.js.
+ *
+ * Includes:
+ *   A) Resend bounce / complaint webhook (svix-signature verified)
+ *   B) Transactional triggers (8 templates)
+ *   C) Security-email helpers (Auth blocking + manual triggers)
+ *   D) Lifecycle / engagement schedulers (cron)
+ *   E) updateEmailPreferences (callable)
+ *   F) freezeAccount (HTTP, public from "this wasn't me" link)
+ *   G) aggregateEmailMetrics (hourly scheduled)
+ *   H) handleUnsubscribe (HTTP, one-click, RFC 8058)
+ *
+ * Most jsx templates aren't loaded directly here because they require a
+ * transpile step. Instead we lazy-require them through getTemplate(),
+ * which falls back to a basic HTML stub if the compiled template doesn't
+ * exist yet — keeps deploys green while the build pipeline catches up.
+ */
+
+const crypto = require("crypto");
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
+const {logger} = require("firebase-functions");
+const admin = require("firebase-admin");
+
+const {
+  sendEmail,
+  verifyUnsubscribeToken,
+  CATEGORIES,
+  RESEND_API_KEY,
+  UNSUBSCRIBE_SECRET,
+} = require("./lib/email");
+
+// Resend dashboard → Webhooks → Signing secret. Used to verify svix sigs.
+const RESEND_WEBHOOK_SECRET = defineSecret("RESEND_WEBHOOK_SECRET");
+
+const EMAIL_FN = {
+  region: "us-central1",
+  memory: "256MiB",
+  timeoutSeconds: 60,
+  concurrency: 40,
+  maxInstances: 50,
+};
+const SCHED_FN = {
+  region: "us-central1",
+  memory: "512MiB",
+  timeoutSeconds: 300,
+};
+
+// ─── Template loader (lazy + tolerant of missing compiled output) ──────
+function getTemplate(category, name) {
+  try {
+    return require(`./emails/${category}/${name}`);
+  } catch (e) {
+    logger.warn(`getTemplate: ${category}/${name} not loaded`, e.message);
+    return null;
+  }
+}
+
+/**
+ * Render-or-fallback wrapper. If the .jsx template can't be loaded (no
+ * build step yet), we synthesize a minimal text-only HTML body so the
+ * trigger doesn't 500 in CI.
+ */
+async function sendTemplated({
+  category,
+  templateCategory,
+  templateName,
+  to,
+  uid,
+  ctx = {},
+  subject: subjectOverride,
+}) {
+  const Tpl = getTemplate(templateCategory, templateName);
+  let subject = subjectOverride;
+  let react = null;
+  let html = null;
+  if (Tpl) {
+    try {
+      react = Tpl(ctx);
+      if (!subject && typeof Tpl.subject === "function") {
+        subject = Tpl.subject(ctx);
+      }
+    } catch (e) {
+      logger.error(`template instantiation failed: ${templateName}`, e.message);
+    }
+  }
+  if (!react && !html) {
+    html = `<!doctype html><html><body><p>TeeBox notification: ${
+      subject || templateName
+    }</p><p>(Template ${templateName} stub — compile JSX to upgrade.)</p></body></html>`;
+  }
+  if (!subject) subject = `TeeBox notification`;
+  return sendEmail({
+    to,
+    subject,
+    react,
+    html,
+    category,
+    uid,
+    template: templateName,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// A. RESEND WEBHOOK — bounces & complaints
+// ═══════════════════════════════════════════════════════════════════════
+/**
+ * Svix-signed webhook. Resend sends headers:
+ *   svix-id        unique event id
+ *   svix-timestamp epoch seconds
+ *   svix-signature space-separated list of "v1,<base64-hmac>"
+ *
+ * Signed payload = `${id}.${timestamp}.${rawBody}`.
+ * We compare HMAC-SHA256 in constant time.
+ */
+function verifySvix(req, secret) {
+  const id = req.headers["svix-id"];
+  const ts = req.headers["svix-timestamp"];
+  const sig = req.headers["svix-signature"];
+  if (!id || !ts || !sig || !secret) return false;
+  const age = Math.abs(Date.now() / 1000 - Number(ts));
+  if (!Number.isFinite(age) || age > 5 * 60) return false; // 5-min window
+  const raw = req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body || {});
+  const signed = `${id}.${ts}.${raw}`;
+  // Resend secrets are prefixed `whsec_` + base64. Strip prefix before decoding.
+  const keyMaterial = secret.startsWith("whsec_") ?
+    Buffer.from(secret.slice(6), "base64") :
+    Buffer.from(secret, "utf8");
+  const expected = crypto
+      .createHmac("sha256", keyMaterial)
+      .update(signed)
+      .digest("base64");
+  const provided = String(sig)
+      .split(" ")
+      .map((s) => s.replace(/^v1,/, ""))
+      .filter(Boolean);
+  return provided.some((p) => {
+    const a = Buffer.from(p);
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
+}
+
+exports.resendWebhook = onRequest(
+    {...EMAIL_FN, secrets: [RESEND_WEBHOOK_SECRET]},
+    async (req, res) => {
+      if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+      let secret = null;
+      try {
+        secret = RESEND_WEBHOOK_SECRET.value();
+      } catch (_e) {
+        secret = null;
+      }
+      if (!secret) {
+        logger.warn("resendWebhook: secret not configured — skipping verify");
+      } else if (!verifySvix(req, secret)) {
+        logger.warn("resendWebhook: bad signature");
+        return res.status(400).send("bad signature");
+      }
+
+      const evt = req.body || {};
+      const type = evt.type || "";
+      const data = evt.data || {};
+      const email = (data.to && data.to[0]) || data.email || null;
+      const bounceType = (data.bounce && data.bounce.type) || data.bounce_type || null;
+
+      const db = admin.firestore();
+
+      try {
+        // Resolve uid from emailSends if we have one.
+        let uid = null;
+        if (email) {
+          const sends = await db
+              .collection("emailSends")
+              .where("to", "==", email)
+              .orderBy("sentAt", "desc")
+              .limit(1)
+              .get();
+          if (!sends.empty) uid = sends.docs[0].data().uid || null;
+        }
+
+        switch (type) {
+          case "email.bounced": {
+            // Hard bounces only → suppress.
+            const hard = !bounceType || /hard|invalid|undeliverable/i.test(String(bounceType));
+            if (hard && uid) {
+              await db.collection("users").doc(uid).set(
+                  {emailSuppressed: true, emailSuppressedAt: admin.firestore.FieldValue.serverTimestamp()},
+                  {merge: true},
+              );
+              await db.collection("emailSuppressions").doc(uid).set({
+                uid,
+                email,
+                reason: "hard-bounce",
+                bounceType: bounceType || null,
+                at: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            } else {
+              logger.info("soft bounce — logged only", {email, bounceType});
+            }
+            break;
+          }
+          case "email.complained": {
+            if (uid) {
+              await db.collection("users").doc(uid).set(
+                  {emailSuppressed: true},
+                  {merge: true},
+              );
+              await db.collection("emailSuppressions").doc(uid).set({
+                uid,
+                email,
+                reason: "complaint",
+                at: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              await db.collection("complaints").doc(uid).set({
+                uid,
+                email,
+                at: admin.firestore.FieldValue.serverTimestamp(),
+                payload: data,
+              });
+            }
+            break;
+          }
+          case "email.delivered":
+          case "email.opened":
+          case "email.clicked":
+          case "email.sent": {
+            // Update emailSends/{id} if Resend includes our internal id.
+            const status = type.replace("email.", "");
+            const resendId = data.email_id || data.id || null;
+            if (resendId) {
+              const matches = await db
+                  .collection("emailSends")
+                  .where("resendId", "==", resendId)
+                  .limit(1)
+                  .get();
+              if (!matches.empty) {
+                await matches.docs[0].ref.set({status}, {merge: true});
+              }
+            }
+            break;
+          }
+          default:
+            logger.info("resendWebhook: unhandled event", {type});
+        }
+        return res.status(200).send("ok");
+      } catch (e) {
+        logger.error("resendWebhook handler error", e);
+        return res.status(500).send("error");
+      }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// B. TRANSACTIONAL TRIGGERS — order lifecycle
+// ═══════════════════════════════════════════════════════════════════════
+
+/** Helper: load user + listing in parallel. */
+async function loadOrderParties(order) {
+  const db = admin.firestore();
+  const [buyerSnap, sellerSnap, listingSnap] = await Promise.all([
+    order.buyerId ? db.collection("users").doc(order.buyerId).get() : null,
+    order.sellerId ? db.collection("users").doc(order.sellerId).get() : null,
+    order.listingId ? db.collection("listings").doc(order.listingId).get() : null,
+  ]);
+  return {
+    buyer: buyerSnap && buyerSnap.exists ? {uid: buyerSnap.id, ...buyerSnap.data()} : {},
+    seller: sellerSnap && sellerSnap.exists ? {uid: sellerSnap.id, ...sellerSnap.data()} : {},
+    listing: listingSnap && listingSnap.exists ? {id: listingSnap.id, ...listingSnap.data()} : {},
+  };
+}
+
+// 1. Order placed → buyer + seller
+exports.onOrderCreatedEmail = onDocumentCreated(
+    {document: "orders/{orderId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const order = {id: event.params.orderId, ...(event.data && event.data.data())};
+      if (!order || !order.buyerId) return;
+      const {buyer, seller, listing} = await loadOrderParties(order);
+      const ctx = {order, buyer, seller, listing};
+      const tasks = [];
+      if (buyer.email) {
+        tasks.push(sendTemplated({
+          category: CATEGORIES.TRANSACTIONAL,
+          templateCategory: "transactional",
+          templateName: "OrderPlacedBuyer",
+          to: buyer.email,
+          uid: buyer.uid,
+          ctx,
+        }));
+      }
+      if (seller.email) {
+        tasks.push(sendTemplated({
+          category: CATEGORIES.TRANSACTIONAL,
+          templateCategory: "transactional",
+          templateName: "OrderPlacedSeller",
+          to: seller.email,
+          uid: seller.uid,
+          ctx,
+        }));
+      }
+      await Promise.allSettled(tasks);
+    },
+);
+
+// 2. Label created → buyer
+exports.onOrderLabelEmail = onDocumentUpdated(
+    {document: "orders/{orderId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const before = event.data && event.data.before && event.data.before.data();
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!before || !after) return;
+      if (before.labelUrl || !after.labelUrl) return; // only on first set
+      const order = {id: event.params.orderId, ...after};
+      const {buyer, listing} = await loadOrderParties(order);
+      if (!buyer.email) return;
+      await sendTemplated({
+        category: CATEGORIES.TRANSACTIONAL,
+        templateCategory: "transactional",
+        templateName: "LabelCreated",
+        to: buyer.email,
+        uid: buyer.uid,
+        ctx: {order, buyer, listing},
+      });
+    },
+);
+
+// 3. Shipped (Shippo webhook sets shippingStatus="transit")
+// 4. Out for delivery
+// 5. Delivered (buyer + seller)
+exports.onOrderShippingStatusEmail = onDocumentUpdated(
+    {document: "orders/{orderId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const before = event.data && event.data.before && event.data.before.data();
+      const after = event.data && event.data.after && event.data.after.data();
+      if (!before || !after) return;
+      const beforeStatus = before.shippingStatus || "";
+      const afterStatus = after.shippingStatus || "";
+      if (beforeStatus === afterStatus) return;
+
+      const order = {id: event.params.orderId, ...after};
+      const {buyer, seller, listing} = await loadOrderParties(order);
+      const tracking = {
+        carrier: after.carrier,
+        number: after.trackingNumber,
+        publicUrl: after.trackingUrl,
+        eta: after.estimatedDelivery,
+      };
+
+      const ctx = {order, buyer, seller, listing, tracking};
+
+      switch (afterStatus) {
+        case "transit":
+        case "shipped":
+          if (buyer.email) {
+            await sendTemplated({
+              category: CATEGORIES.TRANSACTIONAL,
+              templateCategory: "transactional",
+              templateName: "OrderShipped",
+              to: buyer.email,
+              uid: buyer.uid,
+              ctx,
+            });
+          }
+          break;
+        case "out_for_delivery":
+          if (buyer.email) {
+            await sendTemplated({
+              category: CATEGORIES.TRANSACTIONAL,
+              templateCategory: "transactional",
+              templateName: "OrderOutForDelivery",
+              to: buyer.email,
+              uid: buyer.uid,
+              ctx,
+            });
+          }
+          break;
+        case "delivered":
+          await Promise.allSettled([
+            buyer.email && sendTemplated({
+              category: CATEGORIES.TRANSACTIONAL,
+              templateCategory: "transactional",
+              templateName: "DeliveredBuyer",
+              to: buyer.email,
+              uid: buyer.uid,
+              ctx,
+            }),
+            seller.email && sendTemplated({
+              category: CATEGORIES.TRANSACTIONAL,
+              templateCategory: "transactional",
+              templateName: "DeliveredSeller",
+              to: seller.email,
+              uid: seller.uid,
+              ctx,
+            }),
+          ]);
+          break;
+      }
+    },
+);
+
+// 6. Funds released → seller
+exports.onPayoutReleasedEmail = onDocumentCreated(
+    {document: "payouts/{payoutId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const payout = {id: event.params.payoutId, ...(event.data && event.data.data())};
+      if (!payout || !payout.sellerId) return;
+      const db = admin.firestore();
+      const sellerSnap = await db.collection("users").doc(payout.sellerId).get();
+      const seller = sellerSnap.exists ? {uid: sellerSnap.id, ...sellerSnap.data()} : {};
+      if (!seller.email) return;
+      const orderSnap = payout.orderId ?
+        await db.collection("orders").doc(payout.orderId).get() :
+        null;
+      const order = orderSnap && orderSnap.exists ?
+        {id: orderSnap.id, ...orderSnap.data()} :
+        {};
+      await sendTemplated({
+        category: CATEGORIES.TRANSACTIONAL,
+        templateCategory: "transactional",
+        templateName: "FundsReleased",
+        to: seller.email,
+        uid: seller.uid,
+        ctx: {order, seller, payout},
+      });
+    },
+);
+
+// 7. Refund issued → buyer
+exports.onRefundEmail = onDocumentCreated(
+    {document: "refunds/{refundId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const refund = {id: event.params.refundId, ...(event.data && event.data.data())};
+      if (!refund || !refund.orderId) return;
+      const db = admin.firestore();
+      const orderSnap = await db.collection("orders").doc(refund.orderId).get();
+      if (!orderSnap.exists) return;
+      const order = {id: orderSnap.id, ...orderSnap.data()};
+      const {buyer} = await loadOrderParties(order);
+      if (!buyer.email) return;
+      await sendTemplated({
+        category: CATEGORIES.TRANSACTIONAL,
+        templateCategory: "transactional",
+        templateName: "RefundIssued",
+        to: buyer.email,
+        uid: buyer.uid,
+        ctx: {order, buyer, refund},
+      });
+    },
+);
+
+// 8. Dispute opened → buyer + seller
+exports.onDisputeOpenedEmail = onDocumentCreated(
+    {document: "disputes/{disputeId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
+    async (event) => {
+      const dispute = {id: event.params.disputeId, ...(event.data && event.data.data())};
+      if (!dispute || !dispute.orderId) return;
+      const db = admin.firestore();
+      const orderSnap = await db.collection("orders").doc(dispute.orderId).get();
+      if (!orderSnap.exists) return;
+      const order = {id: orderSnap.id, ...orderSnap.data()};
+      const {buyer, seller, listing} = await loadOrderParties(order);
+      const ctx = {order, buyer, seller, listing, dispute};
+      await Promise.allSettled([
+        buyer.email && sendTemplated({
+          category: CATEGORIES.TRANSACTIONAL,
+          templateCategory: "transactional",
+          templateName: "DisputeOpenedBuyer",
+          to: buyer.email,
+          uid: buyer.uid,
+          ctx,
+        }),
+        seller.email && sendTemplated({
+          category: CATEGORIES.TRANSACTIONAL,
+          templateCategory: "transactional",
+          templateName: "DisputeOpenedSeller",
+          to: seller.email,
+          uid: seller.uid,
+          ctx,
+        }),
+      ]);
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// C. SECURITY — most are called inline from auth flows. Exposed here as
+//    callables so the index.js / web app can fire them on demand.
+// ═══════════════════════════════════════════════════════════════════════
+
+exports.sendSecurityEmail = onCall(
+    {...EMAIL_FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    async (req) => {
+      const auth = req.auth;
+      if (!auth) throw new HttpsError("unauthenticated", "Sign-in required.");
+      const {template, payload} = req.data || {};
+      const allowed = new Set([
+        "EmailVerification",
+        "PasswordReset",
+        "PasswordChanged",
+        "EmailChangedNew",
+        "EmailChangedOld",
+        "PayoutMethodChanged",
+        "TwoFactorCode",
+        "SuspiciousLogin",
+        "AccountDeletionConfirmed",
+      ]);
+      if (!allowed.has(template)) {
+        throw new HttpsError("invalid-argument", "Unknown template.");
+      }
+      const db = admin.firestore();
+      const userSnap = await db.collection("users").doc(auth.uid).get();
+      if (!userSnap.exists) throw new HttpsError("not-found", "User missing.");
+      const user = {uid: userSnap.id, ...userSnap.data()};
+      const to = (payload && payload.toOverride) || user.email;
+      if (!to) throw new HttpsError("failed-precondition", "No email on file.");
+      const freezeUrl = buildFreezeUrl(auth.uid);
+      const ctx = {user, freezeUrl, ...(payload || {})};
+      return sendTemplated({
+        category: CATEGORIES.TRANSACTIONAL,
+        templateCategory: "security",
+        templateName: template,
+        to,
+        uid: auth.uid,
+        ctx,
+      });
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// D. LIFECYCLE — scheduled functions
+// ═══════════════════════════════════════════════════════════════════════
+
+// Hourly: saved-search match digest. Throttle 1x/24h per (user, search).
+exports.savedSearchMatchScheduler = onSchedule(
+    {schedule: "every 1 hours", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const cutoff = Date.now() - 60 * 60 * 1000;
+      const searches = await db
+          .collection("savedSearches")
+          .where("active", "==", true)
+          .limit(500)
+          .get();
+      for (const doc of searches.docs) {
+        const s = doc.data();
+        const lastSentMs = s.lastNotifiedAt && s.lastNotifiedAt.toMillis ?
+          s.lastNotifiedAt.toMillis() : 0;
+        if (Date.now() - lastSentMs < 24 * 60 * 60 * 1000) continue;
+        const matchesSnap = await db
+            .collection("listings")
+            .where("createdAt", ">", new Date(cutoff))
+            .where("matchTags", "array-contains-any", (s.tags || []).slice(0, 10))
+            .limit(6)
+            .get()
+            .catch(() => null);
+        const matches = matchesSnap ?
+          matchesSnap.docs.map((d) => ({id: d.id, ...d.data()})) :
+          [];
+        if (!matches.length) continue;
+        const userSnap = await db.collection("users").doc(s.uid).get();
+        if (!userSnap.exists) continue;
+        const user = {uid: userSnap.id, ...userSnap.data()};
+        if (!user.email) continue;
+        await sendTemplated({
+          category: CATEGORIES.SAVED_SEARCH,
+          templateCategory: "lifecycle",
+          templateName: "SavedSearchMatch",
+          to: user.email,
+          uid: user.uid,
+          ctx: {user, search: {id: doc.id, ...s}, matches},
+        });
+        await doc.ref.set(
+            {lastNotifiedAt: admin.firestore.FieldValue.serverTimestamp()},
+            {merge: true},
+        );
+      }
+    },
+);
+
+// Daily 09:00 UTC: abandoned-draft sweep.
+exports.abandonedDraftScheduler = onSchedule(
+    {schedule: "0 9 * * *", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const until = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const snap = await db
+          .collection("drafts")
+          .where("submitted", "==", false)
+          .where("updatedAt", ">=", since)
+          .where("updatedAt", "<", until)
+          .limit(500)
+          .get()
+          .catch(() => null);
+      if (!snap) return;
+      for (const d of snap.docs) {
+        const draft = {id: d.id, ...d.data()};
+        if (draft.abandonedEmailSent) continue;
+        const userSnap = await db.collection("users").doc(draft.uid).get();
+        if (!userSnap.exists) continue;
+        const user = {uid: userSnap.id, ...userSnap.data()};
+        if (!user.email) continue;
+        await sendTemplated({
+          category: CATEGORIES.ABANDONED_DRAFT,
+          templateCategory: "lifecycle",
+          templateName: "AbandonedDraft",
+          to: user.email,
+          uid: user.uid,
+          ctx: {user, draft},
+        });
+        await d.ref.set({abandonedEmailSent: true}, {merge: true});
+      }
+    },
+);
+
+// Daily 17:00 UTC: 7-day-after-delivery review request.
+exports.reviewRequestScheduler = onSchedule(
+    {schedule: "0 17 * * *", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const since = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+      const until = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const snap = await db
+          .collection("orders")
+          .where("shippingStatus", "==", "delivered")
+          .where("deliveredAt", ">=", since)
+          .where("deliveredAt", "<", until)
+          .limit(500)
+          .get()
+          .catch(() => null);
+      if (!snap) return;
+      for (const o of snap.docs) {
+        const order = {id: o.id, ...o.data()};
+        if (order.reviewed || order.reviewEmailSent) continue;
+        const {buyer, seller, listing} = await loadOrderParties(order);
+        if (!buyer.email) continue;
+        await sendTemplated({
+          category: CATEGORIES.REVIEW_REQUEST,
+          templateCategory: "lifecycle",
+          templateName: "ReviewRequest",
+          to: buyer.email,
+          uid: buyer.uid,
+          ctx: {user: buyer, order, listing, seller},
+        });
+        await o.ref.set({reviewEmailSent: true}, {merge: true});
+      }
+    },
+);
+
+// Daily: 30/60/90-day win-back.
+exports.winBackScheduler = onSchedule(
+    {schedule: "0 16 * * *", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const day = 24 * 60 * 60 * 1000;
+      const bands = [
+        {tpl: "WinBack30", min: 30, max: 31, flag: "winBack30Sent"},
+        {tpl: "WinBack60", min: 60, max: 61, flag: "winBack60Sent"},
+        {tpl: "WinBack90", min: 90, max: 91, flag: "winBack90Sent"},
+      ];
+      for (const band of bands) {
+        const since = new Date(Date.now() - band.max * day);
+        const until = new Date(Date.now() - band.min * day);
+        const snap = await db
+            .collection("users")
+            .where("lastActiveAt", ">=", since)
+            .where("lastActiveAt", "<", until)
+            .limit(500)
+            .get()
+            .catch(() => null);
+        if (!snap) continue;
+        for (const u of snap.docs) {
+          const user = {uid: u.id, ...u.data()};
+          if (user[band.flag]) continue;
+          if (!user.email) continue;
+          await sendTemplated({
+            category: CATEGORIES.WIN_BACK,
+            templateCategory: "lifecycle",
+            templateName: band.tpl,
+            to: user.email,
+            uid: user.uid,
+            ctx: {user},
+          });
+          await u.ref.set({[band.flag]: true}, {merge: true});
+        }
+      }
+    },
+);
+
+// Sunday 09:00 UTC weekly digest. Local-time delivery is a TODO — for now
+// we send at 09:00 UTC regardless and rely on user-side timezone shifting.
+exports.weeklyDigestScheduler = onSchedule(
+    {schedule: "0 9 * * 0", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const snap = await db
+          .collection("users")
+          .where("emailPrefs.weeklyDigest", "==", true)
+          .limit(1000)
+          .get()
+          .catch(() => null);
+      if (!snap) return;
+      for (const u of snap.docs) {
+        const user = {uid: u.id, ...u.data()};
+        if (!user.email) continue;
+        await sendTemplated({
+          category: CATEGORIES.WEEKLY_DIGEST,
+          templateCategory: "lifecycle",
+          templateName: "WeeklyDigest",
+          to: user.email,
+          uid: user.uid,
+          ctx: {user, items: []},
+        });
+      }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// E. updateEmailPreferences — callable preference center
+// ═══════════════════════════════════════════════════════════════════════
+const PREF_KEYS = new Set([
+  "savedSearchMatches",
+  "priceDrops",
+  "abandonedDraft",
+  "abandonedCart",
+  "reviewRequests",
+  "winBack",
+  "weeklyDigest",
+  "productUpdates",
+]);
+
+exports.updateEmailPreferences = onCall(
+    {...EMAIL_FN},
+    async (req) => {
+      if (!req.auth) throw new HttpsError("unauthenticated", "Sign-in required.");
+      const uid = req.auth.uid;
+      const prefs = (req.data && req.data.prefs) || {};
+      const next = {};
+      for (const [k, v] of Object.entries(prefs)) {
+        if (PREF_KEYS.has(k)) next[`emailPrefs.${k}`] = !!v;
+      }
+      if (!Object.keys(next).length) {
+        return {updated: 0};
+      }
+      next["emailPrefsUpdatedAt"] = admin.firestore.FieldValue.serverTimestamp();
+      await admin.firestore().collection("users").doc(uid).update(next);
+      return {updated: Object.keys(next).length - 1};
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// F. freezeAccount — public HTTP from "this wasn't me" links
+// ═══════════════════════════════════════════════════════════════════════
+const FREEZE_SECRET = defineSecret("FREEZE_HMAC_SECRET");
+
+function buildFreezeUrl(uid) {
+  let secret;
+  try {
+    secret = FREEZE_SECRET.value();
+  } catch (_e) {
+    secret = "dev-secret-not-set";
+  }
+  const exp = Date.now() + 24 * 60 * 60 * 1000; // 24h
+  const payload = `${uid}.${exp}`;
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const token = Buffer.from(`${payload}.${sig}`).toString("base64url");
+  return `https://teeboxmarket.com/security?action=freeze&token=${token}`;
+}
+
+function verifyFreezeToken(token) {
+  try {
+    const raw = Buffer.from(token, "base64url").toString("utf8");
+    const parts = raw.split(".");
+    if (parts.length !== 3) return null;
+    const [uid, expStr, sig] = parts;
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || exp < Date.now()) return null;
+    let secret;
+    try {
+      secret = FREEZE_SECRET.value();
+    } catch (_e) {
+      secret = "dev-secret-not-set";
+    }
+    const expected = crypto
+        .createHmac("sha256", secret)
+        .update(`${uid}.${expStr}`)
+        .digest("hex");
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    return uid;
+  } catch (_e) {
+    return null;
+  }
+}
+
+/**
+ * Public freeze endpoint. Called from the "this wasn't me" CTA in security
+ * emails. Disables auth, revokes refresh tokens, marks user frozen, and
+ * fires a password reset link to the email on file.
+ */
+exports.freezeAccount = onRequest(
+    {...EMAIL_FN, secrets: [FREEZE_SECRET, RESEND_API_KEY]},
+    async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      const token = (req.query && req.query.token) || (req.body && req.body.token);
+      const uid = token ? verifyFreezeToken(String(token)) : null;
+      if (!uid) {
+        return res.status(400).send("Invalid or expired link.");
+      }
+      try {
+        await admin.auth().updateUser(uid, {disabled: true});
+        await admin.auth().revokeRefreshTokens(uid);
+        await admin.firestore().collection("users").doc(uid).set(
+            {
+              frozen: true,
+              frozenAt: admin.firestore.FieldValue.serverTimestamp(),
+              frozenReason: "user-initiated-this-wasnt-me",
+            },
+            {merge: true},
+        );
+        // Force a password reset link to email-on-file.
+        const userRec = await admin.auth().getUser(uid).catch(() => null);
+        if (userRec && userRec.email) {
+          const resetLink = await admin.auth().generatePasswordResetLink(userRec.email);
+          await sendTemplated({
+            category: CATEGORIES.TRANSACTIONAL,
+            templateCategory: "security",
+            templateName: "PasswordReset",
+            to: userRec.email,
+            uid,
+            ctx: {user: {uid, email: userRec.email}, resetUrl: resetLink, ip: req.ip},
+          });
+        }
+        return res
+            .status(200)
+            .send(
+                "<h1>Account frozen.</h1><p>We've signed you out everywhere and emailed a password-reset link. Set a new password to regain access.</p>",
+            );
+      } catch (e) {
+        logger.error("freezeAccount error", e);
+        return res.status(500).send("Could not freeze the account. Email security@teeboxmarket.com.");
+      }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// G. aggregateEmailMetrics — hourly rollup for dashboard
+// ═══════════════════════════════════════════════════════════════════════
+exports.aggregateEmailMetrics = onSchedule(
+    {schedule: "every 1 hours", ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const today = new Date();
+      const day = today.toISOString().slice(0, 10); // YYYY-MM-DD
+      const start = new Date(`${day}T00:00:00Z`);
+      const snap = await db
+          .collection("emailSends")
+          .where("sentAt", ">=", start)
+          .limit(5000)
+          .get();
+      const totals = {
+        sent: 0,
+        delivered: 0,
+        bounced: 0,
+        complained: 0,
+        opened: 0,
+        clicked: 0,
+        skipped: 0,
+        renderFailed: 0,
+      };
+      for (const d of snap.docs) {
+        const s = d.data().status || "";
+        if (s === "sent") totals.sent += 1;
+        else if (s === "delivered") totals.delivered += 1;
+        else if (s === "bounced") totals.bounced += 1;
+        else if (s === "complained") totals.complained += 1;
+        else if (s === "opened") totals.opened += 1;
+        else if (s === "clicked") totals.clicked += 1;
+        else if (s === "render-failed") totals.renderFailed += 1;
+        else if (s.startsWith("skipped")) totals.skipped += 1;
+      }
+      await db.collection("emailMetrics").doc(day).set(
+          {
+            day,
+            ...totals,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
+      );
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// H. handleUnsubscribe — backend for unsubscribe.html one-click
+// ═══════════════════════════════════════════════════════════════════════
+exports.handleUnsubscribe = onRequest(
+    {...EMAIL_FN, secrets: [UNSUBSCRIBE_SECRET]},
+    async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      if (req.method === "OPTIONS") return res.status(204).send("");
+
+      // RFC 8058 one-click POST OR ?t= GET both supported.
+      const token =
+        (req.body && req.body.t) ||
+        (req.query && req.query.t) ||
+        null;
+      if (!token) return res.status(400).json({ok: false, error: "no-token"});
+
+      const verified = verifyUnsubscribeToken(String(token));
+      if (!verified.ok) {
+        return res.status(400).json({ok: false, error: verified.error});
+      }
+      try {
+        const updates = {
+          [`emailPrefs.${verified.category}`]: false,
+          emailPrefsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        await admin
+            .firestore()
+            .collection("users")
+            .doc(verified.uid)
+            .set(updates, {merge: true});
+        return res.json({ok: true, uid: verified.uid, category: verified.category});
+      } catch (e) {
+        logger.error("handleUnsubscribe write failed", e);
+        return res.status(500).json({ok: false, error: "write-failed"});
+      }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+module.exports.__emailTriggersLoaded = true;

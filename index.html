@@ -3236,7 +3236,29 @@
       <button class="modal-close" data-action="close-moderation" aria-label="Close" data-ico="close" style="color:var(--gold-300);"></button>
     </div>
     <div class="info-body" id="moderationBody" style="background:var(--green-900);color:#fff;min-height:300px;">
-      <div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>
+      <!-- Tab strip — adds Email tab to existing admin tool (?admin=moderation) -->
+      <div id="adminTabStrip" style="display:flex;gap:8px;padding:0 16px 12px;border-bottom:1px solid var(--gold-700);">
+        <button class="dash-tab active" data-admin-tab="listings" data-action="switch-admin-tab" style="background:transparent;color:var(--gold-300);">Listings</button>
+        <button class="dash-tab" data-admin-tab="email" data-action="switch-admin-tab" style="background:transparent;color:var(--gold-300);">Email</button>
+      </div>
+      <div id="adminTabContent">
+        <div id="adminTabListings">
+          <div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>
+        </div>
+        <div id="adminTabEmail" style="display:none;padding:16px;">
+          <h3 style="color:var(--gold-300);margin:0 0 12px;font-size:16px;">Email deliverability (last 30 days)</h3>
+          <div id="adminEmailMetrics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px;">
+            <div style="text-align:center;color:var(--gold-300);grid-column:1/-1;padding:24px;">Loading metrics…</div>
+          </div>
+          <div style="font-size:13px;color:#bbb;margin-top:12px;">
+            Reads <code>emailMetrics/{day}</code> rolling 30 days. Aggregated hourly by <code>aggregateEmailMetrics</code>. See <code>EMAIL_OPS_RUNBOOK.md</code> for thresholds.
+          </div>
+          <div id="adminEmailSuppressions" style="margin-top:24px;">
+            <h4 style="color:var(--gold-300);margin:0 0 8px;font-size:14px;">Recent suppressions</h4>
+            <div id="adminEmailSuppressionsList" style="font-size:13px;color:#ddd;">—</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
