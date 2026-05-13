@@ -4,11 +4,13 @@
  * Required by functions/index.js with one line at the bottom:
  *     require("./pushTriggers");
  *
- * These triggers are ADDITIVE to the existing notifyOnOrderCreated /
- * notifyOnOfferCreated / notifyOnOfferUpdated / notifyOnOrderUpdated
- * triggers in index.js. Those write to users/{uid}/notifications which
- * powers the in-app notification panel + the legacy pushNotificationDispatch
- * trigger (kept for backwards compat with existing tokens).
+ * These triggers are ADDITIVE to the existing offer email triggers
+ * (notifyOnOfferCreated / notifyOnOfferUpdated) in index.js and the
+ * order email triggers in emailTriggers.js (onOrderCreatedEmail,
+ * onOrderShippingStatusEmail, etc.). The legacy notifyOnOrderCreated /
+ * notifyOnOrderUpdated triggers in index.js were removed on 2026-05-13
+ * after the JSX path took over — see the deletion-marker comment in
+ * index.js around the offer triggers for context.
  *
  * What's NEW here:
  *   - Respects users/{uid}.pushPrefs.<category>

@@ -3591,158 +3591,17 @@ async function sendEmail({to, subject, html}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// notifyOnOrderCreated
-//   Fires when Stripe webhook writes orders/{paymentIntentId}.
-//   - Push + email to seller: "you sold X, ship within 3 business days"
-//   - Email to buyer: "order confirmed, here's your receipt"
+// Legacy order email triggers removed (2026-05-13)
+//   `notifyOnOrderCreated` and `notifyOnOrderUpdated` were duplicate
+//   senders alongside the JSX path in emailTriggers.js
+//   (`onOrderCreatedEmail`, `onOrderShippingStatusEmail`,
+//   `onOrderLabelEmail`). They also bypassed `preflightAllowed`
+//   (no unsubscribe footer / physical address / GDPR consent gate).
+//   The canonical replacements live in `functions/emailTriggers.js`
+//   and render through React Email templates that include compliant
+//   footers. The `trackingUrl` helper went with them — only the
+//   legacy shipped-email body referenced it.
 // ─────────────────────────────────────────────────────────────
-exports.notifyOnOrderCreated = onDocumentCreated(
-  {document: "orders/{orderId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
-  async (event) => {
-    try {
-      const order = event.data && event.data.data();
-      if (!order) return;
-      const db = admin.firestore();
-      const listing = await db.collection("listings").doc(order.listingId).get()
-        .then((s) => s.exists ? s.data() : {}).catch(() => ({}));
-      const listingTitle = listing.title || "your item";
-      const photo = (listing.photos && listing.photos[0]) || null;
-      const amount = Number(order.amount || 0);
-
-      const [seller, buyer] = await Promise.all([
-        lookupUser(order.sellerId),
-        lookupUser(order.buyerId),
-      ]);
-
-      // Seller: push + email.
-      await writeNotification(order.sellerId, {
-        kind: "order-placed",
-        listingId: order.listingId,
-        orderId: event.params.orderId,
-        listingTitle,
-        amount,
-      });
-      if (seller && seller.email) {
-        const body = `<p>Great news — <strong>${listingTitle}</strong> sold for
-          <strong>$${amount.toLocaleString()}</strong>. Please ship within 3 business days
-          and mark it as shipped in the app so the buyer can track delivery.</p>
-          ${photo ? `<p style="text-align:center;margin:20px 0;"><img src="${photo}"
-            alt="" style="max-width:280px;border-radius:8px;" /></p>` : ""}`;
-        await sendEmail({
-          to: seller.email,
-          subject: `You sold ${listingTitle} — ship within 3 days`,
-          html: emailShell(`You sold ${listingTitle}!`, body, "Open Order", `${APP_URL}/?order=${event.params.orderId}`),
-        });
-      }
-
-      // Buyer: confirmation email only (push at this point would be
-      // redundant with the in-app Stripe success screen).
-      if (buyer && buyer.email) {
-        const body = `<p>Thanks for your order, ${buyer.displayName}!</p>
-          <p><strong>${listingTitle}</strong> — $${amount.toLocaleString()}</p>
-          <p>The seller will ship within 3 business days. You'll get an email + push
-          notification with tracking when it's on the way.</p>`;
-        await sendEmail({
-          to: buyer.email,
-          subject: `Order confirmed: ${listingTitle}`,
-          html: emailShell("Order confirmed", body, "View Order", `${APP_URL}/?order=${event.params.orderId}`),
-        });
-      }
-    } catch (err) {
-      logger.error("notifyOnOrderCreated error", err);
-    }
-  }
-);
-
-// ─────────────────────────────────────────────────────────────
-// notifyOnOrderUpdated
-//   Single trigger handles two transitions:
-//     awaiting_seller_shipment → shipped   → notify buyer
-//     shipped                  → delivered → notify seller
-// ─────────────────────────────────────────────────────────────
-exports.notifyOnOrderUpdated = onDocumentUpdated(
-  {document: "orders/{orderId}", secrets: [RESEND_KEY], ...EMAIL_TRIGGER},
-  async (event) => {
-    try {
-      const before = event.data && event.data.before && event.data.before.data();
-      const after = event.data && event.data.after && event.data.after.data();
-      if (!before || !after) return;
-      const db = admin.firestore();
-      const listing = await db.collection("listings").doc(after.listingId).get()
-        .then((s) => s.exists ? s.data() : {}).catch(() => ({}));
-      const listingTitle = listing.title || "your item";
-
-      // Shipment notification (seller → buyer)
-      if (before.fulfillmentStatus === "awaiting_seller_shipment"
-          && after.fulfillmentStatus === "shipped") {
-        const buyer = await lookupUser(after.buyerId);
-        await writeNotification(after.buyerId, {
-          kind: "order-shipped",
-          listingId: after.listingId,
-          orderId: event.params.orderId,
-          listingTitle,
-          carrier: after.carrier || "",
-          trackingNumber: after.trackingNumber || "",
-        });
-        if (buyer && buyer.email) {
-          const trackingLink = trackingUrl(after.carrier, after.trackingNumber);
-          const trackingHtml = after.trackingNumber
-            ? `<p><strong>${after.carrier || "Carrier"}</strong>:
-                <a href="${trackingLink}" style="color:#1f4827;">${after.trackingNumber}</a></p>`
-            : "";
-          const body = `<p>Your <strong>${listingTitle}</strong> just shipped.</p>${trackingHtml}
-            <p>You'll get another note when it's delivered.</p>`;
-          await sendEmail({
-            to: buyer.email,
-            subject: `Shipped: ${listingTitle}`,
-            html: emailShell("Your order shipped", body, "Track Order", `${APP_URL}/?order=${event.params.orderId}`),
-          });
-        }
-      }
-
-      // Delivery confirmation (buyer → seller; aggregateSellerStats
-      // already handles seller-stats roll-up separately).
-      if (before.fulfillmentStatus === "shipped"
-          && after.fulfillmentStatus === "delivered") {
-        const seller = await lookupUser(after.sellerId);
-        await writeNotification(after.sellerId, {
-          kind: "order-delivered",
-          listingId: after.listingId,
-          orderId: event.params.orderId,
-          listingTitle,
-        });
-        if (seller && seller.email) {
-          const payoutCents = Number(after.sellerPayoutCents || 0);
-          const payoutDollars = (payoutCents / 100).toFixed(2);
-          const body = `<p>${listingTitle} reached the buyer. Your payout of
-            <strong>$${payoutDollars}</strong> is on the way to your bank
-            (typically 2 business days via Stripe).</p>
-            <p>Thanks for being a great seller!</p>`;
-          await sendEmail({
-            to: seller.email,
-            subject: `Delivered: ${listingTitle}`,
-            html: emailShell("Delivered — payout incoming", body, "View Order", `${APP_URL}/?order=${event.params.orderId}`),
-          });
-        }
-      }
-    } catch (err) {
-      logger.error("notifyOnOrderUpdated error", err);
-    }
-  }
-);
-
-function trackingUrl(carrier, trackingNumber) {
-  if (!trackingNumber) return APP_URL;
-  const c = String(carrier || "").toLowerCase();
-  if (c.includes("usps")) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`;
-  if (c.includes("ups")) return `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`;
-  if (c.includes("fedex")) return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
-  if (c.includes("dhl")) return `https://www.dhl.com/us-en/home/tracking/tracking-parcel.html?tracking-id=${encodeURIComponent(trackingNumber)}`;
-  return APP_URL;
-}
-// Local helper — intentionally NOT exported. Firebase Functions only
-// accepts Cloud Function exports; exporting a plain function breaks
-// `firebase deploy --only functions` with a backend-spec timeout.
 
 // ─────────────────────────────────────────────────────────────
 // notifyOnOfferCreated — push + email seller when a buyer offers
