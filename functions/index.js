@@ -479,42 +479,46 @@ exports.stripeWebhook = onRequest(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    // ── Event-id replay protection (H3 ordering) ──
+    // We READ the marker first. If the event is already recorded
+    // (ok=true or permanent=true), short-circuit. The marker WRITE
+    // happens after the handler succeeds (success) or after we classify
+    // as a permanent failure — never before, so a transient failure
+    // doesn't leave the marker set and silently swallow the retry.
+    const db = admin.firestore();
+    const markerRef = db.collection("processedStripeEvents").doc(event.id);
     try {
-      // ── Event-id replay protection ──
-      // Stripe retries on any non-2xx and also occasionally redelivers
-      // events even on 200 (e.g. webhook timing out, dashboard "Resend").
-      // Without this guard, handlePaymentSucceeded's per-order tx
-      // protects against double-recording, but the rollup writes (price
-      // history, globalStats) would double-count. An atomic create on
-      // processedStripeEvents/{event.id} fails with ALREADY_EXISTS the
-      // second time the event lands, so we short-circuit before any
-      // handler runs.
-      const db = admin.firestore();
-      const eventRef = db.collection("processedStripeEvents").doc(event.id);
-      try {
-        await eventRef.create({
-          type: event.type,
-          receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } catch (createErr) {
-        // Firestore "already exists" surfaces as code 6 in gRPC numeric
-        // form or "ALREADY_EXISTS" / "already-exists" in the string form
-        // depending on the SDK version — accept any of them.
-        const c = createErr && (createErr.code || createErr.status);
-        const isDuplicate = c === 6 || c === "ALREADY_EXISTS" ||
-          c === "already-exists" || String(c || "").toLowerCase()
-              .includes("already");
-        if (isDuplicate) {
+      const markerSnap = await markerRef.get();
+      if (markerSnap.exists) {
+        const m = markerSnap.data() || {};
+        // Either a previous success OR a recorded permanent failure —
+        // both mean: don't run the handler again.
+        if (m.ok === true || m.permanent === true) {
           logger.info(
-            `Duplicate Stripe event ${event.id} (${event.type}) — skipping`);
+            `Stripe event ${event.id} (${event.type}) already processed ` +
+              `(ok=${!!m.ok} permanent=${!!m.permanent}) — skipping`,
+          );
           return res.json({received: true, duplicate: true});
         }
-        // Unknown error writing the marker — log and continue. If we
-        // can't write to Firestore the handler below will also fail
-        // and Stripe will retry.
-        logger.error("processedStripeEvents create failed", createErr);
+        // Marker exists but neither flag set — legacy marker from the
+        // old write-first scheme. Treat as already-processed to preserve
+        // existing semantics for in-flight events.
+        if (!m.ok && !m.permanent) {
+          logger.info(
+            `Stripe event ${event.id} (${event.type}) has legacy marker ` +
+              "— skipping",
+          );
+          return res.json({received: true, duplicate: true});
+        }
       }
+    } catch (readErr) {
+      // Couldn't read the marker — log and continue. Handler dedupe
+      // (per-order tx etc.) still protects us; worst case is a rollup
+      // counter double-counts, which is preferable to silently dropping.
+      logger.error("processedStripeEvents read failed", readErr);
+    }
 
+    try {
       switch (event.type) {
         case "payment_intent.succeeded":
           await handlePaymentSucceeded(event.data.object);
@@ -560,15 +564,64 @@ exports.stripeWebhook = onRequest(
         // Retries handles dunning on payment failures — the subscription
         // stays in `past_due` (still active) for the retry window and
         // only flips to `canceled` if all retries fail.
+        // H4: pass event.created for out-of-order guard inside the handler.
         case "customer.subscription.created":
         case "customer.subscription.updated":
-          await handleSubscriptionUpsert(event.data.object);
+          await handleSubscriptionUpsert(event.data.object, event.created);
           break;
         case "customer.subscription.deleted":
-          await handleSubscriptionDeleted(event.data.object);
+          await handleSubscriptionDeleted(event.data.object, event.created);
           break;
+        // H5: Pro subscription payment failure (after Smart Retries window).
+        case "invoice.payment_failed": {
+          const invoice = event.data.object;
+          if (invoice && invoice.subscription) {
+            const sub = await stripeClient.subscriptions.retrieve(
+              invoice.subscription,
+            );
+            await handlePaymentFailed(invoice, sub, event.created);
+          }
+          break;
+        }
+        // H6: 3DS / SCA challenge required on a renewal.
+        case "invoice.payment_action_required": {
+          const invoice = event.data.object;
+          if (invoice && invoice.subscription) {
+            await handlePaymentActionRequired(invoice, event.created);
+          }
+          break;
+        }
+        // H7: subscription invoice refunded → flip user back to free.
+        // We discriminate marketplace charges (handled by refundOrder
+        // callable) from subscription-invoice charges via charge.invoice.
+        case "charge.refunded": {
+          const charge = event.data.object;
+          if (charge && charge.invoice) {
+            const invoice = await stripeClient.invoices.retrieve(
+              charge.invoice,
+            );
+            if (invoice && invoice.subscription) {
+              await handleSubscriptionChargeRefunded(charge, event.created);
+            }
+          }
+          break;
+        }
         default:
           logger.info(`Unhandled event type: ${event.type}`);
+      }
+      // H3: success — record marker AFTER handler completed. Retries on
+      // *this* event id will now short-circuit at the read above.
+      try {
+        await markerRef.set({
+          type: event.type,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          ok: true,
+        });
+      } catch (markerErr) {
+        // Couldn't record success marker — log but don't fail the
+        // response (we'd rather Stripe occasionally redeliver than
+        // burn its retry budget for a marker-write failure).
+        logger.error("processedStripeEvents success write failed", markerErr);
       }
       return res.json({received: true});
     } catch (err) {
@@ -581,13 +634,30 @@ exports.stripeWebhook = onRequest(
       // stops retrying. The event will still be visible in our
       // Cloud Functions logs for manual triage.
       const code = err && (err.code || err.status);
-      const transient = code === 14 || code === 4 ||
+      // H2: handlers throw `err.transient = true` for "user not found
+      // yet, retry me" — funnel that into the same retry path as the
+      // gRPC unavailable/deadline codes.
+      const transient = (err && err.transient === true) ||
+        code === 14 || code === 4 ||
         code === "UNAVAILABLE" || code === "DEADLINE_EXCEEDED" ||
         code === "unavailable" || code === "deadline-exceeded" ||
         code === "internal" ||
         (typeof code === "string" && /unavailable|deadline/i.test(code));
       if (transient) {
+        // H3: do NOT write the marker — we want Stripe to retry.
         return res.status(500).send("Error processing webhook (retryable)");
+      }
+      // H3: permanent — record marker so we don't replay forever.
+      try {
+        await markerRef.set({
+          type: event.type,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          permanent: true,
+          error: String((err && err.message) || err),
+        });
+      } catch (markerErr) {
+        logger.error(
+          "processedStripeEvents permanent write failed", markerErr);
       }
       return res.status(200).json({received: true, error: "permanent"});
     }
@@ -597,112 +667,150 @@ exports.stripeWebhook = onRequest(
 // ─────────────────────────────────────────────────────────────
 // Pro Seller subscription handlers
 //
+// Implementation lives in ./lib/subscription so the daily smoke test
+// (functions/smokeTest.js) can call the EXACT same writes the webhook
+// fires — otherwise the smoke would silently drift from reality.
+// See SMOKE_TEST_OPS.md for the contract.
+//
 // We map Stripe's customer.id → users/{uid} via the stripeCustomerId
 // field stored on the user doc when createSubscriptionCheckout fires.
 // The `tier` field is the source of truth for fee calculation in
-// createPaymentIntent — it must only ever be written here (server-side)
-// or the firestore rules whitelist will catch the client.
-//
-// Status mapping:
-//   active | trialing            → tier='pro'
-//   past_due                     → tier='pro' (Smart Retries window)
-//   canceled | unpaid | incomplete_expired → tier='free'
-//   incomplete                   → leave as-is (not paid yet)
+// createPaymentIntent — it must only ever be written by the helpers in
+// ./lib/subscription (server-side) or the firestore rules whitelist
+// will catch the client.
 // ─────────────────────────────────────────────────────────────
-async function findUserByStripeCustomer(customerId) {
-  if (!customerId) return null;
-  const db = admin.firestore();
-  const snap = await db.collection("users")
-    .where("stripeCustomerId", "==", customerId).limit(1).get();
-  return snap.empty ? null : snap.docs[0];
+const {
+  handleSubscriptionUpsert,
+  handleSubscriptionDeleted,
+  findUserByStripeCustomer,
+  mirrorTierToProfile,
+} = require("./lib/subscription");
+
+// Local twin of lib/subscription.findUserByMetadataFallback — we need
+// it here for the invoice.* + charge.refunded handlers below, which
+// also need to gracefully back-fill a missing stripeCustomerId. Kept
+// in sync with the lib version (intentional duplication to avoid
+// reaching into the lib's private surface).
+async function findUserByMetadataUidFallback(uidOrSub) {
+  const fallbackUid = (typeof uidOrSub === "string") ?
+    uidOrSub :
+    (uidOrSub && uidOrSub.metadata && uidOrSub.metadata.firebaseUid);
+  if (!fallbackUid) return null;
+  const ref = admin.firestore().doc(`users/${fallbackUid}`);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  return {id: fallbackUid, ref, data: () => snap.data()};
 }
 
-const PRO_ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
-const PRO_INACTIVE_STATUSES = new Set([
-  "canceled", "unpaid", "incomplete_expired",
-]);
-
-// Mirror the Pro tier flag to the public profile doc so other users
-// (buyers browsing listings) can see the badge. profiles/{uid} is
-// publicly readable; users/{uid} is self-only. We write a single
-// boolean (`isPro`) to keep the public surface area minimal.
-async function mirrorTierToProfile(uid, isPro) {
-  if (!uid) return;
-  const db = admin.firestore();
-  try {
-    await db.doc(`profiles/${uid}`).set({
-      isPro: !!isPro,
-      isProUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, {merge: true});
-  } catch (e) {
-    logger.warn(`mirrorTierToProfile failed for ${uid}: ${e.message}`);
+// H5: invoice.payment_failed handler — after Stripe's Smart Retries
+// dunning has exhausted (or for the very first failed renewal). The
+// subscription status is the source of truth for fee tier; this handler
+// just stamps failure timestamps + counters so the in-app billing UI
+// + subscriptionLifecycle.js triggers (email/push) have something to
+// read.
+async function handlePaymentFailed(invoice, sub, _eventCreatedSec) {
+  if (!invoice) return;
+  let userDoc = await findUserByStripeCustomer(invoice.customer);
+  if (!userDoc && sub && sub.metadata && sub.metadata.firebaseUid) {
+    userDoc = await findUserByMetadataUidFallback(sub.metadata.firebaseUid);
   }
-}
-
-async function handleSubscriptionUpsert(sub) {
-  if (!sub || !sub.id) return;
-  const userDoc = await findUserByStripeCustomer(sub.customer);
   if (!userDoc) {
-    logger.warn(`subscription event for unknown customer ${sub.customer}`);
-    return;
+    const err = new Error(
+      `invoice.payment_failed for unknown customer ${invoice.customer}`,
+    );
+    err.transient = true;
+    throw err;
   }
-  const status = sub.status || "incomplete";
-  const update = {
-    proSubscriptionId: sub.id,
-    proSubscriptionStatus: status,
-    proSubscriptionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
-  if (PRO_ACTIVE_STATUSES.has(status)) {
-    update.tier = "pro";
-    if (sub.current_period_end) {
-      update.proCurrentPeriodEnd = admin.firestore.Timestamp.fromMillis(
-        sub.current_period_end * 1000,
-      );
-    }
-    if (sub.cancel_at_period_end) {
-      update.proCancelAtPeriodEnd = true;
-    } else {
-      update.proCancelAtPeriodEnd = false;
-    }
-  } else if (PRO_INACTIVE_STATUSES.has(status)) {
-    update.tier = "free";
-  }
-  // For status='incomplete' we don't downgrade — the user just hasn't
-  // paid yet. They stay on whatever tier they had before.
-  await userDoc.ref.set(update, {merge: true});
-  if (update.tier) {
-    await mirrorTierToProfile(userDoc.id, update.tier === "pro");
-    // Revoke refresh tokens so the new tier propagates immediately —
-    // otherwise the user's stale ID token (up to 1h old) would still
-    // report the previous tier when the client reads custom claims.
-    try {
-      await admin.auth().revokeRefreshTokens(userDoc.id);
-    } catch (e) {
-      logger.warn(
-        `revokeRefreshTokens after tier change failed for ${userDoc.id}: ${e.message}`);
-    }
+  await userDoc.ref.set({
+    proPaymentFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+    proPaymentFailureCount: admin.firestore.FieldValue.increment(1),
+    proLastInvoiceStatus: "payment_failed",
+  }, {merge: true});
+  // Best-effort in-app notification. Email / push are handled by the
+  // subscriptionLifecycle.js Firestore triggers — this is just the
+  // notification-bell entry.
+  try {
+    await writeNotification(userDoc.id, {
+      type: "pro_payment_failed",
+      title: "Pro Seller payment failed",
+      body: "Update your payment method to keep your Pro benefits.",
+      deepLink: "teebox://billing",
+    });
+  } catch (e) {
+    logger.error("writeNotification failed (payment_failed)", e);
   }
   logger.info(
-    `Subscription ${sub.id} → ${status} for ${userDoc.id} ` +
-    `(tier=${update.tier || "unchanged"})`,
+    `invoice.payment_failed → flagged ${userDoc.id} (sub=${sub && sub.id})`,
   );
 }
 
-async function handleSubscriptionDeleted(sub) {
-  if (!sub || !sub.id) return;
-  const userDoc = await findUserByStripeCustomer(sub.customer);
+// H6: invoice.payment_action_required handler — 3DS / SCA challenge
+// needed for a renewal. Stripe will NOT retry on its own; the user
+// must complete the challenge via the hosted invoice/portal URL.
+async function handlePaymentActionRequired(invoice, _eventCreatedSec) {
+  if (!invoice) return;
+  let userDoc = await findUserByStripeCustomer(invoice.customer);
   if (!userDoc) {
-    logger.warn(`subscription.deleted for unknown customer ${sub.customer}`);
-    return;
+    // Invoice doesn't carry subscription metadata directly; fall back
+    // via customer-id only. If still missing, ask Stripe to retry.
+    const err = new Error(
+      `invoice.payment_action_required for unknown customer ` +
+      `${invoice.customer}`,
+    );
+    err.transient = true;
+    throw err;
+  }
+  await userDoc.ref.set({
+    proPaymentActionRequiredAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+    proLastInvoiceStatus: "payment_action_required",
+  }, {merge: true});
+  try {
+    await writeNotification(userDoc.id, {
+      type: "pro_payment_action_required",
+      title: "Action required to renew Pro Seller",
+      body: "Your bank needs you to confirm the payment. Open billing " +
+        "to finish.",
+      deepLink: "teebox://billing",
+    });
+  } catch (e) {
+    logger.error("writeNotification failed (payment_action_required)", e);
+  }
+  logger.info(`invoice.payment_action_required → flagged ${userDoc.id}`);
+}
+
+// H7: charge.refunded for subscription invoices. A refund issued from
+// the Stripe Dashboard (or by support) won't fire customer.subscription.
+// deleted, so without this handler the user keeps the Pro tier despite
+// having their money back. We discriminate marketplace charges in the
+// outer switch (charge.invoice must be set and invoice.subscription
+// must be set).
+async function handleSubscriptionChargeRefunded(charge, _eventCreatedSec) {
+  if (!charge) return;
+  let userDoc = await findUserByStripeCustomer(charge.customer);
+  if (!userDoc) {
+    const err = new Error(
+      `charge.refunded for unknown customer ${charge.customer}`,
+    );
+    err.transient = true;
+    throw err;
   }
   await userDoc.ref.set({
     tier: "free",
-    proSubscriptionStatus: "canceled",
-    proSubscriptionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    proCancelAtPeriodEnd: false,
+    proSubscriptionStatus: "refunded",
+    proSubscriptionRefundedAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+    proSubscriptionUpdatedAt:
+      admin.firestore.FieldValue.serverTimestamp(),
   }, {merge: true});
   await mirrorTierToProfile(userDoc.id, false);
-  logger.info(`Subscription ${sub.id} canceled for ${userDoc.id}`);
+  try {
+    await admin.auth().revokeRefreshTokens(userDoc.id);
+  } catch (e) {
+    logger.warn(
+      `revokeRefreshTokens after refund failed for ${userDoc.id}: ${e.message}`);
+  }
+  logger.info(`charge.refunded → downgraded ${userDoc.id} to free`);
 }
 
 async function syncConnectAccountStatus(account) {
@@ -3926,7 +4034,10 @@ exports.createSubscriptionCheckout = onCall(
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
     const priceId = stripeProPriceId.value();
-    if (!priceId) {
+    // M1: validate the price-ID shape — catches placeholder strings or
+    // mis-pasted values that would otherwise surface as opaque Stripe
+    // errors at session.create.
+    if (!priceId || !/^price_[A-Za-z0-9]{10,}$/.test(priceId)) {
       throw new HttpsError(
         "failed-precondition",
         "Pro plan is not configured yet. Try again soon.",
@@ -3962,35 +4073,84 @@ exports.createSubscriptionCheckout = onCall(
     // user from accumulating duplicate Customer records in Stripe if
     // they bounce out of Checkout multiple times.
     let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripeClient.customers.create({
-        email,
-        name: displayName,
-        metadata: {firebaseUid: uid},
+    try {
+      if (!customerId) {
+        // L1: idempotency key — a double-tap during slow customer
+        // create gets the same customer back instead of duplicates.
+        const customer = await stripeClient.customers.create({
+          email,
+          name: displayName,
+          metadata: {firebaseUid: uid},
+        }, {idempotencyKey: `customer-create-${uid}`});
+        customerId = customer.id;
+        await userRef.set({
+          stripeCustomerId: customerId,
+          stripeCustomerCreatedAt:
+            admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      }
+
+      // H1: server-side guard against two-tab / two-device double-subscribe.
+      // The local users/{uid} check above only catches users whose webhook
+      // has already landed; between paying on Stripe and the webhook
+      // arriving (seconds to minutes), a second tab could otherwise spin
+      // up a duplicate subscription. Stripe is the source of truth.
+      const existing = await stripeClient.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 5,
       });
-      customerId = customer.id;
-      await userRef.set({
-        stripeCustomerId: customerId,
-        stripeCustomerCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      }, {merge: true});
+      const blocking = existing.data.find((s) =>
+        ["active", "trialing", "past_due", "incomplete"].includes(s.status),
+      );
+      if (blocking) {
+        throw new HttpsError(
+          "already-exists",
+          "You already have a Pro subscription. Use Manage subscription " +
+            "to make changes.",
+          {subscriptionId: blocking.id, status: blocking.status},
+        );
+      }
+
+      const session = await stripeClient.checkout.sessions.create({
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{price: priceId, quantity: 1}],
+        success_url: `${APP_URL}/?checkout=pro_success`,
+        cancel_url: `${APP_URL}/?checkout=pro_cancel`,
+        // Tag the session + the resulting subscription with the firebase
+        // uid as a belt-and-suspenders backup for the customer-id lookup.
+        client_reference_id: uid,
+        subscription_data: {metadata: {firebaseUid: uid}},
+        // Allow_promotion_codes lets us run launch / referral coupons
+        // without code changes — they're configured in the Stripe Dashboard.
+        allow_promotion_codes: true,
+      }, {
+        // L1: idempotency key with a 60s bucket — a double-tap within
+        // the same minute returns the same Checkout Session url. A new
+        // minute = new session (acceptable; user retried after a delay).
+        idempotencyKey:
+          `checkout-session-${uid}-${(Date.now() / 60000) | 0}`,
+      });
+
+      return {url: session.url, sessionId: session.id};
+    } catch (e) {
+      // M1: translate Stripe SDK errors into useful client-facing
+      // messages instead of opaque `internal`.
+      if (e instanceof HttpsError) throw e;
+      if (e && e.type === "StripeCardError") {
+        throw new HttpsError("aborted", e.message, {code: e.code});
+      }
+      if (e && e.type === "StripeInvalidRequestError") {
+        logger.error("createSubscriptionCheckout Stripe error", e);
+        throw new HttpsError(
+          "failed-precondition",
+          "Pro plan is not properly configured. Try again later.",
+          {code: e.code},
+        );
+      }
+      throw e; // unknown — let onCall wrap as internal
     }
-
-    const session = await stripeClient.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{price: priceId, quantity: 1}],
-      success_url: `${APP_URL}/?checkout=pro_success`,
-      cancel_url: `${APP_URL}/?checkout=pro_cancel`,
-      // Tag the session + the resulting subscription with the firebase
-      // uid as a belt-and-suspenders backup for the customer-id lookup.
-      client_reference_id: uid,
-      subscription_data: {metadata: {firebaseUid: uid}},
-      // Allow_promotion_codes lets us run launch / referral coupons
-      // without code changes — they're configured in the Stripe Dashboard.
-      allow_promotion_codes: true,
-    });
-
-    return {url: session.url, sessionId: session.id};
   },
 );
 

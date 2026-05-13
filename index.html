@@ -2736,7 +2736,7 @@
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
-          <div><strong>Priority support</strong> — disputes and payout questions get fast-tracked.</div>
+          <div><strong>Direct support</strong> — message hello@teeboxmarket.com about disputes and payouts.</div>
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
@@ -7937,7 +7937,14 @@ async function renderProTierBanner() {
     const data = snap.exists() ? snap.data() : {};
     tier = data.tier === 'pro' ? 'pro' : 'free';
     cancelAtPeriodEnd = !!data.proCancelAtPeriodEnd;
-  } catch (_e) { /* best-effort — fall through to free */ }
+  } catch (_e) {
+    // L3: fail-open NEUTRAL. Previously we fell through to tier='free'
+    // and rendered the Upgrade CTA — which briefly mis-states Pro users'
+    // status when Firestore is flaky. Render an empty banner instead;
+    // a subsequent successful read will fill it in.
+    el.innerHTML = '';
+    return;
+  }
 
   if (tier === 'pro') {
     const cancelNote = cancelAtPeriodEnd
@@ -10574,10 +10581,25 @@ const __sellerPath = (location.pathname.match(/^\/seller\/([A-Za-z0-9_\-]+)\/?$/
 // knows what happened. The webhook is the source of truth for tier flips,
 // so the banner may take a few seconds to flip from "Upgrade" → "Pro".
 if (__checkoutQ === 'pro_success') {
-  setTimeout(() => {
+  setTimeout(async () => {
     if (typeof showToast === 'function') {
       showToast("You're on Pro Seller — fees are now 3%. Welcome aboard.", 'success');
     }
+    // L2: force a token refresh + banner re-render so the user immediately
+    // sees their new Pro status. Without this, the banner still reads the
+    // pre-webhook tier='free' until the user navigates away. The webhook
+    // is still the source of truth — this just narrows the visible-stale
+    // window. All best-effort; failures swallowed.
+    try {
+      if (window.CURRENT_USER && typeof window.CURRENT_USER.getIdToken === 'function') {
+        await window.CURRENT_USER.getIdToken(true);
+      }
+    } catch (_e) { /* swallow */ }
+    try {
+      if (typeof renderProTierBanner === 'function') {
+        await renderProTierBanner();
+      }
+    } catch (_e) { /* swallow */ }
   }, 600);
   // Strip the param off the URL so a refresh doesn't re-fire the toast.
   try { history.replaceState({}, '', location.pathname); } catch (_e) {}
@@ -11135,6 +11157,14 @@ async function loadSparkline(p) {
 // PROFILES
 // ─────────────────────────────────────────────────────────────
 const PROFILE_CACHE = new Map();
+// M2: 5-minute TTL. Without this, badge / Pro-status flips made via
+// the Stripe webhook never surface to existing tabs (the buyer keeps
+// seeing the stale "not Pro" cached entry until they navigate away).
+// Five minutes is short enough that webhook lag (~seconds) plus a
+// natural page interaction picks up the new value, and long enough
+// to keep the cache useful for back-to-back loadProfile calls during
+// a single feed render.
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 // Expose so the module-script signOut handler can clear stale profile
 // data on logout. Different script types share the global window object
 // even though they don't share lexical scope.
@@ -11142,7 +11172,13 @@ window.PROFILE_CACHE = PROFILE_CACHE;
 
 async function loadProfile(uid) {
   if (!uid) return null;
-  if (PROFILE_CACHE.has(uid)) return PROFILE_CACHE.get(uid);
+  // M2: TTL check. Entries are stored as { data, fetchedAt }; legacy
+  // un-wrapped entries (if any) are treated as expired and refetched.
+  const cached = PROFILE_CACHE.get(uid);
+  if (cached && cached.fetchedAt &&
+      (Date.now() - cached.fetchedAt) < PROFILE_CACHE_TTL_MS) {
+    return cached.data;
+  }
   try {
     const { getFirestore, doc, getDoc } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -11170,7 +11206,7 @@ async function loadProfile(uid) {
     } else {
       data._user = { sellerVerified: false, phone: false, email: false, isPro };
     }
-    PROFILE_CACHE.set(uid, data);
+    PROFILE_CACHE.set(uid, { data, fetchedAt: Date.now() });
     return data;
   } catch (e) {
     console.error('loadProfile failed:', e);
