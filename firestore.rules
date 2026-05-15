@@ -866,12 +866,20 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
-    // DAILY GAMES — REMOVED 2026-05-12. The dailyGames/{date} collection
-    // was unused: the bingo client derives its daily puzzle locally via
-    // a deterministic seeded shuffle of bingo-courses.js. The matching
-    // scheduled Cloud Function (generateDailyBingoPuzzle) was deleted
-    // from functions/index.js in the same change. See BINGO_CACHING_AUDIT.md.
+    // DAILY GAMES — REMOVED 2026-05-12 (superseded). See BINGO_CACHING_AUDIT.md.
+    //
+    // DAILY PUZZLES — REINTRODUCED for cross-platform parity. The new
+    // /dailyPuzzles/{YYYY-MM-DD} collection is written exclusively by
+    // the generateDailyBingoPuzzle scheduled Cloud Function (Admin SDK
+    // bypasses these rules). Clients read it to render the same 9 logos
+    // on web and iOS — see LOGO_BINGO_DIAGNOSIS.md for the bug this
+    // fixes. Public read so anonymous users can still play; client
+    // writes always denied so the doc remains canonical.
     // ─────────────────────────────────────────────
+    match /dailyPuzzles/{date} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
 
     // ─────────────────────────────────────────────
     // GAME SCORES — Logo Bingo leaderboard. Doc id is `{date}_{uid}`

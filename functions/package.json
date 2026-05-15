@@ -10,7 +10,8 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "build:emails": "esbuild emails/**/*.jsx --bundle --platform=node --format=cjs --target=node22 --outdir=emails-build --jsx=automatic --external:@react-email/components --external:@react-email/render --external:react --external:react-dom --loader:.jsx=jsx --log-level=warning",
-    "predeploy": "npm run build:emails"
+    "build:bingo-canon": "node scripts/generate-bingo-canon.mjs",
+    "predeploy": "npm run build:emails && npm run build:bingo-canon"
   },
   "engines": {
     "node": "22"
