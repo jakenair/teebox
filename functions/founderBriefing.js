@@ -406,6 +406,51 @@ async function collectMetrics(windowStart, windowEnd) {
     logger.warn("[BRIEFING] emailSends query failed", {err: e.message || e});
   }
 
+  // ── AI price-suggestion readiness flag ────────────────────────
+  // Counts sold listings per category to surface "AI price suggestion
+  // is OFF; flip ON once any category > 100 sold listings". Doesn't
+  // gate anything; just a recurring reminder for the founder.
+  try {
+    const cfgSnap = await db.doc("config/features").get();
+    const aiEnabled = cfgSnap.exists ? !!cfgSnap.data().aiPriceEnabled : false;
+    m.aiPriceEnabled = aiEnabled;
+
+    // Aggregate sold listings by category for readiness signal.
+    const soldSnap = await db.collection("orders")
+      .where("status", "==", "paid")
+      .limit(5000)
+      .get();
+    const byCat = {};
+    for (const doc of soldSnap.docs) {
+      const cat = (doc.data() && doc.data().cat) || "uncategorized";
+      byCat[cat] = (byCat[cat] || 0) + 1;
+    }
+    const totalSold = Object.values(byCat).reduce((a, b) => a + b, 0);
+    const readyCats = Object.entries(byCat).filter(([_, n]) => n >= 100);
+    m.aiPriceReadiness = {
+      totalSold,
+      categoryCount: Object.keys(byCat).length,
+      readyCategories: readyCats.map(([c, n]) => ({cat: c, count: n})),
+      anyCategoryAt100: readyCats.length > 0,
+    };
+
+    if (!aiEnabled && readyCats.length > 0) {
+      m.notes.push(
+          `AI price suggestion is OFF; ${readyCats.length} ` +
+          `categor${readyCats.length === 1 ? "y" : "ies"} now have ` +
+          `≥100 sold listings — consider flipping ` +
+          `config/features.aiPriceEnabled=true.`);
+    } else if (!aiEnabled) {
+      m.notes.push(
+          `AI price suggestion is OFF — ${totalSold} sold across ` +
+          `${Object.keys(byCat).length} categories. Flip ` +
+          `config/features.aiPriceEnabled=true when ` +
+          `any category > 100 sold.`);
+    }
+  } catch (e) {
+    logger.warn("[BRIEFING] aiPriceReadiness query failed", {err: e.message || e});
+  }
+
   return m;
 }
 

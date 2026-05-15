@@ -1,5 +1,37 @@
 # Sitemap deploy plan
 
+## ✅ Decision (2026-05-15): Firebase Hosting rewrite
+
+Founder picked Firebase Hosting as the serving path. Implementation:
+
+1. **`regenerateSitemap` scheduled function** — runs hourly, writes XML to Firestore `sitemap/latest` (unchanged from original scaffold).
+2. **`serveSitemap` HTTPS function** (added 2026-05-15 to `functions/sitemapRegenerator.js`) — reads `sitemap/latest`, returns XML with `Content-Type: application/xml` + `Cache-Control: public, max-age=3600`.
+3. **Firebase Hosting rewrite** — `firebase.json` now contains `{ "source": "/sitemap.xml", "function": "serveSitemap" }` so `https://teebox-market.web.app/sitemap.xml` serves the live XML.
+
+**The single source of truth is the `sitemap/latest` Firestore doc.** No GitHub Pages CI sync. No Cloud Storage. The XML is generated on a server schedule, cached in Firestore, served on demand via the rewrite.
+
+### Cross-domain caveat
+
+`teeboxmarket.com` is currently on **GitHub Pages**, not Firebase Hosting. The serving URL is therefore on the `.web.app` domain (`https://teebox-market.web.app/sitemap.xml`), not the apex. Two paths from here:
+
+- **Path A (current state)**: keep apex on GitHub Pages. Update `robots.txt` on GitHub Pages to add `Sitemap: https://teebox-market.web.app/sitemap.xml`. Search engines honor cross-domain `Sitemap:` directives but Google Search Console will warn — minor SEO friction, no penalty.
+- **Path B (post-launch)**: move apex DNS to Firebase Hosting. Then `https://teeboxmarket.com/sitemap.xml` works directly. ~10 min DNS change + GitHub Pages turn-off.
+
+For TestFlight beta + initial public launch, Path A is fine. Path B is on the post-launch list.
+
+### Verification after deploy
+
+```bash
+# After regenerateSitemap fires once (force via gcloud, see below):
+curl -i https://teebox-market.web.app/sitemap.xml | head -20
+
+# Force-run the regenerator if you don't want to wait an hour:
+gcloud scheduler jobs run firebase-schedule-regenerateSitemap-us-central1 \
+  --location=us-central1 --project=teebox-market
+```
+
+---
+
 ## What ships in this PR
 
 - `functions/sitemapRegenerator.js` — a scheduled Cloud Function

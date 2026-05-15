@@ -31,7 +31,8 @@
     "trailingSlash": false,
     "rewrites": [
       { "source": "/seller/**", "destination": "/index.html" },
-      { "source": "/listing/**", "destination": "/index.html" }
+      { "source": "/listing/**", "destination": "/index.html" },
+      { "source": "/sitemap.xml", "function": "serveSitemap" }
     ],
     "headers": [
       {

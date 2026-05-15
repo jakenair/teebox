@@ -237,6 +237,64 @@ exports.regenerateSitemap = onSchedule(
     },
 );
 
+// ─────────────────────────────────────────────────────────────────
+// serveSitemap — HTTPS endpoint that returns the cached XML from
+// Firestore. Wired to /sitemap.xml via Firebase Hosting rewrite in
+// firebase.json. This is the single-source-of-truth serving path
+// the founder picked (no GitHub Pages CI sync, no Cloud Storage).
+//
+// URL: https://teebox-market.web.app/sitemap.xml (Firebase Hosting)
+// Headers: Content-Type application/xml; Cache-Control public, max-age=3600
+//
+// Note on cross-domain: teeboxmarket.com is currently on GitHub Pages.
+// Until the apex domain is moved to Firebase Hosting, search engines
+// reach this sitemap via the absolute URL in robots.txt
+// (`Sitemap: https://teebox-market.web.app/sitemap.xml`). The <loc>
+// entries inside the XML still point at teeboxmarket.com/?listing=<id>
+// — crawlers honor that just fine.
+// ─────────────────────────────────────────────────────────────────
+const {onRequest} = require("firebase-functions/v2/https");
+
+exports.serveSitemap = onRequest(
+    {
+      region: "us-central1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+      maxInstances: 10,
+      cors: false,
+    },
+    async (req, res) => {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        res.status(405).send("Method not allowed");
+        return;
+      }
+      try {
+        const db = admin.firestore();
+        const snap = await db.collection("sitemap").doc("latest").get();
+        if (!snap.exists) {
+          res.status(503).type("text/plain")
+              .send("Sitemap not yet generated. The regenerateSitemap " +
+                "scheduled function (hourly) seeds this. " +
+                "Try again in <=60 minutes.");
+          return;
+        }
+        const data = snap.data() || {};
+        const xml = data.xml;
+        if (!xml) {
+          res.status(503).type("text/plain").send("Sitemap doc exists but xml field is empty");
+          return;
+        }
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        res.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
+        res.set("X-TeeBox-Sitemap-Generated", String(data.generatedAt?.toMillis?.() || ""));
+        res.status(200).send(xml);
+      } catch (err) {
+        logger.error("serveSitemap: read failed", err);
+        res.status(500).type("text/plain").send("Internal error");
+      }
+    },
+);
+
 // Exported for unit testing — both pure builders are safe to call without
 // admin SDK in scope.
 exports._test = {buildSitemapXml, xmlEscape, toLastmod, STATIC_URLS};
