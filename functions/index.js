@@ -28,6 +28,18 @@ const {
   shutdownAnalytics,
 } = require("./lib/analytics");
 
+// Ban-evasion signal capture + cross-reference helpers. See
+// functions/banEvasion.js for the V1 design + limitations. The module
+// is no-throw — every helper fails open so a Firestore hiccup never
+// blocks a legitimate checkout. Defense-in-depth on top of the existing
+// `users/{uid}.banned` check.
+const {
+  captureFraudSignal,
+  checkFingerprintAgainstBanned,
+  extractClientIp,
+  flagUserBanned,
+} = require("./banEvasion");
+
 // Sizing presets for the four common shapes — keep one source of truth
 // so we can tune the whole platform at once. Values are picked to handle
 // a 100x traffic spike (influencer post / viral share) without piling up
@@ -208,10 +220,12 @@ exports.createPaymentIntent = onRequest(
     if (!authUser) {
       return res.status(401).json({error: "Not authenticated"});
     }
-    // TODO(audit): wire IP + card fingerprint capture for ban evasion
-    // detection (see design doc). Phase 2 — no implementation in this PR.
+    // ── Ban-evasion: layer 1 (direct ban check) ──
     // Bare-minimum block: deny a checkout from a user the admin queue
-    // has banned (users/{uid}.banned == true).
+    // has banned (users/{uid}.banned == true). Failing open on a
+    // Firestore hiccup here would let a banned user back in, but the
+    // tradeoff is acceptable: an outage that prevents the read is rare
+    // enough that we'd rather not break legitimate checkout.
     try {
       const banSnap = await admin.firestore()
           .doc(`users/${authUser.uid}`).get();
@@ -219,6 +233,34 @@ exports.createPaymentIntent = onRequest(
         return res.status(403).json({error: "Account suspended"});
       }
     } catch (_e) { /* best-effort — never block legitimate checkout on Firestore hiccup */ }
+
+    // ── Ban-evasion: layer 2 (IP cross-reference, pre-charge) ──
+    // Capture the caller's IP and ask banEvasion.js whether any prior
+    // signal with the same IP belongs to a banned user. If so, ban the
+    // new account immediately and reject. Card-fingerprint matching
+    // happens post-charge in handlePaymentSucceeded (we don't have the
+    // fingerprint until Stripe charges the card). All best-effort:
+    // banEvasion fails open on any internal error.
+    const callerIp = extractClientIp(req);
+    if (callerIp) {
+      const ipCheck = await checkFingerprintAgainstBanned({ip: callerIp});
+      if (ipCheck.banned) {
+        logger.warn(
+            "createPaymentIntent: IP-match ban — " +
+            `new uid ${authUser.uid} shares ip ${callerIp} with banned ` +
+            `uid ${ipCheck.matchedUid}`,
+        );
+        await flagUserBanned({
+          uid: authUser.uid,
+          reason: "ip-match-ban-evasion",
+          matchedUid: ipCheck.matchedUid,
+          matchedField: ipCheck.matchedField,
+        });
+        return res.status(403).json({
+          error: "Account not eligible for purchases",
+        });
+      }
+    }
     if (!authUser.email_verified) {
       return res.status(412).json({
         error: "Please verify your email before continuing.",
@@ -466,6 +508,15 @@ exports.createPaymentIntent = onRequest(
       }
 
       await listingRef.update({pendingPaymentIntentId: paymentIntent.id});
+
+      // Capture the pre-charge fraud signal (IP only — the card
+      // fingerprint isn't available until the charge actually settles).
+      // The post-charge handler in handlePaymentSucceeded fills in the
+      // cardFingerprint on the same hour-bucketed doc via merge:true.
+      // Best-effort, never throws.
+      if (callerIp) {
+        captureFraudSignal({uid: buyerId, ip: callerIp});
+      }
 
       return res.json({
         clientSecret: paymentIntent.client_secret,
@@ -1283,12 +1334,21 @@ async function handlePaymentSucceeded(pi) {
   // PI shape: pi.charges.data[0].transfer is the Connect transfer object
   // (or its id string, depending on expand state).
   let transferId = null;
+  // Card fingerprint — Stripe's stable per-card hash, shared across
+  // customer/account/PI for the same underlying card number. Used by
+  // banEvasion.js to detect a banned user creating a fresh account and
+  // re-attempting checkout with the same card. May be null on non-card
+  // PMs (wallet, ACH, etc.).
+  let cardFingerprint = null;
   try {
     const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
     if (ch && ch.transfer) {
       transferId = typeof ch.transfer === "string"
         ? ch.transfer
         : ch.transfer.id || null;
+    }
+    if (ch && ch.payment_method_details && ch.payment_method_details.card) {
+      cardFingerprint = ch.payment_method_details.card.fingerprint || null;
     }
   } catch (_e) { /* tolerate missing fields */ }
 
@@ -1452,6 +1512,51 @@ async function handlePaymentSucceeded(pi) {
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
     },
   });
+
+  // ── Ban-evasion: post-charge card-fingerprint cross-reference ──
+  // Now that the charge succeeded we have Stripe's stable card
+  // fingerprint. Persist it on the same hour-bucketed signal doc the
+  // pre-charge IP capture wrote (or create a new one if the IP capture
+  // missed). Then ask banEvasion.js whether any prior signal with the
+  // same card-fingerprint belongs to a banned user. If so, retroactively
+  // ban the new account — the order itself completes (the refund flow
+  // exists to make the buyer whole if support intervenes) but the new
+  // account can't make future purchases. Best-effort, never throws.
+  if (buyerId && cardFingerprint) {
+    try {
+      await captureFraudSignal({uid: buyerId, cardFingerprint});
+      const cardCheck = await checkFingerprintAgainstBanned({cardFingerprint});
+      if (cardCheck.banned && cardCheck.matchedUid !== buyerId) {
+        logger.warn(
+            "handlePaymentSucceeded: card-fingerprint-match ban — " +
+            `new uid ${buyerId} shares card ${cardFingerprint.slice(0, 6)}… ` +
+            `with banned uid ${cardCheck.matchedUid}; flagging order ${pi.id}`,
+        );
+        await flagUserBanned({
+          uid: buyerId,
+          reason: "card-fingerprint-match-ban-evasion",
+          matchedUid: cardCheck.matchedUid,
+          matchedField: cardCheck.matchedField,
+        });
+        // Flag the order so admin / support can prioritize refunding it.
+        try {
+          await db.collection("orders").doc(pi.id).set({
+            fraudFlag: "ban-evasion-card-match",
+            fraudMatchedUid: cardCheck.matchedUid,
+            fraudFlaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+        } catch (flagErr) {
+          logger.warn(
+              "handlePaymentSucceeded: order fraud-flag failed",
+              flagErr.message);
+        }
+      }
+    } catch (err) {
+      logger.warn(
+          "handlePaymentSucceeded: ban-evasion post-charge check failed",
+          err.message);
+    }
+  }
 
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
@@ -5072,6 +5177,31 @@ exports.suggestListingPrice = onCall(
         "failed-precondition",
         "Please verify your email before continuing.");
     }
+
+    // ── Server-side kill-switch (LAUNCH_READINESS.md CRITICAL #10) ──
+    // Default OFF. Comp coverage is thin pre-launch (< 100 listings per
+    // category) so the Gemini suggestion has nothing to ground against
+    // and burns API quota for low-quality output. Flip
+    // `config/features.aiPriceEnabled = true` in Firestore once comp
+    // coverage > 100 listings per category. The client (index.html)
+    // also hides the button when the flag is false so users never even
+    // see a broken-looking action; this server check is the source of
+    // truth and prevents a stale-cached client from hammering Gemini.
+    try {
+      const featSnap = await admin.firestore()
+          .doc("config/features").get();
+      const featData = featSnap.exists ? (featSnap.data() || {}) : {};
+      if (featData.aiPriceEnabled !== true) {
+        return {enabled: false, reason: "feature-disabled"};
+      }
+    } catch (err) {
+      // Fail CLOSED on flag-read error. A Firestore hiccup that prevents
+      // us from confirming the flag should not cause us to burn Gemini
+      // quota — better to show "try later" than to suggest a bad price.
+      logger.warn("suggestListingPrice: feature-flag read failed", err.message);
+      return {enabled: false, reason: "feature-disabled"};
+    }
+
     const uid = request.auth.uid;
     const data = request.data || {};
 

@@ -271,6 +271,18 @@
 <meta name="apple-itunes-app" content="app-id=6763954448, app-argument=https://teeboxmarket.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Perf: warm the TCP/TLS handshake for the origins the SPA hits first.
+     Firestore + Firebase Storage are the critical-path reads on load
+     (listings query + photo fetches); the Cloud Functions origin is the
+     critical-path read on checkout. dns-prefetch is the cheap fallback
+     for the rest. See PERF_AUDIT.md. -->
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+<link rel="dns-prefetch" href="https://us-central1-teebox-market.cloudfunctions.net" />
+<link rel="dns-prefetch" href="https://api.stripe.com" />
+<link rel="dns-prefetch" href="https://js.stripe.com" />
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -4347,7 +4359,11 @@
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div style="margin-top:-4px;margin-bottom:10px;">
-        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
+        <!-- aiPriceBtn starts hidden; visibility is gated by the Firestore
+             feature-flag `config/features.aiPriceEnabled`. See
+             FEATURE_FLAGS.md. Flipping the flag without redeploying the
+             web bundle is the whole point. -->
+        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" style="display:none" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
           <span class="ai-price-spark" aria-hidden="true">&#10024;</span> Suggest price
         </button>
         <div id="aiPriceCard" class="ai-price-card" style="display:none" aria-live="polite"></div>
@@ -5103,6 +5119,94 @@ window.confirmPayment = async function() {
   const storage = getStorage(app);
   const fns = getFunctions(app);
   let currentUser = null;
+
+  // ── Dynamic Open Graph injection for shared listing links ──
+  // When the SPA is opened with ?listing=<id>, fetch the listing doc
+  // and overwrite the site-wide og:title / og:description / og:image /
+  // og:url meta tags with the listing's own. Twitter Card mirrors get
+  // the same updates so Twitter/X previews stay in sync. The Schema.org
+  // JSON-LD is still emitted separately by injectListingJsonLd when the
+  // detail modal opens — this is purely about social-share previews.
+  //
+  // LIMITATION: web crawlers (Slack, iMessage, Twitter, Discord,
+  // Facebook) read meta tags from the HTML response BEFORE any JS runs.
+  // This injection works for in-app share previews where the SPA is
+  // already loaded (e.g. user A taps Share on a listing, copy-pasts the
+  // URL into a chat in the same WebView session) but the public-internet
+  // crawler case STILL falls back to the site-wide preview. A proper fix
+  // requires server-side rendering or a per-listing static HTML page —
+  // tracked in LAUNCH_READINESS.md HIGH-1 Path B.
+  (async () => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const listingId = sp.get('listing');
+      if (!listingId || !/^[A-Za-z0-9_-]{1,128}$/.test(listingId)) return;
+      const { getDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(db, 'listings', listingId));
+      if (!snap.exists()) return;
+      const d = snap.data() || {};
+      // Title: prefer brand + title for SEO clarity; cap at 90 chars.
+      const titleParts = [];
+      if (d.brand) titleParts.push(String(d.brand));
+      if (d.title) titleParts.push(String(d.title));
+      const fullTitle = (titleParts.join(' ').trim() || 'TeeBox listing')
+        .slice(0, 90);
+      // Description: prefer first ~160 chars of the listing desc; fall
+      // back to a price-bearing single-line summary.
+      const askDollars = Number(d.ask || 0);
+      const priceStr = askDollars > 0
+        ? '$' + (askDollars % 1 === 0 ? askDollars.toFixed(0) : askDollars.toFixed(2))
+        : null;
+      const rawDesc = String(d.desc || '').replace(/\s+/g, ' ').trim();
+      let dynDesc;
+      if (rawDesc) {
+        dynDesc = rawDesc.length > 160 ? rawDesc.slice(0, 157) + '…' : rawDesc;
+      } else {
+        dynDesc = priceStr
+          ? `${fullTitle} for ${priceStr} on TeeBox.`
+          : `${fullTitle} on TeeBox — the peer-to-peer golf marketplace.`;
+      }
+      // First photo as og:image; fall back to the default site image if
+      // missing (e.g. listing in draft / photo-upload race).
+      const firstPhoto = (Array.isArray(d.photos) && d.photos[0]) || d.photo || null;
+      const ogImage = firstPhoto && /^https?:\/\//.test(String(firstPhoto))
+        ? String(firstPhoto)
+        : 'https://teeboxmarket.com/assets/og/og-default.png';
+      const canonicalUrl =
+        'https://teeboxmarket.com/?listing=' + encodeURIComponent(listingId);
+
+      const setMeta = (selector, attr, value) => {
+        const el = document.querySelector(selector);
+        if (el) el.setAttribute(attr, value);
+      };
+      // Open Graph (Slack, iMessage, Facebook, Discord, LinkedIn)
+      setMeta('meta[property="og:title"]', 'content', fullTitle);
+      setMeta('meta[property="og:description"]', 'content', dynDesc);
+      setMeta('meta[property="og:url"]', 'content', canonicalUrl);
+      setMeta('meta[property="og:image"]', 'content', ogImage);
+      setMeta('meta[property="og:image:secure_url"]', 'content', ogImage);
+      setMeta('meta[property="og:image:alt"]', 'content', fullTitle);
+      // og:type — product is the canonical type for marketplace items.
+      // Override the site-wide "website" type for individual listings.
+      setMeta('meta[property="og:type"]', 'content', 'product');
+      // Twitter Card mirrors
+      setMeta('meta[name="twitter:title"]', 'content', fullTitle);
+      setMeta('meta[name="twitter:description"]', 'content', dynDesc);
+      setMeta('meta[name="twitter:image"]', 'content', ogImage);
+      setMeta('meta[name="twitter:image:alt"]', 'content', fullTitle);
+      // Canonical URL — useful for downstream Google indexing if/when
+      // we add server-side rendering later.
+      const linkCanonical = document.querySelector('link[rel="canonical"]');
+      if (linkCanonical) linkCanonical.setAttribute('href', canonicalUrl);
+      // Document title — affects the browser tab + some crawlers.
+      try { document.title = fullTitle + ' — TeeBox'; } catch (_e) {}
+    } catch (e) {
+      // OG injection is best-effort. Silent on every failure mode so
+      // a permission denial / network blip doesn't break the SPA.
+      console.warn('dynamic OG injection failed', e && e.code || e);
+    }
+  })();
 
   onAuthStateChanged(auth, async user => {
     currentUser = user;
@@ -10463,12 +10567,58 @@ function captureSellDraft() {
 }
 window.clearSellDraft = clearSellDraft;
 
+// ── Feature flags (Firestore-backed kill-switches) ──
+// `config/features` is a single doc the client reads at most once per
+// session. Adding a flag: write a boolean field on that doc (server-
+// side or via admin tool) and read it via window.FEATURE_FLAGS.<name>
+// from the UI. Server callables MUST read the same doc directly (see
+// suggestListingPrice) — never trust the client-cached value. Failing
+// CLOSED on read errors is the desired behavior for kill-switches.
+// See FEATURE_FLAGS.md.
+window.FEATURE_FLAGS = window.FEATURE_FLAGS || {};
+let __featureFlagsPromise = null;
+async function loadFeatureFlags() {
+  if (__featureFlagsPromise) return __featureFlagsPromise;
+  __featureFlagsPromise = (async () => {
+    try {
+      const { getDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(db, 'config', 'features'));
+      const data = (snap.exists() ? snap.data() : null) || {};
+      Object.assign(window.FEATURE_FLAGS, data);
+    } catch (e) {
+      // Fail closed: leave window.FEATURE_FLAGS as-is (empty) on error
+      // so any flag check defaults to "off". The server-side check is
+      // still the source of truth.
+      console.warn('loadFeatureFlags failed', e && e.code || e);
+    }
+    return window.FEATURE_FLAGS;
+  })();
+  return __featureFlagsPromise;
+}
+window.loadFeatureFlags = loadFeatureFlags;
+
+// Show/hide the AI suggest-price button based on the feature flag.
+// Called from openSellModal so the lookup happens lazily (and only
+// for sellers who actually open the form).
+async function applyAiPriceFlagVisibility() {
+  try {
+    const flags = await loadFeatureFlags();
+    const btn = document.getElementById('aiPriceBtn');
+    if (!btn) return;
+    btn.style.display = flags.aiPriceEnabled === true ? '' : 'none';
+  } catch (_e) { /* button stays hidden — failing closed is intentional */ }
+}
+
 function openSellModal() {
   document.getElementById('uploadPreviews').innerHTML = '';
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
   applySellDraft();
+  // Gate the AI suggest-price button on the Firestore feature flag.
+  // Off by default until comp coverage > 100 listings per category.
+  applyAiPriceFlagVisibility();
   // Ensure the AI button starts in the right state for the (possibly
   // hydrated-from-draft) field values.
   if (typeof refreshAiDescBtnState === 'function') refreshAiDescBtnState();
@@ -10684,6 +10834,16 @@ async function aiSuggestPrice() {
       inlineImages,
     });
     const d = (result && result.data) || {};
+    // Server kill-switch: feature-flagged off. Hide the button and the
+    // card silently. (Visibility is also gated in openSellModal, but a
+    // stale-cached client may still try; this is the server-trusted
+    // path.)
+    if (d && d.enabled === false) {
+      const btnEl = document.getElementById('aiPriceBtn');
+      if (btnEl) btnEl.style.display = 'none';
+      card.style.display = 'none';
+      return;
+    }
     const suggested = Number(d.suggested || 0);
     const low  = Number(d.low  || 0);
     const high = Number(d.high || 0);
