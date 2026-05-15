@@ -4347,7 +4347,11 @@
       </div>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div style="margin-top:-4px;margin-bottom:10px;">
-        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
+        <!-- aiPriceBtn starts hidden; visibility is gated by the Firestore
+             feature-flag `config/features.aiPriceEnabled`. See
+             FEATURE_FLAGS.md. Flipping the flag without redeploying the
+             web bundle is the whole point. -->
+        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" style="display:none" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
           <span class="ai-price-spark" aria-hidden="true">&#10024;</span> Suggest price
         </button>
         <div id="aiPriceCard" class="ai-price-card" style="display:none" aria-live="polite"></div>
@@ -10463,12 +10467,58 @@ function captureSellDraft() {
 }
 window.clearSellDraft = clearSellDraft;
 
+// ── Feature flags (Firestore-backed kill-switches) ──
+// `config/features` is a single doc the client reads at most once per
+// session. Adding a flag: write a boolean field on that doc (server-
+// side or via admin tool) and read it via window.FEATURE_FLAGS.<name>
+// from the UI. Server callables MUST read the same doc directly (see
+// suggestListingPrice) — never trust the client-cached value. Failing
+// CLOSED on read errors is the desired behavior for kill-switches.
+// See FEATURE_FLAGS.md.
+window.FEATURE_FLAGS = window.FEATURE_FLAGS || {};
+let __featureFlagsPromise = null;
+async function loadFeatureFlags() {
+  if (__featureFlagsPromise) return __featureFlagsPromise;
+  __featureFlagsPromise = (async () => {
+    try {
+      const { getDoc, doc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(db, 'config', 'features'));
+      const data = (snap.exists() ? snap.data() : null) || {};
+      Object.assign(window.FEATURE_FLAGS, data);
+    } catch (e) {
+      // Fail closed: leave window.FEATURE_FLAGS as-is (empty) on error
+      // so any flag check defaults to "off". The server-side check is
+      // still the source of truth.
+      console.warn('loadFeatureFlags failed', e && e.code || e);
+    }
+    return window.FEATURE_FLAGS;
+  })();
+  return __featureFlagsPromise;
+}
+window.loadFeatureFlags = loadFeatureFlags;
+
+// Show/hide the AI suggest-price button based on the feature flag.
+// Called from openSellModal so the lookup happens lazily (and only
+// for sellers who actually open the form).
+async function applyAiPriceFlagVisibility() {
+  try {
+    const flags = await loadFeatureFlags();
+    const btn = document.getElementById('aiPriceBtn');
+    if (!btn) return;
+    btn.style.display = flags.aiPriceEnabled === true ? '' : 'none';
+  } catch (_e) { /* button stays hidden — failing closed is intentional */ }
+}
+
 function openSellModal() {
   document.getElementById('uploadPreviews').innerHTML = '';
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
   applySellDraft();
+  // Gate the AI suggest-price button on the Firestore feature flag.
+  // Off by default until comp coverage > 100 listings per category.
+  applyAiPriceFlagVisibility();
   // Ensure the AI button starts in the right state for the (possibly
   // hydrated-from-draft) field values.
   if (typeof refreshAiDescBtnState === 'function') refreshAiDescBtnState();
@@ -10684,6 +10734,16 @@ async function aiSuggestPrice() {
       inlineImages,
     });
     const d = (result && result.data) || {};
+    // Server kill-switch: feature-flagged off. Hide the button and the
+    // card silently. (Visibility is also gated in openSellModal, but a
+    // stale-cached client may still try; this is the server-trusted
+    // path.)
+    if (d && d.enabled === false) {
+      const btnEl = document.getElementById('aiPriceBtn');
+      if (btnEl) btnEl.style.display = 'none';
+      card.style.display = 'none';
+      return;
+    }
     const suggested = Number(d.suggested || 0);
     const low  = Number(d.low  || 0);
     const high = Number(d.high || 0);

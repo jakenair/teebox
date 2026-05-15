@@ -5030,6 +5030,31 @@ exports.suggestListingPrice = onCall(
         "failed-precondition",
         "Please verify your email before continuing.");
     }
+
+    // ── Server-side kill-switch (LAUNCH_READINESS.md CRITICAL #10) ──
+    // Default OFF. Comp coverage is thin pre-launch (< 100 listings per
+    // category) so the Gemini suggestion has nothing to ground against
+    // and burns API quota for low-quality output. Flip
+    // `config/features.aiPriceEnabled = true` in Firestore once comp
+    // coverage > 100 listings per category. The client (index.html)
+    // also hides the button when the flag is false so users never even
+    // see a broken-looking action; this server check is the source of
+    // truth and prevents a stale-cached client from hammering Gemini.
+    try {
+      const featSnap = await admin.firestore()
+          .doc("config/features").get();
+      const featData = featSnap.exists ? (featSnap.data() || {}) : {};
+      if (featData.aiPriceEnabled !== true) {
+        return {enabled: false, reason: "feature-disabled"};
+      }
+    } catch (err) {
+      // Fail CLOSED on flag-read error. A Firestore hiccup that prevents
+      // us from confirming the flag should not cause us to burn Gemini
+      // quota — better to show "try later" than to suggest a bad price.
+      logger.warn("suggestListingPrice: feature-flag read failed", err.message);
+      return {enabled: false, reason: "feature-disabled"};
+    }
+
     const uid = request.auth.uid;
     const data = request.data || {};
 
