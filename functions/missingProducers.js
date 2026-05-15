@@ -171,6 +171,20 @@ async function sendTemplated({
 // check, so the downstream onCreate trigger only fires once.
 // ═══════════════════════════════════════════════════════════════════════
 
+// Reverse-lookup helper used by every Connect handler that needs to find
+// the local user from the stripe Connect account id on the event. Returns
+// `null` if the account isn't bound to any user (legacy or rogue event).
+async function findUserByConnectAccount(accountId) {
+  if (!accountId) return null;
+  const db = admin.firestore();
+  const snap = await db.collection("users")
+      .where("stripeAccountId", "==", accountId)
+      .limit(1)
+      .get();
+  if (snap.empty) return null;
+  return snap.docs[0];
+}
+
 async function handleConnectPayoutPaid(event) {
   const accountId = event && event.account;
   const payout = event && event.data && event.data.object;
@@ -179,15 +193,12 @@ async function handleConnectPayoutPaid(event) {
     return;
   }
   const db = admin.firestore();
-  const usersSnap = await db.collection("users")
-      .where("stripeAccountId", "==", accountId)
-      .limit(1)
-      .get();
-  if (usersSnap.empty) {
+  const userDoc = await findUserByConnectAccount(accountId);
+  if (!userDoc) {
     logger.warn(`payout.paid for unknown Connect account ${accountId}`);
     return;
   }
-  const sellerUid = usersSnap.docs[0].id;
+  const sellerUid = userDoc.id;
   const payoutRef = db.collection("payouts").doc(payout.id);
 
   // Idempotency: short-circuit if the doc already exists. We use a tx
@@ -217,6 +228,239 @@ async function handleConnectPayoutPaid(event) {
     });
   });
   logger.info(`payout.paid: wrote payouts/${payout.id} for ${sellerUid}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Additional Connect handlers (Item 2 — expanded webhook coverage)
+//
+// Field-shape note: we MUST write the same field names that the polling
+// `getStripeAccountStatus` callable writes (functions/index.js:4496-4500)
+// so the client's cached view stays consistent whether the value came
+// from the webhook or the on-demand poll. Specifically:
+//   stripeChargesEnabled       (bool, mirrors account.charges_enabled)
+//   stripePayoutsEnabled       (bool, mirrors account.payouts_enabled)
+//   stripeDetailsSubmitted     (bool, mirrors account.details_submitted)
+// In addition we set two convenience fields the client checks for the
+// "KYC complete" banner:
+//   stripeKycComplete          (bool, true iff charges + payouts both
+//                               enabled AND details_submitted)
+//   stripeCapabilities         (map, keys = capability name, values =
+//                               { status, requested_at, requirements... })
+//   stripeRequirementsCount    (int, currently_due length — already set
+//                               by the platform webhook's
+//                               syncConnectAccountStatus)
+//   stripeAccountUpdatedAt     (Timestamp, last webhook touch)
+// ═══════════════════════════════════════════════════════════════════════
+
+function buildCapabilitiesMap(account) {
+  // Stripe's `account.capabilities` is `{cap_name: "active"|"inactive"|
+  // "pending"|null}`. For our internal tracking we want a richer map that
+  // includes status + the timestamp we last saw it change. Callers can
+  // diff this map across writes if needed.
+  const caps = (account && account.capabilities) || {};
+  const out = {};
+  for (const [name, status] of Object.entries(caps)) {
+    out[name] = {status: status || "unknown"};
+  }
+  return out;
+}
+
+async function handleConnectAccountUpdated(event) {
+  const account = event && event.data && event.data.object;
+  if (!account || !account.id) {
+    logger.warn("account.updated: missing account.id on event");
+    return;
+  }
+  // The Stripe Connect-events stream sets `event.account` to the
+  // connected account id. For account.updated specifically, the same id
+  // is also the `object.id`. Prefer `event.account` to match the rest
+  // of the Connect handlers' lookup convention.
+  const accountId = event.account || account.id;
+  const userDoc = await findUserByConnectAccount(accountId);
+  if (!userDoc) {
+    logger.warn(`account.updated for unknown Connect account ${accountId}`);
+    return;
+  }
+  const chargesEnabled = !!account.charges_enabled;
+  const payoutsEnabled = !!account.payouts_enabled;
+  const detailsSubmitted = !!account.details_submitted;
+  const kycComplete = chargesEnabled && payoutsEnabled && detailsSubmitted;
+  const requirements = (account.requirements || {}).currently_due || [];
+
+  const update = {
+    stripeChargesEnabled: chargesEnabled,
+    stripePayoutsEnabled: payoutsEnabled,
+    stripeDetailsSubmitted: detailsSubmitted,
+    stripeKycComplete: kycComplete,
+    stripeCapabilities: buildCapabilitiesMap(account),
+    stripeRequirementsCount: requirements.length,
+    stripeAccountUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await userDoc.ref.set(update, {merge: true});
+  logger.info(
+      `account.updated (connect): ${userDoc.id} ` +
+      `charges=${chargesEnabled} payouts=${payoutsEnabled} ` +
+      `details=${detailsSubmitted} kycComplete=${kycComplete} ` +
+      `due=${requirements.length}`);
+}
+
+async function handleConnectCapabilityUpdated(event) {
+  // Event payload: event.data.object IS the capability object,
+  // event.account IS the connect account id.
+  const accountId = event && event.account;
+  const cap = event && event.data && event.data.object;
+  if (!accountId || !cap || !cap.id) {
+    logger.warn("capability.updated: missing accountId or capability.id");
+    return;
+  }
+  const userDoc = await findUserByConnectAccount(accountId);
+  if (!userDoc) {
+    logger.warn(`capability.updated for unknown account ${accountId}`);
+    return;
+  }
+  // Merge the single capability under stripeCapabilities.{cap.id}. Using
+  // FieldValue is overkill for a nested map write; a plain dot-path
+  // update preserves the rest of the map untouched.
+  const fieldPath = `stripeCapabilities.${cap.id}`;
+  const update = {
+    [fieldPath]: {
+      status: cap.status || "unknown",
+      requestedAt: cap.requested_at || null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    stripeAccountUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await userDoc.ref.update(update);
+  logger.info(
+      `capability.updated: ${userDoc.id} ${cap.id}=${cap.status || "?"}`);
+}
+
+// payout.failed — fire PayoutFailed.jsx via lib/email.js sendEmail().
+// We DELIBERATELY don't pull the legacy `handlePayoutFailed` from
+// functions/index.js — that handler is wired into the PLATFORM webhook
+// and writes a notification doc. The Connect endpoint is the
+// authoritative source for payout events on the connected account, so
+// we re-implement here against the canonical email path.
+async function handleConnectPayoutFailed(event) {
+  const accountId = event && event.account;
+  const payout = event && event.data && event.data.object;
+  if (!accountId || !payout || !payout.id) {
+    logger.warn("payout.failed: missing accountId or payout.id");
+    return;
+  }
+  const userDoc = await findUserByConnectAccount(accountId);
+  if (!userDoc) {
+    logger.warn(`payout.failed for unknown Connect account ${accountId}`);
+    return;
+  }
+  const sellerUid = userDoc.id;
+  const seller = {uid: sellerUid, ...userDoc.data()};
+  if (!seller.email) {
+    logger.warn(`payout.failed: no email on user ${sellerUid}`);
+    return;
+  }
+  const amountCents = Number(payout.amount || 0);
+  const failureMessage = payout.failure_message ||
+    payout.failure_code || "unknown reason";
+
+  // Idempotency: if the same payout.failed event was already processed
+  // (per processedStripeEvents marker, set by the caller), we don't
+  // reach this code. But within a single event we may retry — write a
+  // dedupe doc under failedPayouts/{payoutId} so a redelivery + manual
+  // re-trigger doesn't spam the seller.
+  const db = admin.firestore();
+  const failedRef = db.collection("failedPayouts").doc(payout.id);
+  const existing = await failedRef.get();
+  if (existing.exists) {
+    logger.info(
+        `payout.failed: failedPayouts/${payout.id} already exists — skip`);
+    return;
+  }
+  await failedRef.set({
+    sellerId: sellerUid,
+    stripePayoutId: payout.id,
+    stripeAccountId: accountId,
+    amountCents,
+    failureMessage,
+    failureCode: payout.failure_code || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  const PayoutFailedTpl = getTemplate("transactional", "PayoutFailed");
+  const ctx = {
+    seller: {
+      uid: sellerUid,
+      displayName: seller.displayName,
+      email: seller.email,
+    },
+    amountCents,
+    failureMessage,
+  };
+  let subject = "Payout failed — action required";
+  let react = null;
+  if (PayoutFailedTpl) {
+    try {
+      react = PayoutFailedTpl(ctx);
+      if (typeof PayoutFailedTpl.subject === "function") {
+        subject = PayoutFailedTpl.subject(ctx);
+      }
+    } catch (e) {
+      logger.error(
+          `PayoutFailed template render failed for ${sellerUid}`, e.message);
+    }
+  }
+  await sendEmail({
+    to: seller.email,
+    subject,
+    react,
+    html: react ? null : `<!doctype html><html><body>` +
+      `<p>TeeBox: a payout to your bank for $${(amountCents / 100).toFixed(2)} ` +
+      `failed (${failureMessage}). Update your bank account in Stripe to retry.` +
+      `</p></body></html>`,
+    category: CATEGORIES.TRANSACTIONAL,
+    uid: sellerUid,
+    template: "PayoutFailed",
+  });
+  logger.info(`payout.failed: emailed ${sellerUid} for payout ${payout.id}`);
+}
+
+// payout.created / payout.updated / payout.canceled — log only.
+// These are audit-trail events; we don't fire user-facing notifications
+// in v1. If a future iteration wants a "payout pending" banner,
+// payout.created is the trigger to wire.
+async function handleConnectPayoutLog(event) {
+  const accountId = event && event.account;
+  const payout = event && event.data && event.data.object;
+  logger.info(
+      `Connect log: ${event.type} acct=${accountId} ` +
+      `payout=${payout && payout.id} amount=${payout && payout.amount} ` +
+      `status=${payout && payout.status}`);
+}
+
+// transfer.* — log only. Transfers are the platform → connected-account
+// money movement that backs destination charges. We track them in the
+// log for audit purposes (reconcile platform balance against what
+// hit each seller's account). No user-facing action in v1.
+async function handleConnectTransferLog(event) {
+  const accountId = event && event.account;
+  const transfer = event && event.data && event.data.object;
+  logger.info(
+      `Connect log: ${event.type} acct=${accountId} ` +
+      `transfer=${transfer && transfer.id} amount=${transfer && transfer.amount} ` +
+      `source=${transfer && transfer.source_transaction}`);
+}
+
+// account.external_account.* — log only. External accounts are the
+// bank accounts / debit cards a seller has hooked up for payouts. If
+// they delete one (deleted) or add a new one (created) we want a log
+// breadcrumb for support; no user-facing action.
+async function handleConnectExternalAccountLog(event) {
+  const accountId = event && event.account;
+  const ext = event && event.data && event.data.object;
+  logger.info(
+      `Connect log: ${event.type} acct=${accountId} ` +
+      `ext=${ext && ext.id} kind=${ext && ext.object} ` +
+      `last4=${(ext && (ext.last4 || ext.routing_number)) || "?"}`);
 }
 
 // Connect-side Stripe webhook. Registers at /stripeConnectWebhook. The
@@ -255,10 +499,65 @@ exports.stripeConnectWebhook = onRequest(
 
       try {
         switch (event.type) {
+          // ── KYC + capabilities ──
+          case "account.updated":
+            // Seller finished a step (KYC, bank link, etc.) — mirror
+            // charges_enabled/payouts_enabled/details_submitted/
+            // capabilities into the users/{uid} doc. Field names match
+            // the polling getStripeAccountStatus callable.
+            await handleConnectAccountUpdated(event);
+            break;
+          case "capability.updated":
+            // A single capability flipped status (e.g. card_payments →
+            // active). Merge into stripeCapabilities.<cap.id>.
+            await handleConnectCapabilityUpdated(event);
+            break;
+
+          // ── Payouts ──
           case "payout.paid":
+            // Money landed at the seller's bank. Writes payouts/{id};
+            // emailTriggers.onPayoutReleasedEmail fires FundsReleased.
             await handleConnectPayoutPaid(event);
             break;
+          case "payout.failed":
+            // ACH bounced or bank rejected. Email seller via
+            // PayoutFailed.jsx using the canonical lib/email.js path.
+            await handleConnectPayoutFailed(event);
+            break;
+          case "payout.created":
+          case "payout.updated":
+          case "payout.canceled":
+            // Log-only in v1 — no user-facing action. Future: a
+            // "payout pending" banner could read payout.created.
+            await handleConnectPayoutLog(event);
+            break;
+
+          // ── Transfers (platform → connected money flow) ──
+          // We track transfers in logs for reconciliation: when a
+          // destination charge succeeds, Stripe issues a transfer that
+          // credits the connected account. Logging here means we have
+          // an audit trail that ties every order's platform balance
+          // debit to the matching connected-account credit. No user-
+          // facing action in v1.
+          case "transfer.created":
+          case "transfer.updated":
+          case "transfer.reversed":
+            await handleConnectTransferLog(event);
+            break;
+
+          // ── External accounts (bank / debit card on seller account) ──
+          // Log-only. A seller swapping bank accounts mid-cycle could be
+          // a fraud signal worth correlating in the future, but v1
+          // doesn't act on it.
+          case "account.external_account.created":
+          case "account.external_account.updated":
+          case "account.external_account.deleted":
+            await handleConnectExternalAccountLog(event);
+            break;
+
           default:
+            // Intentionally unhandled but logged so we can spot new
+            // event types we should subscribe to.
             logger.info(`Connect: unhandled event type: ${event.type}`);
         }
         try {

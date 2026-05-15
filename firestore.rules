@@ -228,7 +228,7 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom']);
 
       // Same allow-list on update. GDPR consent fields (marketingConsent,
       // marketingBannerDismissedAt) are deliberately excluded — they must
@@ -237,11 +237,18 @@ service cloud.firestore {
       // serverTimestamp() and append the audit-trail history. A diff that
       // touches a server-only field is rejected outright (hasOnly() is
       // exact-match, not subset).
+      //
+      // `shippingFrom` is included because the Shippo label flow reads
+      // it as the return address on every label. Field is a map of
+      // {name, line1, line2, city, state, postal_code, phone, country}
+      // — non-sensitive (it's printed on a shipping label) but private
+      // (only the owner can read it; sellers see it in their account
+      // settings, buyers never see it).
       allow update: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && isEmailVerified()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom']);
 
       allow delete: if false;
 
