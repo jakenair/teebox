@@ -5866,3 +5866,9 @@ Object.assign(exports, require("./founderBriefing"));
 // header for the v1 size cap (~5 MB warn, ~9 MB hard) and the future
 // background-export-to-Storage path.
 Object.assign(exports, require("./dataPortability"));
+
+// Sitemap regenerator (hourly). Reads active listings created in the
+// last 90 days, builds sitemap.xml, writes to sitemap/latest in
+// Firestore. The actual deploy path (GH Pages sync vs Cloud Storage
+// origin) is in SITEMAP_DEPLOY.md.
+Object.assign(exports, require("./sitemapRegenerator"));
