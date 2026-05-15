@@ -1,6 +1,6 @@
 # New-message push — manual test plan
 
-Scope: the `notifyNewMessage` Cloud Function trigger (in
+Scope: the `pushOnNewMessage` Cloud Function trigger (in
 `functions/pushTriggers.js`) plus the client wiring in `index.html`.
 Run with two accounts (A = sender, B = recipient) on devices that have
 registered FCM tokens via `maybeRegisterPush` / `maybeRegisterPushNative`.

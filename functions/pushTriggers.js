@@ -19,9 +19,10 @@
  *   - Per-category APNs categories + Android channels
  *   - Saved-search daily batch (8am local)
  *   - Payout-released trigger (NEW — was email-only)
- *
- * Explicitly NOT INCLUDED here:
- *   - new-message push (owned by another agent's queued PR)
+ *   - new-message push (`pushOnNewMessage`) — fires alongside the
+ *     `notifyOnNewMessage` email trigger in index.js; respects per-user
+ *     `pushPrefs.messages`, quiet hours, presence (skip if recipient
+ *     is actively viewing the thread), and coalesces bursts.
  *
  * All triggers use sendPush() from lib/push.js — never call
  * admin.messaging() directly.
@@ -399,25 +400,33 @@ function _localHour(tz) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// notifyNewMessage — recipient hears about a new chat message.
+// pushOnNewMessage — recipient hears about a new chat message.
 //
 //   Trigger: conversations/{cid}/messages/{messageId} created
 //   This runs IN ADDITION TO moderateMessage in index.js — both fire
 //   on the same path; that's intentional and supported.
+//
+// Payload shape (matches the C6 launch-readiness item):
+//   data.kind = "new-message"
+//   data.conversationId, data.messageId, data.senderId
 //
 // Skips:
 //   - message.held === true (rate-limited or spam-pending; the
 //     hold-release flow fires its own push later).
 //   - recipient is currently looking at the thread (presence doc
 //     with lastHeartbeatAt within PRESENCE_WINDOW_MS).
+//   - recipient has pushPrefs.messages === false (handled inside
+//     sendPush() in lib/push.js — single source of truth for prefs).
 //
 // Sanitization:
 //   - HARD-flagged content gets a "You have a new message" preview
 //     (no body text) because the recipient sees an interstitial in
 //     the UI and we don't want to leak the raw content to the lock
 //     screen / notification center.
+//   - Image-only messages render as "[Photo]" per the audit spec
+//     (C6: first 120 chars of text, "[Photo]" if image-only).
 //   - NOTE: as of writing, `flagged` is patched by moderateMessage
-//     in a separate trigger invocation. There is a race: notifyNewMessage
+//     in a separate trigger invocation. There is a race: pushOnNewMessage
 //     may run before moderateMessage finishes the flag patch. The
 //     sanitization is a defense-in-depth signal; the primary protection
 //     is the in-app interstitial gating on the rendered message.
@@ -428,6 +437,10 @@ function _localHour(tz) {
 //     messages from Jake"). Bookkeeping lives in pushPending/{key}.
 //   - Outside the window, the doc is replaced and a fresh count=1
 //     push fires.
+//
+// Stale-token cleanup is handled by sendPush() in lib/push.js —
+// any FCM response with messaging/registration-token-not-registered
+// triggers a batch delete of the offending tokens.
 // ─────────────────────────────────────────────────────────────
 const COALESCE_WINDOW_MS = 60 * 1000;
 const PRESENCE_WINDOW_MS = 30 * 1000;
@@ -461,7 +474,11 @@ async function _lookupSenderName(uid) {
   return name;
 }
 
-exports.notifyNewMessage = onDocumentCreated(
+// Per the C4 audit spec: title = "New message from {senderDisplayName}";
+// body = first 120 chars of message.text (or "[Photo]" if image-only).
+const MESSAGE_BODY_PREVIEW_CHARS = 120;
+
+exports.pushOnNewMessage = onDocumentCreated(
   {document: "conversations/{cid}/messages/{messageId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
@@ -471,11 +488,14 @@ exports.notifyNewMessage = onDocumentCreated(
       const messageId = event.params.messageId;
       const senderId = msg.senderId || msg.fromUid || null;
       const text = msg.text || "";
+      const hasImage = !!(msg.imageUrl || msg.image ||
+        (Array.isArray(msg.images) && msg.images.length));
+      const isImageOnly = !text && hasImage;
       if (!senderId) return;
 
       // 1. Skip held messages — hold-release re-fires the trigger.
       if (msg.held === true) {
-        logger.info(`notifyNewMessage: ${messageId} held; skipping push`);
+        logger.info(`pushOnNewMessage: ${messageId} held; skipping push`);
         return;
       }
 
@@ -498,7 +518,7 @@ exports.notifyNewMessage = onDocumentCreated(
         const parts = Array.isArray(conv.participants) ? conv.participants : [];
         recipientId = parts.find((u) => u && u !== senderId) || null;
       } catch (e) {
-        logger.warn("notifyNewMessage: conv lookup failed", e);
+        logger.warn("pushOnNewMessage: conv lookup failed", e);
         return;
       }
       if (!recipientId) return;
@@ -514,14 +534,14 @@ exports.notifyNewMessage = onDocumentCreated(
               last > 0 &&
               (Date.now() - last) < PRESENCE_WINDOW_MS) {
             logger.info(
-                `notifyNewMessage: recipient ${recipientId} viewing ${cid}; skipping push`
+                `pushOnNewMessage: recipient ${recipientId} viewing ${cid}; skipping push`
             );
             return;
           }
         }
       } catch (e) {
         // Presence is best-effort; on failure, we send the push.
-        logger.warn("notifyNewMessage: presence lookup failed", e);
+        logger.warn("pushOnNewMessage: presence lookup failed", e);
       }
 
       // 5. Coalescing — pushPending/{recipientId}_{senderId}_{cid}.
@@ -568,7 +588,7 @@ exports.notifyNewMessage = onDocumentCreated(
       } catch (e) {
         // Bookkeeping failed — proceed with count=1; the push is more
         // important than perfect coalescing.
-        logger.warn("notifyNewMessage: pushPending write failed", e);
+        logger.warn("pushOnNewMessage: pushPending write failed", e);
       }
 
       // 6. Sender display name (cached 5min) + optional listing context.
@@ -579,43 +599,49 @@ exports.notifyNewMessage = onDocumentCreated(
       }
       const trimmedTitle = listingTitle ? String(listingTitle).slice(0, 30) : "";
 
-      // 7. Build payload.
-      let title;
+      // 7. Build payload. Per C4 spec:
+      //    title = "New message from {senderDisplayName}"
+      //    body  = first 120 chars of message.text (or "[Photo]" if image-only)
+      let title = `New message from ${senderName}`;
       let body;
       if (isHardFlagged) {
-        title = senderName;
         body = "You have a new message";
       } else if (count > 1) {
-        title = senderName;
         body = `${count} new messages`;
+      } else if (isImageOnly) {
+        body = "[Photo]";
       } else {
-        title = senderName;
-        body = text.length > 80 ? text.slice(0, 80) + "…" : text;
+        body = text.length > MESSAGE_BODY_PREVIEW_CHARS
+          ? text.slice(0, MESSAGE_BODY_PREVIEW_CHARS) + "…"
+          : text;
       }
       const subtitle = trimmedTitle ? `Re: ${trimmedTitle}` : "";
 
-      // 8. Dispatch. sendPush() handles pushPrefs.messages + quiet hours.
-      // Messages are NOT urgent — they respect quiet hours. (UX decision
-      // for the user: should "active negotiation" threads be urgent?)
+      // 8. Dispatch. sendPush() handles pushPrefs.messages + quiet hours
+      // (returns {skipped: "category-off:messages"} silently if the
+      // recipient has disabled the messages category — that's the audit-
+      // mandated `notificationPrefs.pushMessages !== false` gate).
+      // Stale-token pruning also happens inside sendPush().
+      // Messages are NOT urgent — they respect quiet hours.
       await sendPush(recipientId, {
         title,
         body,
         subtitle,
         deepLink: `teebox://conversation/${cid}`,
-        kind: "message",
+        kind: "new-message",
         data: {
-          type: "message",
+          kind: "new-message",
           conversationId: cid,
+          messageId,
           senderId,
           senderName,
-          messageId,
           coalesceCount: String(count),
         },
       }, "messages", {
         threadId: cid,
       });
     } catch (err) {
-      logger.error("notifyNewMessage error", err);
+      logger.error("pushOnNewMessage error", err);
     }
   }
 );
