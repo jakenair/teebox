@@ -5691,6 +5691,19 @@ Object.assign(exports, require("./smokeTest"));
 // model.
 Object.assign(exports, require("./bingoSync"));
 
+// Logo Bingo daily-puzzle generator. Scheduled (UTC midnight) writer
+// that produces dailyPuzzles/{YYYY-MM-DD} with the canonical 9 courses
+// + CDN URLs. Single source of truth for both web and iOS clients —
+// fixes the cross-platform divergence captured in
+// LOGO_BINGO_DIAGNOSIS.md. See ./bingoDailyPuzzle.js for the algorithm.
+Object.assign(exports, require("./bingoDailyPuzzle"));
+
+// Logo Bingo cross-platform monitor. Runs daily at 04:05 ET and asserts
+// the /dailyPuzzles/{today} doc exists, has the right shape, matches
+// the canonical selection algorithm, and carries valid logoUrls.
+// Fails open to logger.error + SMOKE_ALERT_WEBHOOK if it ever diverges.
+Object.assign(exports, require("./bingoCrossPlatformMonitor"));
+
 // Logo Bingo leaderboards — daily-percentile / friends / country /
 // global-streak surfaces. Reacts to users/{uid}/bingoGames/{date}
 // creates (written by syncBingoProgress in ./bingoSync.js) via the

@@ -1,0 +1,597 @@
+{
+  "seed": "teebox-bingo-canon-v3",
+  "epoch": "2026-01-01T00:00:00Z",
+  "courses": [
+    {
+      "id": "pine-valley",
+      "shortName": "Pine Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pine-valley.png"
+    },
+    {
+      "id": "cypress-point",
+      "shortName": "Cypress Point",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cypress-point.png"
+    },
+    {
+      "id": "shinnecock-hills",
+      "shortName": "Shinnecock Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/shinnecock-hills.png"
+    },
+    {
+      "id": "oakmont",
+      "shortName": "Oakmont",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/oakmont.png"
+    },
+    {
+      "id": "merion-east",
+      "shortName": "Merion East",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/merion-east.png"
+    },
+    {
+      "id": "national-golf-links",
+      "shortName": "National Golf Links",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/national-golf-links.png"
+    },
+    {
+      "id": "fishers-island",
+      "shortName": "Fishers Island",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/fishers-island.png"
+    },
+    {
+      "id": "bandon-dunes",
+      "shortName": "Bandon Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/bandon-dunes.png"
+    },
+    {
+      "id": "winged-foot-west",
+      "shortName": "Winged Foot West",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/winged-foot-west.png"
+    },
+    {
+      "id": "seminole",
+      "shortName": "Seminole",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/seminole.png"
+    },
+    {
+      "id": "los-angeles-cc-north",
+      "shortName": "LACC North",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/los-angeles-cc-north.png"
+    },
+    {
+      "id": "oakland-hills-south",
+      "shortName": "Oakland Hills South",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/oakland-hills-south.png"
+    },
+    {
+      "id": "olympic-club-lake",
+      "shortName": "Olympic Club Lake",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/olympic-club-lake.png"
+    },
+    {
+      "id": "baltusrol-lower",
+      "shortName": "Baltusrol Lower",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/baltusrol-lower.png"
+    },
+    {
+      "id": "pinehurst-no-2",
+      "shortName": "Pinehurst No. 2",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pinehurst-no-2.png"
+    },
+    {
+      "id": "whistling-straits",
+      "shortName": "Whistling Straits",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/whistling-straits.png"
+    },
+    {
+      "id": "erin-hills",
+      "shortName": "Erin Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/erin-hills.png"
+    },
+    {
+      "id": "tobacco-road",
+      "shortName": "Tobacco Road",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/tobacco-road.png"
+    },
+    {
+      "id": "streamsong-blue",
+      "shortName": "Streamsong",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/streamsong-blue.png"
+    },
+    {
+      "id": "cabot-citrus-farms",
+      "shortName": "Cabot Citrus Farms",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-citrus-farms.png"
+    },
+    {
+      "id": "castle-pines",
+      "shortName": "Castle Pines",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/castle-pines.png"
+    },
+    {
+      "id": "friars-head",
+      "shortName": "Friar's Head",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/friars-head.png"
+    },
+    {
+      "id": "maidstone",
+      "shortName": "Maidstone",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/maidstone.png"
+    },
+    {
+      "id": "castle-stuart",
+      "shortName": "Castle Stuart",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/castle-stuart.png"
+    },
+    {
+      "id": "cabot-links",
+      "shortName": "Cabot Links",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-links.png"
+    },
+    {
+      "id": "old-sandwich",
+      "shortName": "Old Sandwich",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/old-sandwich.png"
+    },
+    {
+      "id": "quail-hollow",
+      "shortName": "Quail Hollow",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/quail-hollow.png"
+    },
+    {
+      "id": "sleepy-hollow",
+      "shortName": "Sleepy Hollow",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sleepy-hollow.png"
+    },
+    {
+      "id": "sand-valley",
+      "shortName": "Sand Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sand-valley.png"
+    },
+    {
+      "id": "mammoth-dunes",
+      "shortName": "Mammoth Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/mammoth-dunes.png"
+    },
+    {
+      "id": "sedge-valley",
+      "shortName": "Sedge Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sedge-valley.png"
+    },
+    {
+      "id": "forest-dunes",
+      "shortName": "Forest Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/forest-dunes.png"
+    },
+    {
+      "id": "monterey-peninsula-shore",
+      "shortName": "MPCC Shore",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/monterey-peninsula-shore.png"
+    },
+    {
+      "id": "pasatiempo",
+      "shortName": "Pasatiempo",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pasatiempo.png"
+    },
+    {
+      "id": "plainfield",
+      "shortName": "Plainfield",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/plainfield.png"
+    },
+    {
+      "id": "aronimink",
+      "shortName": "Aronimink",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/aronimink.png"
+    },
+    {
+      "id": "cherry-hills",
+      "shortName": "Cherry Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cherry-hills.png"
+    },
+    {
+      "id": "olympia-fields-north",
+      "shortName": "Olympia Fields North",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/olympia-fields-north.png"
+    },
+    {
+      "id": "ohoopee-match",
+      "shortName": "Ohoopee",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/ohoopee-match.png"
+    },
+    {
+      "id": "gozzer-ranch",
+      "shortName": "Gozzer Ranch",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/gozzer-ranch.png"
+    },
+    {
+      "id": "cabot-saint-lucia",
+      "shortName": "Cabot Saint Lucia",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-saint-lucia.png"
+    },
+    {
+      "id": "lido",
+      "shortName": "The Lido",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/lido.png"
+    },
+    {
+      "id": "old-barnwell",
+      "shortName": "Old Barnwell",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/old-barnwell.png"
+    },
+    {
+      "id": "mcarthur",
+      "shortName": "McArthur",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/mcarthur.png"
+    },
+    {
+      "id": "stanwich",
+      "shortName": "Stanwich",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/stanwich.png"
+    },
+    {
+      "id": "philadelphia-cricket",
+      "shortName": "Philadelphia Cricket",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/philadelphia-cricket.png"
+    },
+    {
+      "id": "liberty-national",
+      "shortName": "Liberty National",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/liberty-national.png"
+    },
+    {
+      "id": "yale",
+      "shortName": "Yale",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/yale.png"
+    },
+    {
+      "id": "bellerive",
+      "shortName": "Bellerive",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/bellerive.png"
+    },
+    {
+      "id": "berkeley-hall",
+      "shortName": "Berkeley Hall",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/berkeley-hall.png"
+    },
+    {
+      "id": "black-sheep",
+      "shortName": "Black Sheep",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/black-sheep.png"
+    },
+    {
+      "id": "boston-golf-club",
+      "shortName": "Boston",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/boston-golf-club.png"
+    },
+    {
+      "id": "broomsedge",
+      "shortName": "Broomsedge",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/broomsedge.png"
+    },
+    {
+      "id": "burning-tree",
+      "shortName": "Burning Tree",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/burning-tree.png"
+    },
+    {
+      "id": "calusa-pines",
+      "shortName": "Calusa Pines",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/calusa-pines.png"
+    },
+    {
+      "id": "dooks",
+      "shortName": "Dooks",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/dooks.png"
+    },
+    {
+      "id": "essex-county",
+      "shortName": "Essex County",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/essex-county.png"
+    },
+    {
+      "id": "flossmoor",
+      "shortName": "Flossmoor Country Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/flossmoor.png"
+    },
+    {
+      "id": "gamble-sands",
+      "shortName": "Gamble Sands",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/gamble-sands.png"
+    },
+    {
+      "id": "interlachen",
+      "shortName": "Interlachen",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/interlachen.png"
+    },
+    {
+      "id": "kittansett",
+      "shortName": "Kittansett",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/kittansett.png"
+    },
+    {
+      "id": "lost-dunes",
+      "shortName": "Lost Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/lost-dunes.png"
+    },
+    {
+      "id": "myopia-hunt",
+      "shortName": "Myopia Hunt",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/myopia-hunt.png"
+    },
+    {
+      "id": "naples-national",
+      "shortName": "Naples National",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/naples-national.png"
+    },
+    {
+      "id": "old-elm",
+      "shortName": "Old Elm",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/old-elm.png"
+    },
+    {
+      "id": "pacific-dunes",
+      "shortName": "Pacific Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pacific-dunes.png"
+    },
+    {
+      "id": "piping-rock",
+      "shortName": "Piping Rock",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/piping-rock.png"
+    },
+    {
+      "id": "rich-harvest-farms",
+      "shortName": "Rich Harvest",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/rich-harvest-farms.png"
+    },
+    {
+      "id": "scioto",
+      "shortName": "Scioto",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/scioto.png"
+    },
+    {
+      "id": "secession",
+      "shortName": "Secession",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/secession.png"
+    },
+    {
+      "id": "shoreacres",
+      "shortName": "Shoreacres",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/shoreacres.png"
+    },
+    {
+      "id": "skene-valley",
+      "shortName": "Skene Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/skene-valley.png"
+    },
+    {
+      "id": "st-louis-cc",
+      "shortName": "St. Louis CC",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/st-louis-cc.png"
+    },
+    {
+      "id": "stonewall-orchard",
+      "shortName": "Stonewall Orchard",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/stonewall-orchard.png"
+    },
+    {
+      "id": "alotian",
+      "shortName": "The Alotian Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/alotian.png"
+    },
+    {
+      "id": "the-country-club",
+      "shortName": "Brookline",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-country-club.png"
+    },
+    {
+      "id": "dunes-club",
+      "shortName": "Dunes Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/dunes-club.png"
+    },
+    {
+      "id": "the-hay",
+      "shortName": "The Hay",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-hay.png"
+    },
+    {
+      "id": "loxahatchee",
+      "shortName": "Loxahatchee",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/loxahatchee.png"
+    },
+    {
+      "id": "tree-farm",
+      "shortName": "Tree Farm",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/tree-farm.png"
+    },
+    {
+      "id": "vaquero",
+      "shortName": "Vaquero",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/vaquero.png"
+    },
+    {
+      "id": "atlanta-athletic-club",
+      "shortName": "Atlanta Athletic",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/atlanta-athletic-club.png"
+    },
+    {
+      "id": "beverly-country-club",
+      "shortName": "Beverly",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/beverly-country-club.png"
+    },
+    {
+      "id": "biltmore-forest-country-club",
+      "shortName": "Biltmore Forest",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/biltmore-forest-country-club.png"
+    },
+    {
+      "id": "bluejack-national",
+      "shortName": "Bluejack National",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/bluejack-national.png"
+    },
+    {
+      "id": "california-golf-club",
+      "shortName": "California Golf Club of San Francisco",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/california-golf-club.png"
+    },
+    {
+      "id": "caves-valley-golf-club",
+      "shortName": "Caves Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/caves-valley-golf-club.png"
+    },
+    {
+      "id": "charlotte-country-club",
+      "shortName": "Charlotte",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/charlotte-country-club.png"
+    },
+    {
+      "id": "cherry-valley-club",
+      "shortName": "Cherry Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cherry-valley-club.png"
+    },
+    {
+      "id": "childress-hall",
+      "shortName": "Childress Hall",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/childress-hall.png"
+    },
+    {
+      "id": "colorado-golf-club",
+      "shortName": "Colorado",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/colorado-golf-club.png"
+    },
+    {
+      "id": "country-club-of-charleston",
+      "shortName": "Country Club of Charleston",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/country-club-of-charleston.png"
+    },
+    {
+      "id": "dedham-country-and-polo-club",
+      "shortName": "Dedham Country and Polo",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/dedham-country-and-polo-club.png"
+    },
+    {
+      "id": "east-potomac-golf-links",
+      "shortName": "East Potomac",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/east-potomac-golf-links.png"
+    },
+    {
+      "id": "eastward-ho-country-club",
+      "shortName": "Eastward Ho!",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/eastward-ho-country-club.png"
+    },
+    {
+      "id": "floridian-national-golf-club",
+      "shortName": "Floridian National",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/floridian-national-golf-club.png"
+    },
+    {
+      "id": "frederica-golf-club",
+      "shortName": "Frederica",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/frederica-golf-club.png"
+    },
+    {
+      "id": "gasparilla-golf-club",
+      "shortName": "Gasparilla Inn and",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/gasparilla-golf-club.png"
+    },
+    {
+      "id": "huntingdon-valley-country-club",
+      "shortName": "Huntingdon Valley",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/huntingdon-valley-country-club.png"
+    },
+    {
+      "id": "jupiter-hills-club",
+      "shortName": "Jupiter Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/jupiter-hills-club.png"
+    },
+    {
+      "id": "kapalua",
+      "shortName": "Kapalua",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/kapalua.png"
+    },
+    {
+      "id": "lake-merced-golf-club",
+      "shortName": "Lake Merced",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/lake-merced-golf-club.png"
+    },
+    {
+      "id": "meadow-club",
+      "shortName": "Meadow",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/meadow-club.png"
+    },
+    {
+      "id": "mid-ocean-club",
+      "shortName": "Mid Ocean",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/mid-ocean-club.png"
+    },
+    {
+      "id": "north-berwick-golf-club",
+      "shortName": "North Berwick Golf Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/north-berwick-golf-club.png"
+    },
+    {
+      "id": "old-memorial-golf-club",
+      "shortName": "Old Memorial",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/old-memorial-golf-club.png"
+    },
+    {
+      "id": "pine-tree-golf-club",
+      "shortName": "Pine Tree",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pine-tree-golf-club.png"
+    },
+    {
+      "id": "the-country-club-of-darien",
+      "shortName": "Country Club of Darien",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-country-club-of-darien.png"
+    },
+    {
+      "id": "the-park",
+      "shortName": "Park West Palm",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-park.png"
+    },
+    {
+      "id": "the-tuxedo-club",
+      "shortName": "The Tuxedo",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-tuxedo-club.png"
+    },
+    {
+      "id": "tiburon-golf-club",
+      "shortName": "Tiburón",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/tiburon-golf-club.png"
+    },
+    {
+      "id": "timuquana-country-club",
+      "shortName": "Timuquana",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/timuquana-country-club.png"
+    },
+    {
+      "id": "union-league-national",
+      "shortName": "Union League National",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/union-league-national.png"
+    },
+    {
+      "id": "watersound-club",
+      "shortName": "Watersound",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/watersound-club.png"
+    },
+    {
+      "id": "wianno-club",
+      "shortName": "Wianno",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/wianno-club.png"
+    },
+    {
+      "id": "wicker-point-golf-club",
+      "shortName": "Wicker Point",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/wicker-point-golf-club.png"
+    },
+    {
+      "id": "wilmington-country-club",
+      "shortName": "Wilmington Country Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/wilmington-country-club.png"
+    }
+  ],
+  "generatedAt": "2026-05-15T15:59:23.100Z",
+  "sourceFiles": [
+    "bingo-courses.js",
+    "assets/logos/manifest.js"
+  ],
+  "cdnOrigin": "https://teeboxmarket.com"
+}

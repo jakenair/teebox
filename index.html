@@ -15234,7 +15234,18 @@ if (uploadZone) {
 <!-- ─────────────────────────────────────────────────────────────────────
      LOGO BINGO — game module
      Daily 3×3 logo guessing game. Same 9 courses every day for every user
-     worldwide (deterministic shuffle of the COURSES list, seeded by UTC date).
+     worldwide.
+
+     SOURCE OF TRUTH: /dailyPuzzles/{YYYY-MM-DD} in Firestore. A scheduled
+     Cloud Function (generateDailyBingoPuzzle in functions/bingoDailyPuzzle.js)
+     writes the canonical 9-course list at UTC midnight; both web and iOS
+     WebView read the same doc. The local dailySeed() below is now an
+     OFFLINE FALLBACK ONLY — it uses the same deterministic algorithm so
+     under normal conditions its output equals the server's, but the
+     fallback path sets __bingoPuzzleStale=true and the cross-platform
+     monitor (functions/bingoDailyPuzzle.js) alerts if a divergence ever
+     reaches production. See LOGO_BINGO_DIAGNOSIS.md for the cross-platform
+     bug this guards against.
      ─────────────────────────────────────────────────────────────────────
      Persistence
        localStorage:
@@ -15448,20 +15459,31 @@ if (uploadZone) {
   // cache the selection so a future server-driven daily list would slot
   // in the same way. (The earlier `generateDailyBingoPuzzle` Cloud
   // Function was deleted 2026-05-12 — see BINGO_CLEANUP.md.)
-  function cacheTodaysPuzzle(date, courses) {
+  // `source` is 'server' when courses came from the /dailyPuzzles/{date}
+  // Firestore doc (canonical) and 'local' when they came from the
+  // offline dailySeed() fallback. The cache reader only treats 'server'
+  // entries as authoritative — a previously-cached 'local' entry will
+  // be re-fetched on next open, so a transient offline session can't
+  // pin a stale-bundle puzzle for the rest of the day.
+  function cacheTodaysPuzzle(date, courses, source) {
     if (!Array.isArray(courses) || courses.length !== 9) return;
     try {
       const minimal = courses.map((c) => ({
         id: c.id,
         shortName: c.shortName,
-        // courseLogoUrl() will rebuild from id at runtime; we cache the
-        // resolved URL too so the SW pre-cache message can target the
-        // exact same string the renderer asks for.
-        logoUrl: courseLogoUrl(c),
+        // Prefer the server-supplied logoUrl when present (handles
+        // CDN-migration scenarios where the host changed). Falls back
+        // to the local courseLogoUrl() helper otherwise.
+        logoUrl: c.logoUrl || courseLogoUrl(c),
       }));
       localStorage.setItem(
         PUZZLE_CACHE_KEY(date),
-        JSON.stringify({date, courses: minimal, cachedAt: Date.now()})
+        JSON.stringify({
+          date,
+          courses: minimal,
+          source: source === 'server' ? 'server' : 'local',
+          cachedAt: Date.now(),
+        })
       );
     } catch {}
   }
@@ -15492,36 +15514,127 @@ if (uploadZone) {
     return out;
   }
 
-  // Pull today's puzzle into local cache. Today the selection is
-  // deterministic from dailySeed() — that runs synchronously so we never
-  // need the network to *compute* it. This function exists so that:
-  //   • the localStorage cache reflects the courses we'll render (for
-  //     other tabs / cold-load offline)
-  //   • we have a single hook to swap in a server-driven daily list
-  //     later without scattering offline logic.
+  // Fetch the canonical /dailyPuzzles/{date} doc the server-side
+  // generateDailyBingoPuzzle scheduled function wrote at UTC midnight.
+  // This is the SINGLE SOURCE OF TRUTH — both web and iOS WebView read
+  // from here. The local dailySeed() is kept as an offline fallback only
+  // (see loadTodaysBingoPuzzle).
+  //
+  // Returns null on any failure (network down, doc not yet written for
+  // this date, etc.) — callers must handle the fallback. Doc shape:
+  //
+  //   { date: "2026-05-15", seed, courses: [{id, shortName, logoUrl}, x9],
+  //     daysSinceEpoch, windowStart, poolSize, generatorVersion, generatedAt }
+  //
+  // The function and the local dailySeed() share the same canonical
+  // algorithm + course pool (functions/data/bingo-puzzle-data.json is
+  // regenerated from /bingo-courses.js + manifest.js on every deploy),
+  // so under normal conditions the two paths produce identical courses;
+  // they only diverge when an iOS bundle is stale, which is exactly
+  // when we *want* the server doc to win.
+  async function fetchServerDailyPuzzle(date) {
+    try {
+      const {getFirestore, doc, getDoc} = await import(
+        'https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js'
+      );
+      const db = getFirestore();
+      const snap = await getDoc(doc(db, 'dailyPuzzles', date));
+      if (!snap.exists()) return null;
+      const d = snap.data();
+      if (!d || !Array.isArray(d.courses) || d.courses.length !== 9) {
+        return null;
+      }
+      return d;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  // Hydrate a server-doc minimal course (id, shortName, logoUrl) into the
+  // full COURSES metadata so matchesCourse() still has aliases/location.
+  // Falls back to a stub when the id isn't in our local COURSES (e.g.
+  // server added a new course but the client bundle hasn't shipped yet).
+  function hydrateServerCoursesToFull(serverCourses) {
+    return serverCourses.map((c) => {
+      const full = COURSES.find((x) => x.id === c.id);
+      if (full) {
+        // Prefer the server's logoUrl so a stale client bundle still
+        // renders against the canonical CDN URL. matchesCourse() reads
+        // name/shortName/aliases off the full row.
+        return {...full, logoUrl: c.logoUrl || full.logoUrl || ''};
+      }
+      // Course id unknown locally — render the best we can. The user
+      // can still guess by shortName.
+      return {
+        id: c.id,
+        name: c.shortName || c.id,
+        shortName: c.shortName || c.id,
+        aliases: [],
+        location: '',
+        architect: '',
+        logo: '',
+        logoUrl: c.logoUrl || '',
+      };
+    });
+  }
+
+  // Pull today's puzzle. Order of preference:
+  //   1. Cached server doc in localStorage (instant render, no flicker)
+  //   2. Live fetch of /dailyPuzzles/{date} from Firestore (canonical)
+  //   3. Local dailySeed() — offline fallback, marked stale so the
+  //      monitor can detect and the banner can warn the user.
+  //   4. Most recent cached puzzle (any date) — last-ditch offline.
+  //
+  // The "stale" flag distinguishes 3 + 4 from 1 + 2: when set, the
+  // top-of-screen banner explains that we're showing yesterday's
+  // puzzle / a local computation because the network is down, and the
+  // monitor function logs the divergence.
   async function loadTodaysBingoPuzzle() {
     const date = todayUTC();
-    // Cache hit → use it. dailySeed() output is stable so we still
-    // reconcile against the live computation in case the seed string
-    // bumped (rare; would mean an in-flight code change).
+
+    // 1. Cached server doc — fast path. We tag the cache with `source`
+    //    so a previously-cached client-computed puzzle doesn't masquerade
+    //    as authoritative.
     const cached = readCachedPuzzle(date);
-    if (cached) {
+    if (cached && cached.source === 'server') {
       __bingoPuzzleStale = false;
       const hydrated = hydrateCachedPuzzleToCourses(cached);
-      // Belt-and-suspenders: if the cached ids don't all resolve, fall
-      // through to live dailySeed() which is guaranteed valid.
-      if (hydrated && hydrated.every(Boolean)) return hydrated;
+      if (hydrated && hydrated.every(Boolean)) {
+        // Best-effort refresh in the background — if the server doc
+        // changed (e.g. canon update + regen) we want to converge fast.
+        fetchServerDailyPuzzle(date).then((doc) => {
+          if (doc) cacheTodaysPuzzle(date, doc.courses, 'server');
+        }).catch(() => {});
+        return hydrated;
+      }
     }
-    try {
-      // dailySeed is sync + offline-safe; this branch is "compute the
-      // canonical answer from local data and cache it".
-      const courses = dailySeed(date);
-      cacheTodaysPuzzle(date, courses);
+
+    // 2. Live fetch — canonical path.
+    const serverDoc = await fetchServerDailyPuzzle(date);
+    if (serverDoc && Array.isArray(serverDoc.courses)) {
+      cacheTodaysPuzzle(date, serverDoc.courses, 'server');
       __bingoPuzzleStale = false;
+      return hydrateServerCoursesToFull(serverDoc.courses);
+    }
+
+    // 3. Local fallback — offline OR the server doc hasn't been written
+    //    for this date yet. dailySeed() is deterministic and uses the
+    //    same algorithm the function uses, so under nominal conditions
+    //    its output equals the server's. But we still mark it stale so
+    //    the founder can see in logs when a client is falling back.
+    try {
+      console.warn(
+        '[bingo] server dailyPuzzles/' + date + ' unreachable — ' +
+        'falling back to local dailySeed(). If this fires for online ' +
+        'users, the cross-platform monitor will alert.'
+      );
+      const courses = dailySeed(date);
+      cacheTodaysPuzzle(date, courses, 'local');
+      __bingoPuzzleStale = true;
       return courses;
     } catch (err) {
-      // Truly degenerate path — fall back to the most recent cached
-      // puzzle we have, even if it's not for today.
+      // 4. Truly degenerate — show the most recent cached puzzle, even
+      //    if it's not for today. Better than a blank grid.
       const fallback = findMostRecentCachedPuzzle();
       if (fallback) {
         __bingoPuzzleStale = true;
@@ -15982,22 +16095,42 @@ if (uploadZone) {
     }
     document.body.style.overflow = 'hidden';
 
-    // Offline-readiness pass. Runs async; the synchronous render() below
-    // works either way because game.courses is already populated from
-    // dailySeed (offline-safe). The async path just refreshes the
-    // localStorage puzzle cache + nudges the SW to pre-cache the 9 logos
-    // so the user can still play this puzzle if the network drops mid-round.
+    // Async: pull the canonical /dailyPuzzles/{date} doc and swap our
+    // local-fallback courses for the server's whenever they disagree.
+    // Initial render() (below) uses game.courses from dailySeed() so
+    // the grid never blocks on the network — but as soon as the server
+    // doc loads, we converge on the cross-platform-identical 9 logos.
+    //
+    // The swap is suppressed when the user has any progress on the
+    // current (local) courses, to avoid stranding their resolved tiles
+    // against the wrong logos. In practice this almost never happens:
+    // the cross-platform monitor and the audit script catch upstream
+    // drift before users have a chance to start a round on a stale
+    // bundle. But the suppression is a safe-default.
     (async () => {
       try {
         const courses = await loadTodaysBingoPuzzle();
-        // If loader fell back to yesterday's cached puzzle, swap it into
-        // the active game and re-render — but only when the user has no
-        // progress yet on the current courses. Mid-round we'd otherwise
-        // strand their resolved tiles against the wrong logos.
-        const noProgress = !game.cells || game.cells.every(c => !c || c.state === 'pending');
-        if (__bingoPuzzleStale && Array.isArray(courses) && courses.length === 9 && noProgress) {
+        if (!Array.isArray(courses) || courses.length !== 9) return;
+        const localIds = (game.courses || []).map((c) => c && c.id).join(',');
+        const newIds = courses.map((c) => c && c.id).join(',');
+        const noProgress = !game.cells || game.cells.every(
+          (c) => !c || c.state === 'pending');
+        if (localIds !== newIds) {
+          if (noProgress) {
+            game.courses = courses;
+            render();
+          } else {
+            // Mid-round divergence — leave the player on their current
+            // grid but warn so divergence is observable in the logs.
+            console.warn(
+              '[bingo] server puzzle differs from local mid-round; ' +
+              'keeping current grid. local=', localIds, 'server=', newIds);
+          }
+        } else if (game.courses !== courses) {
+          // IDs match but object references differ — adopt the server
+          // copies so any updated logoUrl (e.g. CDN migration) takes
+          // effect on the next render.
           game.courses = courses;
-          render();
         }
         precacheBingoLogos(courses);
         updateBingoStaleBanner();

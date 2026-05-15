@@ -18,6 +18,18 @@
 // IMPORTANT: real logo PNGs will replace the emoji once commissioned. Until
 // then, the in-app renderer should call `courseLogoUrl(course)` and fall
 // through to `course.logo` when the image 404s.
+//
+// CROSS-PLATFORM NOTE (LOGO_BINGO_DIAGNOSIS.md):
+// As of 2026-05-15 this file (and /assets/logos/manifest.js) are OFFLINE
+// FALLBACK ONLY for puzzle selection. The canonical 9-course list is
+// written by the generateDailyBingoPuzzle Cloud Function to
+// /dailyPuzzles/{YYYY-MM-DD} in Firestore, and both web and iOS WebView
+// fetch from there. The function is regenerated from THIS file at every
+// deploy (see functions/scripts/generate-bingo-canon.mjs) so the two
+// stay in lockstep. The iOS-bundled copy of this file in
+// ios/App/App/public/ is acceptable as a stale-bundle fallback BUT the
+// rendered <img src> always uses the server doc's absolute CDN URL —
+// so a stale iOS bundle still renders the same logos as web.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const COURSES = [

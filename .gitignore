@@ -96,3 +96,6 @@ ios/build/
 # dataconnect generated files
 .dataconnect
 .claude/
+
+# Logo Bingo audit run output (regenerated per-invocation; baseline IS committed).
+scripts/logo-audit-report.json
