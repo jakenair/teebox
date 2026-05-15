@@ -5737,3 +5737,10 @@ Object.assign(exports, require("./securityEmailTriggers"));
 
 // Email usage monitor — alerts when Resend Free-tier 100/day cap approaches.
 Object.assign(exports, require("./emailUsageMonitor"));
+
+// Daily AI founder briefing (07:00 ET). Queries 24h of marketplace
+// activity, asks Claude Sonnet for a ~200-word summary + "Top 3 things to
+// act on today", emails it to the founder, and persists to
+// founderBriefings/{YYYY-MM-DD}. See ./founderBriefing.js header for
+// secret setup + manual-trigger usage.
+Object.assign(exports, require("./founderBriefing"));

@@ -1013,6 +1013,20 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // FOUNDER BRIEFINGS — daily AI-generated marketplace summary, doc id
+    // is the report date (YYYY-MM-DD). Written exclusively by the
+    // dailyFounderBriefing Cloud Function (Admin SDK bypasses these
+    // rules). Contains aggregate GMV / order counts / dispute counts /
+    // baseline z-scores and the Claude-generated briefing text — all of
+    // which is sensitive enough that we deny ALL client access (including
+    // admin reads — view via the Firebase Console or a server-side
+    // admin tool instead).
+    // ─────────────────────────────────────────────
+    match /founderBriefings/{date} {
+      allow read, create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
     // DEFAULT DENY
     // ─────────────────────────────────────────────
     match /{document=**} {
