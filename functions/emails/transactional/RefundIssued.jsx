@@ -5,16 +5,22 @@ function RefundIssued({order = {}, buyer = {}, refund = {}}) {
   const amount = formatUsd(refund.amountCents || order.amountCents);
   const url = `https://teeboxmarket.com/orders/${order.id || ""}`;
   const reason = refund.reason || "your refund request";
+  const byAdmin = refund.issuedByAdmin === true || refund.actor === "admin";
 
   return (
     <Base
-      preview={`We refunded ${amount} to your original payment method.`}
+      preview={
+        byAdmin ?
+          `We refunded ${amount} (issued by TeeBox support).` :
+          `We refunded ${amount} to your original payment method.`
+      }
       uid={buyer.uid}
       category="transactional"
     >
-      <H1>Refund issued</H1>
+      <H1>Refund issued{byAdmin ? " by admin" : ""}</H1>
       <P>
         We've refunded <strong>{amount}</strong> to your original payment method
+        {byAdmin ? " — this refund was issued by TeeBox support" : ""}{" "}
         for {reason}. Most banks post refunds in 5–10 business days.
       </P>
       <Button href={url}>View order details</Button>
@@ -32,4 +38,8 @@ function formatUsd(cents) {
 }
 
 module.exports = RefundIssued;
-module.exports.subject = () => "Refund issued";
+module.exports.subject = (ctx) => {
+  const r = (ctx && ctx.refund) || {};
+  const byAdmin = r.issuedByAdmin === true || r.actor === "admin";
+  return byAdmin ? "Refund issued by admin" : "Refund issued";
+};
