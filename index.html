@@ -8417,7 +8417,7 @@ let unsubscribeMessages = null;
 
 // ─── Presence wiring for new-message push suppression ───────────────────
 // Writes presence/{uid}: { currentlyViewingConversation: cid, lastHeartbeatAt }
-// while a chat thread is open. The notifyNewMessage Cloud Function reads
+// while a chat thread is open. The pushOnNewMessage Cloud Function reads
 // this to skip pushes for a recipient who is already in the thread.
 // Best-effort: if the app is killed abruptly the doc stays stale for at
 // most 30s (the server's PRESENCE_WINDOW_MS) before pushes resume.
@@ -13235,6 +13235,108 @@ async function confirmDeleteAccount() {
 window.confirmDeleteAccount = confirmDeleteAccount;
 
 // ─────────────────────────────────────────────────────────────
+// GDPR Art. 20 — Download my data
+//   Calls the `exportMyData` Cloud Function callable, receives a JSON
+//   blob with every Firestore record we hold for the user, triggers a
+//   client-side download as `teebox-data-{uid}-{YYYY-MM-DD}.json`.
+//
+//   Large bundles (heavy sellers with many orders/reviews) may take
+//   5–10s. We disable the button + show a loading state during the
+//   round-trip. The callable hard-caps at ~9MB; if a user exceeds
+//   that, the server throws `resource-exhausted` and we point them
+//   at legal@teeboxmarket.com for the background-export path (which
+//   is documented but not yet built per dataPortability.js).
+// ─────────────────────────────────────────────────────────────
+async function downloadMyData() {
+  if (!window.CURRENT_USER) return;
+  const btn = document.getElementById('downloadMyDataBtn');
+  const origLabel = btn ? btn.textContent : 'Download my data';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Preparing export…';
+  }
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'exportMyData');
+    const res = await fn({});
+    const payload = (res && res.data) || null;
+    if (!payload || payload.ok !== true) {
+      throw new Error('Empty export response');
+    }
+    const ymd = new Date().toISOString().slice(0, 10);
+    const uid = payload.uid || (window.CURRENT_USER && window.CURRENT_USER.uid) || 'me';
+    const filename = `teebox-data-${uid}-${ymd}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Defer revoke so Safari has time to start the download before
+    // the blob URL is invalidated.
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_e) {} }, 4000);
+    showToast('Your data export downloaded.', 'success');
+  } catch (e) {
+    console.error('downloadMyData failed:', e);
+    // Server throws `resource-exhausted` when the bundle is too big
+    // for inline delivery — surface that path explicitly so users
+    // know who to email.
+    const code = (e && e.code) || '';
+    if (code === 'functions/resource-exhausted' || code === 'resource-exhausted') {
+      showToast('Your data is too large for instant download. Please email legal@teeboxmarket.com — we’ll send you a one-time link within 30 days.', 'error');
+    } else {
+      showToast('Could not export your data. Please try again or email support@teeboxmarket.com.', 'error');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  }
+}
+window.downloadMyData = downloadMyData;
+
+// ─────────────────────────────────────────────────────────────
+// Stripe — Manage payouts
+//   Resolves a single-use Stripe Express dashboard login URL via the
+//   `createStripeLoginLink` callable and opens it in a new tab. The
+//   server requires the seller to have a `stripeAccountId` (KYC
+//   completed) — the button is hidden in the UI when that's not the
+//   case, but we still surface the server error gracefully here.
+// ─────────────────────────────────────────────────────────────
+async function openStripeLoginLink() {
+  if (!window.CURRENT_USER) return;
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'createStripeLoginLink');
+    const res = await fn({});
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No url in createStripeLoginLink response');
+    // window.open with noopener for the security default; falls back
+    // to direct nav if a popup blocker swallows the new tab.
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      window.location.href = url;
+    }
+  } catch (e) {
+    console.error('createStripeLoginLink failed:', e);
+    const msg = (e && e.message) || '';
+    if (/failed-precondition/i.test(msg)) {
+      showToast('Finish Stripe onboarding before opening the payouts dashboard.', 'info');
+    } else {
+      showToast('Could not open Stripe dashboard. Try again in a moment.', 'error');
+    }
+  }
+}
+window.openStripeLoginLink = openStripeLoginLink;
+
+// ─────────────────────────────────────────────────────────────
 // WATCHLIST
 // ─────────────────────────────────────────────────────────────
 async function loadWatchlist() {
@@ -13484,8 +13586,14 @@ async function loadProfile(uid) {
         // of truth); fall back to the public mirror for everyone else.
         isPro: u.tier === 'pro' || isPro,
       };
+      // stripeChargesEnabled is self-only readable per firestore.rules
+      // — only the signed-in user will get a value here. We hoist it
+      // onto the profile object so the "Manage payouts" button can
+      // surface conditionally without a second round-trip.
+      data.stripeChargesEnabled = u.stripeChargesEnabled === true;
     } else {
       data._user = { sellerVerified: false, phone: false, email: false, isPro };
+      data.stripeChargesEnabled = false;
     }
     PROFILE_CACHE.set(uid, { data, fetchedAt: Date.now() });
     return data;
@@ -13720,11 +13828,22 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   // scrolling on iPad Air landscape. Profile-actions (Edit/Sign Out/Delete)
   // render right under the header, BEFORE the account-hub list. Build 18
   // was rejected because Delete Account sat below the hub.
+  //
+  // GDPR Art. 20: "Download my data" sits in the same actions block so
+  // the export option is just as discoverable as the deletion option —
+  // privacy.html:219 promises both. Manage payouts shows conditionally
+  // when the seller has finished Stripe Connect KYC (stripeChargesEnabled).
+  const showManagePayouts = isMe && profile.stripeChargesEnabled === true;
   const profileActionsHtml = isMe
     ? `<div class="profile-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
          <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
          <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
-         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);">Delete Account</button>
+         ${showManagePayouts ? `<button class="btn-full ghost" data-action="manage-payouts" style="grid-column:1/-1;">Manage payouts</button>` : ''}
+         <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:12px;border-top:1px solid var(--gray-100);">
+           <button class="btn-full ghost" data-action="download-my-data" id="downloadMyDataBtn" type="button">Download my data</button>
+           <div style="font-size:12px;color:var(--gray-600);line-height:1.4;text-align:center;">Get a JSON copy of all your TeeBox data (GDPR Art. 20). Large bundles may take 5–10s.</div>
+         </div>
+         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);margin-top:8px;">Delete Account</button>
        </div>`
     : `<div class="profile-mod-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
          <button class="btn-full ghost" data-action="report-user" data-uid="${window.safeAttr(profile.id)}">Report seller</button>
@@ -15157,6 +15276,8 @@ function spawnHeartBurst(btn) {
 A['submit-review']            = () => { if (!window.requireAuth('to leave a review')) return; submitReview(); };
 A['open-delete-account']     = () => { if (!window.requireAuth('to manage your account')) return; openDeleteAccountModal(); };
 A['confirm-delete-account']  = () => { if (!window.requireAuth('to delete your account')) return; confirmDeleteAccount(); };
+A['download-my-data']        = () => { if (!window.requireAuth('to download your data')) return; downloadMyData(); };
+A['manage-payouts']          = () => { if (!window.requireAuth('to manage payouts')) return; openStripeLoginLink(); };
 A['open-watchlist']          = () => { if (!window.requireAuth('to view your liked items', () => openWatchlistWithDropBadges())) return; openWatchlistWithDropBadges(); };
 A['open-profile-self']       = () => { if (!window.requireAuth('to view your profile', () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid))) return; openProfile(window.CURRENT_USER && window.CURRENT_USER.uid); };
 A['open-profile']            = (el) => openProfile(el.dataset.uid);

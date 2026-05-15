@@ -1000,7 +1000,7 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────
     // PRESENCE — lightweight per-user "what am I looking at right now"
-    // doc used by notifyNewMessage to skip pushes for a recipient who
+    // doc used by pushOnNewMessage to skip pushes for a recipient who
     // is already in the conversation. Best-effort, not a security tool;
     // we still trust client wiring to write currentlyViewingConversation
     // honestly. Stale docs (closed app) self-expire because the trigger
@@ -1013,7 +1013,7 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────
     // PUSH PENDING — server-side coalescing bookkeeping for the
-    // notifyNewMessage trigger. Doc id is recipientId_senderId_cid.
+    // pushOnNewMessage trigger. Doc id is recipientId_senderId_cid.
     // Cloud Functions only.
     // ─────────────────────────────────────────────
     match /pushPending/{pendingId} {
