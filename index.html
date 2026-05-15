@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -58,6 +58,135 @@
   Falls through silently if the user is on adblock — that's fine.
 -->
 <script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script>
+
+<!--
+  ANALYTICS — PostHog Cloud (product analytics).
+  Loads the posthog-js snippet from us-assets.i.posthog.com and pipes
+  events to https://us.i.posthog.com (both whitelisted in the CSP above).
+
+  Standard property bag (deviceType / appVersion / sessionId / source /
+  medium) is attached via posthog.register() so every subsequent event
+  carries them automatically. See `events.md` for the canonical event
+  catalog.
+
+  CONFIG:
+    PUBLIC_POSTHOG_KEY — public project key from PostHog dashboard
+                         (Project Settings → Project API Key). Safe to
+                         hardcode; scoped to event ingestion only.
+                         The placeholder MUST be replaced with the real
+                         key before deploy.
+
+    APP_VERSION        — read from package.json `version` at edit time.
+                         Bump this when shipping a new release so events
+                         carry the right release attribution.
+-->
+<script>
+(function() {
+  // ── Build-time constants. Update APP_VERSION when bumping the
+  //    root package.json version field. PUBLIC_POSTHOG_KEY is the
+  //    user-replaceable PostHog project API key (see header above).
+  var PUBLIC_POSTHOG_KEY = 'phc_PLACEHOLDER_REPLACE_WITH_POSTHOG_PROJECT_KEY';
+  var APP_VERSION = '1.0.0';
+  window.APP_VERSION = APP_VERSION;
+  window.PUBLIC_POSTHOG_KEY = PUBLIC_POSTHOG_KEY;
+
+  // ── Standard property derivation helpers ──────────────────────────
+  // sessionId: one UUID per app load. We use sessionStorage so it
+  // survives in-tab nav but resets when the tab closes (or, on iOS
+  // Capacitor, when the app cold-launches). crypto.randomUUID is
+  // available in every browser/WKWebView shipped after iOS 15.4 — we
+  // ship a tiny fallback for ancient embeds.
+  function getOrCreateSessionId() {
+    try {
+      var k = 'teebox.sid';
+      var v = sessionStorage.getItem(k);
+      if (v) return v;
+      var uuid = (window.crypto && window.crypto.randomUUID) ?
+        window.crypto.randomUUID() :
+        (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+      sessionStorage.setItem(k, uuid);
+      return uuid;
+    } catch (_) {
+      // Private-mode Safari / disabled storage → degrade to a per-load id.
+      return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
+  function getDeviceType() {
+    try {
+      var Cap = window.Capacitor;
+      if (Cap && typeof Cap.getPlatform === 'function') {
+        var p = Cap.getPlatform();
+        if (p === 'ios' || p === 'android') return p;
+      }
+    } catch (_) {}
+    return 'web';
+  }
+
+  // First-touch UTM attribution. Persists to localStorage so a user
+  // who lands on /?utm_source=google&utm_medium=cpc and signs up two
+  // days later is still attributed to that campaign.
+  function getUtmFromUrlOrStorage(param) {
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      var current = sp.get(param);
+      var k = 'teebox.attribution.' + param;
+      if (current) {
+        try { localStorage.setItem(k, current); } catch (_) {}
+        return current;
+      }
+      try { return localStorage.getItem(k) || null; } catch (_) { return null; }
+    } catch (_) { return null; }
+  }
+
+  // Expose helpers so the rest of the app (and Capacitor native
+  // wrappers) can read the same standard bag without re-deriving.
+  window.getOrCreateSessionId = getOrCreateSessionId;
+  window.getDeviceType = getDeviceType;
+  window.getUtmFromUrlOrStorage = getUtmFromUrlOrStorage;
+
+  // ── posthog-js loader (official snippet, trimmed) ─────────────────
+  // Buffers posthog.<method>(...) calls until the real library loads,
+  // so call sites elsewhere in index.html don't need to wait or
+  // guard. If the library never loads (adblock, offline), the calls
+  // simply queue and are dropped — exactly the same failure mode as
+  // Plausible above.
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+  // Only init when a real key is configured. Hardcoded placeholder is
+  // a no-op so we don't burn a project quota on stubs in dev.
+  if (PUBLIC_POSTHOG_KEY && !/PLACEHOLDER/.test(PUBLIC_POSTHOG_KEY)) {
+    window.posthog.init(PUBLIC_POSTHOG_KEY, {
+      api_host: 'https://us.i.posthog.com',
+      // Only create person-profiles after we call .identify() — keeps
+      // anonymous browsers from inflating MAU.
+      person_profiles: 'identified_only',
+      capture_pageview: true,
+      // Explicit-events-only. We want a clean event taxonomy that
+      // matches events.md — autocapture would pollute it with
+      // generic "$rageclick" / "$pageleave" style noise.
+      autocapture: false,
+    });
+    // Attach the standard property bag ONCE — every subsequent
+    // posthog.capture() inherits these without per-call duplication.
+    window.posthog.register({
+      deviceType: getDeviceType(),
+      appVersion: APP_VERSION,
+      sessionId: getOrCreateSessionId(),
+      source: getUtmFromUrlOrStorage('utm_source'),
+      medium: getUtmFromUrlOrStorage('utm_medium'),
+    });
+  } else {
+    // Placeholder mode: posthog.capture() etc. still work as no-ops
+    // because the buffered stub above silently drops queued calls
+    // when no init() ever lands. We log a one-time hint so the
+    // dev console shows why no events are reaching PostHog.
+    try {
+      console.info('[analytics] PostHog public key is the placeholder — events disabled. Replace PUBLIC_POSTHOG_KEY in index.html before deploy.');
+    } catch (_) {}
+  }
+})();
+</script>
 
 <!-- Organization + FAQPage JSON-LD for Google Knowledge Graph + rich results.
      Listing-level Product/Offer/BreadcrumbList JSON-LD is injected at runtime
@@ -4959,6 +5088,25 @@ window.confirmPayment = async function() {
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     window.CURRENT_USER = user;
+    // ── Analytics identity tie. Whenever Firebase Auth flips state we
+    // mirror it into PostHog so every subsequent posthog.capture()
+    // attributes to the right person. On sign-out we call reset() so
+    // the next anonymous events start a fresh distinct_id and don't
+    // accidentally fold into the previous user's profile. Wrapped in
+    // a try/catch — analytics MUST never crash auth.
+    try {
+      if (window.posthog) {
+        if (user) {
+          window.posthog.identify(user.uid, {
+            email: user.email || null,
+            displayName: user.displayName || null,
+            emailVerified: !!user.emailVerified,
+          });
+        } else {
+          window.posthog.reset();
+        }
+      }
+    } catch (_e) { /* never block auth on analytics */ }
     if (user) {
       window.GUEST_MODE = false;
       // Mark the auth gate as resolved for THIS process — if the user
