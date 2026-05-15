@@ -44,7 +44,9 @@
  *   - orders/{id}.refundedAmountCents is the cumulative refund total
  *   - users/{uid}.createdAt is a Firestore Timestamp (TBD: NOT confirmed
  *     in functions/index.js — see verification report)
- *   - listings/{id}.createdAt, .cat (category), .flaggedForReview (bool)
+ *   - listings/{id}.createdAt, .cat (category)
+ *   - flaggedListings/{listingId}.flaggedAt — set by Cloud Vision
+ *     moderation pipeline in functions/index.js. Existence == flagged.
  *   - disputes/{orderId}.status, .createdAt
  */
 
@@ -277,11 +279,26 @@ async function collectMetrics(windowStart, windowEnd) {
       const data = doc.data() || {};
       const cat = data.cat || "uncategorized";
       m.newListingsByCategory[cat] = (m.newListingsByCategory[cat] || 0) + 1;
-      if (data.flaggedForReview === true) m.flaggedListingsCount += 1;
     }
   } catch (e) {
     m.notes.push(`listings query failed: ${e.message || e}`);
     logger.warn("[BRIEFING] listings query failed", {err: e.message || e});
+  }
+
+  // ── Flagged listings ──────────────────────────────────────
+  // Cloud Vision moderation pipeline writes flaggedListings/{listingId}
+  // with `flaggedAt` server timestamp when a listing trips a moderation
+  // signal. Existence in this collection == flagged. (There is no
+  // boolean field on the listing doc itself.)
+  try {
+    const snap = await db.collection("flaggedListings")
+      .where("flaggedAt", ">=", windowStart)
+      .where("flaggedAt", "<", windowEnd)
+      .get();
+    m.flaggedListingsCount = snap.size;
+  } catch (e) {
+    m.notes.push(`flaggedListings query failed: ${e.message || e}`);
+    logger.warn("[BRIEFING] flaggedListings query failed", {err: e.message || e});
   }
 
   // ── Orders / GMV ──────────────────────────────────────────
@@ -575,15 +592,15 @@ async function findNotableEvents(windowStart, windowEnd) {
     for (const doc of snap.docs) {
       const d = doc.data() || {};
       // Dispute doc id IS the orderId per firestore.rules. Look up the
-      // order → listing → flaggedForReview.
+      // order's listingId, then check flaggedListings/{listingId} for
+      // existence (Cloud Vision pipeline writes this doc on flag).
       try {
         const orderSnap = await db.doc(`orders/${doc.id}`).get();
         const listingId = orderSnap.exists ?
           (orderSnap.data().listingId || null) : null;
         if (!listingId) continue;
-        const listingSnap = await db.doc(`listings/${listingId}`).get();
-        const flagged = listingSnap.exists &&
-          listingSnap.data().flaggedForReview === true;
+        const flagSnap = await db.doc(`flaggedListings/${listingId}`).get();
+        const flagged = flagSnap.exists;
         if (flagged) {
           events.push({
             type: "dispute_on_flagged",
