@@ -390,6 +390,23 @@ async function sendEmail(opts) {
       headers: finalHeaders,
       tags: finalTags,
     }, {idempotencyKey});
+    // Resend Node SDK v3+ does NOT throw on API errors. It returns
+    // `{ data: null, error: {...} }`. Without this check, suppressed/
+    // invalid/rate-limited sends are silently recorded as `sent`.
+    if (result && result.error) {
+      const errMsg =
+        (result.error && (result.error.message ||
+          (typeof result.error === "string" ? result.error :
+            JSON.stringify(result.error)))) ||
+        "unknown Resend API error";
+      logger.error("sendEmail Resend API error", {err: errMsg, template, to});
+      await recordSend({
+        to, uid, category, template,
+        status: "send-error",
+        error: errMsg,
+      });
+      return {sent: false, error: errMsg};
+    }
     const resendId = (result && result.data && result.data.id) || null;
     await recordSend({to, uid, category, template, status: "sent", resendId});
     return {sent: true, id: resendId};
