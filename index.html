@@ -271,6 +271,18 @@
 <meta name="apple-itunes-app" content="app-id=6763954448, app-argument=https://teeboxmarket.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Perf: warm the TCP/TLS handshake for the origins the SPA hits first.
+     Firestore + Firebase Storage are the critical-path reads on load
+     (listings query + photo fetches); the Cloud Functions origin is the
+     critical-path read on checkout. dns-prefetch is the cheap fallback
+     for the rest. See PERF_AUDIT.md. -->
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+<link rel="dns-prefetch" href="https://us-central1-teebox-market.cloudfunctions.net" />
+<link rel="dns-prefetch" href="https://api.stripe.com" />
+<link rel="dns-prefetch" href="https://js.stripe.com" />
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
