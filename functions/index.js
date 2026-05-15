@@ -5872,3 +5872,9 @@ Object.assign(exports, require("./dataPortability"));
 // Firestore. The actual deploy path (GH Pages sync vs Cloud Storage
 // origin) is in SITEMAP_DEPLOY.md.
 Object.assign(exports, require("./sitemapRegenerator"));
+
+// Shippo shipping-label scaffold (v1 STUB). Exposes createShippingLabel
+// + getShippingFeatureFlag callables; declares the SHIPPO_API_KEY secret.
+// See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
+// is ready to ship real labels.
+Object.assign(exports, require("./shippoIntegration"));
