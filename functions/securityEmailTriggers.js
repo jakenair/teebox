@@ -279,10 +279,18 @@ function buildSecurityContext({user, captured, geo, freezeUrl}) {
 
 // Whitelist of event types this callable accepts. Keeping it tight
 // prevents a stolen client from triggering arbitrary template sends.
+//
+// "email_changed" intentionally REMOVED (2026-05-15) — no client surface
+// invokes it and no UI exists for changing email. The dead producer
+// could be triggered by a stolen client to send unsolicited "Your email
+// was changed" mail to an arbitrary recipient via metadata.oldEmail.
+// EmailChangedOld.jsx + EmailChangedNew.jsx templates remain in
+// functions/emails/security/ for future wire-up — re-add "email_changed"
+// to this set and to STAMP_FIELD when a real Change-Email UI ships.
+// See LAUNCH_READINESS.md HIGH-6 audit.
 const EVENT_TYPES = new Set([
   "email_verified",
   "password_changed",
-  "email_changed",
   "payout_method_changed",
   "two_factor_code",
   "account_deletion",
@@ -294,7 +302,6 @@ const EVENT_TYPES = new Set([
 const STAMP_FIELD = Object.freeze({
   email_verified: "emailVerifiedNotifiedAt",
   password_changed: "passwordChangedNotifiedAt",
-  email_changed: "emailChangedNotifiedAt",
   payout_method_changed: "payoutMethodChangedNotifiedAt",
   account_deletion: "accountDeletionNotifiedAt",
   two_factor_code: "twoFactorCodeLastSentAt",
@@ -370,7 +377,11 @@ exports.notifySecurityEvent = onCall(
       }
 
       // Dispatch to per-event handler. Each handler returns the send
-      // result so the client gets a useful boolean back.
+      // result so the client gets a useful boolean back. "email_changed"
+      // is intentionally absent here (and from EVENT_TYPES) until a
+      // Change-Email UI ships — see comment on EVENT_TYPES above. The
+      // sendEmailChangedAlerts helper is preserved below for fast
+      // re-wire when the time comes.
       let result;
       switch (eventType) {
         case "email_verified":
@@ -378,9 +389,6 @@ exports.notifySecurityEvent = onCall(
           break;
         case "password_changed":
           result = await sendPasswordChangedAlert({user, secCtx});
-          break;
-        case "email_changed":
-          result = await sendEmailChangedAlerts({user, secCtx, metadata});
           break;
         case "payout_method_changed":
           result = await sendPayoutMethodChangedAlert({user, secCtx, metadata});
@@ -438,7 +446,13 @@ async function sendPasswordChangedAlert({user, secCtx}) {
   });
 }
 
-async function sendEmailChangedAlerts({user, secCtx, metadata}) {
+// eslint-disable-next-line no-unused-vars
+// Currently unused — "email_changed" event type is removed from the
+// EVENT_TYPES whitelist until a Change-Email UI ships (no client
+// surface invokes it as of 2026-05-15). The helper is kept verbatim so
+// re-wiring is one EVENT_TYPES re-add + one switch-case re-add. See
+// LAUNCH_READINESS.md HIGH-6 audit.
+async function sendEmailChangedAlerts({user, secCtx, metadata}) { // eslint-disable-line no-unused-vars
   // CRITICAL: the OLD-address email is the only signal a hijacker hasn't
   // fully taken over. We MUST send to both. We send them in parallel and
   // return both results so the caller can detect partial failures.
