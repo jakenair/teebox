@@ -236,9 +236,10 @@ exports.generateDailyBingoPuzzle = onSchedule(
 // the larger pool). UID allow-list is the same one used by other admin
 // callables — keep this list in sync.
 const FOUNDER_UIDS = new Set([
-  // Populated at deploy time via firebase functions:secrets:set or
-  // hardcoded by the founder. Left empty here so a leaked SDK key
-  // can't trigger mass writes — failure-closed by default.
+  // Founder UID — Jake Nair (jakenair23@gmail.com, google.com provider,
+  // account created 2026-04-29). Hardcoded so the founder can invoke
+  // the backfill callable without admin/{uid}.admin flag.
+  "l1Z3m8do75WKVbJm5HBwvCreJtx2",
 ]);
 
 exports.runGenerateDailyPuzzles = onCall(USER_CALLABLE, async (request) => {
