@@ -11,22 +11,68 @@ This is the source of truth for every product event in TeeBox. **New events MUST
 - **Past-tense verbs only.** `signup` (not `signing_up`), `listing_published` (not `publish_listing`). Imperatives are reserved for intent/CTA names.
 - **`[NOT YET INSTRUMENTED]`** = the event is canonical but has no code firing it today. Listed so the AI-analytics consumer knows what the schema _will_ contain.
 
+## Implementation status — priority 11 (post `feat/posthog-instrumentation`)
+
+The launch-priority eleven events are now live in code via PostHog (`posthog-js` on the client, `posthog-node` on the server). The names below match what fires in production — where the canonical-catalog name diverged from the launch brief's name, the launch-brief name won (see "Naming notes" at the bottom of this section).
+
+| Event (as fired) | Side | Where it fires | Status |
+|---|---|---|---|
+| `signup` | client | `index.html` `submitEmail()` (email path) + `onAuthStateChanged` first-session detector (Google/Apple OAuth path) | `live` |
+| `listing_created` (state: `'draft'`) | client | `index.html` `captureSellDraft()` — first non-empty autosave per session | `live` |
+| `listing_created` (state: `'published'`) | client | `index.html` `submitListing()` after `addDoc(collection(db, 'listings'), ...)` resolves | `live` |
+| `listing_viewed` | client | `index.html` `openDetailModal()` — fires per open, skips owner self-views, no 24h dedupe | `live` |
+| `search_performed` | client | `index.html` `filterSearchRender()` — debounced (150ms), only for queries ≥3 chars | `live` |
+| `message_sent` | client | `index.html` `sendMessage()` — only on `out.ok` (held messages do not count) | `live` |
+| `offer_made` | client | `index.html` `submitOffer()` after `addDoc(collection(db, 'offers'), ...)` resolves | `live` |
+| `checkout_started` | client | `index.html` `openCheckout()` — fires BEFORE Stripe Payment Element mount so the load-time abandonment cohort is captured | `live` |
+| `purchase_completed` | server | `functions/index.js` `handlePaymentSucceeded()` — after the `alreadyProcessed` guard so webhook replays don't duplicate | `live` |
+| `refund_issued` | server | `functions/index.js` `refundOrder` onCall — after `refunds/{stripeRefundId}.create()` idempotency gate | `live` |
+| `dispute_opened` | server | `functions/index.js` `handleDisputeOpened()` — webhook handler for `charge.dispute.created`, after `disputes/{id}.create()` idempotency gate | `live` |
+| `review_submitted` | client | `index.html` `submitReview()` after `setDoc(doc(db, 'reviews', ...))` resolves | `live` |
+
+**Status legend:**
+
+- `live` — capture call lands in production, attribution and dedupe verified by reading the code path.
+- `pending` — code added but waiting on a runtime check (the PostHog dashboard hasn't yet shown the event arrive end-to-end). Use this state until you replace the placeholder API key and trigger the event manually.
+- `blocked` — couldn't find a trigger location in this codebase.
+
+**No event is currently `blocked` or `pending` in the launch-priority eleven.** All trigger locations existed in `index.html` / `functions/index.js`. Some collateral notes:
+
+- `listing_created` fires for BOTH draft autosave AND publish, discriminated by the `state` prop (`'draft'` | `'published'`). The catalog below historically named the publish event `listing_published` — the launch brief's `listing_created` (with a state prop) is what's wired.
+- `message_sent` fires from the client when the server callable confirms `out.ok`. The audit (`ANALYTICS_AUDIT.md` line 88) recommended mirroring server-side from `sendMessage` callable — that mirror is NOT wired in this pass because the client path is reliable enough for product analytics and the duplicate would inflate counts. Revisit if browser-close-mid-send becomes a real signal-loss source.
+- `purchase_completed`, `refund_issued`, `dispute_opened` fire ONLY server-side. Tab-close-before-fire is impossible (Stripe is the source of truth), so no client mirror is needed.
+
+**Naming notes — divergences from the canonical catalog below:**
+
+- Brief: `listing_created` (state-discriminated) ↔ Catalog: `listing_created` + `listing_published`. The catalog's `listing_published` row is preserved for historical context — when the second-phase event taxonomy lands, fold it back into `listing_created` with `state: 'published'`.
+- Brief: `offer_made` ↔ Catalog: `offer_created`. The brief's verb is preserved in code.
+- Brief: `purchase_completed` ↔ Catalog: `order_placed`. The brief's verb is preserved in code.
+- Brief: `review_submitted` ↔ Catalog: `review_created`. The brief's verb is preserved in code.
+
+A follow-up housekeeping commit should reconcile by either:
+1. Renaming the four diverged code-side events to the catalog names (`listing_published`, `offer_created`, `order_placed`, `review_created`), OR
+2. Updating the catalog rows below to match the brief names.
+
+Per the audit's "snake_case verb-first" convention either is valid — `_completed` vs `_created` is a semantic choice the founder should make before PostHog dashboards are wired.
+
 ## Standard properties
 
-Attached to every event by `track()`. See `ANALYTICS_AUDIT.md` Part 3 for current derivation sources.
+Attached to every event by `posthog.register()` (client) and `captureServerEvent()` (server). See `ANALYTICS_AUDIT.md` Part 3 for derivation sources.
 
-| Property | Type | Required? | Source |
-|---|---|---|---|
-| `userId` | string \| null | yes (null pre-auth) | `window.CURRENT_USER.uid` (client) / `request.auth.uid` (server) |
-| `clientTimestamp` | ISO 8601 UTC | yes | `new Date().toISOString()` at the call site |
-| `serverTimestamp` | Firestore Timestamp | yes | `admin.firestore.FieldValue.serverTimestamp()` written on persist |
-| `sessionId` | UUID v4 | yes | `sessionStorage.teebox.sid`, generated on app load — **NOT YET WIRED** |
-| `deviceType` | `'ios'` \| `'android'` \| `'web'` | yes | `Capacitor.getPlatform()` |
-| `appVersion` | semver string | yes | Web: `window.APP_VERSION` (build-injected from `package.json`). iOS: `App.getInfo().version`. **NOT YET WIRED** |
-| `source` | string \| null | optional | `?utm_source` on first landing, persisted to `sessionStorage.teebox.attribution` — **NOT YET WIRED** |
-| `medium` | string \| null | optional | `?utm_medium` — **NOT YET WIRED** |
-| `campaign` | string \| null | optional | `?utm_campaign` — **NOT YET WIRED** |
-| `referrer` | string \| null | optional | `document.referrer` (web) / deep-link source (iOS) |
+Status legend: **WIRED** = attached automatically by the analytics layer as of `feat/posthog-instrumentation`. **PENDING** = property defined in this schema but no producer yet.
+
+| Property | Type | Required? | Source | Status |
+|---|---|---|---|---|
+| `userId` | string \| null | yes (null pre-auth) | `posthog.identify(uid)` driven by `onAuthStateChanged` (client) / `request.auth.uid` (server) | WIRED |
+| `clientTimestamp` | ISO 8601 UTC | yes | PostHog stamps it automatically on `posthog.capture()` | WIRED |
+| `serverTimestamp` | ISO 8601 UTC | yes | `captureServerEvent` auto-attaches `new Date().toISOString()`; callers may override with a deterministic value (e.g. Stripe `event.created`) for replay idempotency | WIRED |
+| `sessionId` | UUID v4 | yes | `sessionStorage.teebox.sid`, generated via `crypto.randomUUID()` in the PostHog init block at top of `index.html`; rotates on tab close (iOS WKWebView discards on cold-launch) | WIRED |
+| `deviceType` | `'ios'` \| `'android'` \| `'web'` \| `'server'` | yes | `Capacitor.getPlatform()` on the client; literal `'server'` on the server | WIRED |
+| `appVersion` | semver string | yes | Web: `window.APP_VERSION` constant in `index.html` (currently `'1.0.0'` — bump this when shipping a release). iOS: shares the same web-bundle constant — `@capacitor/app`'s `App.getInfo().version` is available but not currently consulted (web constant takes priority so cross-platform parity is guaranteed). | WIRED |
+| `source` | string \| null | optional | `?utm_source` on first landing, persisted to `localStorage.teebox.attribution.utm_source` (first-touch attribution survives multi-day delays before signup) | WIRED |
+| `medium` | string \| null | optional | `?utm_medium` — same first-touch localStorage persistence | WIRED |
+| `campaign` | string \| null | optional | `?utm_campaign` | PENDING — schema reserved, not yet auto-captured |
+| `referrer` | string \| null | optional | `document.referrer` (web) / deep-link source (iOS) | PENDING |
 
 ---
 
@@ -152,3 +198,86 @@ _Owner: platform / reliability_
 2. Reference the new name in code only via the shared enum in `functions/lib/eventNames.js` (server) or `assets/eventNames.js` (client). No string-literal event names anywhere in product code.
 3. PR title must include "(adds event: `event_name`)".
 4. If the event has revenue impact (`order_*`, `pro_*`, `refund_*`), the PR must also update `BINGO_CACHING_AUDIT.md` style sales-dashboard queries that consume it.
+
+---
+
+## Operational
+
+### Where the PostHog public key lives
+
+The public (front-end) PostHog project key is a constant in `index.html`, declared in the analytics init block right after the `<script defer ... plausible.io ...>` tag:
+
+```js
+var PUBLIC_POSTHOG_KEY = 'phc_PLACEHOLDER_REPLACE_WITH_POSTHOG_PROJECT_KEY';
+```
+
+This is the ingest-only key — it cannot read events back, so hardcoding it in the public bundle is safe (the same pattern PostHog's docs use). To wire a real PostHog Cloud project:
+
+1. Create a project at <https://us.posthog.com>.
+2. Copy the **Project API Key** from Project Settings → Project API Key (starts with `phc_`).
+3. Replace the placeholder in `index.html` and commit.
+4. Re-run `npm run build:web` (the web build does a literal copy — no build-time substitution today).
+
+The `APP_VERSION` constant (same init block, currently `'1.0.0'`) should be bumped whenever you ship a release so PostHog can segment events by release. Both constants live together so a release-bump PR touches one block.
+
+### Where to set the server `POSTHOG_API_KEY` secret
+
+The server uses a separate, **private** PostHog API key (project-scope, ingest-only is fine — we don't read events from server code) stored as a Firebase Functions secret:
+
+```bash
+firebase functions:secrets:set POSTHOG_API_KEY
+# Paste the key from PostHog → Project Settings → Project API Key when prompted.
+# (You CAN use the same phc_… key as the client; PostHog accepts the same
+# key from both posthog-js and posthog-node. Using a distinct key is also
+# fine if you want per-source rate-limit separation in PostHog billing.)
+```
+
+The secret is consumed via `defineSecret("POSTHOG_API_KEY")` in `functions/lib/analytics.js`. Each function that calls `captureServerEvent` must include `posthogSecret` in its `secrets:` array — currently:
+
+- `exports.stripeWebhook` — for `purchase_completed` + `dispute_opened`.
+- `exports.refundOrder` — for `refund_issued`.
+
+Add new functions to that list as new server-side events come online.
+
+If the secret is not set when a function runs, `captureServerEvent` logs a one-time warning via `logger.warn` and silently drops the call. **Analytics never crashes a production function.**
+
+### How to test end-to-end
+
+Web (client events):
+
+1. Open `https://teeboxmarket.com` (or your local dev URL) in a fresh tab.
+2. Open browser DevTools → **Network** tab, filter on `posthog`.
+3. Trigger an event — e.g., type 3+ characters into the search bar (`search_performed`), or open any listing card (`listing_viewed`).
+4. You should see a `POST` to `https://us.i.posthog.com/e/?ip=…&_=…` carrying the event payload. Click it → Payload tab → confirm the `event` name and `properties` (including `sessionId`, `deviceType: "web"`, `appVersion: "1.0.0"`).
+5. In the PostHog dashboard → **Activity** → the event should appear within ~30 seconds.
+
+If you see no network call:
+
+- Confirm `PUBLIC_POSTHOG_KEY` is set (not the `phc_PLACEHOLDER...` default). Open the JS console — a placeholder key logs an info-level hint.
+- Check the CSP `connect-src`: it must include `https://us.i.posthog.com` and `https://us-assets.i.posthog.com`. The `script-src` must include `https://us-assets.i.posthog.com` (the snippet loader fetches `array.js` from there).
+
+Server (Cloud Functions events):
+
+1. From your dev environment with `firebase emulators:start --only functions`, OR after deploying to a sandbox project:
+2. Trigger a Stripe test webhook (`stripe trigger payment_intent.succeeded`) to fire `purchase_completed`.
+3. Call `refundOrder` from a test client (or use the seller dashboard's refund button) to fire `refund_issued`.
+4. Watch Cloud Functions logs: `firebase functions:log --only stripeWebhook` should NOT contain any `[analytics]` warnings if the secret is bound correctly.
+5. Confirm in PostHog → Activity that the event arrived with `deviceType: "server"` and `source: "cloud-function"`.
+
+### Identity model
+
+- On a successful sign-in, `onAuthStateChanged` in `index.html` calls `posthog.identify(user.uid, {email, displayName, emailVerified})`. All subsequent client events attribute to that Firebase UID.
+- On sign-out, the same listener calls `posthog.reset()` so anonymous events from the next visitor don't fold into the previous user's profile.
+- On the server, `captureServerEvent({userId, event, props})` uses the supplied `userId` as PostHog's `distinct_id`. `null` userIds map to the literal string `'system:cloud-function'` so cron/system events don't fan out into thousands of throwaway anonymous profiles.
+
+### Replay idempotency (Stripe webhooks)
+
+`captureServerEvent` honors a `props.eventTimestampMs` (number) or `props.serverTimestamp` (ISO string) — if either is set, it is forwarded to PostHog as the event's `timestamp`. Combined with PostHog's `(distinct_id, event, timestamp)` dedupe, this means Stripe webhook redeliveries collapse to a single row in PostHog even though our handlers re-enter on retry. (The handlers themselves are already idempotent at the Firestore layer via `processedStripeEvents/{eventId}`, `disputes/{id}.create()`, and `refunds/{stripeRefundId}.create()`.)
+
+### Releases checklist
+
+Before each deploy:
+
+- Bump `APP_VERSION` in `index.html` to match the new tag.
+- Confirm `PUBLIC_POSTHOG_KEY` is real (not placeholder) for production builds.
+- Confirm `POSTHOG_API_KEY` secret exists in the active Firebase project (`firebase functions:secrets:access POSTHOG_API_KEY`).

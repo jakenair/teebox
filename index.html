@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -58,6 +58,135 @@
   Falls through silently if the user is on adblock — that's fine.
 -->
 <script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script>
+
+<!--
+  ANALYTICS — PostHog Cloud (product analytics).
+  Loads the posthog-js snippet from us-assets.i.posthog.com and pipes
+  events to https://us.i.posthog.com (both whitelisted in the CSP above).
+
+  Standard property bag (deviceType / appVersion / sessionId / source /
+  medium) is attached via posthog.register() so every subsequent event
+  carries them automatically. See `events.md` for the canonical event
+  catalog.
+
+  CONFIG:
+    PUBLIC_POSTHOG_KEY — public project key from PostHog dashboard
+                         (Project Settings → Project API Key). Safe to
+                         hardcode; scoped to event ingestion only.
+                         The placeholder MUST be replaced with the real
+                         key before deploy.
+
+    APP_VERSION        — read from package.json `version` at edit time.
+                         Bump this when shipping a new release so events
+                         carry the right release attribution.
+-->
+<script>
+(function() {
+  // ── Build-time constants. Update APP_VERSION when bumping the
+  //    root package.json version field. PUBLIC_POSTHOG_KEY is the
+  //    user-replaceable PostHog project API key (see header above).
+  var PUBLIC_POSTHOG_KEY = 'phc_wpbrMaWE7hCdvmYvZhH86v6692DjPAe28p6Yuu46NaxZ';
+  var APP_VERSION = '1.0.0';
+  window.APP_VERSION = APP_VERSION;
+  window.PUBLIC_POSTHOG_KEY = PUBLIC_POSTHOG_KEY;
+
+  // ── Standard property derivation helpers ──────────────────────────
+  // sessionId: one UUID per app load. We use sessionStorage so it
+  // survives in-tab nav but resets when the tab closes (or, on iOS
+  // Capacitor, when the app cold-launches). crypto.randomUUID is
+  // available in every browser/WKWebView shipped after iOS 15.4 — we
+  // ship a tiny fallback for ancient embeds.
+  function getOrCreateSessionId() {
+    try {
+      var k = 'teebox.sid';
+      var v = sessionStorage.getItem(k);
+      if (v) return v;
+      var uuid = (window.crypto && window.crypto.randomUUID) ?
+        window.crypto.randomUUID() :
+        (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+      sessionStorage.setItem(k, uuid);
+      return uuid;
+    } catch (_) {
+      // Private-mode Safari / disabled storage → degrade to a per-load id.
+      return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
+  function getDeviceType() {
+    try {
+      var Cap = window.Capacitor;
+      if (Cap && typeof Cap.getPlatform === 'function') {
+        var p = Cap.getPlatform();
+        if (p === 'ios' || p === 'android') return p;
+      }
+    } catch (_) {}
+    return 'web';
+  }
+
+  // First-touch UTM attribution. Persists to localStorage so a user
+  // who lands on /?utm_source=google&utm_medium=cpc and signs up two
+  // days later is still attributed to that campaign.
+  function getUtmFromUrlOrStorage(param) {
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      var current = sp.get(param);
+      var k = 'teebox.attribution.' + param;
+      if (current) {
+        try { localStorage.setItem(k, current); } catch (_) {}
+        return current;
+      }
+      try { return localStorage.getItem(k) || null; } catch (_) { return null; }
+    } catch (_) { return null; }
+  }
+
+  // Expose helpers so the rest of the app (and Capacitor native
+  // wrappers) can read the same standard bag without re-deriving.
+  window.getOrCreateSessionId = getOrCreateSessionId;
+  window.getDeviceType = getDeviceType;
+  window.getUtmFromUrlOrStorage = getUtmFromUrlOrStorage;
+
+  // ── posthog-js loader (official snippet, trimmed) ─────────────────
+  // Buffers posthog.<method>(...) calls until the real library loads,
+  // so call sites elsewhere in index.html don't need to wait or
+  // guard. If the library never loads (adblock, offline), the calls
+  // simply queue and are dropped — exactly the same failure mode as
+  // Plausible above.
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+  // Only init when a real key is configured. Hardcoded placeholder is
+  // a no-op so we don't burn a project quota on stubs in dev.
+  if (PUBLIC_POSTHOG_KEY && !/PLACEHOLDER/.test(PUBLIC_POSTHOG_KEY)) {
+    window.posthog.init(PUBLIC_POSTHOG_KEY, {
+      api_host: 'https://us.i.posthog.com',
+      // Only create person-profiles after we call .identify() — keeps
+      // anonymous browsers from inflating MAU.
+      person_profiles: 'identified_only',
+      capture_pageview: true,
+      // Explicit-events-only. We want a clean event taxonomy that
+      // matches events.md — autocapture would pollute it with
+      // generic "$rageclick" / "$pageleave" style noise.
+      autocapture: false,
+    });
+    // Attach the standard property bag ONCE — every subsequent
+    // posthog.capture() inherits these without per-call duplication.
+    window.posthog.register({
+      deviceType: getDeviceType(),
+      appVersion: APP_VERSION,
+      sessionId: getOrCreateSessionId(),
+      source: getUtmFromUrlOrStorage('utm_source'),
+      medium: getUtmFromUrlOrStorage('utm_medium'),
+    });
+  } else {
+    // Placeholder mode: posthog.capture() etc. still work as no-ops
+    // because the buffered stub above silently drops queued calls
+    // when no init() ever lands. We log a one-time hint so the
+    // dev console shows why no events are reaching PostHog.
+    try {
+      console.info('[analytics] PostHog public key is the placeholder — events disabled. Replace PUBLIC_POSTHOG_KEY in index.html before deploy.');
+    } catch (_) {}
+  }
+})();
+</script>
 
 <!-- Organization + FAQPage JSON-LD for Google Knowledge Graph + rich results.
      Listing-level Product/Offer/BreadcrumbList JSON-LD is injected at runtime
@@ -4685,6 +4814,25 @@ window.openCheckout = async function(productId, qty) {
 
   document.getElementById('checkoutBackdrop').classList.add('open');
 
+  // Analytics: priority event #7 — `checkout_started`. Fires the
+  // moment the buyer commits to the funnel (modal opens), BEFORE
+  // the Payment Element mounts — that way we still count buyers
+  // who bailed during the Stripe load (the most common abandonment
+  // point in the audit). The corresponding `purchase_completed`
+  // event is server-side from the Stripe webhook so the funnel is
+  // attributable end-to-end.
+  try {
+    if (window.posthog) {
+      window.posthog.capture('checkout_started', {
+        listingId: String(p.id),
+        sellerId: p.sellerId || null,
+        qty: requestedQty,
+        unitPriceCents: Math.round(unit * 100),
+        totalCents: Math.round(totalDollars * 100),
+      });
+    }
+  } catch (_e) { /* never block checkout open on analytics */ }
+
   // Mount the Payment Element. If it fails (network, signed-out, seller
   // hasn't connected Stripe), surface the message inline and flip the Pay
   // button into a "Try again" so the buyer has an obvious recovery path
@@ -4959,6 +5107,65 @@ window.confirmPayment = async function() {
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     window.CURRENT_USER = user;
+    // ── Analytics identity tie. Whenever Firebase Auth flips state we
+    // mirror it into PostHog so every subsequent posthog.capture()
+    // attributes to the right person. On sign-out we call reset() so
+    // the next anonymous events start a fresh distinct_id and don't
+    // accidentally fold into the previous user's profile. Wrapped in
+    // a try/catch — analytics MUST never crash auth.
+    //
+    // We ALSO emit the `signup` event for OAuth (Google/Apple) sign-ups
+    // here, because those flows don't have a single client-side success
+    // callsite we can hook (the native + popup paths converge on this
+    // listener). Firebase exposes `metadata.creationTime` ===
+    // `metadata.lastSignInTime` as the "this is the user's first ever
+    // sign-in" signal, which we use to discriminate signup vs login.
+    // Email/password signups still fire `signup` from inline in
+    // submitEmail() so a tab-close before the listener resolves can't
+    // lose the event.
+    try {
+      if (window.posthog) {
+        if (user) {
+          window.posthog.identify(user.uid, {
+            email: user.email || null,
+            displayName: user.displayName || null,
+            emailVerified: !!user.emailVerified,
+          });
+          // Discriminate new-user vs returning-user via Firebase's own
+          // metadata timestamps. Email-password signup fires its own
+          // capture inline before this listener runs and uses
+          // window.__teeboxSignupEmitted as a one-shot guard so we
+          // don't double-emit for that path.
+          try {
+            const m = user.metadata || {};
+            const isFirstSession = m.creationTime && m.lastSignInTime &&
+              m.creationTime === m.lastSignInTime;
+            if (isFirstSession && !window.__teeboxSignupEmitted) {
+              window.__teeboxSignupEmitted = true;
+              // Method derivation from providerData[0].providerId. Apple
+              // returns 'apple.com', Google 'google.com', email is
+              // 'password'.
+              const pid = (user.providerData && user.providerData[0] &&
+                user.providerData[0].providerId) || '';
+              let method = 'unknown';
+              if (pid === 'google.com') method = 'google';
+              else if (pid === 'apple.com') method = 'apple';
+              else if (pid === 'password') method = 'email';
+              window.posthog.capture('signup', {
+                userId: user.uid,
+                method,
+              });
+            }
+          } catch (_e2) { /* swallow */ }
+        } else {
+          window.posthog.reset();
+          // Reset the per-app-load signup guard so the next sign-in
+          // (e.g. a different user on the same device) gets its own
+          // signup event.
+          window.__teeboxSignupEmitted = false;
+        }
+      }
+    } catch (_e) { /* never block auth on analytics */ }
     if (user) {
       window.GUEST_MODE = false;
       // Mark the auth gate as resolved for THIS process — if the user
@@ -5363,6 +5570,27 @@ window.confirmPayment = async function() {
         const mktInput = document.getElementById('marketingConsentInput');
         const marketingConsentGranted = !!(mktInput && mktInput.checked);
         const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        // Analytics: priority event #1 — fires only on a SUCCESSFUL new
+        // email/password account creation. Mirrors OAuth providers below
+        // (sign-in-google / sign-in-apple) so all three signup paths
+        // emit the same event name. We capture BEFORE onAuthStateChanged
+        // resolves so PostHog's identify() (driven by the auth listener)
+        // can fold this event into the new user's profile. NOT mirrored
+        // server-side — the Firebase Auth user-create record has no
+        // Firestore trigger today, and tab-close-before-listener is
+        // unlikely given we await the credential.
+        try {
+          if (window.posthog) {
+            window.posthog.capture('signup', {
+              userId: cred.user.uid,
+              method: 'email',
+              marketingConsentGranted,
+            });
+            // One-shot guard so the onAuthStateChanged listener's OAuth
+            // signup detector doesn't double-emit for this same user.
+            window.__teeboxSignupEmitted = true;
+          }
+        } catch (_e) { /* never block signup on analytics */ }
         // Bootstrap the users/{uid} doc so downstream code (watchlist,
         // blocking, seller verification merges) has a doc to merge into.
         // Schema is strict — see firestore.rules `match /users/{userId}`:
@@ -6739,6 +6967,33 @@ window.confirmPayment = async function() {
       ['sellTitle','sellBrand','sellPrice','sellDesc','sellQuantity'].forEach(i => {
         const el = document.getElementById(i); if (el) el.value = '';
       });
+      // Analytics: priority event #2 — `listing_created` with state:
+      // 'published'. Distinct from the draft autosave fire so the
+      // funnel can be measured (draft → publish). NOT mirrored
+      // server-side: there's no onListingCreate trigger that runs at
+      // this exact moment — `onListingLive` in securityEmailTriggers
+      // is close but it's actually the welcome-email trigger, not a
+      // generic event hook. If we add reliability concerns later
+      // (e.g. user closes tab between addDoc and the capture call),
+      // mirror inside `onListingLive` server-side.
+      try {
+        if (window.posthog) {
+          window.posthog.capture('listing_created', {
+            state: 'published',
+            listingId: docRef.id,
+            cat,
+            brand,
+            condition,
+            askCents: Math.round(price * 100),
+            photoCount: photoUrls.length,
+            isHighValue,
+            quantity,
+          });
+          // Clear the draft-emitted guard so the next listing (same
+          // tab) emits its draft event again.
+          window.__teeboxDraftEmitted = false;
+        }
+      } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
       showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'), 'success');
       loadListings();
@@ -7551,6 +7806,24 @@ function openDetailModal(id) {
       } catch (_e) { /* swallow — view counter is best-effort */ }
     })();
   }
+  // Analytics: priority event #3 — `listing_viewed`. Fires EVERY open
+  // (not subject to the 24h dedupe that gates the view-counter
+  // callable above) because analytics needs the raw stream. Skips
+  // owner self-views for parity with the counter. Demo (numeric-id)
+  // listings still count — they're the homepage feed and a buyer
+  // engaging with them is a real funnel signal. NOT mirrored
+  // server-side (would require a Firestore write for every view).
+  try {
+    if (window.posthog && (!window.CURRENT_USER ||
+        !p.sellerId || window.CURRENT_USER.uid !== p.sellerId)) {
+      window.posthog.capture('listing_viewed', {
+        listingId: String(p.id),
+        sellerId: p.sellerId || null,
+        cat: p.cat || null,
+        askCents: Math.round(Number(p.ask || 0) * 100),
+      });
+    }
+  } catch (_e) { /* never block modal open on analytics */ }
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
@@ -8384,6 +8657,28 @@ async function sendMessage() {
     } else if (out.ok) {
       input.value = '';
       // onSnapshot already streams the new message — no manual reload.
+      // Analytics: priority event #5 — `message_sent`. Only fires when
+      // the callable confirmed delivery (out.ok). Hold-path (out.held)
+      // is intentionally NOT counted as a message-sent event since
+      // the message isn't actually visible to the recipient yet. NOT
+      // mirrored server-side: the `sendMessage` callable could
+      // potentially fire its own event, but tab-close-mid-send is
+      // rare enough vs the volume of messages that we accept the
+      // client-only fire.
+      try {
+        if (window.posthog) {
+          window.posthog.capture('message_sent', {
+            conversationId: currentChat.conversationId || null,
+            listingId: currentChat.listingId || null,
+            messageLength: text.length,
+            containsLink: /https?:\/\//i.test(text),
+            // 'buyer' if the user is messaging a seller they're not,
+            // else 'seller'. Best-effort — currentChat.role isn't
+            // always set on legacy threads, default 'unknown'.
+            senderRole: (currentChat && currentChat.role) || 'unknown',
+          });
+        }
+      } catch (_e) { /* analytics never blocks message send */ }
     } else {
       showToast('Could not send message.');
     }
@@ -10146,6 +10441,25 @@ function captureSellDraft() {
     if (el) d[id] = el.value;
   });
   writeSellDraft(d);
+  // Analytics: priority event #2 — `listing_created` with state:'draft'.
+  // The autosave path is invoked on EVERY keystroke; we only want to
+  // emit once per draft session so a per-load guard collapses the
+  // event to "user started a listing" rather than per-character noise.
+  // The guard resets when the modal closes or the draft is cleared.
+  try {
+    if (window.posthog && !window.__teeboxDraftEmitted) {
+      // Only fire after the user has typed at least a title — empty
+      // captures from re-opening an autosaved-empty draft shouldn't
+      // count as a new draft.
+      if (d.sellTitle && String(d.sellTitle).trim().length > 0) {
+        window.__teeboxDraftEmitted = true;
+        window.posthog.capture('listing_created', {
+          state: 'draft',
+          cat: d.sellCat || null,
+        });
+      }
+    }
+  } catch (_e) { /* analytics never blocks autosave */ }
 }
 window.clearSellDraft = clearSellDraft;
 
@@ -10480,6 +10794,35 @@ function filterSearchRender(query) {
     return hay.includes(ql);
   });
   const matches = all.slice(0, 8);
+  // Analytics: priority event #4 — `search_performed`. Fires from
+  // inside the 150ms-debounced render (so we don't spam on every
+  // keystroke) and only for queries ≥3 chars (matches the audit-
+  // recommended threshold). resultCount uses `all.length` not
+  // matches.length so analytics sees the true match cardinality
+  // even though the dropdown only shows 8. NOT mirrored server-
+  // side (search runs entirely client-side today).
+  try {
+    if (window.posthog && query && query.length >= 3) {
+      // Active category filter (cat-pill .active). Read it
+      // defensively — the homepage doesn't always have a cat-pill
+      // selected, in which case we record null.
+      let activeCat = null;
+      try {
+        const pill = document.querySelector('.cat-pill.active');
+        if (pill && pill.dataset && pill.dataset.cat) {
+          activeCat = pill.dataset.cat;
+        }
+      } catch (_) {}
+      window.posthog.capture('search_performed', {
+        // Match saved-search storage's 80-char cap to keep PII
+        // exposure bounded — buyers occasionally paste long
+        // strings into search.
+        query: String(query).slice(0, 80).toLowerCase(),
+        filters: { cat: activeCat },
+        resultCount: all.length,
+      });
+    }
+  } catch (_e) { /* never block search render on analytics */ }
   if (!matches.length) {
     results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
     return;
@@ -11209,7 +11552,7 @@ async function submitOffer() {
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    await addDoc(collection(db, 'offers'), {
+    const offerDocRef = await addDoc(collection(db, 'offers'), {
       buyerId: window.CURRENT_USER.uid,
       sellerId: p.sellerId,
       listingId: String(p.id),
@@ -11219,6 +11562,23 @@ async function submitOffer() {
       expiresAt: Timestamp.fromDate(expiresAt),
       createdAt: serverTimestamp(),
     });
+    // Analytics: priority event #6 — `offer_made`. Fires after the
+    // Firestore write resolves so we only count offers that actually
+    // hit the database. NOT mirrored server-side; there's no
+    // onOfferCreated event-stream trigger (the existing
+    // notifyOnOfferCreated is for fan-out, not analytics).
+    try {
+      if (window.posthog) {
+        window.posthog.capture('offer_made', {
+          offerId: offerDocRef.id,
+          listingId: String(p.id),
+          sellerId: p.sellerId || null,
+          askCents: Math.round(ask * 100),
+          offerCents: Math.round(amt * 100),
+          discountPct: ask > 0 ? Math.round((1 - amt / ask) * 100) : null,
+        });
+      }
+    } catch (_e) { /* never block offer submit on analytics */ }
     document.getElementById('makeOfferBackdrop').classList.remove('open');
     showToast('Offer sent to seller. They have 48 hours to respond.', 'success');
     // Contextual push prompt — first offer made, frame "hear back fast".
@@ -12608,6 +12968,26 @@ async function submitReview() {
       createdAt: serverTimestamp(),
     });
     REVIEW_AGG_CACHE.delete(revieweeId);
+    // Analytics: priority event #11 — `review_submitted`. Fires on
+    // the buyer-side AFTER setDoc resolves so we only count reviews
+    // that actually landed. The server-side `onReviewCreated`
+    // trigger (functions/index.js:2072) updates seller avgRating
+    // but doesn't itself fire a discrete event — keeping the
+    // analytics fire client-side keeps the property bag (rating,
+    // hasText) cheaper than re-reading the just-written doc on the
+    // server.
+    try {
+      if (window.posthog) {
+        window.posthog.capture('review_submitted', {
+          reviewId: reviewDocId,
+          orderId: pendingReviewOrderId,
+          revieweeId,
+          rating,
+          hasText: !!(comment && comment.length > 0),
+          role,
+        });
+      }
+    } catch (_e) { /* analytics never blocks review submit */ }
     document.getElementById('reviewBackdrop').classList.remove('open');
     showToast('Thanks for the review.');
   } catch (e) {

@@ -38,6 +38,7 @@
     "@capacitor/ios": "^7.4.4",
     "@capacitor/share": "^7.0.4",
     "@capacitor/splash-screen": "^7.0.4",
-    "@capacitor/status-bar": "^7.0.4"
+    "@capacitor/status-bar": "^7.0.4",
+    "posthog-js": "^1.373.5"
   }
 }
