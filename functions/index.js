@@ -1126,18 +1126,24 @@ async function handlePayoutFailed(event) {
   try {
     const seller = await lookupUser(uid);
     if (seller && seller.email) {
-      const body = `<p>Stripe couldn't deposit
-        <strong>$${(amountCents / 100).toFixed(2)}</strong> into your bank
-        account.</p>
-        <p><strong>Reason:</strong> ${failureMsg}</p>
-        <p>Open your Stripe Dashboard to update your bank account and
-        retry the payout.</p>`;
-      await sendEmail({
+      // Render via canonical <Base/> layout (PayoutFailed.jsx). Replaces
+      // a legacy `emailShell` body (no physical address / unsub footer).
+      const PayoutFailedTpl =
+        loadEmailTemplate("transactional", "PayoutFailed");
+      const ctx = {
+        seller: {uid, displayName: seller.displayName, email: seller.email},
+        amountCents,
+        failureMessage: failureMsg,
+      };
+      const subject = (PayoutFailedTpl && PayoutFailedTpl.subject) ?
+        PayoutFailedTpl.subject(ctx) : "Payout failed — action required";
+      await sendEmailCanonical({
         to: seller.email,
-        subject: "Payout failed — action required",
-        html: emailShell(
-            "Payout failed", body, "Open Stripe Dashboard",
-            "https://dashboard.stripe.com/payouts"),
+        subject,
+        react: PayoutFailedTpl ? PayoutFailedTpl(ctx) : null,
+        category: "transactional",
+        uid,
+        template: "PayoutFailed",
       });
     }
   } catch (e) {
@@ -3590,6 +3596,32 @@ const RESEND_KEY = defineSecret("RESEND_API_KEY");
 const FROM_EMAIL = "TeeBox <noreply@mail.teeboxmarket.com>";
 const APP_URL = "https://teeboxmarket.com";
 
+// Canonical email sender + React Email template loader. Used by the
+// migrated producers below (SignupWelcome, NewMessageDigest, OfferCreated,
+// OfferUpdated, sendBrandedPasswordReset, sendBrandedVerification) in
+// place of the legacy `emailShell()` + local `sendEmail()` path, which
+// renders a footer with NO physical address and NO unsubscribe link
+// (CAN-SPAM exposure). `sendEmail` from lib/email.js handles consent
+// gating, recordSend, suppression, and unsubscribe-footer rendering via
+// the canonical <Base/> layout.
+const {sendEmail: sendEmailCanonical} = require("./lib/email");
+
+// Lazy-require compiled email templates from emails-build/. Matches the
+// loader pattern in emailTriggers.js — falls back to raw ./emails/
+// (which won't render but lets node --check pass during partial rollout).
+function loadEmailTemplate(category, name) {
+  try {
+    return require(`./emails-build/${category}/${name}`);
+  } catch (e1) {
+    try {
+      return require(`./emails/${category}/${name}`);
+    } catch (e2) {
+      logger.warn(`loadEmailTemplate ${category}/${name} failed`, e2.message);
+      return null;
+    }
+  }
+}
+
 async function lookupUser(uid) {
   if (!uid) return null;
   const db = admin.firestore();
@@ -3718,14 +3750,40 @@ exports.notifyOnOfferCreated = onDocumentCreated(
         buyerName: (buyer && buyer.displayName) || "a buyer",
       });
       if (seller && seller.email) {
-        const body = `<p>${(buyer && buyer.displayName) || "Someone"} offered
-          <strong>$${Number(offer.amount || 0).toLocaleString()}</strong> on
-          <strong>${listingTitle}</strong>.</p>
-          <p>Open the app to accept, decline, or counter.</p>`;
-        await sendEmail({
+        // Render via canonical <Base/> layout (lib/email.js + emails-build).
+        // The legacy `emailShell` path had no physical address or unsub
+        // link (CAN-SPAM exposure). This template lives at
+        // functions/emails/transactional/OfferCreated.jsx.
+        const OfferCreatedTpl =
+          loadEmailTemplate("transactional", "OfferCreated");
+        const ctx = {
+          seller: {
+            uid: offer.sellerId,
+            displayName: seller.displayName,
+            firstName: (seller.displayName || "").split(" ")[0] || "",
+          },
+          buyer: {
+            uid: offer.buyerId,
+            displayName: (buyer && buyer.displayName) || "A buyer",
+          },
+          listing: {
+            id: offer.listingId,
+            title: listingTitle,
+          },
+          offer: {
+            id: event.params.offerId,
+            amount: Number(offer.amount || 0),
+          },
+        };
+        const subject = (OfferCreatedTpl && OfferCreatedTpl.subject) ?
+          OfferCreatedTpl.subject(ctx) : `New offer on ${listingTitle}`;
+        await sendEmailCanonical({
           to: seller.email,
-          subject: `New offer on ${listingTitle}`,
-          html: emailShell(`New offer: $${Number(offer.amount || 0).toLocaleString()}`, body, "Review Offer", `${APP_URL}/?offer=${event.params.offerId}`),
+          subject,
+          react: OfferCreatedTpl ? OfferCreatedTpl(ctx) : null,
+          category: "transactional",
+          uid: offer.sellerId,
+          template: "OfferCreated",
         });
       }
     } catch (err) {
@@ -3767,28 +3825,44 @@ exports.notifyOnOfferUpdated = onDocumentUpdated(
       });
 
       if (buyer && buyer.email) {
-        let subject; let headline; let body;
-        if (after.status === "accepted") {
-          subject = `Offer accepted: ${listingTitle}`;
-          headline = `${sellerName} accepted your offer!`;
-          body = `<p>Your <strong>$${Number(after.amount || 0).toLocaleString()}</strong>
-            offer on <strong>${listingTitle}</strong> was accepted.
-            Pay now to lock it in — listings are first-come, first-served until paid.</p>`;
-        } else if (after.status === "declined") {
-          subject = `Offer declined: ${listingTitle}`;
-          headline = `${sellerName} passed on your offer`;
-          body = `<p>Your $${Number(after.amount || 0).toLocaleString()} offer on
-            <strong>${listingTitle}</strong> wasn't accepted. The listing is
-            still available — try a higher offer or buy at the asking price.</p>`;
-        } else {
-          subject = `Counter offer on ${listingTitle}`;
-          headline = `Counter offer: $${Number(after.counterAmount || 0).toLocaleString()}`;
-          body = `<p>${sellerName} countered with
-            <strong>$${Number(after.counterAmount || 0).toLocaleString()}</strong>
-            on <strong>${listingTitle}</strong>. Open the app to accept, decline, or
-            counter back.</p>`;
-        }
-        await sendEmail({to: buyer.email, subject, html: emailShell(headline, body, "Open Offer", `${APP_URL}/?offer=${event.params.offerId}`)});
+        // Render via canonical <Base/> layout. Template handles the three
+        // status variants (accepted/declined/countered) internally.
+        const OfferUpdatedTpl =
+          loadEmailTemplate("transactional", "OfferUpdated");
+        const ctx = {
+          buyer: {
+            uid: after.buyerId,
+            displayName: (buyer && buyer.displayName) || "there",
+            firstName: ((buyer && buyer.displayName) || "").split(" ")[0] || "",
+          },
+          seller: {
+            uid: after.sellerId,
+            displayName: sellerName,
+          },
+          listing: {
+            id: after.listingId,
+            title: listingTitle,
+          },
+          offer: {
+            id: event.params.offerId,
+            amount: Number(after.amount || 0),
+            counterAmount: Number(after.counterAmount || 0),
+          },
+          status: after.status,
+        };
+        const subject = (OfferUpdatedTpl && OfferUpdatedTpl.subject) ?
+          OfferUpdatedTpl.subject(ctx) :
+          (after.status === "accepted" ? `Offer accepted: ${listingTitle}` :
+            after.status === "declined" ? `Offer declined: ${listingTitle}` :
+              `Counter offer on ${listingTitle}`);
+        await sendEmailCanonical({
+          to: buyer.email,
+          subject,
+          react: OfferUpdatedTpl ? OfferUpdatedTpl(ctx) : null,
+          category: "transactional",
+          uid: after.buyerId,
+          template: "OfferUpdated",
+        });
       }
     } catch (err) {
       logger.error("notifyOnOfferUpdated error", err);
@@ -3894,25 +3968,32 @@ exports.notifyOnNewMessage = onDocumentCreated(
         logger.warn("notifyOnNewMessage: pending read failed", e);
       }
 
+      // Render via canonical <Base/> layout (NewMessageDigest.jsx). Replaces
+      // the legacy `emailShell` body which lacked the compliant footer.
       const totalNew = batchedCount + 1;
-      const subject = totalNew > 1
-        ? `You have ${totalNew} new messages from ${fromName}`
-        : `New message from ${fromName}`;
-      const safePreview = preview.replace(/[<>]/g, "");
-      const headline = totalNew > 1
-        ? `${totalNew} new messages from ${fromName}`
-        : `Message from ${fromName}`;
-      const intro = totalNew > 1
-        ? `<p><strong>${fromName}</strong> sent you ${totalNew} new messages. Latest:</p>`
-        : `<p><strong>${fromName}</strong> sent you a message:</p>`;
-      const body = `${intro}
-        <blockquote style="border-left:3px solid #c5a253;padding:8px 14px;
-          margin:14px 0;color:#4a4a4a;font-style:italic;">${safePreview}</blockquote>
-        <p>Reply in the app — buyers and sellers chat directly inside TeeBox.</p>`;
-      await sendEmail({
+      const NewMessageDigestTpl =
+        loadEmailTemplate("transactional", "NewMessageDigest");
+      const ctx = {
+        recipient: {
+          uid: recipientUid,
+          displayName: (recipient && recipient.displayName) || "",
+        },
+        fromName,
+        preview,
+        totalNew,
+      };
+      const subject = (NewMessageDigestTpl && NewMessageDigestTpl.subject) ?
+        NewMessageDigestTpl.subject(ctx) :
+        (totalNew > 1 ?
+          `${totalNew} new messages from ${fromName}` :
+          `New message from ${fromName}`);
+      await sendEmailCanonical({
         to: recipient.email,
         subject,
-        html: emailShell(headline, body, "Open Inbox", `${APP_URL}/?inbox=1`),
+        react: NewMessageDigestTpl ? NewMessageDigestTpl(ctx) : null,
+        category: "transactional",
+        uid: recipientUid,
+        template: "NewMessageDigest",
       });
 
       // Stamp the watermark (per-thread) so the next 4 hours are silent.
@@ -3950,20 +4031,28 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
       const uid = event.params.uid;
       const u = await lookupUser(uid);
       if (!u || !u.email) return;
-      const body = `<p>Welcome to TeeBox, ${u.displayName}.</p>
-        <p>You're now part of a peer-to-peer marketplace built specifically for golfers.
-        Buy gear from other members, list what you no longer use, and trade at fair
-        peer-to-peer prices — with payments secured by Stripe and a flat 6.5% seller fee.</p>
-        <p>A few things you can try right now:</p>
-        <ul>
-          <li><strong>Browse</strong> the live marketplace</li>
-          <li><strong>Like</strong> items by tapping the heart on any listing</li>
-          <li><strong>Play Logo Bingo</strong> — daily golf course logo guessing game</li>
-        </ul>`;
-      await sendEmail({
+      // Render via canonical <Base/> layout (SignupWelcome.jsx). Replaces
+      // the legacy `emailShell` body which lacked the compliant footer
+      // (CAN-SPAM exposure on every new signup).
+      const SignupWelcomeTpl =
+        loadEmailTemplate("transactional", "SignupWelcome");
+      const ctx = {
+        user: {
+          uid,
+          displayName: u.displayName,
+          firstName: (u.displayName || "").split(" ")[0] || "",
+          email: u.email,
+        },
+      };
+      const subject = (SignupWelcomeTpl && SignupWelcomeTpl.subject) ?
+        SignupWelcomeTpl.subject(ctx) : "Welcome to TeeBox";
+      await sendEmailCanonical({
         to: u.email,
-        subject: "Welcome to TeeBox",
-        html: emailShell(`Welcome, ${u.displayName}`, body, "Open TeeBox", APP_URL),
+        subject,
+        react: SignupWelcomeTpl ? SignupWelcomeTpl(ctx) : null,
+        category: "transactional",
+        uid,
+        template: "SignupWelcome",
       });
     } catch (err) {
       logger.error("welcomeOnFirstProfileWrite error", err);
@@ -4060,23 +4149,41 @@ exports.sendBrandedPasswordReset = onCall(
     }
 
     if (resetUrl) {
-      const body = `<p>We received a request to reset your TeeBox password.
-        Click the button below to set a new one. If you didn't make this
-        request, you can safely ignore this email — your password won't
-        change.</p>
-        <p style="color:#777;font-size:13px;margin-top:18px;">
-          This link expires in 1 hour.
-        </p>`;
+      // Render via canonical <Base/> layout (PasswordReset.jsx). Replaces
+      // the legacy `emailShell` body — the JSX template already exists at
+      // functions/emails/security/PasswordReset.jsx and emits a compliant
+      // footer with physical address.
+      const PasswordResetTpl =
+        loadEmailTemplate("security", "PasswordReset");
+      // Best-effort uid resolution for the recordSend log. Anti-enum
+      // posture means we don't gate on this — if lookup fails, we still
+      // send (transactional category bypasses prefs/consent anyway).
+      let uidForLog = null;
       try {
-        await sendEmail({
+        const u = await admin.auth().getUserByEmail(email).catch(() => null);
+        if (u && u.uid) uidForLog = u.uid;
+      } catch (_e) { /* ignore */ }
+      const ctx = {
+        user: {uid: uidForLog, email},
+        resetUrl,
+        ip: (request.rawRequest &&
+          (request.rawRequest.headers["x-forwarded-for"] ||
+            request.rawRequest.ip)) || "",
+      };
+      const subject = (PasswordResetTpl && PasswordResetTpl.subject) ?
+        PasswordResetTpl.subject(ctx) : "Reset your TeeBox password";
+      try {
+        await sendEmailCanonical({
           to: email,
-          subject: "Reset your TeeBox password",
-          html: emailShell(
-              "Reset your password", body, "Reset Password", resetUrl),
+          subject,
+          react: PasswordResetTpl ? PasswordResetTpl(ctx) : null,
+          category: "transactional",
+          uid: uidForLog,
+          template: "PasswordReset",
         });
       } catch (err) {
-        // sendEmail already logs internally; never surface to the
-        // caller (anti-enumeration).
+        // sendEmailCanonical already logs internally; never surface to
+        // the caller (anti-enumeration).
         logger.error("sendBrandedPasswordReset: send failed", err);
       }
     }
@@ -4126,18 +4233,30 @@ exports.sendBrandedVerification = onCall(
       throw new HttpsError("internal", "Could not generate link.");
     }
 
-    const body = `<p>Confirm your email address to start buying and
-      selling on TeeBox. Click the button below — it only takes a
-      second.</p>
-      <p style="color:#777;font-size:13px;margin-top:18px;">
-        If you didn't sign up for TeeBox, ignore this email.
-      </p>`;
+    // Render via canonical <Base/> layout (EmailVerification.jsx). The
+    // JSX template already exists at functions/emails/security/
+    // EmailVerification.jsx and emits a compliant footer.
+    const EmailVerificationTpl =
+      loadEmailTemplate("security", "EmailVerification");
+    const ctx = {
+      user: {
+        uid,
+        email: authUser.email,
+        firstName: (authUser.displayName || "").split(" ")[0] || "",
+        displayName: authUser.displayName || "",
+      },
+      verificationUrl: verifyUrl,
+    };
+    const subject = (EmailVerificationTpl && EmailVerificationTpl.subject) ?
+      EmailVerificationTpl.subject(ctx) : "Verify your TeeBox email";
     try {
-      await sendEmail({
+      await sendEmailCanonical({
         to: authUser.email,
-        subject: "Verify your email for TeeBox",
-        html: emailShell(
-            "Welcome to TeeBox", body, "Verify Email", verifyUrl),
+        subject,
+        react: EmailVerificationTpl ? EmailVerificationTpl(ctx) : null,
+        category: "transactional",
+        uid,
+        template: "EmailVerification",
       });
     } catch (err) {
       logger.error("sendBrandedVerification: send failed", err);
