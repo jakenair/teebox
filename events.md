@@ -90,7 +90,7 @@ _Owner: account-onboarding / identity_
 - `email_verified` `[NOT YET INSTRUMENTED]` — **Fires when** Firebase Auth flips `emailVerified` true. Hardest to instrument — requires polling/listening to `onIdTokenChanged` and comparing before/after states. **Custom props:** `secondsSinceSignup`.
 - `account_deleted` — **Fires when** the `deleteUserAccount` callable completes. Server-side. **Custom props:** `reason` (if collected), `listingsDeleted`, `ordersAffected`.
 
-_Out of scope today:_ `mfa_enrolled` / `mfa_disabled` — TeeBox has no 2FA/MFA feature.
+_Out of scope today:_ `mfa_enrolled` / `mfa_disabled` / `2fa_enabled` `[NOT YET IMPLEMENTED]` — TeeBox has no 2FA/MFA feature in v1. The `TwoFactorCode.jsx` template and `sendTwoFactorCode` producer exist in `functions/securityEmailTriggers.js` but no client wire-up calls them, so no event ever fires. Revisit when a Settings → Security → 2FA toggle ships.
 
 ### Listing lifecycle domain
 _Owner: marketplace / supply_

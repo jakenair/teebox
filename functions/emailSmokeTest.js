@@ -1,14 +1,16 @@
 /**
  * functions/emailSmokeTest.js — daily transactional email smoke test.
  *
- * Runs every morning at 04:00 America/New_York and exercises four critical
- * transactional email templates end-to-end against the LIVE Resend API
- * (test inbox only, never real users):
+ * Runs every morning at 04:00 America/New_York and exercises seven
+ * critical transactional + lifecycle email templates end-to-end against
+ * the LIVE Resend API (test inbox only, never real users):
  *
- *   1. order_placed_send       OrderPlacedBuyer.jsx — "Order confirmed"
- *   2. password_reset_send     PasswordReset.jsx    — "Reset your password"
- *   3. sale_notification_send  OrderPlacedSeller.jsx — "You sold ..."
- *   4. order_shipped_send      OrderShipped.jsx     — "Your order has shipped"
+ *   1. order_placed_send         OrderPlacedBuyer.jsx  — "Order confirmed"
+ *   2. password_reset_send       PasswordReset.jsx     — "Reset your password"
+ *   3. sale_notification_send    OrderPlacedSeller.jsx — "You sold ..."
+ *   4. order_shipped_send        OrderShipped.jsx      — "Your order has shipped"
+ *   5. signup_welcome_send       SignupWelcome.jsx     — "Welcome to TeeBox"
+ *   6. saved_search_match_send   SavedSearchMatch.jsx  — lifecycle / marketing
  *
  * Each send is dispatched via the SAME `sendEmail()` helper in
  * ./lib/email.js that the live transactional triggers use (emailTriggers.js).
@@ -201,6 +203,40 @@ async function runEmailSmoke({trigger}) {
       sends.shipped = out;
     });
 
+    // ── 5. signup_welcome (new transactional, CRITICAL #5) ─────
+    // Exercises the SignupWelcome.jsx template that replaced the legacy
+    // `emailShell`-rendered welcome HTML in welcomeOnFirstProfileWrite.
+    // Catches any regression on the Base layout footer (physical address
+    // + unsub) which was the original CAN-SPAM gap.
+    await step("signup_welcome_send", steps, async () => {
+      const out = await sendTestEmail({
+        templateCategory: "transactional",
+        templateName: "SignupWelcome",
+        subject: "Welcome to TeeBox — Smoke",
+        to: inbox,
+        ctx: synthSignupWelcomeCtx(inbox),
+      });
+      sends.signup_welcome = out;
+    });
+
+    // ── 6. saved_search_match (lifecycle template) ─────────────
+    // Exercises a marketing-category template path — exercises the
+    // unsubscribe footer rendering branch in Base layout (since this
+    // is non-transactional). We override category to transactional
+    // inside sendTestEmail so the synthetic uid never triggers consent
+    // gating — the template itself still renders the marketing footer
+    // shape because category is hardcoded in the JSX.
+    await step("saved_search_match_send", steps, async () => {
+      const out = await sendTestEmail({
+        templateCategory: "lifecycle",
+        templateName: "SavedSearchMatch",
+        subject: "2 new for \"scotty cameron\" — Smoke",
+        to: inbox,
+        ctx: synthSavedSearchMatchCtx(inbox),
+      });
+      sends.saved_search_match = out;
+    });
+
     // Wait for Resend to actually process the queue. 60s is generous;
     // most sends register `sent` within ~5s.
     await sleep(VERIFY_WAIT_MS);
@@ -220,6 +256,8 @@ async function runEmailSmoke({trigger}) {
       ["password_reset_verify", sends.password_reset],
       ["sale_notification_verify", sends.sale_notification],
       ["shipped_verify", sends.shipped],
+      ["signup_welcome_verify", sends.signup_welcome],
+      ["saved_search_match_verify", sends.saved_search_match],
     ];
     for (const [name, info] of verifyPairs) {
       await step(name, steps, async () => {
@@ -529,6 +567,48 @@ function synthPasswordResetCtx(inbox) {
     resetUrl:
       "https://teeboxmarket.com/reset.html?token=smoke-test-not-a-real-token",
     ip: "203.0.113.42",
+  };
+}
+
+function synthSignupWelcomeCtx(inbox) {
+  return {
+    user: {
+      uid: SMOKE_BUYER_UID,
+      email: inbox,
+      firstName: "Smoke",
+      displayName: "Smoke Test User",
+    },
+  };
+}
+
+function synthSavedSearchMatchCtx(inbox) {
+  return {
+    user: {
+      uid: SMOKE_BUYER_UID,
+      email: inbox,
+      firstName: "Smoke",
+      displayName: "Smoke Test User",
+    },
+    search: {
+      id: "search_smoke",
+      query: "scotty cameron",
+    },
+    matches: [
+      {
+        id: "listing_smoke_a",
+        title: "Scotty Cameron Newport 2 — 34\"",
+        priceCents: 28000,
+        condition: "Used – Excellent",
+        imageUrl: "https://teeboxmarket.com/icon-192.png",
+      },
+      {
+        id: "listing_smoke_b",
+        title: "Scotty Cameron Phantom X 5.5 — 35\"",
+        priceCents: 32500,
+        condition: "Used – Good",
+        imageUrl: "https://teeboxmarket.com/icon-192.png",
+      },
+    ],
   };
 }
 
