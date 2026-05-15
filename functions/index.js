@@ -5859,3 +5859,10 @@ Object.assign(exports, require("./emailUsageMonitor"));
 // founderBriefings/{YYYY-MM-DD}. See ./founderBriefing.js header for
 // secret setup + manual-trigger usage.
 Object.assign(exports, require("./founderBriefing"));
+
+// GDPR Article 20 portability — exportMyData callable. Bundles every
+// Firestore record we hold for the calling user into a single JSON,
+// audits the export to dataExports/{auto-id}. See dataPortability.js
+// header for the v1 size cap (~5 MB warn, ~9 MB hard) and the future
+// background-export-to-Storage path.
+Object.assign(exports, require("./dataPortability"));
