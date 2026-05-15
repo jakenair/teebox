@@ -15,6 +15,19 @@ const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const geminiSecret = defineSecret("GEMINI_API_KEY");
 
+// ── Analytics helper (PostHog product analytics) ─────────────────────
+// captureServerEvent fires snake_case product events from server-side
+// flows (Stripe webhooks, refund callable, dispute webhook) per the
+// taxonomy in events.md. The helper is no-throw — if the secret is
+// unavailable in a given function context it logs once and silently
+// drops events. ANY function calling captureServerEvent must include
+// `posthogSecret` in its secrets list (see analytics.js header).
+const {
+  posthogSecret,
+  captureServerEvent,
+  shutdownAnalytics,
+} = require("./lib/analytics");
+
 // Sizing presets for the four common shapes — keep one source of truth
 // so we can tune the whole platform at once. Values are picked to handle
 // a 100x traffic spike (influencer post / viral share) without piling up
@@ -464,7 +477,10 @@ exports.createPaymentIntent = onRequest(
 // ─────────────────────────────────────────────────────────────
 exports.stripeWebhook = onRequest(
   {
-    secrets: [stripeSecret, webhookSecret],
+    // posthogSecret added so handlePaymentSucceeded (purchase_completed)
+    // and handleDisputeOpened (dispute_opened) can fire server-side
+    // events. See functions/lib/analytics.js for the contract.
+    secrets: [stripeSecret, webhookSecret, posthogSecret],
     // Stripe retries on non-2xx, so we need fast acks even under burst.
     // High concurrency + bigger memory + tight timeout — webhook bodies
     // are small but order-creation transactions need headroom.
@@ -965,6 +981,29 @@ async function handleDisputeOpened(dispute) {
     }
   }
 
+  // Analytics: priority event #10 — `dispute_opened`. Server-side
+  // ONLY (no client knowledge of dispute creation — Stripe sends the
+  // webhook directly). Attributed to the seller's UID since the
+  // dispute is a seller-facing event the dashboard funnel needs to
+  // segment by. Webhook replays of charge.dispute.created carry the
+  // same dispute.id, so the disputes/{id}.create() idempotency above
+  // guarantees we only reach this line once per dispute.
+  captureServerEvent({
+    userId: sellerId || null,
+    event: "dispute_opened",
+    props: {
+      orderId: dispute.payment_intent,
+      disputeId: dispute.id,
+      buyerId: orderBuyerId || null,
+      sellerId: sellerId || null,
+      listingId: orderListingId || null,
+      reason: dispute.reason || "",
+      amountCents: dispute.amount || 0,
+      evidenceDueBy: (dispute.evidence_details &&
+          dispute.evidence_details.due_by) || null,
+    },
+  });
+
   logger.warn(`Dispute opened on order ${dispute.payment_intent}: ${dispute.reason}`);
 }
 
@@ -1370,6 +1409,32 @@ async function handlePaymentSucceeded(pi) {
   } catch (err) {
     logger.warn("globalStats bump failed:", err.message);
   }
+
+  // Analytics: priority event #8 — `purchase_completed`. Server-side
+  // ONLY (the canonical source of revenue truth is the Stripe webhook;
+  // the client-side `payment_authorized` fire — not in scope — would
+  // double-count). Attributed to the buyer's UID so the funnel
+  // (checkout_started → purchase_completed) connects cleanly on the
+  // buyer profile. Webhook-replay safety: this only runs past the
+  // `alreadyProcessed` guard above, so PostHog never sees duplicates
+  // even when Stripe redelivers the same event.
+  captureServerEvent({
+    userId: buyerId || null,
+    event: "purchase_completed",
+    props: {
+      orderId: pi.id,
+      paymentIntentId: pi.id,
+      listingId: listingId || null,
+      buyerId: buyerId || null,
+      sellerId: sellerId || null,
+      amountCents: pi.amount,
+      currency: pi.currency,
+      qty: orderQty,
+      unitPriceCents: Number(unitPriceCents) || pi.amount,
+      platformFeeCents: Number(platformFeeCents) || 0,
+      sellerPayoutCents: Number(sellerPayoutCents) || 0,
+    },
+  });
 
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
@@ -4424,7 +4489,9 @@ exports.createBillingPortalSession = onCall(
 //   (Stripe handles the maths via refund_application_fee=true).
 // ─────────────────────────────────────────────────────────────
 exports.refundOrder = onCall(
-  {secrets: [stripeSecret]},
+  // posthogSecret attached so `refund_issued` server-event can fire
+  // after the Stripe refund + Firestore mirror succeed.
+  {secrets: [stripeSecret, posthogSecret]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -4618,6 +4685,30 @@ exports.refundOrder = onCall(
             `refundOrder: refunds/${refund.id} write failed`, writeErr);
       }
     }
+
+    // Analytics: priority event #9 — `refund_issued`. Server-side
+    // ONLY (Stripe is the source of truth for refund state). Attributed
+    // to the seller's UID since they initiated the callable. The
+    // create()-or-already-exists idempotency above guarantees we only
+    // reach this line on the FIRST run for a given (orderId, amount)
+    // tuple — PostHog dedupes by distinct_id+event+timestamp so even
+    // if a duplicate fires, the row collapses.
+    captureServerEvent({
+      userId: request.auth.uid,
+      event: "refund_issued",
+      props: {
+        orderId,
+        refundId: refund.id,
+        refundAmountCents: refundDocAmountCents,
+        currency: refund.currency || "usd",
+        initiatedBy: "seller",
+        reason: refundParams.reason,
+        fullRefund: isFullRefund,
+        buyerId: pre.buyerId || null,
+        sellerId: pre.sellerId,
+        listingId: pre.listingId || null,
+      },
+    });
 
     return {
       refundId: refund.id,

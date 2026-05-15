@@ -4814,6 +4814,25 @@ window.openCheckout = async function(productId, qty) {
 
   document.getElementById('checkoutBackdrop').classList.add('open');
 
+  // Analytics: priority event #7 — `checkout_started`. Fires the
+  // moment the buyer commits to the funnel (modal opens), BEFORE
+  // the Payment Element mounts — that way we still count buyers
+  // who bailed during the Stripe load (the most common abandonment
+  // point in the audit). The corresponding `purchase_completed`
+  // event is server-side from the Stripe webhook so the funnel is
+  // attributable end-to-end.
+  try {
+    if (window.posthog) {
+      window.posthog.capture('checkout_started', {
+        listingId: String(p.id),
+        sellerId: p.sellerId || null,
+        qty: requestedQty,
+        unitPriceCents: Math.round(unit * 100),
+        totalCents: Math.round(totalDollars * 100),
+      });
+    }
+  } catch (_e) { /* never block checkout open on analytics */ }
+
   // Mount the Payment Element. If it fails (network, signed-out, seller
   // hasn't connected Stripe), surface the message inline and flip the Pay
   // button into a "Try again" so the buyer has an obvious recovery path
@@ -5094,6 +5113,16 @@ window.confirmPayment = async function() {
     // the next anonymous events start a fresh distinct_id and don't
     // accidentally fold into the previous user's profile. Wrapped in
     // a try/catch — analytics MUST never crash auth.
+    //
+    // We ALSO emit the `signup` event for OAuth (Google/Apple) sign-ups
+    // here, because those flows don't have a single client-side success
+    // callsite we can hook (the native + popup paths converge on this
+    // listener). Firebase exposes `metadata.creationTime` ===
+    // `metadata.lastSignInTime` as the "this is the user's first ever
+    // sign-in" signal, which we use to discriminate signup vs login.
+    // Email/password signups still fire `signup` from inline in
+    // submitEmail() so a tab-close before the listener resolves can't
+    // lose the event.
     try {
       if (window.posthog) {
         if (user) {
@@ -5102,8 +5131,38 @@ window.confirmPayment = async function() {
             displayName: user.displayName || null,
             emailVerified: !!user.emailVerified,
           });
+          // Discriminate new-user vs returning-user via Firebase's own
+          // metadata timestamps. Email-password signup fires its own
+          // capture inline before this listener runs and uses
+          // window.__teeboxSignupEmitted as a one-shot guard so we
+          // don't double-emit for that path.
+          try {
+            const m = user.metadata || {};
+            const isFirstSession = m.creationTime && m.lastSignInTime &&
+              m.creationTime === m.lastSignInTime;
+            if (isFirstSession && !window.__teeboxSignupEmitted) {
+              window.__teeboxSignupEmitted = true;
+              // Method derivation from providerData[0].providerId. Apple
+              // returns 'apple.com', Google 'google.com', email is
+              // 'password'.
+              const pid = (user.providerData && user.providerData[0] &&
+                user.providerData[0].providerId) || '';
+              let method = 'unknown';
+              if (pid === 'google.com') method = 'google';
+              else if (pid === 'apple.com') method = 'apple';
+              else if (pid === 'password') method = 'email';
+              window.posthog.capture('signup', {
+                userId: user.uid,
+                method,
+              });
+            }
+          } catch (_e2) { /* swallow */ }
         } else {
           window.posthog.reset();
+          // Reset the per-app-load signup guard so the next sign-in
+          // (e.g. a different user on the same device) gets its own
+          // signup event.
+          window.__teeboxSignupEmitted = false;
         }
       }
     } catch (_e) { /* never block auth on analytics */ }
@@ -5511,6 +5570,27 @@ window.confirmPayment = async function() {
         const mktInput = document.getElementById('marketingConsentInput');
         const marketingConsentGranted = !!(mktInput && mktInput.checked);
         const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        // Analytics: priority event #1 — fires only on a SUCCESSFUL new
+        // email/password account creation. Mirrors OAuth providers below
+        // (sign-in-google / sign-in-apple) so all three signup paths
+        // emit the same event name. We capture BEFORE onAuthStateChanged
+        // resolves so PostHog's identify() (driven by the auth listener)
+        // can fold this event into the new user's profile. NOT mirrored
+        // server-side — the Firebase Auth user-create record has no
+        // Firestore trigger today, and tab-close-before-listener is
+        // unlikely given we await the credential.
+        try {
+          if (window.posthog) {
+            window.posthog.capture('signup', {
+              userId: cred.user.uid,
+              method: 'email',
+              marketingConsentGranted,
+            });
+            // One-shot guard so the onAuthStateChanged listener's OAuth
+            // signup detector doesn't double-emit for this same user.
+            window.__teeboxSignupEmitted = true;
+          }
+        } catch (_e) { /* never block signup on analytics */ }
         // Bootstrap the users/{uid} doc so downstream code (watchlist,
         // blocking, seller verification merges) has a doc to merge into.
         // Schema is strict — see firestore.rules `match /users/{userId}`:
@@ -6887,6 +6967,33 @@ window.confirmPayment = async function() {
       ['sellTitle','sellBrand','sellPrice','sellDesc','sellQuantity'].forEach(i => {
         const el = document.getElementById(i); if (el) el.value = '';
       });
+      // Analytics: priority event #2 — `listing_created` with state:
+      // 'published'. Distinct from the draft autosave fire so the
+      // funnel can be measured (draft → publish). NOT mirrored
+      // server-side: there's no onListingCreate trigger that runs at
+      // this exact moment — `onListingLive` in securityEmailTriggers
+      // is close but it's actually the welcome-email trigger, not a
+      // generic event hook. If we add reliability concerns later
+      // (e.g. user closes tab between addDoc and the capture call),
+      // mirror inside `onListingLive` server-side.
+      try {
+        if (window.posthog) {
+          window.posthog.capture('listing_created', {
+            state: 'published',
+            listingId: docRef.id,
+            cat,
+            brand,
+            condition,
+            askCents: Math.round(price * 100),
+            photoCount: photoUrls.length,
+            isHighValue,
+            quantity,
+          });
+          // Clear the draft-emitted guard so the next listing (same
+          // tab) emits its draft event again.
+          window.__teeboxDraftEmitted = false;
+        }
+      } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
       showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'), 'success');
       loadListings();
@@ -7699,6 +7806,24 @@ function openDetailModal(id) {
       } catch (_e) { /* swallow — view counter is best-effort */ }
     })();
   }
+  // Analytics: priority event #3 — `listing_viewed`. Fires EVERY open
+  // (not subject to the 24h dedupe that gates the view-counter
+  // callable above) because analytics needs the raw stream. Skips
+  // owner self-views for parity with the counter. Demo (numeric-id)
+  // listings still count — they're the homepage feed and a buyer
+  // engaging with them is a real funnel signal. NOT mirrored
+  // server-side (would require a Firestore write for every view).
+  try {
+    if (window.posthog && (!window.CURRENT_USER ||
+        !p.sellerId || window.CURRENT_USER.uid !== p.sellerId)) {
+      window.posthog.capture('listing_viewed', {
+        listingId: String(p.id),
+        sellerId: p.sellerId || null,
+        cat: p.cat || null,
+        askCents: Math.round(Number(p.ask || 0) * 100),
+      });
+    }
+  } catch (_e) { /* never block modal open on analytics */ }
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
@@ -8532,6 +8657,28 @@ async function sendMessage() {
     } else if (out.ok) {
       input.value = '';
       // onSnapshot already streams the new message — no manual reload.
+      // Analytics: priority event #5 — `message_sent`. Only fires when
+      // the callable confirmed delivery (out.ok). Hold-path (out.held)
+      // is intentionally NOT counted as a message-sent event since
+      // the message isn't actually visible to the recipient yet. NOT
+      // mirrored server-side: the `sendMessage` callable could
+      // potentially fire its own event, but tab-close-mid-send is
+      // rare enough vs the volume of messages that we accept the
+      // client-only fire.
+      try {
+        if (window.posthog) {
+          window.posthog.capture('message_sent', {
+            conversationId: currentChat.conversationId || null,
+            listingId: currentChat.listingId || null,
+            messageLength: text.length,
+            containsLink: /https?:\/\//i.test(text),
+            // 'buyer' if the user is messaging a seller they're not,
+            // else 'seller'. Best-effort — currentChat.role isn't
+            // always set on legacy threads, default 'unknown'.
+            senderRole: (currentChat && currentChat.role) || 'unknown',
+          });
+        }
+      } catch (_e) { /* analytics never blocks message send */ }
     } else {
       showToast('Could not send message.');
     }
@@ -10294,6 +10441,25 @@ function captureSellDraft() {
     if (el) d[id] = el.value;
   });
   writeSellDraft(d);
+  // Analytics: priority event #2 — `listing_created` with state:'draft'.
+  // The autosave path is invoked on EVERY keystroke; we only want to
+  // emit once per draft session so a per-load guard collapses the
+  // event to "user started a listing" rather than per-character noise.
+  // The guard resets when the modal closes or the draft is cleared.
+  try {
+    if (window.posthog && !window.__teeboxDraftEmitted) {
+      // Only fire after the user has typed at least a title — empty
+      // captures from re-opening an autosaved-empty draft shouldn't
+      // count as a new draft.
+      if (d.sellTitle && String(d.sellTitle).trim().length > 0) {
+        window.__teeboxDraftEmitted = true;
+        window.posthog.capture('listing_created', {
+          state: 'draft',
+          cat: d.sellCat || null,
+        });
+      }
+    }
+  } catch (_e) { /* analytics never blocks autosave */ }
 }
 window.clearSellDraft = clearSellDraft;
 
@@ -10628,6 +10794,35 @@ function filterSearchRender(query) {
     return hay.includes(ql);
   });
   const matches = all.slice(0, 8);
+  // Analytics: priority event #4 — `search_performed`. Fires from
+  // inside the 150ms-debounced render (so we don't spam on every
+  // keystroke) and only for queries ≥3 chars (matches the audit-
+  // recommended threshold). resultCount uses `all.length` not
+  // matches.length so analytics sees the true match cardinality
+  // even though the dropdown only shows 8. NOT mirrored server-
+  // side (search runs entirely client-side today).
+  try {
+    if (window.posthog && query && query.length >= 3) {
+      // Active category filter (cat-pill .active). Read it
+      // defensively — the homepage doesn't always have a cat-pill
+      // selected, in which case we record null.
+      let activeCat = null;
+      try {
+        const pill = document.querySelector('.cat-pill.active');
+        if (pill && pill.dataset && pill.dataset.cat) {
+          activeCat = pill.dataset.cat;
+        }
+      } catch (_) {}
+      window.posthog.capture('search_performed', {
+        // Match saved-search storage's 80-char cap to keep PII
+        // exposure bounded — buyers occasionally paste long
+        // strings into search.
+        query: String(query).slice(0, 80).toLowerCase(),
+        filters: { cat: activeCat },
+        resultCount: all.length,
+      });
+    }
+  } catch (_e) { /* never block search render on analytics */ }
   if (!matches.length) {
     results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
     return;
@@ -11357,7 +11552,7 @@ async function submitOffer() {
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    await addDoc(collection(db, 'offers'), {
+    const offerDocRef = await addDoc(collection(db, 'offers'), {
       buyerId: window.CURRENT_USER.uid,
       sellerId: p.sellerId,
       listingId: String(p.id),
@@ -11367,6 +11562,23 @@ async function submitOffer() {
       expiresAt: Timestamp.fromDate(expiresAt),
       createdAt: serverTimestamp(),
     });
+    // Analytics: priority event #6 — `offer_made`. Fires after the
+    // Firestore write resolves so we only count offers that actually
+    // hit the database. NOT mirrored server-side; there's no
+    // onOfferCreated event-stream trigger (the existing
+    // notifyOnOfferCreated is for fan-out, not analytics).
+    try {
+      if (window.posthog) {
+        window.posthog.capture('offer_made', {
+          offerId: offerDocRef.id,
+          listingId: String(p.id),
+          sellerId: p.sellerId || null,
+          askCents: Math.round(ask * 100),
+          offerCents: Math.round(amt * 100),
+          discountPct: ask > 0 ? Math.round((1 - amt / ask) * 100) : null,
+        });
+      }
+    } catch (_e) { /* never block offer submit on analytics */ }
     document.getElementById('makeOfferBackdrop').classList.remove('open');
     showToast('Offer sent to seller. They have 48 hours to respond.', 'success');
     // Contextual push prompt — first offer made, frame "hear back fast".
@@ -12756,6 +12968,26 @@ async function submitReview() {
       createdAt: serverTimestamp(),
     });
     REVIEW_AGG_CACHE.delete(revieweeId);
+    // Analytics: priority event #11 — `review_submitted`. Fires on
+    // the buyer-side AFTER setDoc resolves so we only count reviews
+    // that actually landed. The server-side `onReviewCreated`
+    // trigger (functions/index.js:2072) updates seller avgRating
+    // but doesn't itself fire a discrete event — keeping the
+    // analytics fire client-side keeps the property bag (rating,
+    // hasText) cheaper than re-reading the just-written doc on the
+    // server.
+    try {
+      if (window.posthog) {
+        window.posthog.capture('review_submitted', {
+          reviewId: reviewDocId,
+          orderId: pendingReviewOrderId,
+          revieweeId,
+          rating,
+          hasText: !!(comment && comment.length > 0),
+          role,
+        });
+      }
+    } catch (_e) { /* analytics never blocks review submit */ }
     document.getElementById('reviewBackdrop').classList.remove('open');
     showToast('Thanks for the review.');
   } catch (e) {
