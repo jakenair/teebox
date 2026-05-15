@@ -14,6 +14,10 @@ admin.initializeApp();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const geminiSecret = defineSecret("GEMINI_API_KEY");
+// RESEND_KEY hoisted to top so stripeWebhook (line ~540) can declare it
+// in its secrets[] array. Previously declared down at the legacy
+// sendEmail wrapper — caused a TDZ when stripeWebhook tried to bind it.
+const RESEND_KEY = defineSecret("RESEND_API_KEY");
 
 // ── Analytics helper (PostHog product analytics) ─────────────────────
 // captureServerEvent fires snake_case product events from server-side
@@ -542,7 +546,9 @@ exports.stripeWebhook = onRequest(
     // posthogSecret added so handlePaymentSucceeded (purchase_completed)
     // and handleDisputeOpened (dispute_opened) can fire server-side
     // events. See functions/lib/analytics.js for the contract.
-    secrets: [stripeSecret, webhookSecret, posthogSecret],
+    // RESEND_KEY added so handlePayoutFailed (migrated to lib/email.js
+    // sendEmail) can actually deliver — previously silently no-op'd.
+    secrets: [stripeSecret, webhookSecret, posthogSecret, RESEND_KEY],
     // Stripe retries on non-2xx, so we need fast acks even under burst.
     // High concurrency + bigger memory + tight timeout — webhook bodies
     // are small but order-creation transactions need headroom.
@@ -3708,7 +3714,9 @@ exports.pushNotificationDispatch = onDocumentCreated(
 //   RESEND_API_KEY is configured, sends a transactional email via
 //   Resend. Email failure never blocks push — they're independent.
 // ─────────────────────────────────────────────────────────────
-const RESEND_KEY = defineSecret("RESEND_API_KEY");
+// RESEND_KEY is hoisted to the top of this file (line ~20) so it's
+// available to stripeWebhook's secrets[] binding. Keep this reference
+// here as documentation; the const is declared once at the top.
 const FROM_EMAIL = "TeeBox <noreply@mail.teeboxmarket.com>";
 const APP_URL = "https://teeboxmarket.com";
 

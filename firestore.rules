@@ -958,6 +958,26 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // FRAUD SIGNALS — IP + card-fingerprint capture from
+    // createPaymentIntent / handlePaymentSucceeded for ban-evasion
+    // detection. Admin SDK only; client must NEVER read or write
+    // (would leak which IPs/cards we've fingerprinted).
+    // ─────────────────────────────────────────────
+    match /fraudSignals/{signalId} {
+      allow read, write: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // DATA EXPORTS — audit row written every time a user invokes
+    // the GDPR exportMyData callable. Admin-only read (Cloud
+    // Functions write via Admin SDK which bypasses rules).
+    // ─────────────────────────────────────────────
+    match /dataExports/{exportId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ─────────────────────────────────────────────
     // MESSAGE FLAGS — server-written audit trail for chat messages
     // tripped by the moderateMessage Firestore trigger. The sender
     // and recipient can read their own flagged-exchange records;
