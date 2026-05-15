@@ -94,6 +94,17 @@ class HttpError extends Error {
   }
 }
 
+// Admin email allowlist — mirrors firestore.rules:24-30 isAdmin(). Used
+// to gate platform-staff-only callable branches (e.g. refundOrder). Keep
+// in sync with the firestore.rules list manually until we move to a
+// proper admin custom-claim. Compare case-insensitively because Firebase
+// email tokens preserve user-entered casing.
+function isAdminEmail(email) {
+  if (!email) return false;
+  const allow = ["jakenair23@gmail.com"]; // hardcoded for v1
+  return allow.includes(String(email).toLowerCase());
+}
+
 async function getAuthedUser(req) {
   const authHeader = req.headers.authorization || "";
   if (!authHeader.startsWith("Bearer ")) return null;
@@ -4641,9 +4652,18 @@ exports.refundOrder = onCall(
       throw new HttpsError("not-found", "Order not found");
     }
     const pre = preSnap.data();
-    if (pre.sellerId !== request.auth.uid) {
+    // Allow the seller OR a platform admin (email allowlist mirrors
+    // firestore.rules:24-30 isAdmin) to issue refunds. Before this gate,
+    // the only escape hatch for support refunds was opening the Stripe
+    // Dashboard directly — which bypassed our `refunds/{id}` mirror and
+    // therefore skipped the RefundIssued email to the buyer.
+    const callerEmail = (request.auth.token && request.auth.token.email) || null;
+    const isCallerSeller = pre.sellerId === request.auth.uid;
+    const isCallerAdmin = isAdminEmail(callerEmail);
+    if (!isCallerSeller && !isCallerAdmin) {
       throw new HttpsError(
-        "permission-denied", "Only the seller can refund this order.");
+        "permission-denied",
+        "Only the seller or an admin can issue a refund.");
     }
     if (pre.refunded && !Number.isFinite(Number(amount))) {
       throw new HttpsError(
@@ -4783,6 +4803,11 @@ exports.refundOrder = onCall(
     //      Stripe refund, even if Firestore inventory rollback fails.
     const refundDocAmountCents = refundAmountCents != null ?
         refundAmountCents : orderAmountCents;
+    // Tag the actor so downstream (RefundIssued email, audit log,
+    // analytics) can distinguish a seller-initiated refund from an
+    // admin-initiated one. Admin-issued refunds also surface in the
+    // email subject/body so the buyer understands the source.
+    const refundActor = isCallerAdmin && !isCallerSeller ? "admin" : "seller";
     try {
       await db.collection("refunds").doc(refund.id).create({
         orderId,
@@ -4795,6 +4820,9 @@ exports.refundOrder = onCall(
         reason: refundParams.reason,
         stripeRefundId: refund.id,
         refundedBy: request.auth.uid,
+        actor: refundActor,
+        issuedByAdmin: refundActor === "admin",
+        adminEmail: refundActor === "admin" ? callerEmail : null,
         fullRefund: isFullRefund,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -4831,7 +4859,7 @@ exports.refundOrder = onCall(
         refundId: refund.id,
         refundAmountCents: refundDocAmountCents,
         currency: refund.currency || "usd",
-        initiatedBy: "seller",
+        initiatedBy: refundActor,
         reason: refundParams.reason,
         fullRefund: isFullRefund,
         buyerId: pre.buyerId || null,
