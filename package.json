@@ -11,7 +11,11 @@
   "scripts": {
     "build:web": "node scripts/generate-logos-manifest.mjs && node scripts/generate-og-images.mjs && rm -rf dist && mkdir -p dist && cp index.html bingo.html bingo-courses.js sw.js firebase-messaging-sw.js manifest.webmanifest offline.html privacy.html support.html dmca.html terms.html refunds.html acceptable-use.html 404.html favicon.svg icon.svg icon-maskable.svg icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/ && cp -R assets dist/assets && cp -R brand dist/brand && (test -d .well-known && cp -R .well-known dist/.well-known || true) && echo '✓ web bundle written to dist/' && mkdir -p ios/App/App/public && rsync -a --omit-dir-times dist/ ios/App/App/public/ && echo '✓ ios bundle synced to ios/App/App/public/'",
     "og:gen": "node scripts/generate-og-images.mjs",
-    "cap:sync": "npm run build:web && npx cap sync",
+    "//bingo-canon": "Logo Bingo: see LOGO_BINGO_DIAGNOSIS.md. The PNGs copied into ios/App/App/public/assets/logos by build:web are now OFFLINE FALLBACK ONLY — runtime puzzles fetch absolute CDN URLs from /dailyPuzzles/{date}. Don't add new bundled logo assets without re-running scripts/audit-logo-urls.mjs and bumping the Cloud Function canon.",
+    "cap:sync": "npm run build:web && npx cap sync && echo '↳ Logo Bingo: ios bundle includes /assets/logos as OFFLINE FALLBACK. Live puzzles fetch from /dailyPuzzles/{date} Firestore doc (see LOGO_BINGO_DIAGNOSIS.md).'",
+    "test:bingo-cross-platform": "node scripts/test-bingo-cross-platform.mjs",
+    "check:bingo-single-source": "node scripts/check-bingo-single-source.mjs",
+    "audit:logo-urls": "node scripts/audit-logo-urls.mjs",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:icons": "npx @capacitor/assets generate --iconBackgroundColor '#0b1a0e' --iconBackgroundColorDark '#0b1a0e' --splashBackgroundColor '#0b1a0e' --splashBackgroundColorDark '#0b1a0e'",

@@ -6,6 +6,15 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // `npx cap sync`. We point at the project root because the site is
 // a single static index.html with no build step. The .capacitorignore
 // file controls what's excluded from the copy.
+//
+// LOGO BINGO NOTE (LOGO_BINGO_DIAGNOSIS.md):
+// The dist/ payload still includes /assets/logos/*.png for general
+// asset serving. For Logo Bingo, those bundled PNGs are now offline
+// fallback only — the live daily puzzle's canonical CDN URLs come
+// from /dailyPuzzles/{date} in Firestore, written by the
+// generateDailyBingoPuzzle scheduled Cloud Function. Don't add native
+// iOS code that performs local puzzle selection — the CI check in
+// scripts/check-bingo-single-source.mjs guards against that.
 const config: CapacitorConfig = {
   appId: 'com.teeboxmarket.app',
   appName: 'TeeBox',
