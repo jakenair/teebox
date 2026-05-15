@@ -3306,6 +3306,64 @@
   </div>
 </div>
 
+<!-- SHIPPING SETTINGS MODAL (Account hub → Shipping).
+     Reads/writes users/{uid}.shippingFrom. Used as the FROM address on
+     every Shippo label the seller buys. Required before createShippingLabel
+     will work — the callable rejects with reason:"missing-from-address"
+     if this is empty. -->
+<div class="modal-backdrop info-backdrop" id="shippingSettingsBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">Shipping</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="shippingSettingsBody">
+      <p class="info-meta" style="margin-bottom:14px">
+        Your ship-from address appears as the return address on every label
+        you generate. We never share this with buyers — they only see it
+        printed on the package they receive.
+      </p>
+      <div class="profile-edit-grid" id="shippingFromGrid">
+        <div>
+          <label>Name on label</label>
+          <input id="shipFromName" maxlength="60" placeholder="Your name or business name" autocomplete="name">
+        </div>
+        <div>
+          <label>Street address</label>
+          <input id="shipFromLine1" maxlength="120" placeholder="123 Fairway Drive" autocomplete="address-line1">
+        </div>
+        <div>
+          <label>Apt / Suite (optional)</label>
+          <input id="shipFromLine2" maxlength="80" placeholder="Unit 4B" autocomplete="address-line2">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 100px 120px;gap:8px">
+          <div>
+            <label>City</label>
+            <input id="shipFromCity" maxlength="80" placeholder="Phoenix" autocomplete="address-level2">
+          </div>
+          <div>
+            <label>State</label>
+            <input id="shipFromState" maxlength="2" placeholder="AZ" autocomplete="address-level1" style="text-transform:uppercase">
+          </div>
+          <div>
+            <label>ZIP</label>
+            <input id="shipFromZip" maxlength="10" placeholder="85001" autocomplete="postal-code" inputmode="numeric">
+          </div>
+        </div>
+        <div>
+          <label>Phone (for carrier)</label>
+          <input id="shipFromPhone" maxlength="20" placeholder="(555) 123-4567" autocomplete="tel" inputmode="tel">
+        </div>
+      </div>
+      <div id="shippingSettingsError" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:18px"></div>
+      <div class="profile-actions" style="margin-top:14px">
+        <button class="btn-full ghost" data-action="close-info">Cancel</button>
+        <button class="btn-full green" data-action="save-shipping-settings" id="shippingSettingsSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BLOCKED USERS MODAL -->
 <div class="modal-backdrop info-backdrop" id="blockedUsersBackdrop" data-close-on-backdrop="close-info">
   <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
@@ -9854,6 +9912,17 @@ function renderShopTables() {
             const shipBtn = stage === 'awaiting_seller_shipment' && !o.refunded
               ? `<button class="ship-btn" data-action="mark-shipped" data-order-id="${escapeHtml(String(o.id))}">Mark Shipped</button>`
               : '';
+            // Print Shipping Label (Shippo). Shown only while the order
+            // hasn't shipped yet and a label hasn't already been bought.
+            // If `labelUrl` is already on the doc, surface a "View label"
+            // link instead so the seller can re-open the PDF without
+            // re-buying. The createShippingLabel callable is idempotent
+            // server-side too (returns cached:true when labelUrl exists).
+            const printLabelBtn = !o.refunded && (stage === 'awaiting_seller_shipment' || !stage)
+              ? (o.labelUrl
+                  ? `<a class="ship-btn" href="${escapeHtml(String(o.labelUrl))}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;background:rgba(59,130,246,0.08);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3);margin-left:6px;">View Label</a>`
+                  : `<button class="ship-btn" style="background:rgba(59,130,246,0.08);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3);margin-left:6px;" data-action="print-shipping-label" data-order-id="${escapeHtml(String(o.id))}" title="Purchase a shipping label via Shippo">Print Label</button>`)
+              : '';
             // "Refund Order" is visible to the seller only while the order is
             // pre-fulfillment-but-paid AND not already refunded. We treat any
             // stage other than reviewed/delivered as still-refundable for the
@@ -9891,7 +9960,7 @@ function renderShopTables() {
                 <td>${shipCell}</td>
                 <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
                 <td style="color:var(--gray-500);font-size:12px">${stageLabel}</td>
-                <td>${shipBtn}${refundBtn}</td>
+                <td>${shipBtn}${printLabelBtn}${refundBtn}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -11441,6 +11510,163 @@ async function confirmShip() {
   }
 }
 window.confirmShip = confirmShip;
+
+// ─────────────────────────────────────────────────────────────
+// Shippo — Print Shipping Label flow
+//
+// printShippingLabel(orderId): calls the `createShippingLabel` callable
+// in functions/shippoIntegration.js. On success, opens the returned
+// labelUrl PDF in a new tab and refreshes the seller's shop view so the
+// row flips to "View Label" / "Mark Shipped". On error, surfaces a
+// friendly toast keyed off the `reason` enum the callable returns.
+// ─────────────────────────────────────────────────────────────
+async function printShippingLabel(orderId) {
+  if (!orderId || !window.CURRENT_USER) return;
+  // Soft user-confirmation — labels are non-refundable past a certain
+  // point and cost real money. Cheap UX guardrail.
+  if (!confirm('Purchase a shipping label for this order? You can re-open the PDF later.')) return;
+  // Find the button element so we can spinner-state it.
+  const btn = document.querySelector(`button[data-action="print-shipping-label"][data-order-id="${orderId.replace(/"/g, '\\"')}"]`);
+  const oldLabel = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const fn = httpsCallable(fns, 'createShippingLabel');
+    const res = await fn({ orderId });
+    const data = (res && res.data) || {};
+    if (data.ok) {
+      if (window.showToast) {
+        showToast(
+          data.cached
+            ? 'Label already exists — opening PDF.'
+            : `Label purchased ($${(data.rateAmount || 0).toFixed(2)} · ${data.carrier || 'USPS'}). Opening PDF…`,
+          'success',
+        );
+      }
+      // Open the PDF — system browser on iOS Capacitor, new tab on web.
+      try {
+        const Cap = window.Capacitor;
+        if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+          const Browser = Cap.Plugins && Cap.Plugins.Browser;
+          if (Browser && typeof Browser.open === 'function') {
+            await Browser.open({ url: data.labelUrl });
+          } else {
+            window.location.href = data.labelUrl;
+          }
+        } else {
+          window.open(data.labelUrl, '_blank', 'noopener,noreferrer');
+        }
+      } catch (_) {
+        window.open(data.labelUrl, '_blank', 'noopener,noreferrer');
+      }
+      if (typeof loadShopData === 'function') {
+        try { await loadShopData(); } catch (_) {}
+      }
+    } else {
+      // Friendly error mapping. The callable returns an enum we can
+      // pattern-match on.
+      const friendly = {
+        'shippo-not-configured': 'Label generation isn\'t live yet. Buy postage from any carrier and mark the order shipped.',
+        'missing-from-address': 'Add your ship-from address in Account → Shipping first.',
+        'missing-to-address': 'This order is missing a shipping address. Message the buyer to confirm before shipping.',
+        'no-rates': 'We couldn\'t find any shipping rates for this address. Double-check the buyer\'s address and try again.',
+        'label-purchase-failed': 'Label purchase failed. Check your Shippo balance and try again.',
+        'shippo-down': 'Shipping rates are temporarily unavailable. Please retry in a few minutes.',
+        'test-key-in-prod': 'Shipping labels are temporarily unavailable. Please retry shortly.',
+      };
+      const msg = friendly[data.reason] || data.message ||
+        'Couldn\'t generate a shipping label. Please try again.';
+      if (window.showToast) showToast(msg, 'error');
+      console.warn('createShippingLabel returned non-ok', data);
+    }
+  } catch (e) {
+    console.error('printShippingLabel failed:', e);
+    if (window.showToast) showToast('Couldn\'t generate a shipping label. Please try again.', 'error');
+  } finally {
+    if (btn && oldLabel) { btn.disabled = false; btn.textContent = oldLabel; }
+  }
+}
+window.printShippingLabel = printShippingLabel;
+
+// ─────────────────────────────────────────────────────────────
+// Shipping settings modal — Account hub → Shipping. Reads/writes
+// users/{uid}.shippingFrom (the from-address every label uses).
+// ─────────────────────────────────────────────────────────────
+async function openShippingSettings() {
+  if (!window.CURRENT_USER) return;
+  const back = document.getElementById('shippingSettingsBackdrop');
+  if (!back) return;
+  const errEl = document.getElementById('shippingSettingsError');
+  if (errEl) errEl.textContent = '';
+  // Pre-fill from the user doc.
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+    const s = (snap.exists() && snap.data().shippingFrom) || {};
+    const setVal = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v || '';
+    };
+    setVal('shipFromName',  s.name);
+    setVal('shipFromLine1', s.line1 || s.street1);
+    setVal('shipFromLine2', s.line2 || s.street2);
+    setVal('shipFromCity',  s.city);
+    setVal('shipFromState', s.state);
+    setVal('shipFromZip',   s.postal_code || s.zip);
+    setVal('shipFromPhone', s.phone);
+  } catch (e) {
+    console.warn('openShippingSettings prefill failed', e);
+  }
+  back.classList.add('open');
+}
+window.openShippingSettings = openShippingSettings;
+
+async function saveShippingSettings() {
+  if (!window.CURRENT_USER) return;
+  const errEl = document.getElementById('shippingSettingsError');
+  const btn = document.getElementById('shippingSettingsSaveBtn');
+  const val = (id) => (document.getElementById(id) || {}).value || '';
+  const payload = {
+    name:        val('shipFromName').trim(),
+    line1:       val('shipFromLine1').trim(),
+    line2:       val('shipFromLine2').trim(),
+    city:        val('shipFromCity').trim(),
+    state:       val('shipFromState').trim().toUpperCase(),
+    postal_code: val('shipFromZip').trim(),
+    phone:       val('shipFromPhone').trim(),
+    country:     'US',
+  };
+  // Client-side validation — these four are required by Shippo.
+  if (!payload.line1 || !payload.city || !payload.state || !payload.postal_code) {
+    if (errEl) errEl.textContent = 'Street, city, state, and ZIP are all required.';
+    return;
+  }
+  if (payload.state.length !== 2) {
+    if (errEl) errEl.textContent = 'Use the 2-letter state code (e.g. CA, NY, TX).';
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const { getFirestore, doc, setDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+        { shippingFrom: payload }, { merge: true });
+    document.getElementById('shippingSettingsBackdrop').classList.remove('open');
+    if (window.showToast) showToast('Shipping address saved.', 'success');
+  } catch (e) {
+    console.error('saveShippingSettings failed', e);
+    if (errEl) errEl.textContent = 'Could not save. Please try again.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+window.saveShippingSettings = saveShippingSettings;
 
 // Seller-initiated refund. Reuses the `refundOrder` HTTPS callable on the
 // backend. We rely on the server to enforce the actual permission gate
@@ -13882,6 +14108,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">Email preferences</span>
              <span class="account-hub-chev">›</span>
            </button>
+           <button class="account-hub-item" data-action="open-shipping-settings" type="button">
+             <span class="account-hub-label">Shipping</span>
+             <span class="account-hub-chev">›</span>
+           </button>
            <button class="account-hub-item" data-action="open-blocked-users" type="button">
              <span class="account-hub-label">Blocked users</span>
              <span class="account-hub-chev">›</span>
@@ -15204,6 +15434,9 @@ A['ask-delete-listing']      = (el) => { if (!window.requireAuth('to delete your
 A['confirm-delete-listing']  = () => { if (!window.requireAuth('to delete your listing')) return; confirmDeleteListing(); };
 A['purge-empty-listings']    = () => { if (!window.requireAuth('to clean up your listings')) return; purgeEmptyListings(); };
 A['mark-shipped']            = (el) => { if (!window.requireAuth('to mark this order shipped')) return; markShipped(el.dataset.orderId); };
+A['print-shipping-label']    = (el) => { if (!window.requireAuth('to print a shipping label')) return; printShippingLabel(el.dataset.orderId); };
+A['open-shipping-settings']  = () => { if (!window.requireAuth('to manage shipping settings', () => openShippingSettings())) return; openShippingSettings(); };
+A['save-shipping-settings']  = () => { if (!window.requireAuth('to save shipping settings')) return; saveShippingSettings(); };
 A['confirm-ship']            = () => { if (!window.requireAuth('to confirm shipment')) return; confirmShip(); };
 A['confirm-delivery']        = (el) => { if (!window.requireAuth('to confirm delivery')) return; confirmDelivery(el.dataset.orderId); };
 A['refund-order']            = (el) => { if (!window.requireAuth('to refund this order')) return; refundOrder(el.dataset.orderId); };
