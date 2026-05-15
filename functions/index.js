@@ -3585,6 +3585,12 @@ function emailShell(headline, bodyHtml, ctaLabel, ctaUrl) {
     </table></body></html>`;
 }
 
+// LEGACY sendEmail — does NOT route through lib/email.js's hardened
+// path (no recordSend, no consent gate, no unsubscribe footer).
+// TODO: migrate the 7 in-file callers to require("./lib/email").sendEmail
+// with React Email templates. Until then, at minimum check result.error
+// from the Resend SDK so silent failures aren't swallowed (the bug we
+// just fixed in lib/email.js applies to this code path too).
 async function sendEmail({to, subject, html}) {
   if (!to || !subject || !html) return;
   let key;
@@ -3596,7 +3602,12 @@ async function sendEmail({to, subject, html}) {
   try {
     const {Resend} = require("resend");
     const resend = new Resend(key);
-    await resend.emails.send({from: FROM_EMAIL, to, subject, html});
+    const result = await resend.emails.send({from: FROM_EMAIL, to, subject, html});
+    // Resend SDK v3+ returns API errors via result.error (no throw).
+    if (result && result.error) {
+      const errMsg = (result.error.message || JSON.stringify(result.error));
+      logger.error(`[email send failed] ${subject} → ${to}: ${errMsg}`);
+    }
   } catch (err) {
     logger.error(`[email send failed] ${subject} → ${to}`, err);
   }
