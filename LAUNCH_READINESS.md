@@ -1,6 +1,21 @@
 # TeeBox Launch-Readiness Audit
-**Generated**: 2026-05-15 (initial audit) · **Updated**: 2026-05-15 post-fix (all 10 CRITICAL + 6 HIGH addressed)
+**Generated**: 2026-05-15 (initial audit) · **Updated**: 2026-05-17 (pre-beta bug-fix authorization — PRs 1-4 in flight)
 **Method**: Static code analysis + cross-reference of deployed config (no live tests, no deploys, no Stripe sandbox calls).
+
+## Pre-beta bug fixes — 2026-05-17
+
+Manual testing surfaced 5 bugs blocking seller listing publish. Full triage in `BUG_TRIAGE_2026_05_17.md`. Founder authorized PRs 1-4 to land in parallel; PRs 5-6 deferred:
+
+| PR | Fixes | Status | Agent |
+|---|---|---|---|
+| PR 1 | Bug 1 (test-mode Stripe ID) | 🔧 In progress | Agent A |
+| PR 2 | Bug 2 (iOS stale bundle) + Bug 3 (kill-switch on iOS) | 🔧 In progress | Agent D |
+| PR 3 | Bug 4 (Gemini quota) | 🔧 In progress | Parent (interactive) |
+| PR 4 | Bug 5 (Crashlytics install) | 🔧 In progress | Agent C |
+| PR 5 | Bug 5 (unbounded query caps) | ⏸ Deferred | Wait for Crashlytics signal |
+| PR 6 | Bug F (onboarding redesign) | ⏸ Post-beta v1.1 | See `BUG_F_ONBOARDING_REDESIGN.md` |
+
+Expected beta-unblock: ~3 hrs of fix work + 30 min TestFlight processing.
 
 ## Verdict (post-fix)
 

@@ -1,8 +1,57 @@
 # TeeBox Manual Test Checklist (TestFlight Beta)
 
-**Updated**: 2026-05-15 (post launch-blocker fixes)
+**Updated**: 2026-05-17 (added BF1-BF6 pre-beta bug-fix verification block)
 
 Hand this list to whoever does the TestFlight smoke. Run them in order; each should take 30s-2min. Items marked **(was EXPECTED FAIL, now FIXED)** are previously-broken paths that just landed — pay extra attention to those.
+
+---
+
+## Pre-beta bug-fix verification (run before inviting testers)
+
+These tests verify the 4 fixes that landed on 2026-05-17. Run in order — each unblocks the next.
+
+- [ ] **BF1 — Web live-mode Stripe Connect KYC** (PR 1): After PR 1 lands, sign in on web. Click "Set up payouts" (or "Become a seller" → fill form → "Submit Listing" which surfaces the prompt). Complete the FULL Stripe Connect Express flow with real bank/SSN data in LIVE mode. Confirm:
+  - The Stripe-hosted page loads with no error toasts
+  - After clicking "Done" in Stripe, return URL contains `?stripe=onboarded`
+  - Within ~10 sec, `users/{your-uid}.stripeChargesEnabled` flips to `true` in Firestore (check via Firebase Console)
+  - Subsequent "Submit Listing" succeeds — listing appears in marketplace
+  - **This is the highest-value pre-beta smoke test. Per funnel data, 0 of 23 users have ever completed this end-to-end.**
+
+- [ ] **BF2 — iOS Stripe handoff** (PR 2): After PR 2 lands AND a new TestFlight build is uploaded and installed, repeat the Stripe flow on iOS. Confirm:
+  - "Set up payouts" opens Safari (NOT the in-app WebView) IF you've installed PR 6's `@capacitor/browser` change — for THIS round (build 55), it'll still use the in-app WebView; we're deferring the Safari migration to post-beta. Mark as "expected limitation" and move on.
+  - Pre-listing precheck modal appears with the new "Your seller payouts aren't fully set up yet" copy (NOT "sign out, sign back in")
+  - After KYC completes (if not already done in BF1), publish a listing on iOS — success
+
+- [ ] **BF3 — iOS publish flow end-to-end** (PR 2): After BF2 confirms KYC works, on iOS: open Sell modal, fill a test listing, submit. Confirm:
+  - Submit button shows loading state, not stuck
+  - On success: listing appears in your shop tab + marketplace home
+  - No misleading error toasts surface
+
+- [ ] **BF4 — AI Write Description** (PR 3): After PR 3 lands, open Sell modal on web or iOS. Type a title (e.g., "Scotty Cameron Newport 2 putter"). Click "AI write description" (or whatever the button is labeled). Confirm:
+  - Response arrives within ~3 sec
+  - Generated text is reasonable English describing the item
+  - Try 3 different titles to verify it's not a one-shot fluke
+  - If it fails: error message should now say "Daily AI limit reached" (not the old "Couldn't generate")
+
+- [ ] **BF5 — Crashlytics smoke** (PR 4): After PR 4 lands + new TestFlight build installed on iPhone:
+  - Open the app, navigate to Settings
+  - Find the small version-number text "TeeBox v1.5.0 (build 55)"
+  - **Triple-tap the version number** within ~500ms
+  - The app should immediately crash (this is the hidden test trigger)
+  - Within ~5-10 min, open Firebase Console → Crashlytics → Issues tab
+  - You should see a new crash entry: "TeeBox: Crashlytics test crash trigger"
+  - If the tab is still empty after 30 min: the install didn't take — escalate
+
+- [ ] **BF6 — Reproduce Bug 5 with Crashlytics on** (PR 4 follow-up): After BF5 confirms Crashlytics is receiving data, walk through screens where you previously saw freezes:
+  - Bingo board (open Logo Bingo from home tab)
+  - Watchlist (deep-scroll if possible)
+  - Marketplace home (scroll past 50 listings)
+  - Open a listing with many photos, swipe through gallery
+  - Messages list (if any conversations exist)
+  - Note the timestamp when any screen stutters or freezes
+  - Check Firebase Console → Crashlytics → Issues sorted by "Last Seen"
+  - Match timestamps; the issue stack trace tells us the actual offender (one of the 5 unbounded-query candidates from the triage report, or something else)
+  - Report findings — this informs whether PR 5 (cap unbounded queries) is actually the right fix
 
 ---
 
@@ -19,6 +68,7 @@ Hand this list to whoever does the TestFlight smoke. Run them in order; each sho
 ## Seller
 
 - [ ] **B1**: New seller with no Stripe Connect → Sell button → Stripe-required modal appears, "Set up payouts" routes to Connect onboarding. Complete KYC. Return → submitListing now succeeds
+- [ ] ~~**[DEPRECATED 2026-05-17]** Send Stripe Connect test event from Dashboard to verify signature wiring — superseded by BF1 above, which exercises the real live-mode KYC → webhook → user-doc flow end-to-end.~~
 - [ ] **B1b**: Try to create a listing in Firestore console as a user with `stripeChargesEnabled !== true` → rule blocks the write
 - [ ] **B2**: Upload 1, 3, 6, 10 photos in sequence. Try $0.01, $10000.01, $0 → correct gate behavior
 - [ ] **B2c**: Listing with >=$300 price requires 4 photos (verification photo)
