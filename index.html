@@ -17557,7 +17557,10 @@ if (uploadZone) {
       const db = getFirestore();
       const totalAttempts = game.cells.reduce((acc, c) => acc + (c.attempts || 0), 0);
       await setDoc(doc(db, 'gameScores', `${TODAY}_${u.uid}`), {
-        uid: u.uid,
+        // Field name must be `userId` (not `uid`) to match
+        // firestore.rules:915 — see LOGO_BINGO_LEADERBOARD_AUDIT_2026_05_17.md
+        // finding B1. Mismatch was silently rejected on every solve.
+        userId: u.uid,
         date: TODAY,
         correctCount,
         attempts: totalAttempts,
