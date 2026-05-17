@@ -3666,11 +3666,26 @@ exports.createIdentitySession = onCall(
 );
 
 // ─────────────────────────────────────────────────────────────
-// pushNotificationDispatch (Firestore trigger)
-//   Whenever a notification doc lands at users/{uid}/notifications,
-//   look up the user's FCM tokens (stored at users/{uid}/fcmTokens)
-//   and dispatch the message. Tokens that fail with "registration-
-//   token-not-registered" are pruned automatically.
+// pushNotificationDispatch (Firestore trigger) — LEGACY FAN-OUT
+//
+// Fires on every users/{uid}/notifications/{notifId} doc create and
+// sends an FCM multicast. This path was the original push pipeline
+// (pre pushTriggers.js). Once functions/pushTriggers.js shipped the
+// new direct producers (pushOnOfferCreated / pushOnOfferUpdated /
+// pushOnNewMessage / pushOnOrderCreated), this trigger started
+// double-sending: the JS callers in this file write the notification
+// doc AND fire the new push trigger, so the user got two pushes for
+// the same event.
+//
+// Behaviour:
+//   * config/features.legacyPushDispatch === true  → send FCM (legacy)
+//   * field missing OR === false (default)          → skip FCM send,
+//     but STILL leave the notification doc in place so the in-app
+//     notification center keeps working
+//
+// To re-enable temporarily (rollback):
+//   firebase firestore:set config/features '{"legacyPushDispatch": true}' \
+//     --merge --project teebox-market
 // ─────────────────────────────────────────────────────────────
 exports.pushNotificationDispatch = onDocumentCreated(
   {document: "users/{uid}/notifications/{notifId}", ...LIGHT_TRIGGER},
@@ -3680,6 +3695,26 @@ exports.pushNotificationDispatch = onDocumentCreated(
       const data = event.data && event.data.data();
       if (!data) return;
       const db = admin.firestore();
+
+      // Legacy duplicate-fan-out kill-switch. The new direct producers
+      // in functions/pushTriggers.js are now the canonical FCM senders
+      // for offers + messages + orders. We still want the notification
+      // doc to exist (the in-app notification center reads it), so we
+      // bail BEFORE the messaging.sendEachForMulticast call but AFTER
+      // the trigger has fired.
+      try {
+        const cfgSnap = await db.doc("config/features").get();
+        const legacyPushEnabled = cfgSnap.exists &&
+          cfgSnap.data().legacyPushDispatch === true;
+        if (!legacyPushEnabled) {
+          return;
+        }
+      } catch (_cfgErr) {
+        // Fail closed: if we can't read the flag, default to OFF.
+        // Better to miss one legacy push than double-send every push.
+        return;
+      }
+
       const tokensSnap = await db.collection("users").doc(uid)
         .collection("fcmTokens").get();
       if (tokensSnap.empty) return;

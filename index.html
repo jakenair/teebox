@@ -6060,11 +6060,15 @@ window.confirmPayment = async function() {
   window.routePushNotificationTap = function(data) {
     try {
       const d = data || {};
-      const url = String(d.url || '');
+      // Server sends the teebox:// scheme via `data.url` (lib/push.js
+      // line 158: `url: String(payload.deepLink || "")`), but older client
+      // builds keyed off `deepLink` directly. Accept both for safety.
+      const url = String(d.url || d.deepLink || '');
       // Parse teebox:// custom-scheme URLs (set by server in payload.deepLink).
       // teebox://conversation/{cid}  → open chat
-      // teebox://offer/{offerId}     → open offer (handled elsewhere)
-      // teebox://order/{orderId}     → open order (handled elsewhere)
+      // teebox://offer/{offerId}     → open My Offers (list view)
+      // teebox://order/{orderId}     → open Orders (list view)
+      // (The extended router below also handles listing/search/payouts/bingo.)
       let type = String(d.type || d.kind || '');
       let conversationId = String(d.conversationId || '');
       if (!conversationId && url) {
@@ -6081,6 +6085,32 @@ window.confirmPayment = async function() {
           try { window.location.hash = '#chat/' + encodeURIComponent(conversationId); } catch (_e) {}
         }
         return;
+      }
+      // ── order: teebox://order/{orderId} ───────────────────────────
+      // No per-order detail modal in v1.5 — open the Orders list, which
+      // shows the most recent order at the top. The orderId is also
+      // surfaced via data.orderId for future deep-link work (post-launch).
+      if (url) {
+        const om = url.match(/^teebox:\/\/order\/([^/?#]+)/i);
+        if (om) {
+          if (typeof openOrders === 'function') {
+            setTimeout(() => { try { openOrders(); } catch (_e) {} }, 0);
+          } else {
+            try { window.location.hash = '#orders'; } catch (_e) {}
+          }
+          return;
+        }
+        // ── offer: teebox://offer/{offerId} ─────────────────────────
+        // Same pattern — no per-offer detail view in v1.5; open My Offers.
+        const fm = url.match(/^teebox:\/\/offer\/([^/?#]+)/i);
+        if (fm) {
+          if (typeof openMyOffers === 'function') {
+            setTimeout(() => { try { openMyOffers(); } catch (_e) {} }, 0);
+          } else {
+            try { window.location.hash = '#offers'; } catch (_e) {}
+          }
+          return;
+        }
       }
       // Unrecognised type — surface a toast so the user gets feedback.
       if (window.showToast) window.showToast('Opening…', 'info');

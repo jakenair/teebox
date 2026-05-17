@@ -191,14 +191,22 @@ exports.pushOnOrderCreated = onDocumentCreated(
       const order = event.data && event.data.data();
       if (!order || !order.sellerId) return;
       const orderId = event.params.orderId;
-      const listing = await _lookupListing(order.listingId);
+      // Parallelise listing + buyer-name lookup — the previous body was
+      // "{listingTitle} — print your label…" with no buyer name, which
+      // the notification audit (2026-05-17) flagged as a warning. Sellers
+      // now see WHO bought their item, not just the price.
+      const [listing, buyerDisplayName] = await Promise.all([
+        _lookupListing(order.listingId),
+        _lookupUserName(order.buyerId),
+      ]);
       const listingTitle = listing.title || "your item";
       const photo = (listing.photos && listing.photos[0]) || null;
       const amount = Number(order.amount || 0);
 
       await sendPush(order.sellerId, {
         title: `Your item sold for $${amount.toLocaleString()}`,
-        body: `${listingTitle} — print your label and ship within 3 business days.`,
+        body: `${buyerDisplayName || "Someone"} bought ${listingTitle}. ` +
+          `Print your label and ship within 3 business days.`,
         deepLink: `teebox://order/${orderId}`,
         imageUrl: photo || "",
         kind: "order-placed",
@@ -207,6 +215,7 @@ exports.pushOnOrderCreated = onDocumentCreated(
           listingId: order.listingId || "",
           listingTitle,
           amount: String(amount),
+          buyerDisplayName: String(buyerDisplayName || ""),
         },
       }, "orders", {
         // Time-sensitive: sellers need to know fast so they ship on time.
