@@ -180,20 +180,6 @@
         { "fieldPath": "date", "order": "ASCENDING" },
         { "fieldPath": "correctCount", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "messages",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "senderId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "messages",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "receiverId", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": [
@@ -209,6 +195,22 @@
           "queryScope": "COLLECTION_GROUP",
           "order": "ASCENDING"
         }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "fieldPath": "senderId",
+      "indexes": [
+        { "queryScope": "COLLECTION", "order": "ASCENDING" },
+        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "fieldPath": "receiverId",
+      "indexes": [
+        { "queryScope": "COLLECTION", "order": "ASCENDING" },
+        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
       ]
     }
   ]
