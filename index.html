@@ -15363,14 +15363,12 @@ A['stripe-connect']          = async () => {
             'notifySecurityEvent(payout_method_changed) failed:', e));
       } catch (_e) { /* swallow — security alert is best-effort */ }
     }
-    // On Capacitor (iOS), open in the system browser so Stripe's OAuth
-    // pages get the cookies they expect. On web, just navigate.
-    const Cap = window.Capacitor;
-    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
-      window.location.href = url;
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
+    // Always same-page redirect for Stripe Connect onboarding.
+    // window.open(url, '_blank') is popup-blocked by Chrome/Safari/Firefox
+    // because the await above breaks the user-gesture chain. Collapsing
+    // both branches to location.href matches Stripe's recommended pattern;
+    // return_url handler already detects ?stripe=onboarded on return.
+    window.location.href = url;
   } catch (e) {
     console.error('stripe-connect failed:', e);
     showToast('Could not start Stripe setup. Try again.');
