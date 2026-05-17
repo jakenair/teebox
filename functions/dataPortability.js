@@ -221,10 +221,39 @@ exports.exportMyData = onCall(
           collectionByEitherField(db, "orders", "buyerId", "sellerId", uid)),
         safeBundle("listings", () =>
           collectionByField(db, "listings", "sellerId", uid)),
+        // MEDIUM-3: reviews schema uses buyerId/sellerId (see firestore.rules:466),
+        // not authorId/targetUid. The old field names matched nothing and the
+        // export bundle was always empty.
         safeBundle("reviews", () =>
-          collectionByEitherField(db, "reviews", "authorId", "targetUid", uid)),
-        safeBundle("messages", () =>
-          collectionByEitherField(db, "messages", "senderId", "receiverId", uid)),
+          collectionByEitherField(db, "reviews", "buyerId", "sellerId", uid)),
+        // MEDIUM-2: messages live at conversations/{cid}/messages/{mid}, a
+        // subcollection — not a top-level collection. Use collectionGroup
+        // queries (senderId + receiverId), merge, dedupe. Surface the parent
+        // conversationId on each message so users can reconstruct threads.
+        safeBundle("messages", async () => {
+          const [sentSnap, receivedSnap] = await Promise.all([
+            db.collectionGroup("messages")
+                .where("senderId", "==", uid).limit(5000).get(),
+            db.collectionGroup("messages")
+                .where("receiverId", "==", uid).limit(5000).get(),
+          ]);
+          const seen = new Set();
+          const out = [];
+          const push = (d) => {
+            if (seen.has(d.id)) return;
+            seen.add(d.id);
+            const conversationId = d.ref.parent.parent ?
+              d.ref.parent.parent.id : null;
+            out.push(isoizeTimestamps({
+              id: d.id,
+              conversationId,
+              ...d.data(),
+            }));
+          };
+          sentSnap.docs.forEach(push);
+          receivedSnap.docs.forEach(push);
+          return out;
+        }),
         safeBundle("disputes", () =>
           collectionByEitherField(db, "disputes", "buyerId", "sellerId", uid)),
         safeBundle("offers", () =>

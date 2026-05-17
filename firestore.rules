@@ -15,9 +15,21 @@ service cloud.firestore {
       return true;
     }
 
-    // Hardcoded admin email allowlist. Used by the moderation queue
-    // (flaggedListings collection) and admin-only listing status
-    // updates. Email is on the JWT — Firebase Auth populates
+    // Admin email allowlist — DEFENSE-IN-DEPTH backstop.
+    //
+    // The canonical admin allowlist now lives in the ADMIN_ALLOWLIST
+    // Firebase Secret, read by the Cloud Function callables (banUser,
+    // suspendUser, takeDownListing, refundOrder admin path,
+    // backfillGlobalStats — see isAdminEmail()/adminGate() in
+    // functions/index.js). Firestore rules CANNOT read Firebase
+    // Secrets, so we keep a hardcoded literal here as a second line of
+    // defense. When admins are added/removed, update both:
+    //   1. ADMIN_ALLOWLIST secret (firebase functions:secrets:set)
+    //   2. The literal in this file + storage.rules
+    // Future iteration: move to Firebase custom claims
+    // (request.auth.token.admin == true) to eliminate this duplication.
+    //
+    // Email is on the JWT — Firebase Auth populates
     // request.auth.token.email when the provider supplies one
     // (Google, email/password, Apple-with-email). Phone-only sign-ins
     // have no email so this check naturally excludes them.

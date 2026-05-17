@@ -19,6 +19,16 @@ const geminiSecret = defineSecret("GEMINI_API_KEY");
 // sendEmail wrapper — caused a TDZ when stripeWebhook tried to bind it.
 const RESEND_KEY = defineSecret("RESEND_API_KEY");
 
+// Admin allowlist — comma-separated emails stored in a Firebase Secret
+// so we can rotate / expand admins without a code deploy. Bound to every
+// callable that calls isAdminEmail() / adminGate(). Set via:
+//   firebase functions:secrets:set ADMIN_ALLOWLIST --project=teebox-market
+//     --data-file=- < <(printf 'jakenair23@gmail.com')
+// firestore.rules and storage.rules still keep a hardcoded literal as
+// defense-in-depth (rules can't read secrets); the Cloud Function path
+// is the canonical source.
+const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
+
 // ── Analytics helper (PostHog product analytics) ─────────────────────
 // captureServerEvent fires snake_case product events from server-side
 // flows (Stripe webhooks, refund callable, dispute webhook) per the
@@ -110,15 +120,55 @@ class HttpError extends Error {
   }
 }
 
-// Admin email allowlist — mirrors firestore.rules:24-30 isAdmin(). Used
-// to gate platform-staff-only callable branches (e.g. refundOrder). Keep
-// in sync with the firestore.rules list manually until we move to a
-// proper admin custom-claim. Compare case-insensitively because Firebase
-// email tokens preserve user-entered casing.
+// Admin email allowlist — sourced from the ADMIN_ALLOWLIST secret
+// (comma-separated). Parsed once at module scope per cold start, then
+// reused. Every callable that uses isAdminEmail()/adminGate() must
+// declare ADMIN_ALLOWLIST in its `secrets:` array. firestore.rules /
+// storage.rules keep a hardcoded list as defense-in-depth because
+// Firestore/Storage rules cannot read Firebase Secrets — the Cloud
+// Function path is the canonical source.
+let _adminList = null;
+function getAdminList() {
+  if (_adminList) return _adminList;
+  let raw = "";
+  try {
+    raw = ADMIN_ALLOWLIST.value() || "";
+  } catch (_e) {
+    raw = "";
+  }
+  _adminList = raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  return _adminList;
+}
+
 function isAdminEmail(email) {
   if (!email) return false;
-  const allow = ["jakenair23@gmail.com"]; // hardcoded for v1
-  return allow.includes(String(email).toLowerCase());
+  return getAdminList().includes(String(email).toLowerCase());
+}
+
+// Step-up reauth gate for DESTRUCTIVE admin actions (banUser,
+// suspendUser, takeDownListing, refundOrder admin path). The Firebase
+// ID token includes `auth_time` (UNIX seconds) of the last
+// reauthentication. We require the caller to have reauthenticated
+// within the last 5 minutes; otherwise we throw failed-precondition
+// with {reauthRequired: true} so the client UI can intercept and
+// force a re-login. Read-only admin endpoints (moderation queue
+// reads, user lookup, etc.) are intentionally NOT gated by this —
+// those are fine with session-level auth.
+const ADMIN_REAUTH_WINDOW_SECS = 300;
+function requireFreshAdminAuth(req) {
+  const authTime = req && req.auth && req.auth.token &&
+    req.auth.token.auth_time;
+  const nowSecs = Math.floor(Date.now() / 1000);
+  if (typeof authTime !== "number" ||
+      nowSecs - authTime > ADMIN_REAUTH_WINDOW_SECS) {
+    throw new HttpsError(
+        "failed-precondition",
+        "Admin re-auth required",
+        {reauthRequired: true, lastAuthAt: authTime || null});
+  }
 }
 
 async function getAuthedUser(req) {
@@ -2679,23 +2729,23 @@ exports.moderateMessage = onDocumentCreated(
 //   takeDownListing / onReportCreate.
 //
 //   adminGate() — single source of truth for who can call the
-//   privileged onCall functions. Keep ADMIN_EMAILS in sync with the
-//   front-end MODERATION_ADMIN_EMAILS list and the isAdmin() helper
-//   inside firestore.rules / storage.rules.
+//   privileged onCall functions. Backed by the ADMIN_ALLOWLIST
+//   Firebase Secret (parsed once per cold start by getAdminList()
+//   above). Every callable using adminGate() must bind ADMIN_ALLOWLIST
+//   in its `secrets:` array. The firestore.rules / storage.rules
+//   isAdmin() helpers keep a hardcoded literal as defense-in-depth.
 //
 //   Every admin action writes to adminActions/{auto} with admin uid,
 //   email, target ref, reason, and a serverTimestamp — the runbook
 //   relies on this audit log for "who removed listing X" forensics.
 // ─────────────────────────────────────────────────────────────
-const ADMIN_MOD_EMAILS = new Set(["jakenair23@gmail.com"]);
-
 function adminGate(req) {
   if (!req.auth) {
     throw new HttpsError("unauthenticated", "Sign in required");
   }
   const email = (req.auth.token && req.auth.token.email) || "";
   const verified = !!(req.auth.token && req.auth.token.email_verified);
-  if (!verified || !ADMIN_MOD_EMAILS.has(String(email).toLowerCase())) {
+  if (!verified || !isAdminEmail(email)) {
     throw new HttpsError("permission-denied", "Admin only");
   }
 }
@@ -2717,9 +2767,13 @@ async function logAdminAction(req, action, targetType, targetId, reason, metadat
   }
 }
 
-exports.banUser = onCall({...USER_CALLABLE}, async (req) => {
-  adminGate(req);
-  const {uid, reason} = req.data || {};
+exports.banUser = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      // Destructive admin action — require a fresh re-auth within 5 min.
+      requireFreshAdminAuth(req);
+      const {uid, reason} = req.data || {};
   if (!uid || typeof uid !== "string") {
     throw new HttpsError("invalid-argument", "uid required");
   }
@@ -2752,9 +2806,13 @@ exports.banUser = onCall({...USER_CALLABLE}, async (req) => {
   return {ok: true, listingsRemoved: ls.size};
 });
 
-exports.suspendUser = onCall({...USER_CALLABLE}, async (req) => {
-  adminGate(req);
-  const {uid, hours, reason} = req.data || {};
+exports.suspendUser = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      // Destructive admin action — require a fresh re-auth within 5 min.
+      requireFreshAdminAuth(req);
+      const {uid, hours, reason} = req.data || {};
   if (!uid || typeof uid !== "string") {
     throw new HttpsError("invalid-argument", "uid required");
   }
@@ -2772,9 +2830,13 @@ exports.suspendUser = onCall({...USER_CALLABLE}, async (req) => {
   return {ok: true, suspendedUntil: until.toISOString()};
 });
 
-exports.takeDownListing = onCall({...USER_CALLABLE}, async (req) => {
-  adminGate(req);
-  const {listingId, reason} = req.data || {};
+exports.takeDownListing = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      // Destructive admin action — require a fresh re-auth within 5 min.
+      requireFreshAdminAuth(req);
+      const {listingId, reason} = req.data || {};
   if (!listingId || typeof listingId !== "string") {
     throw new HttpsError("invalid-argument", "listingId required");
   }
@@ -4774,8 +4836,9 @@ exports.createBillingPortalSession = onCall(
 // ─────────────────────────────────────────────────────────────
 exports.refundOrder = onCall(
   // posthogSecret attached so `refund_issued` server-event can fire
-  // after the Stripe refund + Firestore mirror succeed.
-  {secrets: [stripeSecret, posthogSecret]},
+  // after the Stripe refund + Firestore mirror succeed. ADMIN_ALLOWLIST
+  // is bound so isAdminEmail() can resolve the admin branch.
+  {secrets: [stripeSecret, posthogSecret, ADMIN_ALLOWLIST]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -4807,6 +4870,14 @@ exports.refundOrder = onCall(
       throw new HttpsError(
         "permission-denied",
         "Only the seller or an admin can issue a refund.");
+    }
+    // Step-up reauth ONLY on the admin path — sellers self-refunding
+    // their own orders use session-level auth (their store-level
+    // controls already gate their actions). When an admin is refunding
+    // someone else's order (and they're not also the seller), force a
+    // fresh re-auth.
+    if (isCallerAdmin && !isCallerSeller) {
+      requireFreshAdminAuth(request);
     }
     if (pre.refunded && !Number.isFinite(Number(amount))) {
       throw new HttpsError(
@@ -5653,9 +5724,13 @@ exports.moderateProfileOnWrite = onDocumentUpdated(
 //   Or via gcloud / `firebase functions:shell`. Returns {totalGmvCents,
 //   totalSold, ordersScanned}.
 // ─────────────────────────────────────────────────────────────
-const ADMIN_EMAILS = ["jakenair23@gmail.com"];
 exports.backfillGlobalStats = onCall(
-    {...USER_CALLABLE, timeoutSeconds: 300, memory: "512MiB"},
+    {
+      ...USER_CALLABLE,
+      timeoutSeconds: 300,
+      memory: "512MiB",
+      secrets: [ADMIN_ALLOWLIST],
+    },
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in");
@@ -5663,9 +5738,11 @@ exports.backfillGlobalStats = onCall(
       const email = request.auth.token && request.auth.token.email;
       const verified = request.auth.token &&
         request.auth.token.email_verified === true;
-      if (!verified || !ADMIN_EMAILS.includes(email)) {
+      if (!verified || !isAdminEmail(email)) {
         throw new HttpsError("permission-denied", "Admin only");
       }
+      // Destructive bulk write — require a fresh re-auth within 5 min.
+      requireFreshAdminAuth(request);
 
       const db = admin.firestore();
       // Page through paid orders to avoid blowing past Firestore limits.

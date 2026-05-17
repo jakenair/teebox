@@ -491,7 +491,10 @@ exports.createShippingLabel = onCall(
  */
 exports.getShippingFeatureFlag = onCall(
     {...USER_CALLABLE, secrets: [SHIPPO_API_KEY]},
-    async (_request) => {
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Sign in required.");
+      }
       let v = "";
       try {
         v = SHIPPO_API_KEY.value() || "";

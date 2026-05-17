@@ -10,10 +10,15 @@ service firebase.storage {
       return true;
     }
 
-    // Hardcoded admin allowlist — kept in sync with firestore.rules
-    // isAdmin(). Used by the moderation queue's "Reject + delete"
-    // path so admin can purge a flagged listing's photos directly
-    // from the client without needing a callable function.
+    // Admin allowlist — DEFENSE-IN-DEPTH backstop. Canonical source is
+    // now the ADMIN_ALLOWLIST Firebase Secret consumed by Cloud
+    // Function callables (see isAdminEmail()/adminGate() in
+    // functions/index.js). Storage rules cannot read secrets, so this
+    // hardcoded literal stays here as a second line of defense. Keep
+    // in sync with firestore.rules isAdmin() and the secret value.
+    // Used by the moderation queue's "Reject + delete" path so admin
+    // can purge a flagged listing's photos directly from the client
+    // without needing a callable function.
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email_verified == true
