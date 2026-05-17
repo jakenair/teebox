@@ -4489,7 +4489,37 @@ exports.getStripeAccountStatus = onCall(
       return {connected: false};
     }
     const stripeClient = stripe(stripeSecret.value());
-    const acct = await stripeClient.accounts.retrieve(user.stripeAccountId);
+    let acct;
+    try {
+      acct = await stripeClient.accounts.retrieve(user.stripeAccountId);
+    } catch (err) {
+      // Self-heal: if the stored id is a leftover test-mode Connect account
+      // (or otherwise missing), the live-mode Stripe key throws here. Clear
+      // the orphaned id so the next "Set up payouts" click can create a
+      // fresh live-mode account, and tell the client it was reset.
+      const msg = String((err && err.message) || err);
+      const code = err && err.code;
+      const status = err && err.statusCode;
+      const isOrphan =
+        code === "resource_missing" ||
+        /test account|No such account/i.test(msg) ||
+        (status === 400 && /was a test account/i.test(msg));
+      if (isOrphan) {
+        await db.collection("users").doc(uid).update({
+          stripeAccountId: admin.firestore.FieldValue.delete(),
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+          stripeDetailsSubmitted: false,
+        }).catch(() => {});
+        return {
+          connected: false,
+          chargesEnabled: false,
+          recovered: true,
+          message: "Previous Stripe setup was reset",
+        };
+      }
+      throw new HttpsError("internal", msg);
+    }
     // Cache the booleans in Firestore so the client can skip the round-trip
     // to Stripe on every page load — webhook already does this on changes,
     // this is a belt-and-suspenders sync for first-time fetches.
