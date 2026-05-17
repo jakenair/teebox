@@ -6,6 +6,7 @@ export const LOGOS_AVAILABLE = new Set([
   'alotian',
   'aronimink',
   'atlanta-athletic-club',
+  'augusta-national',
   'baltusrol-lower',
   'bandon-dunes',
   'bellerive',
