@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import FirebaseCore
 import FirebaseAuth
+import FirebaseCrashlytics
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,6 +11,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         FirebaseApp.configure()
+        // Crashlytics auto-initializes once FirebaseApp.configure() runs and
+        // the pod is linked, but calling setCrashlyticsCollectionEnabled
+        // explicitly (a) confirms wiring at compile time and (b) overrides
+        // any future opt-out we might wire into user prefs. See PR 4 in
+        // BUG_TRIAGE_2026_05_17.md — Bug 5 prerequisite.
+        Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
         }

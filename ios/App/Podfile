@@ -39,6 +39,12 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  # Firebase Crashlytics — iOS crash + non-fatal error reporting.
+  # CapacitorFirebaseAuthentication transitively pulls FirebaseAuth ~> 11.7.0
+  # (which drags FirebaseCore 11.7.x). Pin Crashlytics to the matching 11.7.x
+  # line so CocoaPods doesn't try to bump FirebaseCore and create a version
+  # conflict with FirebaseAuth's pin.
+  pod 'FirebaseCrashlytics', '~> 11.7'
 end
 
 post_install do |installer|

@@ -4431,12 +4431,13 @@
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
       </div>
       <div class="form-row">
-        <label for="sellDesc" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <span>Description</span>
-          <button type="button" id="aiDescBtn" class="ai-desc-btn" data-action="ai-write-desc" disabled title="Fill in title, brand, category, and condition first" aria-label="Write description with AI">
-            <span class="ai-desc-spark" aria-hidden="true">&#10024;</span> Write description for me
-          </button>
-        </label>
+        <!-- AI "Write description for me" button removed 2026-05-17 per
+             founder decision: Gemini free-tier was exhausted and billing
+             setup not worth the friction for v1. Cloud Function
+             generateListingDescription stays deployed but unreachable
+             from UI. Re-enable by restoring the button markup + activating
+             billing on the Gemini key. -->
+        <label for="sellDesc">Description</label>
         <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
@@ -7187,8 +7188,19 @@ window.confirmPayment = async function() {
         }
       }
       let msg = 'Error submitting. Try again.';
-      if (code.includes('permission-denied') || code.includes('unauthenticated')) {
-        msg = 'Permission denied. Sign out, sign back in, and try again.';
+      // permission-denied on listing create almost always means the seller's
+      // Stripe Connect KYC isn't complete (the security rule requires
+      // chargesEnabled). The pre-publish gate above SHOULD have caught this,
+      // but if a race or stale-cache slips through we route the user to the
+      // proper payout-setup modal instead of the misleading "sign out, sign
+      // back in" copy. unauthenticated is a separate case (token expired)
+      // and gets the generic retry copy.
+      if (code.includes('permission-denied')) {
+        try { showStripeRequiredDialog(stripeStatus); }
+        catch (e2) { console.warn('showStripeRequiredDialog failed:', e2); }
+        msg = "Your seller payouts aren't fully set up yet. Tap 'Set up payouts' — about 3 minutes via Stripe.";
+      } else if (code.includes('unauthenticated')) {
+        msg = 'Session expired. Please try again.';
       } else if (code.includes('storage/')) {
         msg = 'Photo upload failed. Try a smaller image or fewer photos.';
       } else if (code.includes('app-check')) {
@@ -14145,6 +14157,14 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-chev">›</span>
            </button>
          </div>
+         <!-- HIDDEN: triple-tap the version number to fire a synthetic JS
+              exception that bubbles to native so we can verify Firebase
+              Crashlytics is receiving crash reports from this build.
+              REMOVE BEFORE PUBLIC LAUNCH. Tracked in
+              BUG_TRIAGE_2026_05_17.md (Bug 5 / PR 4). -->
+         <div style="text-align:center;margin-top:18px;padding:12px 0;">
+           <small data-action="crashlytics-test-tap" data-version style="opacity:.5;font-size:12px;color:var(--gray-600);user-select:none;-webkit-user-select:none;cursor:default;">TeeBox v1.5.0 (build 55)</small>
+         </div>
        </div>`
     : '';
 
@@ -15524,6 +15544,31 @@ A['unpin-listing']           = (_el) => { if (!window.requireAuth('to unpin your
 A['payout-export-csv']       = () => { if (!window.requireAuth('to export your payouts')) return; exportPayoutsCsv(); };
 A['seller-tour-next']        = () => advanceSellerTour();
 A['seller-tour-skip']        = () => dismissSellerTour({ markSeen: true });
+
+// HIDDEN: triple-tap the version number in Settings (Account hub footer)
+// to test Crashlytics. Three taps within 500ms throws a synthetic uncaught
+// JS error so we can confirm Firebase Crashlytics is wired and the
+// dashboard is receiving reports. The native layer is configured in
+// ios/App/App/AppDelegate.swift (FirebaseCrashlytics pod + explicit
+// setCrashlyticsCollectionEnabled(true)).
+// REMOVE BEFORE PUBLIC LAUNCH. Tracked in BUG_TRIAGE_2026_05_17.md (Bug 5 / PR 4).
+window.__crashTapHits = 0;
+window.__crashTapTimer = null;
+A['crashlytics-test-tap']    = () => {
+  window.__crashTapHits = (window.__crashTapHits || 0) + 1;
+  if (window.__crashTapTimer) clearTimeout(window.__crashTapTimer);
+  window.__crashTapTimer = setTimeout(() => { window.__crashTapHits = 0; }, 500);
+  if (window.__crashTapHits >= 3) {
+    window.__crashTapHits = 0;
+    // Defer so the throw is uncaught (outside the click-delegation try/catch
+    // a few hundred lines up) and bubbles to the native crash handler that
+    // Crashlytics swizzles into UncaughtExceptionHandler.
+    setTimeout(() => {
+      throw new Error('TeeBox: Crashlytics test crash trigger (triple-tap from Settings)');
+    }, 0);
+  }
+};
+
 A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
