@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "emailSends",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "sentAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bids",
       "queryScope": "COLLECTION",
       "fields": [

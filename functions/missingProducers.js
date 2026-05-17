@@ -474,6 +474,16 @@ exports.stripeConnectWebhook = onRequest(
     async (req, res) => {
       const stripeClient = stripe(stripeSecret.value());
       const sig = req.headers["stripe-signature"];
+      // Empty-body probes from scanners hitting the public URL fail
+      // signature verification with "No webhook payload was provided"
+      // and pollute Cloud Logging at ERROR severity. Detect them up
+      // front and bail with INFO-level noise instead of an error stack.
+      if (!req.rawBody || req.rawBody.length === 0 || !sig) {
+        logger.info(
+            "Connect webhook empty/unsigned probe ignored " +
+            `(rawBody=${req.rawBody ? req.rawBody.length : 0}B sig=${!!sig})`);
+        return res.status(400).send("Webhook Error: missing payload or signature");
+      }
       let event;
       try {
         event = stripeClient.webhooks.constructEvent(
