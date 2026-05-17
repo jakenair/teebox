@@ -11,25 +11,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-  # Use the /Google subspec so GoogleSignIn pod is linked and the
-  # RGCFA_INCLUDE_GOOGLE compile flag activates the native Google flow.
-  # Without this, FBAuthPlugin.signInWithGoogle() throws/hangs because
-  # the GIDSignIn code paths are stripped from /Lite (default).
-  # Apple Sign-In does NOT need a subspec — it ships in /Lite plus the
-  # com.apple.developer.applesignin entitlement (set in App.entitlements).
-  # Phone auth also ships in /Lite (uses FirebaseAuth's built-in APNs flow).
-  #
-  # CRITICAL: must reference BOTH the bare pod and the subspec. With only
-  # `pod 'X/Google'`, CocoaPods + use_frameworks! produces an empty
-  # PBXAggregateTarget for CapacitorFirebaseAuthentication — the plugin's
-  # Swift sources are NEVER compiled into any framework, so
-  # NSClassFromString("FirebaseAuthenticationPlugin") returns nil at
-  # runtime and Capacitor can't register the plugin. All 3 native sign-in
-  # flows then silently fall through to the web fallback (which doesn't
-  # work in WKWebView). Adding the bare pod first forces CocoaPods to
-  # generate a proper PBXNativeTarget framework that compiles ios/Plugin/.
   pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
-  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
@@ -45,6 +27,12 @@ target 'App' do
   # line so CocoaPods doesn't try to bump FirebaseCore and create a version
   # conflict with FirebaseAuth's pin.
   pod 'FirebaseCrashlytics', '~> 11.7'
+  # HIGH-1 Phase 1 — Firebase App Check (App Attest provider on iOS 14+,
+  # DeviceCheck fallback for older). Pinned to the same 11.7 line as the
+  # other Firebase pods so CocoaPods doesn't bump FirebaseCore. Phase 1 is
+  # client-init only — server enforcement turns on in Phase 2 after 24-48h
+  # of dashboard monitoring data confirms tokens flow on legitimate traffic.
+  pod 'FirebaseAppCheck', '~> 11.7'
 end
 
 post_install do |installer|

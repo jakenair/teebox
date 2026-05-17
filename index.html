@@ -5139,10 +5139,20 @@ window.confirmPayment = async function() {
   const _capForAppCheck = (typeof window !== 'undefined') ? window.Capacitor : null;
   const _isNativeForAppCheck = !!(_capForAppCheck && _capForAppCheck.isNativePlatform && _capForAppCheck.isNativePlatform());
   if (!_isNativeForAppCheck) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
-      isTokenAutoRefreshEnabled: true,
-    });
+    // try/catch so an App Check provider hiccup (network blip, key not yet
+    // propagated, etc.) doesn't break app boot on day 1 of Phase 1 rollout.
+    // Phase 2 will turn on enforcement at the dashboard once the monitor
+    // metrics confirm >95% of legit traffic carries valid tokens.
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (e) {
+      // Non-fatal: dashboard will show this client as unverified, but
+      // requests still go through (Phase 1 is monitor-only).
+      console.warn('App Check init failed:', e && e.message);
+    }
   }
 
   // CRITICAL: on Capacitor (iOS WKWebView), Firebase Auth's default

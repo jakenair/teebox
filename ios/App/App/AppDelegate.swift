@@ -3,6 +3,22 @@ import Capacitor
 import FirebaseCore
 import FirebaseAuth
 import FirebaseCrashlytics
+import FirebaseAppCheck
+
+// HIGH-1 Phase 1 — App Check provider factory. Uses App Attest on iOS 14+
+// (project's deployment target floor) and falls back to DeviceCheck just in
+// case a stray older device gets through. MUST be installed BEFORE
+// FirebaseApp.configure() so the first Firebase request carries a token.
+// Phase 1 is monitor-only — server-side enforcement flips on in Phase 2 after
+// 24-48h of dashboard data confirms tokens are flowing on legit clients.
+class AppAttestProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+        if #available(iOS 14.0, *) {
+            return AppAttestProvider(app: app)
+        }
+        return DeviceCheckProvider(app: app)
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,6 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Install the App Check provider factory BEFORE FirebaseApp.configure()
+        // so the first Firebase SDK call (Auth, Firestore, Functions) attaches
+        // a valid App Check token.
+        AppCheck.setAppCheckProviderFactory(AppAttestProviderFactory())
         FirebaseApp.configure()
         // Crashlytics auto-initializes once FirebaseApp.configure() runs and
         // the pod is linked, but calling setCrashlyticsCollectionEnabled
