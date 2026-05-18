@@ -236,7 +236,9 @@ service cloud.firestore {
       // sellerVerified, tier, proSubscriptionStatus, frozen, frozenAt,
       // marketingConsent (GDPR audit trail — see GDPR_CONSENT_SCHEMA.md;
       // client MUST use the updateMarketingConsent callable), and
-      // marketingBannerDismissedAt (set via dismissMarketingBanner callable).
+      // marketingBannerDismissedAt (set via dismissMarketingBanner callable),
+      // unreadConversations (server-derived counter written by
+      // messageReadState.js triggers — see that file's header).
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
@@ -749,6 +751,40 @@ service cloud.firestore {
           && notBlockedByRecipient();
         allow update, delete: if false;
       }
+
+      // ─────────────────────────────────────────────
+      // PARTICIPANT STATE — per-participant read receipts. Each user
+      // writes their own doc (id == their uid) under the conversation
+      // to advance their `lastReadAt` cursor. The
+      // onParticipantStateReadCount Cloud Function (Admin SDK
+      // bypasses these rules) reacts to the update and recomputes
+      // the user's denormalized `unreadConversations` counter on
+      // users/{uid}.
+      //
+      //   create / update: only the owning participant, and only the
+      //                    `lastReadAt` field. Doc id must equal the
+      //                    auth uid (one doc per participant).
+      //   read: any participant of the parent conversation (we don't
+      //         hide who's read what — both sides see the read state).
+      //   delete: never
+      // ─────────────────────────────────────────────
+      match /participantState/{uid} {
+        function conv2() {
+          return get(/databases/$(database)/documents/conversations/$(convId)).data;
+        }
+        allow read: if request.auth != null
+                    && request.auth.uid in conv2().participants;
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && uid in conv2().participants
+          && request.resource.data.keys().hasOnly(['lastReadAt'])
+          && request.resource.data.lastReadAt == request.time;
+        allow update: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastReadAt'])
+          && request.resource.data.lastReadAt == request.time;
+        allow delete: if false;
+      }
     }
 
     // ─────────────────────────────────────────────
@@ -1057,6 +1093,20 @@ service cloud.firestore {
     // ─────────────────────────────────────────────
     match /pushPending/{pendingId} {
       allow read, write: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // MODERATION LOG — audit trail for every content_violation reject
+    // written by the server-side filter (moderation/contentFilter.js).
+    // Each row records uid, contentType, category, redactedExcerpt
+    // (first 10 chars + *** + last 5), originatingIp, timestamp. The
+    // full violating content is NEVER stored. Admin-only read so
+    // moderation queue UX can surface patterns; client cannot read or
+    // write. Cloud Functions (Admin SDK) own all writes.
+    // ─────────────────────────────────────────────
+    match /moderationLog/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // ─────────────────────────────────────────────

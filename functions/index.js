@@ -2626,8 +2626,41 @@ exports.moderateMessage = onDocumentCreated(
       const text = msg.text || "";
       if (!text) return;
 
-      // TODO: enable Gemini classifier in v2 for ambiguous SOFT-only
-      // messages. v1 is deterministic regex + keyword only.
+      // Layer A — content moderation (slurs / profanity / harassment).
+      // Runs BEFORE the PII detector so we delete the message outright
+      // for hard category violations rather than just flagging. The
+      // sendMessage callable already pre-checks, but clients can still
+      // write to /messages directly via firestore.rules, so this trigger
+      // is the backstop. scanContent (loaded near line 5670) writes
+      // moderationLog internally.
+      try {
+        const senderIdForScan = msg.senderId || msg.fromUid || null;
+        const {scanContent: _scanContent} =
+          require("./moderation/contentFilter");
+        const modResult = await _scanContent(
+            text, "message", senderIdForScan, null,
+        );
+        if (!modResult.clean) {
+          logger.warn("moderation: deleting message (content violation)", {
+            messageId: event.params.messageId,
+            conversationId: event.params.cid,
+            category: modResult.category,
+          });
+          try {
+            await event.data.ref.delete();
+          } catch (e) {
+            logger.error("moderation: message delete failed", e);
+          }
+          return;
+        }
+      } catch (e) {
+        logger.error("moderateMessage: content scan failed", e);
+        // Fail open — continue to PII layer.
+      }
+
+      // Layer B — PII / off-platform detector (existing). Keeps the
+      // soft-flag + hard-flag UI semantics so seller-buyer exchanges
+      // outside the marketplace get warned, not blocked.
       const det = modDetectOffPlatform(text);
       if (!det.matched) return;
 
@@ -5649,15 +5682,32 @@ exports.suggestListingPrice = onCall(
 );
 
 // ──────────────────────────────────────────────────────────────────────
-// moderateListingOnCreate
+// CONTENT MODERATION TRIGGERS
 //
-// Server-side enforcement of the explicit-content blocklist. The client
-// runs the same check before submit, but a malicious client could bypass
-// it. This trigger fires when any new listing is created and removes the
-// doc if the title/desc/brand contain a blocked term. We also flag
-// listings that will need photo moderation (Cloud Vision SafeSearch is
-// applied separately by optimizeListingPhoto on each photo upload).
+// Apple App Store guideline 1.2 requires UGC apps to filter offensive
+// content. The canonical filter lives in moderation/contentFilter.js —
+// these triggers are the chokepoints that delete / clear UGC docs when
+// the filter rejects them. Audit writes to moderationLog/{auto_id}
+// happen inside scanContent (best-effort, never blocks the reject
+// path). All four contentType values covered:
+//
+//   listing  → moderateListingOnCreate (delete on reject)
+//   message  → moderateMessage (existing PII trigger + new content
+//                filter) + sendMessage callable pre-check (throws
+//                HttpsError on reject)
+//   profile  → moderateProfileOnWrite (onUpdate; clears offending
+//              field) + moderateProfileOnCreate (onCreate; same)
+//              + moderateUserDocOnWrite (users/{uid}.displayName)
+//   offer    → moderateOfferOnCreate (delete on reject)
+//
+// The legacy EXPLICIT_BLOCKLIST / findExplicitTerm helpers below are
+// kept ONLY because `moderateMessage` (line ~2616) still calls
+// modDetectOffPlatform which is a different (PII-focused) detector.
+// findExplicitTerm itself is no longer used — superseded by
+// scanContent. Left in place to avoid touching unrelated areas.
 // ──────────────────────────────────────────────────────────────────────
+const {scanContent, scanFields} = require("./moderation/contentFilter");
+
 const EXPLICIT_BLOCKLIST = [
   "fuck", "shit", "asshole", "bitch", "cunt", "dick ", "pussy", "cock ",
   "tits", "tit ", "whore", "slut", "bastard", "retard", "fag", "faggot",
@@ -5680,65 +5730,173 @@ function findExplicitTerm(text) {
   return null;
 }
 
+// ── moderateListingOnCreate ─────────────────────────────────────────
+// Fires on listings/{id} create. Calls scanContent across every
+// freeform field. If ANY field violates, the listing is deleted and
+// a moderationLog audit row is written. We deliberately do NOT log
+// the matched term or full field contents — scanContent already
+// captured the redacted excerpt in moderationLog.
 exports.moderateListingOnCreate = onDocumentCreated(
     {document: "listings/{listingId}", ...LIGHT_TRIGGER},
     async (event) => {
       const snap = event.data;
       if (!snap) return;
-      const d = snap.data();
-      // Cover every freeform string field a seller controls. `cat` and
-      // `condition` are dropdowns client-side but a malicious client
-      // could POST anything, so we sweep them too.
-      const haystack = [d.title, d.brand, d.desc, d.cat, d.condition]
-          .filter(Boolean).join(" ");
-      const term = findExplicitTerm(haystack);
-      if (!term) return;
-
-      logger.warn("moderation: blocking listing for explicit term", {
-        listingId: event.params.listingId,
-        sellerId: d.sellerId,
-        term,
-      });
+      const d = snap.data() || {};
+      const sellerId = d.sellerId || null;
+      const result = await scanFields(
+          {title: d.title, brand: d.brand, desc: d.desc,
+            cat: d.cat, condition: d.condition},
+          "listing",
+          sellerId,
+          null,
+      );
+      if (result.clean) return;
+      logger.warn(
+          "moderation: blocking listing (content violation)",
+          {listingId: event.params.listingId,
+            sellerId, category: result.category},
+      );
       try {
         await snap.ref.delete();
       } catch (e) {
-        logger.error("moderation: delete failed", e);
+        logger.error("moderation: listing delete failed", e);
       }
     },
 );
 
-// ──────────────────────────────────────────────────────────────────────
-// moderateProfileOnWrite
-//
-// Profile displayName / bio are freeform — a malicious user could put
-// slurs there. Mirror the listing blocklist sweep. We don't delete the
-// profile (the user still needs an account), we just clear the
-// offending field. Profile updates are idempotent so this is safe.
-// ──────────────────────────────────────────────────────────────────────
-exports.moderateProfileOnWrite = onDocumentUpdated(
-    "profiles/{userId}",
+// ── moderateProfileOnCreate / OnWrite (profiles/{uid}) ─────────────
+// Profile docs hold the public-facing displayName + bio. We clear
+// the offending field rather than delete the doc (user still needs
+// an account). Both create + update paths covered.
+async function _moderateProfileDoc(event, isCreate) {
+  const dataSnap = isCreate ?
+    (event.data) :
+    (event.data && event.data.after);
+  if (!dataSnap) return;
+  const after = dataSnap.data() || {};
+  const uid = event.params.userId;
+  const fields = ["displayName", "bio", "location"];
+  const updates = {};
+  for (const f of fields) {
+    const val = after[f];
+    if (!val || typeof val !== "string") continue;
+    // On update, skip fields that didn't change — scanContent on the
+    // before-value already ran on its create trigger.
+    if (!isCreate) {
+      const before = event.data.before && event.data.before.data() || {};
+      if (before[f] === val) continue;
+    }
+    const result = await scanContent(val, "profile", uid, null);
+    if (!result.clean) {
+      updates[f] = "";
+      logger.warn(
+          "moderation: cleared profile field (content violation)",
+          {userId: uid, field: f, category: result.category},
+      );
+    }
+  }
+  if (Object.keys(updates).length === 0) return;
+  try {
+    await dataSnap.ref.set(updates, {merge: true});
+  } catch (e) {
+    logger.error("moderation: profile clear failed", e);
+  }
+}
+
+exports.moderateProfileOnCreate = onDocumentCreated(
+    {document: "profiles/{userId}", ...LIGHT_TRIGGER},
     async (event) => {
-      const after = event.data && event.data.after && event.data.after.data();
-      if (!after) return;
-      const fields = ["displayName", "bio", "location"];
-      const updates = {};
-      for (const f of fields) {
-        const val = after[f];
-        const term = findExplicitTerm(val);
-        if (term) {
-          updates[f] = "";
-          logger.warn("moderation: cleared profile field", {
-            userId: event.params.userId,
-            field: f,
-            term,
-          });
-        }
-      }
-      if (Object.keys(updates).length === 0) return;
       try {
-        await event.data.after.ref.set(updates, {merge: true});
+        await _moderateProfileDoc(event, true);
       } catch (e) {
-        logger.error("moderation: profile clear failed", e);
+        logger.error("moderateProfileOnCreate error", e);
+      }
+    },
+);
+
+exports.moderateProfileOnWrite = onDocumentUpdated(
+    {document: "profiles/{userId}", ...LIGHT_TRIGGER},
+    async (event) => {
+      try {
+        await _moderateProfileDoc(event, false);
+      } catch (e) {
+        logger.error("moderateProfileOnWrite error", e);
+      }
+    },
+);
+
+// ── moderateUserDocOnWrite (users/{uid}.displayName) ────────────────
+// users/{uid} also carries a displayName field (separate from
+// profiles/{uid}). Sweep on create + update. Clears the field on
+// violation; never deletes the user doc.
+async function _moderateUserDoc(event, isCreate) {
+  const dataSnap = isCreate ? event.data : (event.data && event.data.after);
+  if (!dataSnap) return;
+  const after = dataSnap.data() || {};
+  const uid = event.params.uid;
+  if (!after.displayName || typeof after.displayName !== "string") return;
+  if (!isCreate) {
+    const before = event.data.before && event.data.before.data() || {};
+    if (before.displayName === after.displayName) return;
+  }
+  const result = await scanContent(after.displayName, "profile", uid, null);
+  if (result.clean) return;
+  logger.warn(
+      "moderation: cleared users.displayName (content violation)",
+      {uid, category: result.category},
+  );
+  try {
+    await dataSnap.ref.set({displayName: ""}, {merge: true});
+  } catch (e) {
+    logger.error("moderation: users displayName clear failed", e);
+  }
+}
+
+exports.moderateUserDocOnCreate = onDocumentCreated(
+    {document: "users/{uid}", ...LIGHT_TRIGGER},
+    async (event) => {
+      try {
+        await _moderateUserDoc(event, true);
+      } catch (e) {
+        logger.error("moderateUserDocOnCreate error", e);
+      }
+    },
+);
+
+exports.moderateUserDocOnUpdate = onDocumentUpdated(
+    {document: "users/{uid}", ...LIGHT_TRIGGER},
+    async (event) => {
+      try {
+        await _moderateUserDoc(event, false);
+      } catch (e) {
+        logger.error("moderateUserDocOnUpdate error", e);
+      }
+    },
+);
+
+// ── moderateOfferOnCreate (offers/{id}.message) ─────────────────────
+// Offers carry an optional `message` field (≤500 chars per rules) that
+// the buyer types as a pitch to the seller. Sweep on create — delete
+// the doc if violating.
+exports.moderateOfferOnCreate = onDocumentCreated(
+    {document: "offers/{offerId}", ...LIGHT_TRIGGER},
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+      const d = snap.data() || {};
+      if (!d.message || typeof d.message !== "string") return;
+      const buyerId = d.buyerId || null;
+      const result = await scanContent(d.message, "offer", buyerId, null);
+      if (result.clean) return;
+      logger.warn(
+          "moderation: blocking offer (content violation)",
+          {offerId: event.params.offerId, buyerId,
+            category: result.category},
+      );
+      try {
+        await snap.ref.delete();
+      } catch (e) {
+        logger.error("moderation: offer delete failed", e);
       }
     },
 );
@@ -5942,6 +6100,19 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   }
   if (recipientId === senderId) {
     throw new HttpsError("invalid-argument", "Cannot message yourself.");
+  }
+
+  // Content moderation — runs BEFORE the write. Throws an HttpsError
+  // with category metadata so the client can surface a localized toast.
+  // scanContent writes the moderationLog audit row internally
+  // (best-effort, never blocks). See moderation/contentFilter.js.
+  const modResult = await scanContent(text, "message", senderId, request);
+  if (!modResult.clean) {
+    throw new HttpsError("invalid-argument", "Content violation", {
+      error: "content_violation",
+      category: modResult.category,
+      suggestion: "Please revise your message and try again.",
+    });
   }
 
   const config = await loadMessagingConfig();
@@ -6305,3 +6476,12 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
+
+// Server-derived unread-conversations counter. Two Firestore triggers
+// (onMessageCreatedReadCount + onParticipantStateReadCount) keep
+// users/{uid}.unreadConversations honest as messages arrive and
+// participants advance their participantState.lastReadAt cursor. The
+// bottom-nav badge in index.html subscribes to that counter. See
+// ./messageReadState.js header for the storage shape + recompute
+// strategy.
+Object.assign(exports, require("./messageReadState"));
