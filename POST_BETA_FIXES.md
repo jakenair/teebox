@@ -115,6 +115,17 @@ Per the audit's 33-event matrix — `NOT WIRED` events:
 
 ---
 
+## From real-world testing (2026-05-17)
+
+### 21. Photo upload preview stacks on top of the placeholder JPG icon
+- **File**: `index.html:6884-6915` (`addFiles` / `renderPreviews` in the sell-listing photo upload component) and `index.html:4386-4393` (the `#uploadPreviews` and `#uploadZone` DOM siblings inside `.sell-form`)
+- **Issue**: when the seller selects photos, the preview tiles render in `#uploadPreviews` while the placeholder upload zone (`#uploadZone` with its camera icon + "Click to upload or drag & drop" copy) stays visible underneath them. Visually this looks like the photos are stacked on top of the placeholder JPG / camera icon instead of replacing it. `renderPreviews` only toggles `uploadZone.style.display` to `none` when `selectedFiles.length >= 10` (the max) — for 1–9 photos the placeholder remains visible
+- **Fix shape**: add a state flag like `hasPreviewPhotos` (or just key off `selectedFiles.length > 0`) and toggle the placeholder's `display` based on it inside `renderPreviews`. Specifically: change the existing `uploadZone.style.display = selectedFiles.length >= 10 ? 'none' : 'block'` to `'none'` whenever any photos are selected. Optionally surface a smaller "+ Add more" tile inside `#uploadPreviews` so the seller can still add more files without re-revealing the full placeholder
+- **Effort**: 30-45 min
+- **Status**: per founder spec — DO NOT FIX in build 57. Document only
+
+---
+
 ## Tracking
 
 When an item ships, move it to `LAUNCH_READINESS.md` as ✅ FIXED and reference the commit SHA. Keep this doc focused on the active backlog so it shrinks visibly as work lands.

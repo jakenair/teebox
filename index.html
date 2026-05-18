@@ -7229,6 +7229,15 @@ window.confirmPayment = async function() {
           }
         }
       }
+      // Content-violation path takes priority: server-side filter rejects
+      // the write with HttpsError invalid-argument + details.error =
+      // 'content_violation'. Surface the friendly toast (never echo the
+      // matched word or category — those are audit detail only).
+      if (window.isContentViolationError && window.isContentViolationError(e)) {
+        showContentViolationToast();
+        btn.disabled = false; btn.textContent = 'Submit Listing';
+        return;
+      }
       let msg = 'Error submitting. Try again.';
       // permission-denied on listing create almost always means the seller's
       // Stripe Connect KYC isn't complete (the security rule requires
@@ -8688,19 +8697,42 @@ function openChatUI() {
   // is best-effort: rule only allows updating lastRead/lastMessage*.
   try {
     if (currentChat && currentChat.conversationId && window.CURRENT_USER) {
-      (async () => {
-        try {
-          const { getFirestore, doc, updateDoc, serverTimestamp } =
-            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-          const firestoreDb = getFirestore();
-          await updateDoc(doc(firestoreDb, 'conversations', currentChat.conversationId), {
-            [`lastRead.${window.CURRENT_USER.uid}`]: serverTimestamp(),
-          });
-        } catch (_e) { /* swallow — purely a badge nicety */ }
-      })();
+      markConversationRead(currentChat.conversationId);
     }
   } catch (_e) {}
 }
+
+// Mark conversation as read for the current user. Writes BOTH:
+//   1. conversations/{cid}.lastRead.{uid}  — legacy denormalized field
+//      used by isConvUnread() for client-side fallback computation
+//   2. conversations/{cid}/participantState/{uid}.lastReadAt — new field
+//      consumed by the server-side derivation of users/{uid}.unreadConversations
+// Best-effort: never throws. The setDoc on the participantState subcoll
+// uses { merge: true } so it works whether the doc exists or not.
+async function markConversationRead(conversationId) {
+  if (!conversationId || !window.CURRENT_USER) return;
+  const uid = window.CURRENT_USER.uid;
+  try {
+    const { getFirestore, doc, updateDoc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    // Legacy denormalized field
+    try {
+      await updateDoc(doc(firestoreDb, 'conversations', conversationId), {
+        [`lastRead.${uid}`]: serverTimestamp(),
+      });
+    } catch (_e) { /* swallow */ }
+    // New participantState subcollection (server derives unreadConversations)
+    try {
+      await setDoc(
+        doc(firestoreDb, 'conversations', conversationId, 'participantState', uid),
+        { uid, lastReadAt: serverTimestamp() },
+        { merge: true }
+      );
+    } catch (_e) { /* swallow — rules may not be deployed yet */ }
+  } catch (_e) { /* swallow — purely a badge nicety */ }
+}
+window.markConversationRead = markConversationRead;
 
 // Render the listing context card in the chat header. Safe to call with a
 // partial listing object (we only require id+title+cat to render something
@@ -8900,6 +8932,15 @@ async function sendMessage() {
     }
   } catch (err) {
     console.error('Error sending message:', err);
+    // Content-violation path: server-side filter rejected the message
+    // with HttpsError invalid-argument + details.error = 'content_violation'.
+    // Never echo the matched word or category — audit detail only.
+    if (window.isContentViolationError && window.isContentViolationError(err)) {
+      showContentViolationToast();
+      sendBtn.disabled = false;
+      input.focus();
+      return;
+    }
     // Map server-side rate-limit rejections to friendly toasts. The
     // callable throws code='resource-exhausted' with details.ruleId
     // identifying which rule fired; never expose internal counters.
@@ -8956,6 +8997,8 @@ function escapeInboxText(str) {
 // load-time polling interval is gone — the listener is the source of
 // truth.
 let __unreadUnsub = null;
+let __unreadUserUnsub = null; // server-derived users/{uid}.unreadConversations
+let __unreadFromServer = null; // null = not yet seen; number = authoritative
 let __unreadLastConvs = []; // last snapshot, reused to repaint the open inbox.
 
 async function refreshUnreadBadge() {
@@ -8967,9 +9010,42 @@ async function refreshUnreadBadge() {
 async function attachUnreadListener() {
   if (!window.CURRENT_USER) {
     if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
+    if (__unreadUserUnsub) { try { __unreadUserUnsub(); } catch (_e) {} __unreadUserUnsub = null; }
     __unreadLastConvs = [];
+    __unreadFromServer = null;
     updateUnreadBadge(0);
     return;
+  }
+  // Attach the server-derived badge listener (Agent X derives
+  // users/{uid}.unreadConversations via a Firestore trigger that reads
+  // participantState/{uid}.lastReadAt). If the field is present we use
+  // it as the authoritative badge count. The conversation listener
+  // below stays attached for inbox-repaint + a client-side fallback
+  // count when the server field hasn't been populated yet.
+  if (!__unreadUserUnsub) {
+    try {
+      const { getFirestore, doc, onSnapshot } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const firestoreDb = getFirestore();
+      __unreadUserUnsub = onSnapshot(
+        doc(firestoreDb, 'users', window.CURRENT_USER.uid),
+        (snap) => {
+          const data = snap.exists() ? snap.data() : null;
+          if (data && typeof data.unreadConversations === 'number') {
+            __unreadFromServer = data.unreadConversations;
+            updateUnreadBadge(__unreadFromServer);
+          }
+          // If the field is missing we leave __unreadFromServer null and
+          // the conv listener's client-side count will surface via
+          // updateUnreadBadge below.
+        },
+        (err) => {
+          console.error('unread user-doc listener error:', err);
+        }
+      );
+    } catch (err) {
+      console.error('Error attaching unread user-doc listener:', err);
+    }
   }
   if (__unreadUnsub) return; // already wired
   try {
@@ -8993,7 +9069,14 @@ async function attachUnreadListener() {
         convs.push(data);
       });
       __unreadLastConvs = convs;
-      updateUnreadBadge(count);
+      // Prefer the server-derived count when available (Agent X's
+      // users/{uid}.unreadConversations field). Fall back to the
+      // client-side count when the field isn't yet populated.
+      if (typeof __unreadFromServer === 'number') {
+        updateUnreadBadge(__unreadFromServer);
+      } else {
+        updateUnreadBadge(count);
+      }
       // If the inbox is open, repaint it so the seller sees the buyer's
       // reply bubble to the top of the list without re-opening the modal.
       const inboxOpen = document.getElementById('inboxBackdrop');
@@ -9010,7 +9093,9 @@ async function attachUnreadListener() {
 
 function detachUnreadListener() {
   if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
+  if (__unreadUserUnsub) { try { __unreadUserUnsub(); } catch (_e) {} __unreadUserUnsub = null; }
   __unreadLastConvs = [];
+  __unreadFromServer = null;
 }
 
 // Bootstrap the listener once auth has had a chance to resolve. We re-try
@@ -9129,9 +9214,15 @@ function updateUnreadBadge(count) {
   // Multiple places display the unread count: top-nav inbox icon, the
   // bottom-nav Inbox tab on mobile, and the Messages item in the user
   // dropdown. All use the .unread-badge class.
+  // Prefer the server-derived count when available — local computations
+  // (renderInbox, conv listener) should never clobber the authoritative
+  // value if Agent X's users/{uid}.unreadConversations field is populated.
+  const effective = (typeof __unreadFromServer === 'number')
+    ? __unreadFromServer
+    : count;
   document.querySelectorAll('.unread-badge').forEach((badge) => {
-    badge.textContent = count > 99 ? '99+' : (count || '');
-    badge.classList.toggle('active', count > 0);
+    badge.textContent = effective > 99 ? '99+' : (effective || '');
+    badge.classList.toggle('active', effective > 0);
   });
 }
 
@@ -9157,13 +9248,10 @@ async function openChatFromConversation(conversationId) {
 
     const otherUserId = conv.participants.find(p => p !== window.CURRENT_USER.uid);
     currentChat = { conversationId, listing, otherUserId };
-    // Mark conversation as read
-    try {
-      const { updateDoc, serverTimestamp: sts } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-      await updateDoc(doc(firestoreDb, 'conversations', conversationId), {
-        [`lastRead.${window.CURRENT_USER.uid}`]: sts(),
-      });
-    } catch (e) { console.error('Could not mark read:', e); }
+    // Mark conversation as read (writes both legacy lastRead.{uid} +
+    // new participantState/{uid}.lastReadAt for server-side derivation).
+    try { markConversationRead(conversationId); }
+    catch (e) { console.error('Could not mark read:', e); }
     closeInbox();
     openChatUI();
     loadMessages();
@@ -9257,7 +9345,7 @@ async function loadNotifications(force) {
 
 async function fetchNotifOffers() {
   if (!window.CURRENT_USER) return [];
-  const { getFirestore, collection, query, where, getDocs, orderBy } =
+  const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
     await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
   const db = getFirestore();
   let docs;
@@ -9267,12 +9355,14 @@ async function fetchNotifOffers() {
       where('sellerId', '==', window.CURRENT_USER.uid),
       where('status', '==', 'pending'),
       orderBy('createdAt', 'desc'),
+      limit(50),
     ));
     docs = snap.docs;
   } catch (_idxErr) {
     const snap = await getDocs(query(
       collection(db, 'offers'),
       where('sellerId', '==', window.CURRENT_USER.uid),
+      limit(50),
     ));
     docs = snap.docs.filter(d => (d.data().status || 'pending') === 'pending');
   }
@@ -9919,10 +10009,22 @@ function renderShopTables() {
             const views = getListingViews(l).toLocaleString();
             const watchers = Number(l.watchlistCount || 0).toLocaleString();
             const msgs = Number(l.messageCount || 0).toLocaleString();
+            // Primary photo thumbnail (Issue #5). Falls back to a
+            // "+ Add photo" placeholder that links to the listing detail
+            // when photos[]=[]. lazy-loaded so a seller with 50+ rows
+            // doesn't fan out 50 simultaneous CDN fetches on dashboard
+            // open. safeImgUrl/safeAttr defend against URL injection
+            // — listings.photos[] is server-validated to gs:// /
+            // firebasestorage.googleapis.com URLs only.
+            const photo0 = Array.isArray(l.photos) && l.photos[0] ? l.photos[0] : '';
+            const photoUrl = photo0 && window.safeImgUrl ? window.safeImgUrl(photo0) : (photo0 || '');
+            const thumb = photoUrl
+              ? `<img src="${escapeHtml(photoUrl)}" loading="lazy" alt="" style="width:50px;height:50px;border-radius:6px;object-fit:cover;background:var(--gray-100);flex-shrink:0" />`
+              : `<a class="shop-thumb-placeholder" data-action="open-detail" data-product-id="${escapeHtml(String(l.id))}" href="#" style="width:50px;height:50px;border-radius:6px;background:var(--gray-100);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--gray-500);font-size:10px;text-align:center;line-height:1.1;flex-shrink:0" title="Add a photo">📷<br>Add</a>`;
             return `<tr>
               <td>
-                <div class="item-cell">
-                  <span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(l.cat)}</span>
+                <div class="item-cell" style="display:flex;align-items:center;gap:10px">
+                  ${thumb}
                   <div>
                     <div style="font-weight:600">${escapeHtml(l.title || 'Untitled')}</div>
                     <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(l.brand || '')}</div>
@@ -12025,6 +12127,13 @@ async function submitOffer() {
     setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-offer'); } catch (_e) {} }, 1500);
   } catch (e) {
     console.error('submitOffer failed:', e);
+    // Content-violation path: server-side filter rejected the offer
+    // with HttpsError invalid-argument + details.error = 'content_violation'.
+    // Never echo the matched word or category — audit detail only.
+    if (window.isContentViolationError && window.isContentViolationError(e)) {
+      showContentViolationToast();
+      return;
+    }
     showToast('Could not send offer.');
   }
 }
@@ -12034,7 +12143,7 @@ window.submitOffer = submitOffer;
 async function loadSellerOffers() {
   if (!window.CURRENT_USER) return [];
   try {
-    const { getFirestore, collection, query, where, getDocs, orderBy } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     let snap;
@@ -12044,12 +12153,14 @@ async function loadSellerOffers() {
         where('sellerId', '==', window.CURRENT_USER.uid),
         where('status', '==', 'pending'),
         orderBy('createdAt', 'desc'),
+        limit(50),
       ));
     } catch (_idxErr) {
       // Composite index might not be deployed; fall back to one filter.
       const all = await getDocs(query(
         collection(db, 'offers'),
         where('sellerId', '==', window.CURRENT_USER.uid),
+        limit(50),
       ));
       const items = all.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(o => o.status === 'pending')
@@ -12304,7 +12415,7 @@ async function openMyOffers() {
   const body = document.getElementById('myOffersBody');
   body.innerHTML = '<div class="profile-loading">Loading…</div>';
   try {
-    const { getFirestore, collection, query, where, getDocs, orderBy } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     let offers = [];
@@ -12313,12 +12424,14 @@ async function openMyOffers() {
         collection(db, 'offers'),
         where('buyerId', '==', window.CURRENT_USER.uid),
         orderBy('createdAt', 'desc'),
+        limit(50),
       ));
       offers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (_idx) {
       const snap = await getDocs(query(
         collection(db, 'offers'),
         where('buyerId', '==', window.CURRENT_USER.uid),
+        limit(50),
       ));
       offers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
@@ -12511,7 +12624,7 @@ async function openSavedSearchesV2() {
   const body = document.getElementById('savedSearchesBody');
   body.innerHTML = '<div class="profile-loading">Loading…</div>';
   try {
-    const { getFirestore, collection, query, where, getDocs, orderBy } =
+    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     let items = [];
@@ -12520,12 +12633,14 @@ async function openSavedSearchesV2() {
         collection(db, 'savedSearches'),
         where('userId', '==', window.CURRENT_USER.uid),
         orderBy('createdAt', 'desc'),
+        limit(50),
       ));
       items = snap.docs.map(d => ({ id: d.id, _src: 'top', ...d.data() }));
     } catch (_e) {
       const snap = await getDocs(query(
         collection(db, 'savedSearches'),
         where('userId', '==', window.CURRENT_USER.uid),
+        limit(50),
       ));
       items = snap.docs.map(d => ({ id: d.id, _src: 'top', ...d.data() }));
     }
@@ -12534,6 +12649,7 @@ async function openSavedSearchesV2() {
       const legacy = await getDocs(query(
         collection(db, 'users', window.CURRENT_USER.uid, 'savedSearches'),
         orderBy('createdAt', 'desc'),
+        limit(50),
       ));
       legacy.docs.forEach(d => items.push({ id: d.id, _src: 'legacy', ...d.data() }));
     } catch (_e) {}
@@ -12793,6 +12909,28 @@ function showToast(msg, variant) {
   setTimeout(() => t.remove(), 3550);
 }
 window.showToast = showToast;
+
+// ─── Content-violation detection ────────────────────────────────
+// Server-side content filter (see functions/) rejects writes with
+// HttpsError("invalid-argument", "Content violation", { error: "content_violation", category, suggestion }).
+// On Firestore-rule rejection paths, the same shape surfaces as a
+// permission-denied with an embedded "Content violation" message.
+// We never echo the matched word or the category — those are audit
+// detail only.
+function isContentViolationError(e) {
+  if (!e) return false;
+  const details = e.details || {};
+  if (details.error === 'content_violation') return true;
+  const msg = (e.message || '') + '';
+  if (msg.includes('Content violation')) return true;
+  if (msg.includes('content_violation')) return true;
+  return false;
+}
+function showContentViolationToast() {
+  showToast('This content contains language not allowed on TeeBox. Please edit and try again.');
+}
+window.isContentViolationError = isContentViolationError;
+window.showContentViolationToast = showContentViolationToast;
 
 document.addEventListener('keydown',e=>{
   const lb = document.getElementById('lightbox');
@@ -13243,6 +13381,7 @@ async function loadRecentSoldOrders(sellerId) {
       const all = await getDocs(query(
         collection(db, 'orders'),
         where('sellerId', '==', sellerId),
+        limit(50),
       ));
       const items = all.docs
         .map(d => ({ id: d.id, ...d.data() }))
@@ -14749,6 +14888,16 @@ async function saveProfileEdits() {
     openProfile(uid);
   } catch (e) {
     console.error('saveProfile failed:', e);
+    // Content-violation path: server-side filter rejected the profile
+    // update with HttpsError invalid-argument + details.error =
+    // 'content_violation' (display name / bio / location). Never echo
+    // the matched word or category — audit detail only.
+    if (window.isContentViolationError && window.isContentViolationError(e)) {
+      showContentViolationToast();
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+      return;
+    }
     showToast('Could not save profile.');
     btn.disabled = false;
     btn.textContent = 'Save Changes';
