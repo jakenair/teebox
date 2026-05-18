@@ -126,6 +126,41 @@ Per the audit's 33-event matrix — `NOT WIRED` events:
 
 ---
 
+## From the 2026-05-17 evening deploy push (post-Phase-1 of multi-fix)
+
+### 22. Functions deploy discovery-phase hang (Monday AM investigation)
+- **Symptom**: `firebase deploy --only functions` hangs at `i functions: Loading and analyzing source code for codebase default to determine what to deploy` for 5-15+ min with no progress. Hit at `FUNCTIONS_DISCOVERY_TIMEOUT=60`, 120, 300, 600, 900 (all fail). Earlier in the day a 600s timeout succeeded once (after the push-fix agent pre-flight); subsequent deploys after Agent X's content-moderation additions (commit `5439bcb`) consistently fail at 600s
+- **Observed `require('./index.js')` time locally**: 245s in one isolated test on 2026-05-17 18:25 CDT
+- **Suspected contributors** (Agent X flagged):
+  - `bad-words@3.0.4` dictionary load + leet-folding setup at `functions/moderation/contentFilter.js` import
+  - 7 new Firestore trigger declarations Agent X added to `functions/index.js`
+  - Orphaned `firebase-functions /Users/.../functions` discovery server children after each killed deploy (5+ orphans accumulated before cleanup)
+  - Node 22.x package-resolution overhead with `functions/index.js` declaring 49+ exports + many top-level requires
+  - Local disk pressure on `/dev/disk1s2` (was at 98-99% earlier 2026-05-17; founder cleared ~7GB DerivedData + iOS DeviceSupport by 18:30 CDT → 48% capacity / 11GB free)
+- **Impact today**: Agent X's content-moderation + unread-count Firestore triggers (commit `5439bcb`) are COMMITTED but NOT DEPLOYED. Client-side moderation toast (Agent Y, commit `c864d02`) is wired but dormant in production. Unread badge falls back to client-side count (intentional fallback Agent Y added). No regression from pre-Phase-1 behavior — just the new server-side protections aren't enforcing yet
+- **Fix investigation steps** (run from clean shell Monday AM):
+  1. `pkill -f "firebase-functions"` to clear orphan discovery procs
+  2. Free additional cache: `npm cache clean --force` (in both root + functions/), `rm -rf ~/Library/Caches/Homebrew/*`, `rm -rf /tmp/*` (low urgency but cheap)
+  3. Time the bare `require()`: `cd functions && time node -e "require('./index.js')"`. If still 200s+, profile with `--cpu-prof` to find the hot spot. If <120s, deploy with `FUNCTIONS_DISCOVERY_TIMEOUT=300` should land
+  4. If `bad-words` is the culprit (dictionary load): consider lazy-init pattern — defer `new BadWordsFilter()` until first scan rather than at module load
+  5. As a structural fix: split `functions/index.js` into per-domain modules (e.g. `functions/orders.js`, `functions/listings.js`) and wire via `Object.assign(exports, require(...))` like `founderBriefing.js` already does. The 6,307-line monolith is the underlying problem
+- **Effort**: 30 min investigation, possibly 1-2 hr for the split if needed
+- **Severity**: HIGH (every future functions deploy is at risk until this is resolved)
+
+### 23. Disk-pressure monitoring + npm/Homebrew cache hygiene
+- **Issue**: local dev machine hit 98-99% disk usage on 2026-05-17 ~17:00 CDT (4.1GB free on `/dev/disk1s2`). Caused `cp -R assets` to wedge for ~10 min during Agent Y's `build:web` step. Founder cleared ~7GB by removing DerivedData + iOS DeviceSupport, now at 48% capacity / 11GB free
+- **What was hogging space** (founder's reported finds):
+  - Xcode DerivedData
+  - iOS DeviceSupport archives (older iOS SDK simulator support)
+  - (Probable additional contributors not yet cleared: npm caches, Homebrew caches, `/tmp/*`, browser profiles, Docker volumes if any)
+- **Fix shape** (preventive):
+  - Add a recurring (e.g. `launchd` plist or weekly script) cleanup: `rm -rf ~/Library/Developer/Xcode/DerivedData/*`, `xcrun simctl delete unavailable`, `npm cache clean --force`, `brew cleanup -s --prune=all`
+  - Monitor via `df -h /` in a startup banner or as part of `npm run build:web`'s preamble — abort the build with a clear error if `<5GB free` rather than hanging
+- **Effort**: 30-60 min (a small `scripts/preflight-disk-check.mjs` + plist)
+- **Severity**: MEDIUM (recurs naturally as Xcode builds accumulate; flagged because it ate ~30 min of agent runtime on 2026-05-17)
+
+---
+
 ## Tracking
 
 When an item ships, move it to `LAUNCH_READINESS.md` as ✅ FIXED and reference the commit SHA. Keep this doc focused on the active backlog so it shrinks visibly as work lands.
