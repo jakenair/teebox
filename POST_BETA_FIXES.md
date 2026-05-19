@@ -4,6 +4,34 @@ Tracked items NOT shipped in the pre-beta hardening pass (2026-05-17). Address b
 
 ---
 
+## DISABLED PRE-LAUNCH — re-enable before public launch
+
+Two automated daily jobs were paused on **2026-05-19** while pre-launch (to stop Anthropic credit burn + smoke-test email noise). **Dual mechanism** was used because the functions deploy is blocked by #22 — a code-only flag could not take effect without a deploy:
+
+1. **Cloud Scheduler job PAUSED** — the immediate, deploy-free disable (effective now).
+2. **Code feature-flag added** — keeps the schedule a no-op once #22 is fixed and the function is redeployed (a `firebase deploy` recreates the scheduler in the ENABLED state, so the flag is the durable guard).
+
+Only the scheduled triggers are gated; the manual `*Manual` onRequest endpoints still work for on-demand runs.
+
+### Daily founder briefings
+- **Function**: `dailyFounderBriefing` (`functions/founderBriefing.js`) — 07:00 America/New_York; calls Anthropic API (burns credits); emails `jakenair23@gmail.com`.
+- **Disabled via**: scheduler job `firebase-schedule-dailyFounderBriefing-us-central1` **PAUSED** + guard `if (process.env.DAILY_BRIEFINGS_ENABLED !== "true") return;` on the scheduled handler.
+- **Re-enable (do BOTH)**:
+  1. Set `DAILY_BRIEFINGS_ENABLED=true` in the function's runtime env, then redeploy `dailyFounderBriefing` (requires #22 resolved).
+  2. `gcloud scheduler jobs resume firebase-schedule-dailyFounderBriefing-us-central1 --location=us-central1 --project=teebox-market`
+  - A successful redeploy recreates the scheduler ENABLED, so step 2 may be redundant post-deploy — verify with `gcloud scheduler jobs describe`.
+
+### Daily smoke-test emails
+- **Function**: `dailyEmailSmoke` (`functions/emailSmokeTest.js`) — 04:00 America/New_York; sends Resend smoke emails (subjects `"… — Smoke"` / `"Smoke Test"`) to `SMOKE_EMAIL_INBOX`.
+- **Disabled via**: scheduler job `firebase-schedule-dailyEmailSmoke-us-central1` **PAUSED** + guard `if (process.env.DAILY_EMAIL_SMOKE_ENABLED !== "true") return;` on the scheduled handler.
+- **Re-enable (do BOTH)**:
+  1. Set `DAILY_EMAIL_SMOKE_ENABLED=true` in the function's runtime env, then redeploy `dailyEmailSmoke` (requires #22 resolved).
+  2. `gcloud scheduler jobs resume firebase-schedule-dailyEmailSmoke-us-central1 --location=us-central1 --project=teebox-market`
+
+> **NOT disabled** (left running, by explicit decision 2026-05-19): `smokeProUpgrade` (`functions/smokeTest.js`, daily 04:00) — webhook-only Stripe-TEST Pro-upgrade smoke; sends no email; out of scope.
+
+---
+
 ## From the Stripe popup-blocker investigation (commit `44d1d82`)
 
 ### 1. `A['manage-subscription']` has the same popup-blocker bug

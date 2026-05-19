@@ -94,6 +94,12 @@ exports.dailyEmailSmoke = onSchedule({
   timeoutSeconds: 540,
   memory: "512MiB",
 }, async () => {
+  // DISABLED 2026-05-19 — pre-launch, re-enable before public launch; see POST_BETA_FIXES.md
+  // Belt-and-suspenders: the Cloud Scheduler job is also PAUSED (the
+  // immediate disable, since the functions deploy is blocked by #22).
+  // This flag keeps the schedule a no-op once #22 is fixed and this
+  // function is redeployed (a redeploy recreates the scheduler ENABLED).
+  if (process.env.DAILY_EMAIL_SMOKE_ENABLED !== "true") return;
   await runEmailSmoke({trigger: "schedule"});
 });
 

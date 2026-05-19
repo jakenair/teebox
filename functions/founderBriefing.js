@@ -86,6 +86,12 @@ exports.dailyFounderBriefing = onSchedule({
   secrets: [ANTHROPIC_API_KEY, SLACK_BRIEFING_WEBHOOK, RESEND_API_KEY],
   ...SCHED_FN,
 }, async () => {
+  // DISABLED 2026-05-19 — pre-launch, re-enable before public launch; see POST_BETA_FIXES.md
+  // Belt-and-suspenders: the Cloud Scheduler job is also PAUSED (the
+  // immediate disable, since the functions deploy is blocked by #22).
+  // This flag keeps the schedule a no-op once #22 is fixed and this
+  // function is redeployed (a redeploy recreates the scheduler ENABLED).
+  if (process.env.DAILY_BRIEFINGS_ENABLED !== "true") return;
   await runBriefing({trigger: "schedule"});
 });
 
