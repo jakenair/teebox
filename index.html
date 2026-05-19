@@ -999,7 +999,13 @@
   /* Off-platform interstitial — sits above flagged inbound chat bubbles.
      Bubble alignment is preserved via .msg-wrap (flex column, aligns to
      theirs/mine the same way the bare .msg used to). */
-  .msg-wrap { display: flex; flex-direction: column; max-width: 100%; }
+  /* .msg-wrap is a column flex child of .chat-body (also column flex). With
+     align-self != stretch it shrink-collapses on the horizontal cross axis,
+     so it MUST cap at a share of the conversation width and size to its
+     content (fit-content) rather than min-content — otherwise the inner
+     .msg gets a near-zero containing block and text renders one char per
+     line. fit-content + max-width is supported in iOS WKWebView. */
+  .msg-wrap { display: flex; flex-direction: column; width: fit-content; max-width: 70%; }
   .msg-wrap.msg-theirs-wrap { align-self: flex-start; align-items: flex-start; }
   .msg-wrap.msg-mine-wrap { align-self: flex-end; align-items: flex-end; }
   .msg-interstitial { background:#fff8e6; border:1px solid #e8c97a; border-radius:12px;
@@ -2268,7 +2274,11 @@
   .chat-listing-card-status.pending { background: #fff3cd; color: #856404; }
   .chat-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; background: var(--gray-50); }
   .chat-empty { text-align: center; color: var(--gray-500); font-size: 13px; padding: 2rem 1rem; margin: auto; }
-  .msg { max-width: 75%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+  /* Bubble sizes to its content but is bounded by .msg-wrap (capped at 70%
+     of the conversation container). word-break:normal keeps wrapping on
+     word boundaries; overflow-wrap:anywhere only breaks unbreakable runs
+     (long URLs) instead of break-all chopping every word vertically. */
+  .msg { max-width: 100%; width: fit-content; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: normal; overflow-wrap: anywhere; }
   .msg-mine { align-self: flex-end; background: var(--green-700); color: var(--white); border-bottom-right-radius: 4px; }
   .msg-theirs { align-self: flex-start; background: var(--white); color: var(--gray-900); border: 1px solid var(--gray-200); border-bottom-left-radius: 4px; }
   .msg-time { font-size: 10px; color: var(--gray-500); align-self: center; margin: 6px 0; }
@@ -9187,9 +9197,15 @@ function renderInbox(convs) {
   body.innerHTML = convs.map(c => {
     const isUnread = isConvUnread(c, myUid);
     if (isUnread) unreadCount++;
+    const cat = c.listingCat || 'accessories';
+    const lid = c.listingId || '';
+    // Thumb starts as the category-icon placeholder so the list paints
+    // instantly; hydrateInboxThumbs() below swaps in the real listing
+    // photo once the listing doc resolves (same data the chat-detail
+    // header uses — see renderChatListingCard / openChatFromConversation).
     return `
     <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
-      <div class="inbox-item-emoji placeholder-art" style="width:44px;height:44px;border-radius:8px">${window.CATEGORY_ICON(c.listingCat || 'accessories')}</div>
+      <div class="inbox-item-emoji placeholder-art" data-inbox-thumb data-listing-id="${window.safeAttr(window.safeId(lid))}" data-listing-cat="${window.safeAttr(cat)}" style="width:44px;height:44px;border-radius:8px;background-size:cover;background-position:center">${window.CATEGORY_ICON(cat)}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
         <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
@@ -9199,6 +9215,95 @@ function renderInbox(convs) {
     </div>`;
   }).join('');
   updateUnreadBadge(unreadCount);
+  // Fire-and-forget: replace category-icon placeholders with the real
+  // listing photo. Bounded + cached so the realtime listener repainting
+  // the inbox doesn't re-fetch the same listings on every snapshot.
+  try { hydrateInboxThumbs(convs); } catch (_e) { /* placeholder is fine */ }
+}
+
+// Per-conversation rows only carry denormalized listingId/listingCat/title
+// on the conversation doc — NOT the photo. The chat-detail header gets the
+// photo by fetching listings/{listingId} on open (openChatFromConversation).
+// We replicate that fetch here, but: (a) dedupe by listingId, (b) cache
+// results across renderInbox repaints (the realtime unread listener calls
+// renderInbox on every snapshot), and (c) only patch the DOM thumb in
+// place. This bounds network to the number of DISTINCT listings currently
+// visible in the inbox (<=100, deduped, cached) instead of an N+1 per
+// snapshot. Fallback chain: photos[0] -> category icon -> gray placeholder.
+const __inboxListingCache = new Map(); // listingId -> { photo, cat } | null(deleted)
+let __inboxThumbsLoading = false;
+
+async function hydrateInboxThumbs(convs) {
+  const body = document.getElementById('inboxBody');
+  if (!body) return;
+  // Distinct, non-empty listing ids that aren't already resolved.
+  const ids = [];
+  const seen = new Set();
+  convs.forEach(c => {
+    const id = c.listingId;
+    if (id && !seen.has(id)) { seen.add(id); if (!__inboxListingCache.has(id)) ids.push(id); }
+  });
+  // Paint anything already cached immediately (covers realtime repaints).
+  applyInboxThumb();
+  if (ids.length === 0 || __inboxThumbsLoading) return;
+  __inboxThumbsLoading = true;
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const firestoreDb = getFirestore();
+    // Sequential-ish with a small concurrency cap; inbox listing counts are
+    // small in practice and we don't want to hammer Firestore on open.
+    for (const id of ids) {
+      try {
+        const snap = await getDoc(doc(firestoreDb, 'listings', id));
+        if (snap.exists()) {
+          const d = snap.data();
+          const raw = d.photos && d.photos[0];
+          const photo = raw
+            ? (window.safeImgUrl ? window.safeImgUrl(raw) : String(raw))
+            : '';
+          __inboxListingCache.set(id, { photo: photo, cat: d.cat || d.listingCat || '' });
+        } else {
+          // Listing deleted / not found -> gray placeholder (no icon).
+          __inboxListingCache.set(id, null);
+        }
+      } catch (_e) {
+        // Permission/transient error: leave uncached so a later open can
+        // retry; the category-icon placeholder stays in the meantime.
+      }
+      applyInboxThumb();
+    }
+  } catch (_e) {
+    /* dynamic import failed — placeholders stay; no hard failure */
+  } finally {
+    __inboxThumbsLoading = false;
+  }
+
+  function applyInboxThumb() {
+    const els = body.querySelectorAll('[data-inbox-thumb]');
+    els.forEach(el => {
+      const id = el.getAttribute('data-listing-id') || '';
+      if (!id || !__inboxListingCache.has(id)) return; // unresolved -> keep category icon
+      const entry = __inboxListingCache.get(id);
+      if (entry && entry.photo) {
+        // Listing has a photo -> show it.
+        if (el.getAttribute('data-thumb-state') === 'photo') return;
+        el.classList.remove('placeholder-art');
+        el.innerHTML = '';
+        el.style.backgroundImage = `url("${entry.photo.replace(/"/g, '%22')}")`;
+        el.setAttribute('data-thumb-state', 'photo');
+      } else if (entry === null) {
+        // Listing deleted / not found -> plain gray placeholder, no icon.
+        if (el.getAttribute('data-thumb-state') === 'gone') return;
+        el.classList.add('placeholder-art');
+        el.style.backgroundImage = '';
+        el.innerHTML = '';
+        el.setAttribute('data-thumb-state', 'gone');
+      }
+      // entry has no photo but listing exists -> leave the category icon
+      // that renderInbox already painted (fallback chain step 2).
+    });
+  }
 }
 
 function isConvUnread(conv, myUid) {
