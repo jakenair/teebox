@@ -61,7 +61,13 @@
 
 const admin = require("firebase-admin");
 const {logger} = require("firebase-functions");
-const Filter = require("bad-words");
+// NOTE: `bad-words` is intentionally NOT required at module scope. Its
+// default dictionary load is heavy enough to push the functions-discovery
+// phase past the deploy CLI's timeout when the monolith `index.js` (6.8k
+// LOC) also gets parsed in the same cold-start window (POST_BETA_FIXES
+// #22 — discovery-hang on 2026-05-17). Lazy-loaded inside getFilter()
+// so it's paid on first scan, not on every cold start before any
+// callable / trigger has been invoked.
 const {
   SLUR_TERMS,
   HARASSMENT_PATTERNS,
@@ -76,9 +82,15 @@ const {
 // Scunthorpe family (`class`, `grass`, `assist`, etc.) won't trip on
 // the embedded `ass` substring.
 let _filter = null;
+let _Filter = null;
 function getFilter() {
   if (_filter) return _filter;
-  const f = new Filter();
+  if (!_Filter) {
+    // Deferred require — see comment at top of file. Only paid when a
+    // moderation path actually runs (first listing/profile/message scan).
+    _Filter = require("bad-words");
+  }
+  const f = new _Filter();
   // bad-words exposes `removeWords` to drop entries from its default
   // list. We pull anything in our ALLOWLIST out so the substring match
   // doesn't fire on the legitimate token. The allowlist itself is also
