@@ -72,6 +72,12 @@ ios/App/DerivedData/
 ios/.idea/
 ios/build/
 
+# Xcode user-specific state — UI selection, breakpoints, recent files,
+# workspace expanded-folders. Never useful in git; mutates with every
+# Xcode interaction and was a residual source of working-tree churn.
+**/xcuserdata/
+*.xcuserstate
+
 # Capacitor sync intermediates
 .capacitor/
 
