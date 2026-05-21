@@ -567,6 +567,12 @@ exports.sendSecurityEmail = onCall(
 exports.abandonedDraftScheduler = onSchedule(
     {schedule: "0 9 * * *", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
     async () => {
+      // DISABLED 2026-05-20 — pre-launch, re-enable before public launch; see POST_BETA_FIXES.md
+      // Belt-and-suspenders: the Cloud Scheduler job is also PAUSED (the
+      // immediate disable). This flag keeps the schedule a no-op once
+      // this function is next redeployed (a redeploy recreates the
+      // scheduler ENABLED).
+      if (process.env.ABANDONED_DRAFTS_ENABLED !== "true") return;
       const db = admin.firestore();
       const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
       const until = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -637,6 +643,12 @@ exports.reviewRequestScheduler = onSchedule(
 exports.winBackScheduler = onSchedule(
     {schedule: "0 16 * * *", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
     async () => {
+      // DISABLED 2026-05-20 — pre-launch, re-enable before public launch; see POST_BETA_FIXES.md
+      // Belt-and-suspenders: the Cloud Scheduler job is also PAUSED (the
+      // immediate disable). This flag keeps the schedule a no-op once
+      // this function is next redeployed (a redeploy recreates the
+      // scheduler ENABLED).
+      if (process.env.WIN_BACK_ENABLED !== "true") return;
       const db = admin.firestore();
       const day = 24 * 60 * 60 * 1000;
       const bands = [
@@ -678,6 +690,12 @@ exports.winBackScheduler = onSchedule(
 exports.weeklyDigestScheduler = onSchedule(
     {schedule: "0 9 * * 0", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...SCHED_FN},
     async () => {
+      // DISABLED 2026-05-20 — pre-launch, re-enable before public launch; see POST_BETA_FIXES.md
+      // Belt-and-suspenders: the Cloud Scheduler job is also PAUSED (the
+      // immediate disable). This flag keeps the schedule a no-op once
+      // this function is next redeployed (a redeploy recreates the
+      // scheduler ENABLED).
+      if (process.env.WEEKLY_DIGEST_ENABLED !== "true") return;
       const db = admin.firestore();
       const snap = await db
           .collection("users")

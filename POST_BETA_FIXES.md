@@ -6,7 +6,7 @@ Tracked items NOT shipped in the pre-beta hardening pass (2026-05-17). Address b
 
 ## DISABLED PRE-LAUNCH — re-enable before public launch
 
-Two automated daily jobs were paused on **2026-05-19** while pre-launch (to stop Anthropic credit burn + smoke-test email noise). **Dual mechanism** was used because the functions deploy is blocked by #22 — a code-only flag could not take effect without a deploy:
+Automated scheduled jobs were paused on **2026-05-19** (founder briefing + smoke-test emails) and **2026-05-20** (user-emailing schedulers: abandoned-draft, win-back, weekly-digest) while pre-launch — to stop Anthropic credit burn, smoke-test email noise, and outbound user emails landing on beta-era accounts (founders / test buyers) before the marketplace is public. **Dual mechanism** was used because the functions deploy is blocked by #22 — a code-only flag could not take effect without a deploy:
 
 1. **Cloud Scheduler job PAUSED** — the immediate, deploy-free disable (effective now).
 2. **Code feature-flag added** — keeps the schedule a no-op once #22 is fixed and the function is redeployed (a `firebase deploy` recreates the scheduler in the ENABLED state, so the flag is the durable guard).
@@ -28,7 +28,34 @@ Only the scheduled triggers are gated; the manual `*Manual` onRequest endpoints 
   1. Set `DAILY_EMAIL_SMOKE_ENABLED=true` in the function's runtime env, then redeploy `dailyEmailSmoke` (requires #22 resolved).
   2. `gcloud scheduler jobs resume firebase-schedule-dailyEmailSmoke-us-central1 --location=us-central1 --project=teebox-market`
 
-> **NOT disabled** (left running, by explicit decision 2026-05-19): `smokeProUpgrade` (`functions/smokeTest.js`, daily 04:00) — webhook-only Stripe-TEST Pro-upgrade smoke; sends no email; out of scope.
+### Abandoned-draft nags (added 2026-05-20)
+- **Function**: `abandonedDraftScheduler` (`functions/emailTriggers.js`) — 09:00 UTC daily; emails users who started a draft 24–48h ago and haven't submitted. No Anthropic.
+- **Why disabled**: beta-era founder/test accounts creating throwaway drafts would receive nag emails; queue is dominated by non-organic drafts pre-launch.
+- **Disabled via**: scheduler job `firebase-schedule-abandonedDraftScheduler-us-central1` **PAUSED** + guard `if (process.env.ABANDONED_DRAFTS_ENABLED !== "true") return;` on the scheduled handler.
+- **Re-enable after public launch + organic drafts dominate the queue** (i.e., test/founder drafts are no longer the majority of would-be recipients):
+  1. Set `ABANDONED_DRAFTS_ENABLED=true` in the function's runtime env, then redeploy `abandonedDraftScheduler` (requires #22 resolved).
+  2. `gcloud scheduler jobs resume firebase-schedule-abandonedDraftScheduler-us-central1 --location=us-central1 --project=teebox-market`
+
+### Win-back nags (added 2026-05-20)
+- **Function**: `winBackScheduler` (`functions/emailTriggers.js`) — 16:00 UTC daily; sweeps 30/60/90-day inactivity bands (`users.lastActiveAt`) and sends WinBack30/60/90 templates. No Anthropic.
+- **Why disabled**: even though no current user has been signed up long enough to hit the 30-day band (beta started < 30 days ago, so this is a no-op today), belt-and-suspenders for the case where beta runs long enough that dormant founders/testers cross the threshold and receive win-back nags.
+- **Disabled via**: scheduler job `firebase-schedule-winBackScheduler-us-central1` **PAUSED** + guard `if (process.env.WIN_BACK_ENABLED !== "true") return;` on the scheduled handler.
+- **Re-enable after public launch + first organic cohort reaches 30 days post-signup** (audience is genuinely-dormant real users, not test accounts):
+  1. Set `WIN_BACK_ENABLED=true` in the function's runtime env, then redeploy `winBackScheduler` (requires #22 resolved).
+  2. `gcloud scheduler jobs resume firebase-schedule-winBackScheduler-us-central1 --location=us-central1 --project=teebox-market`
+
+### Weekly digest (added 2026-05-20)
+- **Function**: `weeklyDigestScheduler` (`functions/emailTriggers.js`) — Sunday 09:00 UTC; emails users with `emailPrefs.weeklyDigest == true` a roll-up of marketplace activity. No Anthropic.
+- **Why disabled**: marketplace activity is sparse pre-launch; opted-in beta users would receive empty/thin digests that mis-signal the product.
+- **Disabled via**: scheduler job `firebase-schedule-weeklyDigestScheduler-us-central1` **PAUSED** + guard `if (process.env.WEEKLY_DIGEST_ENABLED !== "true") return;` on the scheduled handler.
+- **Re-enable after marketplace has enough weekly activity to make a digest worth sending** (rough heuristic: ≥10 new listings/week or ≥5 sales/week — TODO tune once we see post-launch volume):
+  1. Set `WEEKLY_DIGEST_ENABLED=true` in the function's runtime env, then redeploy `weeklyDigestScheduler` (requires #22 resolved).
+  2. `gcloud scheduler jobs resume firebase-schedule-weeklyDigestScheduler-us-central1 --location=us-central1 --project=teebox-market`
+
+> **NOT disabled** (left running, by explicit decision):
+> - `reviewRequestScheduler` (`functions/emailTriggers.js`, daily 17:00 UTC) — emails buyers 7 days after delivery asking for a review of the seller. Reviewed in the 2026-05-20 emailTriggers audit and explicitly kept ENABLED: no beta order has shipped+delivered yet, so the query window (delivered 7–8 days ago) is empty today; if a real beta order does deliver, a review request is appropriate UX, not premature outreach.
+> - `aggregateEmailMetrics` (`functions/emailTriggers.js`, hourly) — internal-only; writes daily aggregates to `emailMetrics/{day}`; sends no email. Out of scope for the user-email pause.
+> - `smokeProUpgrade` (`functions/smokeTest.js`, daily 04:00) — webhook-only Stripe-TEST Pro-upgrade smoke; sends no email; out of scope (2026-05-19).
 
 ---
 
