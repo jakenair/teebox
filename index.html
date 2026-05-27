@@ -2194,6 +2194,8 @@
   .dash-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
   .dash-tab:hover:not(.active) { color: var(--gray-700); }
   .dash-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); font-size: 14px; }
+  /* Contain horizontal scroll to each tab pane — .dash-table has 9 cols + nowrap action cells, overflows viewport on mobile; without this the whole page scrolls horizontally instead of just the table. */
+  #dashTabActive, #dashTabSold, #dashTabPayouts, #dashTabOffers { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .dash-table { width: 100%; border-collapse: collapse; }
   .dash-table th { text-align: left; font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--gray-200); }
   .dash-table td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid var(--gray-200); }
