@@ -8743,6 +8743,10 @@ async function markConversationRead(conversationId) {
       );
     } catch (_e) { /* swallow — rules may not be deployed yet */ }
   } catch (_e) { /* swallow — purely a badge nicety */ }
+  // Reading a message also clears it from the notif panel's "Messages"
+  // section, but the panel reads from a cached snapshot. Bust the cache
+  // so the red dot reconciles immediately.
+  invalidateNotifCache();
 }
 window.markConversationRead = markConversationRead;
 
@@ -9081,14 +9085,9 @@ async function attachUnreadListener() {
         convs.push(data);
       });
       __unreadLastConvs = convs;
-      // Prefer the server-derived count when available (Agent X's
-      // users/{uid}.unreadConversations field). Fall back to the
-      // client-side count when the field isn't yet populated.
-      if (typeof __unreadFromServer === 'number') {
-        updateUnreadBadge(__unreadFromServer);
-      } else {
-        updateUnreadBadge(count);
-      }
+      // Use the client-side recomputed count — see updateUnreadBadge
+      // for why the server-derived field is no longer preferred.
+      updateUnreadBadge(count);
       // If the inbox is open, repaint it so the seller sees the buyer's
       // reply bubble to the top of the list without re-opening the modal.
       const inboxOpen = document.getElementById('inboxBackdrop');
@@ -9321,15 +9320,15 @@ function updateUnreadBadge(count) {
   // Multiple places display the unread count: top-nav inbox icon, the
   // bottom-nav Inbox tab on mobile, and the Messages item in the user
   // dropdown. All use the .unread-badge class.
-  // Prefer the server-derived count when available — local computations
-  // (renderInbox, conv listener) should never clobber the authoritative
-  // value if Agent X's users/{uid}.unreadConversations field is populated.
-  const effective = (typeof __unreadFromServer === 'number')
-    ? __unreadFromServer
-    : count;
+  // Trust the client-side recomputed count from the conv listener.
+  // The server-derived users/{uid}.unreadConversations field (Agent X)
+  // isn't reliably maintained right now — see POST_BETA_FIXES.md #22 —
+  // so preferring it caused the badge to stick at stale values after
+  // a markConversationRead. The user-doc listener stays attached as
+  // cheap insurance for future re-enabling.
   document.querySelectorAll('.unread-badge').forEach((badge) => {
-    badge.textContent = effective > 99 ? '99+' : (effective || '');
-    badge.classList.toggle('active', effective > 0);
+    badge.textContent = count > 99 ? '99+' : (count || '');
+    badge.classList.toggle('active', count > 0);
   });
 }
 
@@ -9730,6 +9729,21 @@ function refreshNotifDot() {
   }
   document.querySelectorAll('.notif-dot').forEach(d => d.classList.toggle('active', unread > 0));
 }
+
+// Bust the notif cache + kick a background refresh so the red dot
+// reconciles after a read-state mutation (msg read, offer resolved,
+// order shipped/delivered). Without this the dot can stay stuck for
+// up to 60s until the background tick in loadNotifications fires.
+// Best-effort; swallows.
+function invalidateNotifCache() {
+  try {
+    if (window.__notifCache) window.__notifCache.ts = 0;
+    if (typeof loadNotifications === 'function') {
+      loadNotifications(true).catch(() => {});
+    }
+  } catch (_e) {}
+}
+window.invalidateNotifCache = invalidateNotifCache;
 
 // Background refresh every 60s so the red dot updates without re-opening.
 // Skips network when no user is signed in. Lightweight — runs only the
@@ -11761,6 +11775,7 @@ async function confirmShip() {
       trackingNumber: tracking.slice(0, 60),
       shippedAt: serverTimestamp(),
     });
+    invalidateNotifCache();
     document.getElementById('shipBackdrop').classList.remove('open');
     showToast('Marked as shipped. Buyer notified.');
     __pendingShipOrderId = null;
@@ -11974,6 +11989,7 @@ async function confirmDelivery(orderId) {
       shippingStatus: 'delivered',
       deliveredAt: serverTimestamp(),
     });
+    invalidateNotifCache();
     showToast('Delivery confirmed. Thanks!');
     openOrders();
   } catch (e) {
@@ -12392,6 +12408,7 @@ async function acceptOffer(offerId, listingId, buyerId, amount) {
       status: 'accepted',
       respondedAt: serverTimestamp(),
     });
+    invalidateNotifCache();
     showToast('Offer accepted. Opening chat with buyer…', 'success');
     // Open conversation; auto-prefill checkout text.
     if (listingId && buyerId) {
@@ -12482,6 +12499,7 @@ async function confirmCounterOffer() {
       counterAmount: amt,
       respondedAt: serverTimestamp(),
     });
+    invalidateNotifCache();
     document.getElementById('counterOfferBackdrop').classList.remove('open');
     showToast('Counter sent.', 'success');
     renderSellerOffers();
@@ -12502,6 +12520,7 @@ async function declineOffer(offerId) {
       status: 'declined',
       respondedAt: serverTimestamp(),
     });
+    invalidateNotifCache();
     showToast('Offer declined.');
     renderSellerOffers();
   } catch (e) {
