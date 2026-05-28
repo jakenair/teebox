@@ -144,7 +144,7 @@ service cloud.firestore {
         // Multi-quantity stock. Sellers can list 1–99 units; quantitySold
         // is server-managed by createPaymentIntent and the Stripe webhook
         // — clients can only seed it to 0 on create.
-        && (!('quantity' in d.keys()) || (d.quantity is number && d.quantity >= 1 && d.quantity <= 99))
+        && (!('quantity' in d.keys()) || (d.quantity is int && d.quantity >= 1 && d.quantity <= 99))
         && (!('quantitySold' in d.keys()) || d.quantitySold == 0)
         // High-value verification badge. Boolean flag the client sets at
         // create-time; an admin (Admin SDK) flips authReviewState later.
@@ -227,7 +227,7 @@ service cloud.firestore {
         && (!('photos' in next.keys()) || (next.photos is list && next.photos.size() <= 10))
         // quantitySold stays server-owned; only the stock count (1..99)
         // is seller-editable, same bounds as create.
-        && (!('quantity' in next.keys()) || (next.quantity is number && next.quantity >= 1 && next.quantity <= 99))
+        && (!('quantity' in next.keys()) || (next.quantity is int && next.quantity >= 1 && next.quantity <= 99))
         && (!('requiresAuth' in next.keys()) || next.requiresAuth is bool)
         && (!('authReviewState' in next.keys()) || next.authReviewState in ['na','pending'])
         && (!('emoji' in next.keys()) || (next.emoji is string && next.emoji.size() <= 16))
