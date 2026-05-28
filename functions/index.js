@@ -5764,6 +5764,388 @@ exports.moderateListingOnCreate = onDocumentCreated(
     },
 );
 
+// ── Listing photo Storage GC helpers ────────────────────────────────
+// Photos live at Storage path `listings/{sellerId}/{listingId}/{file}`
+// and are persisted on the listing doc as Firebase download URLs of the
+// form:
+//   https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<enc-path>?alt=media&token=...
+// `storagePathFromDownloadUrl` reverses that encoding back to the object
+// path so we can address the file via the Admin SDK. Returns null for
+// anything that isn't a recognizable Firebase Storage download URL
+// (e.g. a gs:// URI or an external URL) — callers skip those rather
+// than risk deleting an unrelated object.
+function storagePathFromDownloadUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  const m = url.match(/\/o\/([^?]+)/);
+  if (!m || !m[1]) return null;
+  let path;
+  try {
+    path = decodeURIComponent(m[1]);
+  } catch (_e) {
+    return null;
+  }
+  // Only ever touch objects under the listings/ prefix. Defense in
+  // depth: a malformed/forged URL can never make us delete outside the
+  // listing photo namespace.
+  if (!path.startsWith("listings/")) return null;
+  return path;
+}
+
+// Delete any Storage objects whose download URL was in `beforeUrls` but
+// is no longer in `afterUrls`. Best-effort: a Storage hiccup is logged
+// but never blocks the moderation/edit path. `expectedListingId`
+// constrains deletes to the listing's own folder.
+async function deleteRemovedListingPhotos(beforeUrls, afterUrls, expectedListingId) {
+  const before = Array.isArray(beforeUrls) ? beforeUrls : [];
+  const after = new Set(
+      (Array.isArray(afterUrls) ? afterUrls : []).map((u) => String(u)));
+  const removed = before
+      .map((u) => String(u))
+      .filter((u) => !after.has(u));
+  if (removed.length === 0) return;
+  const bucket = admin.storage().bucket();
+  await Promise.allSettled(removed.map(async (url) => {
+    const path = storagePathFromDownloadUrl(url);
+    if (!path) return;
+    // Path shape: listings/{sellerId}/{listingId}/{file}. Only delete
+    // when the listingId segment matches the doc being edited so a
+    // crafted URL can't GC another listing's photos.
+    const seg = path.split("/");
+    if (seg.length < 4 || seg[2] !== String(expectedListingId)) return;
+    try {
+      await bucket.file(path).delete({ignoreNotFound: true});
+    } catch (e) {
+      logger.warn("moderation: removed-photo delete failed");
+    }
+  }));
+}
+
+// Editable fields a seller-side listing edit may persist. Mirrors the
+// `updateListing` callable write set and the firestore.rules
+// isValidListingUpdate whitelist — keep all three in sync.
+const LISTING_EDITABLE_FIELDS = [
+  "title", "brand", "cat", "ask", "bid", "condition", "desc",
+  "photos", "quantity", "requiresAuth", "authReviewState",
+];
+
+// Listing statuses where a seller edit is FORBIDDEN. A listing that is
+// reserved by a buyer (`pending`) or sold/in-fulfillment must not have
+// its price/title/etc. changed out from under an in-flight purchase.
+// The listing doc itself only ever holds `active|expired|pending|sold|
+// flagged|removed`; the order-side `paid|shipped|delivered_pending_
+// inspection|complete` names are included so the lock set stays correct
+// if listing status vocabulary is ever widened to mirror fulfillment.
+const LISTING_LOCKED_STATUSES = [
+  "sold", "pending", "pending_payment", "paid", "shipped",
+  "delivered_pending_inspection", "complete",
+];
+
+function lockedReasonForStatus(status) {
+  switch (status) {
+    case "sold": return "it has already sold";
+    case "pending":
+    case "pending_payment": return "a buyer is currently checking out";
+    case "paid": return "it has been paid for";
+    case "shipped": return "it has shipped";
+    case "delivered_pending_inspection":
+      return "it was delivered and is awaiting buyer inspection";
+    case "complete": return "the sale is complete";
+    default: return `its status is "${status}"`;
+  }
+}
+
+// ── moderateListingOnUpdate ─────────────────────────────────────────
+// Fires on listings/{id} UPDATE. Two responsibilities:
+//
+//   1. Content moderation. Scans the same freeform fields as
+//      moderateListingOnCreate. If a CHANGED field now violates, we
+//      REVERT every editable field to its change.before value (rather
+//      than deleting the doc, as the create path does). Rationale: an
+//      edit has a known-good prior state — the listing already passed
+//      create-moderation — so destroying it would punish the seller
+//      for a bad edit by nuking a previously-clean listing plus any
+//      buyer bids/conversations bound to it. This mirrors how
+//      moderateProfileOnWrite reverts/clears the offending field
+//      instead of deleting the profile doc. We revert the WHOLE
+//      editable set (not just the offending field) so a multi-field
+//      edit can't half-apply. A `moderationLog` row with
+//      action:"edit_blocked" is written (schema-compatible with
+//      scanContent's own audit rows + the create path).
+//
+//   2. Storage GC. Diffs change.before.photos vs the FINAL committed
+//      photos (post-revert if we reverted, else change.after) and
+//      deletes any orphaned objects from Storage so removed photos
+//      don't leak storage cost.
+exports.moderateListingOnUpdate = onDocumentUpdated(
+    {document: "listings/{listingId}", ...LIGHT_TRIGGER},
+    async (event) => {
+      const beforeSnap = event.data && event.data.before;
+      const afterSnap = event.data && event.data.after;
+      if (!beforeSnap || !afterSnap) return;
+      const before = beforeSnap.data() || {};
+      const after = afterSnap.data() || {};
+      const listingId = event.params.listingId;
+      const sellerId = after.sellerId || before.sellerId || null;
+
+      // Final photo set as it stands after this write. Updated to the
+      // reverted set below if we revert, so Storage GC always diffs
+      // against what actually persists.
+      let finalPhotos = after.photos;
+      let reverted = false;
+
+      try {
+        // Only scan fields that actually CHANGED — an unchanged field
+        // already passed its create-time (or a prior edit's) scan, and
+        // re-scanning it on an unrelated counter bump (views/watchers)
+        // would be wasted work. Mirrors moderateProfileOnWrite's
+        // "skip fields that didn't change" optimization.
+        const SCAN_FIELDS = ["title", "brand", "desc", "cat", "condition"];
+        const changed = {};
+        for (const f of SCAN_FIELDS) {
+          if (after[f] !== before[f]) changed[f] = after[f];
+        }
+        if (Object.keys(changed).length > 0) {
+          const result = await scanFields(
+              changed, "listing", sellerId, null);
+          if (!result.clean) {
+            logger.warn(
+                "moderation: reverting listing edit (content violation)",
+                {listingId, sellerId, category: result.category});
+            // Revert every editable field to its before value. Use
+            // delete() sentinel for fields that didn't exist before so
+            // we don't leave a stray empty value behind.
+            const revert = {};
+            for (const f of LISTING_EDITABLE_FIELDS) {
+              if (Object.prototype.hasOwnProperty.call(before, f)) {
+                revert[f] = before[f];
+              } else if (Object.prototype.hasOwnProperty.call(after, f)) {
+                revert[f] = admin.firestore.FieldValue.delete();
+              }
+            }
+            revert.updatedAt =
+              admin.firestore.FieldValue.serverTimestamp();
+            try {
+              await afterSnap.ref.update(revert);
+              reverted = true;
+              finalPhotos = before.photos;
+            } catch (e) {
+              logger.error("moderation: listing revert failed", e);
+            }
+            // Audit row. scanContent already wrote a redacted-excerpt
+            // row for the matched field; this second row is the
+            // edit-path action marker the spec requires. Schema mirrors
+            // contentFilter.writeAuditLog (uid/contentType/category/
+            // redactedExcerpt/originatingIp/timestamp) plus `action`.
+            try {
+              await admin.firestore().collection("moderationLog").add({
+                uid: sellerId || null,
+                contentType: "listing",
+                category: result.category,
+                redactedExcerpt: result.redactedExcerpt || null,
+                originatingIp: null,
+                action: "edit_blocked",
+                listingId,
+                timestamp:
+                  admin.firestore.FieldValue.serverTimestamp(),
+              });
+            } catch (e) {
+              logger.warn("moderation: edit_blocked audit write failed");
+            }
+          }
+        }
+      } catch (e) {
+        logger.error("moderateListingOnUpdate moderation error", e);
+      }
+
+      // Storage GC.
+      //   • Clean edit: delete objects the seller removed — they were
+      //     in before.photos but not in after.photos (== finalPhotos).
+      //   • Reverted edit: the revert restored before.photos, so any
+      //     photo the seller had just uploaded (in after.photos but
+      //     not before.photos) is now orphaned in Storage. Diff
+      //     after.photos vs the persisted before.photos to GC them.
+      // The revert write itself re-triggers this function, but on that
+      // pass before==after for photos so the diff is empty — no loop.
+      try {
+        if (reverted) {
+          await deleteRemovedListingPhotos(
+              after.photos, finalPhotos, listingId);
+        } else {
+          await deleteRemovedListingPhotos(
+              before.photos, finalPhotos, listingId);
+        }
+      } catch (e) {
+        logger.warn("moderation: listing photo GC failed");
+      }
+    },
+);
+
+// ─────────────────────────────────────────────────────────────
+// updateListing (callable) — the canonical seller listing-EDIT path.
+//
+// Why a callable rather than a direct client Firestore write:
+//   • Locked-status enforcement must read the CURRENT server state
+//     (status can flip to pending/sold the instant a buyer checks
+//     out — a client-side check races that). The Admin SDK reads the
+//     authoritative doc inside the function.
+//   • Server-side content pre-scan rejects a profane edit
+//     synchronously (HttpsError) so the seller gets immediate
+//     feedback; the moderateListingOnUpdate trigger is the async
+//     backstop for anything that slips the pre-check.
+//   • createdAt / sellerId / id / status / server-owned counters are
+//     never accepted from the client here.
+//
+// firestore.rules relationship: the rules still permit a seller to
+// write the SAME editable whitelist directly on their own
+// non-locked listing (renew/pin paths rely on that, and it's
+// defense-in-depth). The callable is the product edit path; the
+// rules are the backstop. They are coherent — the rules' locked
+// gate (status must be active|expired) is a strict SUBSET of this
+// callable's lock set, so nothing the callable rejects could sneak
+// through the rules, and nothing the callable writes is wider than
+// the rules allow.
+// ─────────────────────────────────────────────────────────────
+exports.updateListing = onCall(USER_CALLABLE, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  const uid = request.auth.uid;
+  const data = request.data || {};
+  const listingId = data.listingId;
+  if (!listingId || typeof listingId !== "string" ||
+      listingId.length > 128) {
+    throw new HttpsError("invalid-argument", "listingId required");
+  }
+
+  const db = admin.firestore();
+  const ref = db.collection("listings").doc(listingId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Listing not found.");
+  }
+  const cur = snap.data() || {};
+
+  // Ownership: only the seller who owns the listing can edit it.
+  if (cur.sellerId !== uid) {
+    throw new HttpsError(
+        "permission-denied", "You can only edit your own listings.");
+  }
+
+  // Locked-status gate. A reserved/sold/in-fulfillment listing must
+  // not change out from under an in-flight purchase. Return a
+  // structured error carrying the actual status + a human reason so
+  // the client can render: "This listing is locked because [reason].
+  // Contact support if you need to make a change."
+  const status = cur.status || "active";
+  if (LISTING_LOCKED_STATUSES.includes(status)) {
+    throw new HttpsError(
+        "failed-precondition",
+        "This listing is locked and cannot be edited.",
+        {
+          error: "listing_locked",
+          status,
+          reason: lockedReasonForStatus(status),
+        });
+  }
+
+  // ── Validation: mirror submitListing's create-time checks ──
+  const title = typeof data.title === "string" ? data.title.trim() : "";
+  const brand = typeof data.brand === "string" ? data.brand.trim() : "";
+  const cat = typeof data.cat === "string" ? data.cat : "";
+  const condition =
+    typeof data.condition === "string" ? data.condition : "";
+  const desc = typeof data.desc === "string" ? data.desc.trim() : "";
+  const price = Number(data.ask);
+  let quantity = parseInt(data.quantity, 10);
+  if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
+  if (quantity > 99) quantity = 99;
+  const photos = Array.isArray(data.photos) ?
+    data.photos.filter((u) => typeof u === "string" && u.length > 0) : [];
+
+  if (!title || !brand || !cat || !condition) {
+    throw new HttpsError(
+        "invalid-argument", "Please fill in all required fields.");
+  }
+  if (title.length > 120 || brand.length > 60 ||
+      cat.length > 40 || condition.length > 40) {
+    throw new HttpsError("invalid-argument", "A field is too long.");
+  }
+  if (desc.length > 4000) {
+    throw new HttpsError("invalid-argument", "Description is too long.");
+  }
+  if (!Number.isFinite(price) || price <= 0 || price >= 1000000) {
+    throw new HttpsError(
+        "invalid-argument", "Please enter a valid price.");
+  }
+  if (photos.length < 1) {
+    throw new HttpsError(
+        "invalid-argument", "Add at least one photo.");
+  }
+  if (photos.length > 10) {
+    throw new HttpsError(
+        "invalid-argument", "A listing can have at most 10 photos.");
+  }
+  // High-value ($300+) listings require >=4 photos (verification
+  // photo) — same rule submitListing enforces on create.
+  const isHighValue = price >= 300;
+  if (isHighValue && photos.length < 4) {
+    throw new HttpsError(
+        "invalid-argument",
+        "Listings over $300 require at least 4 photos " +
+        "including a verification photo.");
+  }
+
+  // ── Server-side content pre-scan (synchronous reject) ──
+  // Same fields the moderateListingOnUpdate trigger scans. Reject
+  // shape matches sendMessage so the client's isContentViolationError
+  // / showContentViolationToast path lights up unchanged.
+  const modResult = await scanFields(
+      {title, brand, desc, cat, condition},
+      "listing", uid, request);
+  if (!modResult.clean) {
+    throw new HttpsError("invalid-argument", "Content violation", {
+      error: "content_violation",
+      category: modResult.category,
+    });
+  }
+
+  // ── Persist the editable set + updatedAt. Never touch sellerId,
+  // createdAt, status, id, or server-owned counters. bid is derived
+  // the same way submitListing derives it (90% of ask) so the
+  // bid/ask invariant the rules enforce holds. ──
+  const update = {
+    title,
+    brand,
+    cat,
+    ask: price,
+    bid: Math.round(price * 0.9),
+    condition,
+    desc,
+    photos,
+    quantity,
+    requiresAuth: isHighValue,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  // Only (re)set authReviewState when crossing the high-value
+  // threshold so an admin's prior review verdict isn't silently
+  // reset by an unrelated edit. New high-value → pending review;
+  // dropped below threshold → na.
+  const wasHighValue = !!cur.requiresAuth;
+  if (isHighValue && !wasHighValue) {
+    update.authReviewState = "pending";
+  } else if (!isHighValue && wasHighValue) {
+    update.authReviewState = "na";
+  }
+
+  try {
+    await ref.update(update);
+  } catch (e) {
+    logger.error("updateListing write failed", e);
+    throw new HttpsError("internal", "Could not save your changes.");
+  }
+  return {ok: true, listingId};
+});
+
 // ── moderateProfileOnCreate / OnWrite (profiles/{uid}) ─────────────
 // Profile docs hold the public-facing displayName + bio. We clear
 // the offending field rather than delete the doc (user still needs
