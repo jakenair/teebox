@@ -5815,7 +5815,7 @@ async function deleteRemovedListingPhotos(beforeUrls, afterUrls, expectedListing
     try {
       await bucket.file(path).delete({ignoreNotFound: true});
     } catch (e) {
-      logger.warn("moderation: removed-photo delete failed");
+      logger.warn("moderation: removed-photo delete failed", {path, err: e && e.message});
     }
   }));
 }
@@ -5850,6 +5850,7 @@ function lockedReasonForStatus(status) {
     case "delivered_pending_inspection":
       return "it was delivered and is awaiting buyer inspection";
     case "complete": return "the sale is complete";
+    case "flagged": return "it's currently under review";
     default: return `its status is "${status}"`;
   }
 }
