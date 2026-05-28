@@ -831,7 +831,7 @@
   .bottom-nav { display: none; }
   @media (max-width: 900px) {
     .bottom-nav {
-      display: grid; grid-template-columns: repeat(6, 1fr);
+      display: grid; grid-template-columns: repeat(5, 1fr);
       position: fixed; bottom: 0; left: 0; right: 0;
       background: var(--white); border-top: 1px solid var(--gray-200);
       padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
@@ -2739,9 +2739,6 @@
   </button>
   <button class="bottom-nav-item sell" data-tab="sell" data-action="handle-sell" type="button">
     <span data-ico="plus" aria-hidden="true"></span>Sell
-  </button>
-  <button class="bottom-nav-item" data-tab="bingo" data-action="open-bingo" type="button" aria-label="Logo Bingo">
-    <span class="bn-bingo-glow" aria-hidden="true"></span>Bingo
   </button>
   <button class="bottom-nav-item" data-tab="inbox" data-action="open-inbox" type="button">
     <span data-ico="message" class="bn-icon" aria-hidden="true"><span class="unread-badge" aria-hidden="true"></span></span>Inbox
