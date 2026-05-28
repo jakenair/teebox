@@ -36,23 +36,42 @@ const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
 // unavailable in a given function context it logs once and silently
 // drops events. ANY function calling captureServerEvent must include
 // `posthogSecret` in its secrets list (see analytics.js header).
-const {
-  posthogSecret,
-  captureServerEvent,
-  shutdownAnalytics,
-} = require("./lib/analytics");
+//
+// LAZY-INIT NOTE (2026-05-19): the heavy SDK + helper bodies are loaded
+// lazily via thin wrappers to keep the deploy-time discovery scan under
+// the firebase CLI 10s budget. `posthogSecret` MUST stay eager because
+// it is a `defineSecret` ParamResource — discovery scans the
+// `secrets:[posthogSecret,...]` arrays on each function's option block
+// to declare the binding. If the param were lazy, deploy would either
+// fail or detach the secret. See the matching pattern in
+// functions/moderation/contentFilter.js getFilter().
+const {posthogSecret} = require("./lib/analytics");
+function captureServerEvent(...args) {
+  return require("./lib/analytics").captureServerEvent(...args);
+}
+function shutdownAnalytics(...args) {
+  return require("./lib/analytics").shutdownAnalytics(...args);
+}
 
 // Ban-evasion signal capture + cross-reference helpers. See
 // functions/banEvasion.js for the V1 design + limitations. The module
 // is no-throw — every helper fails open so a Firestore hiccup never
 // blocks a legitimate checkout. Defense-in-depth on top of the existing
 // `users/{uid}.banned` check.
-const {
-  captureFraudSignal,
-  checkFingerprintAgainstBanned,
-  extractClientIp,
-  flagUserBanned,
-} = require("./banEvasion");
+//
+// Lazy-init via thin wrappers — see analytics block above for rationale.
+function captureFraudSignal(...args) {
+  return require("./banEvasion").captureFraudSignal(...args);
+}
+function checkFingerprintAgainstBanned(...args) {
+  return require("./banEvasion").checkFingerprintAgainstBanned(...args);
+}
+function extractClientIp(...args) {
+  return require("./banEvasion").extractClientIp(...args);
+}
+function flagUserBanned(...args) {
+  return require("./banEvasion").flagUserBanned(...args);
+}
 
 // Sizing presets for the four common shapes — keep one source of truth
 // so we can tune the whole platform at once. Values are picked to handle
@@ -3858,7 +3877,11 @@ const APP_URL = "https://teeboxmarket.com";
 // (CAN-SPAM exposure). `sendEmail` from lib/email.js handles consent
 // gating, recordSend, suppression, and unsubscribe-footer rendering via
 // the canonical <Base/> layout.
-const {sendEmail: sendEmailCanonical} = require("./lib/email");
+// Lazy-init via thin wrapper — defers loading lib/email (and its Resend
+// SDK chain) until first send. Keeps deploy-time discovery scan fast.
+function sendEmailCanonical(...args) {
+  return require("./lib/email").sendEmail(...args);
+}
 
 // Lazy-require compiled email templates from emails-build/. Matches the
 // loader pattern in emailTriggers.js — falls back to raw ./emails/
@@ -5706,7 +5729,16 @@ exports.suggestListingPrice = onCall(
 // findExplicitTerm itself is no longer used — superseded by
 // scanContent. Left in place to avoid touching unrelated areas.
 // ──────────────────────────────────────────────────────────────────────
-const {scanContent, scanFields} = require("./moderation/contentFilter");
+// Lazy-init via thin wrappers — defers loading the bad-words filter
+// + customBlocklist construction until first scan. The matching
+// pattern is inside contentFilter.js itself (getFilter()). Keeps the
+// deploy-time discovery scan fast.
+function scanContent(...args) {
+  return require("./moderation/contentFilter").scanContent(...args);
+}
+function scanFields(...args) {
+  return require("./moderation/contentFilter").scanFields(...args);
+}
 
 const EXPLICIT_BLOCKLIST = [
   "fuck", "shit", "asshole", "bitch", "cunt", "dick ", "pussy", "cock ",
