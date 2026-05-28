@@ -2196,6 +2196,13 @@
   .dash-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); font-size: 14px; }
   /* Contain horizontal scroll to each tab pane — .dash-table has 9 cols + nowrap action cells, overflows viewport on mobile; without this the whole page scrolls horizontally instead of just the table. */
   #dashTabActive, #dashTabSold, #dashTabPayouts, #dashTabOffers { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Category-empty callout (shown when a category has no listings yet but
+     other inventory exists). Sits at the top of the product grid, spans
+     all columns, then the cross-category inventory renders below it. */
+  .cat-empty-callout { text-align: center; padding: 2.25rem 1.25rem; margin-bottom: 6px; background: linear-gradient(160deg, var(--green-50, #f1f7f2), #fff); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); }
+  .cat-empty-title { font-size: 17px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+  .cat-empty-sub { font-size: 13px; color: var(--gray-500); margin-bottom: 16px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+  .cat-empty-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-500); padding: 14px 0 4px; }
   .dash-table { width: 100%; border-collapse: collapse; }
   .dash-table th { text-align: left; font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--gray-200); }
   .dash-table td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid var(--gray-200); }
@@ -7525,6 +7532,87 @@ function filterByBrand(brand) {
 }
 window.filterByBrand = filterByBrand;
 
+// Render one listing card's HTML. Extracted from buildProducts so the
+// category-empty fallback (Part 2) can re-render the full inventory grid
+// without duplicating the card markup.
+function renderProductCardHtml(p, i) {
+  const id = window.safeId(p.id);
+  // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
+  const delay = Math.min(i, 12) * 30;
+  const url = window.safeImgUrl(p.photos && p.photos[0]);
+  const mainImg = url
+    ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
+    : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
+  const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
+  const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
+  const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'Hot':'New'}</span>` : '';
+  const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">${Number(p.photos.length)} photos</span>` : '';
+  const change = Number(p.change||0);
+  const changeStyle = change>0
+    ? 'background:var(--up-bg);color:var(--up-green)'
+    : 'background:var(--dn-bg);color:var(--dn-red)';
+  const idAttr = window.safeAttr(id);
+  const sellerVerifiedSlot = p.sellerId
+    ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
+    : '';
+  // Pro Seller pill — gold pill, hydrated alongside the verified pill.
+  // Lives in the same .product-brand row so it renders inline with the brand.
+  const sellerProSlot = p.sellerId
+    ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
+    : '';
+  // Tenured-seller pill — colour-coded social-proof pill. Placeholder
+  // here, hydrated by hydrateSellerTenurePills() once profile data
+  // (salesCount / avgRating / createdAt) loads from Firestore.
+  const sellerTenureSlot = p.sellerId
+    ? `<span class="seller-tenure-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
+    : '';
+  const sellerRatingSlot = p.sellerId
+    ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
+    : '';
+  const totalQty = Math.max(1, Number(p.quantity || 1));
+  const soldQty = Math.max(0, Number(p.quantitySold || 0));
+  const remaining = Math.max(0, totalQty - soldQty);
+  const stockBadge = totalQty > 1 && p.status !== 'sold'
+    ? `<span class="stock-badge">${remaining} in stock</span>`
+    : '';
+  return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
+    `<div class="product-img-wrap">${soldBadge}`+
+      `${mainImg}`+
+      `${badge}`+
+      `${stockBadge}`+
+      `<button class="fav-btn${fav.has(p.id)?' liked':''}" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
+      `${photoCount}`+
+    `</div>`+
+    `<div class="product-body">`+
+      `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
+      `<div class="product-name">${window.safeText(p.name)}</div>`+
+      `${sellerRatingSlot}`+
+      `<div class="product-market">`+
+        `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
+        `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
+        `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>`+
+      `</div>`+
+      `<div class="product-btns">`+
+        `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
+      `</div>`+
+    `</div>`+
+  `</div>`;
+}
+
+// Human-readable category labels, mirroring the cat-bar pills (see the
+// .cat-pill buttons in the markup). Used by the category-empty callout.
+window.CATEGORY_LABEL = function(cat) {
+  return ({
+    shoes: 'Shoes',
+    clubs: 'Clubs',
+    apparel: 'Apparel',
+    accessories: 'Accessories',
+    bags: 'Bags',
+    balls: 'Balls',
+    headcovers: 'Headcovers',
+  })[cat] || (cat ? String(cat).charAt(0).toUpperCase() + String(cat).slice(1) : '');
+};
+
 function buildProducts(filter) {
   if (filter !== undefined) window.__filter.cat = filter;
   const all = window.PRODUCTS || [];
@@ -7550,74 +7638,56 @@ function buildProducts(filter) {
           '<button class="btn-primary" data-action="handle-sell" style="padding:10px 22px;font-size:14px;">List an Item</button>'+
         '</div>';
     } else {
+      // Decide WHY the filtered list is empty. If a category is active
+      // while price/condition/brand are all at their defaults, the
+      // category itself is the cause — show a "be the first" callout for
+      // that category, then fall back to the full cross-category
+      // inventory so the page never looks empty. If instead a
+      // price/condition/brand sub-filter removed everything, keep the
+      // generic "widen your filters" message.
+      const f = window.__filter || {};
+      const catActive = f.cat && f.cat !== 'all';
+      const subFiltersDefault =
+        (f.min == null) && (f.max == null) &&
+        (!f.conditions || f.conditions.size === 0) &&
+        !f.brand;
+      if (catActive && subFiltersDefault) {
+        // Re-run the rest of the filter pipeline with the category
+        // cleared, FOR DISPLAY ONLY. window.__filter is not mutated, so
+        // the active cat-pill UI and subsequent chip clicks are
+        // unaffected.
+        const savedCat = f.cat;
+        f.cat = 'all';
+        let crossList = [];
+        try { crossList = applyFilters(all); }
+        finally { f.cat = savedCat; }
+        const catLabel = window.CATEGORY_LABEL(savedCat) || 'items';
+        const callout =
+          '<div class="cat-empty-callout" style="grid-column:1/-1;">'+
+            '<div class="cat-empty-title">No '+window.safeText(catLabel)+' listed yet — be the first to list one!</div>'+
+            '<div class="cat-empty-sub">Got '+window.safeText(String(catLabel).toLowerCase())+' to sell? List it now and reach golfers actively shopping TeeBox.</div>'+
+            '<button class="btn-primary" data-action="handle-sell" style="padding:10px 22px;font-size:14px;">Sell Now</button>'+
+          '</div>';
+        if (crossList.length) {
+          const heading =
+            '<div class="cat-empty-divider" style="grid-column:1/-1;">Latest from across TeeBox</div>';
+          grid.innerHTML = callout + heading +
+            crossList.map((p, i) => renderProductCardHtml(p, i)).join('');
+          // Hydrate the cross-category cards same as the normal grid.
+          hydrateVerifiedSellerPills(grid);
+          hydrateSellerProPills(grid);
+          hydrateSellerRatings(grid);
+        } else {
+          grid.innerHTML = callout;
+        }
+        return;
+      }
       grid.innerHTML =
         '<div class="dash-empty" style="grid-column:1/-1"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No listings match your filters</div>Try widening the price range or clearing conditions.</div>';
     }
     return;
   }
-  document.getElementById('productGrid').innerHTML = list.map((p, i)=>{
-    const id = window.safeId(p.id);
-    // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
-    const delay = Math.min(i, 12) * 30;
-    const url = window.safeImgUrl(p.photos && p.photos[0]);
-    const mainImg = url
-      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
-      : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
-    const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
-    const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
-    const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'Hot':'New'}</span>` : '';
-    const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">${Number(p.photos.length)} photos</span>` : '';
-    const change = Number(p.change||0);
-    const changeStyle = change>0
-      ? 'background:var(--up-bg);color:var(--up-green)'
-      : 'background:var(--dn-bg);color:var(--dn-red)';
-    const idAttr = window.safeAttr(id);
-    const sellerVerifiedSlot = p.sellerId
-      ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
-      : '';
-    // Pro Seller pill — gold pill, hydrated alongside the verified pill.
-    // Lives in the same .product-brand row so it renders inline with the brand.
-    const sellerProSlot = p.sellerId
-      ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
-      : '';
-    // Tenured-seller pill — colour-coded social-proof pill. Placeholder
-    // here, hydrated by hydrateSellerTenurePills() once profile data
-    // (salesCount / avgRating / createdAt) loads from Firestore.
-    const sellerTenureSlot = p.sellerId
-      ? `<span class="seller-tenure-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
-      : '';
-    const sellerRatingSlot = p.sellerId
-      ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
-      : '';
-    const totalQty = Math.max(1, Number(p.quantity || 1));
-    const soldQty = Math.max(0, Number(p.quantitySold || 0));
-    const remaining = Math.max(0, totalQty - soldQty);
-    const stockBadge = totalQty > 1 && p.status !== 'sold'
-      ? `<span class="stock-badge">${remaining} in stock</span>`
-      : '';
-    return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
-      `<div class="product-img-wrap">${soldBadge}`+
-        `${mainImg}`+
-        `${badge}`+
-        `${stockBadge}`+
-        `<button class="fav-btn${fav.has(p.id)?' liked':''}" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
-        `${photoCount}`+
-      `</div>`+
-      `<div class="product-body">`+
-        `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
-        `<div class="product-name">${window.safeText(p.name)}</div>`+
-        `${sellerRatingSlot}`+
-        `<div class="product-market">`+
-          `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
-          `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
-          `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>`+
-        `</div>`+
-        `<div class="product-btns">`+
-          `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
-        `</div>`+
-      `</div>`+
-    `</div>`;
-  }).join('');
+  document.getElementById('productGrid').innerHTML = list.map((p, i)=>renderProductCardHtml(p, i)).join('');
   // Async hydrate verified-seller pills inside listing cards (Feature #3).
   hydrateVerifiedSellerPills(document.getElementById('productGrid'));
   // Async hydrate Pro Seller pills inside listing cards.
