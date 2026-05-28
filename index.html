@@ -7551,8 +7551,9 @@ window.filterByBrand = filterByBrand;
 // stable across category / price / condition filtering. Re-runs on every
 // buildProducts() call, so it repopulates whenever PRODUCTS reloads.
 // NOTE: viewCount is all-time, not week-scoped — no week-bucketed view
-// data exists client-side. Heading text says "This Week" per spec; this
-// wording mismatch is flagged as a decision item.
+// data exists client-side. Heading reads "Most Viewed" (no time scope)
+// so the wording matches what the data actually is. If week-scoped view
+// data is added later, update the heading + the viewed sort to match.
 function renderMostViewedWidget() {
   const host = document.getElementById('heroMostViewed');
   if (!host) return;
@@ -7569,7 +7570,7 @@ function renderMostViewedWidget() {
     .sort((a, b) => Number(b.viewCount || 0) - Number(a.viewCount || 0));
   let picks, heading;
   if (viewed.length) {
-    heading = 'Most Viewed This Week';
+    heading = 'Most Viewed';
     picks = viewed.slice(0, 3);
     if (picks.length < 3) {
       // Top up with newest listings not already shown.
