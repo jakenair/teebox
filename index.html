@@ -1472,6 +1472,22 @@
   .feat-change { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 50px; }
   .up { background: rgba(26,138,60,0.3); color: #6ed492; }
   .down { background: rgba(192,57,43,0.3); color: #f4948b; }
+  /* "Most Viewed This Week" sidebar widget — reuses the .feat-card dark
+     panel; lists 3 clickable mini-rows (thumb / title / price / cond). */
+  .feat-most-viewed { display: flex; flex-direction: column; cursor: default; padding: 18px; }
+  .feat-most-viewed:hover { background: rgba(255,255,255,0.06); transform: none; border-color: rgba(255,255,255,0.1); }
+  .feat-mv-head { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--gold-300); margin-bottom: 12px; }
+  .feat-mv-row { display: flex; align-items: center; gap: 12px; padding: 9px 8px; margin: 0 -8px; border-radius: 10px; cursor: pointer; transition: background 0.18s ease; }
+  .feat-mv-row + .feat-mv-row { border-top: 1px solid rgba(255,255,255,0.07); }
+  .feat-mv-row:hover { background: rgba(255,255,255,0.07); }
+  .feat-mv-thumb { width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.08); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); }
+  .feat-mv-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .feat-mv-thumb svg { width: 22px; height: 22px; }
+  .feat-mv-info { min-width: 0; flex: 1; }
+  .feat-mv-name { font-size: 13px; font-weight: 600; color: var(--white); line-height: 1.3; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feat-mv-meta { display: flex; align-items: baseline; gap: 8px; }
+  .feat-mv-price { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--gold-300); }
+  .feat-mv-cond { font-size: 11px; color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .section { max-width: 1240px; margin: 0 auto; padding: 2.5rem 2rem; }
   .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.5rem; }
@@ -4214,15 +4230,16 @@
         </div>
       </div>
       <div class="hero-featured" id="heroFeatured">
-        <!-- Simplified — the previous version was a second CTA cluster
-             (List an Item + Browse Marketplace) competing with the hero's
-             primary Shop Now / Start Selling pair, freezing first-time
-             users. Now a single info card that reinforces value without
-             a competing button stack. -->
-        <div class="feat-card feat-card-big" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:240px;padding:20px;">
+        <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
+             populated by renderMostViewedWidget() after PRODUCTS loads.
+             Falls back to newest listings, then to the value-prop copy
+             when the marketplace is genuinely empty. Single .feat-card-big
+             child so the desktop :only-child positioning rule still
+             applies. -->
+        <div class="feat-card feat-card-big feat-most-viewed" id="heroMostViewed" style="min-height:240px;padding:20px;">
           <div class="feat-label" style="margin-bottom:6px;">Brand New Marketplace</div>
           <div class="feat-name" style="font-size:18px;line-height:1.3;margin-bottom:8px;">Be one of the first to list on TeeBox.</div>
-          <div style="color:rgba(255,255,255,0.7);font-size:13px;line-height:1.5;max-width:300px;">Real peer-to-peer prices. Stripe-secured payouts. 6.5% seller fee — the lowest in golf.</div>
+          <div style="color:rgba(255,255,255,0.7);font-size:13px;line-height:1.5;max-width:300px;margin:0 auto;text-align:center;">Real peer-to-peer prices. Stripe-secured payouts. 6.5% seller fee — the lowest in golf.</div>
         </div>
       </div>
     </div>
@@ -7613,8 +7630,79 @@ window.CATEGORY_LABEL = function(cat) {
   })[cat] || (cat ? String(cat).charAt(0).toUpperCase() + String(cat).slice(1) : '');
 };
 
+// "Most Viewed" sidebar widget (replaces the static hero card).
+// Shows the top 3 listings by p.viewCount. Fallback chain:
+//   - fewer than 3 listings have viewCount>0 → fill the rest with newest
+//   - ZERO listings have any views → show newest 3 under "New Listings"
+//   - no listings at all → leave the static value-prop copy untouched
+// Reads window.PRODUCTS directly (NOT the filtered list) so the widget is
+// stable across category / price / condition filtering. Re-runs on every
+// buildProducts() call, so it repopulates whenever PRODUCTS reloads.
+// NOTE: viewCount is all-time, not week-scoped — no week-bucketed view
+// data exists client-side. Heading reads "Most Viewed" (no time scope)
+// so the wording matches what the data actually is. If week-scoped view
+// data is added later, update the heading + the viewed sort to match.
+function renderMostViewedWidget() {
+  const host = document.getElementById('heroMostViewed');
+  if (!host) return;
+  const all = (window.PRODUCTS || []).filter(p => p && p.id);
+  // Genuinely-empty marketplace — keep the static value-prop copy.
+  if (!all.length) return;
+  const byNewest = (a, b) => {
+    const at = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+    const bt = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+    return bt - at;
+  };
+  const viewed = all
+    .filter(p => Number(p.viewCount || 0) > 0)
+    .sort((a, b) => Number(b.viewCount || 0) - Number(a.viewCount || 0));
+  let picks, heading;
+  if (viewed.length) {
+    heading = 'Most Viewed';
+    picks = viewed.slice(0, 3);
+    if (picks.length < 3) {
+      // Top up with newest listings not already shown.
+      const seen = new Set(picks.map(p => p.id));
+      const filler = all.filter(p => !seen.has(p.id)).sort(byNewest);
+      picks = picks.concat(filler.slice(0, 3 - picks.length));
+    }
+  } else {
+    // Zero views anywhere — newest 3, relabelled.
+    heading = 'New Listings';
+    picks = all.slice().sort(byNewest).slice(0, 3);
+  }
+  if (!picks.length) return;
+  const rows = picks.map(p => {
+    const idAttr = window.safeAttr(window.safeId(p.id));
+    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const thumb = url
+      ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
+      : window.CATEGORY_ICON(p.cat);
+    const price = Number(p.ask || 0).toLocaleString();
+    const cm = window.conditionBadgeMeta(p.condition);
+    const cond = cm ? window.safeText(cm.label) : '';
+    return `<div class="feat-mv-row" data-action="open-detail" data-product-id="${idAttr}">`+
+        `<div class="feat-mv-thumb">${thumb}</div>`+
+        `<div class="feat-mv-info">`+
+          `<div class="feat-mv-name">${window.safeText(p.name || 'Untitled')}</div>`+
+          `<div class="feat-mv-meta">`+
+            `<span class="feat-mv-price">$${price}</span>`+
+            (cond ? `<span class="feat-mv-cond">${cond}</span>` : '')+
+          `</div>`+
+        `</div>`+
+      `</div>`;
+  }).join('');
+  host.innerHTML =
+    `<div class="feat-mv-head">${window.safeText(heading)}</div>` + rows;
+}
+window.renderMostViewedWidget = renderMostViewedWidget;
+
 function buildProducts(filter) {
   if (filter !== undefined) window.__filter.cat = filter;
+  // Repopulate the hero sidebar widget on every render (covers PRODUCTS
+  // reload + initial demo render — both call buildProducts). Reads
+  // window.PRODUCTS directly so filtering never narrows it.
+  try { renderMostViewedWidget(); } catch (_e) {}
   const all = window.PRODUCTS || [];
   const list = applyFilters(all);
   // Render the active-brand chip in the section header.
