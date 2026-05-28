@@ -6057,9 +6057,22 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     typeof data.condition === "string" ? data.condition : "";
   const desc = typeof data.desc === "string" ? data.desc.trim() : "";
   const price = Number(data.ask);
-  let quantity = parseInt(data.quantity, 10);
-  if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
-  if (quantity > 99) quantity = 99;
+  // Quantity: strict integer 1..99 if sent; preserve current if omitted.
+  // The old parseInt-and-clamp path silently defaulted missing/bad
+  // input to 1, which would reset a 5-stock listing to 1 on any edit
+  // that didn't re-send quantity. Fail loud on bad input; preserve on
+  // missing.
+  let quantity;
+  if (data.quantity === undefined || data.quantity === null) {
+    quantity = Number.isInteger(cur.quantity) && cur.quantity >= 1 ?
+      cur.quantity : 1;
+  } else if (!Number.isInteger(data.quantity) ||
+             data.quantity < 1 || data.quantity > 99) {
+    throw new HttpsError("invalid-argument",
+        "Quantity must be a whole number between 1 and 99.");
+  } else {
+    quantity = data.quantity;
+  }
   const photos = Array.isArray(data.photos) ?
     data.photos.filter((u) => typeof u === "string" && u.length > 0) : [];
 
