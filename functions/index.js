@@ -5893,6 +5893,7 @@ exports.moderateListingOnUpdate = onDocumentUpdated(
       // against what actually persists.
       let finalPhotos = after.photos;
       let reverted = false;
+      let revertFailed = false;
 
       try {
         // Only scan fields that actually CHANGED — an unchanged field
@@ -5925,32 +5926,93 @@ exports.moderateListingOnUpdate = onDocumentUpdated(
             }
             revert.updatedAt =
               admin.firestore.FieldValue.serverTimestamp();
-            try {
-              await afterSnap.ref.update(revert);
-              reverted = true;
-              finalPhotos = before.photos;
-            } catch (e) {
-              logger.error("moderation: listing revert failed", e);
+            // 3-attempt retry with exponential backoff (500ms, 1000ms,
+            // skipped on final attempt). Worst-case unguarded backoff
+            // would be ~3s (500+1000+1500); the if (attempt < 2) guard
+            // drops the trailing 1500ms so we return faster on terminal
+            // failure. retry: true is NOT set on the trigger config —
+            // we don't want Cloud Functions auto-retrying scan/GC
+            // failures, only the revert write.
+            let revertErr = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                await afterSnap.ref.update(revert);
+                reverted = true;
+                finalPhotos = before.photos;
+                revertErr = null;
+                break;
+              } catch (e) {
+                revertErr = e;
+                if (attempt < 2) {
+                  await new Promise((r) =>
+                    setTimeout(r, 500 * (attempt + 1)));
+                }
+              }
             }
-            // Audit row. scanContent already wrote a redacted-excerpt
-            // row for the matched field; this second row is the
-            // edit-path action marker the spec requires. Schema mirrors
-            // contentFilter.writeAuditLog (uid/contentType/category/
-            // redactedExcerpt/originatingIp/timestamp) plus `action`.
-            try {
-              await admin.firestore().collection("moderationLog").add({
-                uid: sellerId || null,
-                contentType: "listing",
-                category: result.category,
-                redactedExcerpt: result.redactedExcerpt || null,
-                originatingIp: null,
-                action: "edit_blocked",
-                listingId,
-                timestamp:
-                  admin.firestore.FieldValue.serverTimestamp(),
-              });
-            } catch (e) {
-              logger.warn("moderation: edit_blocked audit write failed");
+
+            if (reverted) {
+              // Audit row. scanContent already wrote a redacted-excerpt
+              // row for the matched field; this second row is the
+              // edit-path action marker the spec requires. Schema
+              // mirrors contentFilter.writeAuditLog (uid/contentType/
+              // category/redactedExcerpt/originatingIp/timestamp) plus
+              // `action`.
+              try {
+                await admin.firestore().collection("moderationLog").add({
+                  uid: sellerId || null,
+                  contentType: "listing",
+                  category: result.category,
+                  redactedExcerpt: result.redactedExcerpt || null,
+                  originatingIp: null,
+                  action: "edit_blocked",
+                  listingId,
+                  timestamp:
+                    admin.firestore.FieldValue.serverTimestamp(),
+                });
+              } catch (e) {
+                logger.warn(
+                    "moderation: edit_blocked audit write failed");
+              }
+              // Storage GC for orphaned uploads from the failed edit:
+              // the revert restored before.photos, so any photo the
+              // seller had just uploaded (in after.photos but not
+              // before.photos) is now orphaned. Diff after.photos vs
+              // the persisted before.photos to delete them.
+              try {
+                await deleteRemovedListingPhotos(
+                    after.photos, finalPhotos, listingId);
+              } catch (e) {
+                logger.warn(
+                    "moderation: listing photo GC failed");
+              }
+            } else {
+              // Revert exhausted retries. Listing currently holds the
+              // violating content. Write a truthful audit row
+              // (action: "revert_failed") so the listing surfaces in
+              // the moderation queue for manual handling rather than
+              // existing only in logger.error. Skip Storage GC — we
+              // don't know which photos are now orphaned vs valid.
+              revertFailed = true;
+              logger.error(
+                  "moderation: listing revert failed after 3 attempts",
+                  {listingId, sellerId,
+                    err: revertErr && revertErr.message});
+              try {
+                await admin.firestore().collection("moderationLog").add({
+                  uid: sellerId || null,
+                  contentType: "listing",
+                  category: result.category,
+                  redactedExcerpt: result.redactedExcerpt || null,
+                  originatingIp: null,
+                  action: "revert_failed",
+                  listingId,
+                  timestamp:
+                    admin.firestore.FieldValue.serverTimestamp(),
+                });
+              } catch (e) {
+                logger.warn(
+                    "moderation: revert_failed audit write failed");
+              }
             }
           }
         }
@@ -5958,25 +6020,20 @@ exports.moderateListingOnUpdate = onDocumentUpdated(
         logger.error("moderateListingOnUpdate moderation error", e);
       }
 
-      // Storage GC.
-      //   • Clean edit: delete objects the seller removed — they were
-      //     in before.photos but not in after.photos (== finalPhotos).
-      //   • Reverted edit: the revert restored before.photos, so any
-      //     photo the seller had just uploaded (in after.photos but
-      //     not before.photos) is now orphaned in Storage. Diff
-      //     after.photos vs the persisted before.photos to GC them.
+      // Clean-edit Storage GC: delete objects the seller removed
+      // (in before.photos but not in after.photos == finalPhotos).
+      // Skipped on both violation paths — revert-success branch
+      // already GC'd orphans; revert-failure branch intentionally
+      // leaves Storage alone since Firestore state is unreliable.
       // The revert write itself re-triggers this function, but on that
       // pass before==after for photos so the diff is empty — no loop.
-      try {
-        if (reverted) {
-          await deleteRemovedListingPhotos(
-              after.photos, finalPhotos, listingId);
-        } else {
+      if (!reverted && !revertFailed) {
+        try {
           await deleteRemovedListingPhotos(
               before.photos, finalPhotos, listingId);
+        } catch (e) {
+          logger.warn("moderation: listing photo GC failed");
         }
-      } catch (e) {
-        logger.warn("moderation: listing photo GC failed");
       }
     },
 );
