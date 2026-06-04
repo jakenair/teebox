@@ -4378,6 +4378,10 @@
           <span class="qty-remaining" id="detailQtyRemaining"></span>
         </div>
         <div class="detail-actions">
+          <!-- Owner-only "Edit listing" link. Hidden by default;
+               openDetailModal() reveals it + sets data-listing-id
+               only when the signed-in user owns this listing. -->
+          <button id="detailEditListingBtn" class="btn-link-muted" data-action="edit-listing" style="display:none;background:var(--green-50);border:1px solid var(--green-200);color:var(--green-700);font-size:13px;font-weight:600;padding:9px;border-radius:var(--radius-md);width:100%;cursor:pointer;margin-bottom:6px;">Edit listing</button>
           <div class="detail-trust-strip" aria-label="Buyer protection">
             <span title="Buyer protection — 7 days from delivery to open a dispute"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
             <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
@@ -6927,8 +6931,13 @@ window.confirmPayment = async function() {
   function renderPreviews() {
     const container = document.getElementById('uploadPreviews');
     const count = document.getElementById('uploadCount');
+    // selectedFiles entries are either a File (newly picked) or a
+    // {__existingUrl} marker (a photo already on the listing — edit
+    // mode). Both render identically; only Files are re-uploaded.
     container.innerHTML = selectedFiles.map((f,i) => {
-      const url = URL.createObjectURL(f);
+      const url = (f && f.__existingUrl)
+        ? (window.safeImgUrl ? window.safeImgUrl(f.__existingUrl) : f.__existingUrl)
+        : URL.createObjectURL(f);
       return `<div class="upload-preview">
         <img src="${url}" />
         ${i===0?'<div class="upload-main-badge">MAIN</div>':''}
@@ -6955,6 +6964,9 @@ window.confirmPayment = async function() {
     for (let i = 0; i < n; i++) {
       try {
         const file = selectedFiles[i];
+        // Existing-photo markers (edit mode) aren't File blobs — skip;
+        // the AI price call works fine off the newly picked photos.
+        if (file && file.__existingUrl) continue;
         const bitmap = await createImageBitmap(file).catch(() => null);
         if (!bitmap) continue;
         const maxEdge = 1024;
@@ -7021,7 +7033,16 @@ window.confirmPayment = async function() {
     // JPEG @ 0.85 quality before upload (was ~12x oversize vs. server output).
     // Path includes sellerId so storage rules can verify ownership without
     // a cross-service firestore.get() (which was 403'ing due to consistency lag).
+    // Order is preserved: existing-photo markers ({__existingUrl}) keep
+    // their slot and are NOT re-uploaded — only freshly picked Files
+    // hit Storage. This makes photo reorder/remove on edit cheap and
+    // keeps the seller's chosen MAIN-first ordering intact.
     const urls = await Promise.all(selectedFiles.map(async (file, i) => {
+      if (file && file.__existingUrl) {
+        done++;
+        bar.style.width = `${Math.round(done/total*100)}%`;
+        return file.__existingUrl;
+      }
       const shrunk = await shrinkForUpload(file);
       const safeName = file.name.replace(/\.[^.]+$/, '.jpg').replace(/[^A-Za-z0-9._\-]/g, '_');
       const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${i}_${safeName}`);
@@ -7094,6 +7115,13 @@ window.confirmPayment = async function() {
 
   window.submitListing = async function() {
     if (!window.CURRENT_USER || !window.IS_VERIFIED_SELLER) { showToast('Please verify as a seller first.'); return; }
+    // EDIT MODE: when __editingListingId is set the modal is reused as
+    // an edit form. Route to the update path (updateListing callable)
+    // and skip the Stripe KYC gate entirely — a seller with a live
+    // listing is already past that gate, and editing must never be
+    // blocked on a payout-setup re-check (matches the documented
+    // "Edit path is not gated" decision below).
+    if (window.__editingListingId) { return saveListingEdit(); }
     // ─────────────────────────────────────────────────────────────
     // Stripe Connect KYC gate (C2 — E2E_TRANSACTION_LOOP_AUDIT.md).
     // Sellers must have a Stripe Connect account with charges_enabled
@@ -7291,6 +7319,236 @@ window.confirmPayment = async function() {
     }
     btn.disabled = false; btn.textContent = 'Submit Listing';
   };
+
+  // ─────────────────────────────────────────────────────────────
+  // EDIT LISTING — reuses the sell modal in "edit mode". A mode flag
+  // (window.__editingListingId) routes submitListing() to the
+  // updateListing callable instead of the addDoc create path.
+  // NOT editable here: sellerId, createdAt, listing id, sale status —
+  // none are surfaced as form controls and the callable rejects them
+  // server-side regardless.
+  // ─────────────────────────────────────────────────────────────
+  window.__editingListingId = null;
+  // Snapshot of the form state at edit-open time, used to detect
+  // unsaved changes for the discard-confirm on close.
+  window.__editSnapshot = null;
+
+  function snapshotSellForm() {
+    return JSON.stringify({
+      title: (document.getElementById('sellTitle')||{}).value || '',
+      brand: (document.getElementById('sellBrand')||{}).value || '',
+      cat: (document.getElementById('sellCat')||{}).value || '',
+      price: (document.getElementById('sellPrice')||{}).value || '',
+      condition: (document.getElementById('sellCondition')||{}).value || '',
+      quantity: (document.getElementById('sellQuantity')||{}).value || '',
+      desc: (document.getElementById('sellDesc')||{}).value || '',
+      photos: selectedFiles.map(f => f && f.__existingUrl ? f.__existingUrl : ('file:'+(f && f.name || ''))),
+    });
+  }
+  window.snapshotSellForm = snapshotSellForm;
+
+  // True when the sell modal is in edit mode AND the form differs from
+  // the snapshot taken when it opened. closeSellModalDirect() consults
+  // this to decide whether to confirm before discarding.
+  window.sellEditHasUnsavedChanges = function() {
+    if (!window.__editingListingId || window.__editSnapshot == null) return false;
+    try { return snapshotSellForm() !== window.__editSnapshot; }
+    catch (_e) { return false; }
+  };
+
+  // Reset edit-mode state + modal chrome back to the create-listing
+  // defaults. Called on close so a subsequent "Sell Now" opens a clean
+  // create form.
+  window.exitSellEditMode = function() {
+    window.__editingListingId = null;
+    window.__editSnapshot = null;
+    const titleEl = document.querySelector('#sellModalBackdrop .modal-title');
+    if (titleEl) titleEl.textContent = 'List an Item for Sale';
+    const submitBtn = document.getElementById('submitListingBtn');
+    if (submitBtn) { submitBtn.textContent = 'Submit Listing'; submitBtn.disabled = false; }
+    const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
+    if (vbar) vbar.style.display = '';
+  };
+
+  // Open the sell modal pre-populated with an existing listing's
+  // current values, in edit mode. `id` is the Firestore listing id.
+  window.openEditListing = async function(id) {
+    if (!window.CURRENT_USER) { showToast('Please sign in.'); return; }
+    const listingId = String(id || '');
+    if (!listingId) return;
+    // Resolve the listing: prefer the in-memory copy (already loaded
+    // for the grid/detail), fall back to a fresh Firestore read.
+    let p = (window.PRODUCTS || []).find(x => String(x.id) === listingId);
+    if (!p) {
+      try {
+        const snap = await getDoc(doc(db, 'listings', listingId));
+        if (snap.exists()) p = { id: snap.id, ...snap.data() };
+      } catch (e) { console.warn('openEditListing fetch failed', e); }
+    }
+    if (!p) { showToast('Could not load that listing.'); return; }
+    // Ownership guard (UI-side; the callable enforces it server-side).
+    if (!p.sellerId || p.sellerId !== window.CURRENT_USER.uid) {
+      showToast('You can only edit your own listings.'); return;
+    }
+    // Locked-status guard (UI-side; callable is authoritative). Don't
+    // even open the editor on a sold/reserved listing.
+    const LOCKED = ['sold','pending','pending_payment','paid','shipped','delivered_pending_inspection','complete'];
+    if (LOCKED.includes(p.status)) {
+      showToast('This listing is locked and cannot be edited.');
+      return;
+    }
+
+    window.__editingListingId = listingId;
+
+    // If launched from the listing detail modal, close it so the edit
+    // form isn't stacked behind it.
+    try {
+      const db_ = document.getElementById('detailBackdrop');
+      if (db_ && db_.classList.contains('open')
+          && typeof window.closeDetailModalDirect === 'function') {
+        window.closeDetailModalDirect();
+      }
+    } catch (_e) {}
+
+    // Open the modal first (this resets photo widget chrome), then
+    // overwrite with the listing's values.
+    openSellModal();
+
+    const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = (val == null ? '' : String(val)); };
+    set('sellTitle', p.title || p.name || '');
+    set('sellBrand', p.brand || '');
+    set('sellCat', p.cat || '');
+    set('sellPrice', (p.ask != null ? p.ask : ''));
+    set('sellCondition', p.condition || 'Like New');
+    set('sellQuantity', (p.quantity != null ? p.quantity : 1));
+    set('sellDesc', p.desc || '');
+
+    // Load existing photos as ordered, non-uploaded markers so the
+    // photo widget shows them and uploadPhotos() preserves them in
+    // place. Newly added Files interleave by position.
+    selectedFiles = (Array.isArray(p.photos) ? p.photos : [])
+      .filter(u => typeof u === 'string' && u.length > 0)
+      .slice(0, 10)
+      .map(u => ({ __existingUrl: u }));
+    renderPreviews();
+
+    // Edit-mode chrome.
+    const titleEl = document.querySelector('#sellModalBackdrop .modal-title');
+    if (titleEl) titleEl.textContent = 'Edit your listing';
+    const submitBtn = document.getElementById('submitListingBtn');
+    if (submitBtn) submitBtn.textContent = 'Save changes';
+    // The "Verified Seller — listings go live instantly" bar is a
+    // create-flow affordance; hide it in edit mode.
+    const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
+    if (vbar) vbar.style.display = 'none';
+    // Reflect $300 verification-photo notice for the loaded price.
+    const priceEl = document.getElementById('sellPrice');
+    if (priceEl) priceEl.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Snapshot AFTER population so "unsaved changes" only trips on
+    // edits the seller actually makes.
+    window.__editSnapshot = snapshotSellForm();
+  };
+
+  // Persist an edit via the updateListing callable. Mirrors the
+  // create-path validation + photo-upload-abort semantics: if any new
+  // photo fails to upload we DO NOT call the callable, so the listing
+  // is left unchanged.
+  async function saveListingEdit() {
+    const listingId = window.__editingListingId;
+    if (!listingId) return;
+    const title = (document.getElementById('sellTitle').value || '').trim();
+    const brand = (document.getElementById('sellBrand').value || '').trim();
+    const cat = document.getElementById('sellCat').value;
+    const price = parseFloat(document.getElementById('sellPrice').value);
+    const condition = document.getElementById('sellCondition').value;
+    const desc = (document.getElementById('sellDesc').value || '').trim();
+    let quantity = parseInt(document.getElementById('sellQuantity').value, 10) || 1;
+    if (quantity < 1) quantity = 1;
+    if (quantity > 99) quantity = 99;
+    if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
+    if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
+    if (selectedFiles.length < 1) { showToast('A listing needs at least one photo.'); return; }
+    const blocked = window.findExplicitContent && window.findExplicitContent(title + ' ' + desc);
+    if (blocked) { showToast('Please remove inappropriate language from the title or description.'); return; }
+    if (price >= 300 && selectedFiles.length < 4) {
+      showToast('Listings over $300 require at least 4 photos including a verification photo.');
+      return;
+    }
+    const btn = document.getElementById('submitListingBtn');
+    const hasNewFiles = selectedFiles.some(f => !(f && f.__existingUrl));
+    btn.disabled = true; btn.textContent = hasNewFiles ? 'Uploading photos…' : 'Saving…';
+    let photoUrls;
+    try {
+      // Upload any newly added Files; existing-photo markers pass
+      // through in place. If ANY upload throws we abort BEFORE the
+      // callable — the listing stays exactly as it was (edge case E).
+      photoUrls = await uploadPhotos(listingId);
+    } catch (e) {
+      console.error('[saveListingEdit] photo upload failed:', e?.code, e?.message, e);
+      showToast('Photo upload failed — your listing was not changed. Try again.', 'error');
+      btn.disabled = false; btn.textContent = 'Save changes';
+      return;
+    }
+    if (!Array.isArray(photoUrls) || photoUrls.length < 1) {
+      showToast('A listing needs at least one photo.', 'error');
+      btn.disabled = false; btn.textContent = 'Save changes';
+      return;
+    }
+    btn.textContent = 'Saving…';
+    try {
+      const fn = httpsCallable(fns, 'updateListing');
+      await fn({
+        listingId,
+        title, brand, cat, ask: price, condition, desc,
+        quantity, photos: photoUrls,
+      });
+      // Success — clear edit state, refresh the grid + any open
+      // dashboard/detail so the new values show.
+      window.__editSnapshot = snapshotSellForm(); // mark not-dirty
+      window.exitSellEditMode();
+      selectedFiles = [];
+      renderPreviews();
+      closeSellModalDirect();
+      showToast('Listing updated.', 'success');
+      try { await loadListings(); } catch (_e) {}
+      // Refresh the My Shop dashboard only if it's actually open
+      // (the common entry point for editing) — otherwise it's a
+      // wasted read into hidden DOM.
+      try {
+        const dash = document.getElementById('shopDashboard');
+        if (dash && dash.classList.contains('open')
+            && typeof window.loadShopData === 'function') {
+          await window.loadShopData();
+        }
+      } catch (_e) {}
+    } catch (e) {
+      console.error('[saveListingEdit] failed:', e?.code, e?.message, e);
+      // Locked-status: server returns failed-precondition with
+      // details.error='listing_locked' + status + reason.
+      const det = (e && e.details) || {};
+      if (det.error === 'listing_locked') {
+        const reason = det.reason || 'it is no longer editable';
+        showToast(`This listing is locked because ${reason}. Contact support if you need to make a change.`, 'error');
+        btn.disabled = false; btn.textContent = 'Save changes';
+        return;
+      }
+      if (window.isContentViolationError && window.isContentViolationError(e)) {
+        showContentViolationToast();
+        btn.disabled = false; btn.textContent = 'Save changes';
+        return;
+      }
+      const code = e?.code || '';
+      let msg = 'Could not save your changes. Try again.';
+      if (code.includes('permission-denied')) msg = 'You can only edit your own listings.';
+      else if (code.includes('unauthenticated')) msg = 'Session expired. Please sign in again.';
+      else if (code.includes('not-found')) msg = 'That listing no longer exists.';
+      else if (e?.message && !code.includes('internal')) msg = 'Error: ' + String(e.message).slice(0, 120);
+      showToast(msg, 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Save changes';
+  }
+  window.saveListingEdit = saveListingEdit;
 </script>
 
 <script>
@@ -8252,6 +8510,24 @@ function openDetailModal(id) {
   });
   if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : 'Buy Now at Ask');
   if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
+  // Owner-only "Edit listing" link. Visible ONLY when a user is
+  // signed in AND owns this (real, Firestore-backed) listing. Hidden
+  // for guests, other users, and demo listings. Locked listings
+  // (sold/pending) still show it — the openEditListing UI guard +
+  // updateListing callable surface the friendly "locked" message
+  // rather than us silently hiding the affordance.
+  const editLink = document.getElementById('detailEditListingBtn');
+  if (editLink) {
+    const ownsThis = !!(window.CURRENT_USER && p.sellerId &&
+      window.CURRENT_USER.uid === p.sellerId && typeof p.id === 'string');
+    if (ownsThis) {
+      editLink.dataset.listingId = String(p.id);
+      editLink.style.display = '';
+    } else {
+      editLink.style.display = 'none';
+      delete editLink.dataset.listingId;
+    }
+  }
   // Multi-quantity selector — only shown when listing has >1 in stock.
   const qtyRow = document.getElementById('detailQtyRow');
   const qtyInput = document.getElementById('detailQty');
@@ -9982,6 +10258,9 @@ async function loadShopData() {
     showToast('Could not load shop data.');
   }
 }
+// Exposed so the edit-listing flow (module scope) can refresh the My
+// Shop dashboard after a successful save without duplicating the load.
+window.loadShopData = loadShopData;
 
 // Smooth count-up animation for a stat number. Vanilla rAF — no library.
 // Honors prefers-reduced-motion by snapping straight to the final value.
@@ -10273,6 +10552,11 @@ function renderShopTables() {
             const isExpired = l.status === 'expired' || (exp && exp < new Date());
             const expireLabel = exp ? exp.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '—';
             const renew = isExpired ? `<button class="renew-btn" data-action="renew-listing" data-listing-id="${escapeHtml(String(l.id))}">Renew</button>` : '';
+            // Edit button — opens the sell modal in edit mode. Shown
+            // for every row in the active table (active + expired).
+            // Locked listings (a reserved/pending buy) are blocked by
+            // the openEditListing UI guard + updateListing callable.
+            const editBtn = `<button class="renew-btn" data-action="edit-listing" data-listing-id="${escapeHtml(String(l.id))}" title="Edit listing">Edit</button>`;
             const isPinned = pinnedId && pinnedId === String(l.id);
             const pinBtn = isPinned
               ? `<button class="pin-btn pinned" data-action="unpin-listing" data-listing-id="${escapeHtml(String(l.id))}" title="Unpin from profile">Pinned</button>`
@@ -10309,7 +10593,7 @@ function renderShopTables() {
               <td class="col-analytic" title="Watchers"><span class="lbl">${watchers}</span></td>
               <td class="col-analytic" title="Messages"><span class="lbl">${msgs}</span></td>
               <td style="color:var(--gray-500);font-size:12px">${expireLabel}</td>
-              <td style="white-space:nowrap">${pinBtn} ${renew} <button class="listing-delete-btn" data-action="ask-delete-listing" data-listing-id="${escapeHtml(String(l.id))}" data-listing-title="${escapeHtml(String(l.title || 'Untitled'))}" title="Delete listing" aria-label="Delete listing">${window.ICONS.trash}</button></td>
+              <td style="white-space:nowrap">${editBtn} ${pinBtn} ${renew} <button class="listing-delete-btn" data-action="ask-delete-listing" data-listing-id="${escapeHtml(String(l.id))}" data-listing-title="${escapeHtml(String(l.title || 'Untitled'))}" title="Delete listing" aria-label="Delete listing">${window.ICONS.trash}</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -11111,6 +11395,14 @@ function openSellModal() {
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
+  // Force create-flow chrome unless we're in edit mode. openEditListing()
+  // sets window.__editingListingId BEFORE calling openSellModal(), so
+  // this is a no-op on the edit path and only resets stale "Edit your
+  // listing" chrome on a fresh Sell Now.
+  if (!window.__editingListingId
+      && typeof window.exitSellEditMode === 'function') {
+    window.exitSellEditMode();
+  }
   applySellDraft();
   // Gate the AI suggest-price button on the Firestore feature flag.
   // Off by default until comp coverage > 100 listings per category.
@@ -11385,7 +11677,23 @@ async function aiSuggestPrice() {
 window.aiSuggestPrice = aiSuggestPrice;
 
 function closeSellModal(e) { if(e.target===document.getElementById('sellModalBackdrop')) closeSellModalDirect(); }
-function closeSellModalDirect() { document.getElementById('sellModalBackdrop').classList.remove('open'); }
+function closeSellModalDirect() {
+  // Single chokepoint for every close path (X button, Cancel,
+  // backdrop click, global Escape). In edit mode with unsaved
+  // changes, confirm before discarding. The create flow autosaves a
+  // draft so it never needs this gate.
+  try {
+    if (typeof window.sellEditHasUnsavedChanges === 'function'
+        && window.sellEditHasUnsavedChanges()) {
+      const ok = window.confirm('Discard your unsaved changes to this listing?');
+      if (!ok) return; // keep the modal open
+    }
+  } catch (_e) { /* never trap the user in the modal on an error */ }
+  document.getElementById('sellModalBackdrop').classList.remove('open');
+  // Always reset edit-mode chrome/state so the next "Sell Now" opens
+  // a clean create form.
+  try { if (typeof window.exitSellEditMode === 'function') window.exitSellEditMode(); } catch (_e) {}
+}
 window.closeSellModalDirect = closeSellModalDirect;
 
 // Stripe-required dialog. Opens the gate modal when submitListing detects
@@ -15915,6 +16223,7 @@ A['save-current-search']     = () => { if (!window.requireAuth('to save this sea
 A['filter-by-brand']         = (el) => filterByBrand(el.dataset.brand);
 A['clear-brand-filter']      = () => filterByBrand(null);
 A['renew-listing']           = (el) => { if (!window.requireAuth('to renew your listing')) return; renewListing(el.dataset.listingId); };
+A['edit-listing']            = (el) => { if (!window.requireAuth('to edit your listing')) return; window.openEditListing && window.openEditListing(el.dataset.listingId); };
 A['ask-delete-listing']      = (el) => { if (!window.requireAuth('to delete your listing')) return; askDeleteListing(el.dataset.listingId, el.dataset.listingTitle); };
 A['confirm-delete-listing']  = () => { if (!window.requireAuth('to delete your listing')) return; confirmDeleteListing(); };
 A['purge-empty-listings']    = () => { if (!window.requireAuth('to clean up your listings')) return; purgeEmptyListings(); };
