@@ -31,4 +31,13 @@ serviceAccount*.json
 *adc*.json
 *.log
 .DS_Store
-emails-build
+
+# Re-include build outputs required at runtime.
+# gcloud-direct deploys (unlike firebase deploy) do NOT run
+# predeploy hooks like `npm run build:emails` or
+# `npm run build:bingo-canon`. So the locally-built outputs
+# must be included in the upload. Without these, every email
+# rendering path silently throws "Cannot find module".
+!emails-build/
+!emails-build/**
+!data/bingo-puzzle-data.json
