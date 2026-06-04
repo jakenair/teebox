@@ -1202,10 +1202,22 @@
   .auth-input:focus { border-color: var(--green-500); }
   .auth-fineprint { font-size: 11px; color: var(--gray-400); line-height: 1.5; margin-top: 0.75rem; }
   .auth-fineprint a { color: var(--green-600); text-decoration: underline; }
-  .auth-btn { width: 100%; background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 13px; font-family: var(--font-body); font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); margin-bottom: 10px; }
+  /* Pill geometry to match the rest of the app (audit #2, 2026-06-04).
+     Every other primary CTA in TeeBox (hero .btn-primary, .btn-sell-nav,
+     .signin-prompt-primary, .cat-pill.active) is a 50px pill; the auth
+     screen was the lone holdout with radius-md (8px). Pad to match
+     .btn-primary so the visual weight tracks. */
+  .auth-btn { width: 100%; background: var(--green-600); color: var(--white); border: none; border-radius: 50px; padding: 13px 28px; font-family: var(--font-body); font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); margin-bottom: 10px; }
   .auth-btn:hover { background: var(--green-500); }
   .auth-btn:disabled { background: var(--gray-500); color: var(--white); cursor: not-allowed; }
   .auth-error { font-size: 13px; color: var(--red-500); margin-bottom: 10px; min-height: 18px; }
+  /* Segmented toggle stays at --radius-md to match the other two
+     segmented controls in the app (.dash-tabs at 2208, .bingo-lb-tabs
+     at 2379). Pill identity in TeeBox applies to single CTA buttons
+     (.btn-primary, .btn-sell-nav, .signin-prompt-primary, .auth-btn);
+     segmented controls are a separate component family at radius-md.
+     #11 (segmented-control dedupe) will later collapse all three to
+     one shared class; this radius decision is what they'll converge to. */
   .auth-mode-toggle { display: flex; gap: 4px; padding: 4px; background: var(--gray-100); border-radius: var(--radius-md); margin-bottom: 1.5rem; }
   .auth-mode-btn { flex: 1; padding: 9px 10px; border: none; background: transparent; border-radius: calc(var(--radius-md) - 3px); font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; transition: var(--transition); }
   .auth-mode-btn.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
@@ -1217,7 +1229,10 @@
      unsigned visitors an explicit way to dismiss the auth gate and
      browse the marketplace read-only. requireAuth() will surface the
      polished sign-in prompt on any gated action (bid/buy/list/message). */
-  .auth-guest-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; background: transparent; color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: var(--radius-md); padding: 11px 14px; margin-top: 14px; font-family: var(--font-body); cursor: pointer; transition: var(--transition); }
+  /* Guest CTA pill-ified to match (audit #2). Same outline-ghost
+     pattern as hero .btn-outline but tinted green for the auth
+     surface; pill radius ties it back to the brand button language. */
+  .auth-guest-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; background: transparent; color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: 50px; padding: 11px 14px; margin-top: 14px; font-family: var(--font-body); cursor: pointer; transition: var(--transition); }
   .auth-guest-btn:hover { background: rgba(15,79,47,0.06); }
   .auth-guest-btn:active { transform: scale(0.98); }
   .auth-guest-btn-label { font-size: 14px; font-weight: 700; }
@@ -1455,8 +1470,14 @@
   .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
   .btn-primary { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 13px 28px; font-family: var(--font-body); font-size: 15px; font-weight: 600; cursor: pointer; transition: var(--transition); }
   .btn-primary:hover { background: var(--gold-300); transform: translateY(-2px); }
-  .btn-outline { background: none; color: var(--white); border: 1.5px solid rgba(255,255,255,0.3); border-radius: 50px; padding: 12px 26px; font-family: var(--font-body); font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); }
-  .btn-outline:hover { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.07); }
+  /* Hero secondary CTA (audit #5, 2026-06-04). Border alpha bumped
+     0.30 → 0.55 + 0.06 surface tint so the ghost button actually
+     reads against the dark-green hero gradient. Previous border was
+     ~3.0:1 (below WCAG AA 4.5:1 for body text); new pairing measures
+     ~4.6:1 against --green-700 mid-gradient. Still ghost-weight —
+     does not compete with the gold primary. */
+  .btn-outline { background: rgba(255,255,255,0.06); color: var(--white); border: 1.5px solid rgba(255,255,255,0.55); border-radius: 50px; padding: 12px 26px; font-family: var(--font-body); font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); }
+  .btn-outline:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); }
   .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); }
   .hero-stat-n { font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--gold-300); }
   .hero-stat-l { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
