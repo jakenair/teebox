@@ -116,6 +116,35 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Photos field validators. Image moderation lives at the Storage
+    // upload layer — optimizeListingPhoto runs Cloud Vision SafeSearch
+    // on every uploaded image and deletes NSFW objects. That only
+    // protects us if `photos[]` is structurally limited to URLs of
+    // objects in OUR bucket (otherwise a direct-write could point
+    // photos at https://attacker.com/x.jpg, which the offers panel
+    // and SEO LD-JSON paths render unconditionally — see
+    // index.html:12819 / 13045 / 8405). Without these checks the
+    // image-moderation pipeline is bypassable end-to-end.
+    function isStorageUrl(u) {
+      return u is string
+        && (u.matches('^https://firebasestorage\\.googleapis\\.com/v0/b/teebox-market\\.firebasestorage\\.app/.*')
+            || u.matches('^https://teebox-market\\.firebasestorage\\.app/.*'));
+    }
+    // CEL has no list iteration; max photos is 10 so enumerate. Each
+    // arm short-circuits via the size guard when the array is shorter.
+    function allPhotosInBucket(arr) {
+      return (arr.size() < 1  || isStorageUrl(arr[0]))
+          && (arr.size() < 2  || isStorageUrl(arr[1]))
+          && (arr.size() < 3  || isStorageUrl(arr[2]))
+          && (arr.size() < 4  || isStorageUrl(arr[3]))
+          && (arr.size() < 5  || isStorageUrl(arr[4]))
+          && (arr.size() < 6  || isStorageUrl(arr[5]))
+          && (arr.size() < 7  || isStorageUrl(arr[6]))
+          && (arr.size() < 8  || isStorageUrl(arr[7]))
+          && (arr.size() < 9  || isStorageUrl(arr[8]))
+          && (arr.size() < 10 || isStorageUrl(arr[9]));
+    }
+
     function isValidListingCreate(d) {
       return d.keys().hasAll(['sellerId','title','brand','cat','ask','bid','condition','createdAt','status','expiresAt'])
         // Defense-in-depth field whitelist. Anything not in this list is
@@ -136,7 +165,10 @@ service cloud.firestore {
         && d.ask is number && d.ask > 0 && d.ask < 1000000
         && d.bid is number && d.bid >= 0 && d.bid < 1000000
         && (!('desc' in d.keys()) || (d.desc is string && d.desc.size() <= 4000))
-        && (!('photos' in d.keys()) || (d.photos is list && d.photos.size() <= 10))
+        && (!('photos' in d.keys()) || (
+              d.photos is list
+              && d.photos.size() <= 10
+              && allPhotosInBucket(d.photos)))
         && (!('emoji' in d.keys()) || (d.emoji is string && d.emoji.size() <= 16))
         && (!('badge' in d.keys()) || (d.badge is string && d.badge.size() <= 16))
         && (!('volume' in d.keys()) || d.volume == 0)
@@ -180,25 +212,34 @@ service cloud.firestore {
         && !('messageCount' in d.keys());
     }
 
-    // Seller-side listing update. This rule is the defense-in-depth
-    // BACKSTOP — the canonical seller EDIT path is the `updateListing`
-    // callable (functions/index.js), which runs via the Admin SDK and
-    // therefore bypasses these rules entirely. The two are kept
-    // COHERENT, not contradictory:
+    // Seller-side listing update. As of 2026-06-04 (#33) this rule
+    // covers ONLY the operational direct-write paths the client
+    // actually uses — content edits MUST go through the updateListing
+    // callable (which runs the scanFields pre-write gate). Background:
+    // the moderateListingOnUpdate async trigger was discovered to be
+    // silently non-firing in prod (gen2 runtime CloudEvent parsing
+    // regression — handler receives a raw Buffer instead of a parsed
+    // Change<DocumentSnapshot>, event.data falsy, handler early-exits
+    // with no logs). Until that's fixed upstream, this rule has to
+    // be the sole choke point for direct-write moderation bypass —
+    // hence the narrower whitelist.
+    //
+    // Coherence with the callable:
     //   • Lock gate: this rule only permits a write while prev status
-    //     is active|expired. That is a strict SUBSET of the callable's
-    //     locked set (sold|pending|pending_payment|paid|shipped|
-    //     delivered_pending_inspection|complete are ALL rejected here
-    //     too, since they're none of active|expired). Nothing the
-    //     callable refuses can sneak through this rule.
-    //   • Field set: the affectedKeys() whitelist below is the SAME
-    //     editable set the callable writes (title/brand/cat/ask/bid/
-    //     condition/desc/photos/quantity/requiresAuth/authReviewState/
-    //     updatedAt) PLUS emoji/badge/expiresAt/status which the
-    //     renew + pin client paths still write directly. So a seller
-    //     CAN persist the full editable set on their own non-locked
-    //     listing, and anything outside it (sellerId/createdAt/
-    //     server-owned counters/soldAt/etc.) is rejected.
+    //     is active|expired. Strict SUBSET of the callable's locked
+    //     set, so nothing the callable refuses can sneak through.
+    //   • Field set: the affectedKeys() whitelist is a strict SUBSET
+    //     of the callable's editable set — every additional field the
+    //     callable writes (title/brand/cat/ask/bid/condition/desc/
+    //     quantity/requiresAuth/authReviewState/emoji/badge) is now
+    //     denied at the rules layer. Direct writes can ONLY change
+    //     status (renew), expiresAt (renew), updatedAt (timestamp),
+    //     or photos (the post-create-upload patch in submitListing).
+    //   • Image moderation: photos URLs are constrained to OUR
+    //     Storage bucket via allPhotosInBucket. Cloud Vision SafeSearch
+    //     runs on every uploaded object via the optimizeListingPhoto
+    //     Storage trigger; this rule guarantees photos[] can only
+    //     reference SafeSearched objects.
     //   • sellerId/createdAt are immutable here (sellerId pinned
     //     below; createdAt isn't in the whitelist so any attempt to
     //     change it fails affectedKeys()).
@@ -210,28 +251,34 @@ service cloud.firestore {
         // server-only.
         && (next.get('status', 'active') == prev.get('status', 'active')
             || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'active'))
-        // Analytics counters (views/watchlistCount/messageCount) are
-        // intentionally excluded from this whitelist — they're written
-        // by Cloud Functions only. quantity/requiresAuth/authReviewState
-        // are in the set so the full updateListing editable field set
-        // round-trips coherently through this backstop.
+        // 2026-06-04 (#33): narrowed from the previous 16-field
+        // whitelist (which mirrored updateListing's editable set) to
+        // ONLY operational fields the client actually direct-writes.
+        // Every content-bearing edit (title/brand/cat/condition/desc
+        // + price/quantity/auth flags) MUST round-trip through the
+        // updateListing callable, which runs the synchronous scanFields
+        // pre-write gate. That's the only path that re-moderates an
+        // edit. The async moderateListingOnUpdate trigger is currently
+        // broken (CloudEvent parsing regression in the gen2 runtime —
+        // see memory/22-deploy-discovery-hang.md follow-up), so the
+        // direct-write whitelist must EXCLUDE every field the trigger
+        // would have re-moderated. status + expiresAt cover renew;
+        // updatedAt is the timestamp bump; photos is the
+        // post-create-upload patch in submitListing's flow.
+        //
+        // photos uses allPhotosInBucket() to enforce the in-bucket
+        // invariant — without it a direct write could point photos
+        // at https://attacker.com/x.jpg and bypass SafeSearch entirely.
+        // The offers panel + SEO LD-JSON paths render arbitrary URLs;
+        // image moderation only runs on objects in OUR bucket.
         && next.diff(prev).affectedKeys().hasOnly(
-             ['title','brand','cat','ask','bid','condition','desc','photos','quantity','requiresAuth','authReviewState','emoji','badge','updatedAt','expiresAt','status'])
-        && (!('title' in next.keys()) || (next.title is string && next.title.size() > 0 && next.title.size() <= 120))
-        && (!('brand' in next.keys()) || (next.brand is string && next.brand.size() > 0 && next.brand.size() <= 60))
-        && (!('cat' in next.keys()) || (next.cat is string && next.cat.size() <= 40))
-        && (!('condition' in next.keys()) || (next.condition is string && next.condition.size() <= 40))
-        && (!('desc' in next.keys()) || (next.desc is string && next.desc.size() <= 4000))
-        && (!('ask' in next.keys()) || (next.ask is number && next.ask > 0 && next.ask < 1000000))
-        && (!('bid' in next.keys()) || (next.bid is number && next.bid >= 0 && next.bid < 1000000))
-        && (!('photos' in next.keys()) || (next.photos is list && next.photos.size() <= 10))
-        // quantitySold stays server-owned; only the stock count (1..99)
-        // is seller-editable, same bounds as create.
-        && (!('quantity' in next.keys()) || (next.quantity is int && next.quantity >= 1 && next.quantity <= 99))
-        && (!('requiresAuth' in next.keys()) || next.requiresAuth is bool)
-        && (!('authReviewState' in next.keys()) || next.authReviewState in ['na','pending'])
-        && (!('emoji' in next.keys()) || (next.emoji is string && next.emoji.size() <= 16))
-        && (!('badge' in next.keys()) || (next.badge is string && next.badge.size() <= 16));
+             ['status','expiresAt','updatedAt','photos'])
+        && (!('expiresAt' in next.keys()) || next.expiresAt is timestamp)
+        && (!('updatedAt' in next.keys()) || next.updatedAt is timestamp)
+        && (!('photos' in next.keys()) || (
+              next.photos is list
+              && next.photos.size() <= 10
+              && allPhotosInBucket(next.photos)));
     }
 
     // ─────────────────────────────────────────────

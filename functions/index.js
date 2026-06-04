@@ -5823,6 +5823,19 @@ function storagePathFromDownloadUrl(url) {
   return path;
 }
 
+// Whether a string is a download URL pointing at OUR Storage bucket.
+// Image moderation runs only on objects in our bucket (optimizeListingPhoto
+// + Cloud Vision SafeSearch); accepting an arbitrary external URL in
+// listings.photos[] would render unmoderated content to buyers via the
+// offers panel + SEO LD-JSON paths. This is the callable-side equivalent
+// of allPhotosInBucket() in firestore.rules — same prefix check, applied
+// inline because the Admin SDK bypasses rules.
+function isInBucketStorageUrl(url) {
+  if (typeof url !== "string") return false;
+  return /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/teebox-market\.firebasestorage\.app\//.test(url)
+      || /^https:\/\/teebox-market\.firebasestorage\.app\//.test(url);
+}
+
 // Delete any Storage objects whose download URL was in `beforeUrls` but
 // is no longer in `afterUrls`. Best-effort: a Storage hiccup is logged
 // but never blocks the moderation/edit path. `expectedListingId`
@@ -5912,9 +5925,52 @@ function lockedReasonForStatus(status) {
 exports.moderateListingOnUpdate = onDocumentUpdated(
     {document: "listings/{listingId}", ...LIGHT_TRIGGER},
     async (event) => {
-      const beforeSnap = event.data && event.data.before;
-      const afterSnap = event.data && event.data.after;
-      if (!beforeSnap || !afterSnap) return;
+      const beforeSnap = event && event.data && event.data.before;
+      const afterSnap = event && event.data && event.data.after;
+
+      // Fail CLOSED on malformed events. The May 2026 regression was
+      // discovered because a gen2 runtime change started delivering
+      // CloudEvents to the onChangedOperation wrapper as raw Buffers
+      // (event.data falsy), making this handler early-exit silently
+      // on every edit. A silent early-exit looks identical to "no
+      // moderation needed" — that's how content-safety holes hide.
+      // Now: log loudly + write a trigger_malfunction audit row so a
+      // human notices BEFORE buyers see prohibited content. Without
+      // before/after we can't revert (no listingId), but we can ALERT.
+      if (!beforeSnap || !afterSnap) {
+        logger.error(
+            "moderateListingOnUpdate: malformed event — cannot extract before/after",
+            {
+              hasEvent: !!event,
+              hasEventData: !!(event && event.data),
+              hasBefore: !!beforeSnap,
+              hasAfter: !!afterSnap,
+              eventKeys: event ? Object.keys(event).slice(0, 30) : null,
+              eventParams: event && event.params,
+            });
+        try {
+          await admin.firestore().collection("moderationLog").add({
+            uid: null,
+            contentType: "listing",
+            category: null,
+            redactedExcerpt: null,
+            originatingIp: null,
+            action: "trigger_malfunction",
+            listingId: null,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            notes: "moderateListingOnUpdate received an event with no " +
+              "before/after snapshots. Runtime/framework regression " +
+              "suspected. Edit-time moderation is currently bypassed for " +
+              "any direct-write that slips past firestore.rules. " +
+              "Investigate immediately.",
+          });
+        } catch (e) {
+          logger.error(
+              "moderateListingOnUpdate: also failed to write " +
+              "trigger_malfunction audit row", e);
+        }
+        return;
+      }
       const before = beforeSnap.data() || {};
       const after = afterSnap.data() || {};
       const listingId = event.params.listingId;
@@ -6164,6 +6220,20 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   }
   const photos = Array.isArray(data.photos) ?
     data.photos.filter((u) => typeof u === "string" && u.length > 0) : [];
+
+  // Image-moderation boundary. Cloud Vision SafeSearch only runs on
+  // objects uploaded into our bucket via optimizeListingPhoto. If
+  // photos[] is allowed to reference external URLs, a client (this
+  // callable bypasses rules — Admin SDK) can plant unmoderated content
+  // that the offers panel + SEO LD-JSON render unconditionally. Reject
+  // any URL outside the bucket prefix. The firestore.rules side
+  // (allPhotosInBucket) enforces the same invariant on direct writes.
+  if (photos.some((u) => !isInBucketStorageUrl(u))) {
+    throw new HttpsError(
+        "invalid-argument",
+        "All photos must be uploaded through the listing form.",
+        {error: "photo_url_invalid"});
+  }
 
   if (!title || !brand || !cat || !condition) {
     throw new HttpsError(
