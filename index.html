@@ -1395,6 +1395,143 @@
   .user-menu-item.danger:hover { background: var(--red-100); color: var(--red-500); }
   .user-menu-divider { height: 1px; background: var(--gray-200); margin: 6px 0; }
 
+  /* ─── NAV RIBBON (2026-06-04 top-nav rework) ───────────────────────
+     The rightmost cluster on the desktop nav. Holds the auth-state
+     transactional cluster (Dashboard / Orders / Inbox / Alerts /
+     Account / Sell Now when signed-in; Sign In / Start Selling when
+     anonymous). Auth gated by `body.is-signed-in` / `body.is-anon`.
+     Consistent icon+label shape across every ribbon item so the row
+     reads as one cohesive cluster, with the gold-pill Sell Now
+     terminating it as the primary CTA. */
+  .nav-ribbon { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
+
+  /* Search promoted — wider since .nav-links is gone. */
+  .nav-search { max-width: 560px; }
+
+  /* Shared ribbon-item shape. Anchors most of the cluster; the
+     .ribbon-trigger duplicate is for <button> contexts (notif-btn)
+     where `all: unset` would lose form semantics. */
+  .ribbon-item, .ribbon-trigger {
+    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    background: transparent; border: 0; cursor: pointer;
+    padding: 8px 12px; border-radius: 50px;
+    color: rgba(255,255,255,0.78); text-decoration: none;
+    font-family: var(--font-body); font-size: 13.5px; font-weight: 600;
+    white-space: nowrap;
+    transition: var(--transition);
+  }
+  .ribbon-item:hover, .ribbon-trigger:hover { background: rgba(255,255,255,0.1); color: var(--white); }
+  .ribbon-item:active, .ribbon-trigger:active { transform: scale(0.97); }
+  .ribbon-item:focus-visible, .ribbon-trigger:focus-visible { outline: 2px solid var(--gold-400); outline-offset: 2px; }
+  /* Active-state underline — subtle gold accent under the current
+     surface. Underline rather than fill so it doesn't compete with the
+     gold Sell Now pill or the unread badges. */
+  .ribbon-item.active::after,
+  .ribbon-item[aria-current="page"]::after {
+    content: ''; position: absolute; left: 12px; right: 12px; bottom: 4px;
+    height: 2px; background: var(--gold-300); border-radius: 2px;
+  }
+  .ribbon-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ribbon-icon .ico { width: 18px; height: 18px; }
+
+  /* Badge positioning inside ribbon items — anchored to the icon
+     glyph (the leftmost child), not the whole pill. */
+  .ribbon-item > .unread-badge { top: 4px; right: auto; left: 26px; }
+  .ribbon-trigger > .notif-dot { top: 6px; right: auto; left: 24px; box-shadow: 0 0 0 2px var(--green-900); }
+
+  /* Auth-state gating. Anything tagged .ribbon-signed-in hides for
+     guests; anything .ribbon-anon hides for signed-in users. The
+     body class is set/cleared in onAuthStateChanged. */
+  body.is-anon .ribbon-signed-in { display: none !important; }
+  body.is-signed-in .ribbon-anon { display: none !important; }
+
+  /* Sell Now copy swap — same button, label flips by auth state. */
+  .sell-copy-anon, .sell-copy-auth { display: none; }
+  body.is-anon .sell-copy-anon { display: inline; }
+  body.is-signed-in .sell-copy-auth { display: inline; }
+
+  /* User badge — override the old gold-pill rule. Now matches the
+     other ribbon items (icon + label + trailing chevron). The
+     legacy .user-badge declaration earlier in the cascade has
+     `display: none` (relied on the now-removed inline-style toggle);
+     we set inline-flex here so the body-class gating drives
+     visibility instead. */
+  .user-badge {
+    display: inline-flex;
+    background: transparent;
+    color: rgba(255,255,255,0.78);
+    padding: 8px 12px;
+    border-radius: 50px;
+    font-weight: 600;
+    max-width: 200px;
+    overflow: hidden;
+  }
+  /* Same display-defaults fix for the guest sign-in pill. */
+  .nav-signin-btn { display: inline-flex; align-items: center; }
+  .user-badge::after {
+    content: '▾'; font-size: 10px; opacity: 0.7; margin-left: 4px; flex-shrink: 0;
+  }
+  .user-badge:hover,
+  .user-badge[aria-expanded="true"] {
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+  }
+  .user-badge-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 130px;
+  }
+
+  /* Cat-bar Bingo accent — sits at the trailing end with a thin
+     gold-tinted divider before it so it reads as a distinct "Play"
+     accent, not another category filter. */
+  .cat-bar-divider {
+    display: inline-block; flex: 0 0 1px; width: 1px;
+    background: rgba(224,184,64,0.3);
+    align-self: center; height: 22px; margin: 0 10px;
+  }
+  .cat-pill.cat-bingo {
+    background: linear-gradient(135deg, rgba(224,184,64,0.16) 0%, rgba(201,153,30,0.12) 100%);
+    border-color: rgba(224,184,64,0.45);
+    color: var(--gold-300);
+    font-weight: 700;
+    gap: 6px; display: inline-flex; align-items: center;
+  }
+  .cat-pill.cat-bingo:hover {
+    background: linear-gradient(135deg, rgba(224,184,64,0.28) 0%, rgba(201,153,30,0.22) 100%);
+    border-color: var(--gold-400);
+    color: var(--gold-300);
+    box-shadow: 0 2px 12px rgba(212,175,55,0.18);
+  }
+  .cat-bingo-icon { font-size: 12px; color: var(--gold-400); line-height: 1; }
+
+  /* RESPONSIVE — dense band 901-1024px (tablet landscape / small
+     laptop) collapses ribbon labels to icon-only. Labels become
+     visually hidden (still in DOM for screen readers); tooltips on
+     hover via title attr. Note: the existing mobile cutoff lives at
+     `@media (max-width: 900px)` (line ~832), so this degrade band
+     sits ABOVE the mobile collapse, not below. */
+  @media (max-width: 1024px) and (min-width: 901px) {
+    .ribbon-label {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .ribbon-item, .ribbon-trigger { padding: 8px 10px; gap: 0; }
+    .ribbon-item > .unread-badge { left: auto; right: 4px; top: 2px; }
+    .ribbon-trigger > .notif-dot { left: auto; right: 6px; top: 6px; }
+    .user-badge::after { margin-left: 0; }
+    .user-badge-text {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    .nav-search { max-width: 380px; }
+  }
+
+  /* Hide the now-unused .nav-links / .nav-bingo-cta rules' effects on
+     any stale markup. The current page no longer ships these, but
+     defensively hide them if a service-worker-cached older index.html
+     ever surfaces them transiently. */
+  .nav-links, .nav-bingo-cta { display: none; }
+
   /* CAT BAR — horizontally scrollable category pills.
      The wrapper sits below .nav and provides edge fades so users see there's
      more content to scroll on mobile. .cat-bar itself is the scrollable rail. */
@@ -2750,7 +2887,7 @@
   .seller-tour-tip[data-arrow="none"]::before   { display: none; }
 </style>
 </head>
-<body>
+<body class="is-anon">
 
 <!-- BOTTOM TAB NAV (mobile only) -->
 <nav class="bottom-nav" aria-label="Mobile primary">
@@ -3992,9 +4129,9 @@
 <header class="mobile-top-bar" aria-label="App header">
   <a class="mobile-top-logo" href="#" data-action="bn-home"><span>Tee</span>Box</a>
   <div class="mobile-top-actions">
-    <button class="mobile-top-bingo" data-action="open-bingo" type="button" aria-label="Open Logo Bingo">
-      <span>Bingo</span>
-    </button>
+    <!-- Bingo moved out of the mobile top bar 2026-06-04 — lives on the
+         cat-bar (desktop) + drawer Discover section (mobile). Top-bar
+         reserves space for transactional items: Inbox + Alerts. -->
     <button class="mobile-top-icon" data-action="open-inbox" type="button" aria-label="Inbox">
       <span data-ico="message"></span><span class="unread-badge" aria-hidden="true"></span>
     </button>
@@ -4015,34 +4152,22 @@
       <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
     </div>
 
-    <div class="mobile-nav-section">
-      <span class="mobile-nav-section-label">Marketplace</span>
-      <a href="#" class="mobile-nav-link" data-action="bn-home">
-        <span class="mobile-nav-link-label">Browse</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">
-        <span class="mobile-nav-link-label">Trending</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">
-        <span class="mobile-nav-link-label">Drops</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-bingo">
-        <span class="mobile-nav-link-label">Logo Bingo</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-    </div>
-
-    <div class="mobile-nav-section">
+    <!-- Reorder 2026-06-04 — promote transactional items to first
+         section. Mirrors the desktop ribbon order: Dashboard, Orders,
+         Inbox, Notifications-equivalent (Likes/Offers), Saved Searches.
+         Discover section is now second; Bingo lives here. -->
+    <div class="mobile-nav-section mobile-nav-section-signed-in">
       <span class="mobile-nav-section-label">My Activity</span>
       <a href="#" class="mobile-nav-link" data-action="open-shop-dashboard">
-        <span class="mobile-nav-link-label">My Shop</span>
+        <span class="mobile-nav-link-label">Seller Dashboard</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-orders">
         <span class="mobile-nav-link-label">My Orders</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-inbox">
+        <span class="mobile-nav-link-label">Messages</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-my-offers">
@@ -4057,8 +4182,24 @@
         <span class="mobile-nav-link-label">Saved Searches</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
-      <a href="#" class="mobile-nav-link" data-action="open-inbox">
-        <span class="mobile-nav-link-label">Messages</span>
+    </div>
+
+    <div class="mobile-nav-section">
+      <span class="mobile-nav-section-label">Discover</span>
+      <a href="#" class="mobile-nav-link" data-action="bn-home">
+        <span class="mobile-nav-link-label">Browse</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#trending" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="trending">
+        <span class="mobile-nav-link-label">Trending</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">
+        <span class="mobile-nav-link-label">Drops</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <a href="#" class="mobile-nav-link" data-action="open-bingo">
+        <span class="mobile-nav-link-label">Logo Bingo</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
     </div>
@@ -4116,52 +4257,71 @@
 </div>
 
 <!-- NAV -->
+<!--
+  TOP NAV (rework 2026-06-04). Two-state IA:
+   • body.is-anon → logo + prominent search + Sign In + Start Selling.
+     No account items shown to visitors.
+   • body.is-signed-in → persistent transactional ribbon:
+     Dashboard, Orders, Inbox (badge), Alerts (dot), Account, Sell Now.
+  Discovery (categories + Bingo accent) sits on the secondary .cat-bar.
+  Three breakpoints:
+   • > 1024px — full ribbon with icon + label
+   • 721-1024px — ribbon collapses to icon-only (labels become sr-only,
+     tooltips on hover via title attr) so nothing wraps in the dense band
+   • ≤ 720px — mobile, desktop nav hidden, .mobile-top-bar + drawer take over
+-->
 <nav>
-  <a class="nav-logo" href="#"><span>Tee</span>Box</a>
+  <a class="nav-logo" href="#" aria-label="TeeBox home"><span>Tee</span>Box</a>
   <div class="nav-search">
     <span class="nav-search-icon" id="navSearchIcon"></span>
     <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
   </div>
-  <div class="nav-links" id="topNavLinks">
-    <a href="#" class="active" data-action="bn-home" data-nav="home">Marketplace</a>
-    <a href="#trending" data-nav="trending">Trending</a>
-    <a href="#drops" data-nav="drops">Drops</a>
-    <a href="#" data-action="open-about" data-nav="about">About</a>
-    <a href="#" data-action="open-shop-dashboard" data-nav="shop">My Shop</a>
-    <a href="#" data-action="open-watchlist" data-nav="watchlist">Likes</a>
-    <a href="#" data-action="open-inbox" data-nav="inbox">Messages</a>
-    <a href="#" data-action="open-profile-self" data-nav="profile">Account</a>
-  </div>
-  <div class="nav-actions">
-    <button class="nav-bingo-cta unplayed" id="navBingoCta" data-action="open-bingo" type="button" aria-label="Open Logo Bingo: daily golf course logo guessing game">
-      <span class="nav-bingo-text">
-        <span class="nav-bingo-label">Logo Bingo</span>
-        <span class="nav-bingo-sub" id="navBingoSub">Play Today</span>
-      </span>
-    </button>
-    <button class="btn-icon" id="navInboxIcon" data-action="open-inbox" title="Messages"><span class="unread-badge" aria-label="Unread messages"></span></button>
-    <!-- Notifications panel (Feature: notifications-v1) -->
-    <div class="notif-wrap" id="notifWrap">
-      <button class="btn-icon notif-btn" id="navNotifBtn" data-action="toggle-notifications" type="button" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel"><span data-ico="bell"></span><span class="notif-dot" id="notifDot" aria-hidden="true"></span></button>
+  <div class="nav-ribbon" role="group" aria-label="Account and selling">
+    <!-- SIGNED-IN cluster -->
+    <a href="#" class="ribbon-item ribbon-signed-in" data-action="open-shop-dashboard" data-nav="dashboard" title="Seller Dashboard" aria-label="Seller Dashboard">
+      <span class="ribbon-icon" data-ico="chart" aria-hidden="true"></span>
+      <span class="ribbon-label">Dashboard</span>
+    </a>
+    <a href="#" class="ribbon-item ribbon-signed-in" data-action="open-orders" data-nav="orders" title="My Orders" aria-label="My Orders">
+      <span class="ribbon-icon" data-ico="cart" aria-hidden="true"></span>
+      <span class="ribbon-label">Orders</span>
+    </a>
+    <a href="#" class="ribbon-item ribbon-signed-in" data-action="open-inbox" data-nav="inbox" title="Inbox" aria-label="Inbox">
+      <span class="ribbon-icon" data-ico="message" aria-hidden="true"></span>
+      <span class="ribbon-label">Inbox</span>
+      <span class="unread-badge" aria-label="Unread messages"></span>
+    </a>
+    <div class="ribbon-item ribbon-signed-in notif-wrap" id="notifWrap">
+      <button class="ribbon-trigger notif-btn" id="navNotifBtn" data-action="toggle-notifications" type="button" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notifPanel">
+        <span class="ribbon-icon" data-ico="bell" aria-hidden="true"></span>
+        <span class="ribbon-label">Alerts</span>
+        <span class="notif-dot" id="notifDot" aria-hidden="true"></span>
+      </button>
     </div>
-    <button id="navSignInBtn" class="nav-signin-btn" data-action="show-auth" type="button" aria-label="Sign in or create account">Sign In</button>
-    <div class="user-menu-wrap" id="userMenuWrap">
-      <button id="userBadge" class="user-badge" data-action="toggle-user-menu" type="button" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false"></button>
+    <div class="ribbon-signed-in user-menu-wrap" id="userMenuWrap">
+      <button id="userBadge" class="user-badge ribbon-item" data-action="toggle-user-menu" type="button" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false">
+        <span class="ribbon-icon" data-ico="user" aria-hidden="true"></span>
+        <span class="ribbon-label user-badge-text">Account</span>
+      </button>
       <div class="user-menu" id="userMenu">
         <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
-        <a href="#" data-action="open-shop-dashboard" class="user-menu-item">My Shop</a>
-        <a href="#" data-action="open-orders" class="user-menu-item">My Orders</a>
         <a href="#" data-action="open-watchlist" class="user-menu-item">Likes</a>
-        <a href="#" data-action="open-inbox" class="user-menu-item">Messages <span class="unread-badge"></span></a>
         <a href="#" data-action="open-my-offers" class="user-menu-item">My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
         <a href="#" data-action="open-saved-searches" class="user-menu-item">Saved Searches</a>
+        <a href="#" data-action="open-about" class="user-menu-item">About TeeBox</a>
         <div class="user-menu-divider"></div>
         <a href="#" data-action="resend-verification-email" class="user-menu-item">Resend verification email</a>
         <a href="#" data-action="sign-out" class="user-menu-item">Sign out</a>
         <a href="#" data-action="open-delete-account" class="user-menu-item danger">Delete account</a>
       </div>
     </div>
-    <button class="btn-sell-nav" data-action="handle-sell">Sell Now</button>
+    <!-- GUEST cluster -->
+    <button id="navSignInBtn" class="nav-signin-btn ribbon-anon" data-action="show-auth" type="button" aria-label="Sign in or create account">Sign In</button>
+    <!-- Terminal CTA — both states. Copy swaps via body class. -->
+    <button class="btn-sell-nav" data-action="handle-sell" aria-label="Sell">
+      <span class="sell-copy-anon">Start Selling</span>
+      <span class="sell-copy-auth">Sell Now</span>
+    </button>
   </div>
 </nav>
 
@@ -4187,6 +4347,10 @@
     <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="balls">Balls</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="headcovers">Headcovers</button>
+    <span class="cat-bar-divider" aria-hidden="true"></span>
+    <button class="cat-pill cat-bingo" data-action="open-bingo" type="button" aria-label="Play Logo Bingo — daily golf course logo guessing game">
+      <span class="cat-bingo-icon" aria-hidden="true">⚑</span><span>Logo Bingo</span>
+    </button>
   </div>
 </div>
 <script>
@@ -5311,6 +5475,46 @@ window.confirmPayment = async function() {
     }
   })();
 
+  // ── Design-preview helper (2026-06-04 top-nav rework) ───────────────
+  // Append ?preview=signedin to the URL to force the signed-in nav
+  // layout without going through actual auth. Used for design review
+  // / responsive screenshots so the ribbon's signed-in state can be
+  // rendered without Firebase Auth being available. Harmless in prod:
+  // only triggers when the explicit query param is present. The auth
+  // listener below will later override this once Firebase Auth resolves
+  // — for the preview's intended use (file-served headless screenshots
+  // with no working Firebase keys), the listener never fires.
+  {
+    const previewMode = new URLSearchParams(location.search).get('preview');
+    if (previewMode === 'signedin' || previewMode === 'anon') {
+      // Bypass the auth gate so the marketplace nav is visible for
+      // screenshots. Without this, the auth screen sits on top of
+      // everything and the nav can't be reviewed. The
+      // __authGateDismissedInSession flag is what the auth listener
+      // checks (line ~5723) before auto-opening the gate on cold load.
+      try {
+        window.GUEST_MODE = true;
+        window.__authGateDismissedInSession = true;
+        const _scr = document.getElementById('authScreen');
+        if (_scr) { _scr.classList.remove('open'); _scr.classList.add('hidden'); }
+      } catch (_) {}
+      if (previewMode === 'signedin') {
+        document.body.classList.add('is-signed-in');
+        document.body.classList.remove('is-anon');
+        try {
+          const lbl = document.querySelector('#userBadge .user-badge-text');
+          if (lbl) lbl.textContent = 'Jake';
+          document.querySelectorAll('.unread-badge').forEach((b) => {
+            b.textContent = '3'; b.classList.add('active');
+          });
+          document.querySelectorAll('.notif-dot').forEach((d) => {
+            d.classList.add('active');
+          });
+        } catch (_) {}
+      }
+    }
+  }
+
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     window.CURRENT_USER = user;
@@ -5397,9 +5601,12 @@ window.confirmPayment = async function() {
         _authScreen.classList.remove('open');
         _authScreen.classList.add('hidden');
       }
-      // Hide the guest-only "Sign In" pill in the nav.
-      const _signInBtn = document.getElementById('navSignInBtn');
-      if (_signInBtn) _signInBtn.style.display = 'none';
+      // Auth-state body class — drives the top-nav cluster visibility via
+      // CSS selectors (body.is-signed-in / body.is-anon). Replaces the
+      // older direct .style.display writes that were sprinkled across the
+      // auth callback. See `.ribbon-signed-in` / `.ribbon-anon` rules.
+      document.body.classList.add('is-signed-in');
+      document.body.classList.remove('is-anon');
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
@@ -5417,17 +5624,19 @@ window.confirmPayment = async function() {
         window.__pendingDeepLink = null;
         setTimeout(() => { try { window.openEmailPrefs && window.openEmailPrefs(); } catch {} }, 400);
       }
+      // Set the visible label inside the user-badge pill in the new
+      // ribbon. The button itself stays in the DOM at all times; CSS
+      // body.is-signed-in toggles its display. We only write to the inner
+      // text span so the icon + chevron pseudo-element survive.
       const badge = document.getElementById('userBadge');
-      badge.style.display = 'inline-flex';
-      // Show "Welcome, {first name}" when the user has set a profile name.
-      // Otherwise fall back to the email local-part or phone — full address
-      // overflows the header pill on small phones.
       const fallback = user.phoneNumber || (user.email ? user.email.split('@')[0] : '') || 'Account';
       const initialAuthName = user.displayName || '';
       const initialFirst = initialAuthName ? initialAuthName.split(' ')[0] : '';
-      badge.textContent = initialFirst ? `Welcome, ${initialFirst}` : fallback;
+      const labelText = initialFirst || fallback;
+      const labelEl = badge.querySelector('.user-badge-text');
+      if (labelEl) labelEl.textContent = labelText;
       badge.setAttribute('title', 'Open account menu');
-      badge.setAttribute('aria-label', `Open account menu for ${initialFirst || fallback}`);
+      badge.setAttribute('aria-label', `Open account menu for ${labelText}`);
       await checkSellerStatus(user.uid);
       // checkSellerStatus also stamps window.CURRENT_PROFILE_NAME if the
       // Firestore profile has a displayName — refresh the badge from there.
@@ -5524,10 +5733,9 @@ window.confirmPayment = async function() {
           }
         } catch { _authScreen.classList.remove('open'); }
       }
-      // Show the guest-only "Sign In" pill in the nav.
-      const _signInBtn = document.getElementById('navSignInBtn');
-      if (_signInBtn) _signInBtn.style.display = 'inline-flex';
-      document.getElementById('userBadge').style.display = 'none';
+      // Auth-state body class — see signed-in branch above.
+      document.body.classList.add('is-anon');
+      document.body.classList.remove('is-signed-in');
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
       // Reset the in-memory shop snapshot so a previous user's listings
