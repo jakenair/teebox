@@ -311,6 +311,28 @@
     --nav-h: 64px; --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
     --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
     --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    /* Spacing ramp (2026-06-05). Token foundations for the audit
+       follow-up; defined here so future sweeps replace ad-hoc values
+       with these consistently. Existing surfaces NOT auto-migrated —
+       use as you touch a section. 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96. */
+    --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
+    --space-4: 1rem;    --space-5: 1.5rem; --space-6: 2rem;
+    --space-7: 3rem;    --space-8: 4rem;   --space-9: 6rem;
+    /* Type scale (2026-06-05). Display family for serif heads;
+       body family for the rest. Section heads converge on
+       --text-display-md (1.5rem) — previously drifted between 1.6
+       (.section-title), 1.85 (.dash-header h1), 1.25 (.bingo-title /
+       .inbox-header h2), 1.15 (.dash-section h2). */
+    --text-display-xl: 2.5rem;   /* hero / cover heads */
+    --text-display-lg: 2rem;     /* dashboard h1 */
+    --text-display-md: 1.5rem;   /* section heads */
+    --text-display-sm: 1.25rem;  /* modal heads */
+    --text-display-xs: 1rem;     /* inline heads */
+    --text-body-lg: 16px;
+    --text-body-md: 14px;
+    --text-body-sm: 13px;
+    --text-body-xs: 12px;
+    --text-label: 11px;          /* uppercase tracking labels */
   }
   body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
@@ -1211,15 +1233,10 @@
   .auth-btn:hover { background: var(--green-500); }
   .auth-btn:disabled { background: var(--gray-500); color: var(--white); cursor: not-allowed; }
   .auth-error { font-size: 13px; color: var(--red-500); margin-bottom: 10px; min-height: 18px; }
-  /* Segmented toggle stays at --radius-md to match the other two
-     segmented controls in the app (.dash-tabs at 2208, .bingo-lb-tabs
-     at 2379). Pill identity in TeeBox applies to single CTA buttons
-     (.btn-primary, .btn-sell-nav, .signin-prompt-primary, .auth-btn);
-     segmented controls are a separate component family at radius-md.
-     #11 (segmented-control dedupe) will later collapse all three to
-     one shared class; this radius decision is what they'll converge to. */
-  .auth-mode-toggle { display: flex; gap: 4px; padding: 4px; background: var(--gray-100); border-radius: var(--radius-md); margin-bottom: 1.5rem; }
-  .auth-mode-btn { flex: 1; padding: 9px 10px; border: none; background: transparent; border-radius: calc(var(--radius-md) - 3px); font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; transition: var(--transition); }
+  /* Auth-mode segmented control — shares geometry with .dash-tabs
+     and .bingo-lb-tabs via the canonical SEGMENTED CONTROL block
+     below the auth section. Only the surface-specific variant
+     overrides live here (flex sizing + margin). */
   .auth-mode-btn.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
   .email-input { letter-spacing: 0; text-align: left; }
   .auth-link { background: none; border: none; color: var(--green-600); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; margin-top: 2px; font-family: var(--font-body); }
@@ -1333,7 +1350,7 @@
   .nav-links a:hover, .nav-links a.active { color: var(--white); background: rgba(255,255,255,0.1); }
   .nav-links a.active { color: var(--gold-300); }
   .nav-actions { display: flex; gap: 10px; align-items: center; margin-left: auto; flex-shrink: 0; }
-  .btn-sell-nav { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 8px 22px; font-family: var(--font-body); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+  .btn-sell-nav { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 8px 22px; font-family: var(--font-body); font-size: var(--text-body-sm); font-weight: 600; cursor: pointer; transition: var(--transition); }
   .btn-sell-nav:hover { background: var(--gold-300); }
   .btn-icon { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
   .btn-icon:hover { color: var(--white); background: rgba(255,255,255,0.1); }
@@ -1415,9 +1432,13 @@
      transactional cluster (Dashboard / Orders / Inbox / Alerts /
      Account / Sell Now when signed-in; Sign In / Start Selling when
      anonymous). Auth gated by `body.is-signed-in` / `body.is-anon`.
-     Consistent icon+label shape across every ribbon item so the row
-     reads as one cohesive cluster, with the gold-pill Sell Now
-     terminating it as the primary CTA. */
+
+     Pill reservation (taste-polish reconcile 2026-06-05): the 50px pill
+     is the CTA affordance, reserved for true CTAs (Sell Now, Sign In).
+     Nav items are NOT pills — they use a soft --radius-md highlight on
+     hover and a gold underline for the active surface, so the row reads
+     as navigation, not a strip of buttons. Spacing/type expressed in the
+     --space / --text / --radius tokens introduced in the taste pass. */
   .nav-ribbon { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
 
   /* Search promoted — wider since .nav-links is gone. */
@@ -1425,13 +1446,14 @@
 
   /* Shared ribbon-item shape. Anchors most of the cluster; the
      .ribbon-trigger duplicate is for <button> contexts (notif-btn)
-     where `all: unset` would lose form semantics. */
+     where `all: unset` would lose form semantics. Soft --radius-md (not
+     a 50px pill) so nav items don't read as CTAs. */
   .ribbon-item, .ribbon-trigger {
-    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    position: relative; display: inline-flex; align-items: center; gap: var(--space-2);
     background: transparent; border: 0; cursor: pointer;
-    padding: 8px 12px; border-radius: 50px;
+    padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
     color: rgba(255,255,255,0.78); text-decoration: none;
-    font-family: var(--font-body); font-size: 13.5px; font-weight: 600;
+    font-family: var(--font-body); font-size: var(--text-body-sm); font-weight: 600;
     white-space: nowrap;
     transition: var(--transition);
   }
@@ -1475,8 +1497,8 @@
     display: inline-flex;
     background: transparent;
     color: rgba(255,255,255,0.78);
-    padding: 8px 12px;
-    border-radius: 50px;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
     font-weight: 600;
     max-width: 200px;
     overflow: hidden;
@@ -1498,26 +1520,31 @@
 
   /* Cat-bar Bingo accent — sits at the trailing end with a thin
      gold-tinted divider before it so it reads as a distinct "Play"
-     accent, not another category filter. */
+     accent, not another category filter.
+     color-mix(): the only use in this file. It derives the alpha tints
+     from the gold tokens (--gold-400 #e0b840 light stop, --gold-500
+     #c9991e dark stop) instead of hardcoding gold channel values, so the
+     accent tracks the palette. --gold-500 is the exact token match for
+     the original #c9991e dark stop — keeps the gradient from lightening. */
   .cat-bar-divider {
     display: inline-block; flex: 0 0 1px; width: 1px;
-    background: rgba(224,184,64,0.3);
-    align-self: center; height: 22px; margin: 0 10px;
+    background: color-mix(in srgb, var(--gold-400) 30%, transparent);
+    align-self: center; height: 22px; margin: 0 var(--space-3);
   }
   .cat-pill.cat-bingo {
-    background: linear-gradient(135deg, rgba(224,184,64,0.16) 0%, rgba(201,153,30,0.12) 100%);
-    border-color: rgba(224,184,64,0.45);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gold-400) 16%, transparent) 0%, color-mix(in srgb, var(--gold-500) 12%, transparent) 100%);
+    border-color: color-mix(in srgb, var(--gold-400) 45%, transparent);
     color: var(--gold-300);
     font-weight: 700;
-    gap: 6px; display: inline-flex; align-items: center;
+    gap: var(--space-2); display: inline-flex; align-items: center;
   }
   .cat-pill.cat-bingo:hover {
-    background: linear-gradient(135deg, rgba(224,184,64,0.28) 0%, rgba(201,153,30,0.22) 100%);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gold-400) 28%, transparent) 0%, color-mix(in srgb, var(--gold-500) 22%, transparent) 100%);
     border-color: var(--gold-400);
     color: var(--gold-300);
-    box-shadow: 0 2px 12px rgba(212,175,55,0.18);
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--gold-400) 18%, transparent);
   }
-  .cat-bingo-icon { font-size: 12px; color: var(--gold-400); line-height: 1; }
+  .cat-bingo-icon { font-size: var(--text-body-xs); color: var(--gold-400); line-height: 1; }
 
   /* RESPONSIVE — dense band 901-1024px (tablet landscape / small
      laptop) collapses ribbon labels to icon-only. Labels become
@@ -1530,7 +1557,7 @@
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
-    .ribbon-item, .ribbon-trigger { padding: 8px 10px; gap: 0; }
+    .ribbon-item, .ribbon-trigger { padding: var(--space-2); gap: 0; }
     .ribbon-item > .unread-badge { left: auto; right: 4px; top: 2px; }
     .ribbon-trigger > .notif-dot { left: auto; right: 6px; top: 6px; }
     .user-badge::after { margin-left: 0; }
@@ -1552,8 +1579,13 @@
      more content to scroll on mobile. .cat-bar itself is the scrollable rail. */
   .cat-bar-wrap { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); border-bottom: 1px solid rgba(255,255,255,0.08); height: 48px; }
   .cat-bar-wrap::before, .cat-bar-wrap::after { content: ''; position: absolute; top: 0; bottom: 1px; width: 28px; pointer-events: none; z-index: 2; transition: opacity 0.18s ease; }
-  .cat-bar-wrap::before { left: 0; background: linear-gradient(to right, var(--green-800) 30%, transparent); opacity: 0; }
-  .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-800) 30%, transparent); opacity: 1; }
+  /* Edge fades — vignette to --green-900 (a step darker than the
+     --green-800 bar bg) so the fade actually registers visually.
+     Pre-2026-06-05 these gradients faded into the SAME color as the
+     bar background and were invisible, killing the affordance for
+     "more pills off-screen." */
+  .cat-bar-wrap::before { left: 0; background: linear-gradient(to right, var(--green-900) 30%, transparent); opacity: 0; }
+  .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-900) 30%, transparent); opacity: 1; }
   .cat-bar-wrap.scrolled::before { opacity: 1; }
   .cat-bar-wrap.at-end::after { opacity: 0; }
   .cat-bar { position: relative; height: 100%; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
@@ -1615,8 +1647,13 @@
      does not compete with the gold primary. */
   .btn-outline { background: rgba(255,255,255,0.06); color: var(--white); border: 1.5px solid rgba(255,255,255,0.55); border-radius: 50px; padding: 12px 26px; font-family: var(--font-body); font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); }
   .btn-outline:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); }
-  .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); }
-  .hero-stat-n { font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--gold-300); }
+  /* Hero stats — second-tier display, sized as part of the hero unit
+     (not subordinate footnote). Bumped 2026-06-05 audit follow-up:
+     1.8rem flat → clamp(1.9rem, 2.5vw, 2.4rem). Tighter gap from
+     title block so the three numbers live as the trailing credibility
+     row of the hero composition. */
+  .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+  .hero-stat-n { font-family: var(--font-display); font-size: clamp(1.9rem, 2.5vw, 2.4rem); font-weight: 700; color: var(--gold-300); }
   .hero-stat-l { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
   .hero-featured { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .feat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.25rem; cursor: pointer; transition: var(--transition); }
@@ -1649,7 +1686,7 @@
 
   .section { max-width: 1240px; margin: 0 auto; padding: 2.5rem 2rem; }
   .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.5rem; }
-  .section-title { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; color: var(--gray-900); }
+  .section-title { font-family: var(--font-display); font-size: var(--text-display-md); font-weight: 700; color: var(--gray-900); }
   .section-link { font-size: 13px; font-weight: 600; color: var(--green-600); text-decoration: none; }
 
   /* PRODUCT GRID */
@@ -2339,7 +2376,7 @@
   #shopDashboard .dash-body { animation: dashFadeIn 0.32s cubic-bezier(.4,0,.2,1) both; }
   @keyframes dashFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .dash-header { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 12px rgba(11,26,14,0.18); }
-  .dash-header h1 { font-family: var(--font-display); font-size: 1.85rem; font-weight: 700; letter-spacing: -0.01em; }
+  .dash-header h1 { font-family: var(--font-display); font-size: var(--text-display-lg); font-weight: 700; letter-spacing: -0.01em; }
   .dash-header p { font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 4px; }
   .dash-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: var(--transition); }
   .dash-close:hover { background: rgba(255,255,255,0.22); transform: scale(1.05); }
@@ -2362,11 +2399,37 @@
   .analytics-card .a-ico { width: 36px; height: 36px; border-radius: 10px; background: var(--green-50); color: var(--green-700); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
   .analytics-card .a-ico .ico { width: 18px; height: 18px; stroke-width: 1.8; }
   .dash-section { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 2px rgba(11,26,14,0.03); }
-  .dash-section h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; letter-spacing: -0.005em; }
-  .dash-tabs { display: flex; gap: 2px; background: var(--gray-100); padding: 4px; border-radius: var(--radius-md); margin-bottom: 1rem; width: fit-content; max-width: 100%; overflow-x: auto; }
-  .dash-tab { background: none; border: none; padding: 8px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 6px; transition: var(--transition); white-space: nowrap; }
-  .dash-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .dash-section h2 { font-family: var(--font-display); font-size: var(--text-display-sm); font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; letter-spacing: -0.005em; }
+  /* SEGMENTED CONTROL (2026-06-05 #11 dedupe). One canonical shape
+     for the three segmented surfaces in the app: .dash-tabs (seller
+     dashboard tab switcher), .bingo-lb-tabs (leaderboard period),
+     .auth-mode-toggle (sign in / create account). Same gray-100
+     wrapper at --radius-md, same inner 5px pill (calc(--radius-md - 3px)),
+     same white-on-active. Per-surface variants (margin, flex-fill,
+     padding) overlay below. Previously drifted between 3 implementations
+     with different inner radii (5px / 6px) and padding combinations. */
+  .dash-tabs, .bingo-lb-tabs, .auth-mode-toggle {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: var(--gray-100); border-radius: var(--radius-md);
+  }
+  .dash-tab, .bingo-lb-tab, .auth-mode-btn {
+    border: none; background: transparent;
+    padding: 8px 14px;
+    font-family: var(--font-body); font-size: var(--text-body-sm); font-weight: 600;
+    color: var(--gray-500);
+    border-radius: calc(var(--radius-md) - 3px);
+    cursor: pointer; transition: var(--transition);
+  }
+  .dash-tab.active, .bingo-lb-tab.active, .auth-mode-btn.active {
+    background: var(--white); color: var(--green-700);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  /* Surface-specific overrides */
+  .dash-tabs { display: flex; margin-bottom: 1rem; width: fit-content; max-width: 100%; overflow-x: auto; }
+  .dash-tab { padding: 8px 18px; white-space: nowrap; }
   .dash-tab:hover:not(.active) { color: var(--gray-700); }
+  .auth-mode-toggle { display: flex; margin-bottom: 1.5rem; }
+  .auth-mode-btn { flex: 1; }
   .dash-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); font-size: 14px; }
   /* Contain horizontal scroll to each tab pane — .dash-table has 9 cols + nowrap action cells, overflows viewport on mobile; without this the whole page scrolls horizontally instead of just the table. */
   #dashTabActive, #dashTabSold, #dashTabPayouts, #dashTabOffers { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -2484,11 +2547,52 @@
   #inboxBackdrop.open { display: flex; }
   .inbox-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
   .inbox-header { background: var(--green-900); color: var(--white); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-  .inbox-header h2 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; }
+  .inbox-header h2 { font-family: var(--font-display); font-size: var(--text-display-sm); font-weight: 700; }
   .inbox-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; transition: var(--transition); }
   .inbox-close:hover { background: rgba(255,255,255,0.2); }
   .inbox-body { flex: 1; overflow-y: auto; }
-  .inbox-empty { text-align: center; color: var(--gray-500); font-size: 14px; padding: 3rem 1rem; }
+  .inbox-empty { text-align: center; color: var(--gray-500); font-size: var(--text-body-md); padding: var(--space-7) var(--space-4); }
+
+  /* EMPTY STATE — shared block (#3 audit follow-up). Replaces the
+     gray-text fallback used by .inbox-empty / .dash-empty / .bingo-lb-empty.
+     Icon backplate + Playfair title + body + pill CTA so blank states
+     feel intentional, not unstyled. Migrate call sites one at a time. */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--space-2); padding: var(--space-8) var(--space-5);
+    text-align: center; max-width: 420px; margin: 0 auto;
+  }
+  .empty-state-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--green-50); color: var(--gold-600);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: var(--space-2);
+  }
+  .empty-state-icon .ico { width: 28px; height: 28px; }
+  .empty-state-title {
+    font-family: var(--font-display);
+    font-size: var(--text-display-sm); font-weight: 700;
+    color: var(--green-900); margin: 0;
+  }
+  .empty-state-sub {
+    font-size: var(--text-body-md); color: var(--gray-500);
+    line-height: 1.5; margin: 0;
+  }
+  /* Empty-state CTA — gold-400 to land in the .btn-primary family.
+     The brand uses gold for discovery / action CTAs (.btn-primary,
+     .btn-sell-nav) and dark-green for system / auth CTAs
+     (.signin-prompt-primary). "Browse listings" from an empty inbox
+     is a discovery action; gold is the right brand convention. */
+  .empty-state-cta {
+    margin-top: var(--space-3);
+    background: var(--gold-400); color: var(--green-900);
+    border: 0; border-radius: 50px;
+    padding: 10px 22px;
+    font-family: var(--font-body); font-size: var(--text-body-md); font-weight: 600;
+    cursor: pointer; transition: var(--transition);
+  }
+  .empty-state-cta:hover { background: var(--gold-300); }
+  .empty-state-cta:active { transform: scale(0.97); }
   .inbox-item { display: flex; align-items: center; gap: 14px; padding: 14px 1.25rem; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: var(--transition); }
   .inbox-item:hover { background: var(--gray-50); }
   .inbox-item-emoji { font-size: 2rem; flex-shrink: 0; }
@@ -2507,7 +2611,7 @@
   .bingo-header .bingo-back { background: rgba(255,255,255,0.12); border: none; color: var(--white); width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: var(--transition); display: flex; align-items: center; justify-content: center; }
   .bingo-header .bingo-back:hover { background: rgba(255,255,255,0.22); }
   .bingo-titlewrap { flex: 1; min-width: 0; }
-  .bingo-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; letter-spacing: 0.2px; }
+  .bingo-title { font-family: var(--font-display); font-size: var(--text-display-sm); font-weight: 800; letter-spacing: 0.2px; }
   .bingo-date { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-top: 1px; }
   .bingo-share-btn { background: var(--gold-500); color: var(--green-950); border: none; border-radius: 50px; padding: 8px 14px; font-family: var(--font-body); font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; }
   .bingo-share-btn:hover { background: var(--gold-400); }
@@ -2534,9 +2638,10 @@
   .bingo-lb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; gap: 12px; flex-wrap: wrap; }
   .bingo-lb-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--green-900); margin: 0; }
   .bingo-lb-prize { font-size: 11px; font-weight: 700; color: var(--gold-700, #8a6f2e); background: rgba(197, 162, 83, 0.14); padding: 4px 10px; border-radius: 999px; }
-  .bingo-lb-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--gray-100); border-radius: var(--radius-md); margin-bottom: 0.75rem; }
-  .bingo-lb-tab { border: none; background: transparent; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--gray-500); border-radius: calc(var(--radius-md) - 3px); cursor: pointer; font-family: var(--font-body); }
-  .bingo-lb-tab.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  /* .bingo-lb-tabs / .bingo-lb-tab — shape lives in the canonical
+     SEGMENTED CONTROL block (see dash section). Only the bingo-
+     surface-specific margin overlays here. */
+  .bingo-lb-tabs { margin-bottom: 0.75rem; }
   .bingo-lb-list { display: flex; flex-direction: column; gap: 4px; }
   .bingo-lb-row { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--white); }
   .bingo-lb-row.you { background: rgba(197, 162, 83, 0.1); border: 1px solid var(--gold-500); }
@@ -9830,7 +9935,16 @@ async function loadInbox() {
 function renderInbox(convs) {
   const body = document.getElementById('inboxBody');
   if (convs.length === 0) {
-    body.innerHTML = '<div class="inbox-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">Your inbox is empty</div>Browse listings and tap <strong>Message Seller</strong> on anything you have a question about. Conversations show up here.</div>';
+    // Polished empty state (#3 audit follow-up). Icon + display
+    // headline + body + green pill CTA that closes the inbox and
+    // routes back to browse. Icon: window.ICONS.message (envelope).
+    body.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-state-icon">' + (window.ICONS && window.ICONS.message || '') + '</div>' +
+        '<h3 class="empty-state-title">Your inbox is empty</h3>' +
+        '<p class="empty-state-sub">Browse listings and tap <strong>Message seller</strong> on anything you have a question about. Conversations show up here.</p>' +
+        '<button class="empty-state-cta" data-action="close-inbox-and-browse" type="button">Browse listings</button>' +
+      '</div>';
     updateUnreadBadge(0);
     return;
   }
@@ -9849,7 +9963,7 @@ function renderInbox(convs) {
     <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
       <div class="inbox-item-emoji placeholder-art" data-inbox-thumb data-listing-id="${window.safeAttr(window.safeId(lid))}" data-listing-cat="${window.safeAttr(cat)}" style="width:44px;height:44px;border-radius:8px;background-size:cover;background-position:center">${window.CATEGORY_ICON(cat)}</div>
       <div class="inbox-item-content">
-        <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
+        <div class="inbox-item-title" data-inbox-title data-listing-id="${window.safeAttr(window.safeId(lid))}">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
         <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
       </div>
       <div class="inbox-item-dot"></div>
@@ -9887,6 +10001,7 @@ async function hydrateInboxThumbs(convs) {
   });
   // Paint anything already cached immediately (covers realtime repaints).
   applyInboxThumb();
+  applyInboxTitle();
   if (ids.length === 0 || __inboxThumbsLoading) return;
   __inboxThumbsLoading = true;
   try {
@@ -9904,7 +10019,7 @@ async function hydrateInboxThumbs(convs) {
           const photo = raw
             ? (window.safeImgUrl ? window.safeImgUrl(raw) : String(raw))
             : '';
-          __inboxListingCache.set(id, { photo: photo, cat: d.cat || d.listingCat || '' });
+          __inboxListingCache.set(id, { photo: photo, cat: d.cat || d.listingCat || '', title: d.title || '' });
         } else {
           // Listing deleted / not found -> gray placeholder (no icon).
           __inboxListingCache.set(id, null);
@@ -9914,6 +10029,7 @@ async function hydrateInboxThumbs(convs) {
         // retry; the category-icon placeholder stays in the meantime.
       }
       applyInboxThumb();
+      applyInboxTitle();
     }
   } catch (_e) {
     /* dynamic import failed — placeholders stay; no hard failure */
@@ -9944,6 +10060,23 @@ async function hydrateInboxThumbs(convs) {
       }
       // entry has no photo but listing exists -> leave the category icon
       // that renderInbox already painted (fallback chain step 2).
+    });
+  }
+
+  // Sibling hydration for the title text. The conv doc has a
+  // denormalized `listingTitle` snapshotted at create time, which goes
+  // stale the moment the seller edits the listing. The chat-detail
+  // header already fetches the live listing; this pulls the same fresh
+  // title into the inbox rows so both surfaces agree.
+  function applyInboxTitle() {
+    const els = body.querySelectorAll('[data-inbox-title]');
+    els.forEach(el => {
+      const id = el.getAttribute('data-listing-id') || '';
+      if (!id || !__inboxListingCache.has(id)) return;
+      const entry = __inboxListingCache.get(id);
+      if (entry && entry.title && el.textContent !== entry.title) {
+        el.textContent = entry.title;
+      }
     });
   }
 }
@@ -10195,6 +10328,36 @@ async function fetchNotifUnreadMessages() {
       return bt - at;
     })
     .slice(0, 8);
+  // Refresh stale listingTitle. The denormalized field on the conv doc
+  // is snapshotted at create time and never re-synced; a seller editing
+  // their listing leaves notif-panel rows showing the old name. Read
+  // the live listing (via __inboxListingCache so subsequent inbox-opens
+  // are warm) and overlay the fresh title. Same pattern fetchNotifOffers
+  // / fetchNotifOrders already use for offers + orders.
+  const { doc, getDoc } =
+    await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  await Promise.all(convs.map(async (c) => {
+    if (!c.listingId) return;
+    if (__inboxListingCache.has(c.listingId)) {
+      const cached = __inboxListingCache.get(c.listingId);
+      if (cached && cached.title) c.listingTitle = cached.title;
+      return;
+    }
+    try {
+      const ls = await getDoc(doc(db, 'listings', String(c.listingId)));
+      if (ls.exists()) {
+        const d = ls.data() || {};
+        const raw = d.photos && d.photos[0];
+        const photo = raw
+          ? (window.safeImgUrl ? window.safeImgUrl(raw) : String(raw))
+          : '';
+        __inboxListingCache.set(c.listingId, {
+          photo, cat: d.cat || d.listingCat || '', title: d.title || '',
+        });
+        if (d.title) c.listingTitle = d.title;
+      }
+    } catch (_e) { /* leave the stale denormalized fallback */ }
+  }));
   return convs;
 }
 
@@ -16351,6 +16514,7 @@ A['stripe-connect']          = async () => {
   }
 };
 A['close-inbox']             = () => closeInbox();
+A['close-inbox-and-browse']  = () => { closeInbox(); try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
 A['close-chat']              = () => closeChat();
 A['send-message']            = () => { if (!window.requireAuth('to send a message')) return; sendMessage(); };
 // Pinned chat listing card → reopen the listing detail modal. Best-effort:
