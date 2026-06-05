@@ -9634,7 +9634,7 @@ function renderInbox(convs) {
     <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
       <div class="inbox-item-emoji placeholder-art" data-inbox-thumb data-listing-id="${window.safeAttr(window.safeId(lid))}" data-listing-cat="${window.safeAttr(cat)}" style="width:44px;height:44px;border-radius:8px;background-size:cover;background-position:center">${window.CATEGORY_ICON(cat)}</div>
       <div class="inbox-item-content">
-        <div class="inbox-item-title">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
+        <div class="inbox-item-title" data-inbox-title data-listing-id="${window.safeAttr(window.safeId(lid))}">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
         <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
       </div>
       <div class="inbox-item-dot"></div>
@@ -9672,6 +9672,7 @@ async function hydrateInboxThumbs(convs) {
   });
   // Paint anything already cached immediately (covers realtime repaints).
   applyInboxThumb();
+  applyInboxTitle();
   if (ids.length === 0 || __inboxThumbsLoading) return;
   __inboxThumbsLoading = true;
   try {
@@ -9689,7 +9690,7 @@ async function hydrateInboxThumbs(convs) {
           const photo = raw
             ? (window.safeImgUrl ? window.safeImgUrl(raw) : String(raw))
             : '';
-          __inboxListingCache.set(id, { photo: photo, cat: d.cat || d.listingCat || '' });
+          __inboxListingCache.set(id, { photo: photo, cat: d.cat || d.listingCat || '', title: d.title || '' });
         } else {
           // Listing deleted / not found -> gray placeholder (no icon).
           __inboxListingCache.set(id, null);
@@ -9699,6 +9700,7 @@ async function hydrateInboxThumbs(convs) {
         // retry; the category-icon placeholder stays in the meantime.
       }
       applyInboxThumb();
+      applyInboxTitle();
     }
   } catch (_e) {
     /* dynamic import failed — placeholders stay; no hard failure */
@@ -9729,6 +9731,23 @@ async function hydrateInboxThumbs(convs) {
       }
       // entry has no photo but listing exists -> leave the category icon
       // that renderInbox already painted (fallback chain step 2).
+    });
+  }
+
+  // Sibling hydration for the title text. The conv doc has a
+  // denormalized `listingTitle` snapshotted at create time, which goes
+  // stale the moment the seller edits the listing. The chat-detail
+  // header already fetches the live listing; this pulls the same fresh
+  // title into the inbox rows so both surfaces agree.
+  function applyInboxTitle() {
+    const els = body.querySelectorAll('[data-inbox-title]');
+    els.forEach(el => {
+      const id = el.getAttribute('data-listing-id') || '';
+      if (!id || !__inboxListingCache.has(id)) return;
+      const entry = __inboxListingCache.get(id);
+      if (entry && entry.title && el.textContent !== entry.title) {
+        el.textContent = entry.title;
+      }
     });
   }
 }
@@ -9980,6 +9999,36 @@ async function fetchNotifUnreadMessages() {
       return bt - at;
     })
     .slice(0, 8);
+  // Refresh stale listingTitle. The denormalized field on the conv doc
+  // is snapshotted at create time and never re-synced; a seller editing
+  // their listing leaves notif-panel rows showing the old name. Read
+  // the live listing (via __inboxListingCache so subsequent inbox-opens
+  // are warm) and overlay the fresh title. Same pattern fetchNotifOffers
+  // / fetchNotifOrders already use for offers + orders.
+  const { doc, getDoc } =
+    await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+  await Promise.all(convs.map(async (c) => {
+    if (!c.listingId) return;
+    if (__inboxListingCache.has(c.listingId)) {
+      const cached = __inboxListingCache.get(c.listingId);
+      if (cached && cached.title) c.listingTitle = cached.title;
+      return;
+    }
+    try {
+      const ls = await getDoc(doc(db, 'listings', String(c.listingId)));
+      if (ls.exists()) {
+        const d = ls.data() || {};
+        const raw = d.photos && d.photos[0];
+        const photo = raw
+          ? (window.safeImgUrl ? window.safeImgUrl(raw) : String(raw))
+          : '';
+        __inboxListingCache.set(c.listingId, {
+          photo, cat: d.cat || d.listingCat || '', title: d.title || '',
+        });
+        if (d.title) c.listingTitle = d.title;
+      }
+    } catch (_e) { /* leave the stale denormalized fallback */ }
+  }));
   return convs;
 }
 
