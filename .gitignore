@@ -63,6 +63,13 @@ android/app/release/
 *.jks
 *.keystore
 
+# Apple signing secrets — APNs auth keys, provisioning profiles, certs.
+# These must never be committed (the APNs .p8 lives outside the repo).
+*.p8
+*.mobileprovision
+*.p12
+*.cer
+
 # iOS native build artifacts (the platform itself is committed; build
 # folders + Pods are not — Pods regenerates on `pod install`)
 ios/App/Pods/
