@@ -9675,8 +9675,6 @@ function escapeInboxText(str) {
 // load-time polling interval is gone — the listener is the source of
 // truth.
 let __unreadUnsub = null;
-let __unreadUserUnsub = null; // server-derived users/{uid}.unreadConversations
-let __unreadFromServer = null; // null = not yet seen; number = authoritative
 let __unreadLastConvs = []; // last snapshot, reused to repaint the open inbox.
 
 async function refreshUnreadBadge() {
@@ -9688,43 +9686,26 @@ async function refreshUnreadBadge() {
 async function attachUnreadListener() {
   if (!window.CURRENT_USER) {
     if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
-    if (__unreadUserUnsub) { try { __unreadUserUnsub(); } catch (_e) {} __unreadUserUnsub = null; }
     __unreadLastConvs = [];
-    __unreadFromServer = null;
     updateUnreadBadge(0);
     return;
   }
-  // Attach the server-derived badge listener (Agent X derives
-  // users/{uid}.unreadConversations via a Firestore trigger that reads
-  // participantState/{uid}.lastReadAt). If the field is present we use
-  // it as the authoritative badge count. The conversation listener
-  // below stays attached for inbox-repaint + a client-side fallback
-  // count when the server field hasn't been populated yet.
-  if (!__unreadUserUnsub) {
-    try {
-      const { getFirestore, doc, onSnapshot } =
-        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-      const firestoreDb = getFirestore();
-      __unreadUserUnsub = onSnapshot(
-        doc(firestoreDb, 'users', window.CURRENT_USER.uid),
-        (snap) => {
-          const data = snap.exists() ? snap.data() : null;
-          if (data && typeof data.unreadConversations === 'number') {
-            __unreadFromServer = data.unreadConversations;
-            updateUnreadBadge(__unreadFromServer);
-          }
-          // If the field is missing we leave __unreadFromServer null and
-          // the conv listener's client-side count will surface via
-          // updateUnreadBadge below.
-        },
-        (err) => {
-          console.error('unread user-doc listener error:', err);
-        }
-      );
-    } catch (err) {
-      console.error('Error attaching unread user-doc listener:', err);
-    }
-  }
+  // Conversation listener is the sole source of truth for the unread
+  // badge. The previous design had a parallel user-doc listener that
+  // asserted users/{uid}.unreadConversations (server-derived via the
+  // onParticipantStateReadCount onDocumentUpdated trigger). After read,
+  // the conv listener correctly wrote 0 but the user-doc listener
+  // re-asserted whatever stale value sat on the user doc — last write
+  // wins, badge stuck on. Detached 2026-06-05.
+  //
+  // Trade-off: this query is limit(50) ordered by lastMessageAt desc.
+  // An unread conv ALWAYS has a fresh lastMessageAt by definition (new
+  // message just arrived), so unread items sort to the top. Cap kicks
+  // in only when a user has 50+ MORE-recently-active conversations than
+  // an unread one — realistically unreachable since "unread = recent".
+  // Worst case: badge displays 50 instead of true count for power
+  // sellers with >50 simultaneous unread. Dot stays ON either way; no
+  // false all-clear is possible.
   if (__unreadUnsub) return; // already wired
   try {
     const { getFirestore, collection, query, where, orderBy, limit, onSnapshot } =
@@ -9766,9 +9747,7 @@ async function attachUnreadListener() {
 
 function detachUnreadListener() {
   if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
-  if (__unreadUserUnsub) { try { __unreadUserUnsub(); } catch (_e) {} __unreadUserUnsub = null; }
   __unreadLastConvs = [];
-  __unreadFromServer = null;
 }
 
 // Bootstrap the listener once auth has had a chance to resolve. We re-try
@@ -9981,13 +9960,11 @@ function isConvUnread(conv, myUid) {
 function updateUnreadBadge(count) {
   // Multiple places display the unread count: top-nav inbox icon, the
   // bottom-nav Inbox tab on mobile, and the Messages item in the user
-  // dropdown. All use the .unread-badge class.
-  // Trust the client-side recomputed count from the conv listener.
-  // The server-derived users/{uid}.unreadConversations field (Agent X)
-  // isn't reliably maintained right now — see POST_BETA_FIXES.md #22 —
-  // so preferring it caused the badge to stick at stale values after
-  // a markConversationRead. The user-doc listener stays attached as
-  // cheap insurance for future re-enabling.
+  // dropdown. All use the .unread-badge class. Driven solely by the
+  // conv-listener's client-recomputed count (attachUnreadListener);
+  // the parallel user-doc listener that asserted the server-derived
+  // unreadConversations field was detached 2026-06-05 because it
+  // raced with this path and re-asserted stale values after read.
   document.querySelectorAll('.unread-badge').forEach((badge) => {
     badge.textContent = count > 99 ? '99+' : (count || '');
     badge.classList.toggle('active', count > 0);
