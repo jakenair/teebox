@@ -5754,9 +5754,16 @@ window.confirmPayment = async function() {
           }
         } catch { _authScreen.classList.remove('open'); }
       }
-      // Auth-state body class — see signed-in branch above.
-      document.body.classList.add('is-anon');
-      document.body.classList.remove('is-signed-in');
+      // Auth-state body class — see signed-in branch above. When the
+      // design-preview helper forced signed-in (?preview=signedin),
+      // skip the reset so the screenshot capture actually renders the
+      // signed-in ribbon. Otherwise the listener fires with user=null
+      // in headless and immediately wipes the helper's class. No-op
+      // in normal sessions (URL param absent → guard returns false).
+      if (new URLSearchParams(location.search).get('preview') !== 'signedin') {
+        document.body.classList.add('is-anon');
+        document.body.classList.remove('is-signed-in');
+      }
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
       // Reset the in-memory shop snapshot so a previous user's listings
