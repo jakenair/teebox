@@ -1432,8 +1432,13 @@
      more content to scroll on mobile. .cat-bar itself is the scrollable rail. */
   .cat-bar-wrap { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); border-bottom: 1px solid rgba(255,255,255,0.08); height: 48px; }
   .cat-bar-wrap::before, .cat-bar-wrap::after { content: ''; position: absolute; top: 0; bottom: 1px; width: 28px; pointer-events: none; z-index: 2; transition: opacity 0.18s ease; }
-  .cat-bar-wrap::before { left: 0; background: linear-gradient(to right, var(--green-800) 30%, transparent); opacity: 0; }
-  .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-800) 30%, transparent); opacity: 1; }
+  /* Edge fades — vignette to --green-900 (a step darker than the
+     --green-800 bar bg) so the fade actually registers visually.
+     Pre-2026-06-05 these gradients faded into the SAME color as the
+     bar background and were invisible, killing the affordance for
+     "more pills off-screen." */
+  .cat-bar-wrap::before { left: 0; background: linear-gradient(to right, var(--green-900) 30%, transparent); opacity: 0; }
+  .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-900) 30%, transparent); opacity: 1; }
   .cat-bar-wrap.scrolled::before { opacity: 1; }
   .cat-bar-wrap.at-end::after { opacity: 0; }
   .cat-bar { position: relative; height: 100%; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
@@ -1495,8 +1500,13 @@
      does not compete with the gold primary. */
   .btn-outline { background: rgba(255,255,255,0.06); color: var(--white); border: 1.5px solid rgba(255,255,255,0.55); border-radius: 50px; padding: 12px 26px; font-family: var(--font-body); font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); }
   .btn-outline:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); }
-  .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); }
-  .hero-stat-n { font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--gold-300); }
+  /* Hero stats — second-tier display, sized as part of the hero unit
+     (not subordinate footnote). Bumped 2026-06-05 audit follow-up:
+     1.8rem flat → clamp(1.9rem, 2.5vw, 2.4rem). Tighter gap from
+     title block so the three numbers live as the trailing credibility
+     row of the hero composition. */
+  .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+  .hero-stat-n { font-family: var(--font-display); font-size: clamp(1.9rem, 2.5vw, 2.4rem); font-weight: 700; color: var(--gold-300); }
   .hero-stat-l { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
   .hero-featured { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .feat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.25rem; cursor: pointer; transition: var(--transition); }
@@ -2421,15 +2431,20 @@
     font-size: var(--text-body-md); color: var(--gray-500);
     line-height: 1.5; margin: 0;
   }
+  /* Empty-state CTA — gold-400 to land in the .btn-primary family.
+     The brand uses gold for discovery / action CTAs (.btn-primary,
+     .btn-sell-nav) and dark-green for system / auth CTAs
+     (.signin-prompt-primary). "Browse listings" from an empty inbox
+     is a discovery action; gold is the right brand convention. */
   .empty-state-cta {
     margin-top: var(--space-3);
-    background: var(--green-700); color: var(--white);
+    background: var(--gold-400); color: var(--green-900);
     border: 0; border-radius: 50px;
     padding: 10px 22px;
     font-family: var(--font-body); font-size: var(--text-body-md); font-weight: 600;
     cursor: pointer; transition: var(--transition);
   }
-  .empty-state-cta:hover { background: var(--green-600); }
+  .empty-state-cta:hover { background: var(--gold-300); }
   .empty-state-cta:active { transform: scale(0.97); }
   .inbox-item { display: flex; align-items: center; gap: 14px; padding: 14px 1.25rem; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: var(--transition); }
   .inbox-item:hover { background: var(--gray-50); }
