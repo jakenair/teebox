@@ -1190,6 +1190,20 @@
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
   #authScreen.hidden { display: none; }
+  /* AUTH SPLASH — visible by default (in static HTML) so the page never
+     paints the anonymous marketplace before Firebase Auth resolves. Torn
+     down in BOTH branches of onAuthStateChanged via __dismissAuthSplash().
+     z-index above #authScreen (500) so it also covers the gate until we
+     know whether to show it. Pure presentation. */
+  #authSplash { position: fixed; inset: 0; z-index: 600; background: var(--green-900); display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease; }
+  #authSplash.fade { opacity: 0; pointer-events: none; }
+  #authSplash.hidden { display: none; }
+  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
+  .auth-splash-logo { font-family: var(--font-display); font-size: 2.4rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; }
+  .auth-splash-logo span { color: var(--gold-400); }
+  .auth-splash-spinner { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
+  @keyframes authSplashSpin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .auth-splash-spinner { animation: none; } }
   /* Auth screen is locked: the "Continue as guest" button at the bottom
      of the form (data-action="continue-as-guest") is the only non-sign-in
      escape. No close X, no backdrop dismiss, no Esc dismiss. */
@@ -1214,14 +1228,16 @@
   .signin-prompt-primary:active { transform: scale(0.98); }
   .signin-prompt-secondary { background: transparent; color: var(--gray-600); border: 0; padding: 8px; font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); }
   .signin-prompt-secondary:hover { color: var(--gray-900); }
-  .auth-box { background: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; width: 100%; max-width: 400px; text-align: center; }
+  .auth-box { background: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.28); }
   .auth-logo { font-family: var(--font-display); font-size: 2rem; font-weight: 900; color: var(--green-800); margin-bottom: 0.25rem; }
   .auth-logo span { color: var(--gold-500); }
   .auth-sub { font-size: 13px; color: var(--gray-400); margin-bottom: 2rem; }
   .auth-title { font-size: 1.1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem; }
   .auth-desc { font-size: 13px; color: var(--gray-500); margin-bottom: 1.5rem; line-height: 1.5; }
   .auth-input { width: 100%; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 12px 16px; font-family: var(--font-body); font-size: 16px; color: var(--gray-900); outline: none; transition: var(--transition); margin-bottom: 12px; text-align: left; letter-spacing: normal; }
-  .auth-input:focus { border-color: var(--green-500); }
+  /* Gold focus ring — matches the brand focus treatment used in the nav
+     ribbon (--gold-400 outline). Replaces the prior green border-only. */
+  .auth-input:focus { border-color: var(--gold-400); box-shadow: 0 0 0 3px rgba(224,184,64,0.20); }
   .auth-fineprint { font-size: 11px; color: var(--gray-400); line-height: 1.5; margin-top: 0.75rem; }
   .auth-fineprint a { color: var(--green-600); text-decoration: underline; }
   /* Pill geometry to match the rest of the app (audit #2, 2026-06-04).
@@ -3014,6 +3030,28 @@
 </style>
 </head>
 <body class="is-anon">
+
+<!-- AUTH SPLASH — covers the is-anon flash until Firebase Auth resolves.
+     Rendered visible in static HTML (no JS needed to show it); removed in
+     both branches of onAuthStateChanged. -->
+<div id="authSplash" aria-hidden="true">
+  <div class="auth-splash-inner">
+    <div class="auth-splash-logo"><span>Tee</span>Box</div>
+    <div class="auth-splash-spinner" role="presentation"></div>
+  </div>
+</div>
+<script>
+  // Tear-down hook for the auth splash. Idempotent; called from BOTH
+  // branches of onAuthStateChanged once auth state is known.
+  window.__dismissAuthSplash = function () {
+    var s = document.getElementById('authSplash');
+    if (!s || s.classList.contains('fade')) return;
+    s.classList.add('fade');
+    setTimeout(function () { s.classList.add('hidden'); }, 360);
+  };
+  // Safety net: never let the splash get stuck if auth is slow/offline.
+  setTimeout(function () { try { window.__dismissAuthSplash(); } catch (e) {} }, 6000);
+</script>
 
 <!-- BOTTOM TAB NAV (mobile only) -->
 <nav class="bottom-nav" aria-label="Mobile primary">
@@ -5732,6 +5770,7 @@ window.confirmPayment = async function() {
       // CSS selectors (body.is-signed-in / body.is-anon). Replaces the
       // older direct .style.display writes that were sprinkled across the
       // auth callback. See `.ribbon-signed-in` / `.ribbon-anon` rules.
+      window.__dismissAuthSplash && window.__dismissAuthSplash();
       document.body.classList.add('is-signed-in');
       document.body.classList.remove('is-anon');
       // After successful sign-in, replay the gated action (if any) so a
@@ -5870,6 +5909,7 @@ window.confirmPayment = async function() {
         document.body.classList.add('is-anon');
         document.body.classList.remove('is-signed-in');
       }
+      window.__dismissAuthSplash && window.__dismissAuthSplash();
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
       // Reset the in-memory shop snapshot so a previous user's listings
