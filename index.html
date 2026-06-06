@@ -1473,7 +1473,7 @@
 
   /* Badge positioning inside ribbon items — anchored to the icon
      glyph (the leftmost child), not the whole pill. */
-  .ribbon-item > .unread-badge { top: 4px; right: auto; left: 26px; }
+  .ribbon-item > .unread-badge { top: 2px; right: auto; left: calc(var(--space-3) + 10px); }
   .ribbon-trigger > .notif-dot { top: 6px; right: auto; left: 24px; box-shadow: 0 0 0 2px var(--green-900); }
 
   /* Auth-state gating. Anything tagged .ribbon-signed-in hides for
@@ -4143,6 +4143,7 @@
         </div>
       </div>
       <div class="chat-header-actions">
+        <button data-action="archive-conv" type="button">Archive</button>
         <button data-action="block-conv" type="button">Block</button>
         <button data-action="report-conv" type="button">Report</button>
         <button class="chat-close" data-action="close-chat" type="button" aria-label="Close chat">×</button>
@@ -9505,7 +9506,7 @@ async function markConversationRead(conversationId) {
     try {
       await setDoc(
         doc(firestoreDb, 'conversations', conversationId, 'participantState', uid),
-        { uid, lastReadAt: serverTimestamp() },
+        { lastReadAt: serverTimestamp() },
         { merge: true }
       );
     } catch (_e) { /* swallow — rules may not be deployed yet */ }
@@ -9516,6 +9517,28 @@ async function markConversationRead(conversationId) {
   invalidateNotifCache();
 }
 window.markConversationRead = markConversationRead;
+
+// Archive (soft-hide) the currently-open conversation for THIS user only.
+// Writes hidden.{uid} = serverTimestamp(); the inbox listener filters it
+// out until a newer message arrives (isConvHidden). Never deletes the
+// shared thread (rules keep conversations delete:if false).
+async function archiveConversation() {
+  const cid = currentChat && currentChat.conversationId;
+  if (!cid || !window.CURRENT_USER) { showToast('No conversation open.'); return; }
+  try {
+    const { getFirestore, doc, updateDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    await updateDoc(doc(getFirestore(), 'conversations', cid), {
+      [`hidden.${window.CURRENT_USER.uid}`]: serverTimestamp(),
+    });
+    showToast('Conversation archived. It returns if they reply.');
+    closeChat();
+  } catch (e) {
+    console.error('archiveConversation failed', e);
+    showToast('Could not archive conversation.');
+  }
+}
+window.archiveConversation = archiveConversation;
 
 // Render the listing context card in the chat header. Safe to call with a
 // partial listing object (we only require id+title+cat to render something
@@ -9829,6 +9852,7 @@ async function attachUnreadListener() {
       const convs = [];
       snap.docs.forEach(d => {
         const data = { id: d.id, ...d.data() };
+        if (isConvHidden(data, myUid)) return; // archived → exclude from badge + list
         if (isConvUnread(data, myUid)) count++;
         convs.push(data);
       });
@@ -9934,6 +9958,10 @@ async function loadInbox() {
 
 function renderInbox(convs) {
   const body = document.getElementById('inboxBody');
+  // Defensive: exclude conversations I've archived (covers the cold-open
+  // getDocs fallback path; the live listener already filters these out).
+  const _meUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if (_meUid) convs = (convs || []).filter(c => !isConvHidden(c, _meUid));
   if (convs.length === 0) {
     // Polished empty state (#3 audit follow-up). Icon + display
     // headline + body + green pill CTA that closes the inbox and
@@ -10090,6 +10118,18 @@ function isConvUnread(conv, myUid) {
   return lastMsg.toMillis() > myLastRead.toMillis();
 }
 
+// Soft-hide / Archive: a conversation is hidden from MY inbox if I've
+// archived it AND no newer message has arrived since. hidden[myUid] is the
+// archive timestamp; a new message (lastMessageAt > archive time) re-
+// surfaces the thread so transaction-relevant replies aren't missed.
+function isConvHidden(conv, myUid) {
+  const h = conv.hidden && conv.hidden[myUid];
+  if (!h) return false;
+  const lastMsg = conv.lastMessageAt;
+  if (!lastMsg || !lastMsg.toMillis || !h.toMillis) return true;
+  return lastMsg.toMillis() <= h.toMillis();
+}
+
 function updateUnreadBadge(count) {
   // Multiple places display the unread count: top-nav inbox icon, the
   // bottom-nav Inbox tab on mobile, and the Messages item in the user
@@ -10128,7 +10168,23 @@ async function openChatFromConversation(conversationId) {
     currentChat = { conversationId, listing, otherUserId };
     // Mark conversation as read (writes both legacy lastRead.{uid} +
     // new participantState/{uid}.lastReadAt for server-side derivation).
-    try { markConversationRead(conversationId); }
+    try {
+      await markConversationRead(conversationId);
+      // Optimistic local clear so the badge drops to 0 immediately instead
+      // of waiting for the server-resolved snapshot — serverTimestamp() is
+      // null in the latency-compensated snapshot, so isConvUnread would
+      // otherwise still read unread until the round-trip lands.
+      try {
+        const _me = window.CURRENT_USER.uid;
+        const _c = (__unreadLastConvs || []).find(c => c.id === conversationId);
+        if (_c) {
+          _c.lastRead = Object.assign({}, _c.lastRead, { [_me]: { toMillis: () => Date.now() } });
+          let _n = 0;
+          (__unreadLastConvs || []).forEach(c => { if (!isConvHidden(c, _me) && isConvUnread(c, _me)) _n++; });
+          updateUnreadBadge(_n);
+        }
+      } catch (_e) { /* optimistic only */ }
+    }
     catch (e) { console.error('Could not mark read:', e); }
     closeInbox();
     openChatUI();
@@ -16617,6 +16673,7 @@ A['accept-bid']              = (el) => { if (!window.requireAuth('to accept this
 A['counter-bid']             = (el) => { if (!window.requireAuth('to counter this bid')) return; counterBid(el.dataset.bidId); };
 A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
 A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
+A['archive-conv']            = () => { if (!window.requireAuth('to archive this conversation')) return; archiveConversation(); };
 A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
 A['withdraw-bid']            = (el) => { if (!window.requireAuth('to withdraw this bid')) return; withdrawBid(el.dataset.bidId); };
 A['toggle-watch']            = (el, ev) => {

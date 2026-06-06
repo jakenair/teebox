@@ -771,7 +771,7 @@ service cloud.firestore {
         && appCheckOk()
         && request.auth.uid in resource.data.participants
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['lastMessageAt','lastMessageText','lastMessageSenderId','lastRead'])
+             ['lastMessageAt','lastMessageText','lastMessageSenderId','lastRead','hidden'])
         && request.resource.data.participants == resource.data.participants
         && request.resource.data.get('listingId', '') == resource.data.get('listingId', '')
         && request.resource.data.get('buyerId', '') == resource.data.get('buyerId', '')
@@ -780,7 +780,15 @@ service cloud.firestore {
             || (request.resource.data.lastMessageText is string
                 && request.resource.data.lastMessageText.size() <= 200))
         && (!('lastMessageSenderId' in request.resource.data.keys())
-            || request.resource.data.lastMessageSenderId == request.auth.uid);
+            || request.resource.data.lastMessageSenderId == request.auth.uid)
+        // ARCHIVE (soft-hide): a participant may toggle ONLY their own key
+        // in the `hidden` map (hidden.{uid}) — they cannot archive on
+        // behalf of the other participant. All other fields stay locked by
+        // the hasOnly allowlist above. delete stays disabled, so the shared
+        // thread is never destroyed.
+        && (request.resource.data.get('hidden', {}) == resource.data.get('hidden', {})
+            || request.resource.data.get('hidden', {}).diff(resource.data.get('hidden', {}))
+                 .affectedKeys().hasOnly([request.auth.uid]));
 
       allow delete: if false;
 
