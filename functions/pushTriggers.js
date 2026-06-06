@@ -73,6 +73,25 @@ async function _lookupUserName(uid) {
   return "Someone";
 }
 
+// Inline in-app notification writer — mirrors writeNotification() in
+// index.js:3917. Duplicated here (not imported) to avoid a require-cycle
+// with index.js, same reason LIGHT_TRIGGER is duplicated above. Writes to
+// users/{uid}/notifications/* so the in-app center + badge see the event.
+async function _writeNotif(uid, doc) {
+  if (!uid) return;
+  try {
+    await admin.firestore().collection("users").doc(uid)
+      .collection("notifications").add({
+        ...doc,
+        userId: uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+  } catch (e) {
+    logger.error("_writeNotif failed", uid, e);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // pushOnOfferCreated — seller hears about a new offer.
 //   Trigger: offers/{offerId} created
@@ -189,7 +208,10 @@ exports.pushOnOrderCreated = onDocumentCreated(
   async (event) => {
     try {
       const order = event.data && event.data.data();
-      if (!order || !order.sellerId) return;
+      // Relaxed guard (was `!order || !order.sellerId`) so the buyer side
+      // still fires if sellerId were ever absent. Each party is guarded
+      // individually below.
+      if (!order) return;
       const orderId = event.params.orderId;
       // Parallelise listing + buyer-name lookup — the previous body was
       // "{listingTitle} — print your label…" with no buyer name, which
@@ -203,25 +225,70 @@ exports.pushOnOrderCreated = onDocumentCreated(
       const photo = (listing.photos && listing.photos[0]) || null;
       const amount = Number(order.amount || 0);
 
-      await sendPush(order.sellerId, {
-        title: `Your item sold for $${amount.toLocaleString()}`,
-        body: `${buyerDisplayName || "Someone"} bought ${listingTitle}. ` +
-          `Print your label and ship within 3 business days.`,
-        deepLink: `teebox://order/${orderId}`,
-        imageUrl: photo || "",
-        kind: "order-placed",
-        data: {
+      // ── Seller: in-app notification + "your item sold" push ──
+      if (order.sellerId) {
+        await _writeNotif(order.sellerId, {
+          kind: "order-placed",
           orderId,
           listingId: order.listingId || "",
           listingTitle,
-          amount: String(amount),
-          buyerDisplayName: String(buyerDisplayName || ""),
-        },
-      }, "orders", {
-        // Time-sensitive: sellers need to know fast so they ship on time.
-        urgent: true,
-        threadId: `order-${orderId}`,
-      });
+          amount,
+          preview: `${buyerDisplayName || "Someone"} bought ` +
+            `${listingTitle} for $${amount.toLocaleString()}.`,
+        });
+        await sendPush(order.sellerId, {
+          title: `Your item sold for $${amount.toLocaleString()}`,
+          body: `${buyerDisplayName || "Someone"} bought ${listingTitle}. ` +
+            `Print your label and ship within 3 business days.`,
+          deepLink: `teebox://order/${orderId}`,
+          imageUrl: photo || "",
+          kind: "order-placed",
+          data: {
+            orderId,
+            listingId: order.listingId || "",
+            listingTitle,
+            amount: String(amount),
+            buyerDisplayName: String(buyerDisplayName || ""),
+          },
+        }, "orders", {
+          // Time-sensitive: sellers need to know fast so they ship on time.
+          urgent: true,
+          threadId: `order-${orderId}`,
+        });
+      }
+
+      // ── Buyer: in-app "order confirmed" notification + push ──
+      // Server-correct now. On iOS the push will NOT deliver until the
+      // FirebaseMessaging APNs→FCM bridge ships (buyer has no usable FCM
+      // token until then); web/Android deliver immediately. The in-app
+      // notification always lands regardless of platform.
+      if (order.buyerId) {
+        await _writeNotif(order.buyerId, {
+          kind: "order-confirmed",
+          orderId,
+          listingId: order.listingId || "",
+          listingTitle,
+          amount,
+          preview: `Order confirmed — ${listingTitle} for ` +
+            `$${amount.toLocaleString()}. We'll let you know when it ships.`,
+        });
+        await sendPush(order.buyerId, {
+          title: "Order confirmed 🎉",
+          body: `Your order for ${listingTitle} is confirmed. ` +
+            `We'll notify you when it ships.`,
+          deepLink: `teebox://order/${orderId}`,
+          imageUrl: photo || "",
+          kind: "order-confirmed",
+          data: {
+            orderId,
+            listingId: order.listingId || "",
+            listingTitle,
+            amount: String(amount),
+          },
+        }, "orders", {
+          threadId: `order-${orderId}`,
+        });
+      }
     } catch (err) {
       logger.error("pushOnOrderCreated error", err);
     }

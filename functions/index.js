@@ -550,6 +550,11 @@ exports.createPaymentIntent = onRequest(
             },
             description,
             statement_descriptor_suffix: "TEEBOX",
+            // Stripe-native receipt as a fallback so the buyer always has a
+            // payment record even if the Resend "order confirmed" email
+            // fails. authUser is email-verified by this point (see the
+            // email_verified gate above), so .email is present + trusted.
+            receipt_email: authUser.email,
             // ── Connect bits ──
             application_fee_amount: platformFeeCents,
             transfer_data: {destination: stripeAccountId},
