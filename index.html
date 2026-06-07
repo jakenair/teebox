@@ -1293,6 +1293,21 @@
   .marketing-reopt-banner .mrb-btn.secondary:hover { background: var(--gray-200); }
   .marketing-reopt-banner .mrb-close { position: absolute; top: 6px; right: 8px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--gray-400); cursor: pointer; padding: 4px; }
   .marketing-reopt-banner .mrb-close:hover { color: var(--gray-700); }
+  /* Email-verification soft prompt (Phase 2) — dismissible top banner.
+     Gold left-accent to distinguish from the green marketing banner. */
+  .verify-email-banner { display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 540px; background: var(--white); border: 1px solid var(--gray-200); border-left: 4px solid var(--gold-500); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 14px 16px; z-index: 1200; font-family: var(--font-body); }
+  .verify-email-banner.show { display: block; }
+  .verify-email-banner .veb-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .verify-email-banner .veb-body { font-size: 13px; line-height: 1.45; color: var(--gray-600); margin-bottom: 10px; }
+  .verify-email-banner .veb-body strong { color: var(--gray-900); }
+  .verify-email-banner .veb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .verify-email-banner .veb-btn { flex: 1 1 auto; min-width: 120px; border: none; border-radius: var(--radius-md); padding: 9px 12px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+  .verify-email-banner .veb-btn.primary { background: var(--green-600); color: var(--white); }
+  .verify-email-banner .veb-btn.primary:hover { background: var(--green-500); }
+  .verify-email-banner .veb-btn.secondary { background: var(--gray-100); color: var(--gray-700); }
+  .verify-email-banner .veb-btn.secondary:hover { background: var(--gray-200); }
+  .verify-email-banner .veb-close { position: absolute; top: 6px; right: 8px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--gray-400); cursor: pointer; padding: 4px; }
+  .verify-email-banner .veb-close:hover { color: var(--gray-700); }
   .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--gray-400); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .auth-google-btn {
@@ -3330,6 +3345,20 @@
   <div class="mrb-actions">
     <button type="button" class="mrb-btn primary" data-action="marketing-opt-in">Yes, send me deals</button>
     <button type="button" class="mrb-btn secondary" data-action="marketing-opt-out">No thanks</button>
+  </div>
+</div>
+
+<!-- EMAIL VERIFICATION soft prompt (Phase 2). Shown when a signed-in user
+     has an unverified email. Dismissible per-uid (localStorage); never
+     hard-gates any action. Resend reuses the branded callable via the
+     existing resend-verification-email action. -->
+<div class="verify-email-banner" id="verifyEmailBanner" role="region" aria-label="Verify your email">
+  <button type="button" class="veb-close" data-action="dismiss-verify-banner" aria-label="Dismiss">×</button>
+  <div class="veb-title">Verify your email</div>
+  <div class="veb-body">We sent a confirmation link to <strong id="verifyEmailAddr">your inbox</strong>. Verify to secure your account and keep your notifications on.</div>
+  <div class="veb-actions">
+    <button type="button" class="veb-btn primary" data-action="resend-verification-email">Resend link</button>
+    <button type="button" class="veb-btn secondary" data-action="dismiss-verify-banner">Not now</button>
   </div>
 </div>
 
@@ -5773,6 +5802,8 @@ window.confirmPayment = async function() {
       window.__dismissAuthSplash && window.__dismissAuthSplash();
       document.body.classList.add('is-signed-in');
       document.body.classList.remove('is-anon');
+      // Phase 2: soft email-verification prompt (never gates anything).
+      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(user); } catch (_e) {}
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
@@ -5910,6 +5941,7 @@ window.confirmPayment = async function() {
         document.body.classList.remove('is-signed-in');
       }
       window.__dismissAuthSplash && window.__dismissAuthSplash();
+      try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
       // Reset the in-memory shop snapshot so a previous user's listings
@@ -16663,6 +16695,36 @@ A['resend-verification-email'] = async () => {
       showToast('Could not send verification email. Try again later.');
     }
   }
+};
+
+// ── Email-verification soft prompt (Phase 2) ──────────────────────────
+// Surfaces emailVerified state as a dismissible banner. NEVER gates any
+// action — no hard-gate on sell/payout (founder sign-off required first).
+// Resend reuses A['resend-verification-email'] (branded callable + rate
+// limit). Dismissal is per-uid so we don't nag; it stops qualifying once
+// the user verifies (emailVerified flips true on next auth resolution).
+window.maybeShowVerifyBanner = function (user) {
+  const b = document.getElementById('verifyEmailBanner');
+  if (!b) return;
+  // Only password users with an unverified email qualify: Google/OAuth
+  // users are already verified; phone users have no email.
+  if (!user || !user.email || user.emailVerified) { b.classList.remove('show'); return; }
+  try { if (localStorage.getItem('teebox_verifyDismissed_' + user.uid) === '1') return; } catch (_) {}
+  const addr = document.getElementById('verifyEmailAddr');
+  if (addr) addr.textContent = user.email;
+  // Defer so it doesn't fight the auth-screen / splash fade-out.
+  setTimeout(function () { b.classList.add('show'); }, 500);
+};
+window.hideVerifyBanner = function () {
+  const b = document.getElementById('verifyEmailBanner');
+  if (b) b.classList.remove('show');
+};
+A['dismiss-verify-banner'] = () => {
+  window.hideVerifyBanner();
+  try {
+    const u = window.CURRENT_USER;
+    if (u && u.uid) localStorage.setItem('teebox_verifyDismissed_' + u.uid, '1');
+  } catch (_) {}
 };
 A['toggle-mobile-nav']       = () => {
   const d = document.getElementById('mobileNavDrawer');
