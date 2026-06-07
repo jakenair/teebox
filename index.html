@@ -1960,9 +1960,15 @@
   .btn-full.ghost { background: var(--gray-100); color: var(--gray-700); }
 
   /* PRODUCT DETAIL MODAL */
-  .detail-backdrop { display: none; position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; padding: 1rem; }
+  /* Safe-area padding (#3): on notched iPhones with viewport-fit=cover the
+     modal could sit under the notch / home indicator ("not fit to screen").
+     max() keeps the 1rem baseline on non-notched devices. Targets mobile
+     Safari + WKWebView. */
+  .detail-backdrop { display: none; position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
   .detail-backdrop.open { display: flex; }
-  .detail-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 780px; width: 100%; max-height: 90vh; overflow-y: auto; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
+  /* overflow-x guard (#4): belt-and-suspenders so real-Safari 100vw/scrollbar
+     math can't let inner content push the modal past the viewport width. */
+  .detail-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 780px; width: 100%; max-height: 90vh; overflow-x: hidden; overflow-y: auto; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
   .detail-header { background: var(--green-900); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; }
   .detail-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--white); }
   .detail-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; padding: 1.5rem; }
