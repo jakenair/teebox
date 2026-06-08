@@ -124,21 +124,38 @@ async function runMonitor({trigger}) {
     canonical = null;
   }
   if (canonical && Array.isArray(canonical.courses) && Array.isArray(data.courses)) {
-    const docIds = data.courses.map((c) => c && c.id).join(",");
-    const localIds = canonical.courses.map((c) => c && c.id).join(",");
-    if (docIds !== localIds) {
-      fail("algorithmParity",
-          "doc courses differ from selectDailyCourses() output",
-          {docIds, localIds});
+    const docVer = Number(data.generatorVersion);
+    // INTENTIONALLY-PRESERVED older board: when a new generator version
+    // ships, writePuzzleForDate keeps any board for a date <= today at its
+    // existing (lower) version so already-played puzzles + leaderboards never
+    // change. That board legitimately differs from what the current code
+    // produces, so it is NOT drift — skip the board/version comparison (and
+    // therefore never alert) when doc.generatorVersion < the current version.
+    // Full detection is preserved whenever versions match.
+    const preserved = Number.isFinite(docVer) && docVer < GENERATOR_VERSION;
+    if (preserved) {
+      pass("algorithmParity",
+          {skipped: "preserved-version", docVersion: docVer,
+            currentVersion: GENERATOR_VERSION});
+      pass("generatorVersion",
+          {skipped: "preserved-version", docVersion: docVer});
     } else {
-      pass("algorithmParity", {ids: docIds});
-    }
-    if (Number(data.generatorVersion) !== GENERATOR_VERSION) {
-      fail("generatorVersion",
-          `doc.generatorVersion=${data.generatorVersion} but ` +
-          `monitor expects ${GENERATOR_VERSION}`);
-    } else {
-      pass("generatorVersion");
+      const docIds = data.courses.map((c) => c && c.id).join(",");
+      const localIds = canonical.courses.map((c) => c && c.id).join(",");
+      if (docIds !== localIds) {
+        fail("algorithmParity",
+            "doc courses differ from selectDailyCourses() output",
+            {docIds, localIds});
+      } else {
+        pass("algorithmParity", {ids: docIds});
+      }
+      if (docVer !== GENERATOR_VERSION) {
+        fail("generatorVersion",
+            `doc.generatorVersion=${data.generatorVersion} but ` +
+            `monitor expects ${GENERATOR_VERSION}`);
+      } else {
+        pass("generatorVersion");
+      }
     }
     if (data.seed !== CANON.seed) {
       fail("seedDrift",
