@@ -17572,20 +17572,41 @@ if (uploadZone) {
   // IMPORTANT: pool is filtered to courses with a real PNG logo (LOGOS_AVAILABLE)
   // — Bingo is a *Logo* game, emoji fallbacks defeat the point.
   function dailySeed(dateStr) {
-    // Stable canonical ordering — bumping the seed string reshuffles the cycle.
-    const rngOrder = mulberry32(hashStr('teebox-bingo-canon-v3'));
-    const pool = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id));
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rngOrder() * (i + 1));
-      const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-    }
-    // Days since a fixed UTC epoch → window index. Wraps around after one cycle.
+    // Local fallback — MUST stay byte-identical to the server's
+    // selectDailyCourses (functions/bingoDailyPuzzle.js): per-cycle reshuffle
+    // + cycle-boundary de-dup, so boards never repeat verbatim and no logo
+    // lands on consecutive days across a cycle change.
+    const pool0 = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id));
     const today = new Date(dateStr + 'T00:00:00Z');
     const epoch = new Date('2026-01-01T00:00:00Z');
     const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
-    const windowCount = Math.max(1, Math.floor(pool.length / 9));
-    const start = (daysSince % windowCount) * 9;
-    return pool.slice(start, start + 9);
+    const poolSize = pool0.length;
+    const windowCount = Math.max(1, Math.floor(poolSize / 9));
+    const cycle = Math.floor(daysSince / windowCount);
+    const windowIndex = daysSince % windowCount;
+    const cycleShuffle = (cyc) => {
+      const rng = mulberry32(hashStr('teebox-bingo-canon-v3:cycle:' + cyc));
+      const p = pool0.slice();
+      for (let i = p.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const t = p[i]; p[i] = p[j]; p[j] = t;
+      }
+      return p;
+    };
+    const arr = cycleShuffle(cycle);
+    if (cycle > 0) {
+      const prev = cycleShuffle(cycle - 1);
+      const forbidden = new Set(prev.slice((windowCount - 1) * 9, windowCount * 9).map(c => c.id));
+      for (let i = 0; i < 9; i++) {
+        if (forbidden.has(arr[i].id)) {
+          for (let j = poolSize - 10; j >= 9; j--) {
+            if (!forbidden.has(arr[j].id)) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break; }
+          }
+        }
+      }
+    }
+    const start = windowIndex * 9;
+    return arr.slice(start, start + 9);
   }
 
   // ── Fuzzy match: normalize, then check `name`, `shortName`, `aliases` ──
@@ -18867,6 +18888,10 @@ if (uploadZone) {
         // finding B1. Mismatch was silently rejected on every solve.
         userId: u.uid,
         date: TODAY,
+        // Canonical daily puzzle id — one board per UTC date (the server
+        // /dailyPuzzles/{date} doc). Ties each score to the board it was
+        // played against so a day's scores compare like-for-like.
+        puzzleId: TODAY,
         correctCount,
         attempts: totalAttempts,
         streak,
