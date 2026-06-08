@@ -16329,9 +16329,11 @@ A['sign-in-google']          = async (btn) => {
       // including after switching to inMemoryPersistence). The
       // accounts:signInWithCustomToken endpoint, by contrast, completes
       // normally in WKWebView. So:
-      //   1. Plugin signs in natively (skipNativeAuth: false default —
-      //      iOS-side Firebase Auth may also receive the credential, but
-      //      that doesn't affect us).
+      //   1. Plugin runs the native Google sheet and returns the credential.
+      //      skipNativeAuth:true (capacitor.config) so it does NOT also try to
+      //      sign into the native Firebase Auth layer — the webview never uses
+      //      it, and that step is an extra failure point whose throw surfaces
+      //      as an immediate "Could not sign in". We only need the idToken.
       //   2. We send the Google idToken to the
       //      `exchangeIdTokenForCustomToken` Cloud Function, which
       //      verifies it against Google's public keys and mints a

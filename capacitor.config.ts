@@ -49,6 +49,14 @@ const config: CapacitorConfig = {
     },
     FirebaseAuthentication: {
       providers: ['google.com', 'apple.com'],
+      // We run our own custom-token exchange (idToken -> exchangeIdToken
+      // ForCustomToken -> signInWithCustomToken on the JS SDK inside the
+      // WKWebView). skipNativeAuth makes signInWithGoogle/Apple RETURN the
+      // credential WITHOUT also signing into the *native* Firebase Auth layer
+      // — which the webview never uses and which is an extra runtime failure
+      // point (its throw surfaces as an immediate "Could not sign in"). We
+      // only need the returned idToken.
+      skipNativeAuth: true,
     },
   },
 };
