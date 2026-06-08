@@ -5198,7 +5198,7 @@ exports.refundOrder = onCall(
 //   - Returns { description: <trimmed text> }
 // ─────────────────────────────────────────────────────────────
 exports.generateListingDescription = onCall(
-  {secrets: [geminiSecret], cors: true},
+  {secrets: [geminiSecret], cors: ALLOWED_ORIGINS},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in.");
