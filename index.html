@@ -1195,13 +1195,17 @@
      down in BOTH branches of onAuthStateChanged via __dismissAuthSplash().
      z-index above #authScreen (500) so it also covers the gate until we
      know whether to show it. Pure presentation. */
-  #authSplash { position: fixed; inset: 0; z-index: 600; background: var(--green-900); display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease; }
+  /* Matches the native iOS launch storyboard (same #0b1a0e/green-950 bg,
+     centered Playfair/Georgia wordmark + tagline) so the native-launch ->
+     web-app handoff is seamless — no background or layout jump. */
+  #authSplash { position: fixed; inset: 0; z-index: 600; background: var(--green-950); display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease; }
   #authSplash.fade { opacity: 0; pointer-events: none; }
   #authSplash.hidden { display: none; }
-  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
-  .auth-splash-logo { font-family: var(--font-display); font-size: 2.4rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; }
+  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; }
+  .auth-splash-logo { font-family: var(--font-display); font-size: 2.6rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
   .auth-splash-logo span { color: var(--gold-400); }
-  .auth-splash-spinner { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
+  .auth-splash-tag { margin-top: 8px; font-family: var(--font-body); font-size: 0.875rem; font-weight: 500; letter-spacing: 0.2px; color: rgba(255,255,255,0.6); }
+  .auth-splash-spinner { margin-top: 2.25rem; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
   @keyframes authSplashSpin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .auth-splash-spinner { animation: none; } }
   /* Auth screen is locked: the "Continue as guest" button at the bottom
@@ -3107,6 +3111,7 @@
 <div id="authSplash" aria-hidden="true">
   <div class="auth-splash-inner">
     <div class="auth-splash-logo"><span>Tee</span>Box</div>
+    <div class="auth-splash-tag">The Premier Golf Marketplace</div>
     <div class="auth-splash-spinner" role="presentation"></div>
   </div>
 </div>
@@ -3339,7 +3344,7 @@
 <div id="authScreen">
   <div class="auth-box">
     <div class="auth-logo"><span>Tee</span>Box</div>
-    <div class="auth-sub">The Golf Marketplace</div>
+    <div class="auth-sub">The Premier Golf Marketplace</div>
     <div id="authEmailMode">
       <div class="auth-reason" id="authReason" role="status" aria-live="polite"></div>
       <div class="auth-mode-toggle auth-emailmode-toggle">
