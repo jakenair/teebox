@@ -979,15 +979,12 @@ service cloud.firestore {
             // counterAmount only legal when status == 'countered'.
             && (request.resource.data.status == 'countered'
                 || !('counterAmount' in request.resource.data.diff(resource.data).affectedKeys())))
-          ||
-          // Buyer can set message ONCE if not previously set (prevents
-          // spam-edit cost attack). To change, buyer must withdraw + re-create.
-          (request.auth.uid == resource.data.buyerId
-            && request.resource.data.status == 'pending'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['message'])
-            && !('message' in resource.data.keys())
-            && request.resource.data.message is string
-            && request.resource.data.message.size() <= 500)
+          // message is WRITE-ONCE-AT-CREATE only — there is NO set-message-on-
+          // update path. The create rule above is where moderateOfferOnCreate
+          // scans it; to add/change a message a buyer must withdraw + re-create.
+          // (Closes the latent direct-SDK create→update moderation bypass.
+          // On the eventual offer re-enable, the create call MUST include the
+          // message, since it can no longer be added afterward.)
         );
 
       allow delete: if false;
