@@ -2503,6 +2503,37 @@
   .dash-table tbody tr:hover { background: var(--gray-100); }
   .dash-table .item-cell { display: flex; align-items: center; gap: 12px; }
   .dash-table .item-emoji { font-size: 1.5rem; }
+  /* Mobile (#4): the 9-col Active Listings table can't fit 390px — Status +
+     the edit/delete actions land off-screen in the horizontal scroll pane.
+     On narrow screens reflow #dashTabActive into stacked cards: thumbnail +
+     title on top, Status + Price on one row, actions full-width and wrapped
+     (reachable with no sideways scroll). Scoped to #dashTabActive so the
+     differently-columned Sold/Payouts tables keep their existing pane-scroll. */
+  @media (max-width: 480px) {
+    #dashTabActive { overflow-x: visible; }
+    #dashTabActive .dash-table,
+    #dashTabActive .dash-table tbody { display: block; width: 100%; }
+    #dashTabActive .dash-table thead { display: none; }
+    #dashTabActive .dash-table tr {
+      display: grid; grid-template-columns: 1fr auto; align-items: center;
+      gap: var(--space-1, 4px) var(--space-3, 12px); padding: var(--space-3, 12px);
+      margin-bottom: var(--space-3, 12px); border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md); background: var(--white);
+    }
+    #dashTabActive .dash-table td { display: block; padding: 0; border-bottom: none; font-size: 14px; }
+    #dashTabActive .dash-table td:first-child { grid-column: 1 / -1; margin-bottom: var(--space-2, 8px); }
+    /* hide Category, the 3 analytics, and Expires on the card */
+    #dashTabActive .dash-table td:nth-child(2),
+    #dashTabActive .dash-table td.col-analytic,
+    #dashTabActive .dash-table td:nth-last-child(2) { display: none; }
+    #dashTabActive .dash-table td:nth-child(3) { justify-self: start; }      /* Status */
+    #dashTabActive .dash-table td:nth-child(4) { justify-self: end; font-size: 15px; }  /* Price */
+    #dashTabActive .dash-table td:last-child {
+      grid-column: 1 / -1; margin-top: var(--space-2, 8px); padding-top: var(--space-2, 8px);
+      border-top: 1px solid var(--gray-100); display: flex; flex-wrap: wrap;
+      gap: var(--space-2, 8px); white-space: normal;
+    }
+  }
   .dash-range { display: flex; gap: 4px; background: var(--gray-100); padding: 3px; border-radius: var(--radius-md); }
   .dash-range button { background: none; border: none; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--gray-500); cursor: pointer; border-radius: 5px; transition: var(--transition); }
   .dash-range button.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
