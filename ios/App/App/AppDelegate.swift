@@ -4,6 +4,7 @@ import FirebaseCore
 import FirebaseAuth
 import FirebaseCrashlytics
 import FirebaseAppCheck
+import FirebaseMessaging
 
 // HIGH-1 Phase 1 — App Check provider factory. Uses App Attest on iOS 14+
 // (project's deployment target floor) and falls back to DeviceCheck just in
@@ -69,6 +70,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #else
         Auth.auth().setAPNSToken(deviceToken, type: .prod)
         #endif
+        // APNs -> FCM bridge. FirebaseAppDelegateProxyEnabled is false (Info.plist),
+        // so the SDK does NOT auto-forward the APNs token. Hand it to Messaging
+        // explicitly so it can mint the FCM registration token the server's
+        // sendEachForMulticast targets — without this the client yields raw APNs
+        // tokens and every push silently fails to deliver.
+        Messaging.messaging().apnsToken = deviceToken
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {

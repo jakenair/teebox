@@ -221,7 +221,7 @@ exports.resendWebhook = onRequest(
                 at: admin.firestore.FieldValue.serverTimestamp(),
               });
             } else {
-              logger.info("soft bounce — logged only", {email, bounceType});
+              logger.info("soft bounce — logged only", {bounceType});
             }
             break;
           }

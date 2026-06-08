@@ -11,7 +11,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
+  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
   pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
@@ -34,6 +34,12 @@ target 'App' do
   # client-init only — server enforcement turns on in Phase 2 after 24-48h
   # of dashboard monitoring data confirms tokens flow on legitimate traffic.
   pod 'FirebaseAppCheck', '~> 11.7'
+  # iOS push (APNs -> FCM). FirebaseMessaging receives the APNs token via the
+  # manual bridge in AppDelegate (FirebaseAppDelegateProxyEnabled is false) and
+  # mints the FCM registration token the server's sendEachForMulticast targets.
+  # Pinned to the same 11.7 line as the other Firebase pods so CocoaPods doesn't
+  # bump FirebaseCore and break FirebaseAuth's ~> 11.7.0 pin.
+  pod 'FirebaseMessaging', '~> 11.7'
 end
 
 post_install do |installer|
