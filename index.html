@@ -1324,12 +1324,11 @@
   .auth-google-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
   .auth-google-btn:active { transform: scale(0.98); }
   .auth-google-icon { width: 20px; height: 20px; flex-shrink: 0; }
-  /* Phase 3: as of v1.5.0 the native iOS app bundles the
-     CapacitorFirebaseAuthentication/Google subspec (GIDSignIn), so the in-app
-     Google flow works via the custom-token exchange — the button is shown
-     in-native too. Web uses signInWithPopup. (Gate flip REQUIRES the Podfile
-     Google subspec + pod install; verify Google sign-in on-device before
-     submitting the build — if it hangs, the subspec did not link.) */
+  /* Google is WEB-ONLY (per decision after on-device issues). iOS uses Apple
+     + email; the web keeps Continue-with-Google (signInWithPopup). Hide the
+     Google entry in the native app. To re-enable in-app later, remove this
+     rule (the native subspec + skipNativeAuth plumbing is still in place). */
+  body.is-native .auth-divider, body.is-native .auth-google-btn { display: none; }
 
   /* Sign in with Apple — black-on-light per Apple HIG. Same dimensions
      as the Google button so the two providers stack as visual peers. */
@@ -14275,33 +14274,48 @@ document.body.classList.add('has-bottom-nav');
 // 2. Register the service worker. When a new SW takes control we reload
 //    once so the user sees the latest UI without having to manually refresh.
 if ('serviceWorker' in navigator) {
-  let __swReloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (__swReloading) return;
-    __swReloading = true;
-    window.location.reload();
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then((reg) => {
-        // If a new SW is waiting, ask it to activate immediately so the
-        // user gets the latest UI on the next visit.
-        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        reg.addEventListener('updatefound', () => {
-          const newSw = reg.installing;
-          if (!newSw) return;
-          newSw.addEventListener('statechange', () => {
-            if (newSw.state === 'installed' && navigator.serviceWorker.controller) {
-              newSw.postMessage({ type: 'SKIP_WAITING' });
-            }
+  if (window.IS_NATIVE) {
+    // NATIVE APP: never run the app-shell service worker. The web bundle is
+    // already local, so the SW adds nothing but staleness — a cached shell
+    // from a PRIOR build survives app updates in WKWebView and masks the new
+    // build (the "I reinstalled and nothing changed" bug). Unregister any SW
+    // a previous build left behind and drop its caches so the freshly-bundled
+    // files always win.
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => regs.forEach((r) => { try { r.unregister(); } catch (_) {} }))
+      .catch(() => {});
+    if (window.caches && caches.keys) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+    }
+  } else {
+    let __swReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (__swReloading) return;
+      __swReloading = true;
+      window.location.reload();
+    });
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then((reg) => {
+          // If a new SW is waiting, ask it to activate immediately so the
+          // user gets the latest UI on the next visit.
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          reg.addEventListener('updatefound', () => {
+            const newSw = reg.installing;
+            if (!newSw) return;
+            newSw.addEventListener('statechange', () => {
+              if (newSw.state === 'installed' && navigator.serviceWorker.controller) {
+                newSw.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
           });
-        });
-        // Poll for an update every 5 minutes — covers users who keep
-        // a tab open all day.
-        setInterval(() => { reg.update().catch(() => {}); }, 5 * 60 * 1000);
-      })
-      .catch((err) => console.warn('SW register failed', err));
-  });
+          // Poll for an update every 5 minutes — covers users who keep
+          // a tab open all day.
+          setInterval(() => { reg.update().catch(() => {}); }, 5 * 60 * 1000);
+        })
+        .catch((err) => console.warn('SW register failed', err));
+    });
+  }
 }
 
 // 3. Install banner: capture beforeinstallprompt and surface our own
