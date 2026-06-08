@@ -10742,14 +10742,36 @@ function invalidateNotifCache() {
 }
 window.invalidateNotifCache = invalidateNotifCache;
 
-// Background refresh every 60s so the red dot updates without re-opening.
-// Skips network when no user is signed in. Lightweight — runs only the
-// counts query path via loadNotifications which already de-dupes via cache.
-setInterval(() => {
-  if (!window.CURRENT_USER) return;
-  // Force refresh in background; render only updates dot if panel is closed.
-  loadNotifications(true).catch(() => {});
-}, 60000);
+// Background refresh so the red dot updates without re-opening. NET-001: the
+// old version forced a 4-query Firestore read EVERY 60s on every tab regardless
+// of visibility (~72k reads/day per idle tab). Now:
+//   - never poll a hidden/backgrounded tab,
+//   - refresh once immediately when the tab returns to the foreground,
+//   - 120s base cadence, backing off to 10min after 10min of no interaction.
+// Mutation-driven invalidateNotifCache() still force-refreshes on the user's
+// own actions, so the poll only needs to catch externally-originated changes.
+(function notifPoll() {
+  const ACTIVE_MS = 120000;       // foreground cadence
+  const IDLE_AFTER_MS = 600000;   // 10 min no interaction -> idle (also idle cadence)
+  let lastInteraction = Date.now();
+  let lastPoll = 0;
+  const bump = () => { lastInteraction = Date.now(); };
+  document.addEventListener('pointerdown', bump, { passive: true });
+  document.addEventListener('keydown', bump, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    bump();
+    if (window.CURRENT_USER) { lastPoll = Date.now(); loadNotifications(true).catch(() => {}); }
+  });
+  setInterval(() => {
+    if (!window.CURRENT_USER || document.hidden) return; // never poll hidden tabs
+    const now = Date.now();
+    const idle = now - lastInteraction > IDLE_AFTER_MS;
+    if (now - lastPoll < (idle ? IDLE_AFTER_MS : ACTIVE_MS)) return;
+    lastPoll = now;
+    loadNotifications(true).catch(() => {});
+  }, 30000);
+})();
 
 async function openShopDashboard() {
   // Guests get the polished "Sign in to start selling" prompt; the
