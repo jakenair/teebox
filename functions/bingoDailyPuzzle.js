@@ -69,7 +69,7 @@ const USER_CALLABLE = {
 // way a fresh deploy doesn't silently rewrite yesterday's puzzle with a
 // different selection. The generator skips re-writes when an existing
 // doc has the same generatorVersion.
-const GENERATOR_VERSION = 1;
+const GENERATOR_VERSION = 2;
 
 // ── Canon data ──────────────────────────────────────────────────────────────
 // Single source of truth for the course pool the function operates on.
@@ -111,27 +111,62 @@ function mulberry32(seed) {
 // IMPORTANT: any change here MUST be mirrored in index.html dailySeed()
 // AND increment GENERATOR_VERSION above. The cross-platform regression
 // test (scripts/test-bingo-cross-platform.mjs) will fail otherwise.
-function selectDailyCourses(dateStr) {
-  const rngOrder = mulberry32(hashStr(CANON.seed));
+// Per-cycle reshuffle of the FULL pool. The seed combines the canon seed
+// with the cycle index, so each full pass through the pool is a fresh
+// permutation — that is what stops the same windowCount-day board sequence
+// from repeating verbatim. Returns a fresh array. MUST match index.html
+// dailySeed() byte-for-byte.
+function cycleShuffle(cycle) {
+  const rngOrder = mulberry32(hashStr(`${CANON.seed}:cycle:${cycle}`));
   const pool = CANON.courses.slice();
-  // Fisher-Yates shuffle, last-to-first, matching index.html exactly.
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rngOrder() * (i + 1));
     const tmp = pool[i];
     pool[i] = pool[j];
     pool[j] = tmp;
   }
+  return pool;
+}
+
+function selectDailyCourses(dateStr) {
   const today = new Date(dateStr + "T00:00:00Z");
   const epoch = new Date(CANON.epoch);
   const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
-  const windowCount = Math.max(1, Math.floor(pool.length / 9));
+  const poolSize = CANON.courses.length;
+  const windowCount = Math.max(1, Math.floor(poolSize / 9));
+  const cycle = Math.floor(daysSince / windowCount);
   const windowIndex = daysSince % windowCount;
+  const arr = cycleShuffle(cycle);
+  // Cycle-boundary de-dup: a logo on the LAST day of the previous cycle (its
+  // last window) must NOT reappear on day 0 of this cycle. Pull any such logo
+  // out of window 0 into windows 1..(windowCount-2) — never the last window,
+  // so the previous cycle's last day stays its plain shuffle (keeps this O(1),
+  // no recursion, and avoids a degenerate fixed point). Result: zero
+  // consecutive-day repeats across every cycle boundary.
+  if (cycle > 0) {
+    const prev = cycleShuffle(cycle - 1);
+    const forbidden = new Set(
+        prev.slice((windowCount - 1) * 9, windowCount * 9).map((c) => c.id));
+    for (let i = 0; i < 9; i++) {
+      if (forbidden.has(arr[i].id)) {
+        for (let j = poolSize - 10; j >= 9; j--) {
+          if (!forbidden.has(arr[j].id)) {
+            const tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+            break;
+          }
+        }
+      }
+    }
+  }
   const start = windowIndex * 9;
   return {
-    courses: pool.slice(start, start + 9),
+    courses: arr.slice(start, start + 9),
     daysSinceEpoch: daysSince,
     windowStart: windowIndex,
-    poolSize: pool.length,
+    cycle,
+    poolSize,
   };
 }
 
@@ -174,6 +209,13 @@ async function writePuzzleForDate(db, dateStr) {
     selectDailyCourses(dateStr);
   const ref = db.doc(`dailyPuzzles/${dateStr}`);
   const existing = await ref.get();
+  // Never overwrite a puzzle for a date <= today (UTC): that board may
+  // already be in play / scored against. Only FUTURE docs may be (re)written,
+  // so the reshuffle-cutover applies to upcoming dates without disturbing
+  // any already-played board or its leaderboard scores.
+  if (existing.exists && dateStr <= todayUtcDateKey()) {
+    return {status: "preserved", date: dateStr, courses};
+  }
   if (existing.exists) {
     const prev = existing.data() || {};
     const sameVersion = Number(prev.generatorVersion) === GENERATOR_VERSION;
