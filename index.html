@@ -8133,6 +8133,25 @@ function imgOrEmojiHtml(p, cls='') {
   return `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
 }
 
+// Image resilience (#3): if a listing photo fails to load/decode (a transient
+// CDN or jpg→webp content-type hiccup — the cause of the "blank photo / ?"
+// report, whose URL otherwise returns 200), swap it for a neutral placeholder
+// instead of a blank box or broken-image glyph. The box stays sized (no layout
+// shift) since we only change the source. 'error' doesn't bubble → capture it,
+// scoped to listing imagery so avatars/icons are untouched.
+if (!window.__imgFallbackBound) {
+  window.__imgFallbackBound = true;
+  document.addEventListener('error', function (e) {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || img.dataset.imgFb) return;
+    if (!img.closest('.product-img-wrap, .item-cell, .trend-thumb, .detail-gallery, .shop-thumb-placeholder')) return;
+    img.dataset.imgFb = '1';
+    img.style.background = 'var(--gray-100)';
+    img.style.objectFit = 'cover';
+    img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' fill='%23eef0f2'/><path d='M14 32l7-8 5 5 4-5 4 8z' fill='%23c8cdd2'/><circle cx='18' cy='18' r='3' fill='%23c8cdd2'/></svg>";
+  }, true);
+}
+
 // Register handlers used by the `data-action` delegator in <head>.
 window.__actions = window.__actions || {};
 window.__actions['open-detail'] = function(el) {
