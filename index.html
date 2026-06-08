@@ -1977,7 +1977,12 @@
   .detail-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 780px; width: 100%; max-height: 90vh; overflow-x: hidden; overflow-y: auto; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
   .detail-header { background: var(--green-900); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; }
   .detail-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--white); }
-  .detail-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; padding: 1.5rem; }
+  /* minmax(0,1fr) — NOT bare 1fr. A 1fr track's auto-minimum floors to its
+     content's min-content (~780px from the gallery image), which blows the
+     column past the 390px modal and renders the whole detail ~2x too big.
+     minmax(0,…) lets the track shrink to the modal width. (r99's min-width:0
+     was on the children, not the track — that's why it didn't fix the zoom.) */
+  .detail-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem; }
   /* min-width:0 so this grid item can't be blown past the 1fr column by
      its gallery's intrinsic (real-photo) width — Safari grid/flex overflow. */
   .detail-gallery { min-width: 0; }
@@ -2336,7 +2341,7 @@
     .drops-grid { grid-template-columns: 1fr 1fr; }
     .how-grid { grid-template-columns: 1fr; }
     .footer-inner { grid-template-columns: 1fr 1fr; }
-    .detail-body { grid-template-columns: 1fr; }
+    .detail-body { grid-template-columns: minmax(0, 1fr); }
     nav { padding: 0 1rem; }
     .nav-search { max-width: 280px; }
     .nav-logo { margin-right: 1rem; }
