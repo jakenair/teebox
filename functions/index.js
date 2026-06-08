@@ -3516,6 +3516,47 @@ function describeSafeSearchTrip(annotation) {
 // `flaggedListings` collection that the admin queue UI queries
 // directly (avoiding cross-user notification clutter).
 
+// Generate 400px + 800px WebP derivatives of a listing photo and record their
+// download URLs on the listing doc under photoVariants[index]. Grid/list/thumb
+// then fetch a small image instead of the full 1600px original (the perf win).
+// Variant files are written with optimized:"true" so they don't re-trigger
+// optimizeListingPhoto. Best-effort: a throw here never blocks upload/moderation.
+//   Index = the 2nd '_'-delimited token of the filename — uploads are
+//   `listings/{uid}/{listingId}/{ts}_{i}_{safeName}` (index.html) and photos[i]
+//   maps to it, so photoVariants[i] aligns with photos[i] on the client.
+async function writeListingPhotoVariants(bucket, objName, listingId, baseSharp) {
+  const crypto = require("crypto");
+  const idx = parseInt(String(objName.split("/").pop()).split("_")[1], 10);
+  if (!Number.isInteger(idx)) {
+    logger.warn("photoVariants: could not parse photo index from", objName);
+    return;
+  }
+  const urls = {};
+  for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
+    const buf = await baseSharp.clone()
+      .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
+      .withMetadata({})
+      .webp({quality: q})
+      .toBuffer();
+    const path = `${objName}_${key}.webp`;
+    const token = crypto.randomUUID();
+    await bucket.file(path).save(buf, {
+      metadata: {
+        contentType: "image/webp",
+        cacheControl: "public, max-age=31536000",
+        metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
+      },
+      resumable: false,
+    });
+    urls[key] = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
+      `/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+  }
+  // Field path photoVariants.<idx> — merges per-index, so concurrent photo
+  // uploads for the same listing don't clobber each other.
+  await admin.firestore().doc(`listings/${listingId}`)
+    .update({[`photoVariants.${idx}`]: urls});
+}
+
 // ─────────────────────────────────────────────────────────────
 // optimizeListingPhoto (Storage trigger)
 //   Runs whenever a new image is uploaded to listings/{id}/photos.
@@ -3537,17 +3578,23 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       if (!obj || !obj.name) return;
       // Only process listing photos.
       if (!obj.name.startsWith("listings/")) return;
+      // Don't re-process our own generated thumbnail variants.
+      if (/_w(?:400|800)\.webp$/i.test(obj.name)) return;
       // Skip non-images and already-WebP files.
       const contentType = obj.contentType || "";
       if (!contentType.startsWith("image/")) return;
       if (obj.metadata && obj.metadata.optimized === "true") return;
       const bucket = admin.storage().bucket(obj.bucket);
       const file = bucket.file(obj.name);
+      // Kept in outer scope so we can derive the small variants AFTER
+      // SafeSearch confirms the image is safe — no variants of an NSFW image
+      // we're about to delete.
+      let baseSharp = null;
       try {
         const sharp = require("sharp");
         const [buf] = await file.download();
-        const out = await sharp(buf)
-          .rotate() // honor EXIF orientation
+        baseSharp = sharp(buf).rotate(); // honor EXIF orientation
+        const out = await baseSharp.clone()
           .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
           .withMetadata({}) // strip EXIF (incl. GPS)
           .webp({quality: 82})
@@ -3590,7 +3637,18 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
         return;
       }
 
-      if (isSafeForMarketplace(safeSearch)) return;
+      if (isSafeForMarketplace(safeSearch)) {
+        // Safe — generate the small WebP variants (400/800px) for fast
+        // grid/list/thumb loads and record them on the listing. Best-effort.
+        if (baseSharp) {
+          try {
+            await writeListingPhotoVariants(bucket, obj.name, listingId, baseSharp);
+          } catch (e) {
+            logger.error("photoVariants write failed", obj.name, e && e.message);
+          }
+        }
+        return;
+      }
 
       const reason = describeSafeSearchTrip(safeSearch);
       logger.warn("moderation: NSFW photo flagged", {

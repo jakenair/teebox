@@ -3180,6 +3180,17 @@
     return '';
   };
 
+  // Prefer a small pre-generated variant (photoVariants[index].w400/.w800,
+  // written by optimizeListingPhoto) over the full 1600px original for
+  // grid/list/thumb. Falls back to the original for older/pre-backfill
+  // listings that have no variants. idx aligns with photos[idx].
+  window.variantImgUrl = function (p, idx, size) {
+    idx = idx || 0;
+    const v = p && p.photoVariants && p.photoVariants[String(idx)];
+    if (v && v[size]) { const u = window.safeImgUrl(v[size]); if (u) return u; }
+    return window.safeImgUrl(p && p.photos && p.photos[idx]);
+  };
+
   // Explicit-content blocklist applied to titles + descriptions before a
   // listing can be submitted. The list is intentionally narrow — we want to
   // block obvious profanity and slurs without false-positive blocking
@@ -5305,7 +5316,7 @@ window.openCheckout = async function(productId, qty) {
   if (p.photos && p.photos.length > 0 && window.safeImgUrl(p.photos[0])) {
     emojiEl.classList.remove('placeholder-art');
     const img = document.createElement('img');
-    img.src = window.safeImgUrl(p.photos[0]);
+    img.src = window.variantImgUrl(p, 0, 'w400');
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
     emojiEl.appendChild(img);
   } else {
@@ -8133,7 +8144,7 @@ const fav = new Set();
 let currentMode = 'buy';
 
 function imgOrEmojiHtml(p, cls='') {
-  const url = window.safeImgUrl(p.photos && p.photos[0]);
+  const url = window.variantImgUrl(p, 0, 'w400');
   if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
   return `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
 }
@@ -8210,7 +8221,7 @@ function buildTrending() {
 
   const rows = sorted.map((p, i) => {
     const id = window.safeId(p.id);
-    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const url = window.variantImgUrl(p, 0, 'w400');
     const thumb = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : window.CATEGORY_ICON(p.cat);
@@ -8319,7 +8330,7 @@ function renderProductCardHtml(p, i) {
   const id = window.safeId(p.id);
   // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
   const delay = Math.min(i, 12) * 30;
-  const url = window.safeImgUrl(p.photos && p.photos[0]);
+  const url = window.variantImgUrl(p, 0, 'w400');
   const mainImg = url
     ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
     : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
@@ -11189,7 +11200,7 @@ function renderShopTables() {
             // — listings.photos[] is server-validated to gs:// /
             // firebasestorage.googleapis.com URLs only.
             const photo0 = Array.isArray(l.photos) && l.photos[0] ? l.photos[0] : '';
-            const photoUrl = photo0 && window.safeImgUrl ? window.safeImgUrl(photo0) : (photo0 || '');
+            const photoUrl = window.variantImgUrl ? window.variantImgUrl(l, 0, 'w400') : (photo0 || '');
             const thumb = photoUrl
               ? `<img src="${escapeHtml(photoUrl)}" loading="lazy" alt="" style="width:50px;height:50px;border-radius:6px;object-fit:cover;background:var(--gray-100);flex-shrink:0" />`
               : `<a class="shop-thumb-placeholder" data-action="open-detail" data-product-id="${escapeHtml(String(l.id))}" href="#" style="width:50px;height:50px;border-radius:6px;background:var(--gray-100);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--gray-500);font-size:10px;text-align:center;line-height:1.1;flex-shrink:0" title="Add a photo">📷<br>Add</a>`;
