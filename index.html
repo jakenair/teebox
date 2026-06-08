@@ -16456,10 +16456,7 @@ A['sign-in-apple']           = async (btn) => {
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
-    // TODO: revert before launch — TEMP DEBUG. Same diag surface as Google
-    // catch. NOT truncated — we need to see Apple AuthorizationError
-    // numbers (1000=cancel, 1001=failed, 1004=notHandled, etc.).
-    if (err) err.textContent = msg + ' [diag code=' + (code || 'none') + ' msg=' + ((e && e.message) || 'none').toString() + ']';
+    if (err) err.textContent = msg;
     console.warn('[auth] apple sign-in failed:', code, e && e.message);
     restoreBtn();
   }
