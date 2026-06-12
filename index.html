@@ -293,15 +293,15 @@
     input, textarea, select { font-size: 16px !important; }
   }
   :root {
-    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020; --green-50: #eaf5ee;
     --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
     --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
     --green-100: #d0e9d4; --green-50: #edf6ee;
     --gold-700: #7a5c0a; --gold-600: #a07a12; --gold-500: #c9991e;
-    --gold-400: #e0b840; --gold-300: #f0cc6a;
+    --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
     --cream: #faf8f3; --white: #ffffff;
     --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
-    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-800: #2a2a26; --gray-900: #1c1c18;
     --red-500: #c0392b; --red-100: #fde8e6;
     --blue-700: #1d4ed8; --blue-500: #3b82f6; --blue-100: #dbeafe;
     --heart-red: #e74c3c;
@@ -637,7 +637,7 @@
   /* Info modal (About / Terms / Privacy) */
   .info-backdrop { display: none; position: fixed; inset: 0; z-index: 350; background: rgba(0,0,0,0.6); align-items: flex-start; justify-content: center; padding: 4rem 1rem 2rem; overflow-y: auto; }
   .info-backdrop.open { display: flex; }
-  .info-modal { background: var(--white); border-radius: var(--radius-lg); max-width: 720px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
+  .info-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 720px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
   .info-body { padding: 1.75rem 2rem 2rem; overflow-y: auto; font-size: 14px; line-height: 1.7; color: var(--gray-700); }
   .info-body h3 { font-family: var(--font-display); font-size: 1.4rem; color: var(--gray-900); margin-bottom: 0.75rem; }
   .info-body h4 { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-top: 1.5rem; margin-bottom: 0.5rem; text-transform: none; letter-spacing: 0; }
@@ -860,7 +860,7 @@
       z-index: 110;
       box-shadow: 0 -2px 18px rgba(0,0,0,0.06);
     }
-    .bottom-nav-item { background: none; border: 0; cursor: pointer; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--gray-500); font-family: inherit; font-size: 10.5px; font-weight: 600; transition: color 0.15s ease; }
+    .bottom-nav-item { background: none; border: 0; cursor: pointer; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--gray-700); font-family: inherit; font-size: 11px; font-weight: 600; transition: color 0.15s ease; }
     .bottom-nav-item .ico { width: 22px; height: 22px; }
     .bottom-nav-item.active { color: var(--green-700); }
     .bottom-nav-item.sell { color: var(--gold-500); }
@@ -2582,7 +2582,7 @@
 /* CHAT / MESSAGING */
   #chatBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250; align-items: center; justify-content: center; padding: 1rem; }
   #chatBackdrop.open { display: flex; }
-  .chat-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 520px; height: 80vh; max-height: 700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
+  .chat-modal { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 520px; height: 80vh; max-height: 700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
   .chat-header { background: var(--green-900); color: var(--white); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .chat-header-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .chat-header-emoji { font-size: 1.75rem; flex-shrink: 0; }
@@ -2634,7 +2634,7 @@
   /* INBOX */
   #inboxBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 240; align-items: center; justify-content: center; padding: 1rem; }
   #inboxBackdrop.open { display: flex; }
-  .inbox-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
+  .inbox-modal { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
   .inbox-header { background: var(--green-900); color: var(--white); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
   .inbox-header h2 { font-family: var(--font-display); font-size: var(--text-display-sm); font-weight: 700; }
   .inbox-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; transition: var(--transition); }
@@ -3949,7 +3949,7 @@
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" data-close-on-backdrop="close-lightbox">
   <button class="lightbox-close" data-action="close-lightbox" aria-label="Close image viewer" data-ico="close"></button>
   <button class="lightbox-arrow lightbox-prev" data-action="lightbox-prev" aria-label="Previous image">‹</button>
-  <img class="lightbox-img" id="lightboxImg" alt="" />
+  <img class="lightbox-img" id="lightboxImg" alt="Listing photo" />
   <button class="lightbox-arrow lightbox-next" data-action="lightbox-next" aria-label="Next image">›</button>
 </div>
 
@@ -4697,7 +4697,7 @@
     <div class="filter-bar" id="filterBar">
       <div class="filter-group">
         <label>Sort</label>
-        <select id="sortMode">
+        <select id="sortMode" aria-label="Sort listings">
           <option value="newest">Newest</option>
           <option value="discover">Discover</option>
           <option value="price-asc">Price ↑</option>
@@ -4884,6 +4884,7 @@
       <div class="form-row-2">
         <div class="form-row"><label for="sellCat">Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
         <div class="form-row"><label for="sellPrice">Ask Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
+        <div id="sellTakeHome" style="display:none;margin:-4px 0 10px;font-size:12.5px;color:var(--gray-700);font-weight:600;"></div>
       </div>
       <div class="form-row-2">
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
@@ -4988,9 +4989,13 @@
           <span id="checkoutItemLabel">Item</span>
           <span id="checkoutItemPrice">$0.00</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:6px;">
           <span>Buyer fees</span>
           <span>$0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
+          <span>Shipping</span>
+          <span>Free</span>
         </div>
         <hr style="border:none;border-top:1px solid var(--gray-200);margin:8px 0 10px;" />
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
@@ -7752,7 +7757,7 @@ window.confirmPayment = async function() {
         }
       } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
-      showToast('Listing submitted ' + (photoUrls.length > 0 ? 'with ' + photoUrls.length + ' photos.' : '(no photos).'), 'success');
+      showToast("You're live — your listing is on the marketplace now.", 'success');
       loadListings();
       // Contextual push prompt: ask once the seller has their first listing
       // up, framed as "get notified when buyers respond". Cooldown logic
@@ -8380,7 +8385,7 @@ function renderProductCardHtml(p, i) {
       `<div class="product-market">`+
         `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
         `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
-        `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>`+
+        (change!==0 ? `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>` : '')+
       `</div>`+
       `<div class="product-btns">`+
         `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
@@ -9632,6 +9637,17 @@ function openChatUI() {
   chatEm.innerHTML = window.CATEGORY_ICON(currentChat.listing.cat || currentChat.listing.listingCat || 'accessories');
   document.getElementById('chatTitle').textContent = currentChat.listing.title || 'Conversation';
   document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
+  // Show WHO you're talking to in the header — resolved async (cached via
+  // loadProfile), falling back to the listing brand until the profile loads.
+  (function resolvePartnerName() {
+    const otherId = currentChat && currentChat.otherUserId;
+    if (!otherId || typeof loadProfile !== 'function') return;
+    const sub = document.getElementById('chatSub');
+    loadProfile(otherId).then((prof) => {
+      const name = prof && (prof.displayName || (prof._user && prof._user.displayName));
+      if (name && document.getElementById('chatSub') === sub) sub.textContent = name;
+    }).catch(() => {});
+  })();
   document.getElementById('chatInput').value = '';
   document.getElementById('chatBody').innerHTML = '<div class="chat-empty">Loading messages…</div>';
   // Pinned listing context card — populate from currentChat.listing.
@@ -9784,7 +9800,15 @@ async function loadMessages() {
       limitToLast(200)
     );
     unsubscribeMessages = onSnapshot(msgsQ, (snap) => {
-      renderMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMessages(msgs);
+      // U-1: a message arriving while the thread is OPEN must clear unread —
+      // markConversationRead otherwise only fires on open, leaving the badge
+      // lit for a thread the user is actively reading. Idempotent write.
+      const last = msgs[msgs.length - 1];
+      if (last && window.CURRENT_USER && last.senderId !== window.CURRENT_USER.uid) {
+        try { markConversationRead(currentChat.conversationId); } catch (_e) {}
+      }
     }, (err) => {
       console.error('Error listening to messages:', err);
       document.getElementById('chatBody').innerHTML =
@@ -12054,6 +12078,20 @@ function openSellModal() {
     const priceEl = document.getElementById('sellPrice');
     if (priceEl) priceEl.addEventListener('input', () => {
       const v = parseFloat(priceEl.value || '0');
+      // Live seller take-home: net after the TeeBox fee (3% Pro / 6.5% std).
+      const th = document.getElementById('sellTakeHome');
+      if (th) {
+        if (v > 0) {
+          const isPro = !!(window.CURRENT_PROFILE && (window.CURRENT_PROFILE.isPro ||
+            (window.CURRENT_PROFILE._user && window.CURRENT_PROFILE._user.isPro)));
+          const feePct = isPro ? 3 : 6.5;
+          const net = v * (1 - feePct / 100);
+          th.textContent = `You'll receive ≈$${net.toFixed(2)} after the ${feePct}% TeeBox fee`;
+          th.style.display = '';
+        } else {
+          th.style.display = 'none';
+        }
+      }
       const notice = document.getElementById('authPhotoNotice');
       if (!notice) return;
       notice.style.display = v >= 300 ? '' : 'none';
@@ -15059,7 +15097,13 @@ async function openWatchlist() {
   // before populating.
   results.style.display = '';
   if (!items.length) {
-    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400)">No liked items yet. Tap the heart on any listing to save it.</div>';
+    results.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-state-icon">' + (window.ICONS && window.ICONS.heart || '') + '</div>' +
+        '<h3 class="empty-state-title">No saved items yet</h3>' +
+        '<p class="empty-state-sub">Tap the <strong>heart</strong> on any listing to save it here for later.</p>' +
+        '<button class="empty-state-cta" data-action="close-watchlist-browse" type="button">Browse listings</button>' +
+      '</div>';
     return;
   }
   results.innerHTML = items.map(p => {
@@ -15564,13 +15608,8 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-chev">›</span>
            </button>
          </div>
-         <!-- HIDDEN: triple-tap the version number to fire a synthetic JS
-              exception that bubbles to native so we can verify Firebase
-              Crashlytics is receiving crash reports from this build.
-              REMOVE BEFORE PUBLIC LAUNCH. Tracked in
-              BUG_TRIAGE_2026_05_17.md (Bug 5 / PR 4). -->
          <div style="text-align:center;margin-top:18px;padding:12px 0;">
-           <small data-action="crashlytics-test-tap" data-version style="opacity:.5;font-size:12px;color:var(--gray-600);user-select:none;-webkit-user-select:none;cursor:default;">TeeBox v1.5.0 (build 55)</small>
+           <small data-version style="opacity:.5;font-size:12px;color:var(--gray-600);user-select:none;-webkit-user-select:none;">TeeBox v1.5.7</small>
          </div>
        </div>`
     : '';
@@ -16092,10 +16131,19 @@ async function saveProfileEdits() {
       updates.avatarUrl = await getDownloadURL(ref);
     }
 
-    const { getFirestore, doc, setDoc } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await setDoc(doc(db, 'profiles', uid), updates, { merge: true });
+    // Route profile content edits through the updateProfile callable so the
+    // server runs its synchronous content scan before writing profiles/{uid}.
+    // (A content violation throws and is handled by the catch below via
+    // isContentViolationError → showContentViolationToast.)
+    const payload = {
+      displayName: updates.displayName,
+      bio: updates.bio,
+      location: updates.location,
+    };
+    if ('handicap' in updates) payload.handicap = updates.handicap;
+    if ('golfBag' in updates) payload.golfBag = updates.golfBag;
+    if ('avatarUrl' in updates) payload.avatarUrl = updates.avatarUrl;
+    await httpsCallable(fns, 'updateProfile')(payload);
 
     PROFILE_CACHE.delete(uid);
     pendingAvatarFile = null;
@@ -16752,6 +16800,7 @@ A['stripe-connect']          = async () => {
 };
 A['close-inbox']             = () => closeInbox();
 A['close-inbox-and-browse']  = () => { closeInbox(); try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
+A['close-watchlist-browse']  = () => { const so = document.getElementById('searchOverlay'); if (so) so.classList.remove('open'); try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
 A['close-chat']              = () => closeChat();
 A['send-message']            = () => { if (!window.requireAuth('to send a message')) return; sendMessage(); };
 // Pinned chat listing card → reopen the listing detail modal. Best-effort:
@@ -16963,30 +17012,6 @@ A['unpin-listing']           = (_el) => { if (!window.requireAuth('to unpin your
 A['payout-export-csv']       = () => { if (!window.requireAuth('to export your payouts')) return; exportPayoutsCsv(); };
 A['seller-tour-next']        = () => advanceSellerTour();
 A['seller-tour-skip']        = () => dismissSellerTour({ markSeen: true });
-
-// HIDDEN: triple-tap the version number in Settings (Account hub footer)
-// to test Crashlytics. Three taps within 500ms throws a synthetic uncaught
-// JS error so we can confirm Firebase Crashlytics is wired and the
-// dashboard is receiving reports. The native layer is configured in
-// ios/App/App/AppDelegate.swift (FirebaseCrashlytics pod + explicit
-// setCrashlyticsCollectionEnabled(true)).
-// REMOVE BEFORE PUBLIC LAUNCH. Tracked in BUG_TRIAGE_2026_05_17.md (Bug 5 / PR 4).
-window.__crashTapHits = 0;
-window.__crashTapTimer = null;
-A['crashlytics-test-tap']    = () => {
-  window.__crashTapHits = (window.__crashTapHits || 0) + 1;
-  if (window.__crashTapTimer) clearTimeout(window.__crashTapTimer);
-  window.__crashTapTimer = setTimeout(() => { window.__crashTapHits = 0; }, 500);
-  if (window.__crashTapHits >= 3) {
-    window.__crashTapHits = 0;
-    // Defer so the throw is uncaught (outside the click-delegation try/catch
-    // a few hundred lines up) and bubbles to the native crash handler that
-    // Crashlytics swizzles into UncaughtExceptionHandler.
-    setTimeout(() => {
-      throw new Error('TeeBox: Crashlytics test crash trigger (triple-tap from Settings)');
-    }, 0);
-  }
-};
 
 A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
@@ -17253,7 +17278,7 @@ async function moderationCardAction(el, kind) {
     }, 220);
   } catch (err) {
     console.error('moderation action failed:', err);
-    if (window.showToast) window.showToast('Action failed: ' + (err && err.message || 'unknown'), 'error');
+    if (window.showToast) window.showToast('Something went wrong. Please try again.', 'error');
     card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
   }
 }
