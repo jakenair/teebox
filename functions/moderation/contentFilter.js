@@ -391,12 +391,16 @@ async function scanContent(text, contentType, uid, request) {
   // Layer 3: bad-words default profanity sweep on the ORIGINAL input,
   // gated by the allowlist short-circuit.
   let profane = false;
+  let degraded = false;
   try {
     profane = getFilter().isProfane(trimmed);
   } catch (_e) {
     // bad-words can throw on weird unicode — fall back to clean rather
-    // than block a benign message.
+    // than block a benign message, but SIGNAL the degradation so callers
+    // (e.g. updateListing) can flag-for-review instead of silently
+    // trusting a "clean" that was really a failed scan layer.
     profane = false;
+    degraded = true;
   }
   if (profane && isAllowlistedToken(trimmed)) {
     profane = false;
@@ -419,7 +423,7 @@ async function scanContent(text, contentType, uid, request) {
         });
         if (anyBlocked) profane = true;
       }
-    } catch (_e) { /* ignore */ }
+    } catch (_e) { degraded = true; }
   }
   if (profane) {
     const excerpt = redact(trimmed);
@@ -432,7 +436,9 @@ async function scanContent(text, contentType, uid, request) {
     return {clean: false, category: "profanity", redactedExcerpt: excerpt};
   }
 
-  return {clean: true, category: null, redactedExcerpt: null};
+  // Clean — but surface `degraded` if any profanity layer failed open so
+  // callers can flag-for-review rather than silently trust the verdict.
+  return {clean: true, category: null, redactedExcerpt: null, degraded};
 }
 
 // ── scanFields() ─────────────────────────────────────────────────────
@@ -440,14 +446,16 @@ async function scanContent(text, contentType, uid, request) {
 // document (listings, profiles). Returns the FIRST violation
 // encountered (writes the audit row at that point) or a clean result.
 async function scanFields(fields, contentType, uid, request) {
+  let degraded = false;
   for (const [, value] of Object.entries(fields || {})) {
     if (value == null) continue;
     if (typeof value !== "string") continue;
     if (value.trim().length === 0) continue;
     const result = await scanContent(value, contentType, uid, request);
     if (!result.clean) return result;
+    if (result.degraded) degraded = true;
   }
-  return {clean: true, category: null, redactedExcerpt: null};
+  return {clean: true, category: null, redactedExcerpt: null, degraded};
 }
 
 module.exports = {

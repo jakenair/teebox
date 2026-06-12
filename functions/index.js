@@ -6335,15 +6335,29 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // Same fields the moderateListingOnUpdate trigger scans. Reject
   // shape matches sendMessage so the client's isContentViolationError
   // / showContentViolationToast path lights up unchanged.
-  const modResult = await scanFields(
-      {title, brand, desc, cat, condition},
-      "listing", uid, request);
+  //
+  // FAILURE MODE: if the scan throws or runs in a reduced/degraded state,
+  // still ALLOW the edit but mark the listing `needsReview` and log it so a
+  // human can re-check — content is never passed through unchecked. A clean
+  // scan persists normally; a hard violation still hard-rejects below.
+  let modResult;
+  try {
+    modResult = await scanFields(
+        {title, brand, desc, cat, condition},
+        "listing", uid, request);
+  } catch (e) {
+    logger.error(
+        "updateListing: content scan threw — allowing edit but flagging " +
+        "needsReview", e);
+    modResult = {clean: true, degraded: true};
+  }
   if (!modResult.clean) {
     throw new HttpsError("invalid-argument", "Content violation", {
       error: "content_violation",
       category: modResult.category,
     });
   }
+  const scanDegraded = !!modResult.degraded;
 
   // ── Persist the editable set + updatedAt. Never touch sellerId,
   // createdAt, status, id, or server-owned counters. bid is derived
@@ -6362,6 +6376,13 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     requiresAuth: isHighValue,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+  // Edit-scan degraded (a moderation layer failed open): allow the edit
+  // but flag it for human review rather than silently trusting it.
+  if (scanDegraded) {
+    update.needsReview = true;
+    update.needsReviewReason = "edit_scan_degraded";
+    update.needsReviewAt = admin.firestore.FieldValue.serverTimestamp();
+  }
   // Only (re)set authReviewState when crossing the high-value
   // threshold so an admin's prior review verdict isn't silently
   // reset by an unrelated edit. New high-value → pending review;
@@ -6379,18 +6400,174 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     logger.error("updateListing write failed", e);
     throw new HttpsError("internal", "Could not save your changes.");
   }
+  if (scanDegraded) {
+    logger.error(
+        "updateListing: content scan DEGRADED — edit allowed but flagged " +
+        "needsReview for a human", {listingId, uid});
+    try {
+      await admin.firestore().collection("moderationLog").add({
+        uid, contentType: "listing", category: null, redactedExcerpt: null,
+        originatingIp: null, action: "scan_degraded", listingId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        notes: "updateListing content scan ran degraded (a moderation layer " +
+          "failed open). Edit allowed but the listing is flagged needsReview.",
+      });
+    } catch (_e) { /* best-effort audit */ }
+  }
   return {ok: true, listingId};
+});
+
+// ── updateProfile (callable) ───────────────────────────────────────
+// Profile-path mirror of updateListing's synchronous moderation gate.
+// profiles/{uid} content (displayName/bio/location) is written ONLY
+// through this callable so it gets a synchronous scanFields pre-write
+// scan. firestore.rules restricts direct client writes to these content
+// fields (callable-only). Same handling as updateListing: a hard
+// violation rejects; a scan that throws still saves but flags
+// needsReview + logs for human review.
+exports.updateProfile = onCall(USER_CALLABLE, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to update your profile.");
+  }
+  const uid = request.auth.uid;
+  const data = request.data || {};
+
+  const displayName = typeof data.displayName === "string" ?
+    data.displayName.trim().slice(0, 60) : "";
+  const bio = typeof data.bio === "string" ?
+    data.bio.trim().slice(0, 600) : "";
+  const location = typeof data.location === "string" ?
+    data.location.trim().slice(0, 80) : "";
+
+  const updates = {
+    displayName,
+    bio,
+    location,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (data.handicap !== undefined && data.handicap !== null &&
+      data.handicap !== "") {
+    const hc = Number(data.handicap);
+    if (!Number.isFinite(hc) || hc < -10 || hc > 54) {
+      throw new HttpsError(
+          "invalid-argument", "Handicap must be between -10 and 54.");
+    }
+    updates.handicap = hc;
+  }
+
+  if (Array.isArray(data.golfBag)) {
+    const seen = new Set();
+    updates.golfBag = data.golfBag
+        .filter((s) => typeof s === "string")
+        .map((s) => s.trim().slice(0, 60))
+        .filter((s) => s.length > 0)
+        .filter((s) => {
+          const k = s.toLowerCase();
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .slice(0, 14);
+  }
+
+  // avatarUrl is uploaded client-side to our Storage bucket; only accept
+  // an in-bucket URL (same invariant as listing photos).
+  if (typeof data.avatarUrl === "string" && data.avatarUrl.length > 0) {
+    if (!isInBucketStorageUrl(data.avatarUrl)) {
+      throw new HttpsError(
+          "invalid-argument", "Invalid avatar image.",
+          {error: "avatar_url_invalid"});
+    }
+    updates.avatarUrl = data.avatarUrl;
+  }
+
+  // ── Synchronous content scan (reject on hit; degraded → needsReview) ──
+  let modResult;
+  try {
+    modResult = await scanFields(
+        {displayName, bio, location}, "profile", uid, request);
+  } catch (e) {
+    logger.error(
+        "updateProfile: content scan threw — saving but flagging " +
+        "needsReview", e);
+    modResult = {clean: true, degraded: true};
+  }
+  if (!modResult.clean) {
+    throw new HttpsError("invalid-argument", "Content violation", {
+      error: "content_violation",
+      category: modResult.category,
+    });
+  }
+  const scanDegraded = !!modResult.degraded;
+  if (scanDegraded) {
+    updates.needsReview = true;
+    updates.needsReviewReason = "profile_scan_degraded";
+    updates.needsReviewAt = admin.firestore.FieldValue.serverTimestamp();
+  }
+
+  try {
+    await admin.firestore().collection("profiles").doc(uid)
+        .set(updates, {merge: true});
+  } catch (e) {
+    logger.error("updateProfile write failed", e);
+    throw new HttpsError("internal", "Could not save your profile.");
+  }
+  if (scanDegraded) {
+    logger.error(
+        "updateProfile: content scan DEGRADED — profile saved but flagged " +
+        "needsReview for a human", {uid});
+    try {
+      await admin.firestore().collection("moderationLog").add({
+        uid, contentType: "profile", category: null, redactedExcerpt: null,
+        originatingIp: null, action: "scan_degraded", listingId: null,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        notes: "updateProfile content scan ran degraded (a moderation layer " +
+          "failed open). Edit allowed but the profile is flagged needsReview.",
+      });
+    } catch (_e) { /* best-effort audit */ }
+  }
+  return {ok: true};
 });
 
 // ── moderateProfileOnCreate / OnWrite (profiles/{uid}) ─────────────
 // Profile docs hold the public-facing displayName + bio. We clear
 // the offending field rather than delete the doc (user still needs
 // an account). Both create + update paths covered.
+// Alert (never silently pass) when an UPDATE moderation handler receives an
+// event with no before/after snapshots. A silent early-exit is
+// indistinguishable from "no moderation needed," so we log + flag for review
+// instead. Mirrors the alert in moderateListingOnUpdate.
+async function _alertModerationMalfunction(contentType, event) {
+  logger.error(
+      `moderate ${contentType} update: malformed event — no before/after`,
+      {
+        hasEventData: !!(event && event.data),
+        eventKeys: event ? Object.keys(event).slice(0, 30) : null,
+        eventParams: event && event.params,
+      });
+  try {
+    await admin.firestore().collection("moderationLog").add({
+      uid: null, contentType, category: null, redactedExcerpt: null,
+      originatingIp: null, action: "trigger_malfunction", listingId: null,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      notes: `moderate ${contentType} update received an event with no ` +
+        "before/after snapshots; content was not re-scanned for this write. " +
+        "Flagged for review.",
+    });
+  } catch (e) {
+    logger.error(`moderation ${contentType}: malfunction audit write failed`, e);
+  }
+}
+
 async function _moderateProfileDoc(event, isCreate) {
   const dataSnap = isCreate ?
     (event.data) :
     (event.data && event.data.after);
-  if (!dataSnap) return;
+  if (!dataSnap) {
+    if (!isCreate) await _alertModerationMalfunction("profile", event);
+    return;
+  }
   const after = dataSnap.data() || {};
   const uid = event.params.userId;
   const fields = ["displayName", "bio", "location"];
@@ -6449,7 +6626,10 @@ exports.moderateProfileOnWrite = onDocumentUpdated(
 // violation; never deletes the user doc.
 async function _moderateUserDoc(event, isCreate) {
   const dataSnap = isCreate ? event.data : (event.data && event.data.after);
-  if (!dataSnap) return;
+  if (!dataSnap) {
+    if (!isCreate) await _alertModerationMalfunction("user", event);
+    return;
+  }
   const after = dataSnap.data() || {};
   const uid = event.params.uid;
   if (!after.displayName || typeof after.displayName !== "string") return;
@@ -6763,10 +6943,19 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   }
 
   // Block check — same semantics as firestore.rules notBlockedByRecipient().
+  // Also (L-2) reject sends to a deleted recipient — their account is
+  // anonymized + Auth removed, so the message would go nowhere.
   try {
     const rUserSnap = await db.collection("users").doc(recipientId).get();
     if (rUserSnap.exists) {
-      const blocked = (rUserSnap.data() || {}).blocked || {};
+      const rUser = rUserSnap.data() || {};
+      if (rUser.deleted === true) {
+        throw new HttpsError(
+            "failed-precondition",
+            "This person is no longer on TeeBox, so you can't message them.",
+            {error: "recipient_deleted"});
+      }
+      const blocked = rUser.blocked || {};
       if (blocked && Object.prototype.hasOwnProperty.call(blocked, senderId)) {
         throw new HttpsError("permission-denied", "Recipient has blocked you.");
       }
@@ -6774,6 +6963,29 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   } catch (e) {
     if (e instanceof HttpsError) throw e;
     logger.warn("sendMessage: block check failed (continuing)", e);
+  }
+
+  // L-1: don't allow messaging about a removed/vanished listing
+  // (send-to-nowhere). Sold/pending listings stay messageable so buyers
+  // and sellers can follow up post-sale; only a removed or missing
+  // listing closes sending. History stays readable; only the send stops.
+  if (conv.listingId) {
+    try {
+      const lSnap = await db.collection("listings")
+          .doc(String(conv.listingId)).get();
+      const lStatus = lSnap.exists ?
+        ((lSnap.data() || {}).status || "active") : "missing";
+      if (lStatus === "removed" || lStatus === "missing") {
+        throw new HttpsError(
+            "failed-precondition",
+            "This listing is no longer available, so messaging is closed.",
+            {error: "listing_unavailable", status: lStatus});
+      }
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      logger.warn(
+          "sendMessage: listing availability check failed (continuing)", e);
+    }
   }
 
   // Load sender user doc up-front; all four rules read it.

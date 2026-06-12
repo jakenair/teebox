@@ -226,32 +226,39 @@ exports.exportMyData = onCall(
         // export bundle was always empty.
         safeBundle("reviews", () =>
           collectionByEitherField(db, "reviews", "buyerId", "sellerId", uid)),
-        // MEDIUM-2: messages live at conversations/{cid}/messages/{mid}, a
-        // subcollection — not a top-level collection. Use collectionGroup
-        // queries (senderId + receiverId), merge, dedupe. Surface the parent
-        // conversationId on each message so users can reconstruct threads.
+        // Messages live at conversations/{cid}/messages/{mid}. A message
+        // doc carries only {senderId, text, createdAt} (no receiverId), so
+        // the RECEIVED side is gathered by walking the user's conversations
+        // (participants array-contains uid) and reading each thread's
+        // messages subcollection; sent messages come from the senderId
+        // collectionGroup query. Merge + dedupe by message id.
         safeBundle("messages", async () => {
-          const [sentSnap, receivedSnap] = await Promise.all([
-            db.collectionGroup("messages")
-                .where("senderId", "==", uid).limit(5000).get(),
-            db.collectionGroup("messages")
-                .where("receiverId", "==", uid).limit(5000).get(),
-          ]);
           const seen = new Set();
           const out = [];
-          const push = (d) => {
+          const push = (d, conversationId) => {
             if (seen.has(d.id)) return;
             seen.add(d.id);
-            const conversationId = d.ref.parent.parent ?
-              d.ref.parent.parent.id : null;
             out.push(isoizeTimestamps({
               id: d.id,
-              conversationId,
+              conversationId: conversationId ||
+                (d.ref.parent.parent ? d.ref.parent.parent.id : null),
               ...d.data(),
             }));
           };
-          sentSnap.docs.forEach(push);
-          receivedSnap.docs.forEach(push);
+          // Sent messages — fast collectionGroup path.
+          const sentSnap = await db.collectionGroup("messages")
+              .where("senderId", "==", uid).limit(5000).get();
+          sentSnap.docs.forEach((d) => push(d));
+          // Received (+ any sent) — walk the user's conversations. Bounded
+          // to 1000 threads × 2000 messages so a power user can't OOM the
+          // export; a per-thread read failure is logged, not fatal.
+          const convSnap = await db.collection("conversations")
+              .where("participants", "array-contains", uid).limit(1000).get();
+          await Promise.all(convSnap.docs.map((c) =>
+            c.ref.collection("messages").limit(2000).get()
+                .then((ms) => ms.docs.forEach((m) => push(m, c.id)))
+                .catch((e) => logger.warn(
+                    "exportMyData: thread messages read failed", c.id, e))));
           return out;
         }),
         safeBundle("disputes", () =>
