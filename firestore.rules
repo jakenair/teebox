@@ -779,7 +779,11 @@ service cloud.firestore {
         && (!('lastMessageText' in request.resource.data.keys())
             || (request.resource.data.lastMessageText is string
                 && request.resource.data.lastMessageText.size() <= 200))
-        && (!('lastMessageSenderId' in request.resource.data.keys())
+        // Sender-spoof guard: enforce "the last sender must be me" ONLY when
+        // lastMessageSenderId is actually being changed (in the diff). It must
+        // not gate lastRead (read cursor) or hidden (archive) updates, which
+        // are direct client writes that never touch this field.
+        && (!('lastMessageSenderId' in request.resource.data.diff(resource.data).affectedKeys())
             || request.resource.data.lastMessageSenderId == request.auth.uid)
         // ARCHIVE (soft-hide): a participant may toggle ONLY their own key
         // in the `hidden` map (hidden.{uid}) — they cannot archive on
