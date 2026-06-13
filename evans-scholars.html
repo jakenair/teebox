@@ -73,7 +73,8 @@
   .btn { display: inline-block; background: var(--gold-400); color: var(--green-950); font-weight: 700; font-size: 15px; padding: 14px 30px; border-radius: 50px; text-decoration: none; transition: transform .15s ease, background .15s ease; }
   .btn:hover { background: var(--gold-300); transform: translateY(-1px); }
   .btn.ghost { background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,.3); margin-left: 10px; }
-  .pending-note { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 16px; }
+  .give-note { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,.6); max-width: 460px; margin: 18px auto 0; }
+  .give-note strong { color: rgba(255,255,255,.85); font-weight: 700; }
 
   /* Credibility row */
   .creds { font-size: .92rem; color: var(--gray-500); margin-top: 28px; }
@@ -140,9 +141,8 @@
     <div class="wrap">
       <h2>Send a caddie to college.</h2>
       <p>Every gift goes straight to the Evans Scholars Foundation and helps a caddie earn a debt-free degree.</p>
-      <!-- PLACEHOLDER: confirmed target is https://wgaesf.org/give — wire only after Jake confirms -->
-      <a href="#" data-evans-donate-pending class="btn">Donate at the Evans Scholars Foundation →</a>
-      <p class="pending-note">(Official donation link pending final confirmation.)</p>
+      <a href="https://wgaesf.org/give" target="_blank" rel="noopener" class="btn">Donate to Evans Scholars →</a>
+      <p class="give-note">Opens the official <strong>Western Golf Association Evans Scholars Foundation</strong> donation page (wgaesf.org) in a new tab. Your gift goes <strong>directly to the Foundation</strong> — TeeBox never collects, holds, or takes a cut of it.</p>
     </div>
   </div>
 
