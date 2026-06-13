@@ -636,6 +636,18 @@
 
   /* Info modal (About / Terms / Privacy) */
   .info-backdrop { display: none; position: fixed; inset: 0; z-index: 350; background: rgba(0,0,0,0.6); align-items: flex-start; justify-content: center; padding: 4rem 1rem 2rem; overflow-y: auto; }
+  /* Settings modals reachable ONLY from the profile/account hub (itself a
+     z-300 .modal-backdrop) must layer ABOVE the profile, not behind it. Equal
+     z-index + earlier DOM position made them open behind the still-open profile
+     modal — i.e. they appeared "dead". ID specificity lifts these four leaf
+     modals (no nested sub-modals, so no whack-a-mole). Saved Searches is also
+     a leaf (applySavedSearch closes it before applying), so it's lifted too.
+     Orders/My Shop/Watchlist are covered from the hub but work via the mobile
+     nav AND open their own sub-modals (dispute/edit/detail), so lifting them
+     would create new stacking bugs — left for a post-launch close-profile-on-
+     open refactor instead. */
+  #emailPrefsBackdrop, #shippingSettingsBackdrop, #pushPrefsBackdrop,
+  #blockedUsersBackdrop, #savedSearchesBackdrop { z-index: 360; }
   .info-backdrop.open { display: flex; }
   .info-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 720px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
   .info-body { padding: 1.75rem 2rem 2rem; overflow-y: auto; font-size: 14px; line-height: 1.7; color: var(--gray-700); }
@@ -1372,7 +1384,15 @@
      we hide the acceptance checkbox + footer and reveal the read-only Close
      button so users can re-read the same 15 clauses without re-accepting. */
   .verify-backdrop.readonly-mode .terms-check,
-  .verify-backdrop.readonly-mode .verify-footer { display: none; }
+  .verify-backdrop.readonly-mode .verify-footer,
+  .verify-backdrop.readonly-mode #verifyModalTitle,
+  .verify-backdrop.readonly-mode .verify-header p,
+  .verify-backdrop.readonly-mode .verify-steps { display: none; }
+  /* Seller-agreement (readonly) reuses the Become-a-Seller modal but should
+     read as a plain agreement, not the onboarding flow: swap the title and
+     drop the step indicators + "start listing" subtitle. */
+  .verify-readonly-title { display: none; }
+  .verify-backdrop.readonly-mode .verify-readonly-title { display: block; }
   .verify-backdrop:not(.readonly-mode) .verify-readonly-footer { display: none; }
   .verify-readonly-footer { display: flex; padding: 0 1.5rem 1.5rem; }
 
@@ -3461,6 +3481,7 @@
     <div class="verify-header">
       <span class="verify-badge" data-ico="shield" aria-hidden="true"></span>
       <h2 id="verifyModalTitle">Become a TeeBox Seller</h2>
+      <h2 class="verify-readonly-title">Seller Agreement</h2>
       <p>Read and agree to our seller terms to start listing</p>
     </div>
     <div class="verify-steps">
