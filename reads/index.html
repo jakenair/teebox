@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<!-- TeeBox Reads — static blog index. Self-contained, no JS/CMS/Firestore. Served at /reads/. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<title>Reads — TeeBox</title>
+<meta name="description" content="The TeeBox Journal — straight-talking guides for golfers buying and selling used gear. Driver checks, iron buying tips, regripping, and more." />
+<link rel="canonical" href="https://teeboxmarket.com/reads/" />
+
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- Favicons (match index.html) -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
+
+<!-- Open Graph / Twitter -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="Reads — The TeeBox Journal" />
+<meta property="og:description" content="Straight-talking guides for golfers buying and selling used gear." />
+<meta property="og:url" content="https://teeboxmarket.com/reads/" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@teeboxmarket" />
+<meta name="twitter:title" content="Reads — The TeeBox Journal" />
+<meta name="twitter:description" content="Straight-talking guides for golfers buying and selling used gear." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
+
+<!-- Fonts (match index.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
+    --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
+    --green-100: #d0e9d4; --green-50: #edf6ee;
+    --gold-600: #a07a12; --gold-500: #c9991e; --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    --cream: #faf8f3; --white: #ffffff;
+    --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--gray-900);
+    line-height: 1.6;
+    font-size: 16px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green-600); text-decoration: none; }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .site-header {
+    background: var(--green-950);
+    color: var(--white);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--white); }
+  .nav-shop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    transition: var(--transition);
+    white-space: nowrap;
+  }
+  .nav-shop:hover { background: var(--gold-400); color: var(--green-950); border-color: var(--gold-400); }
+
+  /* ── Hero ───────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(180deg, var(--green-900) 0%, var(--green-950) 100%);
+    color: var(--white);
+    text-align: center;
+    padding: 3.5rem 1.5rem 4rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .hero .eyebrow {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 2.4px;
+    color: var(--gold-400);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.6rem, 9vw, 4.25rem);
+    line-height: 1.02;
+    letter-spacing: -1px;
+  }
+  .hero .subhead {
+    color: rgba(255,255,255,0.72);
+    font-size: clamp(1rem, 3vw, 1.15rem);
+    font-weight: 300;
+    max-width: 30rem;
+    margin: 1.1rem auto 0;
+    line-height: 1.55;
+  }
+
+  /* ── Posts ──────────────────────────────────────────── */
+  main { max-width: 980px; margin: 0 auto; padding: 3.25rem 1.5rem 4.5rem; }
+  .posts-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+  .post-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  .post-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem 1.6rem;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+    height: 100%;
+  }
+  .post-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--green-200);
+  }
+  .post-card .pc-meta {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--gold-600);
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+  }
+  .post-card h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.18;
+    color: var(--gray-900);
+    margin-bottom: 0.7rem;
+  }
+  .post-card h2 a { color: inherit; }
+  .post-card h2 a:hover { color: var(--green-600); }
+  .post-card .pc-excerpt {
+    color: var(--gray-700);
+    font-size: 0.96rem;
+    line-height: 1.6;
+    margin-bottom: 1.4rem;
+    flex-grow: 1;
+  }
+  .post-card .pc-read {
+    align-self: flex-start;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--green-600);
+    transition: var(--transition);
+  }
+  .post-card .pc-read:hover { color: var(--gold-600); gap: 0.5rem; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .site-footer {
+    background: var(--green-950);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .site-footer .ft-word {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.25rem;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+  }
+  .site-footer .ft-word span { color: var(--white); }
+  .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; justify-content: center; margin-bottom: 1.25rem; }
+  .site-footer nav a { color: rgba(255,255,255,0.75); font-weight: 500; transition: var(--transition); }
+  .site-footer nav a:hover { color: var(--gold-400); }
+  .site-footer .ft-copy { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="nav-logo" href="/" aria-label="TeeBox home"><span>Tee</span>Box</a>
+  <a class="nav-shop" href="/">Shop the marketplace</a>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">The TeeBox Journal</div>
+  <h1>Reads</h1>
+  <p class="subhead">Straight-talking guides for golfers buying and selling used gear — what to check, what to skip, and how to spend smart.</p>
+</section>
+
+<main>
+  <div class="posts-label">Latest</div>
+  <div class="post-grid">
+
+    <article class="post-card">
+      <div class="pc-meta">Buying Guide · June 13, 2026</div>
+      <h2><a href="/reads/used-driver-still-worth-buying.html">How to Tell if a Used Driver Is Still Worth Buying</a></h2>
+      <p class="pc-excerpt">A used driver can play like new — or hide cracks, worn faces, and dead inserts. Here's exactly what to inspect before you pay.</p>
+      <a class="pc-read" href="/reads/used-driver-still-worth-buying.html">Read &rarr;</a>
+    </article>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="ft-word"><span>Tee</span>Box</div>
+  <nav>
+    <a href="/">Marketplace</a>
+    <a href="/reads/">Reads</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </nav>
+  <div class="ft-copy">&copy; 2026 TeeBox Market. The peer-to-peer marketplace for golfers.</div>
+</footer>
+
+</body>
+</html>

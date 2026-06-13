@@ -4758,7 +4758,7 @@
     <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The peer-to-peer marketplace for golfers. Clubs, apparel, accessories. Direct between members, with secured payments and a flat 6.5% seller fee.</p></div>
     <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#drops">Drops</a><a href="#trending">Trending</a></div>
     <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
-    <div class="footer-col"><h4>Company</h4><a href="#" data-action="open-about">About</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
+    <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/">Reads</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
     <div class="footer-col"><h4>Top Brands</h4><a href="/brand/smathers-branson.html">Smathers &amp; Branson</a><a href="/brand/peter-millar.html">Peter Millar</a><a href="/brand/holderness-bourne.html">Holderness &amp; Bourne</a><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/taylormade.html">TaylorMade</a></div>
   </div>
   <div class="footer-bottom">
@@ -9939,7 +9939,7 @@ async function sendMessage() {
     // with HttpsError invalid-argument + details.error = 'content_violation'.
     // Never echo the matched word or category — audit detail only.
     if (window.isContentViolationError && window.isContentViolationError(err)) {
-      showContentViolationToast();
+      showContentViolationToast("Your message wasn't sent — it has language we don't allow on TeeBox. Tweak it and try again.");
       sendBtn.disabled = false;
       input.focus();
       return;
@@ -10048,7 +10048,13 @@ async function attachUnreadListener() {
       let count = 0;
       const convs = [];
       snap.docs.forEach(d => {
-        const data = { id: d.id, ...d.data() };
+        // serverTimestamps:'estimate' — a just-written lastRead (markConversationRead)
+        // is a PENDING serverTimestamp that otherwise reads back as null, which
+        // isConvUnread treats as unread → the badge re-lights to the count right
+        // after the user reads (and stays lit on flaky/backgrounded mobile until
+        // the server round-trips). Estimating resolves the pending lastRead to
+        // ≈now (> lastMessageAt) so the count clears immediately and stays cleared.
+        const data = { id: d.id, ...d.data({ serverTimestamps: 'estimate' }) };
         if (isConvHidden(data, myUid)) return; // archived → exclude from badge + list
         if (isConvUnread(data, myUid)) count++;
         convs.push(data);
@@ -10573,7 +10579,7 @@ async function fetchNotifUnreadMessages() {
     limit(50),
   ));
   const myUid = window.CURRENT_USER.uid;
-  const convs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const convs = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }))
     .filter(c => isConvUnread(c, myUid))
     .sort((a, b) => {
       const at = a.lastMessageAt && a.lastMessageAt.toMillis ? a.lastMessageAt.toMillis() : 0;
@@ -14175,8 +14181,8 @@ function isContentViolationError(e) {
   if (msg.includes('content_violation')) return true;
   return false;
 }
-function showContentViolationToast() {
-  showToast('This content contains language not allowed on TeeBox. Please edit and try again.');
+function showContentViolationToast(msg) {
+  showToast(msg || "That has language we don't allow on TeeBox. Edit it and try again.");
 }
 window.isContentViolationError = isContentViolationError;
 window.showContentViolationToast = showContentViolationToast;
