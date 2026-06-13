@@ -2616,7 +2616,15 @@
   .msg { max-width: 100%; width: fit-content; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: normal; overflow-wrap: anywhere; }
   .msg-mine { align-self: flex-end; background: var(--green-700); color: var(--white); border-bottom-right-radius: 4px; }
   .msg-theirs { align-self: flex-start; background: var(--white); color: var(--gray-900); border: 1px solid var(--gray-200); border-bottom-left-radius: 4px; }
-  .msg-time { font-size: 10px; color: var(--gray-500); align-self: center; margin: 6px 0; }
+  .msg-time { font-size: 10px; color: var(--gray-500); margin: 3px 2px 2px; }
+  .msg-divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 14px 0 8px; }
+  .msg-divider::before, .msg-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+  .msg-divider span { font-size: 10.5px; font-weight: 700; color: var(--gold-600); text-transform: uppercase; letter-spacing: .6px; }
+  .chat-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 1rem; }
+  .chat-skel-b { height: 40px; border-radius: 16px; background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: sk-shimmer 1.4s infinite linear; }
+  .chat-skel-b.them { align-self: flex-start; width: 58%; }
+  .chat-skel-b.me { align-self: flex-end; width: 46%; }
+  .msg-failed { font-size: 10.5px; color: var(--red-500, #d04545); margin: 3px 2px 2px; cursor: pointer; }
   .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--gray-200); background: var(--white); flex-shrink: 0; }
   .chat-input { flex: 1; border: 1px solid var(--gray-200); border-radius: 20px; padding: 10px 16px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition); }
   .chat-input:focus { border-color: var(--green-700); }
@@ -2637,6 +2645,9 @@
   .inbox-modal { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
   .inbox-header { background: var(--green-900); color: var(--white); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
   .inbox-header h2 { font-family: var(--font-display); font-size: var(--text-display-sm); font-weight: 700; }
+  .inbox-filter { padding: 10px 14px; border-bottom: 1px solid var(--gray-200); background: var(--white); flex-shrink: 0; }
+  .inbox-filter input { width: 100%; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 9px 14px; font-family: var(--font-body); font-size: 14px; color: var(--gray-900); outline: none; background: var(--gray-100); transition: var(--transition); }
+  .inbox-filter input:focus { border-color: var(--gold-400); background: var(--white); box-shadow: 0 0 0 3px rgba(224,184,64,0.15); }
   .inbox-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; transition: var(--transition); }
   .inbox-close:hover { background: rgba(255,255,255,0.2); }
   .inbox-body { flex: 1; overflow-y: auto; }
@@ -4275,6 +4286,9 @@
       <h2>Messages</h2>
       <button class="inbox-close" data-action="close-inbox" type="button" aria-label="Close inbox">×</button>
     </div>
+    <div class="inbox-filter">
+      <input type="search" id="inboxFilter" placeholder="Search messages" aria-label="Search messages" oninput="window.filterInbox && window.filterInbox(this.value)" autocomplete="off" />
+    </div>
     <div class="inbox-body" id="inboxBody">
       <div class="inbox-empty">Loading…</div>
     </div>
@@ -4314,7 +4328,7 @@
       <div class="chat-listing-card-price" id="chatListingCardPrice"></div>
     </button>
     <div class="chat-body" id="chatBody">
-      <div class="chat-empty">Loading messages…</div>
+      <div class="chat-skeleton"><div class="chat-skel-b them"></div><div class="chat-skel-b me"></div><div class="chat-skel-b them"></div></div>
     </div>
     <div class="chat-input-row">
       <input type="text" class="chat-input" id="chatInput" placeholder="Type a message…" maxlength="1000" aria-label="Message text">
@@ -4758,7 +4772,7 @@
     <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The peer-to-peer marketplace for golfers. Clubs, apparel, accessories. Direct between members, with secured payments and a flat 6.5% seller fee.</p></div>
     <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#drops">Drops</a><a href="#trending">Trending</a></div>
     <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
-    <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/">Reads</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
+    <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/">Reads</a><a href="/evans-scholars.html">Evans Scholars</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
     <div class="footer-col"><h4>Top Brands</h4><a href="/brand/smathers-branson.html">Smathers &amp; Branson</a><a href="/brand/peter-millar.html">Peter Millar</a><a href="/brand/holderness-bourne.html">Holderness &amp; Bourne</a><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/taylormade.html">TaylorMade</a></div>
   </div>
   <div class="footer-bottom">
@@ -9649,7 +9663,7 @@ function openChatUI() {
     }).catch(() => {});
   })();
   document.getElementById('chatInput').value = '';
-  document.getElementById('chatBody').innerHTML = '<div class="chat-empty">Loading messages…</div>';
+  document.getElementById('chatBody').innerHTML = '<div class="chat-skeleton"><div class="chat-skel-b them"></div><div class="chat-skel-b me"></div><div class="chat-skel-b them"></div></div>';
   // Pinned listing context card — populate from currentChat.listing.
   // Falls back to the conversation's denormalised listingTitle/listingCat
   // if the full listing record didn't resolve (e.g. listing was deleted).
@@ -9830,6 +9844,21 @@ function renderMessages(messages) {
   const myUid = window.CURRENT_USER.uid;
   const attrEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const fmtMsgTime = (ts) => {
+    const ms = ts && ts.toMillis ? ts.toMillis() : 0;
+    if (!ms) return '';
+    const d = new Date(ms);
+    const sameDay = new Date().toDateString() === d.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
+        d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
+  // "New" divider before the first inbound message that arrived since the
+  // last time this user read the thread (currentChat.unreadSince is captured
+  // BEFORE mark-read on open, so it reflects the pre-open read cursor).
+  const unreadSince = (currentChat && currentChat.unreadSince) || 0;
+  let dividerShown = false;
   body.innerHTML = messages.map(m => {
     const mine = m.senderId === myUid;
     const cls = mine ? 'msg msg-mine' : 'msg msg-theirs';
@@ -9853,7 +9882,15 @@ function renderMessages(messages) {
           <button class="btn-ghost btn-warn" data-action="report-message" data-mid="${midAttr}" data-sender="${sidAttr}">Report this message</button>
         </div>
       </div>` : '';
-    return `<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div></div>`;
+    const ms = m.createdAt && m.createdAt.toMillis ? m.createdAt.toMillis() : 0;
+    let divider = '';
+    if (!dividerShown && !mine && unreadSince && ms > unreadSince) {
+      divider = '<div class="msg-divider"><span>New</span></div>';
+      dividerShown = true;
+    }
+    const t = fmtMsgTime(m.createdAt);
+    const timeHtml = t ? `<div class="msg-time">${t}</div>` : '';
+    return divider + `<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div>${timeHtml}</div>`;
   }).join('');
   body.scrollTop = body.scrollHeight;
 }
@@ -9882,7 +9919,23 @@ async function sendMessage() {
   } catch (_e) { /* detector is best-effort; never block sending on its errors */ }
 
   const sendBtn = document.getElementById('chatSendBtn');
+  const _sendLabel = sendBtn.textContent;
   sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  // Optimistic "sending" bubble — the onSnapshot replaces it with the real
+  // message on success; removed on failure (see catch).
+  let _optimistic = null;
+  try {
+    const _cb = document.getElementById('chatBody');
+    if (_cb) {
+      _optimistic = document.createElement('div');
+      _optimistic.className = 'msg-wrap msg-mine-wrap';
+      _optimistic.innerHTML = '<div class="msg msg-mine" style="opacity:.55">' +
+        text.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) +
+        '</div><div class="msg-time">Sending…</div>';
+      _cb.appendChild(_optimistic); _cb.scrollTop = _cb.scrollHeight;
+    }
+  } catch (_e) {}
   try {
     // Route through the server-side sendMessage callable — it enforces
     // rate limits, duplicate-spam holds, and PII-per-recipient holds
@@ -9935,6 +9988,7 @@ async function sendMessage() {
     }
   } catch (err) {
     console.error('Error sending message:', err);
+    if (_optimistic) { try { _optimistic.remove(); } catch (_e) {} }
     // Content-violation path: server-side filter rejected the message
     // with HttpsError invalid-argument + details.error = 'content_violation'.
     // Never echo the matched word or category — audit detail only.
@@ -9964,6 +10018,7 @@ async function sendMessage() {
     }
   } finally {
     sendBtn.disabled = false;
+    sendBtn.textContent = _sendLabel;
     input.focus();
   }
 }
@@ -10206,7 +10261,31 @@ function renderInbox(convs) {
   // listing photo. Bounded + cached so the realtime listener repainting
   // the inbox doesn't re-fetch the same listings on every snapshot.
   try { hydrateInboxThumbs(convs); } catch (_e) { /* placeholder is fine */ }
+  // Re-apply any active search filter after a re-render so it persists.
+  try { const f = document.getElementById('inboxFilter'); if (f && f.value && window.filterInbox) window.filterInbox(f.value); } catch (_e) {}
 }
+
+// Client-side inbox search — hides conversation rows that don't match the
+// query (listing title, partner name, last-message preview). Pure DOM filter,
+// no query/index; re-applied by renderInbox on each snapshot.
+window.filterInbox = function(q) {
+  const query = String(q || '').trim().toLowerCase();
+  const body = document.getElementById('inboxBody');
+  if (!body) return;
+  const items = body.querySelectorAll('.inbox-item');
+  let shown = 0;
+  items.forEach((it) => {
+    const match = !query || (it.textContent || '').toLowerCase().includes(query);
+    it.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  let none = body.querySelector('.inbox-filter-none');
+  if (query && shown === 0 && items.length) {
+    if (!none) { none = document.createElement('div'); none.className = 'inbox-filter-none inbox-empty'; body.appendChild(none); }
+    none.textContent = 'No conversations match your search.';
+    none.style.display = '';
+  } else if (none) { none.style.display = 'none'; }
+};
 
 // Per-conversation rows only carry denormalized listingId/listingCat/title
 // on the conversation doc — NOT the photo. The chat-detail header gets the
@@ -10368,7 +10447,7 @@ async function openChatFromConversation(conversationId) {
     } catch (e) { /* ignore */ }
 
     const otherUserId = conv.participants.find(p => p !== window.CURRENT_USER.uid);
-    currentChat = { conversationId, listing, otherUserId };
+    currentChat = { conversationId, listing, otherUserId, unreadSince: (conv.lastRead && conv.lastRead[window.CURRENT_USER.uid] && conv.lastRead[window.CURRENT_USER.uid].toMillis) ? conv.lastRead[window.CURRENT_USER.uid].toMillis() : 0 };
     // Mark conversation as read (writes both legacy lastRead.{uid} +
     // new participantState/{uid}.lastReadAt for server-side derivation).
     try {
