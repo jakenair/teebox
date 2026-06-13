@@ -6075,8 +6075,12 @@ window.confirmPayment = async function() {
       // the previous user's hearted listings. Firestore is the source of
       // truth — hydrateWatchlist() rebuilds it on the next sign-in.
       try { if (typeof fav !== 'undefined' && fav && fav.clear) fav.clear(); } catch (_) {}
-      window.PRODUCTS = [...window.DEFAULT_PRODUCTS];
-      buildProducts(); buildTrending();
+      // Guests get the live marketplace too. listings rules allow anonymous
+      // read (allow read: if true), so loadListings() fetches real listings,
+      // filters expired/photoless, appends DEFAULT_PRODUCTS as a teaser for
+      // signed-out users, and renders. Previously this branch rendered only
+      // the static demo catalog, so guests never saw real inventory.
+      loadListings();
     }
   });
 
