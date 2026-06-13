@@ -416,6 +416,22 @@
   .profile-header { display: flex; gap: 1.25rem; align-items: center; margin-bottom: 1.5rem; }
   .profile-avatar { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: flex; align-items: center; justify-content: center; color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 2rem; flex-shrink: 0; overflow: hidden; }
   .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  /* Perf: avatar fades in over the gradient placeholder instead of popping.
+     hydrateAvatars() adds .avatar-loaded on image load; the animation is a
+     safety reveal at 2s so an avatar can never stay hidden if that's missed. */
+  .profile-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
+  .profile-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
+  @keyframes avatarReveal { to { opacity: 1; } }
+  /* Perf: profile-open skeleton (replaces the bland "Loading profile…" text). */
+  .profile-skel { padding: 4px 2px; }
+  .profile-skel .ps-head { display: flex; gap: 1.25rem; align-items: center; margin-bottom: 1.5rem; }
+  .profile-skel .ps-avatar { width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; }
+  .profile-skel .ps-lines { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .profile-skel .ps-bar { border-radius: 7px; }
+  .profile-skel .ps-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  .profile-skel .ps-stat { height: 54px; border-radius: 12px; }
+  .profile-skel .ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .profile-skel .ps-card { aspect-ratio: 1 / 1; border-radius: 12px; }
   .profile-name { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
   .profile-meta { font-size: 13px; color: var(--gray-500); }
   .profile-section { margin-top: 1.25rem; }
@@ -15409,8 +15425,55 @@ function profileInitial(p) {
 
 function avatarHtml(p) {
   const u = window.safeImgUrl(p && p.avatarUrl);
-  if (u) return `<img src="${window.safeAttr(u)}" alt="" loading="lazy" decoding="async" />`;
+  if (u) return `<img src="${window.safeAttr(u)}" alt="" loading="lazy" decoding="async" class="avatar-img" />`;
   return window.safeText(profileInitial(p));
+}
+
+// Perf: reveal avatar images with a fade once they actually load. Inline
+// onload on innerHTML-inserted <img> proved unreliable, so we wire it in JS
+// after render. If the image is already complete (cache), reveal immediately;
+// otherwise reveal on load/error. A 2s CSS animation backstop (see
+// .avatar-img) guarantees an avatar can never stay hidden if this is missed.
+function hydrateAvatars(root) {
+  try {
+    (root || document).querySelectorAll('img.avatar-img:not(.avatar-loaded)').forEach((img) => {
+      if (img.complete && img.naturalWidth > 0) { img.classList.add('avatar-loaded'); return; }
+      const reveal = () => img.classList.add('avatar-loaded');
+      img.addEventListener('load', reveal, { once: true });
+      img.addEventListener('error', reveal, { once: true });
+    });
+  } catch (_e) { /* never block render on the fade hook */ }
+}
+
+// Perf: cap an uploaded avatar to AVATAR_MAX px on its longest side and
+// re-encode as JPEG, so we never store a multi-MB phone photo for an 88px
+// circle. Uses createImageBitmap with imageOrientation:'from-image' so EXIF
+// rotation is baked in correctly. Bulletproof fallbacks: any failure, a
+// non-image, an already-small image, or a re-encode that wouldn't shrink all
+// return the ORIGINAL file unchanged — the upload flow can never break here.
+async function downscaleAvatar(file, AVATAR_MAX = 512) {
+  try {
+    if (!file || !file.type || !file.type.startsWith('image/')) return file;
+    if (typeof createImageBitmap !== 'function') return file;
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
+    if (!bmp) return file;
+    const longest = Math.max(bmp.width, bmp.height);
+    const scale = Math.min(1, AVATAR_MAX / longest);
+    if (scale >= 1) { bmp.close && bmp.close(); return file; } // already small enough
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { bmp.close && bmp.close(); return file; }
+    ctx.drawImage(bmp, 0, 0, w, h);
+    bmp.close && bmp.close();
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= file.size) return file; // no real gain → keep original
+    const base = (file.name || 'avatar').replace(/\.[^.]+$/, '');
+    return new File([blob], base + '.jpg', { type: 'image/jpeg' });
+  } catch (_e) {
+    return file;
+  }
 }
 
 async function openProfile(uid) {
@@ -15425,8 +15488,16 @@ async function openProfile(uid) {
   }
   window.__lastProfileUid = uid;
   const back = document.getElementById('profileBackdrop');
+  // Perf: a layout-matching skeleton instead of bland "Loading profile…" text,
+  // so the modal feels responsive while the four profile reads resolve.
   document.getElementById('profileBody').innerHTML =
-    '<div class="profile-loading">Loading profile…</div>';
+    '<div class="profile-skel">' +
+      '<div class="ps-head"><div class="ps-avatar skeleton-shimmer"></div>' +
+        '<div class="ps-lines"><div class="ps-bar skeleton-shimmer" style="width:62%;height:22px"></div>' +
+        '<div class="ps-bar skeleton-shimmer" style="width:40%;height:14px"></div></div></div>' +
+      '<div class="ps-stats"><div class="ps-stat skeleton-shimmer"></div><div class="ps-stat skeleton-shimmer"></div><div class="ps-stat skeleton-shimmer"></div></div>' +
+      '<div class="ps-grid">' + '<div class="ps-card skeleton-shimmer"></div>'.repeat(6) + '</div>' +
+    '</div>';
   back.classList.add('open');
   document.getElementById('profileModalTitle').textContent =
     (window.CURRENT_USER && window.CURRENT_USER.uid === uid) ? 'Your Profile' : 'Profile';
@@ -15765,6 +15836,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
 
     ${reviews.count ? renderProfileReviews(reviews.items) : ''}
   `;
+  hydrateAvatars(document.getElementById('profileBody'));
 }
 
 function renderProfileReviews(items) {
@@ -16179,6 +16251,7 @@ async function renderProfileEditor() {
       <button class="btn-full green" data-action="save-profile" id="saveProfileBtn">Save Changes</button>
     </div>
   `;
+  hydrateAvatars(document.getElementById('profileBody'));
 
   // Wire avatar file input
   const fi = document.getElementById('avatarFileInput');
@@ -16235,9 +16308,14 @@ async function saveProfileEdits() {
       const { getStorage, ref: sref, uploadBytes, getDownloadURL } =
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js");
       const st = getStorage();
-      const ext = (pendingAvatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+      // Perf: downscale to a sized avatar before upload (the listing variant
+      // pipeline is server-side; this is the client-only equivalent for the
+      // single avatar). EXIF-safe via createImageBitmap; falls back to the
+      // original file on any failure or if it wouldn't shrink.
+      const avaFile = await downscaleAvatar(pendingAvatarFile);
+      const ext = (avaFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
       const ref = sref(st, `avatars/${uid}/${Date.now()}.${ext}`);
-      await uploadBytes(ref, pendingAvatarFile);
+      await uploadBytes(ref, avaFile);
       updates.avatarUrl = await getDownloadURL(ref);
     }
 
