@@ -212,14 +212,6 @@
         { "queryScope": "COLLECTION", "order": "ASCENDING" },
         { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "participantState",
-      "fieldPath": "countedUnread",
-      "indexes": [
-        { "queryScope": "COLLECTION", "order": "ASCENDING" },
-        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
-      ]
     }
   ]
 }

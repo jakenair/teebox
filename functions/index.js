@@ -7306,12 +7306,3 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
-
-// Server-derived unread-conversations counter. Two Firestore triggers
-// (onMessageCreatedReadCount + onParticipantStateReadCount) keep
-// users/{uid}.unreadConversations honest as messages arrive and
-// participants advance their participantState.lastReadAt cursor. The
-// bottom-nav badge in index.html subscribes to that counter. See
-// ./messageReadState.js header for the storage shape + recompute
-// strategy.
-Object.assign(exports, require("./messageReadState"));
