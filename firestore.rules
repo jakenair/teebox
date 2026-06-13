@@ -257,13 +257,9 @@ service cloud.firestore {
         // Every content-bearing edit (title/brand/cat/condition/desc
         // + price/quantity/auth flags) MUST round-trip through the
         // updateListing callable, which runs the synchronous scanFields
-        // pre-write gate. That's the only path that re-moderates an
-        // edit. The async moderateListingOnUpdate trigger is currently
-        // broken (CloudEvent parsing regression in the gen2 runtime —
-        // see memory/22-deploy-discovery-hang.md follow-up), so the
-        // direct-write whitelist must EXCLUDE every field the trigger
-        // would have re-moderated. status + expiresAt cover renew;
-        // updatedAt is the timestamp bump; photos is the
+        // pre-write content gate. The direct-write whitelist is therefore
+        // limited to operational fields only: status + expiresAt cover
+        // renew; updatedAt is the timestamp bump; photos is the
         // post-create-upload patch in submitListing's flow.
         //
         // photos uses allPhotosInBucket() to enforce the in-bucket
@@ -673,9 +669,13 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        // Content fields (displayName/bio/location) are callable-only: they
+        // must go through the updateProfile callable, which runs the
+        // synchronous content scan before writing (Admin SDK, bypasses these
+        // rules). Direct client updates may only touch the non-scanned
+        // operational fields below (e.g. the pin toggle).
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['displayName','bio','avatarUrl','location','handicap',
-              'golfBag','pinnedListingId','updatedAt'])
+             ['avatarUrl','handicap','golfBag','pinnedListingId','updatedAt'])
         && isValidProfile(request.resource.data);
 
       allow delete: if false;
@@ -828,6 +828,7 @@ service cloud.firestore {
           && request.auth.uid == request.resource.data.senderId
           && request.auth.uid in conv().participants
           && request.resource.data.keys().hasAll(['senderId','text','createdAt'])
+          && request.resource.data.keys().hasOnly(['senderId','text','createdAt'])
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 2000
