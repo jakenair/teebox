@@ -312,7 +312,10 @@ exports.pushOnOrderUpdated = onDocumentUpdated(
       const photo = (listing.photos && listing.photos[0]) || null;
 
       // ── shipped ──
-      if (before.fulfillmentStatus === "awaiting_seller_shipment"
+      // NEUTERED r118 — markOrderShipped callable is the single source of truth
+      // for the shipped push (this onUpdate trigger is #34-unreliable).
+      // Reversible: delete the `false &&`.
+      if (false && before.fulfillmentStatus === "awaiting_seller_shipment"
           && after.fulfillmentStatus === "shipped") {
         const carrier = after.carrier || "Carrier";
         const tracking = after.trackingNumber || "";
@@ -329,7 +332,9 @@ exports.pushOnOrderUpdated = onDocumentUpdated(
       }
 
       // ── delivered (buyer + seller both notified) ──
-      if (before.fulfillmentStatus === "shipped"
+      // NEUTERED r118 — confirmOrderDelivered callable is the single source of
+      // truth for delivered (seller only). Reversible: delete the `false &&`.
+      if (false && before.fulfillmentStatus === "shipped"
           && after.fulfillmentStatus === "delivered") {
         await sendPush(after.buyerId, {
           title: "Your order was delivered",

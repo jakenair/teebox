@@ -377,7 +377,10 @@ exports.onOrderShippingStatusEmail = onDocumentUpdated(
       switch (afterStatus) {
         case "transit":
         case "shipped":
-          if (buyer.email) {
+          // NEUTERED r118 — markOrderShipped callable is the single source of
+          // truth for the shipped email (this onUpdate trigger is #34-unreliable;
+          // it drops the majority of fires). Reversible: delete the `false &&`.
+          if (false && buyer.email) {
             await sendTemplated({
               category: CATEGORIES.TRANSACTIONAL,
               templateCategory: "transactional",
@@ -401,7 +404,10 @@ exports.onOrderShippingStatusEmail = onDocumentUpdated(
           }
           break;
         case "delivered":
-          await Promise.allSettled([
+          // NEUTERED r118 — confirmOrderDelivered callable is the single source
+          // of truth for delivered (notifies the SELLER only; no DeliveredBuyer
+          // leak — the buyer tapped the button). Reversible: `if (false)`->`if (true)`.
+          if (false) await Promise.allSettled([
             buyer.email && sendTemplated({
               category: CATEGORIES.TRANSACTIONAL,
               templateCategory: "transactional",
@@ -932,6 +938,157 @@ exports.handleUnsubscribe = onRequest(
         logger.error("handleUnsubscribe write failed", e);
         return res.status(500).json({ok: false, error: "write-failed"});
       }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// Order fulfillment callables (Option A) — restore the shipped/delivered
+// buyer/seller notifications that the gen2 #34 regression silently killed on
+// the onDocumentUpdated triggers (pushOnOrderUpdated / onOrderShippingStatusEmail
+// stay in place but inert). These write the status and send push+email INLINE.
+//
+// Guardrails:
+//   1. Idempotent: a transaction guards the transition — already-shipped /
+//      already-delivered returns ok without re-sending; invalid transitions
+//      (ship an order that's delivered/cancelled, confirm one not yet shipped)
+//      are rejected with failed-precondition.
+//   2. Notification is NON-FATAL: the status dual-write commits in the
+//      transaction FIRST (source of truth); push+email are best-effort after
+//      and can never roll back the order or fail the callable.
+//   3. Direct-write status path stays ALLOWED in rules (iOS Build 67 users
+//      still write directly — order advances, no push — until Build 68). These
+//      callables are additive, not a replacement.
+//   4. Recipient per event: shipped -> BUYER; delivered (buyer-initiated) ->
+//      SELLER only (never re-notify the buyer for a button they just tapped).
+//
+// FUNC-05: both fulfillmentStatus + shippingStatus are still written (dual-write
+// preserved). Single-field normalization is deferred — it's a migrate-every-
+// reader project (see POST_LAUNCH.md).
+// ═══════════════════════════════════════════════════════════════════════
+
+exports.markOrderShipped = onCall(
+    {...EMAIL_FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    async (request) => {
+      if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+      const uid = request.auth.uid;
+      const d = request.data || {};
+      const orderId = d.orderId;
+      if (!orderId) throw new HttpsError("invalid-argument", "Missing orderId.");
+      const db = admin.firestore();
+      const ref = db.collection("orders").doc(String(orderId));
+
+      // Guardrail 1+2: idempotent transition guard, status committed first.
+      const res = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+        const o = snap.data();
+        if (o.sellerId !== uid) {
+          throw new HttpsError("permission-denied", "Only the seller can mark this order shipped.");
+        }
+        const cur = o.fulfillmentStatus;
+        if (cur === "shipped" || cur === "delivered") {
+          return {alreadyDone: true}; // idempotent: never re-send
+        }
+        if (cur !== "awaiting_seller_shipment" && cur !== "paid") {
+          throw new HttpsError("failed-precondition", `Cannot ship an order in state "${cur}".`);
+        }
+        tx.update(ref, {
+          fulfillmentStatus: "shipped",
+          shippingStatus: "shipped", // dual-write (FUNC-05 deferred)
+          carrier: String(d.carrier || "").slice(0, 20),
+          trackingCarrier: String(d.trackingCarrier || d.carrier || "").slice(0, 40),
+          trackingNumber: String(d.trackingNumber || "").slice(0, 60),
+          shippedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return {alreadyDone: false, order: {id: String(orderId), ...o,
+          fulfillmentStatus: "shipped", trackingNumber: String(d.trackingNumber || "")}};
+      });
+      if (res.alreadyDone) return {ok: true, alreadyDone: true};
+
+      // Guardrail 2+4: best-effort notify the BUYER. Never throws.
+      try {
+        const order = res.order;
+        const {buyer, seller, listing} = await loadOrderParties(order);
+        const {sendPush} = require("./lib/push");
+        await sendPush(order.buyerId, {
+          title: "Your order shipped",
+          body: order.trackingNumber ? `Tracking: ${order.trackingNumber}` : "It's on the way.",
+          kind: "order-shipped",
+          orderId: String(orderId),
+        }).catch((e) => logger.error("markOrderShipped: push failed (non-fatal)", e));
+        if (buyer.email) {
+          await sendTemplated({
+            category: CATEGORIES.TRANSACTIONAL,
+            templateCategory: "transactional",
+            templateName: "OrderShipped",
+            to: buyer.email,
+            uid: order.buyerId,
+            ctx: {order, buyer, seller, listing},
+          }).catch((e) => logger.error("markOrderShipped: email failed (non-fatal)", e));
+        }
+      } catch (e) {
+        logger.error("markOrderShipped: notify failed (non-fatal)", e);
+      }
+      return {ok: true};
+    },
+);
+
+exports.confirmOrderDelivered = onCall(
+    {...EMAIL_FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    async (request) => {
+      if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+      const uid = request.auth.uid;
+      const orderId = (request.data || {}).orderId;
+      if (!orderId) throw new HttpsError("invalid-argument", "Missing orderId.");
+      const db = admin.firestore();
+      const ref = db.collection("orders").doc(String(orderId));
+
+      const res = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+        const o = snap.data();
+        if (o.buyerId !== uid) {
+          throw new HttpsError("permission-denied", "Only the buyer can confirm delivery.");
+        }
+        const cur = o.fulfillmentStatus;
+        if (cur === "delivered") return {alreadyDone: true};
+        if (cur !== "shipped") {
+          throw new HttpsError("failed-precondition", `Cannot confirm delivery from state "${cur}".`);
+        }
+        tx.update(ref, {
+          fulfillmentStatus: "delivered",
+          shippingStatus: "delivered", // dual-write (FUNC-05 deferred)
+          deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return {alreadyDone: false, order: {id: String(orderId), ...o, fulfillmentStatus: "delivered"}};
+      });
+      if (res.alreadyDone) return {ok: true, alreadyDone: true};
+
+      // Guardrail 4: buyer tapped the button — notify the SELLER only.
+      try {
+        const order = res.order;
+        const {buyer, seller, listing} = await loadOrderParties(order);
+        const {sendPush} = require("./lib/push");
+        await sendPush(order.sellerId, {
+          title: "Buyer received your item",
+          body: "Your payout will appear on Stripe's standard schedule.",
+          kind: "order-delivered-seller",
+          orderId: String(orderId),
+        }).catch((e) => logger.error("confirmOrderDelivered: push failed (non-fatal)", e));
+        if (seller.email) {
+          await sendTemplated({
+            category: CATEGORIES.TRANSACTIONAL,
+            templateCategory: "transactional",
+            templateName: "DeliveredSeller",
+            to: seller.email,
+            uid: order.sellerId,
+            ctx: {order, buyer, seller, listing},
+          }).catch((e) => logger.error("confirmOrderDelivered: email failed (non-fatal)", e));
+        }
+      } catch (e) {
+        logger.error("confirmOrderDelivered: notify failed (non-fatal)", e);
+      }
+      return {ok: true};
     },
 );
 

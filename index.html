@@ -12966,20 +12966,16 @@ async function confirmShip() {
   const btn = document.getElementById('shipConfirmBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Marking shipped…'; }
   try {
-    const { getFirestore, doc, updateDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await updateDoc(doc(db, 'orders', orderId), {
-      fulfillmentStatus: 'shipped',
-      // Mirror onto `shippingStatus` so emailTriggers.onOrderShippingStatusEmail
-      // (which keys off `shippingStatus`) actually fires the OrderShipped email.
-      // Until a Shippo webhook is in place, this manual mark-as-shipped action
-      // is the only producer of the "transit/shipped" transition.
-      shippingStatus: 'shipped',
+    // Route through the markOrderShipped callable — the single source of truth
+    // for the shipped notification (push + email). The onUpdate trigger is
+    // #34-unreliable and is neutered server-side, so the callable owns this.
+    // Build 67 devices still direct-write (rules allow it) and just don't get
+    // the notification until Build 68 bundles this reroute.
+    await httpsCallable(fns, 'markOrderShipped')({
+      orderId,
       carrier: String(carrier).slice(0, 20),
       trackingCarrier: trackingCarrier,
       trackingNumber: tracking.slice(0, 60),
-      shippedAt: serverTimestamp(),
     });
     invalidateNotifCache();
     document.getElementById('shipBackdrop').classList.remove('open');
@@ -13184,17 +13180,12 @@ async function confirmDelivery(orderId) {
   if (!orderId || !window.CURRENT_USER) return;
   if (!confirm('Confirm you received this item in the condition described?')) return;
   try {
-    const { getFirestore, doc, updateDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await updateDoc(doc(db, 'orders', orderId), {
-      fulfillmentStatus: 'delivered',
-      // Mirror onto `shippingStatus` so emailTriggers.onOrderShippingStatusEmail
-      // fires DeliveredBuyer + DeliveredSeller, and the reviewRequestScheduler
-      // (which queries `shippingStatus == "delivered"`) picks this order up.
-      shippingStatus: 'delivered',
-      deliveredAt: serverTimestamp(),
-    });
+    // Route through the confirmOrderDelivered callable — the single source of
+    // truth for the delivered notification (notifies the SELLER only; the buyer
+    // isn't re-notified for a button they just tapped). The onUpdate trigger is
+    // #34-unreliable and is neutered server-side. Build 67 devices still
+    // direct-write until Build 68 bundles this reroute.
+    await httpsCallable(fns, 'confirmOrderDelivered')({ orderId });
     invalidateNotifCache();
     showToast('Delivery confirmed. Thanks!');
     openOrders();
