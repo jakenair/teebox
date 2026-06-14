@@ -4497,10 +4497,6 @@
         <span class="mobile-nav-link-label">Messages</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
-      <a href="#" class="mobile-nav-link" data-action="open-my-offers">
-        <span class="mobile-nav-link-label">My Offers</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
       <a href="#" class="mobile-nav-link" data-action="open-watchlist">
         <span class="mobile-nav-link-label">Likes</span>
         <span class="mobile-nav-link-chev">›</span>
@@ -4633,7 +4629,6 @@
       <div class="user-menu" id="userMenu">
         <a href="#" data-action="open-profile-self" class="user-menu-item">Profile</a>
         <a href="#" data-action="open-watchlist" class="user-menu-item">Likes</a>
-        <a href="#" data-action="open-my-offers" class="user-menu-item">My Offers <span id="myOffersBadge" class="unread-badge"></span></a>
         <a href="#" data-action="open-saved-searches" class="user-menu-item">Saved Searches</a>
         <a href="#" data-action="open-about" class="user-menu-item">About TeeBox</a>
         <div class="user-menu-divider"></div>
@@ -4852,11 +4847,9 @@
         <div class="detail-condition" id="detailCondition"></div>
         <div class="detail-prices">
           <div class="detail-price-box ask"><div class="detail-price-lbl">Price</div><div class="detail-price-val" id="detailAsk"></div></div>
-          <div class="detail-price-box bid"><div class="detail-price-val" id="detailBid"></div></div>
         </div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
-        <div class="detail-bids" id="detailBids"></div>
         <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
         <div id="detailReviews"></div>
         <div class="qty-selector" id="detailQtyRow" style="display:none">
@@ -4878,10 +4871,6 @@
             <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
           </div>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
-          <div class="detail-secondary-row">
-            <button class="btn-place-bid" data-action="detail-place-bid">Place a Bid</button>
-            <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="detail-make-offer" data-feature="offers">Make Offer</button>
-          </div>
           <button class="btn-message-seller-link" data-action="detail-message-seller">Have a question? Message the seller</button>
           <button class="btn-link-muted" data-action="report-listing" aria-label="Report this listing" style="background:none;border:0;color:var(--gray-500);font-size:12px;text-decoration:underline;padding:4px;cursor:pointer;">Report this listing</button>
         </div>
@@ -9063,11 +9052,6 @@ function openDetailModal(id) {
     detailCondEl.textContent = '';
     detailCondEl.style.display = 'none';
   }
-  // Real listings: show "—" until we resolve the actual highest bid.
-  // Demo listings (numeric ids): show whatever bid/ask was on the demo
-  // record, since they have no real Firestore-backed price data.
-  const isReal = typeof p.id === 'string' && p.sellerId;
-  document.getElementById('detailBid').textContent = isReal ? '—' : '$'+(p.bid||0).toLocaleString();
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
 
@@ -9137,36 +9121,9 @@ function openDetailModal(id) {
     });
   }
 
-  // Bids (only when the user is signed in and this is a real listing)
-  const bidsEl = document.getElementById('detailBids');
-  bidsEl.innerHTML = '';
-  if (p.sellerId && window.CURRENT_USER) {
-    loadBidsForListing(String(p.id)).then(bids => {
-      // Update the "Highest Bid" headline for users who can see bids.
-      if (bids.length) {
-        const top = bids[0].amountCents || 0;
-        document.getElementById('detailBid').textContent = '$' + Number(top/100).toLocaleString();
-      }
-      if (!bids.length) return;
-      const isSeller = window.CURRENT_USER.uid === p.sellerId;
-      const heading = isSeller ? 'Bids on this listing' : 'Your bid';
-      const rows = bids.map(b => {
-        const own = b.buyerId === window.CURRENT_USER.uid;
-        const sellerOwns = isSeller && b.status === 'open';
-        const withdraw = own && b.status === 'open'
-          ? `<button class="bid-withdraw" data-action="withdraw-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}">Withdraw</button>`
-          : '';
-        const acceptBtn = sellerOwns
-          ? `<button class="bid-withdraw" data-action="accept-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}" style="background:var(--green-50);border-color:var(--green-400);color:var(--green-700)">Accept</button>`
-          : '';
-        const counterBtn = sellerOwns
-          ? `<button class="bid-withdraw" data-action="counter-bid" data-bid-id="${window.safeAttr(window.safeId(b.id))}">Counter</button>`
-          : '';
-        return `<div class="bid-row"><span class="bid-amt">$${Number((b.amountCents||0)/100).toLocaleString()}</span> <span class="bid-status">${window.safeText(b.status)}</span>${withdraw}${acceptBtn}${counterBtn}</div>`;
-      }).join('');
-      bidsEl.innerHTML = `<h4>${heading}</h4>${rows}`;
-    });
-  }
+  // Bid display removed — Buy-Now-only. Offer/bid negotiation purged in r116
+  // (entry points + wiring removed; orphaned handlers/modals left inert,
+  // filed for post-launch tidy-up).
   // Sale-history sparkline
   loadSparkline(p);
   // Seller reviews — collapsed preview right inside the listing detail.
@@ -15736,10 +15693,6 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">Likes</span>
              <span class="account-hub-chev">›</span>
            </button>
-           <button class="account-hub-item" data-action="open-my-offers" type="button">
-             <span class="account-hub-label">My Offers</span>
-             <span class="account-hub-chev">›</span>
-           </button>
            <button class="account-hub-item" data-action="open-saved-searches" type="button">
              <span class="account-hub-label">Saved Searches</span>
              <span class="account-hub-chev">›</span>
@@ -17117,13 +17070,10 @@ A['confirm-delivery']        = (el) => { if (!window.requireAuth('to confirm del
 A['refund-order']            = (el) => { if (!window.requireAuth('to refund this order')) return; refundOrder(el.dataset.orderId); };
 A['report-problem']          = (el) => { if (!window.requireAuth('to report a problem with this order')) return; openDispute(el.dataset.orderId); };
 A['submit-dispute']          = () => { if (!window.requireAuth('to submit your dispute')) return; submitDispute(); };
-A['accept-bid']              = (el) => { if (!window.requireAuth('to accept this bid')) return; acceptBid(el.dataset.bidId); };
-A['counter-bid']             = (el) => { if (!window.requireAuth('to counter this bid')) return; counterBid(el.dataset.bidId); };
 A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
 A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
 A['archive-conv']            = () => { if (!window.requireAuth('to archive this conversation')) return; archiveConversation(); };
 A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
-A['withdraw-bid']            = (el) => { if (!window.requireAuth('to withdraw this bid')) return; withdrawBid(el.dataset.bidId); };
 A['toggle-watch']            = (el, ev) => {
   ev.stopPropagation();
   const id = el.dataset.productId;
@@ -17525,8 +17475,6 @@ A['detail-buy-now']          = () => {
   closeDetailModalDirect();
   openCheckout(currentDetailId, qty);
 };
-A['detail-place-bid']        = () => { if (!window.requireAuth('to place a bid')) return; closeDetailModalDirect(); openModal('buy'); };
-A['detail-make-offer']       = () => { if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return; openMakeOfferModal(); };
 A['detail-message-seller']   = () => {
   // Persist the listing ID across the auth round-trip (currentDetailId
   // resets when the modal closes during sign-in).
@@ -17535,15 +17483,6 @@ A['detail-message-seller']   = () => {
   closeDetailModalDirect();
   openChatForListing(_id);
 };
-// Feature #14 — offers
-A['submit-offer']             = () => { if (!window.requireAuth('to submit your offer')) return; submitOffer(); };
-A['accept-offer']             = (el) => { if (!window.requireAuth('to accept this offer')) return; acceptOffer(el.dataset.offerId, el.dataset.listingId, el.dataset.buyerId, Number(el.dataset.amount)); };
-A['counter-offer']            = (el) => { if (!window.requireAuth('to send a counter-offer')) return; openCounterOffer(el.dataset.offerId, Number(el.dataset.amount)); };
-A['confirm-counter-offer']    = () => { if (!window.requireAuth('to send your counter-offer')) return; confirmCounterOffer(); };
-A['decline-offer']            = (el) => { if (!window.requireAuth('to decline this offer')) return; declineOffer(el.dataset.offerId); };
-A['open-my-offers']           = () => { if (!window.requireAuth('to view your offers', () => openMyOffers())) return; openMyOffers(); };
-A['accept-counter']           = (el) => { if (!window.requireAuth('to accept the counter-offer')) return; acceptCounter(el.dataset.offerId); };
-A['decline-counter']          = (el) => { if (!window.requireAuth('to decline the counter-offer')) return; declineCounter(el.dataset.offerId); };
 // Feature #15 — saved searches v1.1
 A['open-save-search-name']    = () => { if (!window.requireAuth('to save this search')) return; openSaveSearchName(); };
 A['confirm-save-search']      = () => { if (!window.requireAuth('to save your search')) return; confirmSaveSearch(); };
@@ -17584,13 +17523,6 @@ A['open-conv']               = (el) => { if (!window.requireAuth('to open this c
 // Notifications panel (Feature: notifications-v1)
 A['toggle-notifications']    = () => { if (!window.requireAuth('to view your notifications')) return; toggleNotifications(); };
 A['close-notifications']     = () => closeNotifications();
-A['notif-open-offer']        = (el) => {
-  if (!window.requireAuth('to view your offers')) return;
-  closeNotifications();
-  if (typeof openShopDashboard === 'function') openShopDashboard().then(() => {
-    setTimeout(() => { try { switchDashTab('offers'); } catch (_e) {} }, 250);
-  });
-};
 A['notif-open-order']        = (el) => {
   if (!window.requireAuth('to view your orders')) return;
   closeNotifications();
