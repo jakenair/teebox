@@ -8,6 +8,9 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
+// Best-effort ops alerting for money-path failures (never throws). Functions
+// that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
+const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
 
 admin.initializeApp();
 
@@ -273,7 +276,7 @@ async function checkRateLimit(uid, key, maxPerMinute) {
 // ─────────────────────────────────────────────────────────────
 exports.createPaymentIntent = onRequest(
   {
-    secrets: [stripeSecret],
+    secrets: [stripeSecret, OPS_ALERT_WEBHOOK],
     cors: ALLOWED_ORIGINS,
     // Sizing — this is the critical hot path for revenue. Keep one warm
     // instance to eliminate cold-start checkout drop-off at peak.
@@ -313,6 +316,12 @@ exports.createPaymentIntent = onRequest(
       logger.error(
           "createPaymentIntent: ban-status read failed — failing closed",
           banReadErr);
+      // Observability: a fail-closed here BLOCKS a (possibly legitimate) buyer.
+      // If these spike, the ban-status read path is broken, not just a blip.
+      await opsAlert("warn",
+          "createPaymentIntent: ban-status read failed (checkout blocked, failing closed)",
+          {uid: authUser.uid,
+            error: String((banReadErr && banReadErr.message) || banReadErr)});
       return res.status(503).json(
           {error: "Couldn't verify your account right now. Please try again."});
     }
@@ -632,7 +641,8 @@ exports.stripeWebhook = onRequest(
     // events. See functions/lib/analytics.js for the contract.
     // RESEND_KEY added so handlePayoutFailed (migrated to lib/email.js
     // sendEmail) can actually deliver — previously silently no-op'd.
-    secrets: [stripeSecret, webhookSecret, posthogSecret, RESEND_KEY],
+    secrets: [stripeSecret, webhookSecret, posthogSecret, RESEND_KEY,
+      OPS_ALERT_WEBHOOK],
     // Stripe retries on non-2xx, so we need fast acks even under burst.
     // High concurrency + bigger memory + tight timeout — webhook bodies
     // are small but order-creation transactions need headroom.
@@ -838,6 +848,13 @@ exports.stripeWebhook = onRequest(
         logger.error(
           "processedStripeEvents permanent write failed", markerErr);
       }
+      // Observability: a PERMANENT webhook failure means Stripe charged the
+      // buyer but our Firestore order/GMV will never reconcile from this event.
+      // This is the highest-severity money-path drift — page on it.
+      await opsAlert("critical",
+          "Stripe webhook PERMANENTLY failed — order/payment will not reconcile",
+          {eventType: event.type, eventId: event.id,
+            error: String((err && err.message) || err)});
       return res.status(200).json({received: true, error: "permanent"});
     }
   }
@@ -5002,7 +5019,7 @@ exports.refundOrder = onCall(
   // posthogSecret attached so `refund_issued` server-event can fire
   // after the Stripe refund + Firestore mirror succeed. ADMIN_ALLOWLIST
   // is bound so isAdminEmail() can resolve the admin branch.
-  {secrets: [stripeSecret, posthogSecret, ADMIN_ALLOWLIST]},
+  {secrets: [stripeSecret, posthogSecret, ADMIN_ALLOWLIST, OPS_ALERT_WEBHOOK]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -5206,6 +5223,13 @@ exports.refundOrder = onCall(
             `refundOrder: reconcile marker write ALSO failed for order ` +
             `${orderId}`, markerErr);
       }
+      // Observability: money LEFT the platform (Stripe refunded) but the order
+      // mirror failed — records are inconsistent until a human reconciles.
+      await opsAlert("critical",
+          "Refund issued at Stripe but order mirror FAILED — needs reconcile",
+          {orderId: String(orderId), refundId: refund.id,
+            error: String((lastMirrorErr && lastMirrorErr.message) ||
+              lastMirrorErr)});
       throw new HttpsError(
           "internal",
           "Your refund was issued, but updating the order failed. " +

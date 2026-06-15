@@ -43,6 +43,9 @@ const {
 // Resend dashboard → Webhooks → Signing secret. Used to verify svix sigs.
 const RESEND_WEBHOOK_SECRET = defineSecret("RESEND_WEBHOOK_SECRET");
 
+// Best-effort ops alerting (never throws). Callers must bind OPS_ALERT_WEBHOOK.
+const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
+
 const EMAIL_FN = {
   region: "us-central1",
   memory: "256MiB",
@@ -970,7 +973,8 @@ exports.markOrderShipped = onCall(
     // memory 512MiB: this callable does push (lib/push) + React-Email render
     // together; the 256Mi default OOMs under load. NOTE for gcloud deploys:
     // gcloud ignores this config — you MUST pass `--memory=512Mi` explicitly.
-    {...EMAIL_FN, memory: "512MiB", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    {...EMAIL_FN, memory: "512MiB",
+      secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET, OPS_ALERT_WEBHOOK]},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth.uid;
@@ -1031,6 +1035,13 @@ exports.markOrderShipped = onCall(
         }
       } catch (e) {
         logger.error("markOrderShipped: notify failed (non-fatal)", e);
+        // Observability: the buyer's shipped notification pipeline broke. The
+        // order status committed (above), so this is non-fatal to the txn, but
+        // a burst signals a systemic notification outage (the #34 family).
+        await opsAlert("warn",
+            "markOrderShipped: buyer notify pipeline failed",
+            {orderId: String(orderId),
+              error: String((e && e.message) || e)});
       }
       return {ok: true};
     },
@@ -1038,7 +1049,8 @@ exports.markOrderShipped = onCall(
 
 exports.confirmOrderDelivered = onCall(
     // memory 512MiB — see markOrderShipped note (gcloud needs --memory=512Mi).
-    {...EMAIL_FN, memory: "512MiB", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    {...EMAIL_FN, memory: "512MiB",
+      secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET, OPS_ALERT_WEBHOOK]},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth.uid;
@@ -1091,6 +1103,12 @@ exports.confirmOrderDelivered = onCall(
         }
       } catch (e) {
         logger.error("confirmOrderDelivered: notify failed (non-fatal)", e);
+        // Observability: delivered-notification pipeline broke. Status already
+        // committed; a burst signals a systemic notification outage (#34).
+        await opsAlert("warn",
+            "confirmOrderDelivered: notify pipeline failed",
+            {orderId: String(orderId),
+              error: String((e && e.message) || e)});
       }
       return {ok: true};
     },
