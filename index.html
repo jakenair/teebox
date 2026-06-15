@@ -1707,7 +1707,12 @@
   /* HERO */
   .hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 60%, var(--green-600) 100%); padding: 4rem 2rem 3.5rem; position: relative; overflow: hidden; }
   .hero::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='8'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-  .hero-inner { max-width: 1240px; margin: 0 auto; position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+  .hero-inner { max-width: 1240px; margin: 0 auto; position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
+  /* min-width:0 lets grid children shrink below their content's min-content, so a
+     1fr track can't blow out past the viewport (this is what clipped the hero
+     paragraph + the "Most Viewed" cards on mobile — the grid was 541px on a
+     390px screen and .hero{overflow:hidden} hid the scroll but cut the content). */
+  .hero-inner > *, .hero-featured > *, .hero-featured .feat-card, .feat-card > * { min-width: 0; }
   .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: rgba(224,184,64,0.15); border: 1px solid rgba(224,184,64,0.3); border-radius: 50px; padding: 5px 14px; margin-bottom: 1.25rem; font-size: 12px; font-weight: 600; color: var(--gold-300); letter-spacing: 1.5px; text-transform: uppercase; }
   .hero-title { font-family: var(--font-display); font-size: clamp(2.4rem,4vw,3.5rem); font-weight: 900; color: var(--white); line-height: 1.1; margin-bottom: 1rem; }
   .hero-title em { color: var(--gold-300); font-style: normal; }
@@ -1731,7 +1736,7 @@
   .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
   .hero-stat-n { font-family: var(--font-display); font-size: clamp(1.9rem, 2.5vw, 2.4rem); font-weight: 700; color: var(--gold-300); }
   .hero-stat-l { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
-  .hero-featured { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .hero-featured { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
   .feat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.25rem; cursor: pointer; transition: var(--transition); }
   .feat-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-3px); border-color: rgba(224,184,64,0.3); }
   .feat-card-big { grid-column: 1/-1; padding: 1.5rem; }
@@ -2376,7 +2381,7 @@
     .bingo-cell-num { z-index: 1; }
   }
   @media (max-width: 900px) {
-    .hero-inner { grid-template-columns: 1fr; gap: 2rem; }
+    .hero-inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
     .drops-grid { grid-template-columns: 1fr 1fr; }
     .how-grid { grid-template-columns: 1fr; }
     .footer-inner { grid-template-columns: 1fr 1fr; }
