@@ -967,7 +967,10 @@ exports.handleUnsubscribe = onRequest(
 // ═══════════════════════════════════════════════════════════════════════
 
 exports.markOrderShipped = onCall(
-    {...EMAIL_FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    // memory 512MiB: this callable does push (lib/push) + React-Email render
+    // together; the 256Mi default OOMs under load. NOTE for gcloud deploys:
+    // gcloud ignores this config — you MUST pass `--memory=512Mi` explicitly.
+    {...EMAIL_FN, memory: "512MiB", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth.uid;
@@ -1034,7 +1037,8 @@ exports.markOrderShipped = onCall(
 );
 
 exports.confirmOrderDelivered = onCall(
-    {...EMAIL_FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    // memory 512MiB — see markOrderShipped note (gcloud needs --memory=512Mi).
+    {...EMAIL_FN, memory: "512MiB", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
     async (request) => {
       if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
       const uid = request.auth.uid;
