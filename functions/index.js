@@ -123,8 +123,9 @@ const stripeProPriceId = defineSecret("STRIPE_PRO_PRICE_ID");
 // Tier-based platform fees. Free sellers pay 6.5%; Pro Seller subscribers
 // ($14.99/mo) pay 3%. Break-even is ~$385/mo of GMV. Keep these in sync
 // with the marketing copy in the Pro upgrade modal in index.html.
-const PLATFORM_FEE_PERCENT = 0.065;
-const PLATFORM_FEE_PERCENT_PRO = 0.03;
+// Fee/payout math lives in lib/fees.js (single source of truth, unit-tested).
+const {computeFees, PLATFORM_FEE_PERCENT, PLATFORM_FEE_PERCENT_PRO} =
+  require("./lib/fees");
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
@@ -494,12 +495,10 @@ exports.createPaymentIntent = onRequest(
       // is server-written by stripeWebhook on customer.subscription.*
       // events, so a malicious client can't fabricate it (the firestore
       // rules whitelist also blocks client writes to `tier`).
-      const sellerTier = sellerData.tier === "pro" ? "pro" : "free";
-      const feeRate = sellerTier === "pro"
-        ? PLATFORM_FEE_PERCENT_PRO
-        : PLATFORM_FEE_PERCENT;
-      const platformFeeCents = Math.round(reservation.priceCents * feeRate);
-      const sellerPayoutCents = reservation.priceCents - platformFeeCents;
+      // Single source of truth (lib/fees.js) — same fn the seller-side net
+      // estimate uses, so the quote can never drift from the real fee.
+      const {tier: sellerTier, feeRate, platformFeeCents, sellerPayoutCents} =
+        computeFees(reservation.priceCents, sellerData.tier);
 
       // Roll back the reservation: revert status if we flipped it, clear
       // pending pointers, and decrement quantityReserved by exactly the

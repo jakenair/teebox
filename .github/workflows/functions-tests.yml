@@ -1,0 +1,54 @@
+name: functions tests
+
+# Runs the thin test layer for Cloud Functions:
+#   • pure-function unit tests (fee/payout math, content filter) — no emulator
+#   • Firestore security-rules tests — need the emulator + Java, provided here
+# Triggered only when functions code or the rules change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - "firebase.json"
+      - ".github/workflows/functions-tests.yml"
+  pull_request:
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - "firebase.json"
+      - ".github/workflows/functions-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Firestore emulator is a Java process.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install function deps
+        working-directory: functions
+        run: npm ci
+
+      - name: Pure-function unit tests
+        working-directory: functions
+        run: npm test
+
+      # emulators:exec from repo root (firebase.json lives here); --project
+      # demo-* makes the emulator run with no credentials.
+      - name: Firestore rules tests (emulator)
+        run: >
+          npx --yes firebase-tools emulators:exec
+          --only firestore --project=demo-teebox
+          "node --test functions/test/rules/*.test.js"
