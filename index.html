@@ -8122,71 +8122,47 @@ if (typeof window.GUEST_MODE === 'undefined') window.GUEST_MODE = true;
 // Stock-ticker source. v1.2 — derived from real Firestore listings on
 // every buildProducts() call. We keep top 8 brands + their median ask
 // from active listings and synthesize a session-stable change %.
-let TICKER_ITEMS = [];
-
-// Refresh the ticker derivation from current PRODUCTS. Called whenever
-// loadListings finishes so the ticker reflects real, live inventory.
-// Default ticker shown before any listings exist — keeps the stock-market
-// feel on first paint and on a brand-new marketplace with zero inventory.
-// Real, recognizable golf items + realistic resale-market prices. Stock-
-// ticker styling — the % moves are decorative noise, not real telemetry —
-// but the brand/price pairings match what these items actually trade for
-// peer-to-peer. Refresh as inventory + market shifts.
-const DEFAULT_TICKER = [
-  { name: 'Scotty Cameron Newport',      price: '$485', chg: '+3.8%',  up: true  },
-  { name: 'L.A.B. Mezz.1 Putter',         price: '$525', chg: '+5.2%',  up: true  },
-  { name: 'Bettinardi Studio Stock 28',  price: '$465', chg: '-1.4%',  up: false },
-  { name: 'Vokey SM10 Wedge',             price: '$165', chg: '+2.1%',  up: true  },
-  { name: 'TaylorMade Qi10 Driver',       price: '$465', chg: '+1.8%',  up: true  },
-  { name: 'Titleist T100 Irons',          price: '$1,295', chg: '-0.9%', up: false },
-  { name: 'Pro V1 (3-Dozen)',             price: '$155', chg: '+0.7%',  up: true  },
-  { name: 'Smathers & Branson Belt',      price: '$165', chg: '+1.5%',  up: true  },
-  { name: 'RLX Tour Quarter-Zip',          price: '$185', chg: '+2.4%',  up: true  },
-  { name: 'Peter Millar Crown Crafted',   price: '$155', chg: '-0.6%',  up: false },
-  { name: 'Holderness & Bourne Polo',     price: '$135', chg: '+1.9%',  up: true  },
-  { name: 'B. Draddy 1/4-Zip',             price: '$148', chg: '+3.2%',  up: true  },
-  { name: 'G/Fore Tuxedo Polo',            price: '$125', chg: '+0.8%',  up: true  },
-  { name: 'FootJoy Premiere Field',       price: '$199', chg: '-1.1%',  up: false },
-  { name: 'Manors 1/4-Zip',                price: '$255', chg: '+4.1%',  up: true  },
-  { name: 'Greyson Wolf Polo',            price: '$98',  chg: '+1.2%',  up: true  },
-  { name: 'Malbon Buckets Tee',           price: '$78',  chg: '+0.6%',  up: true  },
-  { name: 'Travis Mathew Beck Short',     price: '$85',  chg: '-0.4%',  up: false },
-  { name: 'Devereux Surcingle Belt',       price: '$65',  chg: '+0.9%',  up: true  },
-  { name: 'Vessel Player IV Stand Bag',   price: '$395', chg: '+2.7%',  up: true  },
+// ── Ticker reel ────────────────────────────────────────────────────────────
+// CURATED, hardcoded list of aspirational golf gear. During the beta the
+// marketplace is thin, so a ticker driven by live inventory looks dead — this
+// reel keeps the "market" strip lively and sets the premium tone. It FULLY
+// REPLACES the live-listing data source for now; we can blend real listings
+// back in post-beta if we want.
+//
+// PURELY DECORATIVE — note the guardrails baked in here:
+//   • the % moves are cosmetic (lightly randomized per load, see tickerChg),
+//     not real telemetry;
+//   • items are NON-clickable — buildTicker emits plain <span>s with no link
+//     and no data-action, so there are no dead-ends to listings that don't
+//     exist;
+//   • text brand/item names only — no logos or images.
+// Edit names / prices / up (direction) freely.
+const CURATED_TICKER = [
+  { name: 'Peter Millar Polo',         price: '$95',  up: true  },
+  { name: 'Holderness & Bourne Shirt', price: '$110', up: true  },
+  { name: 'Smathers & Branson Belt',   price: '$165', up: false },
+  { name: 'TaylorMade Qi10 Driver',    price: '$399', up: true  },
+  { name: 'Scotty Cameron Putter',     price: '$450', up: false },
+  { name: 'Titleist TSR3 Driver',      price: '$375', up: true  },
+  { name: 'Greyson Hoodie',            price: '$148', up: false },
+  { name: 'FootJoy Premiere',          price: '$180', up: true  },
+  { name: 'Ping G430 Driver',          price: '$360', up: true  },
+  { name: 'Straight Down Polo',        price: '$85',  up: false },
+  { name: 'G/FORE Gloves',             price: '$42',  up: true  },
+  { name: 'Dormie Headcover',          price: '$55',  up: true  },
 ];
 
-function deriveTickerFromProducts() {
-  const products = (window.PRODUCTS || []).filter(p => p.status !== 'sold' && Number(p.ask) > 0);
-  if (!products.length) { TICKER_ITEMS = DEFAULT_TICKER.slice(); return; }
-  // Group by brand, take median ask for each.
-  const byBrand = {};
-  products.forEach(p => {
-    const b = String(p.brand || '').trim();
-    if (!b) return;
-    if (!byBrand[b]) byBrand[b] = [];
-    byBrand[b].push(Number(p.ask));
-  });
-  // Top brands by listing count, capped at 12.
-  const ranked = Object.entries(byBrand)
-    .filter(([_, arr]) => arr.length >= 1)
-    .sort((a, b) => b[1].length - a[1].length)
-    .slice(0, 12);
-  // Stable seed for change-% noise so the ticker doesn't jitter on each render.
-  const seed = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = (h ^ s.charCodeAt(i)) * 16777619 >>> 0; return h; };
-  TICKER_ITEMS = ranked.map(([brand, arr]) => {
-    arr.sort((a, b) => a - b);
-    const median = arr[Math.floor(arr.length / 2)];
-    const r = (seed(brand) % 1000) / 1000;
-    const pct = (r - 0.5) * 14; // ±7% session-stable swing
-    const chgStr = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
-    return {
-      name: brand,
-      price: '$' + median.toLocaleString(),
-      chg: chgStr,
-      up: pct >= 0,
-    };
-  });
+// Cosmetic change-% for a ticker item. The direction (up/down) is fixed per
+// item above; only the magnitude jitters — lightly randomized on each page
+// load so the strip feels alive. Lightweight: no real-time data, no queries.
+function tickerChg(up) {
+  const mag = 0.3 + Math.random() * 4.9; // ~0.3%–5.2%
+  return (up ? '+' : '-') + mag.toFixed(1) + '%';
 }
+
+// Kept as an inert no-op so existing callers (loadListings) stay safe. The
+// ticker no longer derives from live inventory — see CURATED_TICKER above.
+function deriveTickerFromProducts() { /* curated reel — intentionally inert */ }
 window.deriveTickerFromProducts = deriveTickerFromProducts;
 
 // v1.1: demo "Upcoming Drops" removed. buildDrops() hides the section
@@ -8236,11 +8212,12 @@ window.__actions['open-detail-from-search'] = function(el) {
 
 function buildTicker() {
   const track = document.getElementById('tickerTrack');
-  const wrap = track && track.closest('.ticker-wrap');
-  // Fall back to default categories on first paint or empty marketplace
-  // so the stock-market strip is always visible and animating.
-  const items = TICKER_ITEMS.length ? TICKER_ITEMS : DEFAULT_TICKER;
+  if (!track) return;
+  const wrap = track.closest('.ticker-wrap');
   if (wrap) wrap.style.display = '';
+  // Curated reel — % magnitude re-randomized each build so it feels alive.
+  // Plain spans only (no link / data-action) → items are non-clickable.
+  const items = CURATED_TICKER.map(t => ({ ...t, chg: tickerChg(t.up) }));
   const doubled = [...items, ...items];
   track.innerHTML = doubled.map(t=>
     `<div class="ticker-item">`+
