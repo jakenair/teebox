@@ -305,7 +305,17 @@ exports.createPaymentIntent = onRequest(
       if (banSnap.exists && banSnap.data() && banSnap.data().banned === true) {
         return res.status(403).json({error: "Account suspended"});
       }
-    } catch (_e) { /* best-effort — never block legitimate checkout on Firestore hiccup */ }
+    } catch (banReadErr) {
+      // Fail CLOSED: if we cannot verify ban status we refuse the checkout
+      // rather than risk letting a banned buyer through on a Firestore hiccup.
+      // Retryable (503) — a legitimate buyer just tries again; a banned buyer
+      // never slips past on a transient read failure.
+      logger.error(
+          "createPaymentIntent: ban-status read failed — failing closed",
+          banReadErr);
+      return res.status(503).json(
+          {error: "Couldn't verify your account right now. Please try again."});
+    }
 
     // ── Ban-evasion: layer 2 (IP cross-reference, pre-charge) ──
     // Capture the caller's IP and ask banEvasion.js whether any prior
@@ -5098,59 +5108,109 @@ exports.refundOrder = onCall(
     // refunded. The Stripe refund is already done at this point; if
     // the tx fails, the order doc just won't reflect it and we log —
     // a follow-up admin sync can patch it.
-    await db.runTransaction(async (tx) => {
-      const orderSnap = await tx.get(orderRef);
-      if (!orderSnap.exists) {
-        throw new Error(`order ${orderId} vanished mid-refund`);
-      }
-      const order = orderSnap.data();
-      const qty = Math.max(1, Number(order.quantity || 1));
-      const listingId = order.listingId;
-      let listingSnap = null;
-      let listingRef = null;
-      if (listingId) {
-        listingRef = db.collection("listings").doc(listingId);
-        listingSnap = await tx.get(listingRef);
-      }
+    // Commit-side mirror (refund resilience). The Stripe refund already
+    // happened (idempotent key). To avoid the "refunded-but-unflagged +
+    // inventory-not-restored" drift, this is now:
+    //   (a) IDEMPOTENT — guarded on refund.id so a re-run can't double-restock
+    //       (the restock is set-based and NOT safe to repeat once curSold>=qty),
+    //   (b) bounded-RETRIED (3×) so a transient Firestore failure self-heals,
+    //   (c) on final failure, writes a detectable refundReconcileNeeded marker
+    //       and surfaces the error — never a silent drift.
+    let mirrored = false;
+    let lastMirrorErr = null;
+    for (let attempt = 1; attempt <= 3 && !mirrored; attempt++) {
+      try {
+        await db.runTransaction(async (tx) => {
+          const orderSnap = await tx.get(orderRef);
+          if (!orderSnap.exists) {
+            throw new Error(`order ${orderId} vanished mid-refund`);
+          }
+          const order = orderSnap.data();
+          // IDEMPOTENCY GUARD: if this exact Stripe refund is already mirrored,
+          // a prior attempt committed — re-running would double-decrement
+          // quantitySold. No-op.
+          if (order.refundId === refund.id) return;
+          const qty = Math.max(1, Number(order.quantity || 1));
+          const listingId = order.listingId;
+          let listingSnap = null;
+          let listingRef = null;
+          if (listingId) {
+            listingRef = db.collection("listings").doc(listingId);
+            listingSnap = await tx.get(listingRef);
+          }
 
-      const orderUpdate = {
-        refundId: refund.id,
-        refundedAt: admin.firestore.FieldValue.serverTimestamp(),
-        refundedAmountCents: priorRefundedCents +
-            (refundAmountCents != null ? refundAmountCents : orderAmountCents),
-      };
-      if (isFullRefund) {
-        orderUpdate.refunded = true;
-        orderUpdate.status = "refunded";
-        orderUpdate.fulfillmentStatus = "refunded";
-      } else {
-        orderUpdate.partiallyRefunded = true;
-      }
-      tx.update(orderRef, orderUpdate);
+          const orderUpdate = {
+            refundId: refund.id,
+            refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+            refundedAmountCents: priorRefundedCents +
+                (refundAmountCents != null ? refundAmountCents : orderAmountCents),
+          };
+          if (isFullRefund) {
+            orderUpdate.refunded = true;
+            orderUpdate.status = "refunded";
+            orderUpdate.fulfillmentStatus = "refunded";
+          } else {
+            orderUpdate.partiallyRefunded = true;
+          }
+          tx.update(orderRef, orderUpdate);
 
-      // Only restore inventory on a FULL refund — partial refunds keep
-      // the unit "sold" from the listing's perspective.
-      if (isFullRefund && listingRef && listingSnap && listingSnap.exists) {
-        const listing = listingSnap.data();
-        const totalQty = Math.max(1, Number(listing.quantity || 1));
-        const curSold = Math.max(0, Number(listing.quantitySold || 0));
-        const nextSold = Math.max(0, curSold - qty);
-        // Only flip status back to active if there's remaining sellable
-        // inventory. Listings that were `removed` / `expired` stay in
-        // whatever terminal state they were in.
-        const remaining = totalQty - nextSold;
-        const update = {
-          quantitySold: nextSold,
-          soldAt: admin.firestore.FieldValue.delete(),
-          soldTo: admin.firestore.FieldValue.delete(),
-          orderId: admin.firestore.FieldValue.delete(),
-        };
-        if (listing.status === "sold" && remaining > 0) {
-          update.status = "active";
+          // Only restore inventory on a FULL refund — partial refunds keep
+          // the unit "sold" from the listing's perspective.
+          if (isFullRefund && listingRef && listingSnap && listingSnap.exists) {
+            const listing = listingSnap.data();
+            const totalQty = Math.max(1, Number(listing.quantity || 1));
+            const curSold = Math.max(0, Number(listing.quantitySold || 0));
+            const nextSold = Math.max(0, curSold - qty);
+            // Only flip status back to active if there's remaining sellable
+            // inventory. Listings that were `removed` / `expired` stay in
+            // whatever terminal state they were in.
+            const remaining = totalQty - nextSold;
+            const update = {
+              quantitySold: nextSold,
+              soldAt: admin.firestore.FieldValue.delete(),
+              soldTo: admin.firestore.FieldValue.delete(),
+              orderId: admin.firestore.FieldValue.delete(),
+            };
+            if (listing.status === "sold" && remaining > 0) {
+              update.status = "active";
+            }
+            tx.update(listingRef, update);
+          }
+        });
+        mirrored = true;
+      } catch (mirrorErr) {
+        lastMirrorErr = mirrorErr;
+        logger.warn(
+            `refundOrder: mirror tx attempt ${attempt}/3 failed for order ` +
+            `${orderId}`, mirrorErr);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
         }
-        tx.update(listingRef, update);
       }
-    });
+    }
+    if (!mirrored) {
+      // Stripe refunded but the Firestore mirror failed after retries. Make the
+      // drift DETECTABLE + surface it — never silent.
+      logger.error(
+          `refundOrder: mirror FAILED after 3 attempts — Stripe refund ` +
+          `${refund.id} on order ${orderId} not reflected; needs reconcile`,
+          lastMirrorErr);
+      try {
+        await orderRef.set({
+          refundReconcileNeeded: true,
+          refundReconcileRefundId: refund.id,
+          refundReconcileAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      } catch (markerErr) {
+        logger.error(
+            `refundOrder: reconcile marker write ALSO failed for order ` +
+            `${orderId}`, markerErr);
+      }
+      throw new HttpsError(
+          "internal",
+          "Your refund was issued, but updating the order failed. " +
+          "Support has been notified to reconcile it.");
+    }
 
     // ── Email producer for the buyer-facing refund email (audit #24).
     // The downstream onRefundEmail trigger in emailTriggers.js listens
