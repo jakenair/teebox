@@ -931,9 +931,26 @@
   /* Tap polish + overscroll lockdown */
   html { -webkit-text-size-adjust: 100%; }
   body { overscroll-behavior-y: contain; }
-  button, .product-card, .cat-pill, [data-action] { -webkit-tap-highlight-color: transparent; }
+  button, .product-card, .cat-pill, [data-action] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   button, [data-action] { transition: transform 0.06s ease, background 0.18s ease, opacity 0.18s ease; }
   button:active, [data-action]:active { transform: scale(0.97); }
+  /* Touch devices (incl. the iOS app webview): tapping should navigate, not
+     visually "zoom"/shrink. The codebase uses `:active { transform: scale() }`
+     as press feedback in ~15 places — the global rule above plus per-component
+     rules (.cat-pill, .ribbon-item, .mobile-nav-link, auth buttons, …). On a
+     phone that reads as a tacky press-scale, so neutralize it here. !important
+     + this selector set wins over every per-component :active scale regardless
+     of source order. Background/opacity press feedback (e.g. the nav-drawer
+     highlight) is untouched, and desktop (hover / fine pointer) keeps its
+     subtle click feel. Pinch-to-zoom stays enabled (no viewport maximum-scale)
+     for accessibility. */
+  @media (hover: none) and (pointer: coarse) {
+    a:active, button:active, label:active, summary:active,
+    [role="button"]:active, [data-action]:active, [onclick]:active,
+    .cat-pill:active, .ribbon-item:active, .ribbon-trigger:active {
+      transform: none !important;
+    }
+  }
   .ripple { position: relative; overflow: hidden; }
   /* Disable selection on chrome elements */
   nav, .cat-bar, .bottom-nav, .modal-header, .nav-search-icon { user-select: none; -webkit-user-select: none; }
