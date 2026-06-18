@@ -79,19 +79,20 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
 
+      // LIST-FIRST (2026-06): the Stripe Connect KYC gate was REMOVED from
+      // create. Sellers can publish before onboarding completes; the listing
+      // is visible-but-not-buyable until charges_enabled (buyer UX reads the
+      // public profiles/{uid}.chargesReady mirror). Money is still protected
+      // at CHECKOUT — createPaymentIntent (functions/index.js:534) refuses and
+      // rolls back the reservation when the seller isn't charges-ready, before
+      // any PaymentIntent is created. We deliberately KEEP isEmailVerified()
+      // (one-click, anti-spam) and isValidListingCreate() (schema/moderation
+      // hook intact).
       allow create: if request.auth != null
         && appCheckOk()
         && isEmailVerified()
         && request.resource.data.sellerId == request.auth.uid
-        && isValidListingCreate(request.resource.data)
-        // Stripe Connect KYC gate (C2). Sellers must have a Connect
-        // account with charges_enabled=true before they can publish a
-        // listing. The user-doc field is kept in sync by the
-        // `stripeConnectAccountUpdated` webhook handler
-        // (functions/index.js:839) and by getStripeAccountStatus
-        // (functions/index.js:4177). Client-side `submitListing` is the
-        // primary gate; this rule is the backstop.
-        && sellerStripeReady(request.auth.uid);
+        && isValidListingCreate(request.resource.data);
 
       allow update: if request.auth != null
         && appCheckOk()
