@@ -297,6 +297,18 @@ async function handleConnectAccountUpdated(event) {
     stripeAccountUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   await userDoc.ref.set(update, {merge: true});
+  // Denormalize charges-readiness onto the PUBLIC profile so a buyer can tell
+  // whether a listing is buyable (users/{uid} is owner-only read; profiles is
+  // public-read). PURELY ADDITIVE — the user-doc write above is unchanged and
+  // remains the source of truth (createPaymentIntent reads stripeChargesEnabled
+  // at checkout). Wrapped so a profiles-write hiccup can never fail the Connect
+  // webhook (Stripe would retry the whole event otherwise).
+  try {
+    await admin.firestore().doc(`profiles/${userDoc.id}`).set(
+        {chargesReady: chargesEnabled}, {merge: true});
+  } catch (e) {
+    logger.warn(`profiles.chargesReady denorm failed for ${userDoc.id}`, e);
+  }
   logger.info(
       `account.updated (connect): ${userDoc.id} ` +
       `charges=${chargesEnabled} payouts=${payoutsEnabled} ` +
