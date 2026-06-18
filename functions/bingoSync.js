@@ -465,6 +465,7 @@ exports.syncBingoProgress = onCall(
   // denormalization, not a correctness-critical step.
   let finalSolvedAtOut = null;
   let finalStartedAtOut = startedAtVal;
+  let finalCorrectCountOut = correctCount;
   try {
     await db.runTransaction(async (tx) => {
       const existing = await tx.get(ref);
@@ -489,19 +490,55 @@ exports.syncBingoProgress = onCall(
         finalStartedAt = prev.startedAt;
       }
 
+      // ── Monotonicity guard ────────────────────────────────────────────
+      // Never DOWNGRADE a more-progressed record. A device re-syncing an
+      // empty/partial board — e.g. a fresh sign-in that pushes its blank
+      // local game BEFORE reading the server doc, which includes Build 68
+      // and cached web clients that have no read-back at all — must not
+      // clobber a solved or higher-progress server record. Genuine forward
+      // progress (>= resolved cells) still writes normally. "Resolved" =
+      // a cell that left 'pending' (single-shot game: cells never un-resolve).
+      const countResolved = (cs) => Array.isArray(cs)
+        ? cs.filter((c) => c && c.state !== "pending").length : 0;
+      const prevResolved = prev ? countResolved(prev.cells) : -1;
+      const incomingResolved = countResolved(sanitized);
+      const prevSolved = !!(prev && Number.isFinite(prev.solvedAt));
+      const keepPrev = !!prev && (
+        incomingResolved < prevResolved ||
+        (prevSolved && incomingResolved < 9)
+      );
+
+      let finalCells = sanitized;
+      let finalCorrectCount = correctCount;
+      let finalScoredBy = serverScored ? "server" : "client";
+      let finalAttempts = attemptsTotal;
+      if (keepPrev) {
+        // Preserve the more-progressed prior board verbatim.
+        finalCells = Array.isArray(prev.cells) ? prev.cells : sanitized;
+        finalCorrectCount = Number.isFinite(prev.correctCount)
+          ? prev.correctCount : correctCount;
+        finalScoredBy = prev.scoredBy || "server";
+        finalAttempts = Math.max(Number(prev.attempts) || 0, attemptsTotal);
+        if (prevSolved) finalSolvedAt = prev.solvedAt;
+        logger.info("syncBingoProgress: kept prior board (no downgrade)", {
+          uid, date, prevResolved, incomingResolved, prevSolved,
+        });
+      }
+
       finalSolvedAtOut = finalSolvedAt;
       finalStartedAtOut = finalStartedAt;
+      finalCorrectCountOut = finalCorrectCount;
 
       tx.set(
         ref,
         {
           date,
           uid,
-          cells: sanitized,
-          correctCount,
+          cells: finalCells,
+          correctCount: finalCorrectCount,
           clientClaimedCorrect,
-          scoredBy: serverScored ? "server" : "client",
-          attempts: attemptsTotal,
+          scoredBy: finalScoredBy,
+          attempts: finalAttempts,
           startedAt: finalStartedAt,
           solvedAt: finalSolvedAt,
           clientWonAt: Number.isFinite(clientWonAt) ? clientWonAt : null,
@@ -530,13 +567,13 @@ exports.syncBingoProgress = onCall(
   // working off this canonical write. Best-effort; never blocks the
   // caller. See BINGO_SCHEMA_RECONCILIATION.md for the full plan.
   await _fanoutToGameScores(db, uid, date, {
-    correctCount,
+    correctCount: finalCorrectCountOut,
     attempts: attemptsTotal,
     startedAtVal: finalStartedAtOut,
     solvedAtVal: finalSolvedAtOut,
   });
 
-  return {ok: true, correctCount};
+  return {ok: true, correctCount: finalCorrectCountOut};
 });
 
 // Exposed for unit tests (deterministic, no Firestore). See

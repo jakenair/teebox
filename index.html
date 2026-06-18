@@ -6011,20 +6011,22 @@ window.confirmPayment = async function() {
         badge.setAttribute('aria-label', `Open account menu for ${profFirst}`);
       }
       loadListings();
-      // Logo Bingo: carry guest play onto the now-known account. Drain any
-      // locally-queued solves (so the server has them + recomputes the streak),
-      // THEN read the server doc back so today's "already played" lock + streak
-      // appear immediately — not just on the next bingo open. Best-effort.
+      // Logo Bingo: carry guest play onto the now-known account. Order matters
+      // — RECONCILE (read the server doc) FIRST so a fresh device adopts the
+      // server's solved board, THEN drain the local queue. Draining first would
+      // let a blank fresh session push its empty board and clobber a real solve
+      // (the server-side monotonicity guard also blocks that, but reconcile-
+      // first avoids even attempting the bad write). Best-effort.
       try {
-        if (window.drainBingoSyncQueue) {
-          window.drainBingoSyncQueue()
+        if (window.reconcileServerGame && window.bingoTodayUTC) {
+          window.reconcileServerGame(window.bingoTodayUTC())
             .catch(() => {})
             .then(() => {
-              if (window.reconcileServerGame && window.bingoTodayUTC) {
-                return window.reconcileServerGame(window.bingoTodayUTC());
-              }
+              if (window.drainBingoSyncQueue) return window.drainBingoSyncQueue();
             })
             .catch(() => {});
+        } else if (window.drainBingoSyncQueue) {
+          window.drainBingoSyncQueue().catch(() => {});
         }
       } catch (_e) {}
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
