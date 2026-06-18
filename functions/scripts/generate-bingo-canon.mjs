@@ -53,6 +53,13 @@ async function main() {
   // needs (id, shortName) plus the canonical CDN URL we want the doc
   // to carry.
   const eligible = [];
+  // Sidecar answer-key terms. The `courses` array above is kept minimal +
+  // byte-stable (the puzzle generator hashes/orders it), so the strings the
+  // server needs to SCORE a guess (name + aliases) live in a separate map
+  // keyed by id. Server-side scoring (functions/lib/bingoScoring.js) reads
+  // these to re-derive correctCount; the client reads the same fields from
+  // /bingo-courses.js, so client↔server term parity holds by construction.
+  const courseData = {};
   for (const c of coursesMod.COURSES) {
     if (!c || typeof c.id !== "string") continue;
     if (!manifestMod.LOGOS_AVAILABLE.has(c.id)) continue;
@@ -61,6 +68,11 @@ async function main() {
       shortName: c.shortName || c.name || c.id,
       logoUrl: `${CDN_ORIGIN}/assets/logos/${c.id}.png`,
     });
+    courseData[c.id] = {
+      name: c.name || c.shortName || c.id,
+      shortName: c.shortName || c.name || c.id,
+      aliases: Array.isArray(c.aliases) ? c.aliases.slice() : [],
+    };
   }
 
   if (eligible.length < 9) {
@@ -78,6 +90,7 @@ async function main() {
     // test (see scripts/test-bingo-cross-platform.mjs).
     epoch: "2026-01-01T00:00:00Z",
     courses: eligible,
+    courseData,
     generatedAt: new Date().toISOString(),
     sourceFiles: ["bingo-courses.js", "assets/logos/manifest.js"],
     cdnOrigin: CDN_ORIGIN,

@@ -34,6 +34,19 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
+// Server-side answer matching (verbatim port of the client matcher), the
+// canon answer-term map, and the deterministic per-date course selection.
+const {matchesCourse} = require("./lib/bingoScoring");
+const BINGO_CANON = require("./data/bingo-puzzle-data.json");
+const {selectDailyCourses} = require("./bingoDailyPuzzle").__test;
+// Best-effort ops alert for client/server score drift (spoof or parity bug).
+const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
+
+// Throttle the drift webhook so a systemic parity break can't storm the
+// channel — the per-event logger.warn below is the durable, unthrottled record.
+let __lastDriftAlertMs = 0;
+const DRIFT_ALERT_THROTTLE_MS = 5 * 60 * 1000;
+const STREAK_LOOKBACK = 30;
 
 // Match the sizing presets used elsewhere in this codebase.
 const USER_CALLABLE = {
@@ -73,6 +86,115 @@ function todayUtcDateKey() {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function prevDateUtc(dateStr) {
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  const yyyy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Resolve the ordered 9 answer course-ids for a date. Prefer the STORED
+// dailyPuzzles/{date} doc — that's the exact board the player saw, so it's
+// immune to any later GENERATOR_VERSION change. Only when no doc exists do we
+// fall back to the deterministic recompute. Returns null when neither is
+// trustworthy (→ caller skips server re-scoring and trusts client state).
+async function resolveAnswerIds(db, date) {
+  try {
+    const snap = await db.doc(`dailyPuzzles/${date}`).get();
+    if (snap.exists) {
+      const courses = (snap.data() || {}).courses;
+      if (Array.isArray(courses) && courses.length === 9) {
+        const ids = courses.map((c) => c && c.id);
+        if (ids.every((id) => typeof id === "string")) return ids;
+      }
+    }
+  } catch (e) {
+    logger.warn(`resolveAnswerIds: dailyPuzzles read failed for ${date}`, e);
+  }
+  try {
+    const recomputed = selectDailyCourses(date).courses;
+    if (Array.isArray(recomputed) && recomputed.length === 9) {
+      const ids = recomputed.map((c) => c && c.id);
+      if (ids.every((id) => typeof id === "string")) return ids;
+    }
+  } catch (e) {
+    logger.warn(`resolveAnswerIds: recompute failed for ${date}`, e);
+  }
+  return null;
+}
+
+// Re-derive correctCount server-side. Per-cell capability detection: when the
+// cell has a usable guess AND we have answer terms for that course, we score
+// it with matchesCourse (tamper-resistant); otherwise we fall back to the
+// client-reported state for THAT cell only (covers old clients that didn't
+// send a guess, or a course missing from the canon). Returns {correctCount,
+// serverScored} where serverScored is true iff the answer key was available.
+function scoreCellsServerSide(sanitizedCells, answerIds) {
+  if (!answerIds) {
+    return {
+      correctCount: sanitizedCells.filter((c) => c.state === "correct").length,
+      serverScored: false,
+    };
+  }
+  let count = 0;
+  for (let i = 0; i < 9; i++) {
+    const cell = sanitizedCells[i];
+    const cd = BINGO_CANON.courseData[answerIds[i]];
+    const guess = cell && typeof cell.guess === "string" ? cell.guess : "";
+    if (cd && guess) {
+      if (matchesCourse(guess, cd)) count++;
+    } else if (cell && cell.state === "correct") {
+      count++; // per-cell fallback to client state
+    }
+  }
+  return {correctCount: count, serverScored: true};
+}
+
+// Authoritative current-streak writer. Computed inline here (walk back
+// consecutive solved days, same algorithm as onBingoWinAggregate) so the
+// user-visible streak does NOT depend on the gen2 onDocumentWritten trigger,
+// which drops on UPDATE events. Idempotent (recompute, not increment) and
+// guarded against out-of-order reconcile syncs via bingoCurrentStreakDate.
+async function updateCurrentStreakInline(db, uid, date) {
+  let streak = 1;
+  try {
+    let cursor = date;
+    for (let i = 0; i < STREAK_LOOKBACK; i++) {
+      const prev = prevDateUtc(cursor);
+      const prevSnap = await db.doc(`users/${uid}/bingoGames/${prev}`).get();
+      if (!prevSnap.exists || !(prevSnap.data() || {}).solvedAt) break;
+      streak += 1;
+      cursor = prev;
+    }
+  } catch (e) {
+    logger.warn(`updateCurrentStreakInline walk failed for ${uid}/${date}`, e);
+    return;
+  }
+  try {
+    const userRef = db.doc(`users/${uid}`);
+    await db.runTransaction(async (tx) => {
+      const u = (await tx.get(userRef)).data() || {};
+      const patch = {};
+      // Only advance the CURRENT streak for the most-recent solved date seen,
+      // so an out-of-order backfill sync of an older date can't clobber it.
+      if (date >= String(u.bingoCurrentStreakDate || "")) {
+        patch.bingoCurrentStreak = streak;
+        patch.bingoCurrentStreakDate = date;
+      }
+      if (streak > (Number(u.bingoBestStreak) || 0)) {
+        patch.bingoBestStreak = streak;
+        patch.bingoBestStreakAt = admin.firestore.FieldValue.serverTimestamp();
+      }
+      if (Object.keys(patch).length) tx.set(userRef, patch, {merge: true});
+    });
+  } catch (e) {
+    logger.warn(`updateCurrentStreakInline write failed for ${uid}/${date}`, e);
+  }
 }
 
 // A "cell" matches the client shape in index.html: each entry of the 9-element
@@ -220,7 +342,8 @@ async function _fanoutToGameScores(db, uid, date, finalState) {
   }
 }
 
-exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
+exports.syncBingoProgress = onCall(
+    {...USER_CALLABLE, secrets: [OPS_ALERT_WEBHOOK]}, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Sign in to sync.");
@@ -254,7 +377,11 @@ exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
   if (sanitized.some((c) => c === null)) {
     throw new HttpsError("invalid-argument", "cell payload malformed");
   }
-  const correctCount = sanitized.filter((c) => c.state === "correct").length;
+  // Client-asserted correct count (per-cell `state`). Retained only for drift
+  // detection — the canonical correctCount is re-derived server-side from the
+  // per-cell `guess` against the answer key, after `db` is available below.
+  const clientClaimedCorrect =
+    sanitized.filter((c) => c.state === "correct").length;
 
   // ── 3. Timestamp plausibility ────────────────────────────────────────
   const now = Date.now();
@@ -300,6 +427,32 @@ exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
   // the same date can be synced repeatedly without flipping the "when
   // did you finish" timestamp on every retry.
   const db = admin.firestore();
+
+  // ── Server-side scoring (additive, backward-compatible) ──────────────
+  // Re-derive the canonical correctCount from each cell's `guess` against the
+  // answer key, instead of trusting the client's per-cell `state`. Old clients
+  // (or cells with no guess) fall back per-cell to state — same payload
+  // contract, no break.
+  const answerIds = await resolveAnswerIds(db, date);
+  const {correctCount, serverScored} =
+    scoreCellsServerSide(sanitized, answerIds);
+  // Drift canary: the client claimed a different score than we derived —
+  // a spoof attempt, or a client/server matcher-parity regression. Logged
+  // every time (durable); webhook throttled so a systemic break can't storm.
+  if (serverScored && correctCount !== clientClaimedCorrect) {
+    logger.warn("[BINGO_SCORE_DRIFT]", {
+      uid, date, clientClaimedCorrect, serverCorrect: correctCount,
+    });
+    const nowMs = Date.now();
+    if (nowMs - __lastDriftAlertMs > DRIFT_ALERT_THROTTLE_MS) {
+      __lastDriftAlertMs = nowMs;
+      await opsAlert(
+          "warn",
+          "Logo Bingo score drift (possible spoof or matcher-parity bug)",
+          {uid, date, clientClaimedCorrect, serverCorrect: correctCount});
+    }
+  }
+
   const ref = db
     .collection("users")
     .doc(uid)
@@ -346,6 +499,8 @@ exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
           uid,
           cells: sanitized,
           correctCount,
+          clientClaimedCorrect,
+          scoredBy: serverScored ? "server" : "client",
           attempts: attemptsTotal,
           startedAt: finalStartedAt,
           solvedAt: finalSolvedAt,
@@ -358,6 +513,15 @@ exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
   } catch (err) {
     logger.error("syncBingoProgress write failed", {uid, date, err});
     throw new HttpsError("internal", "Could not save progress.");
+  }
+
+  // ── Inline streak (authoritative, trigger-independent) ───────────────
+  // On a solve, recompute + write users/{uid}.bingoCurrentStreak HERE rather
+  // than relying on onBingoWinAggregate (gen2 onDocumentWritten, drops on
+  // UPDATE per #34). Runs BEFORE the fanout so _resolveStreakForFanout reads
+  // the fresh value. Best-effort; never blocks the caller.
+  if (Number.isFinite(finalSolvedAtOut)) {
+    await updateCurrentStreakInline(db, uid, date);
   }
 
   // ── 5. Legacy gameScores fanout ──────────────────────────────────────
@@ -374,3 +538,7 @@ exports.syncBingoProgress = onCall(USER_CALLABLE, async (request) => {
 
   return {ok: true, correctCount};
 });
+
+// Exposed for unit tests (deterministic, no Firestore). See
+// test/unit/bingoServerScoring.test.js.
+exports.__test = {scoreCellsServerSide, resolveAnswerIds};

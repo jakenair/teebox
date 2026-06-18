@@ -588,7 +588,865 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/wilmington-country-club.png"
     }
   ],
-  "generatedAt": "2026-05-15T15:59:23.100Z",
+  "courseData": {
+    "pine-valley": {
+      "name": "Pine Valley Golf Club",
+      "shortName": "Pine Valley",
+      "aliases": [
+        "pine valley gc"
+      ]
+    },
+    "cypress-point": {
+      "name": "Cypress Point Club",
+      "shortName": "Cypress Point",
+      "aliases": [
+        "cypress",
+        "cypress point cc"
+      ]
+    },
+    "shinnecock-hills": {
+      "name": "Shinnecock Hills Golf Club",
+      "shortName": "Shinnecock Hills",
+      "aliases": [
+        "shinnecock",
+        "shinnecock hills gc"
+      ]
+    },
+    "oakmont": {
+      "name": "Oakmont Country Club",
+      "shortName": "Oakmont",
+      "aliases": [
+        "oakmont cc"
+      ]
+    },
+    "merion-east": {
+      "name": "Merion Golf Club (East)",
+      "shortName": "Merion East",
+      "aliases": [
+        "merion",
+        "merion gc",
+        "merion east course"
+      ]
+    },
+    "national-golf-links": {
+      "name": "National Golf Links of America",
+      "shortName": "National Golf Links",
+      "aliases": [
+        "ngla",
+        "national golf links of america"
+      ]
+    },
+    "fishers-island": {
+      "name": "Fishers Island Club",
+      "shortName": "Fishers Island",
+      "aliases": [
+        "fishers",
+        "fishers island club",
+        "fic"
+      ]
+    },
+    "bandon-dunes": {
+      "name": "Bandon Dunes Resort",
+      "shortName": "Bandon Dunes",
+      "aliases": [
+        "bandon",
+        "bandon dunes",
+        "pacific dunes",
+        "old macdonald",
+        "bandon trails",
+        "sheep ranch"
+      ]
+    },
+    "winged-foot-west": {
+      "name": "Winged Foot Golf Club (West)",
+      "shortName": "Winged Foot West",
+      "aliases": [
+        "winged foot",
+        "winged foot west course",
+        "wfgc"
+      ]
+    },
+    "seminole": {
+      "name": "Seminole Golf Club",
+      "shortName": "Seminole",
+      "aliases": [
+        "seminole gc"
+      ]
+    },
+    "los-angeles-cc-north": {
+      "name": "Los Angeles Country Club (North)",
+      "shortName": "LACC North",
+      "aliases": [
+        "lacc",
+        "la country club",
+        "los angeles cc",
+        "lacc north course"
+      ]
+    },
+    "oakland-hills-south": {
+      "name": "Oakland Hills Country Club (South)",
+      "shortName": "Oakland Hills South",
+      "aliases": [
+        "oakland hills",
+        "oakland hills cc"
+      ]
+    },
+    "olympic-club-lake": {
+      "name": "The Olympic Club (Lake)",
+      "shortName": "Olympic Club Lake",
+      "aliases": [
+        "olympic club",
+        "the olympic club",
+        "olympic lake"
+      ]
+    },
+    "baltusrol-lower": {
+      "name": "Baltusrol Golf Club (Lower)",
+      "shortName": "Baltusrol Lower",
+      "aliases": [
+        "baltusrol",
+        "baltusrol gc",
+        "baltusrol lower course"
+      ]
+    },
+    "pinehurst-no-2": {
+      "name": "Pinehurst No. 2",
+      "shortName": "Pinehurst No. 2",
+      "aliases": [
+        "pinehurst 2",
+        "pinehurst",
+        "pinehurst number 2",
+        "pinehurst #2"
+      ]
+    },
+    "whistling-straits": {
+      "name": "Whistling Straits (Straits)",
+      "shortName": "Whistling Straits",
+      "aliases": [
+        "whistling straits straits",
+        "the straits",
+        "whistling straits gc"
+      ]
+    },
+    "erin-hills": {
+      "name": "Erin Hills",
+      "shortName": "Erin Hills",
+      "aliases": [
+        "erin hills gc"
+      ]
+    },
+    "tobacco-road": {
+      "name": "Tobacco Road Golf Club",
+      "shortName": "Tobacco Road",
+      "aliases": [
+        "tobacco road gc"
+      ]
+    },
+    "streamsong-blue": {
+      "name": "Streamsong Resort",
+      "shortName": "Streamsong",
+      "aliases": [
+        "streamsong",
+        "streamsong red",
+        "streamsong blue",
+        "streamsong black"
+      ]
+    },
+    "cabot-citrus-farms": {
+      "name": "Cabot Citrus Farms",
+      "shortName": "Cabot Citrus Farms",
+      "aliases": [
+        "cabot citrus",
+        "world woods",
+        "pine barrens cabot"
+      ]
+    },
+    "castle-pines": {
+      "name": "Castle Pines Golf Club",
+      "shortName": "Castle Pines",
+      "aliases": [
+        "castle pines gc"
+      ]
+    },
+    "friars-head": {
+      "name": "Friar's Head",
+      "shortName": "Friar's Head",
+      "aliases": [
+        "friars head",
+        "friars head gc"
+      ]
+    },
+    "maidstone": {
+      "name": "Maidstone Club",
+      "shortName": "Maidstone",
+      "aliases": [
+        "maidstone club"
+      ]
+    },
+    "castle-stuart": {
+      "name": "Castle Stuart Golf Links",
+      "shortName": "Castle Stuart",
+      "aliases": [
+        "castle stuart gl"
+      ]
+    },
+    "cabot-links": {
+      "name": "Cabot Links",
+      "shortName": "Cabot Links",
+      "aliases": [
+        "cabot",
+        "cabot links gc"
+      ]
+    },
+    "old-sandwich": {
+      "name": "Old Sandwich Golf Club",
+      "shortName": "Old Sandwich",
+      "aliases": [
+        "old sandwich gc"
+      ]
+    },
+    "quail-hollow": {
+      "name": "Quail Hollow Club",
+      "shortName": "Quail Hollow",
+      "aliases": [
+        "quail hollow cc",
+        "wells fargo championship"
+      ]
+    },
+    "sleepy-hollow": {
+      "name": "Sleepy Hollow Country Club",
+      "shortName": "Sleepy Hollow",
+      "aliases": [
+        "sleepy hollow cc"
+      ]
+    },
+    "sand-valley": {
+      "name": "Sand Valley",
+      "shortName": "Sand Valley",
+      "aliases": [
+        "sand valley resort"
+      ]
+    },
+    "mammoth-dunes": {
+      "name": "Mammoth Dunes",
+      "shortName": "Mammoth Dunes",
+      "aliases": [
+        "sand valley mammoth dunes"
+      ]
+    },
+    "sedge-valley": {
+      "name": "Sedge Valley",
+      "shortName": "Sedge Valley",
+      "aliases": [
+        "sand valley sedge valley"
+      ]
+    },
+    "forest-dunes": {
+      "name": "Forest Dunes Golf Club",
+      "shortName": "Forest Dunes",
+      "aliases": [
+        "forest dunes gc"
+      ]
+    },
+    "monterey-peninsula-shore": {
+      "name": "Monterey Peninsula Country Club (Shore)",
+      "shortName": "MPCC Shore",
+      "aliases": [
+        "mpcc shore",
+        "monterey peninsula cc shore"
+      ]
+    },
+    "pasatiempo": {
+      "name": "Pasatiempo Golf Club",
+      "shortName": "Pasatiempo",
+      "aliases": [
+        "pasatiempo gc"
+      ]
+    },
+    "plainfield": {
+      "name": "Plainfield Country Club",
+      "shortName": "Plainfield",
+      "aliases": [
+        "plainfield cc"
+      ]
+    },
+    "aronimink": {
+      "name": "Aronimink Golf Club",
+      "shortName": "Aronimink",
+      "aliases": [
+        "aronimink gc"
+      ]
+    },
+    "cherry-hills": {
+      "name": "Cherry Hills Country Club",
+      "shortName": "Cherry Hills",
+      "aliases": [
+        "cherry hills cc"
+      ]
+    },
+    "olympia-fields-north": {
+      "name": "Olympia Fields Country Club (North)",
+      "shortName": "Olympia Fields North",
+      "aliases": [
+        "olympia fields",
+        "olympia fields cc"
+      ]
+    },
+    "ohoopee-match": {
+      "name": "Ohoopee Match Club",
+      "shortName": "Ohoopee",
+      "aliases": [
+        "ohoopee match club"
+      ]
+    },
+    "gozzer-ranch": {
+      "name": "Gozzer Ranch Golf and Lake Club",
+      "shortName": "Gozzer Ranch",
+      "aliases": [
+        "gozzer ranch"
+      ]
+    },
+    "cabot-saint-lucia": {
+      "name": "Cabot Saint Lucia (Point Hardy)",
+      "shortName": "Cabot Saint Lucia",
+      "aliases": [
+        "cabot saint lucia",
+        "point hardy",
+        "cabot st lucia"
+      ]
+    },
+    "lido": {
+      "name": "The Lido",
+      "shortName": "The Lido",
+      "aliases": [
+        "lido",
+        "the lido",
+        "lido club"
+      ]
+    },
+    "old-barnwell": {
+      "name": "Old Barnwell",
+      "shortName": "Old Barnwell",
+      "aliases": [
+        "old barnwell",
+        "barnwell"
+      ]
+    },
+    "mcarthur": {
+      "name": "McArthur Golf Club",
+      "shortName": "McArthur",
+      "aliases": [
+        "mcarthur",
+        "mcarthur golf"
+      ]
+    },
+    "stanwich": {
+      "name": "The Stanwich Club",
+      "shortName": "Stanwich",
+      "aliases": [
+        "stanwich",
+        "the stanwich club"
+      ]
+    },
+    "philadelphia-cricket": {
+      "name": "Philadelphia Cricket Club (Wissahickon)",
+      "shortName": "Philadelphia Cricket",
+      "aliases": [
+        "philadelphia cricket",
+        "pcc",
+        "wissahickon"
+      ]
+    },
+    "liberty-national": {
+      "name": "Liberty National Golf Club",
+      "shortName": "Liberty National",
+      "aliases": [
+        "liberty national",
+        "libnat"
+      ]
+    },
+    "yale": {
+      "name": "Yale Golf Course",
+      "shortName": "Yale",
+      "aliases": [
+        "yale",
+        "yale golf",
+        "yale university golf"
+      ]
+    },
+    "bellerive": {
+      "name": "Bellerive Country Club",
+      "shortName": "Bellerive",
+      "aliases": [
+        "bellerive cc"
+      ]
+    },
+    "berkeley-hall": {
+      "name": "Berkeley Hall Club",
+      "shortName": "Berkeley Hall",
+      "aliases": [
+        "berkeley hall"
+      ]
+    },
+    "black-sheep": {
+      "name": "Black Sheep Golf Club",
+      "shortName": "Black Sheep",
+      "aliases": [
+        "black sheep gc"
+      ]
+    },
+    "boston-golf-club": {
+      "name": "Boston Golf Club",
+      "shortName": "Boston",
+      "aliases": [
+        "boston gc"
+      ]
+    },
+    "broomsedge": {
+      "name": "Broomsedge",
+      "shortName": "Broomsedge",
+      "aliases": [
+        "broomsedge gc"
+      ]
+    },
+    "burning-tree": {
+      "name": "Burning Tree Club",
+      "shortName": "Burning Tree",
+      "aliases": [
+        "burning tree"
+      ]
+    },
+    "calusa-pines": {
+      "name": "Calusa Pines Golf Club",
+      "shortName": "Calusa Pines",
+      "aliases": [
+        "calusa"
+      ]
+    },
+    "dooks": {
+      "name": "Dooks Golf Club",
+      "shortName": "Dooks",
+      "aliases": [
+        "dooks gc"
+      ]
+    },
+    "essex-county": {
+      "name": "Essex County Country Club",
+      "shortName": "Essex County",
+      "aliases": [
+        "essex"
+      ]
+    },
+    "flossmoor": {
+      "name": "Flossmoor Country Club",
+      "shortName": "Flossmoor Country Club",
+      "aliases": [
+        "flossmoor",
+        "flossmoor cc"
+      ]
+    },
+    "gamble-sands": {
+      "name": "Gamble Sands",
+      "shortName": "Gamble Sands",
+      "aliases": [
+        "gamble"
+      ]
+    },
+    "interlachen": {
+      "name": "Interlachen Country Club",
+      "shortName": "Interlachen",
+      "aliases": [
+        "interlachen cc"
+      ]
+    },
+    "kittansett": {
+      "name": "The Kittansett Club",
+      "shortName": "Kittansett",
+      "aliases": [
+        "kittansett club"
+      ]
+    },
+    "lost-dunes": {
+      "name": "Lost Dunes Golf Club",
+      "shortName": "Lost Dunes",
+      "aliases": [
+        "lost dunes gc"
+      ]
+    },
+    "myopia-hunt": {
+      "name": "Myopia Hunt Club",
+      "shortName": "Myopia Hunt",
+      "aliases": [
+        "myopia",
+        "myopia hunt",
+        "myopia hunt club",
+        "myopia club"
+      ]
+    },
+    "naples-national": {
+      "name": "Naples National Golf Club",
+      "shortName": "Naples National",
+      "aliases": [
+        "naples national gc"
+      ]
+    },
+    "old-elm": {
+      "name": "Old Elm Club",
+      "shortName": "Old Elm",
+      "aliases": [
+        "old elm gc"
+      ]
+    },
+    "pacific-dunes": {
+      "name": "Pacific Dunes",
+      "shortName": "Pacific Dunes",
+      "aliases": [
+        "bandon pacific dunes"
+      ]
+    },
+    "piping-rock": {
+      "name": "Piping Rock Club",
+      "shortName": "Piping Rock",
+      "aliases": [
+        "piping rock"
+      ]
+    },
+    "rich-harvest-farms": {
+      "name": "Rich Harvest Farms",
+      "shortName": "Rich Harvest",
+      "aliases": [
+        "rich harvest"
+      ]
+    },
+    "scioto": {
+      "name": "Scioto Country Club",
+      "shortName": "Scioto",
+      "aliases": [
+        "scioto cc"
+      ]
+    },
+    "secession": {
+      "name": "Secession Golf Club",
+      "shortName": "Secession",
+      "aliases": [
+        "secession gc"
+      ]
+    },
+    "shoreacres": {
+      "name": "Shoreacres",
+      "shortName": "Shoreacres",
+      "aliases": [
+        "shore acres"
+      ]
+    },
+    "skene-valley": {
+      "name": "Skene Valley Country Club",
+      "shortName": "Skene Valley",
+      "aliases": [
+        "skene",
+        "skene valley cc"
+      ]
+    },
+    "st-louis-cc": {
+      "name": "St. Louis Country Club",
+      "shortName": "St. Louis CC",
+      "aliases": [
+        "st louis country club",
+        "saint louis cc"
+      ]
+    },
+    "stonewall-orchard": {
+      "name": "Stonewall Orchard Golf Club",
+      "shortName": "Stonewall Orchard",
+      "aliases": [
+        "stonewall"
+      ]
+    },
+    "alotian": {
+      "name": "The Alotian Club",
+      "shortName": "The Alotian Club",
+      "aliases": [
+        "the alotian club"
+      ]
+    },
+    "the-country-club": {
+      "name": "The Country Club",
+      "shortName": "Brookline",
+      "aliases": [
+        "country club brookline",
+        "tcc",
+        "the country club at brookline"
+      ]
+    },
+    "dunes-club": {
+      "name": "The Dunes Club",
+      "shortName": "Dunes Club",
+      "aliases": [
+        "the dunes club michigan"
+      ]
+    },
+    "the-hay": {
+      "name": "The Hay",
+      "shortName": "The Hay",
+      "aliases": [
+        "hay short course",
+        "pebble beach hay"
+      ]
+    },
+    "loxahatchee": {
+      "name": "The Loxahatchee Club",
+      "shortName": "Loxahatchee",
+      "aliases": [
+        "loxahatchee club"
+      ]
+    },
+    "tree-farm": {
+      "name": "The Tree Farm",
+      "shortName": "Tree Farm",
+      "aliases": [
+        "the tree farm"
+      ]
+    },
+    "vaquero": {
+      "name": "Vaquero Club",
+      "shortName": "Vaquero",
+      "aliases": [
+        "vaquero golf club"
+      ]
+    },
+    "atlanta-athletic-club": {
+      "name": "Atlanta Athletic Club",
+      "shortName": "Atlanta Athletic",
+      "aliases": [
+        "aac",
+        "atlanta ac"
+      ]
+    },
+    "beverly-country-club": {
+      "name": "Beverly Country Club",
+      "shortName": "Beverly",
+      "aliases": [
+        "beverly cc"
+      ]
+    },
+    "biltmore-forest-country-club": {
+      "name": "Biltmore Forest Country Club",
+      "shortName": "Biltmore Forest",
+      "aliases": []
+    },
+    "bluejack-national": {
+      "name": "Bluejack National",
+      "shortName": "Bluejack National",
+      "aliases": [
+        "bluejack"
+      ]
+    },
+    "california-golf-club": {
+      "name": "California Golf Club of San Francisco",
+      "shortName": "California Golf Club of San Francisco",
+      "aliases": [
+        "cal club",
+        "cgc"
+      ]
+    },
+    "caves-valley-golf-club": {
+      "name": "Caves Valley Golf Club",
+      "shortName": "Caves Valley",
+      "aliases": []
+    },
+    "charlotte-country-club": {
+      "name": "Charlotte Country Club",
+      "shortName": "Charlotte",
+      "aliases": [
+        "charlotte cc"
+      ]
+    },
+    "cherry-valley-club": {
+      "name": "Cherry Valley Club",
+      "shortName": "Cherry Valley",
+      "aliases": []
+    },
+    "childress-hall": {
+      "name": "Childress Hall",
+      "shortName": "Childress Hall",
+      "aliases": []
+    },
+    "colorado-golf-club": {
+      "name": "Colorado Golf Club",
+      "shortName": "Colorado",
+      "aliases": [
+        "cgc"
+      ]
+    },
+    "country-club-of-charleston": {
+      "name": "Country Club of Charleston",
+      "shortName": "Country Club of Charleston",
+      "aliases": [
+        "ccc",
+        "charleston cc"
+      ]
+    },
+    "dedham-country-and-polo-club": {
+      "name": "Dedham Country and Polo Club",
+      "shortName": "Dedham Country and Polo",
+      "aliases": [
+        "dedham cc"
+      ]
+    },
+    "east-potomac-golf-links": {
+      "name": "East Potomac Golf Links",
+      "shortName": "East Potomac",
+      "aliases": []
+    },
+    "eastward-ho-country-club": {
+      "name": "Eastward Ho! Country Club",
+      "shortName": "Eastward Ho!",
+      "aliases": [
+        "eastward ho"
+      ]
+    },
+    "floridian-national-golf-club": {
+      "name": "The Floridian National Golf Club",
+      "shortName": "Floridian National",
+      "aliases": [
+        "the floridian"
+      ]
+    },
+    "frederica-golf-club": {
+      "name": "Frederica Golf Club",
+      "shortName": "Frederica",
+      "aliases": []
+    },
+    "gasparilla-golf-club": {
+      "name": "Gasparilla Inn and Club",
+      "shortName": "Gasparilla Inn and",
+      "aliases": [
+        "gasparilla"
+      ]
+    },
+    "huntingdon-valley-country-club": {
+      "name": "Huntingdon Valley Country Club",
+      "shortName": "Huntingdon Valley",
+      "aliases": [
+        "hvcc"
+      ]
+    },
+    "jupiter-hills-club": {
+      "name": "Jupiter Hills Club",
+      "shortName": "Jupiter Hills",
+      "aliases": []
+    },
+    "kapalua": {
+      "name": "Kapalua Plantation Course",
+      "shortName": "Kapalua",
+      "aliases": [
+        "kapalua plantation"
+      ]
+    },
+    "lake-merced-golf-club": {
+      "name": "Lake Merced Golf Club",
+      "shortName": "Lake Merced",
+      "aliases": []
+    },
+    "meadow-club": {
+      "name": "Meadow Club",
+      "shortName": "Meadow",
+      "aliases": []
+    },
+    "mid-ocean-club": {
+      "name": "Mid Ocean Club",
+      "shortName": "Mid Ocean",
+      "aliases": []
+    },
+    "north-berwick-golf-club": {
+      "name": "North Berwick Golf Club (West Links)",
+      "shortName": "North Berwick Golf Club",
+      "aliases": [
+        "north berwick",
+        "nbgc"
+      ]
+    },
+    "old-memorial-golf-club": {
+      "name": "Old Memorial Golf Club",
+      "shortName": "Old Memorial",
+      "aliases": []
+    },
+    "pine-tree-golf-club": {
+      "name": "Pine Tree Golf Club",
+      "shortName": "Pine Tree",
+      "aliases": []
+    },
+    "the-country-club-of-darien": {
+      "name": "The Country Club of Darien",
+      "shortName": "Country Club of Darien",
+      "aliases": [
+        "cc of darien"
+      ]
+    },
+    "the-park": {
+      "name": "The Park West Palm",
+      "shortName": "Park West Palm",
+      "aliases": [
+        "the park",
+        "the park west palm beach"
+      ]
+    },
+    "the-tuxedo-club": {
+      "name": "The Tuxedo Club",
+      "shortName": "The Tuxedo",
+      "aliases": [
+        "tuxedo club"
+      ]
+    },
+    "tiburon-golf-club": {
+      "name": "Tiburón Golf Club",
+      "shortName": "Tiburón",
+      "aliases": [
+        "tiburon"
+      ]
+    },
+    "timuquana-country-club": {
+      "name": "Timuquana Country Club",
+      "shortName": "Timuquana",
+      "aliases": [
+        "timuquana cc"
+      ]
+    },
+    "union-league-national": {
+      "name": "Union League National Golf Club",
+      "shortName": "Union League National",
+      "aliases": [
+        "uln"
+      ]
+    },
+    "watersound-club": {
+      "name": "Watersound Club",
+      "shortName": "Watersound",
+      "aliases": [
+        "camp creek",
+        "origins",
+        "sharks tooth"
+      ]
+    },
+    "wianno-club": {
+      "name": "Wianno Club",
+      "shortName": "Wianno",
+      "aliases": []
+    },
+    "wicker-point-golf-club": {
+      "name": "Wicker Point Golf Club",
+      "shortName": "Wicker Point",
+      "aliases": []
+    },
+    "wilmington-country-club": {
+      "name": "Wilmington Country Club (South Course)",
+      "shortName": "Wilmington Country Club",
+      "aliases": [
+        "wilmington cc"
+      ]
+    }
+  },
+  "generatedAt": "2026-06-18T19:06:14.172Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

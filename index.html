@@ -6011,6 +6011,22 @@ window.confirmPayment = async function() {
         badge.setAttribute('aria-label', `Open account menu for ${profFirst}`);
       }
       loadListings();
+      // Logo Bingo: carry guest play onto the now-known account. Drain any
+      // locally-queued solves (so the server has them + recomputes the streak),
+      // THEN read the server doc back so today's "already played" lock + streak
+      // appear immediately — not just on the next bingo open. Best-effort.
+      try {
+        if (window.drainBingoSyncQueue) {
+          window.drainBingoSyncQueue()
+            .catch(() => {})
+            .then(() => {
+              if (window.reconcileServerGame && window.bingoTodayUTC) {
+                return window.reconcileServerGame(window.bingoTodayUTC());
+              }
+            })
+            .catch(() => {});
+        }
+      } catch (_e) {}
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
       if (window.hydrateWatchlist) window.hydrateWatchlist();
       // Hydrate blocked-users set so buildProducts can client-filter
@@ -18541,9 +18557,15 @@ if (uploadZone) {
     const pts = totalPoints();
     if (scoreLbl) scoreLbl.textContent = pts > 0 ? `${score}/9 · ${pts.toLocaleString()} pts` : `${score}/9`;
     if (fill) fill.style.width = `${Math.round((score / 9) * 100)}%`;
-    const streak = loadStreak();
     if (streakLbl) {
-      const showStreak = streak.lastPlayedDate === TODAY ? streak.count : streak.count;
+      // Signed in → the server-derived streak (written inline by
+      // syncBingoProgress) is authoritative. Guest/offline → local cache.
+      let showStreak;
+      if (window.CURRENT_USER && Number.isFinite(window.__serverBingoStreak)) {
+        showStreak = window.__serverBingoStreak;
+      } else {
+        showStreak = loadStreak().count;
+      }
       streakLbl.textContent = `${showStreak}d`;
     }
     updateNavBingoCta();
@@ -18562,16 +18584,28 @@ if (uploadZone) {
       const body = document.querySelector('.bingo-body');
       const gridEl = document.getElementById('bingoGrid');
       if (body && gridEl) {
-        const streak = loadStreak();
+        const bannerStreak = (window.CURRENT_USER && Number.isFinite(window.__serverBingoStreak))
+          ? window.__serverBingoStreak : loadStreak().count;
         const banner = document.createElement('div');
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
         const elapsed = totalElapsedSec();
+        // Honest non-gating nudge for guests — play is never blocked, but a
+        // signed-out result isn't saved or ranked, so invite them to sign in.
+        const guestNudge = !window.CURRENT_USER ? `
+          <div style="margin-top:10px;font-size:13px;opacity:0.95">
+            Playing as a guest — this result isn't saved.
+            <button type="button" data-action="show-auth"
+              style="margin-left:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.5);color:#fff;font-weight:600;font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer">
+              Sign in</button>
+            <span style="display:block;margin-top:2px;opacity:0.85">to save your streak going forward + join the leaderboard.</span>
+          </div>` : '';
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
-            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${streak.count}
+            <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${bannerStreak}
           </div>
+          ${guestNudge}
         `;
         body.insertBefore(banner, gridEl);
       }
@@ -18608,6 +18642,85 @@ if (uploadZone) {
   }
 
   // ── Open / close screen ────────────────────────────────────────────────
+  // Normalize a server-stored cell into the client cell shape (same shape the
+  // client sends; defensive defaults guard against partial/legacy data).
+  function normalizeServerCell(sc) {
+    const VALID = ['pending', 'correct', 'wrong', 'revealed'];
+    return {
+      state: VALID.includes(sc && sc.state) ? sc.state : 'pending',
+      attempts: Number(sc && sc.attempts) || 0,
+      guess: typeof (sc && sc.guess) === 'string' ? sc.guess : null,
+      tappedAt: Number.isFinite(sc && sc.tappedAt) ? sc.tappedAt : null,
+      resolvedAt: Number.isFinite(sc && sc.resolvedAt) ? sc.resolvedAt : null,
+      points: Number(sc && sc.points) || 0,
+    };
+  }
+
+  // Cross-platform read-back. When signed in, the SERVER doc
+  // users/{uid}/bingoGames/{date} is the source of truth: restore cells, adopt
+  // the server-derived streak, and (because resolved cells are non-tappable,
+  // see openGuessModal) a solved board comes back LOCKED. Local storage stays a
+  // cache/offline buffer. Offline / read error → no-op, retried on next open.
+  async function reconcileServerGame(date) {
+    const u = window.CURRENT_USER;
+    if (!u || !u.uid) return;
+    try {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const db = getFirestore();
+      const [gameSnap, userSnap] = await Promise.all([
+        getDoc(doc(db, 'users/' + u.uid + '/bingoGames/' + date)),
+        getDoc(doc(db, 'users/' + u.uid)),
+      ]);
+      // Authoritative streak — written inline by syncBingoProgress (not the
+      // #34-flaky aggregate trigger). render() prefers this when signed in.
+      if (userSnap.exists()) {
+        const sd = userSnap.data() || {};
+        if (Number.isFinite(Number(sd.bingoCurrentStreak))) {
+          window.__serverBingoStreak = Number(sd.bingoCurrentStreak);
+        }
+      }
+      if (date !== game.date) { render(); return; } // UTC day rolled mid-flight
+      const persistLocal = () => saveGameState(date, {
+        cells: game.cells, finalScore: scoreCount(),
+        completed: isComplete(), savedAt: Date.now(),
+      });
+      if (!gameSnap.exists()) {
+        // No server record yet. If a local solve never synced, queue it.
+        if (isComplete()) { try { enqueueBingoSync(date); } catch (_e) {} }
+        render();
+        return;
+      }
+      const sdata = gameSnap.data() || {};
+      const serverCells = (Array.isArray(sdata.cells) && sdata.cells.length === 9)
+        ? sdata.cells.map(normalizeServerCell) : null;
+      if (!serverCells) { render(); return; }
+      if (Number.isFinite(sdata.solvedAt)) {
+        // Server solved → source of truth. Restore (locks resolved tiles).
+        game.cells = serverCells;
+        persistLocal();
+        render();
+        return;
+      }
+      // Neither solved → cell-wise MAX-progress merge: a server-resolved cell
+      // beats a local pending; a local-resolved cell is kept.
+      const local = (game.cells && game.cells.length === 9)
+        ? game.cells : defaultCellState();
+      game.cells = local.map((lc, i) => {
+        const sc = serverCells[i];
+        const localResolved = lc && lc.state !== 'pending';
+        const serverResolved = sc && sc.state !== 'pending';
+        return (serverResolved && !localResolved) ? sc : lc;
+      });
+      persistLocal();
+      render();
+    } catch (e) {
+      // Offline / read failure → keep playing from the local cache; the next
+      // openBingo / online event / sign-in retries the reconcile.
+      console.warn('[bingo] reconcileServerGame fell back to local:', e && e.message);
+    }
+  }
+
   function openBingo() {
     // Re-seed state if the UTC day rolled while the page was open
     const t = todayUTC();
@@ -18672,6 +18785,10 @@ if (uploadZone) {
     updateBingoStaleBanner();
     // If we came back online while bingo was closed, drain any pending sync.
     drainBingoSyncQueue().catch(() => {});
+    // Cross-platform read-back: when signed in, reconcile against the server
+    // doc (source of truth) so a solve on another device comes back locked and
+    // the streak is the server value. Non-blocking — grid is already rendered.
+    reconcileServerGame(game.date).catch(() => {});
 
     render();
     loadLeaderboard(currentLbTab);
@@ -19102,11 +19219,20 @@ if (uploadZone) {
         banner.className = 'bingo-result-banner';
         const pts = totalPoints();
         const elapsed = totalElapsedSec();
+        const guestNudge = !window.CURRENT_USER ? `
+          <div style="margin-top:10px;font-size:13px;opacity:0.95">
+            Playing as a guest — this result isn't saved.
+            <button type="button" data-action="show-auth"
+              style="margin-left:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.5);color:#fff;font-weight:600;font-size:13px;padding:4px 10px;border-radius:8px;cursor:pointer">
+              Sign in</button>
+            <span style="display:block;margin-top:2px;opacity:0.85">to save your streak going forward + join the leaderboard.</span>
+          </div>` : '';
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
             <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}
           </div>
+          ${guestNudge}
         `;
         body.insertBefore(banner, grid);
       }
@@ -19242,6 +19368,11 @@ if (uploadZone) {
   A['open-bingo']           = () => openBingo();
   // Expose for the deep-link / guest-mode hand-off in the auth flow.
   window.openBingo = openBingo;
+  // Exposed so the onAuthStateChanged sign-in branch can reconcile guest play
+  // onto the now-known account (drain local solves → read the server doc back).
+  window.drainBingoSyncQueue = drainBingoSyncQueue;
+  window.reconcileServerGame = reconcileServerGame;
+  window.bingoTodayUTC = todayUTC;
 
   // Kick the offline-readiness pass on app open so the puzzle + 9 logos are
   // pinned locally before the user navigates to bingo. Idle-callback first
