@@ -225,6 +225,15 @@ async function preflightAllowed({uid, to, category}) {
       if (!consent || consent.granted !== true) {
         return {allowed: false, reason: "no-marketing-consent"};
       }
+      // Marketing PAUSE. setMarketingPause (emailPauseToggle.js) writes
+      // users/{uid}.marketingPausedUntil; this gate was missing, so pausing was
+      // a no-op. Suppress marketing email while the pause window is active.
+      const paused = data.marketingPausedUntil;
+      const pausedMs = paused && typeof paused.toMillis === "function" ?
+        paused.toMillis() : (typeof paused === "number" ? paused : 0);
+      if (pausedMs && pausedMs > Date.now()) {
+        return {allowed: false, reason: "marketing-paused"};
+      }
     }
     const prefs = data.emailPrefs || {};
     if (prefs[category] === false) {

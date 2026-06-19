@@ -33,6 +33,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const {sendPush} = require("./lib/push");
+const {notify} = require("./lib/notify");
 
 // Shared sizing — duplicated lite copy because we don't pull from index.js
 // (would create a require-cycle). Keep these in sync if index.js sizing
@@ -704,22 +705,30 @@ exports.pushOnNewMessage = onDocumentCreated(
       // mandated `notificationPrefs.pushMessages !== false` gate).
       // Stale-token pruning also happens inside sendPush().
       // Messages are NOT urgent — they respect quiet hours.
-      await sendPush(recipientId, {
-        title,
-        body,
-        subtitle,
-        deepLink: `teebox://conversation/${cid}`,
-        kind: "new-message",
-        data: {
-          kind: "new-message",
-          conversationId: cid,
-          messageId,
-          senderId,
-          senderName,
-          coalesceCount: String(count),
+      // Route through the notification seam (lib/notify) — behavior-preserving:
+      // notify() delegates the push to the same sendPush() (messages category +
+      // quiet hours + token pruning). One fan-out entry, not scattered sends.
+      await notify({
+        recipientUid: recipientId,
+        push: {
+          payload: {
+            title,
+            body,
+            subtitle,
+            deepLink: `teebox://conversation/${cid}`,
+            kind: "new-message",
+            data: {
+              kind: "new-message",
+              conversationId: cid,
+              messageId,
+              senderId,
+              senderName,
+              coalesceCount: String(count),
+            },
+          },
+          category: "messages",
+          opts: {threadId: cid},
         },
-      }, "messages", {
-        threadId: cid,
       });
     } catch (err) {
       logger.error("pushOnNewMessage error", err);

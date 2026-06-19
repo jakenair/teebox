@@ -35,6 +35,9 @@ const VALID_CATEGORIES = new Set([
   // sense at the prefs level. The 8am-local reminder uses urgent=true to
   // bypass quiet hours since the user explicitly chose that delivery time.
   "bingo",
+  // "likes" — someone saved/favorited your listing (notifyLike). Default ON;
+  // batched/deduped at the producer so toggling can't fan out.
+  "likes",
 ]);
 
 // Sensible defaults if the user has never opened the preferences screen.
@@ -49,6 +52,7 @@ const DEFAULT_PREFS = {
   news: false,
   // Bingo default ON — see VALID_CATEGORIES comment above for rationale.
   bingo: true,
+  likes: true,
   quietHours: {start: "21:00", end: "08:00", tz: "America/New_York"},
 };
 

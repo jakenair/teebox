@@ -11,6 +11,8 @@ const stripe = require("stripe");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
+// Single notification fan-out seam (in-app + push + email; honors prefs).
+const {notify} = require("./lib/notify");
 
 admin.initializeApp();
 
@@ -4064,33 +4066,12 @@ function emailShell(headline, bodyHtml, ctaLabel, ctaUrl) {
     </table></body></html>`;
 }
 
-// LEGACY sendEmail — does NOT route through lib/email.js's hardened
-// path (no recordSend, no consent gate, no unsubscribe footer).
-// TODO: migrate the 7 in-file callers to require("./lib/email").sendEmail
-// with React Email templates. Until then, at minimum check result.error
-// from the Resend SDK so silent failures aren't swallowed (the bug we
-// just fixed in lib/email.js applies to this code path too).
-async function sendEmail({to, subject, html}) {
-  if (!to || !subject || !html) return;
-  let key;
-  try { key = RESEND_KEY.value(); } catch (_e) { key = null; }
-  if (!key) {
-    logger.info(`[email skipped] RESEND_API_KEY not set — would send "${subject}" to ${to}`);
-    return;
-  }
-  try {
-    const {Resend} = require("resend");
-    const resend = new Resend(key);
-    const result = await resend.emails.send({from: FROM_EMAIL, to, subject, html});
-    // Resend SDK v3+ returns API errors via result.error (no throw).
-    if (result && result.error) {
-      const errMsg = (result.error.message || JSON.stringify(result.error));
-      logger.error(`[email send failed] ${subject} → ${to}: ${errMsg}`);
-    }
-  } catch (err) {
-    logger.error(`[email send failed] ${subject} → ${to}`, err);
-  }
-}
+// REMOVED (2026-06): the legacy consent-bypassing `sendEmail({to,subject,html})`
+// — it skipped the recordSend / GDPR-consent / suppression / unsubscribe path
+// in lib/email.js. It had no remaining callers (every producer already uses
+// sendEmailCanonical → lib/email.sendEmail). Nothing sends email outside the
+// consented/unsubscribe-aware path now. (emailShell above is its dead body
+// helper, left inert; remove in a tidy-up.)
 
 // ─────────────────────────────────────────────────────────────
 // Legacy order email triggers removed (2026-05-13)
@@ -4296,13 +4277,17 @@ exports.notifyOnNewMessage = onDocumentCreated(
       const fromName = (sender && sender.displayName) || "A buyer";
       const preview = String(msg.text || msg.body || "").slice(0, 120);
 
-      // In-app notification ALWAYS fires (badge / inbox dot).
-      await writeNotification(recipientUid, {
-        kind: "new-message",
-        listingId,
-        conversationId,
-        fromName,
-        preview,
+      // In-app notification ALWAYS fires (badge / inbox dot). Routed through
+      // the seam — behavior-preserving (notify writes the same doc shape).
+      await notify({
+        recipientUid,
+        inApp: {
+          kind: "new-message",
+          listingId,
+          conversationId,
+          fromName,
+          preview,
+        },
       });
 
       // Phone-only / no-email recipients: nothing else to do.
@@ -4369,13 +4354,18 @@ exports.notifyOnNewMessage = onDocumentCreated(
         (totalNew > 1 ?
           `${totalNew} new messages from ${fromName}` :
           `New message from ${fromName}`);
-      await sendEmailCanonical({
-        to: recipient.email,
-        subject,
-        react: NewMessageDigestTpl ? NewMessageDigestTpl(ctx) : null,
-        category: "transactional",
-        uid: recipientUid,
-        template: "NewMessageDigest",
+      // Email via the seam — behavior-preserving (notify → lib/email.sendEmail,
+      // which sendEmailCanonical already wraps; same consent/unsubscribe path).
+      await notify({
+        recipientUid,
+        email: {
+          to: recipient.email,
+          subject,
+          react: NewMessageDigestTpl ? NewMessageDigestTpl(ctx) : null,
+          category: "transactional",
+          uid: recipientUid,
+          template: "NewMessageDigest",
+        },
       });
 
       // Stamp the watermark (per-thread) so the next 4 hours are silent.
@@ -7287,6 +7277,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 // `firebase deploy --only functions` picks them up automatically.
 // ─────────────────────────────────────────────────────────────
 Object.assign(exports, require("./pushTriggers"));
+Object.assign(exports, require("./likeNotify"));
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order
