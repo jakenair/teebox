@@ -123,9 +123,9 @@ const stripeProPriceId = defineSecret("STRIPE_PRO_PRICE_ID");
 // Tier-based platform fees. Free sellers pay 6.5%; Pro Seller subscribers
 // ($14.99/mo) pay 3%. Break-even is ~$385/mo of GMV. Keep these in sync
 // with the marketing copy in the Pro upgrade modal in index.html.
-// Fee/payout math lives in lib/fees.js (single source of truth, unit-tested).
-const {computeFees, PLATFORM_FEE_PERCENT, PLATFORM_FEE_PERCENT_PRO} =
-  require("./lib/fees");
+// Fee constants from lib/fees.js. computeFees() wiring is deferred to its own
+// dedicated money-math deploy (see createPaymentIntent) — inline for now.
+const {PLATFORM_FEE_PERCENT, PLATFORM_FEE_PERCENT_PRO} = require("./lib/fees");
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
@@ -495,10 +495,16 @@ exports.createPaymentIntent = onRequest(
       // is server-written by stripeWebhook on customer.subscription.*
       // events, so a malicious client can't fabricate it (the firestore
       // rules whitelist also blocks client writes to `tier`).
-      // Single source of truth (lib/fees.js) — same fn the seller-side net
-      // estimate uses, so the quote can never drift from the real fee.
-      const {tier: sellerTier, feeRate, platformFeeCents, sellerPayoutCents} =
-        computeFees(reservation.priceCents, sellerData.tier);
+      // NOTE: computeFees(lib/fees.js) wiring is intentionally DEFERRED to its
+      // own dedicated money-math deploy (keeps this list-first deploy
+      // logging-only so the money-gate result is unambiguous). Behavior here is
+      // identical to lib/fees.js (which is unit-tested) — inline for now.
+      const sellerTier = sellerData.tier === "pro" ? "pro" : "free";
+      const feeRate = sellerTier === "pro"
+        ? PLATFORM_FEE_PERCENT_PRO
+        : PLATFORM_FEE_PERCENT;
+      const platformFeeCents = Math.round(reservation.priceCents * feeRate);
+      const sellerPayoutCents = reservation.priceCents - platformFeeCents;
 
       // Roll back the reservation: revert status if we flipped it, clear
       // pending pointers, and decrement quantityReserved by exactly the
@@ -533,6 +539,16 @@ exports.createPaymentIntent = onRequest(
 
       if (!stripeAccountId || !stripeChargesEnabled) {
         await rollbackReservation();
+        // Observability (list-first cold-start signal): a buyer reached checkout
+        // on a listing whose seller isn't charges-ready. Expected occasionally
+        // now that listings publish pre-onboarding; a SPIKE means many sellers
+        // publishing but not finishing payout setup — that's a cold-start health
+        // signal worth paging on. Best-effort; never blocks the (already-safe)
+        // refusal below.
+        await opsAlert("warn",
+            "createPaymentIntent: checkout on a non-charges-ready seller (list-first)",
+            {listingId, sellerId: reservation.sellerId || null,
+              buyerUid: authUser.uid});
         return res.status(409).json({
           error: "This seller hasn't finished setting up payouts yet. " +
             "Please come back in a bit, or message them via the listing.",

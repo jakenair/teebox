@@ -4911,6 +4911,10 @@
             <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
           </div>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
+          <!-- Shown by openDetailModal when the seller hasn't finished Stripe
+               payout setup (profiles.chargesReady !== true): listing is visible
+               but not buyable yet. -->
+          <div id="detailNotBuyableNote" role="status" style="display:none;font-size:12.5px;color:var(--gray-600);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:8px 10px;margin-top:2px;line-height:1.4;"></div>
           <button class="btn-message-seller-link" data-action="detail-message-seller">Have a question? Message the seller</button>
           <button class="btn-link-muted" data-action="report-listing" aria-label="Report this listing" style="background:none;border:0;color:var(--gray-500);font-size:12px;text-decoration:underline;padding:4px;cursor:pointer;">Report this listing</button>
         </div>
@@ -5014,7 +5018,7 @@
 <div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
   <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
     <div class="modal-header">
-      <span class="modal-title" id="stripeRequiredTitle">Complete payout setup to publish</span>
+      <span class="modal-title" id="stripeRequiredTitle">Finish payout setup to get paid</span>
       <button class="modal-close" data-action="close-stripe-required" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="sell-form">
@@ -5025,7 +5029,7 @@
         </div>
       </div>
       <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
-        Your listing draft is saved. Finish Stripe onboarding, then return and hit <strong>Submit Listing</strong> again.
+        Your listing is <strong>live now</strong> — but buyers can't purchase until you finish Stripe onboarding. You can do this anytime from <strong>My Shop</strong>.
       </p>
       <div class="modal-footer" style="padding:0;margin-top:0;">
         <button class="btn-full ghost" data-action="close-stripe-required">Not now</button>
@@ -7726,47 +7730,26 @@ window.confirmPayment = async function() {
     // "Edit path is not gated" decision below).
     if (window.__editingListingId) { return saveListingEdit(); }
     // ─────────────────────────────────────────────────────────────
-    // Stripe Connect KYC gate (C2 — E2E_TRANSACTION_LOOP_AUDIT.md).
-    // Sellers must have a Stripe Connect account with charges_enabled
-    // before they can PUBLISH a listing. Buyers can already see live
-    // listings, and `createPaymentIntent` (functions/index.js:377) will
-    // 409 if charges aren't enabled — that means a buyer reaches the
-    // checkout step on a listing they literally cannot pay for. We
-    // block at publish-time instead so the failure is surfaced to the
-    // seller, not the buyer.
+    // LIST-FIRST (2026-06): publishing NO LONGER requires Stripe Connect to be
+    // complete. The listing goes live immediately and renders as "finalizing
+    // setup" / not-buyable to buyers until charges_enabled — the real money
+    // gate lives at checkout (createPaymentIntent 409s + rolls back if the
+    // seller isn't charges-ready, before any PaymentIntent). We surface the
+    // REMAINING create preconditions below with clear, actionable messages so a
+    // Submit tap never fails silently (the bug that hit our first beta seller).
+    // `stripeChargesEnabled` is read AFTER publish only, to decide the seller
+    // "finish setup to get paid" nudge.
     //
-    // Edit path is not gated: this function only handles initial
-    // publish (addDoc → status: 'active'). Listing edits go through a
-    // different code path; a seller with live listings is already past
-    // this gate so re-checking would be friction.
-    // Draft saves are local-only (clearSellDraft on success); the
-    // autosave path never calls submitListing, so drafts continue to
-    // work pre-onboarding.
-    const stripeGateBtn = document.getElementById('submitListingBtn');
-    if (stripeGateBtn) { stripeGateBtn.disabled = true; stripeGateBtn.textContent = 'Checking payout setup…'; }
-    let stripeStatus = null;
-    try {
-      const fn = httpsCallable(fns, 'getStripeAccountStatus');
-      const result = await fn();
-      stripeStatus = (result && result.data) || {};
-      // Refresh the client-side cache used by the stripe-connect action
-      // (it fires a security alert when payouts were already enabled).
-      window.LAST_STRIPE_STATUS = stripeStatus;
-    } catch (e) {
-      console.error('[submitListing] getStripeAccountStatus failed:', e?.code, e?.message, e);
-      if (stripeGateBtn) { stripeGateBtn.disabled = false; stripeGateBtn.textContent = 'Submit Listing'; }
-      // Fail closed: if we can't verify Stripe state we don't publish.
-      showToast('Could not verify your payout setup. Please try again.', 'error');
+    // Precondition (firestore.rules create gate): EMAIL must be verified. The
+    // cached flag goes stale after the user clicks the verify link without
+    // re-signing-in, so reload() first; then surface a clear message + the
+    // Resend banner instead of letting the rules write fail silently.
+    try { await window.CURRENT_USER.reload(); } catch (_e) {}
+    if (!window.CURRENT_USER.emailVerified) {
+      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+      showToast('Verify your email to publish — we sent a link to your inbox (tap Resend on the banner if needed).', 'error');
       return;
     }
-    const chargesEnabled = !!stripeStatus.chargesEnabled;
-    if (!chargesEnabled) {
-      if (stripeGateBtn) { stripeGateBtn.disabled = false; stripeGateBtn.textContent = 'Submit Listing'; }
-      try { showStripeRequiredDialog(stripeStatus); }
-      catch (e) { console.warn('showStripeRequiredDialog failed:', e); showToast('Finish payout setup to publish listings.', 'error'); }
-      return;
-    }
-    if (stripeGateBtn) { stripeGateBtn.textContent = 'Submit Listing'; stripeGateBtn.disabled = false; }
     const title = document.getElementById('sellTitle').value.trim();
     const brand = document.getElementById('sellBrand').value.trim();
     const cat = document.getElementById('sellCat').value;
@@ -7860,6 +7843,21 @@ window.confirmPayment = async function() {
       } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
       showToast("You're live — your listing is on the marketplace now.", 'success');
+      // Seller "finish setup to get paid" nudge. The listing is visible now, but
+      // buyers can't purchase until Stripe Connect charges_enabled. If the seller
+      // isn't ready, prompt them to finish onboarding. Best-effort, non-blocking
+      // — reads their OWN user doc (owner-readable). The actual money gate is
+      // enforced server-side at checkout regardless.
+      (async () => {
+        try {
+          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          const us = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+          const chargesReady = us.exists() && us.data().stripeChargesEnabled === true;
+          if (!chargesReady) {
+            setTimeout(() => { try { showStripeRequiredDialog(); } catch (_e) {} }, 1300);
+          }
+        } catch (_e) { /* non-blocking */ }
+      })();
       loadListings();
       // Contextual push prompt: ask once the seller has their first listing
       // up, framed as "get notified when buyers respond". Cooldown logic
@@ -7906,9 +7904,19 @@ window.confirmPayment = async function() {
       // back in" copy. unauthenticated is a separate case (token expired)
       // and gets the generic retry copy.
       if (code.includes('permission-denied')) {
-        try { showStripeRequiredDialog(stripeStatus); }
-        catch (e2) { console.warn('showStripeRequiredDialog failed:', e2); }
-        msg = "Your seller payouts aren't fully set up yet. Tap 'Set up payouts'. About 3 minutes via Stripe.";
+        // Post list-first the create rule no longer gates on charges, so a
+        // denial here is a remaining precondition — almost always email-not-
+        // verified (App Check is the rare other case). Surface the specific
+        // reason + Resend; never the old "set up payouts" misdirection and
+        // never a dead Submit. emailVerified may be stale → reload first.
+        let emailOk = true;
+        try { await window.CURRENT_USER.reload(); emailOk = !!window.CURRENT_USER.emailVerified; } catch (_e) {}
+        if (!emailOk) {
+          try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+          msg = 'Verify your email to publish — tap Resend on the banner above.';
+        } else {
+          msg = "Couldn't publish — make sure all fields are valid and try again. If it persists, refresh the page.";
+        }
       } else if (code.includes('unauthenticated')) {
         msg = 'Session expired. Please try again.';
       } else if (code.includes('storage/')) {
@@ -9104,6 +9112,11 @@ function openDetailModal(id) {
   });
   if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : 'Buy Now at Ask');
   if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
+  // Reset the not-buyable note on every open; the async seller-profile check
+  // (below, in loadProfile().then) re-shows it when the seller isn't
+  // charges-ready (visible-but-not-buyable, list-first).
+  const notBuyableNote = document.getElementById('detailNotBuyableNote');
+  if (notBuyableNote) { notBuyableNote.style.display = 'none'; notBuyableNote.textContent = ''; }
   // Owner-only "Edit listing" link. Visible ONLY when a user is
   // signed in AND owns this (real, Firestore-backed) listing. Hidden
   // for guests, other users, and demo listings. Locked listings
@@ -9152,6 +9165,25 @@ function openDetailModal(id) {
       if (prof._user && prof._user.sellerVerified) {
         const slot = sellerEl.querySelector('.seller-verified-slot');
         if (slot) slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">Verified</span>';
+      }
+      // Visible-but-not-buyable (list-first): if the seller hasn't completed
+      // Stripe payout setup (public profiles.chargesReady mirror !== true), the
+      // listing shows but can't be purchased yet. Disable Buy + explain why.
+      // UX only — createPaymentIntent enforces the real money gate server-side
+      // (and would 409 anyway). Don't override a sold/pending lock, and don't
+      // gate the seller's own view of their listing.
+      const ownsThis = !!(window.CURRENT_USER && p.sellerId &&
+        window.CURRENT_USER.uid === p.sellerId);
+      if (buyBtn && !isSold && !isPending && !ownsThis && prof.chargesReady !== true) {
+        buyBtn.disabled = true;
+        buyBtn.style.opacity = '0.55';
+        buyBtn.style.cursor = 'not-allowed';
+        buyBtn.textContent = 'Seller finalizing setup';
+        if (notBuyableNote) {
+          notBuyableNote.textContent =
+            "This seller is finishing payment setup, so this isn't buyable yet — check back soon. You can still message them or save it to your watchlist.";
+          notBuyableNote.style.display = '';
+        }
       }
     });
   }
@@ -12488,7 +12520,7 @@ window.closeSellModalDirect = closeSellModalDirect;
 // for now the copy is generic.
 function showStripeRequiredDialog(_status) {
   const backdrop = document.getElementById('stripeRequiredBackdrop');
-  if (!backdrop) { showToast('Finish payout setup to publish listings.', 'error'); return; }
+  if (!backdrop) { showToast('Finish payout setup so buyers can purchase your listings.', 'error'); return; }
   backdrop.classList.add('open');
 }
 function closeStripeRequiredDirect() {
