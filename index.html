@@ -1793,6 +1793,11 @@
 
   /* PRODUCT GRID */
   .product-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 18px; }
+  /* QA #5: "Shop Now" scrolls #productGrid into view (block:'start'). The fixed
+     nav (--nav-h=64px) + fixed .cat-bar-wrap (48px) would otherwise cover the
+     grid's first row — landing "between two sections". scroll-margin-top offsets
+     the scroll target below both bars. */
+  #productGrid { scroll-margin-top: calc(var(--nav-h) + 56px); }
   .product-card { background: var(--white); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--gray-200); cursor: pointer; transition: transform 200ms cubic-bezier(.4,0,.2,1), box-shadow 200ms cubic-bezier(.4,0,.2,1), border-color 200ms cubic-bezier(.4,0,.2,1); position: relative; }
   .product-card.sold { opacity: 0.6; }
   .product-card.sold .product-image { filter: grayscale(0.5); }
@@ -2325,6 +2330,12 @@
   .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
   .auth-photo-notice strong { color: #b04428; font-size: 13px; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
+  /* Payout orientation heads-up — same green-50 info language as the verified
+     bar above it (calm, non-alarming). CTA reuses .btn-stripe-connect (the
+     system's payout-setup pill) for consistency with the My-Shop banner. */
+  .sell-payout-headsup { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; line-height: 1.45; color: var(--green-700); }
+  .sell-payout-headsup strong { color: var(--green-900); font-weight: 700; }
+  .sell-payout-headsup .btn-stripe-connect { display: inline-flex; margin-top: 10px; }
 
   /* IMAGE UPLOAD */
   .upload-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer; transition: var(--transition); background: var(--gray-100); margin-bottom: 12px; }
@@ -4557,10 +4568,9 @@
         <span class="mobile-nav-link-label">Trending</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
-      <a href="#drops" class="mobile-nav-link" data-action="close-mobile-nav-and-go" data-anchor="drops">
-        <span class="mobile-nav-link-label">Drops</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
+<!-- QA #4: "Drops" nav removed — DROPS=[] (feature retired v1.1); buildDrops()
+     hides the #drops section, so this link scrolled to a hidden anchor ("leads
+     nowhere"). Restore this link if/when curated Drops return. -->
       <a href="#" class="mobile-nav-link" data-action="open-bingo">
         <span class="mobile-nav-link-label">Logo Bingo</span>
         <span class="mobile-nav-link-chev">›</span>
@@ -4842,7 +4852,7 @@
 <footer>
   <div class="footer-inner">
     <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The peer-to-peer marketplace for golfers. Clubs, apparel, accessories. Direct between members, with secured payments and a flat 6.5% seller fee.</p></div>
-    <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#drops">Drops</a><a href="#trending">Trending</a></div>
+    <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#trending">Trending</a></div>
     <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
     <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/index.html">Reads</a><a href="/evans-scholars.html">Evans Scholars</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
     <div class="footer-col"><h4>Top Brands</h4><a href="/brand/smathers-branson.html">Smathers &amp; Branson</a><a href="/brand/peter-millar.html">Peter Millar</a><a href="/brand/holderness-bourne.html">Holderness &amp; Bourne</a><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/taylormade.html">TaylorMade</a></div>
@@ -4935,6 +4945,16 @@
     <div class="modal-header"><span class="modal-title">List an Item for Sale</span><button class="modal-close" data-action="close-sell-direct" aria-label="Close" data-ico="close"></button></div>
     <div class="sell-form">
       <div class="seller-verified-bar"><span data-ico="check" aria-hidden="true"></span> Verified Seller. Your listings go live instantly</div>
+
+      <!-- List-first payout orientation. Shown by openSellModal ONLY when the
+           seller hasn't completed Stripe Connect (users/{uid}.stripeChargesEnabled
+           false): you can publish now; to GET PAID you finish a quick payout
+           setup. Non-blocking orientation. The CTA launches the real Stripe
+           Connect onboarding (data-action="stripe-connect" → createStripeOnboardingLink). -->
+      <div class="sell-payout-headsup" id="sellPayoutHeadsUp" role="status" style="display:none;">
+        <strong>You can publish right now.</strong> To receive payment when your item sells, you'll finish a quick payout setup with Stripe (~2 min). Do it now or anytime from My Shop.
+        <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish payment setup</button>
+      </div>
 
       <!-- IMAGE UPLOAD -->
       <div class="form-row">
@@ -7508,8 +7528,20 @@ window.confirmPayment = async function() {
       setTimeout(() => openSellModal(), 600);
     } catch (e) {
       console.error('Seller verification failed:', e);
-      showToast('Error. Please try again.');
       btn.disabled = false; btn.textContent = 'Agree & Become a Seller';
+      // Section C — surface the SPECIFIC, actionable reason; never a generic
+      // dead end. requestSellerVerification's common rejection is email-not-
+      // verified (failed-precondition); show that + the Resend banner instead
+      // of "Error. Please try again." (the gap the friend's review hit).
+      const code = (e && e.code) || '';
+      const msg = (e && e.message) || '';
+      if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
+        try { await window.CURRENT_USER.reload(); } catch (_e) {}
+        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+        showToast('Verify your email to become a seller — we sent a link to your inbox (tap Resend on the banner if needed).', 'error');
+      } else {
+        showToast(msg ? ('Could not become a seller: ' + msg.slice(0, 100)) : 'Could not become a seller. Please try again.', 'error');
+      }
     }
   };
 
@@ -12196,6 +12228,23 @@ function openSellModal() {
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
+  // List-first orientation (#1): if the seller hasn't completed Stripe payout
+  // setup, show the non-blocking heads-up (publish now; finish payout to get
+  // paid). Reads their OWN user doc (owner-readable). Best-effort; defaults
+  // hidden, so a read failure never blocks listing. Hidden in edit mode.
+  (async () => {
+    const el = document.getElementById('sellPayoutHeadsUp');
+    if (!el) return;
+    el.style.display = 'none';
+    if (window.__editingListingId || !window.CURRENT_USER) return;
+    try {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
+      const ready = snap.exists() && snap.data().stripeChargesEnabled === true;
+      el.style.display = ready ? 'none' : '';
+    } catch (_e) { /* leave hidden on any read error */ }
+  })();
   // Force create-flow chrome unless we're in edit mode. openEditListing()
   // sets window.__editingListingId BEFORE calling openSellModal(), so
   // this is a no-op on the edit path and only resets stale "Edit your
