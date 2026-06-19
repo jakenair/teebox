@@ -1021,8 +1021,9 @@ exports.markOrderShipped = onCall(
           title: "Your order shipped",
           body: order.trackingNumber ? `Tracking: ${order.trackingNumber}` : "It's on the way.",
           kind: "order-shipped",
+          deepLink: `teebox://order/${orderId}`,
           orderId: String(orderId),
-        }).catch((e) => logger.error("markOrderShipped: push failed (non-fatal)", e));
+        }, "orders").catch((e) => logger.error("markOrderShipped: push failed (non-fatal)", e));
         if (buyer.email) {
           await sendTemplated({
             category: CATEGORIES.TRANSACTIONAL,
@@ -1089,8 +1090,9 @@ exports.confirmOrderDelivered = onCall(
           title: "Buyer received your item",
           body: "Your payout will appear on Stripe's standard schedule.",
           kind: "order-delivered-seller",
+          deepLink: `teebox://order/${orderId}`,
           orderId: String(orderId),
-        }).catch((e) => logger.error("confirmOrderDelivered: push failed (non-fatal)", e));
+        }, "orders").catch((e) => logger.error("confirmOrderDelivered: push failed (non-fatal)", e));
         if (seller.email) {
           await sendTemplated({
             category: CATEGORIES.TRANSACTIONAL,
