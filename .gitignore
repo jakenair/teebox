@@ -112,3 +112,9 @@ ios/build/
 
 # Logo Bingo audit run output (regenerated per-invocation; baseline IS committed).
 scripts/logo-audit-report.json
+
+# Internal-only docs — audits, security reviews, plans, QA scripts. The repo is
+# PUBLIC (GitHub Pages from root); these must NEVER be committed/served. They
+# were previously untracked only by omission — ignore the whole dir so a stray
+# `git add -A` can't leak them.
+.internal-docs/
