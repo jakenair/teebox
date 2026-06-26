@@ -31,7 +31,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="TeeBox" />
 <meta property="og:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta property="og:description" content="Buy and sell golf gear with confidence. AI listing descriptions, buyer protection, instant payouts via Stripe." />
+<meta property="og:description" content="Buy and sell golf gear with confidence. AI listing descriptions, secure payments, buyer protection, and fast payouts." />
 <meta property="og:url" content="https://teeboxmarket.com/" />
 <meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-default.png" />
@@ -43,7 +43,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@teeboxmarket" />
 <meta name="twitter:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta name="twitter:description" content="Buy and sell golf gear with confidence. AI listing descriptions, buyer protection, instant payouts via Stripe." />
+<meta name="twitter:description" content="Buy and sell golf gear with confidence. AI listing descriptions, secure payments, buyer protection, and fast payouts." />
 <meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta name="twitter:image:alt" content="TeeBox: The Premier Golf Marketplace" />
 <!--
@@ -2669,6 +2669,29 @@
   .chat-header-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
   .chat-header-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
   .chat-header-avatar:hover { border-color: rgba(255,255,255,0.5); }
+  /* Seller-identity row (listing detail) — avatar + name + meta, tappable → openProfile.
+     Reuses avatarHtml + the avatarReveal fade (shared keyframe). */
+  .seller-id-row { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 4px 0; cursor: pointer; text-align: left; }
+  .seller-id-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: flex; align-items: center; justify-content: center; color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 1rem; line-height: 1; flex-shrink: 0; overflow: hidden; position: relative; }
+  .seller-id-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .seller-id-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
+  .seller-id-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
+  .seller-id-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+  .seller-id-name { font-weight: 700; font-size: 14px; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seller-id-meta { font-size: 12px; color: var(--gray-500); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .seller-id-meta .sid-star { color: var(--gold-500); }
+  .seller-id-meta .sid-dot { color: var(--gray-300); }
+  .seller-id-row:hover .seller-id-name { text-decoration: underline; }
+  .seller-id-chevron { margin-left: auto; color: var(--gray-400); font-size: 20px; flex-shrink: 0; line-height: 1; }
+  .responder-pill { display: inline-flex; align-items: center; background: var(--green-50); color: var(--green-700); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  /* Grid-card seller identity — compact avatar + name, tappable → openProfile. */
+  .card-seller { display: flex; align-items: center; gap: 6px; margin: 4px 0 2px; cursor: pointer; min-height: 20px; }
+  .card-seller-avatar { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: inline-flex; align-items: center; justify-content: center; color: var(--white); font-size: 10px; font-weight: 700; flex-shrink: 0; overflow: hidden; position: relative; }
+  .card-seller-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .card-seller-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
+  .card-seller-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
+  .card-seller-name { font-size: 12px; font-weight: 600; color: var(--gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-seller:hover .card-seller-name { text-decoration: underline; color: var(--green-700); }
   .chat-header-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* The partner name is its own button so tapping it opens their profile,
      same as the avatar. Reset to look like the inline sub text. */
@@ -7748,8 +7771,11 @@ window.confirmPayment = async function() {
       const snap = await getDocs(q);
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
-        // Hide expired listings from the public feed.
-        .filter(p => p.status !== 'expired')
+        // Hide dead listings from the public feed so they never render as live
+        // clickable cards (and so seller identity never attaches to one):
+        // expired, sold, and removed are all dropped. Active + (transient)
+        // pending remain. Sold items still appear on the seller's storefront.
+        .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed')
         // Hide listings with no photos — orphans from before the rollback fix
         // shipped, plus any in-progress listing where photo upload failed.
         // Sellers can still see + delete these from My Shop.
@@ -8517,6 +8543,11 @@ function renderProductCardHtml(p, i) {
   const sellerRatingSlot = p.sellerId
     ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
     : '';
+  // Seller identity (avatar + name) — hydrated by hydrateSellerIdentity() from
+  // the shared PROFILE_CACHE (zero extra fetches). Tappable → openProfile.
+  const sellerIdentitySlot = p.sellerId
+    ? `<div class="card-seller seller-id-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}" data-action="open-profile" data-uid="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
+    : '';
   const totalQty = Math.max(1, Number(p.quantity || 1));
   const soldQty = Math.max(0, Number(p.quantitySold || 0));
   const remaining = Math.max(0, totalQty - soldQty);
@@ -8534,6 +8565,7 @@ function renderProductCardHtml(p, i) {
     `<div class="product-body">`+
       `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
       `<div class="product-name">${window.safeText(p.name)}</div>`+
+      `${sellerIdentitySlot}`+
       `${sellerRatingSlot}`+
       `<div class="product-market">`+
         `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
@@ -8696,6 +8728,7 @@ function buildProducts(filter) {
           hydrateVerifiedSellerPills(grid);
           hydrateSellerProPills(grid);
           hydrateSellerRatings(grid);
+          hydrateSellerIdentity(grid);
         } else {
           grid.innerHTML = callout;
         }
@@ -8713,6 +8746,7 @@ function buildProducts(filter) {
   hydrateSellerProPills(document.getElementById('productGrid'));
   // Async hydrate seller star ratings on each card. Empty if 0 reviews.
   hydrateSellerRatings(document.getElementById('productGrid'));
+  hydrateSellerIdentity(document.getElementById('productGrid'));
 }
 
 // Walk a container, find all .seller-verified-slot[data-seller-id] elements,
@@ -9018,6 +9052,46 @@ async function hydrateSellerTenurePills(rootEl) {
 }
 window.hydrateSellerTenurePills = hydrateSellerTenurePills;
 
+// Walk a container, find all .seller-id-slot[data-seller-id] elements, dedupe by
+// sellerId, look up profiles (cached via PROFILE_CACHE — so this adds ZERO
+// fetches beyond the pill/rating hydrators already running), and inject a
+// compact avatar + name into each card. Reuses avatarHtml + hydrateAvatars.
+// Stale-guard: skips detached slots so a fast scroll / grid re-render mid-fetch
+// can't paint a seller's face onto the wrong (recycled) card. Slots are keyed
+// by data-seller-id and we load THAT seller's profile, so there's no cross-card
+// mismatch even before the isConnected check.
+async function hydrateSellerIdentity(rootEl) {
+  if (!rootEl) return;
+  const slots = rootEl.querySelectorAll('.seller-id-slot[data-seller-id]');
+  if (!slots.length) return;
+  const bySeller = new Map();
+  slots.forEach(slot => {
+    const sid = slot.getAttribute('data-seller-id');
+    if (!sid) return;
+    if (!bySeller.has(sid)) bySeller.set(sid, []);
+    bySeller.get(sid).push(slot);
+  });
+  const tasks = Array.from(bySeller.keys()).map(async sid => {
+    try {
+      const prof = await loadProfile(sid);
+      if (!prof) return;
+      const name = window.safeText(prof.displayName || 'Seller');
+      const av = (typeof avatarHtml === 'function') ? avatarHtml(prof) : '';
+      bySeller.get(sid).forEach(slot => {
+        // Stale-guard: the grid may have re-rendered while we awaited the
+        // profile — old slots are detached. Don't paint into a dead node.
+        if (!slot.isConnected) return;
+        slot.innerHTML =
+          `<span class="card-seller-avatar">${av}</span>` +
+          `<span class="card-seller-name">${name}</span>`;
+        if (typeof hydrateAvatars === 'function') hydrateAvatars(slot);
+      });
+    } catch (_e) { /* ignore */ }
+  });
+  await Promise.allSettled(tasks);
+}
+window.hydrateSellerIdentity = hydrateSellerIdentity;
+
 function buildDrops() {
   const gridEl = document.getElementById('dropsGrid');
   const sectionEl = gridEl && gridEl.closest('.section');
@@ -9220,24 +9294,41 @@ function openDetailModal(id) {
   const sellerEl = document.getElementById('detailSeller');
   sellerEl.innerHTML = '';
   if (p.sellerId) {
-    sellerEl.innerHTML = `<span style="color:var(--gray-500);font-size:13px">Sold by </span><span class="seller-link" data-action="open-profile" data-uid="${window.safeAttr(window.safeId(p.sellerId))}">View seller profile</span><span class="seller-verified-slot"></span>`;
+    // Stale-guard: capture which listing we opened with so a fast detail switch
+    // while the profile loads can't paint the wrong seller's face/name.
+    const _openedDetailId = currentDetailId;
+    const _uidAttr = window.safeAttr(window.safeId(p.sellerId));
+    // Avatar + name row (was a buried 13px "View seller profile" link). Tappable
+    // → openProfile. Initials placeholder until the profile resolves.
+    sellerEl.innerHTML =
+      `<button class="seller-id-row" type="button" data-action="open-profile" data-uid="${_uidAttr}" aria-label="View seller profile">`+
+        `<span class="seller-id-avatar">?</span>`+
+        `<span class="seller-id-text">`+
+          `<span class="seller-id-name">Seller</span>`+
+          `<span class="seller-id-meta"></span>`+
+        `</span>`+
+        `<span class="seller-id-chevron" aria-hidden="true">&rsaquo;</span>`+
+      `</button>`;
     loadProfile(p.sellerId).then((prof) => {
+      // Bail if the user opened a different listing while we were loading.
+      if (currentDetailId !== _openedDetailId) return;
       if (!prof) return;
-      if (prof.displayName) {
-        const link = sellerEl.querySelector('.seller-link');
-        if (link) link.textContent = prof.displayName;
+      const row = sellerEl.querySelector('.seller-id-row');
+      if (!row) return;
+      const av = row.querySelector('.seller-id-avatar');
+      if (av && typeof avatarHtml === 'function') {
+        av.innerHTML = avatarHtml(prof);
+        if (typeof hydrateAvatars === 'function') hydrateAvatars(av);
       }
-      // Verified pill (Feature #3) — only render when sellerVerified === true.
-      if (prof._user && prof._user.sellerVerified) {
-        const slot = sellerEl.querySelector('.seller-verified-slot');
-        if (slot) slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">Verified</span>';
-      }
+      const nameEl = row.querySelector('.seller-id-name');
+      if (nameEl) nameEl.textContent = prof.displayName || 'Seller';
+      // Safe public fields only (sold count, rating, member-since, Pro,
+      // Verified, Fast-responder) — never email/phone/totalRevenue/stripe*.
+      const metaEl = row.querySelector('.seller-id-meta');
+      if (metaEl && typeof sellerMetaHtml === 'function') metaEl.innerHTML = sellerMetaHtml(prof);
       // Visible-but-not-buyable (list-first): if the seller hasn't completed
-      // Stripe payout setup (public profiles.chargesReady mirror !== true), the
-      // listing shows but can't be purchased yet. Disable Buy + explain why.
-      // UX only — createPaymentIntent enforces the real money gate server-side
-      // (and would 409 anyway). Don't override a sold/pending lock, and don't
-      // gate the seller's own view of their listing.
+      // Stripe payout setup (public profiles.chargesReady mirror !== true),
+      // disable Buy + explain. UX only — createPaymentIntent is the real gate.
       const ownsThis = !!(window.CURRENT_USER && p.sellerId &&
         window.CURRENT_USER.uid === p.sellerId);
       if (buyBtn && !isSold && !isPending && !ownsThis && prof.chargesReady !== true) {
@@ -15529,6 +15620,45 @@ async function loadProfile(uid) {
     return { id: uid, _user: { sellerVerified: false, phone: false, email: false, isPro: false } };
   }
 }
+
+// Compact, buyer-safe seller meta line for the listing-detail identity row.
+// PUBLIC fields ONLY: sold count, rating, member-since, Pro, Verified,
+// Fast-responder. NEVER email/phone/totalRevenue/stripeChargesEnabled (those
+// are owner-only on users/{uid} and loadProfile null-stubs them for buyers).
+function sellerMetaHtml(prof) {
+  if (!prof) return '';
+  const parts = [];
+  const sales = (typeof prof.salesCount === 'number') ? prof.salesCount : 0;
+  parts.push(sales > 0
+    ? `<span><strong>${Number(sales)}</strong> sold</span>`
+    : `<span>New seller</span>`);
+  const reviews = (typeof prof.reviewCount === 'number') ? prof.reviewCount : 0;
+  const avg = (typeof prof.avgRating === 'number') ? prof.avgRating : 0;
+  if (reviews > 0 && avg > 0) {
+    parts.push(`<span><span class="sid-star">&#9733;</span> ${avg.toFixed(1)} (${Number(reviews)})</span>`);
+  }
+  // Member-since (public profiles.createdAt, when present).
+  let joined = null;
+  const c = prof.createdAt;
+  if (c && typeof c.toDate === 'function') joined = c.toDate();
+  else if (c && c._seconds) joined = new Date(c._seconds * 1000);
+  if (joined && !isNaN(joined)) {
+    parts.push(`<span>Since ${window.safeText(joined.toLocaleDateString(undefined, {month: 'short', year: 'numeric'}))}</span>`);
+  }
+  let html = parts.join('<span class="sid-dot">&middot;</span>');
+  // Pills. _user.isPro = public isPro mirror; _user.sellerVerified is owner-only
+  // (so the Verified pill only shows on the seller's own view — existing behavior).
+  if (prof._user && prof._user.isPro) html += ` <span class="pro-pill sm">Pro</span>`;
+  if (prof._user && prof._user.sellerVerified) html += ` <span class="verified-pill sm" title="Verified seller">Verified</span>`;
+  // Fast-responder badge — SURFACE ONLY. Shows when a backend job has set
+  // profiles/{uid}.fastResponder=true. That aggregate (median reply time from
+  // conversations) is a SEPARATE backend task, flagged — not built here.
+  if (prof.fastResponder === true) {
+    html += ` <span class="responder-pill" title="Typically replies quickly">Fast responder</span>`;
+  }
+  return html;
+}
+window.sellerMetaHtml = sellerMetaHtml;
 
 function profileInitial(p) {
   const s = (p && (p.displayName || p.id) || '').trim();
