@@ -2343,6 +2343,16 @@
   .sell-payout-headsup { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; line-height: 1.45; color: var(--green-700); }
   .sell-payout-headsup strong { color: var(--green-900); font-weight: 700; }
   .sell-payout-headsup .btn-stripe-connect { display: inline-flex; margin-top: 10px; }
+  /* Inline seller-ToS acceptance (merged from the old verify modal) + inline
+     email-verify prompt — both live in the sell modal so first-time sellers
+     never leave the publish flow. */
+  .sell-terms-row { margin-bottom: 1rem; }
+  .sell-terms-check { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.45; color: var(--gray-700); cursor: pointer; }
+  .sell-terms-check input { margin-top: 2px; flex-shrink: 0; }
+  .link-inline { background: none; border: none; padding: 0; color: var(--green-600); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .sell-verify-prompt { background: #fff8ed; border: 1px solid #f3d68a; border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; line-height: 1.45; color: var(--gray-800); }
+  .sell-verify-prompt strong { color: var(--gray-900); display: block; margin-bottom: 2px; }
+  .sell-verify-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
 
   /* IMAGE UPLOAD */
   .upload-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer; transition: var(--transition); background: var(--gray-100); margin-bottom: 12px; }
@@ -5063,6 +5073,27 @@
         <label for="sellDesc">Description</label>
         <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
+      <!-- First-time seller: inline Seller-Terms acceptance (merged from the
+           old separate verify screen). Shown only when not yet a verified
+           seller; openSellModal toggles it. Acceptance is recorded on publish
+           via requestSellerVerification (persists termsAgreed). -->
+      <div id="sellTermsRow" class="sell-terms-row" style="display:none;">
+        <label class="sell-terms-check">
+          <input type="checkbox" id="sellTermsCheckbox" />
+          <span>I have read and agree to the <button type="button" class="link-inline" data-action="open-seller-agreement">TeeBox Seller Terms of Service</button>.</span>
+        </label>
+      </div>
+      <!-- Inline email-verify prompt — revealed by submitListing when email
+           isn't verified, so the seller verifies (~30s) without leaving the
+           flow. One-tap Resend + "I've verified" recheck. -->
+      <div id="sellVerifyPrompt" class="sell-verify-prompt" style="display:none;" role="status" aria-live="polite">
+        <strong>Verify your email to publish</strong>
+        <span>We sent a link to <span id="sellVerifyAddr">your inbox</span>. Tap it, then come back and hit "I've verified" — no need to leave this page.</span>
+        <div class="sell-verify-actions">
+          <button type="button" class="btn-stripe-connect" data-action="resend-verification-email">Resend link</button>
+          <button type="button" class="btn-stripe-connect" data-action="recheck-email-verify" style="background:var(--green-600);">I've verified</button>
+        </div>
+      </div>
       <div class="modal-footer" style="padding:0;margin-top:1rem;">
         <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
         <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
@@ -6683,8 +6714,11 @@ window.confirmPayment = async function() {
       if (_a) { _a.classList.remove('hidden'); _a.classList.add('open'); }
       return;
     }
-    if (window.IS_VERIFIED_SELLER) { openSellModal(); return; }
-    document.getElementById('verifyBackdrop').classList.add('open');
+    // ToS acceptance is now INLINE in the sell modal (no separate verify
+    // screen) — go straight to the sell flow whether or not they're a verified
+    // seller. openSellModal reveals the inline Terms row for non-verified
+    // sellers, and submitListing records acceptance on first publish.
+    openSellModal();
   };
 
   // ──────────────────────────────────────────────────────────
@@ -7817,6 +7851,19 @@ window.confirmPayment = async function() {
     });
   }
 
+  // #3: reveal the inline email-verify prompt inside the sell modal (keeps the
+  // seller in the publish flow). One-tap Resend + "I've verified" recheck.
+  // Hoisted declaration so submitListing's bare calls resolve under strict mode.
+  function showSellVerifyPrompt() {
+    try {
+      const vp = document.getElementById('sellVerifyPrompt');
+      const addr = document.getElementById('sellVerifyAddr');
+      if (addr && window.CURRENT_USER) addr.textContent = window.CURRENT_USER.email || 'your inbox';
+      if (vp) { vp.style.display = ''; try { vp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_e) {} }
+    } catch (_e) {}
+  }
+  window.showSellVerifyPrompt = showSellVerifyPrompt;
+
   window.submitListing = async function() {
     if (!window.CURRENT_USER || !window.IS_VERIFIED_SELLER) { showToast('Please verify as a seller first.'); return; }
     // EDIT MODE: when __editingListingId is set the modal is reused as
@@ -7843,8 +7890,9 @@ window.confirmPayment = async function() {
     // Resend banner instead of letting the rules write fail silently.
     try { await window.CURRENT_USER.reload(); } catch (_e) {}
     if (!window.CURRENT_USER.emailVerified) {
-      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
-      showToast('Verify your email to publish — we sent a link to your inbox (tap Resend on the banner if needed).', 'error');
+      // #3: keep the seller IN the flow — reveal the inline verify prompt
+      // (one-tap Resend + "I've verified" recheck) instead of a vanishing toast.
+      showSellVerifyPrompt();
       return;
     }
     const title = document.getElementById('sellTitle').value.trim();
@@ -7858,19 +7906,43 @@ window.confirmPayment = async function() {
     if (quantity > 99) quantity = 99;
     if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
     if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
-    if (selectedFiles.length < 3) {
-      showToast('Please add at least 3 photos before submitting.');
+    if (selectedFiles.length < 1) {
+      showToast('Please add at least 1 photo before submitting.', 'error');
       return;
     }
     const blocked = window.findExplicitContent && window.findExplicitContent(title + ' ' + desc);
     if (blocked) {
-      showToast('Please remove inappropriate language from the title or description.');
+      showToast('Please remove inappropriate language from the title or description.', 'error');
       return;
     }
+    // High-value listings still require a verification-photo set (anti-fraud,
+    // NOT a quality floor) — kept while the standard minimum drops to 1.
     const isHighValue = price >= 300;
     if (isHighValue && selectedFiles.length < 4) {
-      showToast('Listings over $300 require at least 4 photos including a verification photo.');
+      showToast('Listings over $300 require at least 4 photos including a verification photo.', 'error');
       return;
+    }
+    // #2: first-time sellers accept the Seller Terms INLINE here (the merged
+    // step — no separate verify screen). Acceptance is recorded + they become a
+    // verified seller via requestSellerVerification (persists termsAgreed +
+    // termsAgreedAt) BEFORE the listing is created. email-verify was already
+    // gated above, so the callable's email precondition won't trip here.
+    if (!window.IS_VERIFIED_SELLER) {
+      const _tcb = document.getElementById('sellTermsCheckbox');
+      if (!_tcb || !_tcb.checked) {
+        showToast('Please agree to the Seller Terms to publish.', 'error');
+        return;
+      }
+      try {
+        const _verify = httpsCallable(fns, 'requestSellerVerification');
+        await _verify({ termsAgreed: true });
+        window.IS_VERIFIED_SELLER = true;
+      } catch (e) {
+        const _m = (e && e.message) || '';
+        if (/verify your email/i.test(_m)) { showSellVerifyPrompt(); return; }
+        showToast('Could not record your seller agreement. Please try again.', 'error');
+        return;
+      }
     }
     const btn = document.getElementById('submitListingBtn');
     btn.disabled = true; btn.textContent = selectedFiles.length > 0 ? 'Uploading photos…' : 'Submitting…';
@@ -12372,6 +12444,17 @@ function openSellModal() {
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
+  // Inline Seller-Terms row: show for not-yet-verified sellers (the merged ToS
+  // step); hide in edit mode + once verified. Reset the inline verify prompt.
+  try {
+    const _termsRow = document.getElementById('sellTermsRow');
+    const _cb = document.getElementById('sellTermsCheckbox');
+    if (_termsRow) _termsRow.style.display =
+      (window.__editingListingId || window.IS_VERIFIED_SELLER) ? 'none' : '';
+    if (_cb) _cb.checked = false;
+    const _vp = document.getElementById('sellVerifyPrompt');
+    if (_vp) _vp.style.display = 'none';
+  } catch (_e) { /* non-blocking */ }
   // List-first orientation (#1): if the seller hasn't completed Stripe payout
   // setup, show the non-blocking heads-up (publish now; finish payout to get
   // paid). Reads their OWN user doc (owner-readable). Best-effort; defaults
@@ -17291,6 +17374,21 @@ A['toggle-user-menu']        = () => {
   menu.classList.toggle('open');
   const btn = document.getElementById('userBadge');
   if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+};
+A['recheck-email-verify'] = async () => {
+  // #3: re-check verification status in-place (no page reload). If verified,
+  // hide the prompt and continue the publish; otherwise nudge to check inbox.
+  if (!window.CURRENT_USER) return;
+  try { await window.CURRENT_USER.reload(); } catch (_e) {}
+  if (window.CURRENT_USER.emailVerified) {
+    const vp = document.getElementById('sellVerifyPrompt');
+    if (vp) vp.style.display = 'none';
+    try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}
+    showToast('Email verified — publishing your listing.', 'success');
+    if (typeof window.submitListing === 'function') window.submitListing();
+  } else {
+    showToast("Not verified yet — tap the link in your inbox, then try again.", 'error');
+  }
 };
 A['resend-verification-email'] = async () => {
   // Best-effort resend of the verification link via our branded
