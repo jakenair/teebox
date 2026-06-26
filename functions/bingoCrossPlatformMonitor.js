@@ -31,6 +31,9 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {defineSecret} = require("firebase-functions/params");
+// Shared secret for the manual ops-trigger HTTP endpoints (replaces the
+// guessable static X-Smoke-Trigger: 1 header).
+const MANUAL_TRIGGER_SECRET = defineSecret("MANUAL_TRIGGER_SECRET");
 const admin = require("firebase-admin");
 const https = require("https");
 const http = require("http");
@@ -286,11 +289,14 @@ exports.dailyBingoMonitor = onSchedule({
 // ── Manual trigger ─────────────────────────────────────────────────────────
 exports.dailyBingoMonitorManual = onRequest({
   region: "us-central1",
-  secrets: [SMOKE_ALERT_WEBHOOK],
+  secrets: [SMOKE_ALERT_WEBHOOK, MANUAL_TRIGGER_SECRET],
   timeoutSeconds: 60,
   memory: "256MiB",
 }, async (req, res) => {
-  if (req.method !== "POST" || req.get("X-Smoke-Trigger") !== "1") {
+  // Authenticated by a shared secret in the X-Smoke-Trigger header (was the
+  // guessable static "1"). Constant-ish compare via !== on the secret value.
+  if (req.method !== "POST" ||
+      req.get("X-Smoke-Trigger") !== MANUAL_TRIGGER_SECRET.value()) {
     res.status(404).send("Not found");
     return;
   }

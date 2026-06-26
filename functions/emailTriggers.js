@@ -1072,14 +1072,42 @@ exports.confirmOrderDelivered = onCall(
         if (cur !== "shipped") {
           throw new HttpsError("failed-precondition", `Cannot confirm delivery from state "${cur}".`);
         }
+        // P1 sold-count (2026-06-25): apply the seller sale-stats SYNCHRONOUSLY
+        // in this transaction — atomic with the delivered flip, so the count
+        // can't be lost to a dropped #34 onUpdate event. `sellerStatsApplied`
+        // is the idempotency marker the aggregateSellerStats backstop +
+        // reconcileSellerStats both honor (never double-count). Reads are done
+        // (tx.get above); only blind-increment writes below — tx rule satisfied.
+        const _sellerId = o.sellerId || null;
+        const _amount = Number(o.amount) || 0;
         tx.update(ref, {
           fulfillmentStatus: "delivered",
           shippingStatus: "delivered", // dual-write (FUNC-05 deferred)
           deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+          sellerStatsApplied: true,
         });
+        if (_sellerId) {
+          // salesCount → PUBLIC profile; totalRevenue + lastSaleAt → owner-only
+          // users/ doc (privacy split preserved — rules are document-level).
+          tx.set(db.collection("profiles").doc(_sellerId),
+              {salesCount: admin.firestore.FieldValue.increment(1)}, {merge: true});
+          tx.set(db.collection("users").doc(_sellerId),
+              {totalRevenue: admin.firestore.FieldValue.increment(_amount),
+                lastSaleAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+        }
         return {alreadyDone: false, order: {id: String(orderId), ...o, fulfillmentStatus: "delivered"}};
       });
       if (res.alreadyDone) return {ok: true, alreadyDone: true};
+
+      // P1 referral credit (2026-06-25): apply SYNCHRONOUSLY here (the
+      // redeemReferralCredit onUpdate trigger is #34-unreliable). Idempotent
+      // (per-buyer marker) + best-effort — never fails the delivery.
+      try {
+        const {applyReferralCreditIdempotent} = require("./lib/referral");
+        await applyReferralCreditIdempotent(db, res.order.buyerId);
+      } catch (e) {
+        logger.error("confirmOrderDelivered: referral credit failed (non-fatal)", e);
+      }
 
       // Guardrail 4: buyer tapped the button — notify the SELLER only.
       try {

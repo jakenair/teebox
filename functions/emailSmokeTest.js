@@ -40,6 +40,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {defineSecret} = require("firebase-functions/params");
+const MANUAL_TRIGGER_SECRET = defineSecret("MANUAL_TRIGGER_SECRET");
 const admin = require("firebase-admin");
 const https = require("https");
 const http = require("http");
@@ -120,11 +121,14 @@ exports.dailyEmailSmokeManual = onRequest({
     RESEND_WEBHOOK_SECRET,
     SMOKE_EMAIL_INBOX,
     SMOKE_ALERT_WEBHOOK,
+    MANUAL_TRIGGER_SECRET,
   ],
   timeoutSeconds: 540,
   memory: "512MiB",
 }, async (req, res) => {
-  if (req.method !== "POST" || req.get("X-Smoke-Trigger") !== "1") {
+  // Authenticated by a shared secret in the X-Smoke-Trigger header (was "1").
+  if (req.method !== "POST" ||
+      req.get("X-Smoke-Trigger") !== MANUAL_TRIGGER_SECRET.value()) {
     res.status(404).send("Not found");
     return;
   }

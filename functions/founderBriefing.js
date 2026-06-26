@@ -54,6 +54,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {defineSecret} = require("firebase-functions/params");
+const MANUAL_TRIGGER_SECRET = defineSecret("MANUAL_TRIGGER_SECRET");
 const admin = require("firebase-admin");
 const https = require("https");
 const http = require("http");
@@ -106,10 +107,13 @@ exports.dailyFounderBriefing = onSchedule({
 // RECIPIENT_EMAIL in founderBriefingConfig.js.
 // ─────────────────────────────────────────────────────────────────
 exports.dailyFounderBriefingManual = onRequest({
-  secrets: [ANTHROPIC_API_KEY, SLACK_BRIEFING_WEBHOOK, RESEND_API_KEY],
+  secrets: [ANTHROPIC_API_KEY, SLACK_BRIEFING_WEBHOOK, RESEND_API_KEY,
+    MANUAL_TRIGGER_SECRET],
   ...SCHED_FN,
 }, async (req, res) => {
-  if (req.method !== "POST" || req.get("X-Briefing-Trigger") !== "1") {
+  // Authenticated by a shared secret in the X-Briefing-Trigger header (was "1").
+  if (req.method !== "POST" ||
+      req.get("X-Briefing-Trigger") !== MANUAL_TRIGGER_SECRET.value()) {
     res.status(404).send("Not found");
     return;
   }

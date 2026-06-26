@@ -55,6 +55,7 @@
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 
@@ -340,6 +341,79 @@ function prevDateUtc(dateStr) {
   const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 }
+
+function todayUtcKey() {
+  const dt = new Date();
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+// reconcileBingoLeaderboards — daily self-heal for the #34 blast radius.
+// onBingoWinAggregate (onDocumentWritten, #34-vulnerable) is the only
+// real-time writer of the bingoLeaderboard/{date} histogram + country
+// aggregates; a dropped win-UPDATE silently under-counts them. This
+// authoritatively RECOMPUTES today + the prior 2 UTC days from gameScores
+// (the callable-written, reliable mirror — NOT the trigger) and corrects
+// drift. SET, not increment → no double-count. The real-time trigger stays;
+// this is the backstop. (The all-time global-streak record is left to the
+// trigger — recomputing it would need a full users scan; low impact.)
+exports.reconcileBingoLeaderboards = onSchedule(
+  {schedule: "0 5 * * *", timeZone: "UTC",
+    region: "us-central1", memory: "512MiB", timeoutSeconds: 300},
+  async () => {
+    const db = admin.firestore();
+    const t = todayUtcKey();
+    const dates = [t, prevDateUtc(t), prevDateUtc(prevDateUtc(t))];
+    let corrected = 0;
+    for (const date of dates) {
+      const snap = await db.collection("gameScores")
+        .where("date", "==", date).get();
+      if (snap.empty) continue;
+      const agg = {total: 0, histogram: {}, byAttempts: {}};
+      const byCountry = {};
+      snap.forEach((g) => {
+        const o = g.data() || {};
+        agg.total += 1;
+        const tb = bucketTime(o.timeSec != null ? o.timeSec : 601);
+        const ab = bucketAttempts(o.attempts);
+        agg.histogram[tb] = (agg.histogram[tb] || 0) + 1;
+        agg.byAttempts[ab] = (agg.byAttempts[ab] || 0) + 1;
+        if (o.country && typeof o.country === "string") {
+          if (!byCountry[o.country]) byCountry[o.country] = {total: 0, histogram: {}};
+          byCountry[o.country].total += 1;
+          byCountry[o.country].histogram[tb] =
+            (byCountry[o.country].histogram[tb] || 0) + 1;
+        }
+      });
+      const ref = db.doc(`bingoLeaderboard/${date}`);
+      const cur = (await ref.get()).data() || {};
+      if (Number(cur.totalSolvers) !== agg.total) {
+        await ref.set({
+          totalPlayers: agg.total,
+          totalSolvers: agg.total,
+          histogram: agg.histogram,
+          byAttempts: agg.byAttempts,
+          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reconciledAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+        corrected += 1;
+      }
+      for (const [c, cd] of Object.entries(byCountry)) {
+        const cref = db.doc(`bingoLeaderboard/${date}/countries/${c}`);
+        const ccur = (await cref.get()).data() || {};
+        if (Number(ccur.totalSolvers) !== cd.total) {
+          await cref.set({totalSolvers: cd.total, histogram: cd.histogram},
+              {merge: true});
+        }
+      }
+    }
+    logger.info(
+      `reconcileBingoLeaderboards: checked ${dates.join(",")}, ` +
+      `${corrected} day-docs corrected`);
+  }
+);
 
 // ─── Callable: getBingoPercentile ───────────────────────────────────
 // Returns the user's global percentile rank for `date`. Reads:

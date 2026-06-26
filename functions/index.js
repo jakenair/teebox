@@ -2637,12 +2637,66 @@ const MOD_OFF_PLATFORM_KEYWORDS_SOFT = [
   "meet in person", "meet up", "come pick up", "local pickup",
 ];
 
+// ── Known-bad domains ────────────────────────────────────────────────
+// Hard blocklist. A message referencing any of these is BLOCKED outright
+// (callable path) or QUARANTINED/deleted (trigger backstop) — not merely
+// flagged. Seeded from the 2026-06-25 credential-phishing campaign
+// ("payment didn't go through… confirm via link", s55.form76510.shop).
+// Match is host-exact OR any subdomain (foo.form76510.shop). Admins can
+// extend at runtime via config.messaging.knownBadDomains (string[]).
+const MOD_KNOWN_BAD_DOMAINS = new Set([
+  "form76510.shop",
+]);
+
+// ── Generic external-URL detection (the durable fix) ─────────────────
+// The off-platform regexes only knew a FIXED shortener list, so any novel
+// domain (form76510.shop) sailed through with flagged:null. This extracts
+// every external host (scheme optional, bare host.tld/path included) that
+// is not teeboxmarket.com. The TLD set is broad but bounded so prose like
+// "3.5 in." or "v1.2" doesn't read as a URL.
+const MOD_URL_TLDS =
+  "com|net|org|io|co|app|shop|store|xyz|info|link|biz|online|site|live|" +
+  "me|ru|cn|top|club|vip|fun|icu|cc|pro|gg|sh|to|page|win|click|pay|" +
+  "wallet|finance|monster|rest|cfd|sbs|lol";
+const MOD_URL_SOURCE =
+  "\\b(?:https?:\\/\\/)?((?:[a-z0-9-]+\\.)+(?:" + MOD_URL_TLDS + "))\\b" +
+  "(?:\\/[^\\s)<>\"']*)?";
+
+function modExtractExternalHosts(text) {
+  const hosts = [];
+  if (!text) return hosts;
+  const re = new RegExp(MOD_URL_SOURCE, "gi");
+  let m;
+  while ((m = re.exec(String(text))) !== null) {
+    const host = m[1].toLowerCase().replace(/\.$/, "");
+    if (/(^|\.)teeboxmarket\.com$/.test(host)) continue; // our own domain is fine
+    if (hosts.indexOf(host) === -1) hosts.push(host);
+  }
+  return hosts;
+}
+
+// host matches a known-bad entry exactly, or is a subdomain of one.
+function modHostIsKnownBad(host, extraDomains) {
+  const check = (set) => {
+    for (const bad of set) {
+      if (host === bad || host.endsWith("." + bad)) return true;
+    }
+    return false;
+  };
+  if (check(MOD_KNOWN_BAD_DOMAINS)) return true;
+  if (extraDomains && extraDomains.length && check(extraDomains)) return true;
+  return false;
+}
+
 function modEscapeKw(k) {
   return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function modDetectOffPlatform(text) {
-  if (!text) return {matched: false, severity: null, types: [], patterns: []};
+function modDetectOffPlatform(text, extraBadDomains) {
+  if (!text) {
+    return {matched: false, severity: null, knownBad: false,
+      externalHosts: [], types: [], patterns: []};
+  }
   const s = String(text);
   const lc = s.toLowerCase();
   const patterns = [];
@@ -2673,9 +2727,28 @@ function modDetectOffPlatform(text) {
       }
     }
   }
+
+  // Generic external-URL layer (the durable phishing fix). ANY link to a
+  // non-teeboxmarket.com host is HARD; a known-bad host additionally sets
+  // `knownBad` so callers can BLOCK/QUARANTINE rather than just interstitial.
+  const externalHosts = modExtractExternalHosts(s);
+  let knownBad = false;
+  if (externalHosts.length) {
+    for (const h of externalHosts) {
+      if (modHostIsKnownBad(h, extraBadDomains)) knownBad = true;
+    }
+    patterns.push({type: "url", name: knownBad ? "known_bad_domain" : "external_url",
+      match: externalHosts.slice(0, 3).join(",").slice(0, 80)});
+    types.add("external_url");
+    if (knownBad) types.add("known_bad_domain");
+    severity = "HARD";
+  }
+
   return {
     matched: patterns.length > 0,
     severity,
+    knownBad,
+    externalHosts,
     types: Array.from(types),
     patterns: patterns.slice(0, 12),
   };
@@ -2731,6 +2804,49 @@ exports.moderateMessage = onDocumentCreated(
       // outside the marketplace get warned, not blocked.
       const det = modDetectOffPlatform(text);
       if (!det.matched) return;
+
+      // Known-bad domain → QUARANTINE. This is the backstop for messages
+      // written directly to /messages (bypassing the sendMessage callable's
+      // pre-write block). Delete the delivered doc and record a BLOCKED flag.
+      if (det.knownBad) {
+        const dbq = admin.firestore();
+        const FieldValueQ = admin.firestore.FieldValue;
+        const senderIdQ = msg.senderId || msg.fromUid || null;
+        try {
+          await dbq.collection("messageFlags").doc(event.params.messageId).set({
+            messageId: event.params.messageId,
+            conversationId: event.params.cid,
+            senderId: senderIdQ,
+            severity: "BLOCKED",
+            types: det.types,
+            patterns: det.patterns,
+            textPreview: text.slice(0, 240),
+            action: "quarantined_known_bad_domain",
+            createdAt: FieldValueQ.serverTimestamp(),
+          });
+        } catch (e) {
+          logger.warn("moderateMessage: known-bad flag write failed", e);
+        }
+        if (senderIdQ) {
+          try {
+            await dbq.collection("users").doc(senderIdQ).set({
+              offPlatformFlags: FieldValueQ.increment(1),
+              knownBadLinkFlags: FieldValueQ.increment(1),
+            }, {merge: true});
+          } catch (e) {
+            logger.warn("moderateMessage: known-bad counter failed", e);
+          }
+        }
+        try {
+          await event.data.ref.delete();
+        } catch (e) {
+          logger.error("moderateMessage: known-bad delete failed", e);
+        }
+        logger.warn(
+            "moderateMessage: QUARANTINED known-bad-domain message " +
+            event.params.messageId + " hosts=" + det.externalHosts.join(","));
+        return;
+      }
 
       const db = admin.firestore();
       const cid = event.params.cid;
@@ -2823,6 +2939,153 @@ exports.moderateMessage = onDocumentCreated(
       logger.error("moderateMessage error", err);
     }
   },
+);
+
+// ─────────────────────────────────────────────────────────────
+// MESSAGE-HOLD lifecycle — alert / release / list.
+//
+//   Holds (messageHolds/{id}) are written by sendMessage when a send is
+//   quarantined (duplicate-spam, repeat-PII, or a brand-new account sending
+//   an external link). A hold is NOT a delayed delivery:
+//     • TTL: a Firestore TTL policy on `expireAt` DELETES the doc ~30 days
+//       after creation. There is NO onDelete trigger, so expiry silently
+//       DISCARDS the message — it is never delivered.
+//     • releaseHold(): the ONLY path that delivers a held message, and it is
+//       admin-only + explicit.
+//   onMessageHoldCreated fires a best-effort ops alert per new hold so a human
+//   knows a (possibly legitimate) user is frozen and can review the queue.
+// ─────────────────────────────────────────────────────────────
+
+exports.onMessageHoldCreated = onDocumentCreated(
+    {document: "messageHolds/{holdId}", ...LIGHT_TRIGGER, secrets: [OPS_ALERT_WEBHOOK]},
+    async (event) => {
+      try {
+        const h = event.data && event.data.data();
+        if (!h) return;
+        await opsAlert("warn", "Chat message held for review", {
+          holdId: event.params.holdId,
+          reason: h.reason || "unknown",
+          sender: h.sender || null,
+          recipient: h.recipient || null,
+          conversationId: h.conversationId || null,
+          externalHosts: Array.isArray(h.externalHosts) ?
+            h.externalHosts.join(",") : null,
+          textPreview: String(h.text || "").replace(/\s+/g, " ").slice(0, 160),
+        });
+      } catch (err) {
+        logger.error("onMessageHoldCreated alert failed", err);
+      }
+    },
+);
+
+// releaseHold(holdId, note?) — admin-only. Delivers a held message into its
+// conversation (the single delivery path) and marks the hold released. The
+// re-created message still passes through moderateMessage, so an external link
+// gets the interstitial — release lifts the HOLD, not moderation.
+exports.releaseHold = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      const {holdId, note} = req.data || {};
+      if (!holdId || typeof holdId !== "string") {
+        throw new HttpsError("invalid-argument", "holdId required");
+      }
+      const db = admin.firestore();
+      const FieldValue = admin.firestore.FieldValue;
+      const holdRef = db.collection("messageHolds").doc(holdId);
+      const snap = await holdRef.get();
+      if (!snap.exists) {
+        throw new HttpsError("not-found",
+            "Hold not found (it may have expired and been discarded).");
+      }
+      const hold = snap.data() || {};
+      if (hold.status !== "pending") {
+        throw new HttpsError("failed-precondition",
+            `Hold is '${hold.status || "unknown"}', not pending.`);
+      }
+      const cid = hold.conversationId;
+      const senderId = hold.sender;
+      const text = hold.text;
+      if (!cid || !senderId || !text) {
+        throw new HttpsError("failed-precondition",
+            "Hold is missing conversation/sender/text.");
+      }
+      // Re-verify the conversation still exists and the sender is still a
+      // participant (either could have changed since the hold was written).
+      const convRef = db.collection("conversations").doc(cid);
+      const convSnap = await convRef.get();
+      if (!convSnap.exists) {
+        throw new HttpsError("failed-precondition",
+            "Conversation no longer exists.");
+      }
+      const conv = convSnap.data() || {};
+      const participants = Array.isArray(conv.participants) ?
+        conv.participants : [];
+      if (!participants.includes(senderId)) {
+        throw new HttpsError("failed-precondition",
+            "Sender is no longer a participant of this conversation.");
+      }
+      // Deliver. moderateMessage fires on this create — release lifts the hold,
+      // not moderation (a known-bad link would still be re-quarantined).
+      const msgRef = convRef.collection("messages").doc();
+      await msgRef.set({
+        senderId,
+        text,
+        createdAt: FieldValue.serverTimestamp(),
+        releasedFromHold: true,
+      });
+      try {
+        await convRef.set({
+          lastMessageAt: FieldValue.serverTimestamp(),
+          lastMessageText: String(text).slice(0, 200),
+          lastMessageSenderId: senderId,
+        }, {merge: true});
+      } catch (e) {
+        logger.warn("releaseHold: conv lastMessage bump failed", e);
+      }
+      await holdRef.set({
+        status: "released",
+        releasedAt: FieldValue.serverTimestamp(),
+        releasedBy: req.auth.uid,
+        releaseNote: String(note || "").slice(0, 300),
+        deliveredMessageId: msgRef.id,
+      }, {merge: true});
+      await logAdminAction(req, "release_hold", "messageHold", holdId, note,
+          {conversationId: cid, sender: senderId, messageId: msgRef.id});
+      logger.info(`releaseHold: delivered ${holdId} -> ${cid}/${msgRef.id}`);
+      return {ok: true, delivered: true, messageId: msgRef.id, conversationId: cid};
+    },
+);
+
+// listMessageHolds({status?, limit?}) — admin-only. Returns the hold queue
+// (default: pending) with the fields a reviewer needs. No composite index
+// needed: single-field status equality, sorted newest-first in memory.
+exports.listMessageHolds = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      const status = (req.data && req.data.status) || "pending";
+      const limit = Math.min(Number((req.data && req.data.limit) || 100), 200);
+      const db = admin.firestore();
+      const snap = await db.collection("messageHolds")
+          .where("status", "==", status).limit(limit).get();
+      const toMs = (t) => (t && t.toMillis) ? t.toMillis() : null;
+      const holds = snap.docs.map((d) => {
+        const h = d.data() || {};
+        return {
+          holdId: d.id,
+          reason: h.reason || null,
+          sender: h.sender || null,
+          recipient: h.recipient || null,
+          conversationId: h.conversationId || null,
+          text: h.text || "",
+          externalHosts: Array.isArray(h.externalHosts) ? h.externalHosts : null,
+          createdAt: toMs(h.createdAt),
+          expireAt: toMs(h.expireAt),
+        };
+      }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return {ok: true, count: holds.length, status, holds};
+    },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -3016,6 +3279,45 @@ exports.syncWatchlistCount = onDocumentUpdated(
   },
 );
 
+// reconcileWatchlistCounts — weekly self-heal for the #34-unreliable
+// syncWatchlistCount trigger (the sole writer of listings.watchlistCount).
+// The watchlist toggle is a direct client write (no callable to do this
+// synchronously without a client change — that's Lane B), so a dropped
+// onUpdate permanently drifts the count. This recomputes each listing's
+// watchlistCount from the SOURCE OF TRUTH — the users/{uid}.watchlist map,
+// the same source the trigger diffs — and authoritatively corrects drift in
+// EITHER direction (under-count and stale-positive→0). Two full scans (users
+// + listings); fine at current volume — paginate at scale.
+exports.reconcileWatchlistCounts = onSchedule(
+  {schedule: "0 5 * * 1", timeZone: "UTC", ...SCHEDULED_BATCH},
+  async () => {
+    const db = admin.firestore();
+    const usersSnap = await db.collection("users").get();
+    const tally = {}; // listingId -> number of users watching it
+    usersSnap.forEach((d) => {
+      const wl = (d.data() || {}).watchlist;
+      if (wl && typeof wl === "object") {
+        for (const listingId of Object.keys(wl)) {
+          tally[listingId] = (tally[listingId] || 0) + 1;
+        }
+      }
+    });
+    const listingsSnap = await db.collection("listings").get();
+    let healed = 0;
+    for (const ldoc of listingsSnap.docs) {
+      const want = tally[ldoc.id] || 0;
+      const have = Number((ldoc.data() || {}).watchlistCount) || 0;
+      if (have !== want) {
+        await ldoc.ref.set({watchlistCount: want}, {merge: true});
+        healed += 1;
+      }
+    }
+    logger.info(
+      `reconcileWatchlistCounts: ${Object.keys(tally).length} watched listings, ` +
+      `${healed} counts corrected`);
+  }
+);
+
 // ─────────────────────────────────────────────────────────────
 // aggregateSellerStats (Firestore trigger)
 //   When an order transitions to fulfillmentStatus='delivered',
@@ -3023,43 +3325,111 @@ exports.syncWatchlistCount = onDocumentUpdated(
 //   Idempotent on the before/after diff so re-writes don't
 //   double-count.
 // ─────────────────────────────────────────────────────────────
+// applySellerSaleStatsIdempotent — single, idempotent place to apply a sale's
+// seller stats (salesCount→public profile, totalRevenue+lastSaleAt→private
+// users/). Guarded by orders/{id}.sellerStatsApplied so it can be called from
+// multiple paths (the synchronous confirmOrderDelivered does it inline; this
+// helper backs the trigger) without ever double-counting. All in one
+// transaction: read the order, bail if already applied / not delivered, else
+// blind-increment + set the marker atomically.
+async function applySellerSaleStatsIdempotent(db, orderId) {
+  const ref = db.collection("orders").doc(String(orderId));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return {applied: false, reason: "missing"};
+    const o = snap.data() || {};
+    if (o.sellerStatsApplied === true) return {applied: false, reason: "already"};
+    if (o.fulfillmentStatus !== "delivered") {
+      return {applied: false, reason: "not_delivered"};
+    }
+    const sellerId = o.sellerId;
+    if (!sellerId) return {applied: false, reason: "no_seller"};
+    const amount = Number(o.amount) || 0;
+    tx.set(db.collection("profiles").doc(sellerId),
+        {salesCount: admin.firestore.FieldValue.increment(1)}, {merge: true});
+    tx.set(db.collection("users").doc(sellerId),
+        {totalRevenue: admin.firestore.FieldValue.increment(amount),
+          lastSaleAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+    tx.set(ref, {sellerStatsApplied: true}, {merge: true});
+    return {applied: true, sellerId, amount};
+  });
+}
+
+// aggregateSellerStats — now an IDEMPOTENT BACKSTOP only. The authoritative
+// count is applied synchronously inside confirmOrderDelivered's transaction
+// (P1 sold-count fix, 2026-06-25), so this onUpdate trigger — unreliable per
+// #34 — no longer owns the count. It just re-applies via the marker-guarded
+// helper for any future delivery path that doesn't count inline; the marker
+// makes a double-fire a no-op. reconcileSellerStats is the self-heal.
 exports.aggregateSellerStats = onDocumentUpdated(
   {document: "orders/{orderId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
-      const before = event.data && event.data.before && event.data.before.data();
       const after = event.data && event.data.after && event.data.after.data();
-      if (!before || !after) return;
-
-      const wasDelivered = before.fulfillmentStatus === "delivered";
-      const isDelivered = after.fulfillmentStatus === "delivered";
-      if (wasDelivered || !isDelivered) return;
-
-      const sellerId = after.sellerId;
-      if (!sellerId) {
-        logger.warn(
-          `aggregateSellerStats: order ${event.params.orderId} has no sellerId`
-        );
-        return;
-      }
-
-      const amount = Number(after.amount) || 0;
+      if (!after) return;
+      if (after.fulfillmentStatus !== "delivered") return;
+      if (after.sellerStatsApplied === true) return; // already counted inline
       const db = admin.firestore();
-      await db.doc(`profiles/${sellerId}`).set(
-        {
-          salesCount: admin.firestore.FieldValue.increment(1),
-          totalRevenue: admin.firestore.FieldValue.increment(amount),
-          lastSaleAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        {merge: true}
-      );
-
-      logger.info(
-        `aggregateSellerStats: seller ${sellerId} +1 sale, +$${amount}`
-      );
+      const r = await applySellerSaleStatsIdempotent(db, event.params.orderId);
+      if (r.applied) {
+        logger.info(
+          `aggregateSellerStats(backstop): applied for ${event.params.orderId} ` +
+          `seller ${r.sellerId} +1, +$${r.amount}`);
+      }
     } catch (err) {
       logger.error("aggregateSellerStats error", err);
     }
+  }
+);
+
+// reconcileSellerStats — weekly self-heal. Recomputes each seller's salesCount
+// (and totalRevenue) from the SOURCE OF TRUTH — orders with
+// fulfillmentStatus=='delivered' — and authoritatively corrects any drift
+// (e.g. a count lost to a dropped #34 event before the synchronous path
+// existed). Authoritative overwrite, not increment. NOTE: full-scan of
+// delivered orders; fine at current volume — paginate / per-seller count()
+// when the orders collection grows large.
+exports.reconcileSellerStats = onSchedule(
+  {schedule: "0 5 * * 1", timeZone: "UTC", ...SCHEDULED_BATCH},
+  async () => {
+    const db = admin.firestore();
+    const snap = await db.collection("orders")
+      .where("fulfillmentStatus", "==", "delivered").get();
+    const bySeller = {};
+    snap.forEach((d) => {
+      const o = d.data() || {};
+      const s = o.sellerId;
+      if (!s) return;
+      if (!bySeller[s]) bySeller[s] = {count: 0, revenue: 0};
+      bySeller[s].count += 1;
+      bySeller[s].revenue += Number(o.amount) || 0;
+    });
+    let healedCount = 0; let healedRevenue = 0;
+    for (const [sellerId, agg] of Object.entries(bySeller)) {
+      try {
+        const [pSnap, uSnap] = await Promise.all([
+          db.doc(`profiles/${sellerId}`).get(),
+          db.doc(`users/${sellerId}`).get(),
+        ]);
+        const curCount = Number((pSnap.data() || {}).salesCount) || 0;
+        if (curCount !== agg.count) {
+          await db.doc(`profiles/${sellerId}`).set(
+            {salesCount: agg.count}, {merge: true});
+          healedCount += 1;
+        }
+        const curRev = Number((uSnap.data() || {}).totalRevenue) || 0;
+        if (Math.round(curRev) !== Math.round(agg.revenue)) {
+          await db.doc(`users/${sellerId}`).set(
+            {totalRevenue: agg.revenue}, {merge: true});
+          healedRevenue += 1;
+        }
+      } catch (e) {
+        logger.error(`reconcileSellerStats: seller ${sellerId} failed`, e);
+      }
+    }
+    logger.info(
+      `reconcileSellerStats: ${Object.keys(bySeller).length} sellers, ` +
+      `${healedCount} salesCount + ${healedRevenue} revenue corrected`);
   }
 );
 
@@ -3346,98 +3716,59 @@ exports.generateReferralCode = onCall(USER_CALLABLE, async (request) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// redeemReferralCredit (Firestore trigger)
-//   When an order transitions to fulfillmentStatus=='delivered'
-//   and the buyer has a referredBy code AND this is their first
-//   delivered order, credit BOTH the buyer and the referrer with
-//   $10 (users/{uid}.credits +10) and append the buyer to
-//   referrals/{code}.usedBy.
-//   Idempotent: only fires on the delivered transition itself.
-// ─────────────────────────────────────────────────────────────
-const REFERRAL_CREDIT_USD = 10;
-
+// redeemReferralCredit — now an IDEMPOTENT BACKSTOP. The authoritative credit
+// is applied synchronously inside confirmOrderDelivered (P1 referral fix,
+// 2026-06-25) via lib/referral.applyReferralCreditIdempotent. This onUpdate
+// trigger — unreliable per #34 — just re-applies through the same per-buyer
+// marker-guarded helper (never double-credits). reconcileReferralCredits is
+// the weekly self-heal.
 exports.redeemReferralCredit = onDocumentUpdated(
   {document: "orders/{orderId}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
-      const before = event.data && event.data.before && event.data.before.data();
       const after = event.data && event.data.after && event.data.after.data();
-      if (!before || !after) return;
-
-      const wasDelivered = before.fulfillmentStatus === "delivered";
-      const isDelivered = after.fulfillmentStatus === "delivered";
-      if (wasDelivered || !isDelivered) return;
-
-      const buyerId = after.buyerId;
-      if (!buyerId) return;
-
+      if (!after) return;
+      if (after.fulfillmentStatus !== "delivered") return;
+      if (!after.buyerId) return;
       const db = admin.firestore();
-      const buyerRef = db.doc(`users/${buyerId}`);
-      const buyerSnap = await buyerRef.get();
-      if (!buyerSnap.exists) return;
-      const buyer = buyerSnap.data();
-      const referralCode = buyer.referredBy;
-      if (!referralCode) return; // skip silently — no referral attached
-
-      // First-delivered-order check: count prior delivered orders for buyer.
-      const priorSnap = await db
-        .collection("orders")
-        .where("buyerId", "==", buyerId)
-        .where("fulfillmentStatus", "==", "delivered")
-        .get();
-
-      // The current order is now in this set (Firestore reads see it post-update).
-      // So "first delivered" means exactly 1 delivered order for this buyer.
-      const deliveredCount = priorSnap.size;
-      if (deliveredCount !== 1) {
+      const {applyReferralCreditIdempotent} = require("./lib/referral");
+      const r = await applyReferralCreditIdempotent(db, after.buyerId);
+      if (r.applied) {
         logger.info(
-          `redeemReferralCredit: buyer ${buyerId} has ${deliveredCount} ` +
-            `delivered order(s); skipping (not first)`
-        );
-        return;
+          `redeemReferralCredit(backstop): credited buyer ${after.buyerId} ` +
+          `+ referrer ${r.referrerId} (code ${r.code})`);
       }
-
-      const refRef = db.doc(`referrals/${referralCode}`);
-      const refSnap = await refRef.get();
-      if (!refSnap.exists) {
-        logger.warn(
-          `redeemReferralCredit: referral code ${referralCode} not found ` +
-            `for buyer ${buyerId}`
-        );
-        return;
-      }
-      const referrerId = refSnap.data().userId;
-      if (!referrerId || referrerId === buyerId) {
-        logger.warn(
-          `redeemReferralCredit: invalid referrerId for code ${referralCode}`
-        );
-        return;
-      }
-
-      const referrerRef = db.doc(`users/${referrerId}`);
-      const batch = db.batch();
-      batch.set(
-        buyerRef,
-        {credits: admin.firestore.FieldValue.increment(REFERRAL_CREDIT_USD)},
-        {merge: true}
-      );
-      batch.set(
-        referrerRef,
-        {credits: admin.firestore.FieldValue.increment(REFERRAL_CREDIT_USD)},
-        {merge: true}
-      );
-      batch.update(refRef, {
-        usedBy: admin.firestore.FieldValue.arrayUnion(buyerId),
-      });
-      await batch.commit();
-
-      logger.info(
-        `redeemReferralCredit: +$${REFERRAL_CREDIT_USD} to buyer ${buyerId} ` +
-          `and referrer ${referrerId} (code ${referralCode})`
-      );
     } catch (err) {
       logger.error("redeemReferralCredit error", err);
     }
+  }
+);
+
+// reconcileReferralCredits — weekly self-heal. For every distinct buyer with a
+// delivered order, runs the idempotent helper (no-op unless they have an
+// unredeemed referral + a delivered purchase). Catches any credit lost to a
+// dropped #34 event before the synchronous path existed.
+exports.reconcileReferralCredits = onSchedule(
+  {schedule: "0 5 * * 1", timeZone: "UTC", ...SCHEDULED_BATCH},
+  async () => {
+    const db = admin.firestore();
+    const {applyReferralCreditIdempotent} = require("./lib/referral");
+    const snap = await db.collection("orders")
+      .where("fulfillmentStatus", "==", "delivered").get();
+    const buyers = [...new Set(
+      snap.docs.map((d) => (d.data() || {}).buyerId).filter(Boolean))];
+    let credited = 0;
+    for (const buyerId of buyers) {
+      try {
+        const r = await applyReferralCreditIdempotent(db, buyerId);
+        if (r.applied) credited += 1;
+      } catch (e) {
+        logger.error(`reconcileReferralCredits: buyer ${buyerId} failed`, e);
+      }
+    }
+    logger.info(
+      `reconcileReferralCredits: ${buyers.length} buyers checked, ` +
+      `${credited} credited`);
   }
 );
 
@@ -3665,19 +3996,96 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       const sellerId = parts[1];
       const listingId = parts[2];
       let safeSearch = null;
+      let scanFailed = false;
       try {
         // Lazy-require so the function still cold-starts if the dep
         // isn't installed yet (e.g. before a deploy).
         const vision = require("@google-cloud/vision");
         const client = new vision.ImageAnnotatorClient();
         const gcsUri = `gs://${obj.bucket}/${obj.name}`;
-        const [result] = await client.safeSearchDetection(gcsUri);
-        safeSearch = result && result.safeSearchAnnotation;
+        // Retry transient Vision errors (quota/network blips) before deciding
+        // we can't verify the image — avoids flagging a legit listing over a
+        // momentary hiccup.
+        let lastErr = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const [result] = await client.safeSearchDetection(gcsUri);
+            safeSearch = result && result.safeSearchAnnotation;
+            lastErr = null;
+            break;
+          } catch (e) {
+            lastErr = e;
+            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+          }
+        }
+        if (lastErr) throw lastErr;
       } catch (err) {
-        // If Vision isn't enabled or quota is hit, fail OPEN — we
-        // still get the text-based moderation pass and the report
-        // button as backstops. Log loudly so it shows in alerting.
-        logger.error("SafeSearch detection failed", obj.name, err && err.message);
+        logger.error(
+            "SafeSearch failed after retries — failing closed (flag for review)",
+            obj.name, err && err.message);
+        scanFailed = true;
+      }
+      // FAIL CLOSED (was: fail OPEN / silent pass). If Vision threw after
+      // retries OR returned no annotation, we cannot verify the image — so we
+      // do NOT let it sail through. Flag the listing for review via the same
+      // admin queue as NSFW, but do NOT delete the photo (we can't confirm it's
+      // unsafe — a human/retry clears it). Distinct reason so the queue shows
+      // "scan failed" vs an NSFW trip.
+      if (scanFailed || !safeSearch) {
+        const reason = "image_scan_error";
+        const db = admin.firestore();
+        const listingRef = db.collection("listings").doc(listingId);
+        let listingData = null;
+        try {
+          const snap = await listingRef.get();
+          if (snap.exists) {
+            listingData = snap.data();
+            await listingRef.update({
+              status: "flagged",
+              moderationFlags: {
+                reason,
+                flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+                offendingPath: obj.name,
+              },
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+        } catch (e) {
+          logger.error("imageScanError: listing flag write failed", listingId, e);
+        }
+        try {
+          const data = listingData || {};
+          await db.collection("flaggedListings").doc(listingId).set({
+            listingId, sellerId,
+            title: data.title || "(unknown)",
+            brand: data.brand || "",
+            photos: data.photos || [],
+            reason,
+            offendingPath: obj.name,
+            status: "pending",
+            flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+        } catch (e) {
+          logger.error("imageScanError: flaggedListings write failed", listingId, e);
+        }
+        try {
+          await db.collection("users").doc(sellerId)
+              .collection("notifications").add({
+                kind: "listing-under-review",
+                subject: "Listing under review",
+                body: "We're double-checking a photo on your listing, so it " +
+                  "isn't visible yet. We'll restore it shortly.",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                read: false,
+              });
+        } catch (e) {
+          logger.error("imageScanError: seller notify failed", listingId, e);
+        }
+        try {
+          await opsAlert("warn",
+              "Listing image scan failed — flagged for review (fail-closed)",
+              {listingId, sellerId, path: obj.name});
+        } catch (_e) { /* best-effort */ }
         return;
       }
 
@@ -5921,30 +6329,117 @@ function findExplicitTerm(text) {
 // the matched term or full field contents — scanContent already
 // captured the redacted excerpt in moderationLog.
 exports.moderateListingOnCreate = onDocumentCreated(
-    {document: "listings/{listingId}", ...LIGHT_TRIGGER},
+    {document: "listings/{listingId}", ...LIGHT_TRIGGER, secrets: [OPS_ALERT_WEBHOOK]},
     async (event) => {
       const snap = event.data;
       if (!snap) return;
       const d = snap.data() || {};
       const sellerId = d.sellerId || null;
-      const result = await scanFields(
-          {title: d.title, brand: d.brand, desc: d.desc,
-            cat: d.cat, condition: d.condition},
-          "listing",
-          sellerId,
-          null,
-      );
-      if (result.clean) return;
-      logger.warn(
-          "moderation: blocking listing (content violation)",
-          {listingId: event.params.listingId,
-            sellerId, category: result.category},
-      );
+      const listingId = event.params.listingId;
+
+      // Admin already vetted this content (re-created via releaseListingHold,
+      // which sets moderationCleared — a field the create RULE whitelist blocks
+      // clients from setting, so only the admin path can reach here). Skip the
+      // re-scan so a released false-positive doesn't loop back into the queue.
+      if (d.moderationCleared === true) return;
+
+      const {scanFields: _scan, shouldHoldListing} =
+        require("./moderation/contentFilter");
+      let result;
       try {
-        await snap.ref.delete();
+        result = await _scan(
+            {title: d.title, brand: d.brand, desc: d.desc,
+              cat: d.cat, condition: d.condition},
+            "listing", sellerId, null);
       } catch (e) {
-        logger.error("moderation: listing delete failed", e);
+        // scanFields is internally fail-open, but if it ever THROWS, treat it
+        // as an unverifiable scan → FAIL CLOSED (hold), never pass.
+        logger.error("moderateListingOnCreate: scan threw — failing closed", e);
+        result = {clean: true, degraded: true, category: null};
       }
+
+      const decision = shouldHoldListing(result);
+      if (!decision.hold) return; // clean + verified → leave live
+
+      // HOLD FOR REVIEW (was: silent delete). Quarantine the full content so an
+      // admin can release (re-create) it; the live listing is removed from the
+      // marketplace; the seller is notified; admin is alerted. A content
+      // violation AND a degraded/errored scan both land here (fail closed).
+      const db = admin.firestore();
+      try {
+        await db.collection("listingHolds").doc(listingId).set({
+          listingId,
+          sellerId,
+          content: d, // full snapshot — restorable by releaseListingHold
+          reason: decision.reason,
+          category: result.category || null,
+          redactedExcerpt: result.redactedExcerpt || null,
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          // TTL: discarded ~HOLD_TTL_DAYS later. Discard ≠ publish — only the
+          // admin releaseListingHold ever re-creates the listing.
+          expireAt: admin.firestore.Timestamp.fromMillis(Date.now() + HOLD_TTL_MS),
+        });
+        await snap.ref.delete(); // remove from the live marketplace
+        await writeNotification(sellerId, {
+          type: "listing_under_review",
+          title: "Your listing is under review",
+          body: `"${String(d.title || "Your listing").slice(0, 40)}" is being ` +
+            "reviewed and isn't visible yet. We'll restore it if it's all clear.",
+          listingId,
+        });
+        await opsAlert("warn", "Listing held for review", {
+          listingId, sellerId, reason: decision.reason,
+          category: result.category || null,
+        });
+        logger.warn("moderation: listing HELD for review", {
+          listingId, sellerId, reason: decision.reason});
+      } catch (e) {
+        logger.error("moderateListingOnCreate: hold failed", e);
+      }
+    },
+);
+
+// releaseListingHold(holdId, note?) — admin-only. Re-creates the held listing
+// from its quarantined content (the ONLY path that republishes a held listing;
+// TTL expiry just discards). Sets moderationCleared so the re-create doesn't
+// loop back through moderateListingOnCreate. Mirrors releaseHold for messages.
+exports.releaseListingHold = onCall(
+    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    async (req) => {
+      adminGate(req);
+      const {holdId, note} = req.data || {};
+      if (!holdId || typeof holdId !== "string") {
+        throw new HttpsError("invalid-argument", "holdId required");
+      }
+      const db = admin.firestore();
+      const holdRef = db.collection("listingHolds").doc(holdId);
+      const snap = await holdRef.get();
+      if (!snap.exists) {
+        throw new HttpsError("not-found",
+            "Listing hold not found (it may have expired and been discarded).");
+      }
+      const hold = snap.data() || {};
+      if (hold.status !== "pending") {
+        throw new HttpsError("failed-precondition",
+            `Hold is '${hold.status || "unknown"}', not pending.`);
+      }
+      if (!hold.content || !hold.listingId) {
+        throw new HttpsError("failed-precondition",
+            "Hold is missing listing content.");
+      }
+      await db.collection("listings").doc(hold.listingId).set(
+          {...hold.content, moderationCleared: true}, {merge: false});
+      await holdRef.set({
+        status: "released",
+        releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+        releasedBy: req.auth.uid,
+        releaseNote: String(note || "").slice(0, 300),
+      }, {merge: true});
+      await logAdminAction(req, "release_listing_hold", "listingHold", holdId,
+          note, {listingId: hold.listingId});
+      logger.info(`releaseListingHold: restored ${hold.listingId} from ${holdId}`);
+      return {ok: true, restored: true, listingId: hold.listingId};
     },
 );
 
@@ -6761,6 +7256,36 @@ exports.moderateUserDocOnUpdate = onDocumentUpdated(
     },
 );
 
+// reconcileUserDisplayNames — weekly self-heal for moderateUserDocOnUpdate,
+// the #34-unreliable trigger that clears a violating users/{uid}.displayName
+// on EDIT (displayName is a direct client write — no synchronous gate). A
+// dropped onUpdate lets an abusive rename persist; this re-scans every user's
+// displayName and clears violations.
+exports.reconcileUserDisplayNames = onSchedule(
+  {schedule: "0 5 * * 1", timeZone: "UTC", ...SCHEDULED_BATCH},
+  async () => {
+    const db = admin.firestore();
+    const {scanContent: _scan} = require("./moderation/contentFilter");
+    const snap = await db.collection("users").get();
+    let cleared = 0;
+    for (const d of snap.docs) {
+      const dn = (d.data() || {}).displayName;
+      if (!dn || typeof dn !== "string") continue;
+      try {
+        const r = await _scan(dn, "profile", d.id, null);
+        if (!r.clean) {
+          await d.ref.set({displayName: ""}, {merge: true});
+          cleared += 1;
+        }
+      } catch (e) {
+        logger.error(`reconcileUserDisplayNames: ${d.id} failed`, e);
+      }
+    }
+    logger.info(
+      `reconcileUserDisplayNames: ${snap.size} users, ${cleared} cleared`);
+  }
+);
+
 // ── moderateOfferOnCreate (offers/{id}.message) ─────────────────────
 // Offers carry an optional `message` field (≤500 chars per rules) that
 // the buyer types as a pitch to the seller. Sweep on create — delete
@@ -6912,8 +7437,19 @@ const MESSAGING_CONFIG_DEFAULTS = {
   duplicateRecipientThreshold: 3,
   piiPerRecipientWindowHours: 24,
   piiPerRecipientLimit: 1,
+  // Additive blocklist on top of the hardcoded MOD_KNOWN_BAD_DOMAINS. Admins
+  // can append new phishing domains here (Firebase console) without a redeploy.
+  knownBadDomains: [],
   enabled: true,
 };
+
+// Held messages are a QUARANTINE, not a delay. They self-discard via a
+// Firestore TTL on `messageHolds.expireAt` after this many days. TTL deletion
+// is a silent DROP — there is deliberately NO onDelete trigger, so an expired
+// hold can never be delivered. The ONLY path that delivers a held message is
+// the explicit admin releaseHold() callable.
+const HOLD_TTL_DAYS = 30;
+const HOLD_TTL_MS = HOLD_TTL_DAYS * 24 * 3600 * 1000;
 
 // Per-instance cache. Cloud Functions v2 keeps warm instances around
 // across invocations, so this stays populated between calls in a way
@@ -7007,6 +7543,41 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     // Kill-switch: if an admin flips `enabled` to false we skip ALL
     // rate-limit checks but still verify conversation membership and
     // write the message via the Admin SDK.
+  }
+
+  // ──── External-link / phishing pre-write gate ────
+  // Durable fix for the 2026-06-25 credential-phish campaign. Runs the same
+  // detector as the moderateMessage trigger, but BEFORE the write so a
+  // known-bad domain never reaches the recipient at all. Admins can extend
+  // the blocklist via config.messaging.knownBadDomains (string[]).
+  const extraBadDomains = Array.isArray(config.knownBadDomains) ?
+    config.knownBadDomains : [];
+  const offDet = modDetectOffPlatform(text, extraBadDomains);
+  if (offDet.knownBad) {
+    // Hard block. Record a BLOCKED audit row, then reject — never delivered.
+    try {
+      await admin.firestore().collection("messageFlags").add({
+        senderId,
+        conversationId,
+        severity: "BLOCKED",
+        types: offDet.types,
+        patterns: offDet.patterns,
+        textPreview: text.slice(0, 240),
+        action: "blocked_known_bad_domain_send",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await admin.firestore().collection("users").doc(senderId).set({
+        offPlatformFlags: admin.firestore.FieldValue.increment(1),
+        knownBadLinkFlags: admin.firestore.FieldValue.increment(1),
+      }, {merge: true});
+    } catch (_e) { /* best-effort audit; the block below is the enforcement */ }
+    throw new HttpsError("invalid-argument", "Content violation", {
+      error: "blocked_link",
+      category: "phishing_link",
+      suggestion: "This message contains a link we don't allow. Keep " +
+        "payments on TeeBox — we'll never ask you to confirm a payment " +
+        "through an outside link.",
+    });
   }
 
   const db = admin.firestore();
@@ -7174,9 +7745,28 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     }
   }
 
+  // ──── Rule 5: brand-new account + external link → hold ────
+  // The phishing pattern is a days-old account blasting off-platform links to
+  // sellers (the form76510.shop campaign account was ~2 min old). Established
+  // accounts can still share the occasional link — it's delivered with an
+  // interstitial by the moderateMessage trigger. New accounts get quarantined
+  // to messageHolds for review instead of reaching the seller. Gated by the
+  // same new-account window as Rule 1.
+  let heldByRule5 = false;
+  const hasExternalLink = offDet && Array.isArray(offDet.externalHosts) &&
+    offDet.externalHosts.length > 0;
+  if (config.enabled !== false && hasExternalLink) {
+    const createdAtMs5 = tsToMillis(sender.createdAt);
+    const newWindowMs5 = config.newAccountWindowHours * 3600 * 1000;
+    if (createdAtMs5 > 0 && (now - createdAtMs5) < newWindowMs5) {
+      heldByRule5 = true;
+    }
+  }
+
   // ──── Hold path: write messageHolds/{id}, skip the convo write. ────
-  if (heldByRule3 || heldByRule4) {
-    const reason = heldByRule3 ? "duplicate_spam_pattern" : "pii_repeated_recipient";
+  if (heldByRule3 || heldByRule4 || heldByRule5) {
+    const reason = heldByRule3 ? "duplicate_spam_pattern" :
+      heldByRule4 ? "pii_repeated_recipient" : "new_account_external_link";
     const holdRef = db.collection("messageHolds").doc();
     try {
       await holdRef.set({
@@ -7187,7 +7777,13 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
         reason,
         hash: heldByRule3 ? hash : null,
         clientFlag: clientFlag || null,
+        offPlatformTypes: heldByRule5 ? offDet.types : null,
+        externalHosts: heldByRule5 ? offDet.externalHosts : null,
         createdAt: FieldValue.serverTimestamp(),
+        // TTL field: a Firestore TTL policy on `expireAt` discards this hold
+        // ~HOLD_TTL_DAYS after creation. Discard ≠ delivery (no onDelete
+        // trigger); only releaseHold() ever delivers a held message.
+        expireAt: admin.firestore.Timestamp.fromMillis(now + HOLD_TTL_MS),
         status: "pending",
       });
     } catch (e) {

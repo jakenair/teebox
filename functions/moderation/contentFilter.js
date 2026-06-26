@@ -458,9 +458,21 @@ async function scanFields(fields, contentType, uid, request) {
   return {clean: true, category: null, redactedExcerpt: null, degraded};
 }
 
+// shouldHoldListing — moderation ACTION decision for listings. A content
+// violation OR a degraded/errored scan both HOLD the listing for review
+// (fail CLOSED). Never silent-delete, never silent-pass. Pure + exported so
+// the fail-closed behavior is deterministically testable.
+function shouldHoldListing(result) {
+  const r = result || {};
+  if (r.clean === false) return {hold: true, reason: "content_violation"};
+  if (r.degraded === true) return {hold: true, reason: "scan_error"};
+  return {hold: false, reason: null};
+}
+
 module.exports = {
   scanContent,
   scanFields,
+  shouldHoldListing,
   // Exposed for unit tests only. Do NOT import these elsewhere — the
   // public surface is scanContent / scanFields.
   __testing: {

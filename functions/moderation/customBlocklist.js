@@ -119,6 +119,11 @@ const ALLOWLIST = new Set([
   "putter", "putters", "putt", "putts", "putting",
   "stiff", "stiffer", "stiffness", // shaft flex
   "wedge", "wedges", "wedged",
+  // GOLF BALLS — "balls" is in the bad-words default list but is a core,
+  // wholly benign product term on a golf marketplace. Without this it was
+  // silently auto-deleting "...Golf Balls" listings + blocking chat. (singular
+  // "ball" is clean in bad-words, but allowlist both for completeness.)
+  "ball", "balls",
   "rough", "roughest",
   "lie", "lies", "lied", "lying", // club lie angle
   "rip", "ripped", "rips", // descriptive

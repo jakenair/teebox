@@ -38,6 +38,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {defineSecret} = require("firebase-functions/params");
+const MANUAL_TRIGGER_SECRET = defineSecret("MANUAL_TRIGGER_SECRET");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
 const https = require("https");
@@ -111,11 +112,14 @@ exports.smokeProUpgradeManual = onRequest({
     STRIPE_TEST_SECRET_KEY,
     STRIPE_TEST_PRO_PRICE_ID,
     SMOKE_ALERT_WEBHOOK,
+    MANUAL_TRIGGER_SECRET,
   ],
   timeoutSeconds: 540,
   memory: "512MiB",
 }, async (req, res) => {
-  if (req.method !== "POST" || req.get("X-Smoke-Trigger") !== "1") {
+  // Authenticated by a shared secret in the X-Smoke-Trigger header (was "1").
+  if (req.method !== "POST" ||
+      req.get("X-Smoke-Trigger") !== MANUAL_TRIGGER_SECRET.value()) {
     res.status(404).send("Not found");
     return;
   }
