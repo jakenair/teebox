@@ -414,8 +414,10 @@
 
   /* Profile modal */
   .profile-header { display: flex; gap: 1.25rem; align-items: center; margin-bottom: 1.5rem; }
-  .profile-avatar { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: flex; align-items: center; justify-content: center; color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 2rem; flex-shrink: 0; overflow: hidden; }
-  .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-avatar { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: flex; align-items: center; justify-content: center; color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 2rem; flex-shrink: 0; overflow: hidden; position: relative; }
+  /* Photo overlays the initials placeholder (which is the flex-centered child),
+     so there's an instant initials avatar and the photo fades in on top. */
+  .profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   /* Perf: avatar fades in over the gradient placeholder instead of popping.
      hydrateAvatars() adds .avatar-loaded on image load; the animation is a
      safety reveal at 2s so an avatar can never stay hidden if that's missed. */
@@ -2659,7 +2661,19 @@
   .chat-header { background: var(--green-900); color: var(--white); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .chat-header-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .chat-header-emoji { font-size: 1.75rem; flex-shrink: 0; }
+  /* Other-participant avatar in the thread header. Mirrors .profile-avatar
+     (initials placeholder behind an eager-loading photo) at header scale, and
+     is a real <button> so it's keyboard-tappable into openProfile(). */
+  .chat-header-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--green-300), var(--green-600)); display: flex; align-items: center; justify-content: center; color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 1rem; line-height: 1; flex-shrink: 0; overflow: hidden; position: relative; padding: 0; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; }
+  .chat-header-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .chat-header-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
+  .chat-header-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
+  .chat-header-avatar:hover { border-color: rgba(255,255,255,0.5); }
   .chat-header-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The partner name is its own button so tapping it opens their profile,
+     same as the avatar. Reset to look like the inline sub text. */
+  .chat-header-sub-btn { background: none; border: none; padding: 0; margin: 0; display: block; max-width: 100%; text-align: left; cursor: pointer; }
+  .chat-header-sub-btn:hover .chat-header-sub { color: rgba(255,255,255,0.85); text-decoration: underline; }
   .chat-header-sub { font-size: 12px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: var(--transition); }
   .chat-close:hover { background: rgba(255,255,255,0.2); }
@@ -3570,7 +3584,7 @@
         <h4>5. Fees</h4>
         TeeBox charges a seller transaction fee of 6.5% of the sale price, deducted automatically from your payout. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
-        Payouts are issued to your linked bank account within 3 business days after the buyer confirms delivery (or 7 days after delivery confirmation by the carrier, whichever comes first).
+        Payouts are issued to your linked bank account on Stripe's standard payout schedule after a successful sale. Buyers have 7 days from delivery to open a dispute; a confirmed dispute may reverse a payout.
         <h4>7. Disputes &amp; Indemnification</h4>
         You agree that TeeBox is not liable for any loss or damages arising from a transaction. You will indemnify TeeBox against any claim, fee, or expense related to your listings or conduct on the platform. Disputes between buyers and sellers must first attempt resolution through the in-app messaging.
         <h4>8. Governing Law</h4>
@@ -3979,7 +3993,7 @@
     <div class="modal-body">
       <p style="color:var(--gray-700);font-size:13.5px;line-height:1.5;margin-bottom:14px;">
         Enter your carrier tracking number. The buyer will get an instant push + email
-        with a clickable tracking link, and your payout is released after delivery.
+        with a clickable tracking link, and your payout is sent on Stripe's standard schedule after the sale.
       </p>
       <label for="shipTracking" style="display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:6px;">Tracking number <span style="color:var(--red-500)">*</span></label>
       <input id="shipTracking" type="text" required aria-required="true"
@@ -3990,7 +4004,7 @@
       <p id="shipCarrierHint" style="color:var(--gray-500);font-size:12.5px;margin-top:6px;min-height:1em;" aria-live="polite"></p>
       <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:4px;min-height:1em;" role="alert"></p>
       <p style="font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.4;">
-        Accepted carriers: USPS, UPS, FedEx, DHL. Tracking is required to release funds.
+        Accepted carriers: USPS, UPS, FedEx, DHL. Tracking is required to mark your order shipped.
         <a href="#" data-action="ship-no-tracking-info" style="color:var(--green-700);text-decoration:underline;">Don't have a number yet?</a>
       </p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
@@ -4387,10 +4401,12 @@
   <div class="chat-modal" role="dialog" aria-modal="true" aria-label="Conversation">
     <div class="chat-header">
       <div class="chat-header-info">
-        <span class="chat-header-emoji" id="chatEmoji" data-ico="message" aria-hidden="true"></span>
+        <button class="chat-header-avatar" id="chatHeaderAvatar" type="button" data-action="open-chat-partner" aria-label="View profile">?</button>
         <div style="min-width:0;">
           <div class="chat-header-title" id="chatTitle">Conversation</div>
-          <div class="chat-header-sub" id="chatSub">—</div>
+          <button class="chat-header-sub-btn" id="chatSubBtn" type="button" data-action="open-chat-partner">
+            <span class="chat-header-sub" id="chatSub">—</span>
+          </button>
         </div>
       </div>
       <div class="chat-header-actions">
@@ -6026,6 +6042,7 @@ window.confirmPayment = async function() {
       badge.setAttribute('title', 'Open account menu');
       badge.setAttribute('aria-label', `Open account menu for ${labelText}`);
       await checkSellerStatus(user.uid);
+      preloadOwnAvatar(user.uid); // fire-and-forget: cache-warm own avatar
       // checkSellerStatus also stamps window.CURRENT_PROFILE_NAME if the
       // Firestore profile has a displayName — refresh the badge from there.
       const profName = window.CURRENT_PROFILE_NAME || '';
@@ -6170,6 +6187,23 @@ window.confirmPayment = async function() {
       loadListings();
     }
   });
+
+  // Perf: warm the signed-in user's OWN avatar into the browser/WKWebView image
+  // cache at sign-in, so opening their profile later is instant (no lazy fetch
+  // on tap). The avatar lives on profiles/{uid}.avatarUrl (not users/), so this
+  // is a small separate read. Best-effort, non-blocking; never throws.
+  async function preloadOwnAvatar(uid) {
+    try {
+      const snap = await getDoc(doc(db, 'profiles', uid));
+      const url = snap.exists() && snap.data().avatarUrl;
+      if (url) {
+        window.CURRENT_PROFILE_AVATAR = url;
+        const im = new Image();
+        im.decoding = 'async';
+        im.src = url; // primes the HTTP/image cache
+      }
+    } catch (_e) { /* best-effort — never block sign-in on a preload */ }
+  }
 
   async function checkSellerStatus(uid) {
     try {
@@ -9744,19 +9778,33 @@ async function openChatForListing(listingId) {
 }
 
 function openChatUI() {
-  const chatEm = document.getElementById('chatEmoji');
-  chatEm.innerHTML = window.CATEGORY_ICON(currentChat.listing.cat || currentChat.listing.listingCat || 'accessories');
+  const avatarEl = document.getElementById('chatHeaderAvatar');
+  // Header now shows WHO you're talking to: the other participant's avatar +
+  // name (tappable → openProfile). Listing context lives in the pinned card
+  // below (renderChatListingCard). Title stays the listing; sub is the name.
+  if (avatarEl) avatarEl.innerHTML = '?'; // instant placeholder until profile resolves
   document.getElementById('chatTitle').textContent = currentChat.listing.title || 'Conversation';
   document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
-  // Show WHO you're talking to in the header — resolved async (cached via
-  // loadProfile), falling back to the listing brand until the profile loads.
-  (function resolvePartnerName() {
+  // Resolve the partner's profile once (cached via loadProfile/PROFILE_CACHE),
+  // then render their avatar + name. Guard against a thread switch landing the
+  // wrong avatar by capturing the conversationId we opened with.
+  (function resolvePartner() {
     const otherId = currentChat && currentChat.otherUserId;
+    const openedCid = currentChat && currentChat.conversationId;
     if (!otherId || typeof loadProfile !== 'function') return;
     const sub = document.getElementById('chatSub');
     loadProfile(otherId).then((prof) => {
+      // Stale-guard: bail if the user has since opened a different thread.
+      if (!currentChat || currentChat.conversationId !== openedCid) return;
       const name = prof && (prof.displayName || (prof._user && prof._user.displayName));
       if (name && document.getElementById('chatSub') === sub) sub.textContent = name;
+      const av = document.getElementById('chatHeaderAvatar');
+      if (av && typeof avatarHtml === 'function') {
+        // Reuse the profile-pic-lag pattern: initials placeholder behind an
+        // eager/fetchpriority-high <img>, faded in by hydrateAvatars().
+        av.innerHTML = avatarHtml(prof || { id: otherId });
+        if (typeof hydrateAvatars === 'function') hydrateAvatars(av);
+      }
     }).catch(() => {});
   })();
   document.getElementById('chatInput').value = '';
@@ -11436,7 +11484,7 @@ function renderShopTables() {
   // SOLD ITEMS TABLE
   const soldEl = document.getElementById('dashTabSold');
   if (orders.length === 0) {
-    soldEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No sales yet</div>Once a buyer pays, the order shows up here with the buyer ID, sale price, and date. You\'ll be paid out after the buyer confirms delivery.</div>';
+    soldEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No sales yet</div>Once a buyer pays, the order shows up here with the buyer ID, sale price, and date. Payouts go to your linked bank on Stripe\'s standard schedule after the sale.</div>';
   } else {
     soldEl.innerHTML = `
       <table class="dash-table">
@@ -15488,9 +15536,18 @@ function profileInitial(p) {
 }
 
 function avatarHtml(p) {
+  const initial = window.safeText(profileInitial(p));
   const u = window.safeImgUrl(p && p.avatarUrl);
-  if (u) return `<img src="${window.safeAttr(u)}" alt="" loading="lazy" decoding="async" class="avatar-img" />`;
-  return window.safeText(profileInitial(p));
+  if (u) {
+    // The initial renders instantly as the placeholder; the photo loads EAGERLY
+    // (was loading="lazy", which deferred the fetch and caused the late pop) and
+    // fades in over the initials via hydrateAvatars(). The signed-in user's own
+    // avatar is also cache-warmed at sign-in (preloadOwnAvatar), so opening
+    // their own profile is instant.
+    return `<span class="avatar-initial" aria-hidden="true">${initial}</span>` +
+      `<img src="${window.safeAttr(u)}" alt="" loading="eager" fetchpriority="high" decoding="async" class="avatar-img" />`;
+  }
+  return initial;
 }
 
 // Perf: reveal avatar images with a fade once they actually load. Inline
@@ -17627,6 +17684,10 @@ A['retry-checkout']          = () => {
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
 A['open-conv']               = (el) => { if (!window.requireAuth('to open this conversation')) return; openChatFromConversation(el.dataset.convId); };
+// Tap the thread-header avatar or partner name → open that participant's
+// public profile. Works for any uid (buyer or seller); openProfile renders
+// empty listings/sold gracefully as "New seller".
+A['open-chat-partner']       = () => { const uid = currentChat && currentChat.otherUserId; if (uid && typeof openProfile === 'function') openProfile(uid); };
 // Notifications panel (Feature: notifications-v1)
 A['toggle-notifications']    = () => { if (!window.requireAuth('to view your notifications')) return; toggleNotifications(); };
 A['close-notifications']     = () => closeNotifications();
