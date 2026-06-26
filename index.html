@@ -1064,6 +1064,11 @@
   .toast.toast-out { animation: toastOut 0.25s forwards; }
   .toast.success { background: var(--green-600) !important; }
   .toast.success::before { content: '✓ '; font-weight: 800; }
+  /* S6 fix: error states must NOT render success-green. Error = red, info =
+     neutral dark. Default (no variant) keeps the base green. */
+  .toast.error { background: var(--red-500, #d64545) !important; }
+  .toast.error::before { content: '⚠ '; font-weight: 800; }
+  .toast.info { background: var(--gray-800, #2a2a26) !important; }
 
   /* Off-platform interstitial — sits above flagged inbound chat bubbles.
      Bubble alignment is preserved via .msg-wrap (flex column, aligns to
@@ -2370,7 +2375,7 @@
   .footer-social .ico { width: 18px; height: 18px; stroke-width: 1.6; }
   .footer-social-handle { font-weight: 500; }
 
-  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--green-700); color: white; padding: 14px 28px; border-radius: 50px; font-weight: 600; font-size: 15px; z-index: 400; box-shadow: 0 8px 32px rgba(0,0,0,0.2); animation: slideUp 0.25s ease; white-space: nowrap; }
+  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--green-700); color: white; padding: 14px 28px; border-radius: 24px; font-weight: 600; font-size: 15px; z-index: 400; box-shadow: 0 8px 32px rgba(0,0,0,0.2); animation: slideUp 0.25s ease; max-width: min(90vw, 440px); white-space: normal; text-align: center; line-height: 1.35; }
 
   .search-overlay { display: none; position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.5); align-items: flex-start; justify-content: center; padding-top: 80px; }
   .search-overlay.open { display: flex; }
@@ -14479,7 +14484,17 @@ window.updateLiveStats = updateLiveStats;
 
 function showToast(msg, variant) {
   const t = document.createElement('div');
-  t.className = 'toast' + (variant === 'success' ? ' success' : '');
+  // S6 fix: map the variant to a colour class so ERROR states render red (not
+  // success-green). success→green, error→red, info→neutral, default→base green.
+  const cls = variant === 'success' ? ' success'
+    : variant === 'error' ? ' error'
+    : variant === 'info' ? ' info' : '';
+  t.className = 'toast' + cls;
+  // Accessibility: announce to screen readers. Errors are assertive (interrupt);
+  // everything else is polite.
+  t.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+  t.setAttribute('aria-live', variant === 'error' ? 'assertive' : 'polite');
+  t.setAttribute('aria-atomic', 'true');
   t.textContent = msg;
   document.body.appendChild(t);
   // Slide-out before remove so the toast doesn't pop off mid-frame.
