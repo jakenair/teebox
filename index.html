@@ -15832,6 +15832,24 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     badges += `<span class="verify-icon" title="Email verified">Email</span>`;
   }
 
+  // Persistent payout-completion nudge — ON THE SELLER'S OWN STOREFRONT ONLY.
+  // Reads the owner-only stripeChargesEnabled that loadProfile hoists for the
+  // signed-in user viewing themselves (for any OTHER profile it's false/absent
+  // AND isMe is false, so a seller's payout state is never exposed to others).
+  // Shows until resolved (no dismiss); list-first is preserved — this never
+  // blocks listing, it just makes the unfinished-setup state impossible to miss.
+  const _ownChargesReady = (profile.stripeChargesEnabled === true);
+  const _isSellerSelf = isMe && (u.sellerVerified || active.length > 0 || sold.length > 0);
+  const payoutNudgeHtml = (_isSellerSelf && !_ownChargesReady)
+    ? `<div class="stripe-connect-banner warn" style="margin-bottom:16px;" role="status">`+
+        `<div>`+
+          `<strong>Finish payout setup so buyers can pay you</strong>`+
+          `<span>Your listings are visible, but buyers can't complete a purchase until you connect Stripe. It takes about 2 minutes — it's the only thing between you and getting paid.</span>`+
+        `</div>`+
+        `<button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish payout setup</button>`+
+      `</div>`
+    : '';
+
   // Prominent stats row (Feature #8) — uses Cloud-Function-written aggregates with
   // graceful fallback to client-side counts.
   const salesCount = (typeof profile.salesCount === 'number') ? profile.salesCount : sold.length;
@@ -16058,6 +16076,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     : '';
 
   document.getElementById('profileBody').innerHTML = `
+    ${payoutNudgeHtml}
     <div class="profile-header">
       <div class="profile-avatar">${avatarHtml(profile)}</div>
       <div style="min-width:0">
