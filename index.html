@@ -1746,6 +1746,11 @@
   .hero-title em { color: var(--gold-300); font-style: normal; }
   .hero-sub { color: rgba(255,255,255,0.65); font-size: 16px; line-height: 1.7; margin-bottom: 2rem; max-width: 440px; }
   .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  /* Fee-proof line under the hero CTAs — substantiates "6.5%, lowest in golf"
+     with a concrete comparison so the claim doesn't read as a slogan. */
+  .hero-fee-proof { display: inline-flex; align-items: center; gap: 7px; margin: 14px 0 0; font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.78); }
+  .hero-fee-proof .hero-fee-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: 0 0 auto; color: var(--gold-300); }
+  .hero-fee-proof .hero-fee-icon .ico { width: 15px; height: 15px; }
   .btn-primary { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 13px 28px; font-family: var(--font-body); font-size: 15px; font-weight: 600; cursor: pointer; transition: var(--transition); }
   .btn-primary:hover { background: var(--gold-300); transform: translateY(-2px); }
   /* Hero secondary CTA (audit #5, 2026-06-04). Border alpha bumped
@@ -4818,6 +4823,7 @@
           <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
         </div>
+        <p class="hero-fee-proof"><span class="hero-fee-icon" data-ico="check" aria-hidden="true"></span>Keep more of your sale — eBay takes ~13%, TeeBox takes 6.5%.</p>
       </div>
       <div class="hero-featured" id="heroFeatured">
         <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
@@ -4895,7 +4901,7 @@
     <div class="how-inner">
       <h2 class="how-title">How TeeBox Works</h2>
       <div class="how-grid">
-        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search" aria-hidden="true"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. Buy at the listed ask or place a bid.</p></div>
+        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search" aria-hidden="true"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. See one you like? Buy it now at the listed price — no bidding, no waiting.</p></div>
         <div class="how-card"><div class="how-num">02</div><span class="how-icon" data-ico="message" aria-hidden="true"></span><h3>Message the Seller</h3><p>Ask questions, request more photos, and confirm condition before you commit. Every conversation is logged.</p></div>
         <div class="how-card"><div class="how-num">03</div><span class="how-icon" data-ico="truck" aria-hidden="true"></span><h3>Ship &amp; Receive</h3><p>Sellers ship the item directly with tracking. Payments are secured by Stripe, and TeeBox can help mediate if something goes wrong. Reach support within 7 days if there's an issue.</p></div>
       </div>
@@ -5846,6 +5852,23 @@ window.confirmPayment = async function() {
   const storage = getStorage(app);
   const fns = getFunctions(app);
   let currentUser = null;
+
+  // Perf: kick off the public listings fetch IMMEDIATELY, in parallel with
+  // Firebase auth restoration. The listings query needs no auth (rules:
+  // `allow read: if true`), so there's no reason to wait for onAuthStateChanged
+  // to fire before the network round-trip starts — that wait was the bulk of
+  // time-to-first-listing on a cold load. loadListings() consumes this promise
+  // on its FIRST call (see __listingsPrefetch there); reloads fetch fresh so
+  // data never goes stale. Best-effort: resolves to null on failure and
+  // loadListings falls back to a live fetch. Cap must match LISTINGS_FETCH_CAP
+  // in loadListings.
+  try {
+    window.__listingsPrefetch = getDocs(query(
+      collection(db, 'listings'),
+      orderBy('createdAt', 'desc'),
+      limit(200)
+    )).catch(() => null);
+  } catch (_e) { window.__listingsPrefetch = null; }
 
   // ── Dynamic Open Graph injection for shared listing links ──
   // When the SPA is opened with ?listing=<id>, fetch the listing doc
@@ -7807,7 +7830,20 @@ window.confirmPayment = async function() {
         orderBy('createdAt', 'desc'),
         limit(LISTINGS_FETCH_CAP)
       );
-      const snap = await getDocs(q);
+      // Perf: the very first load consumes the boot-time prefetch (started at
+      // app init, in parallel with auth restoration) so the Firestore round-
+      // trip is already in flight — or done — by the time we get here. We null
+      // it after one use so reloads (post-listing, post-payment, sign-in/out)
+      // always fetch fresh and never serve stale inventory. If the prefetch
+      // failed it resolves to null, and we fall back to a live fetch.
+      let snap;
+      if (window.__listingsPrefetch) {
+        const prefetched = window.__listingsPrefetch;
+        window.__listingsPrefetch = null;
+        snap = (await prefetched) || (await getDocs(q));
+      } else {
+        snap = await getDocs(q);
+      }
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
         // Hide dead listings from the public feed so they never render as live
@@ -15837,12 +15873,29 @@ async function openProfile(uid) {
   }
   window.__lastProfileUid = uid;
   const back = document.getElementById('profileBackdrop');
+  // Perf: for the signed-in user's OWN profile, paint the avatar + name into
+  // the skeleton INSTANTLY from the in-memory cache that preloadOwnAvatar /
+  // checkSellerStatus warmed at sign-in. Without this the avatar didn't render
+  // until renderProfileView fired — which waits on all four profile reads in
+  // the Promise.all below — so a user opening their own profile watched a grey
+  // shimmer where their picture should be. The image is already in the HTTP
+  // cache (preloadOwnAvatar), so it shows with no network round-trip.
+  const _isOwnProfile = !!(window.CURRENT_USER && window.CURRENT_USER.uid === uid);
+  const _cachedAvatar = _isOwnProfile ? window.safeImgUrl(window.CURRENT_PROFILE_AVATAR) : '';
+  const _cachedName = _isOwnProfile ? (window.CURRENT_PROFILE_NAME || '') : '';
+  const _skelAvatar = _cachedAvatar
+    ? '<div class="ps-avatar" style="overflow:hidden;position:relative;border-radius:50%;">' +
+        '<img src="' + window.safeAttr(_cachedAvatar) + '" alt="" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>'
+    : '<div class="ps-avatar skeleton-shimmer"></div>';
+  const _skelName = _cachedName
+    ? '<div class="ps-bar" style="width:auto;height:22px;display:flex;align-items:center;font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--gray-900)">' + window.safeText(_cachedName) + '</div>'
+    : '<div class="ps-bar skeleton-shimmer" style="width:62%;height:22px"></div>';
   // Perf: a layout-matching skeleton instead of bland "Loading profile…" text,
   // so the modal feels responsive while the four profile reads resolve.
   document.getElementById('profileBody').innerHTML =
     '<div class="profile-skel">' +
-      '<div class="ps-head"><div class="ps-avatar skeleton-shimmer"></div>' +
-        '<div class="ps-lines"><div class="ps-bar skeleton-shimmer" style="width:62%;height:22px"></div>' +
+      '<div class="ps-head">' + _skelAvatar +
+        '<div class="ps-lines">' + _skelName +
         '<div class="ps-bar skeleton-shimmer" style="width:40%;height:14px"></div></div></div>' +
       '<div class="ps-stats"><div class="ps-stat skeleton-shimmer"></div><div class="ps-stat skeleton-shimmer"></div><div class="ps-stat skeleton-shimmer"></div></div>' +
       '<div class="ps-grid">' + '<div class="ps-card skeleton-shimmer"></div>'.repeat(6) + '</div>' +
