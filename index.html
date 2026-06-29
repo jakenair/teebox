@@ -5466,9 +5466,16 @@ async function mountPaymentElement(product) {
   }
 }
 
-window.openCheckout = async function(productId, qty) {
+window.openCheckout = async function(productId, qty, opts) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
-  if (!p) return;
+  if (!p) {
+    // No silent Buy Now failures. If the listing isn't in the feed (removed or
+    // sold between detail-open and tap), tell the buyer instead of dead-ending.
+    // Suppressed only for non-interactive callers that pass { silent: true } —
+    // all current callers are user-initiated taps, so they get the toast.
+    if (!(opts && opts.silent)) showToast('Sorry, that listing is no longer available.');
+    return;
+  }
   // Guest gate: surface the polished sign-in prompt and remember the
   // user's intent so we can replay openCheckout() after they sign in.
   if (typeof window.requireAuth === 'function') {
@@ -9357,13 +9364,18 @@ function openDetailModal(id) {
   const msgBtn  = document.querySelector('.btn-message-seller');
   const isSold     = p.status === 'sold';
   const isPending  = p.status === 'pending';
+  // You can't buy your own listing. Show a clear, non-buyable state on the
+  // owner's own item rather than a button that no-ops (the server also rejects
+  // self-purchase at createPaymentIntent, and openCheckout has a toast guard).
+  const isOwnListing = !!(window.CURRENT_USER && p.sellerId && p.sellerId === window.CURRENT_USER.uid);
+  const locked = isSold || isPending || isOwnListing;
   const lockable = [buyBtn, placeBidBtn].filter(Boolean);
   lockable.forEach(b => {
-    b.disabled = isSold || isPending;
-    b.style.opacity = (isSold || isPending) ? '0.45' : '';
-    b.style.cursor  = (isSold || isPending) ? 'not-allowed' : '';
+    b.disabled = locked;
+    b.style.opacity = locked ? '0.45' : '';
+    b.style.cursor  = locked ? 'not-allowed' : '';
   });
-  if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : 'Buy Now at Ask');
+  if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : (isOwnListing ? 'This is your listing' : 'Buy Now at Ask'));
   if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
   // Reset the not-buyable note on every open; the async seller-profile check
   // (below, in loadProfile().then) re-shows it when the seller isn't
@@ -17948,11 +17960,18 @@ A['close-detail-direct']     = () => closeDetailModalDirect();
 A['detail-buy-now']          = () => {
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
+  // Capture the listing id BEFORE closing the modal. closeDetailModalDirect()
+  // sets currentDetailId = null, so reading currentDetailId AFTER the close fed
+  // openCheckout() a null id → window.PRODUCTS.find() missed → silent no-op on
+  // EVERY Buy Now (regression from 827f0e3). Both paths below — the immediate
+  // signed-in path and the guest-replay closure that runs post-sign-in — now
+  // use the captured pid.
+  const pid = currentDetailId;
   // Guest gate. We pass the replay intent so a guest who completes
   // sign-in lands directly back in checkout.
-  if (!window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(currentDetailId, qty); })) return;
+  if (!window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(pid, qty); })) return;
   closeDetailModalDirect();
-  openCheckout(currentDetailId, qty);
+  openCheckout(pid, qty);
 };
 A['detail-message-seller']   = () => {
   // Persist the listing ID across the auth round-trip (currentDetailId
