@@ -2047,6 +2047,21 @@
   .btn-full.green:hover { background: var(--green-500); }
   .btn-full.ghost { background: var(--gray-100); color: var(--gray-700); }
 
+  /* Checkout modal: fit the viewport. The base .modal has no max-height +
+     overflow:hidden, so the tall checkout content (order summary + Stripe
+     Address + Payment elements) overflowed a short viewport and, because the
+     backdrop centers it (align-items:center) and doesn't scroll, BOTH the
+     header (close X) and footer (Pay/Cancel) clipped off-screen with no way to
+     reach them. Cap height, make the body the scroll region, and keep the
+     header + footer (action bar) pinned and always reachable. Scoped to
+     #checkoutBackdrop so other modals are untouched. Mobile + desktop.
+     min-height:0 on the body is required for the flex child to actually
+     shrink-and-scroll instead of growing past the cap. */
+  #checkoutBackdrop .modal { display: flex; flex-direction: column; max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); }
+  #checkoutBackdrop .modal-header { flex: 0 0 auto; }
+  #checkoutBackdrop .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #checkoutBackdrop .modal-footer { flex: 0 0 auto; padding-top: 1rem; border-top: 1px solid var(--gray-200); background: var(--white); }
+
   /* PRODUCT DETAIL MODAL */
   /* Safe-area padding (#3): on notched iPhones with viewport-fit=cover the
      modal could sit under the notch / home indicator ("not fit to screen").
