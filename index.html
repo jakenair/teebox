@@ -5021,13 +5021,15 @@
     <div class="sell-form">
       <div class="seller-verified-bar"><span data-ico="check" aria-hidden="true"></span> Verified Seller. Your listings go live instantly</div>
 
-      <!-- List-first payout orientation. Shown by openSellModal ONLY when the
-           seller hasn't completed Stripe Connect (users/{uid}.stripeChargesEnabled
-           false): you can publish now; to GET PAID you finish a quick payout
-           setup. Non-blocking orientation. The CTA launches the real Stripe
-           Connect onboarding (data-action="stripe-connect" → createStripeOnboardingLink). -->
+      <!-- Payout-setup required (2026-06, GATE 1). handleSellClick now blocks
+           un-onboarded sellers BEFORE this modal opens (routes them to the
+           stripeRequired dialog → Stripe onboarding), so onboarded sellers
+           normally never see this banner. Kept as defense-in-depth: if an
+           un-onboarded seller ever reaches the form, the copy reflects the
+           gate (finish setup to publish), not the old list-first "publish now".
+           CTA launches the real Stripe Connect onboarding (stripe-connect). -->
       <div class="sell-payout-headsup" id="sellPayoutHeadsUp" role="status" style="display:none;">
-        <strong>You can publish right now.</strong> To receive payment when your item sells, you'll finish a quick payout setup with Stripe (~2 min). Do it now or anytime from My Shop.
+        <strong>Finish payment setup to publish.</strong> Buyers pay through TeeBox, so you'll connect a Stripe payout account (~2 min) before your listing can go live.
         <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish payment setup</button>
       </div>
 
@@ -5134,7 +5136,7 @@
 <div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
   <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
     <div class="modal-header">
-      <span class="modal-title" id="stripeRequiredTitle">Finish payout setup to get paid</span>
+      <span class="modal-title" id="stripeRequiredTitle">Finish payment setup to start selling</span>
       <button class="modal-close" data-action="close-stripe-required" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="sell-form">
@@ -5145,7 +5147,7 @@
         </div>
       </div>
       <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
-        Your listing is <strong>live now</strong> — but buyers can't purchase until you finish Stripe onboarding. You can do this anytime from <strong>My Shop</strong>.
+        Buyers pay securely through TeeBox, so you'll connect a Stripe payout account <strong>before your first listing goes live</strong>. Once it's done, you can list in seconds.
       </p>
       <div class="modal-footer" style="padding:0;margin-top:0;">
         <button class="btn-full ghost" data-action="close-stripe-required">Not now</button>
@@ -6745,7 +6747,7 @@ window.confirmPayment = async function() {
     await fbSignOut(auth);
   };
 
-  window.handleSellClick = function() {
+  window.handleSellClick = async function() {
     // Guest? Show the friendly "Sign in to start selling" prompt and
     // remember the intent so we resume the seller-verification flow
     // immediately after a successful sign-in.
@@ -6759,10 +6761,26 @@ window.confirmPayment = async function() {
       if (_a) { _a.classList.remove('hidden'); _a.classList.add('open'); }
       return;
     }
+    // GATE 1 (2026-06): listing requires a Stripe payout-onboarded seller.
+    // The REAL gate is firestore.rules (listings create denies unless
+    // users/{uid}.stripeChargesEnabled === true — the same flag checkout's
+    // money-gate trusts). This is the matching UX so an un-onboarded seller
+    // gets a clear "finish payment setup to start selling" path into the
+    // existing Stripe onboarding, never a raw permission-denied. Read FRESH
+    // (not the sign-in cache) so a seller who just finished onboarding in this
+    // session isn't wrongly blocked. On a read hiccup, fall back to the cached
+    // flag (the rules are the real gate either way).
+    let onboarded = window.STRIPE_CHARGES_ENABLED === true;
+    try {
+      const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+      onboarded = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
+      window.STRIPE_CHARGES_ENABLED = onboarded;
+    } catch (_e) { /* fall back to cached flag */ }
+    if (!onboarded) { showStripeRequiredDialog(); return; }
     // ToS acceptance is now INLINE in the sell modal (no separate verify
-    // screen) — go straight to the sell flow whether or not they're a verified
-    // seller. openSellModal reveals the inline Terms row for non-verified
-    // sellers, and submitListing records acceptance on first publish.
+    // screen) — onboarded sellers go straight to the sell flow. openSellModal
+    // reveals the inline Terms row for non-verified sellers, and submitListing
+    // records acceptance on first publish.
     openSellModal();
   };
 
@@ -7666,7 +7684,10 @@ window.confirmPayment = async function() {
       window.IS_VERIFIED_SELLER = true;
       document.getElementById('verifyBackdrop').classList.remove('open');
       showToast('You are now a verified TeeBox seller.');
-      setTimeout(() => openSellModal(), 600);
+      // Route through handleSellClick (not openSellModal directly) so the
+      // GATE 1 onboarding check runs — a freshly-verified seller still needs
+      // Stripe payout onboarding before they can list.
+      setTimeout(() => window.handleSellClick(), 600);
     } catch (e) {
       console.error('Seller verification failed:', e);
       btn.disabled = false; btn.textContent = 'Agree & Become a Seller';
