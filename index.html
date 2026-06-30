@@ -337,14 +337,6 @@
   body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
   .detail-seller { padding: 0.75rem 0; border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); margin: 0.75rem 0 1rem; }
-  .detail-bids { margin: 0.75rem 0; }
-  .detail-bids h4 { font-size: 12px; text-transform: uppercase; color: var(--gray-500); margin-bottom: 6px; letter-spacing: 0.6px; }
-  .bid-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; border-bottom: 1px dashed var(--gray-200); }
-  .bid-row:last-child { border-bottom: none; }
-  .bid-amt { font-weight: 700; color: var(--green-600); font-family: var(--font-display); }
-  .bid-status { font-size: 11px; text-transform: uppercase; color: var(--gray-500); }
-  .bid-withdraw { margin-left:auto; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 50px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
-  .bid-withdraw:hover { background: var(--red-100); border-color: var(--red-500); color: var(--red-500); }
   .modal-fineprint { font-size: 11px; color: var(--gray-500); margin-top: -0.5rem; margin-bottom: 0.75rem; }
   /* Star icons on white surfaces use gold-600 (4.87:1 on white — passes AA).
      gold-400 was 1.96:1 — failed contrast for text-sized glyphs. */
@@ -1184,13 +1176,13 @@
      gets a gentle press-down on :active and a soft hover lift. Cards
      keep their bigger 4px lift; this rule layers underneath without
      overriding more specific transforms. */
-  button, .btn-buy, .btn-sell-sm, .btn-buy-now, .btn-place-bid,
+  button, .btn-buy, .btn-sell-sm, .btn-buy-now,
   .btn-make-offer, .btn-message-seller, .cat-pill, .auth-btn,
   .desc-ai-btn, .nav-bingo-cta, .install-btn, .bingo-share-btn {
     transition: transform 0.15s cubic-bezier(.4,0,.2,1), box-shadow 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
   }
   button:active:not(:disabled), .btn-buy:active, .btn-sell-sm:active,
-  .btn-buy-now:active, .btn-place-bid:active, .btn-make-offer:active,
+  .btn-buy-now:active, .btn-make-offer:active,
   .btn-message-seller:active, .cat-pill:active, .auth-btn:active,
   .desc-ai-btn:active, .nav-bingo-cta:active {
     transform: scale(0.97);
@@ -1912,13 +1904,11 @@
   .product-rating:empty { display: none; }
   .product-rating .pr-star { color: var(--gold-700, #a07a12); font-size: 12px; }
   .product-rating .pr-count { color: var(--gray-500); font-weight: 500; }
-  .product-market { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--gray-100); padding-top: 10px; margin-top: 4px; }
-  .market-col label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 2px; }
-  .market-bid { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--green-600); }
-  /* Ask is the buyer's commitment anchor — promoted to 1.25rem/800 so it
-     out-weighs title, brand, and image badges by ~1.4×. Audit fix. */
-  .market-ask { font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: var(--red-500); }
-  .product-change { font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 50px; }
+  /* One clean price per card (buy-now only — no bid/ask exchange framing).
+     The price is the buyer's commitment anchor: sized to out-weigh title,
+     brand, and badges. */
+  .product-price { border-top: 1px solid var(--gray-100); padding-top: 10px; margin-top: 4px; }
+  .product-price-val { font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: var(--gray-900); }
   /* Single full-width Buy on each card — the per-card "Sell" button was
      noise on a buyer-facing surface and competed with the primary action. */
   .product-btns { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
@@ -2026,17 +2016,6 @@
   .modal-emoji img { width: 100%; height: 100%; object-fit: cover; }
   .modal-info h3 { font-size: 16px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
   .modal-info p { font-size: 13px; color: var(--gray-500); }
-  .bid-ask-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
-  .ba-box { border-radius: var(--radius-md); padding: 1rem; text-align: center; }
-  .ba-box.bid { background: #edf7f0; border: 1.5px solid #b5dfc0; }
-  .ba-box.ask { background: #fde8e6; border: 1.5px solid #f4b5af; }
-  .ba-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .ba-box.bid .ba-lbl { color: var(--green-600); }
-  .ba-box.ask .ba-lbl { color: var(--red-500); }
-  .ba-price { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; }
-  .ba-box.bid .ba-price { color: var(--green-600); }
-  .ba-box.ask .ba-price { color: var(--red-500); }
-  .ba-note { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
   .modal-input-row { margin-bottom: 1rem; }
   .modal-input-row label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 6px; }
   .modal-input-row input, .modal-input-row select { width: 100%; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 15px; color: var(--gray-900); outline: none; transition: var(--transition); }
@@ -2218,23 +2197,15 @@
   .detail-brand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 4px; }
   .detail-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; line-height: 1.3; }
   .detail-condition { display: inline-flex; align-items: center; gap: 6px; background: var(--green-50); color: var(--green-700); border-radius: 50px; padding: 4px 12px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
-  /* Ask is the buyer's commitment anchor — hero size, full-width.
-     Bid is a market-depth indicator, demoted to inline subtitle below.
-     This eliminates the cognitive split between two equally-weighted
-     prices. (Audit fix.) */
+  /* Single hero-size price box (buy-now only — no bid/ask split). The
+     class stays `.ask` for historical reasons; its label reads "Price". */
   .detail-prices { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 1rem; }
   .detail-price-box { border-radius: var(--radius-md); padding: 14px 18px; text-align: left; }
   .detail-price-box.ask { background: #fde8e6; border: 1.5px solid #f4b5af; }
-  /* Bid box collapses to a one-line inline subtitle. Same color family,
-     much smaller, sits visually subordinate to Ask. */
-  .detail-price-box.bid { background: transparent; border: 0; padding: 0 4px; }
   .detail-price-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .detail-price-box.bid .detail-price-lbl { display: none; }
   .detail-price-box.ask .detail-price-lbl { color: var(--red-500); }
   .detail-price-val { font-family: var(--font-display); font-weight: 800; }
   .detail-price-box.ask .detail-price-val { color: var(--red-500); font-size: 2.2rem; line-height: 1.05; }
-  .detail-price-box.bid .detail-price-val { color: var(--gray-600); font-size: 13px; font-weight: 600; display: inline; }
-  .detail-price-box.bid::before { content: 'Highest bid: '; font-size: 13px; font-weight: 600; color: var(--gray-500); }
   .detail-desc { font-size: 13.5px; color: var(--gray-600); line-height: 1.7; margin-bottom: 1.25rem; }
   /* "More like this" row at the bottom of the listing detail modal.
      Horizontal scroll of compact thumbnails — same category as the
@@ -2266,8 +2237,6 @@
   .btn-buy-now { background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 16px; font-family: var(--font-body); font-size: 17px; font-weight: 800; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-buy-now:hover { background: var(--green-500); }
   /* Demoted from primary full-width — secondary half-width, lighter weight. */
-  .btn-place-bid { background: var(--gray-100); color: var(--gray-700); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; opacity: 0.92; }
-  .btn-place-bid:hover { background: var(--gray-200); opacity: 1; }
   /* Make Offer matches Place-Bid weight; both are clearly subordinate. */
   .btn-make-offer { background: var(--gray-100); color: var(--gray-700); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; opacity: 0.92; }
   .btn-make-offer:hover { background: var(--gray-200); opacity: 1; }
@@ -2481,7 +2450,7 @@
     .drops-grid { grid-template-columns: 1fr; }
     .product-grid { grid-template-columns: repeat(2,1fr); gap: 12px; }
     .product-name { font-size: 13px; }
-    .market-bid, .market-ask { font-size: 0.95rem; }
+    .product-price-val { font-size: 1.05rem; }
     .product-btns { grid-template-columns: 1fr; }
     .footer-inner { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 1rem; }
     .trending-table thead th:nth-child(5), .trending-table thead th:nth-child(6),
@@ -3559,7 +3528,7 @@
 
       <button type="button" class="auth-guest-btn" data-action="continue-as-guest">
         <span class="auth-guest-btn-label">Continue as guest</span>
-        <span class="auth-guest-btn-sub">Browse only. Sign in to bid, buy, or sell</span>
+        <span class="auth-guest-btn-sub">Browse only. Sign in to buy or sell</span>
       </button>
 
       <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
@@ -4939,23 +4908,6 @@
     <a class="footer-social" href="https://www.tiktok.com/@TeeBoxMarketplace" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on TikTok"><span data-ico="tiktok"></span><span class="footer-social-handle">@TeeBoxMarketplace</span></a>
   </div>
 </footer>
-
-<!-- BUY MODAL -->
-<div class="modal-backdrop" id="modalBackdrop" data-close-on-backdrop="close-modal-direct">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-header"><span class="modal-title" id="modalTitle">Place a Bid</span><button class="modal-close" data-action="close-modal-direct" aria-label="Close" data-ico="close"></button></div>
-    <div class="modal-body">
-      <div class="modal-product"><div class="modal-emoji placeholder-art" id="modalEmoji" style="border-radius:8px"></div><div class="modal-info"><h3 id="modalItemName">Item</h3><p id="modalItemMeta"></p></div></div>
-      <div class="bid-ask-grid">
-        <div class="ba-box bid"><div class="ba-lbl">Highest Bid</div><div class="ba-price" id="modalBid">$0</div><div class="ba-note">active bids</div></div>
-        <div class="ba-box ask"><div class="ba-lbl">Lowest Ask</div><div class="ba-price" id="modalAsk">$0</div><div class="ba-note">sellers</div></div>
-      </div>
-      <div class="modal-input-row"><label for="modalPrice">Your Bid (USD)</label><input type="number" id="modalPrice" placeholder="Enter amount…" min="1" step="1" inputmode="decimal" /></div>
-      <div class="modal-fineprint">Bids are visible to the seller. Withdraw any time before they accept.</div>
-    </div>
-    <div class="modal-footer"><button class="btn-full ghost" data-action="close-modal-direct">Cancel</button><button class="btn-full green" data-action="confirm-action">Confirm Bid</button></div>
-  </div>
-</div>
 
 <!-- PRODUCT DETAIL MODAL -->
 <div class="detail-backdrop" id="detailBackdrop" data-close-on-backdrop="close-detail-direct">
@@ -8034,7 +7986,7 @@ window.confirmPayment = async function() {
       // from the My Shop dashboard.
       const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
       docRef = await addDoc(collection(db, 'listings'), {
-        title, brand, cat, ask: price, bid: Math.round(price*0.9),
+        title, brand, cat, ask: price,
         condition, desc, badge: 'new',
         photos: [], sellerId: window.CURRENT_USER.uid,
         status: 'active', createdAt: serverTimestamp(),
@@ -8677,10 +8629,6 @@ function renderProductCardHtml(p, i) {
   const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
   const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'Hot':'New'}</span>` : '';
   const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">${Number(p.photos.length)} photos</span>` : '';
-  const change = Number(p.change||0);
-  const changeStyle = change>0
-    ? 'background:var(--up-bg);color:var(--up-green)'
-    : 'background:var(--dn-bg);color:var(--dn-red)';
   const idAttr = window.safeAttr(id);
   const sellerVerifiedSlot = p.sellerId
     ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
@@ -8723,11 +8671,7 @@ function renderProductCardHtml(p, i) {
       `<div class="product-name">${window.safeText(p.name)}</div>`+
       `${sellerIdentitySlot}`+
       `${sellerRatingSlot}`+
-      `<div class="product-market">`+
-        `<div class="market-col"><label>Bid</label><div class="market-bid">$${Number(p.bid||0).toLocaleString()}</div></div>`+
-        `<div class="market-col" style="text-align:right"><label>Ask</label><div class="market-ask">$${Number(p.ask||0).toLocaleString()}</div></div>`+
-        (change!==0 ? `<span class="product-change" style="${changeStyle}">${change>0?'+':''}${change}%</span>` : '')+
-      `</div>`+
+      `<div class="product-price"><span class="product-price-val">$${Number(p.ask||0).toLocaleString()}</span></div>`+
       `<div class="product-btns">`+
         `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
       `</div>`+
@@ -9396,7 +9340,6 @@ function openDetailModal(id) {
 
   // Reflect listing status in the action buttons.
   const buyBtn  = document.getElementById('detailBuyNowBtn');
-  const placeBidBtn = document.querySelector('.btn-place-bid');
   const msgBtn  = document.querySelector('.btn-message-seller');
   const isSold     = p.status === 'sold';
   const isPending  = p.status === 'pending';
@@ -9405,7 +9348,7 @@ function openDetailModal(id) {
   // self-purchase at createPaymentIntent, and openCheckout has a toast guard).
   const isOwnListing = !!(window.CURRENT_USER && p.sellerId && p.sellerId === window.CURRENT_USER.uid);
   const locked = isSold || isPending || isOwnListing;
-  const lockable = [buyBtn, placeBidBtn].filter(Boolean);
+  const lockable = [buyBtn].filter(Boolean);
   lockable.forEach(b => {
     b.disabled = locked;
     b.style.opacity = locked ? '0.45' : '';
@@ -9728,163 +9671,11 @@ function closeDetailModal(e) { if(e.target===document.getElementById('detailBack
 function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); removeListingJsonLd(); currentDetailId = null; }
 window.closeDetailModalDirect = closeDetailModalDirect;
 
-function openProductModal(id,mode='buy') {
-  const p = window.PRODUCTS.find(x=>String(x.id)===String(id));
-  if (!p) return;
-  currentMode = mode;
-  document.getElementById('modalTitle').textContent = mode==='buy'?'Buy / Place Bid':'Sell / Set Ask';
-  const emojiEl = document.getElementById('modalEmoji');
-  emojiEl.textContent = '';
-  const url = window.safeImgUrl(p.photos && p.photos[0]);
-  if (url) {
-    const img = document.createElement('img');
-    img.src = url;
-    img.alt = p.name || '';
-    emojiEl.classList.remove('placeholder-art');
-    emojiEl.appendChild(img);
-  } else {
-    emojiEl.classList.add('placeholder-art');
-    emojiEl.innerHTML = window.CATEGORY_ICON(p.cat);
-  }
-  document.getElementById('modalItemName').textContent = p.name;
-  document.getElementById('modalItemMeta').textContent = `${p.brand} · ${p.cat}`;
-  document.getElementById('modalBid').textContent = '$'+(p.bid||0).toLocaleString();
-  document.getElementById('modalAsk').textContent = '$'+(p.ask||0).toLocaleString();
-  // Reset the bid amount so values from a prior listing don't carry over.
-  const priceField = document.getElementById('modalPrice');
-  if (priceField) priceField.value = '';
-  document.getElementById('modalBackdrop').classList.add('open');
-}
-
-function openModal(mode) {
-  // "Buy" mode is also wired to the hero "Shop Now" button + footer link.
-  // When invoked from the hero with no detail modal open, treat it as a
-  // navigation intent rather than a quick-bid: scroll the marketplace
-  // grid into view. This avoids the dead-tap bug where Shop Now did
-  // nothing if PRODUCTS was empty (Apple Review 2.1.0 rejection 2026-04).
-  if (mode === 'buy' && !currentDetailId) {
-    const grid = document.getElementById('productGrid');
-    if (grid) {
-      grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-  }
-  const id = currentDetailId || (window.PRODUCTS && window.PRODUCTS[0] && window.PRODUCTS[0].id);
-  if (!id) {
-    if (window.showToast) showToast('No listings yet. Be the first to sell on TeeBox.', 'info');
-    return;
-  }
-  openProductModal(id, mode);
-}
-function closeModal(e) { if(e.target===document.getElementById('modalBackdrop')) closeModalDirect(); }
-function closeModalDirect() { document.getElementById('modalBackdrop').classList.remove('open'); }
+// Retained as a null-safe no-op: the bid modal (#modalBackdrop) was removed in
+// the buy-now-only sweep, but cleanup paths (sign-out, "close all overlays")
+// still call closeModalDirect(). No element → nothing to do.
+function closeModalDirect() { const b = document.getElementById('modalBackdrop'); if (b) b.classList.remove('open'); }
 window.closeModalDirect = closeModalDirect;
-
-async function confirmAction() {
-  const priceRaw = document.getElementById('modalPrice').value;
-  const price = parseFloat(priceRaw);
-  if (!Number.isFinite(price) || price <= 0) {
-    showToast('Enter a valid price.');
-    return;
-  }
-
-  const id = currentDetailId;
-  const product = id ? window.PRODUCTS.find(x => String(x.id) === String(id)) : null;
-
-  // Hardcoded demo product (numeric id) — can't bid on something
-  // that's not in Firestore. Old behavior preserved.
-  const isRealListing = product && typeof product.id === 'string' && product.sellerId;
-
-  if (!isRealListing) {
-    closeModalDirect();
-    showToast('Bids are only available on real listings.');
-    return;
-  }
-
-  if (!window.CURRENT_USER) {
-    showToast('Sign in to place a bid.');
-    return;
-  }
-  if (product.sellerId === window.CURRENT_USER.uid) {
-    showToast("You can't bid on your own listing.");
-    return;
-  }
-
-  try {
-    const { getFirestore, collection, addDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await addDoc(collection(db, 'bids'), {
-      listingId: String(product.id),
-      buyerId: window.CURRENT_USER.uid,
-      sellerId: product.sellerId,
-      amountCents: Math.round(price * 100),
-      status: 'open',
-      createdAt: serverTimestamp(),
-    });
-    closeModalDirect();
-    showToast(`Bid of $${price.toLocaleString()} submitted.`, 'success');
-    // Refresh detail modal so the new bid shows up.
-    openDetailModal(id);
-  } catch (e) {
-    console.error('placeBid failed:', e);
-    showToast('Could not place bid.');
-  }
-}
-window.confirmAction = confirmAction;
-
-async function loadBidsForListing(listingId) {
-  try {
-    const { getFirestore, collection, query, where, getDocs, orderBy, limit } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    // Anyone can read bids where they're the buyer/seller. Public count
-    // requires a denormalized counter — not yet implemented; for v1 we
-    // only fetch bids relevant to the signed-in user.
-    if (!window.CURRENT_USER) return [];
-    const q1 = query(
-      collection(db, 'bids'),
-      where('listingId', '==', listingId),
-      where('buyerId', '==', window.CURRENT_USER.uid),
-      orderBy('createdAt', 'desc'),
-      limit(20),
-    );
-    const q2 = query(
-      collection(db, 'bids'),
-      where('listingId', '==', listingId),
-      where('sellerId', '==', window.CURRENT_USER.uid),
-      orderBy('createdAt', 'desc'),
-      limit(20),
-    );
-    const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-    const seen = new Set();
-    const out = [];
-    [...s1.docs, ...s2.docs].forEach(d => {
-      if (seen.has(d.id)) return;
-      seen.add(d.id);
-      out.push({ id: d.id, ...d.data() });
-    });
-    return out.sort((a, b) => (b.amountCents || 0) - (a.amountCents || 0));
-  } catch (e) {
-    console.error('loadBidsForListing failed:', e);
-    return [];
-  }
-}
-
-async function withdrawBid(bidId) {
-  try {
-    const { getFirestore, doc, deleteDoc } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await deleteDoc(doc(db, 'bids', bidId));
-    showToast('Bid withdrawn.');
-    if (currentDetailId) openDetailModal(currentDetailId);
-  } catch (e) {
-    console.error('withdrawBid failed:', e);
-    showToast('Could not withdraw bid.');
-  }
-}
-window.withdrawBid = withdrawBid;
 // ═══════════════════════════════════════════════════════════
 // MESSAGING
 // ═══════════════════════════════════════════════════════════
@@ -13665,57 +13456,6 @@ async function submitDispute() {
 window.submitDispute = submitDispute;
 
 // ─────────────────────────────────────────────────────────────
-// COUNTER-OFFERS — seller can accept or counter a bid
-// ─────────────────────────────────────────────────────────────
-async function acceptBid(bidId) {
-  if (!bidId || !window.CURRENT_USER) return;
-  try {
-    const { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    const bidRef = doc(db, 'bids', bidId);
-    const bidSnap = await getDoc(bidRef);
-    if (!bidSnap.exists()) { showToast('Bid no longer exists.'); return; }
-    const bd = bidSnap.data();
-    await addDoc(collection(db, 'bids', bidId, 'counters'), {
-      from: window.CURRENT_USER.uid,
-      kind: 'accept',
-      amountCents: bd.amountCents,
-      createdAt: serverTimestamp(),
-    });
-    // Confirm only after the write lands, so the seller's UX matches reality.
-    showToast('Bid accepted. Buyer can now complete checkout.', 'success');
-  } catch (e) {
-    console.error('acceptBid failed:', e);
-    showToast('Could not accept bid. Please try again.');
-  }
-}
-window.acceptBid = acceptBid;
-
-async function counterBid(bidId) {
-  if (!bidId || !window.CURRENT_USER) return;
-  const raw = prompt('Counter amount (USD):');
-  const amount = parseFloat(raw);
-  if (!Number.isFinite(amount) || amount <= 0) return;
-  try {
-    const { getFirestore, collection, addDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await addDoc(collection(db, 'bids', bidId, 'counters'), {
-      from: window.CURRENT_USER.uid,
-      kind: 'counter',
-      amountCents: Math.round(amount * 100),
-      createdAt: serverTimestamp(),
-    });
-    showToast('Counter sent.');
-  } catch (e) {
-    console.error('counterBid failed:', e);
-    showToast('Could not send counter.');
-  }
-}
-window.counterBid = counterBid;
-
-// ─────────────────────────────────────────────────────────────
 // BLOCK + REPORT
 // ─────────────────────────────────────────────────────────────
 async function blockConversation() {
@@ -14804,7 +14544,7 @@ document.body.classList.add('has-bottom-nav');
 //   coordinates → toggle .rippling so the ::after pseudo expands from
 //   the press point. Tasteful, ~60ms perceived feedback.
 (function () {
-  const RIPPLE_SEL = '.btn-buy-now, .btn-place-bid, .btn-make-offer, .auth-btn, .nav-bingo-cta, .desc-ai-btn, .install-btn, .bingo-share-btn';
+  const RIPPLE_SEL = '.btn-buy-now, .btn-make-offer, .auth-btn, .nav-bingo-cta, .desc-ai-btn, .install-btn, .bingo-share-btn';
   document.addEventListener('pointerdown', (ev) => {
     const t = ev.target.closest(RIPPLE_SEL);
     if (!t) return;
@@ -17978,7 +17718,13 @@ A['open-shop-dashboard']     = () => { if (!window.requireAuth('to start selling
 A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
-A['open-modal-buy']          = () => openModal('buy');
+A['open-modal-buy']          = () => {
+  // Hero "Shop Now" + footer "Buy" → scroll the marketplace grid into view.
+  // (Was openModal('buy'), which already just scrolled-to-grid; the dead bid
+  // modal it could open was removed in the buy-now-only sweep.)
+  const grid = document.getElementById('productGrid');
+  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 A['filter-cat']              = (el, ev) => {
   // Footer + bottom-nav category triggers are <a href="#"> — block the
   // default scroll-to-top so we stay anchored on the marketplace grid.
@@ -17991,7 +17737,6 @@ A['filter-cat']              = (el, ev) => {
   }
 };
 A['close-modal-direct']      = () => closeModalDirect();
-A['confirm-action']          = () => confirmAction();
 A['close-detail-direct']     = () => closeDetailModalDirect();
 A['detail-buy-now']          = () => {
   const qInp = document.getElementById('detailQty');
