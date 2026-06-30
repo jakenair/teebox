@@ -38,7 +38,12 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       backgroundColor: '#0b1a0e',
       androidScaleType: 'CENTER_CROP',
-      showSpinner: false,
+      // Gold spinner to match the web auth-splash spinner (--gold-400 #e0b840),
+      // shown over the #0b1a0e launch screen so there's no seam before the
+      // WKWebView's own #authSplash takes over.
+      showSpinner: true,
+      iosSpinnerStyle: 'large',
+      spinnerColor: '#e0b840',
       splashFullScreen: true,
       splashImmersive: true,
     },

@@ -15,28 +15,27 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="TeeBox" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wordmarkLabel">
-                                <rect key="frame" x="0.0" y="386" width="393" height="80"/>
-                                <fontDescription key="fontDescription" name="Georgia-Bold" family="Georgia" pointSize="56"/>
-                                <color key="textColor" red="0.905" green="0.823" blue="0.541" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <nil key="highlightedColor"/>
-                            </label>
+                            <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchWordmark" translatesAutoresizingMaskIntoConstraints="NO" id="wordmarkImage">
+                                <rect key="frame" x="113" y="399" width="167" height="54"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="167" id="wm-w"/>
+                                    <constraint firstAttribute="height" constant="54" id="wm-h"/>
+                                </constraints>
+                            </imageView>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="The Premier Golf Marketplace" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="taglineLabel">
-                                <rect key="frame" x="0.0" y="466" width="393" height="22"/>
+                                <rect key="frame" x="0.0" y="461" width="393" height="22"/>
                                 <fontDescription key="fontDescription" type="system" weight="medium" pointSize="14"/>
                                 <color key="textColor" red="1" green="1" blue="1" alpha="0.6" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="rootSafeArea"/>
-                        <color key="backgroundColor" red="0.043" green="0.102" blue="0.055" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.043137254901960784" green="0.10196078431372549" blue="0.054901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="wordmarkLabel" firstAttribute="centerX" secondItem="rootView" secondAttribute="centerX" id="cX-wm"/>
-                            <constraint firstItem="wordmarkLabel" firstAttribute="centerY" secondItem="rootView" secondAttribute="centerY" id="cY-wm"/>
-                            <constraint firstItem="wordmarkLabel" firstAttribute="leading" secondItem="rootView" secondAttribute="leading" id="lead-wm"/>
-                            <constraint firstItem="wordmarkLabel" firstAttribute="trailing" secondItem="rootView" secondAttribute="trailing" id="trail-wm"/>
+                            <constraint firstItem="wordmarkImage" firstAttribute="centerX" secondItem="rootView" secondAttribute="centerX" id="cX-wm"/>
+                            <constraint firstItem="wordmarkImage" firstAttribute="centerY" secondItem="rootView" secondAttribute="centerY" constant="-46" id="cY-wm"/>
                             <constraint firstItem="taglineLabel" firstAttribute="centerX" secondItem="rootView" secondAttribute="centerX" id="cX-tag"/>
-                            <constraint firstItem="taglineLabel" firstAttribute="top" secondItem="wordmarkLabel" secondAttribute="bottom" constant="6" id="tag-top"/>
+                            <constraint firstItem="taglineLabel" firstAttribute="top" secondItem="wordmarkImage" secondAttribute="bottom" constant="2" id="tag-top"/>
                             <constraint firstItem="taglineLabel" firstAttribute="leading" secondItem="rootView" secondAttribute="leading" id="lead-tag"/>
                             <constraint firstItem="taglineLabel" firstAttribute="trailing" secondItem="rootView" secondAttribute="trailing" id="trail-tag"/>
                         </constraints>
@@ -47,4 +46,7 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="LaunchWordmark" width="167" height="54"/>
+    </resources>
 </document>
