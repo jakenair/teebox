@@ -79,19 +79,21 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
 
-      // LIST-FIRST (2026-06): the Stripe Connect KYC gate was REMOVED from
-      // create. Sellers can publish before onboarding completes; the listing
-      // is visible-but-not-buyable until charges_enabled (buyer UX reads the
-      // public profiles/{uid}.chargesReady mirror). Money is still protected
-      // at CHECKOUT — createPaymentIntent (functions/index.js:534) refuses and
-      // rolls back the reservation when the seller isn't charges-ready, before
-      // any PaymentIntent is created. We deliberately KEEP isEmailVerified()
-      // (one-click, anti-spam) and isValidListingCreate() (schema/moderation
-      // hook intact).
+      // ONBOARDED-TO-LIST (2026-06, reverses list-first): a seller CANNOT
+      // create a listing unless they are Stripe payout-onboarded. Source of
+      // truth is users/{uid}.stripeChargesEnabled — the SAME flag the checkout
+      // money-gate trusts (createPaymentIntent, functions/index.js:~542) — not
+      // a second "verified" concept. One get() per create (well under the
+      // 10-get limit). KEEPS isEmailVerified() (anti-spam) + isValidListingCreate()
+      // (schema/moderation). Scope is CREATE only: the update rule below is
+      // untouched, so an already-onboarded seller can still edit/renew even if
+      // Stripe later flips their flag. Checkout money-gate is independent and
+      // unchanged.
       allow create: if request.auth != null
         && appCheckOk()
         && isEmailVerified()
         && request.resource.data.sellerId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('stripeChargesEnabled', false) == true
         && isValidListingCreate(request.resource.data);
 
       allow update: if request.auth != null
@@ -147,14 +149,14 @@ service cloud.firestore {
     }
 
     function isValidListingCreate(d) {
-      return d.keys().hasAll(['sellerId','title','brand','cat','ask','bid','condition','createdAt','status','expiresAt'])
+      return d.keys().hasAll(['sellerId','title','brand','cat','ask','condition','createdAt','status','expiresAt'])
         // Defense-in-depth field whitelist. Anything not in this list is
         // rejected — prevents a malicious client from stuffing arbitrary
         // server-owned fields (e.g. `disputed`, `refunded`, `tier`,
         // `featured`) onto a brand-new listing where the per-field
         // checks below might not catch it.
         && d.keys().hasOnly([
-             'sellerId','title','brand','cat','ask','bid','condition',
+             'sellerId','title','brand','cat','ask','condition',
              'createdAt','status','expiresAt','desc','photos','emoji',
              'badge','volume','change','quantity','quantitySold',
              'requiresAuth','authReviewState'])
@@ -164,7 +166,6 @@ service cloud.firestore {
         && d.cat is string && d.cat.size() > 0 && d.cat.size() <= 40
         && d.condition is string && d.condition.size() > 0 && d.condition.size() <= 40
         && d.ask is number && d.ask > 0 && d.ask < 1000000
-        && d.bid is number && d.bid >= 0 && d.bid < 1000000
         && (!('desc' in d.keys()) || (d.desc is string && d.desc.size() <= 4000))
         && (!('photos' in d.keys()) || (
               d.photos is list
