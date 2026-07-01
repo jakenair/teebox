@@ -2230,6 +2230,15 @@
   .detail-price-box.ask .detail-price-lbl { color: var(--green-700); }
   .detail-price-val { font-family: var(--font-display); font-weight: 800; }
   .detail-price-box.ask .detail-price-val { color: var(--gray-900); font-size: 2.2rem; line-height: 1.05; }
+  /* Payment-element loading skeleton (r138, CRO P5) — reassurance while the
+     Stripe Payment Element mounts (the audit's top drop-off moment). Toggled
+     by openCheckout; hidden by default so it never shows on a closed modal. */
+  .pay-skeleton { display: none; }
+  .pay-skel-bar { height: 42px; border-radius: var(--radius-md); background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 37%, var(--gray-100) 63%); background-size: 400% 100%; animation: paySkelShimmer 1.4s ease infinite; margin-bottom: 8px; }
+  .pay-skel-bar.short { width: 55%; }
+  .pay-skel-note { font-size: 12px; color: var(--gray-500); display: flex; align-items: center; gap: 6px; }
+  @keyframes paySkelShimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .pay-skel-bar { animation: none; } }
   .detail-desc { font-size: 13.5px; color: var(--gray-600); line-height: 1.7; margin-bottom: 1.25rem; }
   /* "More like this" row at the bottom of the listing detail modal.
      Horizontal scroll of compact thumbnails — same category as the
@@ -5220,6 +5229,13 @@
 
       <!-- Stripe Payment Element — auto-renders Apple Pay, Google Pay, Link, Card -->
       <div class="modal-input-row" style="margin-bottom:10px;">
+        <!-- Loading skeleton until the Stripe Payment Element mounts (r138,
+             CRO P5). Shown/hidden by openCheckout. -->
+        <div id="payment-skeleton" class="pay-skeleton" aria-hidden="true">
+          <div class="pay-skel-bar"></div>
+          <div class="pay-skel-bar short"></div>
+          <div class="pay-skel-note">Loading secure payment…</div>
+        </div>
         <div id="payment-element" style="min-height:48px;"></div>
         <div id="card-errors" role="alert" aria-live="polite" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:18px;"></div>
       </div>
@@ -5549,19 +5565,37 @@ window.openCheckout = async function(productId, qty, opts) {
   document.getElementById('checkoutItemPrice').textContent = fmt(totalDollars);
   document.getElementById('checkoutTotal').textContent = fmt(totalDollars);
 
-  // Seller line — name + verified pill if applicable
+  // Seller line — name + verified pill if applicable. openDetailModal already
+  // warms PROFILE_CACHE via loadProfile(sellerId), so read that cache
+  // SYNCHRONOUSLY here to render the real seller before first paint and kill
+  // the "Sold by a TeeBox member" flash (r138, CRO P3). The async loadProfile
+  // below stays as a refresh + cold-path fallback (checkout opened without the
+  // detail modal, or an expired cache entry). NOTE: the name lives at
+  // prof.displayName (profiles/{uid}); prof._user only carries the
+  // verification flags — the old code read prof._user.displayName, which is
+  // undefined, so the name never actually rendered.
   const sellerEl = document.getElementById('checkoutSeller');
-  sellerEl.innerHTML = 'Sold by <span style="color:var(--gray-700);font-weight:600;">a TeeBox member</span>';
+  const renderCheckoutSeller = (prof) => {
+    if (!prof) return;
+    const verified = !!(prof._user && prof._user.sellerVerified);
+    const name = prof.displayName || 'a TeeBox member';
+    sellerEl.innerHTML =
+      'Sold by <span style="color:var(--gray-700);font-weight:600;">' +
+      window.safeText(name) + '</span>' +
+      (verified ? ' <span class="verified-pill sm" title="Verified seller">Verified</span>' : '');
+  };
+  let _cachedSeller = null;
+  try {
+    const _c = p.sellerId && window.PROFILE_CACHE && window.PROFILE_CACHE.get(p.sellerId);
+    if (_c && _c.data) _cachedSeller = _c.data;
+  } catch (_e) {}
+  if (_cachedSeller) {
+    renderCheckoutSeller(_cachedSeller);
+  } else {
+    sellerEl.innerHTML = 'Sold by <span style="color:var(--gray-700);font-weight:600;">a TeeBox member</span>';
+  }
   if (p.sellerId && typeof loadProfile === 'function') {
-    loadProfile(p.sellerId).then((prof) => {
-      const u = (prof && prof._user) || {};
-      const name = u.displayName || u.name || 'a TeeBox member';
-      const verified = !!u.sellerVerified;
-      sellerEl.innerHTML =
-        'Sold by <span style="color:var(--gray-700);font-weight:600;">' +
-        window.safeText(name) + '</span>' +
-        (verified ? ' <span class="verified-pill sm" title="Verified seller">Verified</span>' : '');
-    }).catch(() => {});
+    loadProfile(p.sellerId).then(renderCheckoutSeller).catch(() => {});
   }
 
   setCheckoutError('');
@@ -5571,6 +5605,13 @@ window.openCheckout = async function(productId, qty, opts) {
   // Reset to the default action in case a prior open ended in the
   // mount-error "Try again" branch and swapped this to retry-checkout.
   payBtn.dataset.action = 'confirm-payment';
+  // Show the payment skeleton + "Loading secure payment…" while the Stripe
+  // Payment Element mounts (r138, CRO P5). Collapse #payment-element so the
+  // skeleton alone reserves the space; both reset once mount resolves/errors.
+  const _paySkel = document.getElementById('payment-skeleton');
+  const _payEl0 = document.getElementById('payment-element');
+  if (_paySkel) _paySkel.style.display = 'block';
+  if (_payEl0) _payEl0.style.minHeight = '0';
 
   document.getElementById('checkoutBackdrop').classList.add('open');
 
@@ -5599,10 +5640,16 @@ window.openCheckout = async function(productId, qty, opts) {
   // without having to close + reopen the modal.
   try {
     await mountPaymentElement(checkoutProduct);
+    // Mounted — hide the loading skeleton and restore the element's min-height.
+    if (_paySkel) _paySkel.style.display = 'none';
+    if (_payEl0) _payEl0.style.minHeight = '48px';
     payBtn.disabled = false;
     payBtn.textContent = 'Pay ' + fmt(totalDollars);
     payBtn.dataset.action = 'confirm-payment';
   } catch (err) {
+    // Mount failed — hide the skeleton so the error message is visible.
+    if (_paySkel) _paySkel.style.display = 'none';
+    if (_payEl0) _payEl0.style.minHeight = '48px';
     setCheckoutError(err && err.message || 'Could not start payment. Try again.');
     payBtn.disabled = false;
     payBtn.textContent = 'Try again';
