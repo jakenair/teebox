@@ -2222,11 +2222,14 @@
      class stays `.ask` for historical reasons; its label reads "Price". */
   .detail-prices { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 1rem; }
   .detail-price-box { border-radius: var(--radius-md); padding: 14px 18px; text-align: left; }
-  .detail-price-box.ask { background: #fde8e6; border: 1.5px solid #f4b5af; }
+  /* Neutral-brand price box (r137, CRO P1). Was pink/red (#fde8e6 bg, red
+     label + value) — leftover from the old bid/ask "ask = red" theme, which
+     made the price read as an error/warning at the decision point. */
+  .detail-price-box.ask { background: var(--green-50); border: 1.5px solid var(--green-200); }
   .detail-price-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .detail-price-box.ask .detail-price-lbl { color: var(--red-500); }
+  .detail-price-box.ask .detail-price-lbl { color: var(--green-700); }
   .detail-price-val { font-family: var(--font-display); font-weight: 800; }
-  .detail-price-box.ask .detail-price-val { color: var(--red-500); font-size: 2.2rem; line-height: 1.05; }
+  .detail-price-box.ask .detail-price-val { color: var(--gray-900); font-size: 2.2rem; line-height: 1.05; }
   .detail-desc { font-size: 13.5px; color: var(--gray-600); line-height: 1.7; margin-bottom: 1.25rem; }
   /* "More like this" row at the bottom of the listing detail modal.
      Horizontal scroll of compact thumbnails — same category as the
@@ -4968,6 +4971,9 @@
           </div>
           <span class="qty-remaining" id="detailQtyRemaining"></span>
         </div>
+        <!-- One-of-a-kind cue for single-unit listings (r137, CRO P7a).
+             Shown/hidden by openDetailModal based on quantity. -->
+        <div class="detail-oneofone" id="detailOneOfOne" style="display:none;font-size:12.5px;font-weight:600;color:var(--green-700);margin:2px 0 6px;">◆ 1 available — one of a kind</div>
         <div class="detail-actions">
           <!-- Owner-only "Edit listing" link. Hidden by default;
                openDetailModal() reveals it + sets data-listing-id
@@ -4977,7 +4983,7 @@
             <span title="Buyer protection — 7 days from delivery to open a dispute"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
             <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
           </div>
-          <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now at Ask</button>
+          <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now</button>
           <!-- Shown by openDetailModal when the seller hasn't finished Stripe
                payout setup (profiles.chargesReady !== true): listing is visible
                but not buyable yet. -->
@@ -5175,7 +5181,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:6px;">
           <span>Buyer fees</span>
-          <span>$0.00</span>
+          <span>None</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
           <span>Shipping</span>
@@ -5188,12 +5194,19 @@
         </div>
       </div>
 
+      <!-- Delivery expectation (r137, CRO P2) — matches Terms §4/§6: seller
+           ships within 5 business days via a tracked, insured carrier. Sets an
+           arrival expectation instead of leaving the buyer guessing. -->
+      <div style="font-size:12px;color:var(--gray-600);line-height:1.45;margin-bottom:14px;">
+        Ships within 5 business days · tracked &amp; insured
+      </div>
+
       <!-- Buyer-protection callout -->
       <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;">
         <span data-ico="shield" style="color:var(--green-700);flex-shrink:0;margin-top:1px;"></span>
         <div style="font-size:12.5px;color:var(--green-700);line-height:1.45;">
           <strong style="display:block;font-size:13px;margin-bottom:2px;color:var(--green-700);">Buyer Protection</strong>
-          Full refund if your item arrives not as described, never ships, or the seller doesn't ship within 5 business days.
+          Full refund if your item arrives not as described, never ships, or the seller doesn't ship within 5 business days. You have 7 days after delivery to report a problem. <a href="/refunds.html" target="_blank" rel="noopener" style="color:var(--green-700);text-decoration:underline;font-weight:600;">How buyer protection works</a>
         </div>
       </div>
 
@@ -5521,7 +5534,9 @@ window.openCheckout = async function(productId, qty, opts) {
 
   document.getElementById('checkoutName').textContent = p.name;
   const qtyMeta = requestedQty > 1 ? ` · Qty ${requestedQty}` : '';
-  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}`;
+  // One-of-a-kind cue (r137, CRO P7a) for single-unit listings.
+  const oneOfOneMeta = (totalQty === 1 && remaining === 1) ? ' · One of a kind' : '';
+  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}${oneOfOneMeta}`;
 
   // Cents-precise itemized summary. Buyer doesn't pay a separate buyer fee
   // (platform fee is collected from the seller via Stripe Connect), so the
@@ -9384,7 +9399,7 @@ function openDetailModal(id) {
     b.style.opacity = locked ? '0.45' : '';
     b.style.cursor  = locked ? 'not-allowed' : '';
   });
-  if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : (isOwnListing ? 'This is your listing' : 'Buy Now at Ask'));
+  if (buyBtn) buyBtn.textContent = isSold ? 'Sold' : (isPending ? 'Sale Pending' : (isOwnListing ? 'This is your listing' : 'Buy Now'));
   if (msgBtn) msgBtn.disabled = false; // Messaging always allowed.
   // Reset the not-buyable note on every open; the async seller-profile check
   // (below, in loadProfile().then) re-shows it when the seller isn't
@@ -9424,6 +9439,9 @@ function openDetailModal(id) {
   } else {
     qtyRow.style.display = 'none';
   }
+  // One-of-a-kind cue (r137, CRO P7a): single-unit listing still available.
+  const oneOfOne = document.getElementById('detailOneOfOne');
+  if (oneOfOne) oneOfOne.style.display = (totalQty === 1 && remaining === 1 && !isSold && !isPending) ? '' : 'none';
   // Render seller link if this is a real (Firestore) listing
   const sellerEl = document.getElementById('detailSeller');
   sellerEl.innerHTML = '';
