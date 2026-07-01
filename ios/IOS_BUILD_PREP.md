@@ -71,3 +71,20 @@ settings above.
       (the highest build for the shipping version + 1) — do NOT hardcode a
       number here, and do NOT reuse a number already on TestFlight (ASC rejects
       duplicates). Then archive.
+
+## Pending build-69 changes (do NOT apply until build 68 is uploaded AND accepted by Apple)
+
+`capacitor.config.ts` is intentionally frozen until 68 clears review so nothing
+leaks into 68 via `cap sync`.
+
+- [ ] **Safe-area / top status-bar strip fix.** Set `StatusBar.overlaysWebView: true`
+      (currently `false` with `backgroundColor: '#0b1a0e'`, which paints an opaque
+      near-black native bar above the green-800 web header → the mismatched dark
+      strip). With overlay on, the WKWebView extends under the status bar and the
+      web side already covers it: `viewport-fit=cover` + `.mobile-top-bar`
+      `padding-top: env(safe-area-inset-top)` + `body` bg `--green-800`
+      (all shipped in web r136). Confirm that web safe-area padding still fully
+      covers the inset once overlay is on.
+- [ ] **Real-device safe-area check on 69**: on a notched iPhone, confirm the top
+      reads as one continuous green with no seam/line, in both portrait and (if
+      supported) landscape (left/right insets). Cannot be verified in headless.
