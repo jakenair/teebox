@@ -299,9 +299,17 @@
     --green-100: #d0e9d4; --green-50: #edf6ee;
     --gold-700: #7a5c0a; --gold-600: #a07a12; --gold-500: #c9991e;
     --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    /* --gold: base gold token. Several rules used bare var(--gold) with no
+       fallback (e.g. .nav-badge) → rendered transparent/invisible; others used
+       var(--gold, #d4af37). Defining it to the existing #d4af37 fallback fixes
+       the bare cases with ZERO change to the fallback cases. */
+    --gold: #d4af37;
     --cream: #faf8f3; --white: #ffffff;
+    /* --gray-50 / --gray-600 were used without fallback (broken hover bgs and
+       muted text colors); define them in the ramp. */
+    --gray-50: #f9f9f7;
     --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
-    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-800: #2a2a26; --gray-900: #1c1c18;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-600: #5a5a54; --gray-700: #3c3c38; --gray-800: #2a2a26; --gray-900: #1c1c18;
     --red-500: #c0392b; --red-100: #fde8e6;
     --blue-700: #1d4ed8; --blue-500: #3b82f6; --blue-100: #dbeafe;
     --heart-red: #e74c3c;
@@ -7784,7 +7792,7 @@ window.confirmPayment = async function() {
         ? (window.safeImgUrl ? window.safeImgUrl(f.__existingUrl) : f.__existingUrl)
         : URL.createObjectURL(f);
       return `<div class="upload-preview">
-        <img src="${url}" />
+        <img src="${url}" alt="Listing photo ${i+1} preview" />
         ${i===0?'<div class="upload-main-badge">MAIN</div>':''}
         <button class="upload-preview-remove" data-action="remove-photo" data-idx="${i}" aria-label="Remove">${window.ICONS.close}</button>
       </div>`;
