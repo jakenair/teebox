@@ -308,7 +308,7 @@
     --up-green: #1a8a3c; --up-bg: #e8f7ed; --dn-red: #c0392b; --dn-bg: #fde8e6;
     --font-display: 'Playfair Display', Georgia, serif;
     --font-body: 'DM Sans', system-ui, sans-serif;
-    --nav-h: 64px; --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --nav-h: 64px; --cat-bar-h: 48px; --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
     --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
     --transition: 0.22s cubic-bezier(.4,0,.2,1);
     /* Spacing ramp (2026-06-05). Token foundations for the audit
@@ -910,14 +910,32 @@
     /* Cat-bar sits directly under the mobile top bar. Keep it green to
        match the brand — the inherited white-text-on-green pills work fine
        and the bar reads as a continuation of the header. */
+    /* Mobile: the 8 category filters can't fit one 375px row (they measure
+       ~600px), so wrap them instead of scrolling horizontally (r136). At the
+       375–390px target this lands in 2 rows; Logo Bingo (margin-left:auto on
+       its divider) is pushed to the right edge of its row so it's always
+       visible/tappable without scrolling. --cat-bar-h drives the content
+       offset below and is re-synced to the real bar height by JS (see the
+       cat-bar script) so any row count stays correct. */
+    body.has-bottom-nav { --cat-bar-h: 92px; }
     body.has-bottom-nav .cat-bar-wrap {
       top: calc(env(safe-area-inset-top) + 52px);
       background: linear-gradient(180deg, var(--green-800) 0%, var(--green-900) 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
+    body.has-bottom-nav .cat-bar {
+      flex-wrap: wrap; overflow: visible; align-content: center;
+      gap: 6px; row-gap: 7px; padding: 6px 0.55rem; scroll-snap-type: none;
+    }
+    body.has-bottom-nav .cat-bar::before, body.has-bottom-nav .cat-bar::after { display: none; }
+    body.has-bottom-nav .cat-pill { padding: 5px 11px; font-size: 12.5px; }
+    /* Push the divider + Logo Bingo to the right edge of whatever row they wrap
+       to; shorter (18px) than the base so it reads as a soft separator between
+       the categories and the game, not a full-height rule. */
+    body.has-bottom-nav .cat-bar-divider { margin-left: auto; margin-right: 6px; height: 18px; }
     body.has-bottom-nav .cat-bar-wrap::before { background: linear-gradient(to right, var(--green-800) 30%, transparent); }
     body.has-bottom-nav .cat-bar-wrap::after { background: linear-gradient(to left, var(--green-900) 30%, transparent); }
-    body.has-bottom-nav main { margin-top: calc(48px + env(safe-area-inset-top) + 52px); }
+    body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
   }
@@ -1673,7 +1691,7 @@
   /* CAT BAR — horizontally scrollable category pills.
      The wrapper sits below .nav and provides edge fades so users see there's
      more content to scroll on mobile. .cat-bar itself is the scrollable rail. */
-  .cat-bar-wrap { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); border-bottom: 1px solid rgba(255,255,255,0.08); height: 48px; }
+  .cat-bar-wrap { position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99; background: var(--green-800); border-bottom: 1px solid rgba(255,255,255,0.08); min-height: 48px; }
   .cat-bar-wrap::before, .cat-bar-wrap::after { content: ''; position: absolute; top: 0; bottom: 1px; width: 28px; pointer-events: none; z-index: 2; transition: opacity 0.18s ease; }
   /* Edge fades — vignette to --green-900 (a step darker than the
      --green-800 bar bg) so the fade actually registers visually.
@@ -1684,7 +1702,7 @@
   .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-900) 30%, transparent); opacity: 1; }
   .cat-bar-wrap.scrolled::before { opacity: 1; }
   .cat-bar-wrap.at-end::after { opacity: 0; }
-  .cat-bar { position: relative; height: 100%; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .cat-bar { position: relative; min-height: 48px; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
   .cat-bar::-webkit-scrollbar { display: none; }
   /* Trailing/leading spacers so the first/last pill never bumps into the
      edge fade — gives a clean breathing margin when scrolled to either end. */
@@ -1722,7 +1740,7 @@
   }
   @keyframes catPillPop { 0% { transform: scale(0.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
 
-  main { margin-top: calc(var(--nav-h) + 48px); }
+  main { margin-top: calc(var(--nav-h) + var(--cat-bar-h)); }
 
   /* HERO */
   .hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 60%, var(--green-600) 100%); padding: 4rem 2rem 3.5rem; position: relative; overflow: hidden; }
@@ -2107,7 +2125,10 @@
     cursor: zoom-in;
     background: var(--gray-100);
   }
-  .ig-slide img { width: 100%; max-width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* contain (not cover) so the WHOLE product is visible — over-zoom/edge-crop
+     fix (r136). The slide already has a neutral --gray-100 bg, so portrait or
+     wide items letterbox cleanly instead of getting their edges cropped. */
+  .ig-slide img { width: 100%; max-width: 100%; height: 100%; object-fit: contain; display: block; }
   .ig-count-badge {
     position: absolute;
     top: 10px;
@@ -4780,11 +4801,20 @@
       wrap.classList.toggle('scrolled', bar.scrollLeft > 4);
       wrap.classList.toggle('at-end', maxScroll <= 0 || bar.scrollLeft >= maxScroll - 4);
     }
+    // The mobile cat-bar wraps to 2 (sometimes 3 on very narrow screens) rows,
+    // so its height is content-driven. Sync --cat-bar-h to the real rendered
+    // height so main's top offset always matches the bar (r136). Set on <body>
+    // so it overrides the has-bottom-nav fallback for the content below.
+    function syncBarHeight() {
+      document.body.style.setProperty('--cat-bar-h', wrap.offsetHeight + 'px');
+    }
+    function refresh() { updateFades(); syncBarHeight(); }
     bar.addEventListener('scroll', updateFades, { passive: true });
-    window.addEventListener('resize', updateFades);
+    window.addEventListener('resize', refresh);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', syncBarHeight);
     // Initial state — also rerun after fonts load in case widths shift.
-    updateFades();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateFades).catch(()=>{});
+    refresh();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh).catch(()=>{});
     // When a pill becomes active, scroll it into view smoothly.
     bar.addEventListener('click', function(ev) {
       var pill = ev.target.closest('.cat-pill');
