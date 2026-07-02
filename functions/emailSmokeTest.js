@@ -47,6 +47,7 @@ const http = require("http");
 const {URL} = require("url");
 
 const {sendEmail, RESEND_API_KEY} = require("./lib/email");
+const {resolveUserEmail} = require("./lib/emailRecipient");
 
 // ── Secrets ─────────────────────────────────────────────────────
 // RESEND_API_KEY is imported from ./lib/email so we share the single
@@ -166,15 +167,23 @@ async function runEmailSmoke({trigger}) {
     }
 
     // ── 1. order_placed ────────────────────────────────────────
+    // Resolve the recipient through the SAME path prod uses (auth-first,
+    // real-user shape: the users doc carries NO email). This makes the smoke
+    // exercise resolveUserEmail — if order-email resolution ever regresses to
+    // reading only a users-doc email field, `to` becomes null here and the step
+    // FAILS, so the smoke can never green-light that silent-skip bug again.
     await step("order_placed_send", steps, async () => {
+      const {email: to, source} = await resolveUserEmail(
+          SMOKE_BUYER_UID, undefined, async () => ({email: inbox}));
+      if (!to) throw new Error("order_placed: recipient email did not resolve (regression)");
       const out = await sendTestEmail({
         templateCategory: "transactional",
         templateName: "OrderPlacedBuyer",
         subject: "Order confirmed — Smoke Test",
-        to: inbox,
+        to,
         ctx: synthOrderBuyerCtx(inbox),
       });
-      sends.order_placed = out;
+      sends.order_placed = {...out, resolvedVia: source};
     });
 
     // ── 2. password_reset ──────────────────────────────────────
@@ -190,15 +199,20 @@ async function runEmailSmoke({trigger}) {
     });
 
     // ── 3. sale_notification (seller perspective) ──────────────
+    // Auth-resolution path (see order_placed above) — seller users doc has no
+    // email; resolution must come from Auth.
     await step("sale_notification_send", steps, async () => {
+      const {email: to, source} = await resolveUserEmail(
+          SMOKE_SELLER_UID, undefined, async () => ({email: inbox}));
+      if (!to) throw new Error("sale_notification: recipient email did not resolve (regression)");
       const out = await sendTestEmail({
         templateCategory: "transactional",
         templateName: "OrderPlacedSeller",
         subject: "You sold Test Scotty Cameron — Smoke",
-        to: inbox,
+        to,
         ctx: synthOrderSellerCtx(inbox),
       });
-      sends.sale_notification = out;
+      sends.sale_notification = {...out, resolvedVia: source};
     });
 
     // ── 4. order_shipped ───────────────────────────────────────
@@ -498,8 +512,9 @@ function synthOrderBuyerCtx(inbox) {
       createdAt: nowIso(),
     },
     buyer: {
+      // No email field — mirrors the REAL users/{uid} shape (email lives in
+      // Auth, not the doc). The send `to` is resolved via resolveUserEmail.
       uid: SMOKE_BUYER_UID,
-      email: inbox,
       firstName: "Smoke",
       displayName: "Smoke Test Buyer",
     },
@@ -521,8 +536,8 @@ function synthOrderSellerCtx(inbox) {
       createdAt: nowIso(),
     },
     seller: {
+      // No email field — real users/{uid} shape; `to` resolved via auth.
       uid: SMOKE_SELLER_UID,
-      email: inbox,
       firstName: "Smoke",
       displayName: "Smoke Test Seller",
     },

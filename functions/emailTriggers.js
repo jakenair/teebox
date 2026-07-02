@@ -39,6 +39,7 @@ const {
   RESEND_API_KEY,
   UNSUBSCRIBE_SECRET,
 } = require("./lib/email");
+const {resolveUserEmail} = require("./lib/emailRecipient");
 
 // Resend dashboard → Webhooks → Signing secret. Used to verify svix sigs.
 const RESEND_WEBHOOK_SECRET = defineSecret("RESEND_WEBHOOK_SECRET");
@@ -298,6 +299,29 @@ async function loadOrderParties(order) {
   };
 }
 
+/**
+ * Record an order email that could NOT be sent because no deliverable address
+ * resolved. Written to emailSends (same collection recordSend uses) so the miss
+ * is auditable and alertable — the original bug silently skipped instead.
+ * @param {{uid:string, template:string, orderId:string, reason:string}} p
+ */
+async function recordEmailMiss({uid, template, orderId, reason}) {
+  try {
+    await admin.firestore().collection("emailSends").add({
+      to: null,
+      uid: uid || null,
+      category: CATEGORIES.TRANSACTIONAL,
+      template,
+      status: "skipped-no-recipient-email",
+      error: reason,
+      orderId: orderId || null,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    logger.error("recordEmailMiss: emailSends write failed", e.message || e);
+  }
+}
+
 // 1. Order placed → buyer + seller
 exports.onOrderCreatedEmail = onDocumentCreated(
     {document: "orders/{orderId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
@@ -306,27 +330,39 @@ exports.onOrderCreatedEmail = onDocumentCreated(
       if (!order || !order.buyerId) return;
       const {buyer, seller, listing} = await loadOrderParties(order);
       const ctx = {order, buyer, seller, listing};
-      const tasks = [];
-      if (buyer.email) {
-        tasks.push(sendTemplated({
+      // Canonical email source is Firebase Auth (users/{uid} has no email field
+      // for real accounts — that was the silent-skip bug). doc email is a
+      // legacy/smoke fallback. See lib/emailRecipient.js.
+      const authGetter = (uid) => admin.auth().getUser(uid);
+      const recipients = [
+        {role: "buyer", uid: buyer.uid || order.buyerId,
+          docEmail: buyer.email, template: "OrderPlacedBuyer"},
+        {role: "seller", uid: seller.uid || order.sellerId,
+          docEmail: seller.email, template: "OrderPlacedSeller"},
+      ];
+      const tasks = recipients.map(async (r) => {
+        if (!r.uid) return; // party absent on the order (e.g. no sellerId)
+        const {email} = await resolveUserEmail(r.uid, r.docEmail, authGetter);
+        if (!email) {
+          // NEVER silent-skip (the original defect). Log + record the miss.
+          logger.error(
+              `onOrderCreatedEmail: no deliverable email for ${r.role} ` +
+              `${r.uid} on order ${order.id} (auth + users-doc both empty)`);
+          await recordEmailMiss({
+            uid: r.uid, template: r.template, orderId: order.id,
+            reason: `no email for ${r.role} (auth-miss + no users-doc email)`,
+          });
+          return;
+        }
+        return sendTemplated({
           category: CATEGORIES.TRANSACTIONAL,
           templateCategory: "transactional",
-          templateName: "OrderPlacedBuyer",
-          to: buyer.email,
-          uid: buyer.uid,
+          templateName: r.template,
+          to: email,
+          uid: r.uid,
           ctx,
-        }));
-      }
-      if (seller.email) {
-        tasks.push(sendTemplated({
-          category: CATEGORIES.TRANSACTIONAL,
-          templateCategory: "transactional",
-          templateName: "OrderPlacedSeller",
-          to: seller.email,
-          uid: seller.uid,
-          ctx,
-        }));
-      }
+        });
+      });
       await Promise.allSettled(tasks);
     },
 );
