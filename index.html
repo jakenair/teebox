@@ -8571,22 +8571,55 @@ window.__actions['open-detail-from-search'] = function(el) {
   setTimeout(() => openDetailModal(el.dataset.productId), 100);
 };
 
+// Escape helper with a self-contained fallback. buildTicker runs very early
+// (top-level call below) and inside WKWebView; never assume window.safeText
+// is defined yet — fall back to a local escaper so a load-order shift can't
+// leave the reel blank.
+function _tickerSafe(v) {
+  if (typeof window.safeText === 'function') return window.safeText(v);
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 function buildTicker() {
   const track = document.getElementById('tickerTrack');
   if (!track) return;
   const wrap = track.closest('.ticker-wrap');
   if (wrap) wrap.style.display = '';
-  // Curated reel — % magnitude re-randomized each build so it feels alive.
-  // Plain spans only (no link / data-action) → items are non-clickable.
-  const items = CURATED_TICKER.map(t => ({ ...t, chg: tickerChg(t.up) }));
-  const doubled = [...items, ...items];
-  track.innerHTML = doubled.map(t=>
-    `<div class="ticker-item">`+
-      `<span class="ticker-name">${window.safeText(t.name)}</span>`+
-      `<span class="ticker-price">${window.safeText(t.price)}</span>`+
-      `<span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${window.safeText(t.chg)}</span>`+
-    `</div>`).join('');
+  try {
+    // Curated reel — % magnitude re-randomized each build so it feels alive.
+    // Plain spans only (no link / data-action) → items are non-clickable.
+    const items = CURATED_TICKER.map(t => ({ ...t, chg: tickerChg(t.up) }));
+    const doubled = [...items, ...items];
+    track.innerHTML = doubled.map(t=>
+      `<div class="ticker-item">`+
+        `<span class="ticker-name">${_tickerSafe(t.name)}</span>`+
+        `<span class="ticker-price">${_tickerSafe(t.price)}</span>`+
+        `<span class="ticker-chg ${t.up?'ticker-up':'ticker-dn'}">${_tickerSafe(t.chg)}</span>`+
+      `</div>`).join('');
+  } catch (e) {
+    // A blank strip reads as broken (reported on iOS/WKWebView). If anything
+    // above throws, render a minimal dependency-free fallback so the reel
+    // still shows content instead of an empty bar.
+    try {
+      track.innerHTML = [...CURATED_TICKER, ...CURATED_TICKER].map(t =>
+        `<div class="ticker-item"><span class="ticker-name">${_tickerSafe(t.name)}</span>`+
+        `<span class="ticker-price">${_tickerSafe(t.price)}</span></div>`).join('');
+    } catch (_) { /* give up silently — never throw out of the ticker */ }
+  }
 }
+
+// Self-heal: guarantee the reel is populated even if the top-level
+// buildTicker() call raced the DOM or a transient error left it empty.
+// Idempotent (no-op once the track has children). Directly targets the
+// reported iOS symptom of an empty ticker bar by making "blank" self-correct.
+function ensureTickerReady() {
+  const track = document.getElementById('tickerTrack');
+  if (track && track.children.length === 0) buildTicker();
+}
+window.ensureTickerReady = ensureTickerReady;
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureTickerReady);
+window.addEventListener('load', ensureTickerReady);
 
 function buildTrending() {
   // "Trending" used to sort by a fake `volume` field. Now it just shows
