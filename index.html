@@ -774,6 +774,11 @@
      native iOS app — that prompt only makes sense on the website. The body
      gets `is-native` set when window.Capacitor.isNativePlatform() is true. */
   body.is-native .install-banner { display: none !important; }
+  /* r141: the install banner is position:fixed z-index:350, which sits ABOVE the
+     detail modal (z-index:250) and was floating over the Buy Now button + checkout
+     CTAs. Hide it whenever any full-screen overlay is open. :has() degrades
+     gracefully — on browsers without support the banner just behaves as before. */
+  body:has(.detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open) .install-banner { display: none !important; }
   .offline-banner { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; background: var(--red-500); color: var(--white); padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; text-align: center; z-index: 700; box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
 
   /* Mobile-only top header (defaults hidden — shown by body.has-bottom-nav rule below). */
