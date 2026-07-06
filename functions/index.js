@@ -3932,6 +3932,46 @@ async function writeListingPhotoVariants(bucket, objName, listingId, baseSharp) 
     .update({[`photoVariants.${idx}`]: urls});
 }
 
+// Decode an uploaded image and produce the 1600px WebP stored as the original,
+// plus the sharp instance used to derive the 400/800px variants.
+//   JPEG/PNG/WebP/AVIF decode natively via sharp. Apple HEVC-HEIC (what iPhones
+//   shoot) does NOT: the bundled libvips has libheif but no HEVC decoder, so
+//   sharp throws ("bad seek" / "plugin not built in"). We detect that by TRYING
+//   sharp first and, only if it throws, falling back to heic-convert (WASM
+//   libheif + libde265) to decode to JPEG, then run the same sharp pipeline.
+//   Trying-then-falling-back avoids brand-sniffing ambiguity (AVIF shares the
+//   'mif1' ftyp brand with HEIC but sharp CAN decode AVIF).
+//   Throws with code IMG_DECODE_FAILED if neither path can decode the bytes —
+//   callers MUST fail loud and never store the undecodable original as if done.
+async function convertToWebp(inputBuf) {
+  const sharp = require("sharp");
+  const encode = async (raster) => {
+    const baseSharp = sharp(raster).rotate(); // honor EXIF orientation
+    const webp = await baseSharp.clone()
+      .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
+      .withMetadata({}) // match existing EXIF handling
+      .webp({quality: 82})
+      .toBuffer();
+    return {baseSharp, webp};
+  };
+  try {
+    return await encode(inputBuf);
+  } catch (sharpErr) {
+    let jpeg;
+    try {
+      const heicConvert = require("heic-convert");
+      jpeg = await heicConvert({buffer: inputBuf, format: "JPEG", quality: 1});
+    } catch (heicErr) {
+      const e = new Error(
+          `image decode failed — sharp: ${sharpErr && sharpErr.message}; ` +
+          `heic-convert: ${heicErr && heicErr.message}`);
+      e.code = "IMG_DECODE_FAILED";
+      throw e;
+    }
+    return await encode(jpeg);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // optimizeListingPhoto (Storage trigger)
 //   Runs whenever a new image is uploaded to listings/{id}/photos.
@@ -3965,28 +4005,106 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       // SafeSearch confirms the image is safe — no variants of an NSFW image
       // we're about to delete.
       let baseSharp = null;
+      let convertFailed = false;
+      let convertErr = null;
       try {
-        const sharp = require("sharp");
+        const crypto = require("crypto");
         const [buf] = await file.download();
-        baseSharp = sharp(buf).rotate(); // honor EXIF orientation
-        const out = await baseSharp.clone()
-          .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
-          .withMetadata({}) // strip EXIF (incl. GPS)
-          .webp({quality: 82})
-          .toBuffer();
-        await file.save(out, {
+        const {baseSharp: bs, webp} = await convertToWebp(buf);
+        baseSharp = bs;
+        // Preserve the client's download token if the finalize event carried
+        // one, so URLs captured at upload time keep working; otherwise mint one.
+        // (The previous in-place save omitted the token entirely — unlike the
+        // variant save — which could invalidate the client's captured URL.)
+        const token = (obj.metadata &&
+            obj.metadata.firebaseStorageDownloadTokens) ||
+            crypto.randomUUID();
+        await file.save(webp, {
           metadata: {
             contentType: "image/webp",
             cacheControl: "public, max-age=31536000",
-            metadata: {optimized: "true"},
+            metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
           },
           resumable: false,
         });
-        logger.info(`optimized ${obj.name}: ${buf.length} → ${out.length} bytes`);
+        logger.info(`optimized ${obj.name} → ${webp.length} bytes`);
       } catch (err) {
-        logger.error("optimizeListingPhoto error", obj.name, err);
-        // Don't return — still try to run SafeSearch on the unoptimized
-        // upload below so a sharp failure doesn't bypass moderation.
+        convertFailed = true;
+        convertErr = err;
+        logger.error("optimizeListingPhoto convert failed (fail-loud)",
+            obj.name, err && err.message);
+      }
+
+      // FAIL LOUD: if we could not decode/convert the image, do NOT leave the
+      // unrenderable original in place and proceed as if done — that is exactly
+      // how raw image/heic used to reach buyers as broken placeholders. Flag the
+      // listing with a distinct reason and stop; there is no point running
+      // SafeSearch on bytes we cannot even decode.
+      if (convertFailed) {
+        const fparts = obj.name.split("/");
+        if (fparts.length < 4) return;
+        const fSellerId = fparts[1];
+        const fListingId = fparts[2];
+        const reason = "image_process_error";
+        const db = admin.firestore();
+        const listingRef = db.collection("listings").doc(fListingId);
+        let listingData = null;
+        try {
+          const snap = await listingRef.get();
+          if (snap.exists) {
+            listingData = snap.data();
+            await listingRef.update({
+              status: "flagged",
+              moderationFlags: {
+                reason,
+                flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+                offendingPath: obj.name,
+              },
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+        } catch (e) {
+          logger.error("imageProcessError: listing flag write failed",
+              fListingId, e);
+        }
+        try {
+          const data = listingData || {};
+          await db.collection("flaggedListings").doc(fListingId).set({
+            listingId: fListingId, sellerId: fSellerId,
+            title: data.title || "(unknown)",
+            brand: data.brand || "",
+            photos: data.photos || [],
+            reason,
+            offendingPath: obj.name,
+            status: "pending",
+            flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+        } catch (e) {
+          logger.error("imageProcessError: flaggedListings write failed",
+              fListingId, e);
+        }
+        try {
+          await db.collection("users").doc(fSellerId)
+              .collection("notifications").add({
+                kind: "listing-under-review",
+                subject: "Photo couldn't be processed",
+                body: "One of your listing photos is in an unsupported format " +
+                  "and couldn't be processed. Please re-upload it as a JPEG or " +
+                  "PNG so buyers can see it.",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                read: false,
+              });
+        } catch (e) {
+          logger.error("imageProcessError: seller notify failed", fListingId, e);
+        }
+        try {
+          await opsAlert("warn",
+              "Listing image could not be decoded/converted — flagged " +
+              "(fail-loud)",
+              {listingId: fListingId, sellerId: fSellerId, path: obj.name,
+                err: convertErr && convertErr.message});
+        } catch (_e) { /* best-effort */ }
+        return;
       }
 
       // ── Cloud Vision SafeSearch ──

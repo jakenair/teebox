@@ -7871,8 +7871,9 @@ window.confirmPayment = async function() {
       const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
       return blob || file;
     } catch (err) {
-      // HEIC on iOS Safari, or unsupported codec — fall back to raw upload.
-      // Server-side optimizeListingPhoto can still handle it via Sharp.
+      // Browser can't decode this codec (e.g. HEIC outside Safari) — upload the
+      // raw file. The server's optimizeListingPhoto converts HEIC via heic-convert
+      // (WASM libheif), so the raw bytes still become a renderable WebP.
       console.warn('shrinkForUpload failed, using original:', err && err.message);
       return file;
     }
@@ -7902,9 +7903,21 @@ window.confirmPayment = async function() {
         return file.__existingUrl;
       }
       const shrunk = await shrinkForUpload(file);
-      const safeName = file.name.replace(/\.[^.]+$/, '.jpg').replace(/[^A-Za-z0-9._\-]/g, '_');
+      // Name the object by its ACTUAL type and set contentType honestly. The
+      // old code force-renamed everything to .jpg, which disguised raw HEIC
+      // bytes as a JPEG (misleading, and the server relies on contentType).
+      // Files reaching here always passed addFiles' image/* filter, so outType
+      // is always image/*.
+      const outType = (shrunk && shrunk.type) || file.type || 'image/jpeg';
+      const extByType = {
+        'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+        'image/heic': 'heic', 'image/heif': 'heif', 'image/gif': 'gif'
+      };
+      const ext = extByType[outType] || 'jpg';
+      const base = (file.name.replace(/\.[^.]+$/, '') || 'photo').replace(/[^A-Za-z0-9._\-]/g, '_');
+      const safeName = `${base}.${ext}`;
       const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${i}_${safeName}`);
-      await uploadBytes(storageRef, shrunk);
+      await uploadBytes(storageRef, shrunk, { contentType: outType });
       const url = await getDownloadURL(storageRef);
       done++;
       bar.style.width = `${Math.round(done/total*100)}%`;
