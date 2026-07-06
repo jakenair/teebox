@@ -7961,9 +7961,13 @@ window.confirmPayment = async function() {
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
         // Hide dead listings from the public feed so they never render as live
         // clickable cards (and so seller identity never attaches to one):
-        // expired, sold, and removed are all dropped. Active + (transient)
-        // pending remain. Sold items still appear on the seller's storefront.
-        .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed')
+        // expired, sold, removed, and flagged are all dropped. Active +
+        // (transient) pending remain. Sold items still appear on the seller's
+        // storefront. `flagged` = held by moderation (NSFW / unscannable /
+        // undecodable image) — must never reach buyers. This is the single
+        // source for window.PRODUCTS, so search, category (applyFilters),
+        // "more like this", and the sidebar widgets inherit the exclusion.
+        .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed' && p.status !== 'flagged')
         // Hide listings with no photos — orphans from before the rollback fix
         // shipped, plus any in-progress listing where photo upload failed.
         // Sellers can still see + delete these from My Shop.
@@ -15878,7 +15882,10 @@ async function loadProfileListings(uid) {
 
 function renderProfileView(profile, listings, reviews, recentSold) {
   const isMe = window.CURRENT_USER && window.CURRENT_USER.uid === profile.id;
-  const active = listings.filter(l => l.status !== 'sold');
+  // Public storefront: hide moderation-held (flagged) listings from buyers, but
+  // keep them visible to the owner viewing their own profile so they know a
+  // listing is under review. (Owners also manage these from My Shop.)
+  const active = listings.filter(l => l.status !== 'sold' && (isMe || l.status !== 'flagged'));
   const sold = listings.filter(l => l.status === 'sold');
   recentSold = recentSold || [];
   // Build a quick lookup so the recent-sold feed can hydrate listing titles/photos
