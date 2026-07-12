@@ -13347,6 +13347,12 @@ async function confirmShip() {
     // #34-unreliable and is neutered server-side, so the callable owns this.
     // Build 67 devices still direct-write (rules allow it) and just don't get
     // the notification until Build 68 bundles this reroute.
+    // fns/httpsCallable are NOT in this plain-script block's scope (the module
+    // import at the top is module-scoped) — resolve them locally, like the 17
+    // other callables here. Without this, the call throws ReferenceError.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
     await httpsCallable(fns, 'markOrderShipped')({
       orderId,
       carrier: String(carrier).slice(0, 20),
@@ -13561,6 +13567,11 @@ async function confirmDelivery(orderId) {
     // isn't re-notified for a button they just tapped). The onUpdate trigger is
     // #34-unreliable and is neutered server-side. Build 67 devices still
     // direct-write until Build 68 bundles this reroute.
+    // fns/httpsCallable are NOT in this plain-script block's scope — resolve
+    // locally (see markOrderShipped above); a bare ref throws ReferenceError.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
     await httpsCallable(fns, 'confirmOrderDelivered')({ orderId });
     invalidateNotifCache();
     showToast('Delivery confirmed. Thanks!');
@@ -16697,6 +16708,11 @@ async function saveProfileEdits() {
     if ('handicap' in updates) payload.handicap = updates.handicap;
     if ('golfBag' in updates) payload.golfBag = updates.golfBag;
     if ('avatarUrl' in updates) payload.avatarUrl = updates.avatarUrl;
+    // fns/httpsCallable are NOT in this plain-script block's scope — resolve
+    // locally (see markOrderShipped); a bare ref throws ReferenceError.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
     await httpsCallable(fns, 'updateProfile')(payload);
 
     PROFILE_CACHE.delete(uid);
