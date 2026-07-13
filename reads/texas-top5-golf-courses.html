@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     DRAFT — TeeBox Reads post. Image-rich "Texas Top 5" piece.
+     Copy blocks are PLACEHOLDERS for Jake to fill. Ranking order
+     is a placeholder (Childress fixed at #3) — confirm with Jake.
+     Static, self-contained, no JS/CMS/Firestore. Served at
+     /reads/texas-top5-golf-courses.html
+     ============================================================ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<title>The 5 Best Golf Courses in Texas — TeeBox Reads</title>
+<meta name="description" content="From Bluejack National to Whispering Pines, Texas hides some of the best golf in the country. Here are the five courses — public and private — worth building a trip around." />
+<link rel="canonical" href="https://teeboxmarket.com/reads/texas-top5-golf-courses.html" />
+
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- Favicons (match index.html) -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
+
+<!-- Open Graph / Twitter (article) -->
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="The 5 Best Golf Courses in Texas" />
+<meta property="og:description" content="From Bluejack National to Whispering Pines, Texas hides some of the best golf in the country. Here are the five courses worth building a trip around." />
+<meta property="og:url" content="https://teeboxmarket.com/reads/texas-top5-golf-courses.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/reads/texas-top5/cover.webp" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-07-09T09:00:00-05:00" />
+<meta property="article:section" content="Where to Play" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@teeboxmarket" />
+<meta name="twitter:title" content="The 5 Best Golf Courses in Texas" />
+<meta name="twitter:description" content="From Bluejack National to Whispering Pines — a tour of the five best golf courses in Texas." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/reads/texas-top5/cover.webp" />
+
+<!-- Fonts (match index.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- JSON-LD Article structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "The 5 Best Golf Courses in Texas",
+  "description": "From Bluejack National to Whispering Pines, Texas hides some of the best golf in the country. Here are the five courses worth building a trip around.",
+  "image": "https://teeboxmarket.com/assets/reads/texas-top5/cover.webp",
+  "datePublished": "2026-07-09T09:00:00-05:00",
+  "dateModified": "2026-07-09T09:00:00-05:00",
+  "articleSection": "Where to Play",
+  "author": { "@type": "Organization", "name": "TeeBox" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "TeeBox Market",
+    "logo": { "@type": "ImageObject", "url": "https://teeboxmarket.com/icon-512.png" }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://teeboxmarket.com/reads/texas-top5-golf-courses.html"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
+    --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
+    --green-100: #d0e9d4; --green-50: #edf6ee;
+    --gold-600: #a07a12; --gold-500: #c9991e; --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    --cream: #faf8f3; --white: #ffffff;
+    --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--gray-900);
+    line-height: 1.7;
+    font-size: 18px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green-600); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--gold-600); }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .site-header {
+    background: var(--green-950);
+    color: var(--white);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--white); }
+  .nav-shop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .nav-shop:hover { background: var(--gold-400); color: var(--green-950); border-color: var(--gold-400); }
+
+  /* ── Article ────────────────────────────────────────── */
+  .article-wrap { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .back-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    transition: var(--transition);
+  }
+  .back-link:hover { color: var(--green-600); }
+
+  .article-eyebrow {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold-600);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h1.article-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+    color: var(--green-950);
+    margin-bottom: 1.1rem;
+  }
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .byline .by-name { color: var(--gray-900); font-weight: 600; }
+  .byline .dot { color: var(--gray-300); }
+
+  .lede {
+    font-size: 1.22rem;
+    line-height: 1.6;
+    color: var(--gray-700);
+    font-weight: 400;
+    margin-bottom: 1.9rem;
+  }
+  .article-body p { margin-bottom: 1.5rem; color: var(--gray-900); }
+  .article-body strong { color: var(--green-900); font-weight: 600; }
+
+  /* ── Images ─────────────────────────────────────────── */
+  img { max-width: 100%; height: auto; border-radius: var(--radius-lg); display: block; }
+  .hero-img {
+    width: 100%;
+    margin: 0 0 2rem;
+    box-shadow: var(--shadow-card);
+  }
+  .course-img {
+    width: 100%;
+    margin: 0 0 1.1rem;
+    box-shadow: var(--shadow-card);
+  }
+  figure { margin: 0; }
+  figcaption {
+    font-size: 0.82rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: -0.4rem;
+    margin-bottom: 1rem;
+  }
+  .placeholder-copy {
+    display: block;
+    background: var(--gold-50);
+    border: 1px dashed var(--gold-500);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.15rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--gold-600);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Course entries ─────────────────────────────────── */
+  .course {
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .course:first-of-type { border-top: 1px solid var(--gray-200); }
+  .course-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin-bottom: 0.35rem;
+  }
+  .course-name .rank { color: var(--gold-500); }
+  .course-meta {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 0.85rem;
+  }
+  .course p { margin-bottom: 0; color: var(--gray-900); }
+
+  .pullquote {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.32;
+    color: var(--green-800);
+    border-left: 4px solid var(--gold-400);
+    padding: 0.3rem 0 0.3rem 1.6rem;
+    margin: 2.5rem 0;
+  }
+  .article-body h2.section-h {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin: 2.75rem 0 1rem;
+  }
+  .note {
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: 2.25rem;
+  }
+
+  /* ── Closing CTA ────────────────────────────────────── */
+  .cta-block {
+    text-align: center;
+    background: linear-gradient(180deg, var(--green-900) 0%, var(--green-950) 100%);
+    border-radius: var(--radius-xl);
+    padding: 2.75rem 1.75rem;
+    margin: 3.5rem 0 1rem;
+    color: var(--white);
+  }
+  .cta-block h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1.2;
+    color: var(--white);
+    margin-bottom: 0.7rem;
+  }
+  .cta-block p { color: rgba(255,255,255,0.7); font-size: 1rem; margin-bottom: 1.6rem; }
+  .cta-pill {
+    display: inline-block;
+    background: var(--gold-400);
+    color: var(--green-950);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.85rem 1.9rem;
+    border-radius: 50px;
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .cta-pill:hover { background: var(--gold-300); color: var(--green-950); transform: translateY(-2px); }
+
+  .article-foot {
+    margin-top: 2.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+  }
+  .article-foot a { font-weight: 600; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .site-footer {
+    background: var(--green-950);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .site-footer .ft-word {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.25rem;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+  }
+  .site-footer .ft-word span { color: var(--white); }
+  .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; justify-content: center; margin-bottom: 1.25rem; }
+  .site-footer nav a { color: rgba(255,255,255,0.75); font-weight: 500; text-decoration: none; transition: var(--transition); }
+  .site-footer nav a:hover { color: var(--gold-400); }
+  .site-footer .ft-copy { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="nav-logo" href="/" aria-label="TeeBox home"><span>Tee</span>Box</a>
+  <a class="nav-shop" href="/">Shop the marketplace</a>
+</header>
+
+<article class="article-wrap">
+  <a class="back-link" href="/reads/">&larr; All Reads</a>
+
+  <div class="article-eyebrow">Where to Play</div>
+  <h1 class="article-title">The 5 Best Golf Courses in Texas</h1>
+  <div class="byline">
+    <span class="by-name">TeeBox</span>
+    <span class="dot">&middot;</span>
+    <span>July 9, 2026</span>
+    <span class="dot">&middot;</span>
+    <span>5 min read</span>
+  </div>
+
+  <img class="hero-img" src="/assets/reads/texas-top5/cover.webp" alt="Sunlit Texas golf course fairway framed by tall pines — the best golf in the Lone Star State" fetchpriority="high" width="1080" height="1350" />
+
+  <p class="lede">Texas golf runs deeper than most people think — piney-woods sanctuaries an hour outside Houston, a quarry-carved club in the middle of Dallas, and some of the most exclusive private retreats in the country. These are the five courses we'd build a trip around.</p>
+
+  <div class="article-body">
+
+    <div class="course">
+      <div class="course-name"><span class="rank">1.</span> Whispering Pines</div>
+      <div class="course-meta">Trinity &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/texas-top5/whispering-pines.webp" alt="Whispering Pines Golf Club — fairway winding through towering East Texas pines" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Consistently ranked the No. 1 course in Texas, Whispering Pines hides deep in the East Texas piney woods and plays like a private cathedral &mdash; towering trees, flawless conditioning, and not another soul in sight. Chet Williams routed it to reward precision over power, with water and sand framing greens that give up nothing cheaply. <strong>Getting on is famously hard; if the invite ever comes, clear your calendar.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">2.</span> Bluejack National</div>
+      <div class="course-meta">Montgomery &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/texas-top5/bluejack-national.webp" alt="Bluejack National — Tiger Woods-designed layout framed by native Texas pines and sandy waste areas" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Tiger Woods&rsquo; first design to open in the United States, an hour north of Houston. TGR Design cleared the corridors wide and firm so it plays fast and fun for members while still baring its teeth from the tips. <strong>Don&rsquo;t miss The Playground &mdash; a ten-hole par-3 course with a walk-up snack shack that half the new clubs in America are now trying to copy.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">3.</span> Childress Hall</div>
+      <div class="course-meta">Texas &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/texas-top5/childress-hall.webp" alt="Childress Hall golf course — rolling green fairway and manicured bunkering" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>One of the state&rsquo;s most closely held private retreats &mdash; the kind of place members guard and guests never forget. Wide, walkable, and built for pure golf, it rewards the ground game and asks you to leave the ego in the car. <strong>No tee sheet, no crowds &mdash; just golf the way it&rsquo;s meant to feel.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">4.</span> Dallas National</div>
+      <div class="course-meta">Dallas &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/texas-top5/dallas-national.webp" alt="Dallas National Golf Club — dramatic fairway carved through wooded North Texas terrain" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Tom Fazio found dramatic elevation on a former quarry south of downtown and built the most exclusive club in the Metroplex on top of it. It&rsquo;s long, muscular, and immaculately conditioned, with tumbling terrain you&rsquo;d never expect to find inside Dallas city limits. <strong>The back nine plays through rock and water &mdash; big, bold, and unmistakably Fazio.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">5.</span> Covey</div>
+      <div class="course-meta">Texas &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/texas-top5/covey.webp" alt="Covey golf course — open fairway framed by native Texas grasses at golden hour" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>A newer name on the Texas scene, and proof the state&rsquo;s private-club boom shows no signs of slowing. Understated and members-first, it&rsquo;s built around wide fairways, bold greens, and the unhurried pace that makes a great club feel like a second home. <strong>The kind of place you join for thirty years, not thirty rounds.</strong></p>
+    </div>
+
+    <div class="pullquote">From the piney woods to the big city, Texas hides some of the best golf in the country &mdash; you just have to know where to look.</div>
+
+    <p class="note">DRAFT for review: full copy in, ranking is your approved order (Childress #3). Note: the <strong>Childress Hall</strong> and <strong>Covey</strong> write-ups are intentionally general &mdash; I couldn&rsquo;t verify their specifics (architect, signature holes), so confirm or enrich those two before publishing.</p>
+
+  </div>
+
+  <div class="cta-block">
+    <h2>Gear up for your next round</h2>
+    <p>Browse used drivers, irons, wedges and putters &mdash; listed by golfers, with buyer protection built in.</p>
+    <a class="cta-pill" href="/">Shop used gear on TeeBox &rarr;</a>
+  </div>
+
+  <div class="article-foot">
+    <a href="/reads/">&larr; Back to all Reads</a>
+  </div>
+</article>
+
+<footer class="site-footer">
+  <div class="ft-word"><span>Tee</span>Box</div>
+  <nav>
+    <a href="/">Marketplace</a>
+    <a href="/reads/">Reads</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </nav>
+  <div class="ft-copy">&copy; 2026 TeeBox Market. The peer-to-peer marketplace for golfers.</div>
+</footer>
+
+</body>
+</html>

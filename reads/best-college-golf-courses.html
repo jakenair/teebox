@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     DRAFT — TeeBox Reads post. Image-rich "10 Best College Golf
+     Courses" piece. Copy blocks are PLACEHOLDERS for Jake to fill.
+     Ranking order is a placeholder — confirm with Jake.
+     Static, self-contained, no JS/CMS/Firestore. Served at
+     /reads/best-college-golf-courses.html
+     ============================================================ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<title>The 10 Best College Golf Courses — TeeBox</title>
+<meta name="description" content="From Yale's C.B. Macdonald masterpiece to Karsten Creek and the Alister MacKenzie gems at Michigan and Ohio State — the ten best college golf courses in America, with a photo of each." />
+<link rel="canonical" href="https://teeboxmarket.com/reads/best-college-golf-courses.html" />
+
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- Favicons (match index.html) -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
+
+<!-- Open Graph / Twitter (article) -->
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="The 10 Best College Golf Courses" />
+<meta property="og:description" content="From Yale's C.B. Macdonald masterpiece to Karsten Creek and the MacKenzie gems at Michigan and Ohio State — the ten best college golf courses in America." />
+<meta property="og:url" content="https://teeboxmarket.com/reads/best-college-golf-courses.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/reads/college-top10/yale.webp" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-07-12T09:00:00-05:00" />
+<meta property="article:section" content="Where to Play" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@teeboxmarket" />
+<meta name="twitter:title" content="The 10 Best College Golf Courses" />
+<meta name="twitter:description" content="From Yale to Karsten Creek — a tour of the ten best college golf courses in America." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/reads/college-top10/yale.webp" />
+
+<!-- Fonts (match index.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- JSON-LD Article structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "The 10 Best College Golf Courses",
+  "description": "From Yale's C.B. Macdonald masterpiece to Karsten Creek and the Alister MacKenzie gems at Michigan and Ohio State — the ten best college golf courses in America.",
+  "image": "https://teeboxmarket.com/assets/reads/college-top10/yale.webp",
+  "datePublished": "2026-07-12T09:00:00-05:00",
+  "dateModified": "2026-07-12T09:00:00-05:00",
+  "articleSection": "Where to Play",
+  "author": { "@type": "Organization", "name": "TeeBox" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "TeeBox Market",
+    "logo": { "@type": "ImageObject", "url": "https://teeboxmarket.com/icon-512.png" }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://teeboxmarket.com/reads/best-college-golf-courses.html"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
+    --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
+    --green-100: #d0e9d4; --green-50: #edf6ee;
+    --gold-600: #a07a12; --gold-500: #c9991e; --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    --cream: #faf8f3; --white: #ffffff;
+    --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--gray-900);
+    line-height: 1.7;
+    font-size: 18px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green-600); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--gold-600); }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .site-header {
+    background: var(--green-950);
+    color: var(--white);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--white); }
+  .nav-shop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .nav-shop:hover { background: var(--gold-400); color: var(--green-950); border-color: var(--gold-400); }
+
+  /* ── Article ────────────────────────────────────────── */
+  .article-wrap { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .back-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    transition: var(--transition);
+  }
+  .back-link:hover { color: var(--green-600); }
+
+  .article-eyebrow {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold-600);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h1.article-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+    color: var(--green-950);
+    margin-bottom: 1.1rem;
+  }
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .byline .by-name { color: var(--gray-900); font-weight: 600; }
+  .byline .dot { color: var(--gray-300); }
+
+  .lede {
+    font-size: 1.22rem;
+    line-height: 1.6;
+    color: var(--gray-700);
+    font-weight: 400;
+    margin-bottom: 1.9rem;
+  }
+  .article-body p { margin-bottom: 1.5rem; color: var(--gray-900); }
+  .article-body strong { color: var(--green-900); font-weight: 600; }
+
+  /* ── Images ─────────────────────────────────────────── */
+  img { max-width: 100%; height: auto; border-radius: var(--radius-lg); display: block; }
+  .hero-img {
+    width: 100%;
+    margin: 0 0 2rem;
+    box-shadow: var(--shadow-card);
+  }
+  .course-img {
+    width: 100%;
+    margin: 0 0 1.1rem;
+    box-shadow: var(--shadow-card);
+  }
+  figure { margin: 0; }
+  figcaption {
+    font-size: 0.82rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: -0.4rem;
+    margin-bottom: 1rem;
+  }
+  .placeholder-copy {
+    display: block;
+    background: var(--gold-50);
+    border: 1px dashed var(--gold-500);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.15rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--gold-600);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Course entries ─────────────────────────────────── */
+  .course {
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .course:first-of-type { border-top: 1px solid var(--gray-200); }
+  .course-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .course-name .rank { color: var(--gold-500); margin-right: 0.15rem; }
+  /* logo inline in the course heading */
+  .school-logo {
+    height: 44px;
+    width: auto;
+    vertical-align: middle;
+    margin-right: 10px;
+  }
+  .course-meta {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 0.85rem;
+  }
+  .course p { margin-bottom: 0; color: var(--gray-900); }
+
+  .pullquote {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.32;
+    color: var(--green-800);
+    border-left: 4px solid var(--gold-400);
+    padding: 0.3rem 0 0.3rem 1.6rem;
+    margin: 2.5rem 0;
+  }
+  .article-body h2.section-h {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin: 2.75rem 0 1rem;
+  }
+  .note {
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: 2.25rem;
+  }
+
+  /* ── Closing CTA ────────────────────────────────────── */
+  .cta-block {
+    text-align: center;
+    background: linear-gradient(180deg, var(--green-900) 0%, var(--green-950) 100%);
+    border-radius: var(--radius-xl);
+    padding: 2.75rem 1.75rem;
+    margin: 3.5rem 0 1rem;
+    color: var(--white);
+  }
+  .cta-block h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1.2;
+    color: var(--white);
+    margin-bottom: 0.7rem;
+  }
+  .cta-block p { color: rgba(255,255,255,0.7); font-size: 1rem; margin-bottom: 1.6rem; }
+  .cta-pill {
+    display: inline-block;
+    background: var(--gold-400);
+    color: var(--green-950);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.85rem 1.9rem;
+    border-radius: 50px;
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .cta-pill:hover { background: var(--gold-300); color: var(--green-950); transform: translateY(-2px); }
+
+  .article-foot {
+    margin-top: 2.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+  }
+  .article-foot a { font-weight: 600; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .site-footer {
+    background: var(--green-950);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .site-footer .ft-word {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.25rem;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+  }
+  .site-footer .ft-word span { color: var(--white); }
+  .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; justify-content: center; margin-bottom: 1.25rem; }
+  .site-footer nav a { color: rgba(255,255,255,0.75); font-weight: 500; text-decoration: none; transition: var(--transition); }
+  .site-footer nav a:hover { color: var(--gold-400); }
+  .site-footer .ft-copy { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="nav-logo" href="/" aria-label="TeeBox home"><span>Tee</span>Box</a>
+  <a class="nav-shop" href="/">Shop the marketplace</a>
+</header>
+
+<article class="article-wrap">
+  <a class="back-link" href="/reads/">&larr; All Reads</a>
+
+  <div class="article-eyebrow">Where to Play</div>
+  <h1 class="article-title">The 10 Best College Golf Courses</h1>
+  <div class="byline">
+    <span class="by-name">TeeBox</span>
+    <span class="dot">&middot;</span>
+    <span>July 12, 2026</span>
+    <span class="dot">&middot;</span>
+    <span>6 min read</span>
+  </div>
+
+  <img class="hero-img" src="/assets/reads/college-top10/yale.webp" alt="Yale Golf Course in New Haven, Connecticut — a C.B. Macdonald and Seth Raynor design widely regarded as the finest college course in America" fetchpriority="high" width="1400" height="933" />
+
+  <p class="lede">Some of the best golf in the country sits right on a college campus &mdash; a C.B. Macdonald original at Yale, a pair of Alister MacKenzie designs at Michigan and Ohio State, a Tom Fazio championship track at Oklahoma State. These are the ten college courses we'd cross the country to play.</p>
+
+  <div class="article-body">
+
+    <div class="course">
+      <div class="course-name"><span class="rank">1.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/yale.webp" alt="Yale Bulldogs logo" width="44" height="44" /> Yale</div>
+      <div class="course-meta">Yale Golf Course &middot; New Haven, CT &middot; C.B. Macdonald &amp; Seth Raynor (1926)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/yale.webp" alt="Yale Golf Course — a rugged C.B. Macdonald and Seth Raynor layout carved through the Connecticut woods" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>The undisputed king of college golf. Macdonald and Raynor blasted this out of rugged Connecticut woodland and rock, and it plays like a museum of the great template holes &mdash; Redan, Biarritz, Cape &mdash; built at a scale nobody attempts anymore. <strong>The par-3 9th, a downhill Biarritz with a chasm of a swale running through a green the size of a tennis court, is one of the most photographed holes in America.</strong> If you only play one course on this list, play Yale.</p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">2.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/ohio-state.webp" alt="Ohio State Buckeyes logo" width="44" height="44" /> Ohio State</div>
+      <div class="course-meta">Scarlet Course &middot; Columbus, OH &middot; Alister MacKenzie (1938)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/ohio-state.webp" alt="The Scarlet Course at Ohio State — an Alister MacKenzie layout later restored, home of the Buckeyes" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>Alister MacKenzie&rsquo;s Midwest heavyweight, and the course where a young Jack Nicklaus learned to compete. A Nicklaus-led restoration in the 2000s brought back MacKenzie&rsquo;s bold bunkering and tumbling green contours after decades of quiet softening. <strong>It&rsquo;s long, muscular, and every bit a championship test &mdash; the closing stretch has settled plenty of Big Ten titles.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">3.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/stanford.webp" alt="Stanford Cardinal logo" width="44" height="44" /> Stanford</div>
+      <div class="course-meta">Stanford Golf Course &middot; Stanford, CA &middot; George Thomas &amp; Billy Bell (1930)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/stanford.webp" alt="Stanford Golf Course — a George Thomas and Billy Bell layout set in the foothills of the Santa Cruz Mountains" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>Tucked into the oak-studded foothills above campus, this is where Tiger Woods, Tom Watson, and Michelle Wie sharpened their games. George Thomas &mdash; of Riviera and L.A. North fame &mdash; routed it through dramatic elevation change, hiding a member&rsquo;s course inside a course good enough to produce major champions. <strong>The back nine climbs into the hills and tumbles back down, with downhill par-4s that reward a well-judged, running tee ball.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">4.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/michigan.svg" alt="Michigan Wolverines logo" width="44" height="44" /> Michigan</div>
+      <div class="course-meta">University of Michigan Golf Course &middot; Ann Arbor, MI &middot; Alister MacKenzie (1931)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/michigan.webp" alt="University of Michigan Golf Course — an Alister MacKenzie design of rolling fairways and bold bunkering in Ann Arbor" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>The other MacKenzie on this list, and a short walk from the Big House. Built in the same window as Cypress Point and Augusta National, it packs the master&rsquo;s genius &mdash; wild green complexes, cape-style bunkering, tempting angles &mdash; onto a compact, rolling site. <strong>Don&rsquo;t let the modest yardage fool you: the greens punish a lazy approach every single time.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">5.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/oklahoma-state.webp" alt="Oklahoma State Cowboys logo" width="44" height="44" /> Oklahoma State</div>
+      <div class="course-meta">Karsten Creek &middot; Stillwater, OK &middot; Tom Fazio (1994)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/oklahoma-state.webp" alt="Karsten Creek — Oklahoma State's Tom Fazio-designed championship course framed by native blackjack oaks and water" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>The most feared course in college golf, full stop. Fazio threaded it through native blackjack oak and prairie, with water and forced carries lurking down the stretch &mdash; there&rsquo;s a reason it keeps drawing the NCAA Championship. <strong>The closing holes play around a lake to greens tucked hard against the water, and they&rsquo;ve wrecked more than a few national-title hopes.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">6.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/indiana.svg" alt="Indiana Hoosiers logo" width="44" height="44" /> Indiana</div>
+      <div class="course-meta">Pfau Course &middot; Bloomington, IN &middot; Steve Smyers redesign (2020)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/indiana.webp" alt="The Pfau Course at Indiana — Steve Smyers' bold 2020 redesign of wide fairways and sweeping bunkers in Bloomington" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>The newcomer, and proof of how far a bold redesign can go. Smyers cleared out the old trees, widened the corridors, and reshaped the property into a firm, fast, links-leaning test that jumped straight onto the national rankings. <strong>Generous off the tee and brutal around the greens &mdash; exactly the modern, strategic direction the college game is heading.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">7.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/notre-dame.webp" alt="Notre Dame Fighting Irish logo" width="44" height="44" /> Notre Dame</div>
+      <div class="course-meta">Warren Golf Course &middot; Notre Dame, IN &middot; Coore &amp; Crenshaw (2000)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/notre-dame.webp" alt="Warren Golf Course at Notre Dame — a Coore and Crenshaw design of native grasses and gentle Indiana terrain" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>Bill Coore and Ben Crenshaw&rsquo;s minimalist touch, laid out just off campus with the Golden Dome never far from view. Native fescue frames wide, ground-game-friendly fairways, and the routing rewards the player who thinks two shots ahead over the one who just bombs it. <strong>A quietly brilliant walk that gets better every time you play it.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">8.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/virginia-tech.webp" alt="Virginia Tech Hokies logo" width="44" height="44" /> Virginia Tech</div>
+      <div class="course-meta">Pete Dye River Course &middot; Radford, VA &middot; Pete Dye (2006)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/virginia-tech.webp" alt="Pete Dye River Course — Virginia Tech's dramatic layout along the New River in Radford, Virginia" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>Classic Pete Dye theater, strung along the banks of the New River. Railroad ties, deceptive angles, and water in play on a run of holes that demand nerve &mdash; this is a course that will happily hand you a big number the moment you flinch. <strong>The riverside stretch is as scenic as anything on the list, and twice as intimidating.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">9.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/wisconsin.webp" alt="Wisconsin Badgers logo" width="44" height="44" /> Wisconsin</div>
+      <div class="course-meta">University Ridge &middot; Verona, WI &middot; Robert Trent Jones Jr. (1991)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/wisconsin.webp" alt="University Ridge — Wisconsin's Robert Trent Jones Jr. course of open prairie and wooded holes near Madison" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>A course of two personalities: an open, prairie-style front nine that gives way to a tighter, wooded back through the Wisconsin hardwoods. RTJ Jr.&rsquo;s design has enough teeth to host a PGA Tour Champions event alongside the Badgers. <strong>Firm, fair, and a genuinely fun daily-fee play for anyone passing through Madison.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">10.</span> <img class="school-logo" src="/assets/reads/college-top10/logos/duke.webp" alt="Duke Blue Devils logo" width="44" height="44" /> Duke</div>
+      <div class="course-meta">Duke University Golf Club &middot; Durham, NC &middot; Robert Trent Jones / RTJ Jr. redesign (1994)</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/college-top10/duke.webp" alt="Duke University Golf Club — a Robert Trent Jones design, later redesigned by RTJ Jr., set in the Carolina pines" loading="lazy" width="1400" height="933" />
+      </figure>
+      <p>Robert Trent Jones Sr. laid it out in 1957; his son gave it a muscular redesign decades later. Set among the towering pines of the Carolina Piedmont, it&rsquo;s a stout, traditional parkland test that also happens to be one of the best public-access university courses in the country. <strong>Book a tee time and the on-site Washington Duke Inn and make a weekend of it &mdash; a fitting anchor to a list this deep.</strong></p>
+    </div>
+
+    <div class="pullquote">From Ivy League originals to modern championship tracks, the best college courses hold up against anything on the public or private lists &mdash; you just have to know where to look.</div>
+
+    <p class="note">DRAFT for review: ranking (Jake&rsquo;s approved carousel order) and full per-course copy are in. Tweak wording/images to taste before publishing.</p>
+
+  </div>
+
+  <div class="cta-block">
+    <h2>Gear up for your next round</h2>
+    <p>Browse used drivers, irons, wedges and putters &mdash; listed by golfers, with buyer protection built in.</p>
+    <a class="cta-pill" href="/">Shop used gear on TeeBox &rarr;</a>
+  </div>
+
+  <div class="article-foot">
+    <a href="/reads/">&larr; Back to all Reads</a>
+  </div>
+</article>
+
+<footer class="site-footer">
+  <div class="ft-word"><span>Tee</span>Box</div>
+  <nav>
+    <a href="/">Marketplace</a>
+    <a href="/reads/">Reads</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </nav>
+  <div class="ft-copy">&copy; 2026 TeeBox Market. The peer-to-peer marketplace for golfers.</div>
+</footer>
+
+</body>
+</html>
