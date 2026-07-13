@@ -2504,7 +2504,26 @@
     .auth-box { padding: 1.5rem; }
     .verify-footer, .modal-footer, .profile-actions { flex-direction: column; }
     .info-body { padding: 1.25rem 1rem 1.5rem; }
-    .detail-body { padding: 1rem; }
+    /* ── Listing detail = full-screen sheet on phones (r145) ───────────────
+       Was a centered floating card (align-items:center + max-height:90vh +
+       rounded corners), which left the dimmed app nav peeking above it and let
+       the sticky bottom action bar collide with short listings. A full-height
+       sheet (Mercari/StockX pattern) fixes both and gives a clean top→bottom
+       read: sticky header · scrollable photo+details · sticky Buy-Now bar.
+       object-fit:contain on the photo (r136) is retained. */
+    /* !important to override the shared bottom-sheet rule (~line 1017) that
+       makes every modal a 92vh rounded bottom-sheet — the detail view alone
+       becomes a true full-screen sheet (no top gap, no dimmed nav peeking). */
+    .detail-backdrop { padding: 0 !important; align-items: stretch !important; }
+    .detail-modal { width: 100% !important; max-width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; }
+    .detail-header { padding: max(0.85rem, env(safe-area-inset-top)) 1.1rem 0.85rem; }
+    .detail-body { padding: 1rem 1rem 1.25rem; }
+    /* Full-bleed the sticky Buy-Now bar with a safe-area inset + a clean top
+       divider so it can never visually merge into the content above it. */
+    .detail-info .detail-actions {
+      margin: 14px -1rem 0; padding: 12px 1rem max(12px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--gray-200);
+    }
     .detail-actions { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: 1fr 1fr !important; }
     #checkoutBackdrop .modal { max-width: calc(100vw - 1rem); }
@@ -4976,10 +4995,10 @@
       <div class="detail-info">
         <div class="detail-brand" id="detailBrand"></div>
         <div class="detail-name" id="detailName"></div>
-        <div class="detail-condition" id="detailCondition"></div>
         <div class="detail-prices">
           <div class="detail-price-box ask"><div class="detail-price-lbl">Price</div><div class="detail-price-val" id="detailAsk"></div></div>
         </div>
+        <div class="detail-condition" id="detailCondition"></div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
         <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
@@ -9483,7 +9502,10 @@ function openDetailModal(id) {
     const meta = conditionBadgeMeta(p.condition);
     detailCondEl.textContent = meta ? meta.label : p.condition;
     if (meta && meta.cls) {
-      detailCondEl.classList.add('cond-pill', meta.cls);
+      // `.detail` keeps the pill STATIC/inline in the info column — without it
+      // the shared `.cond-pill` (position:absolute, for card corners) makes the
+      // badge float over the gallery/header seam on the detail sheet.
+      detailCondEl.classList.add('cond-pill', 'detail', meta.cls);
     }
     detailCondEl.style.display = '';
   } else {
