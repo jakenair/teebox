@@ -369,7 +369,7 @@
     },
     {
       "id": "stonewall-orchard",
-      "shortName": "Stonewall Orchard",
+      "shortName": "Stonewall Links",
       "logoUrl": "https://teeboxmarket.com/assets/logos/stonewall-orchard.png"
     },
     {
@@ -489,7 +489,7 @@
     },
     {
       "id": "gasparilla-golf-club",
-      "shortName": "Gasparilla Inn and",
+      "shortName": "Gasparilla",
       "logoUrl": "https://teeboxmarket.com/assets/logos/gasparilla-golf-club.png"
     },
     {
@@ -1156,10 +1156,11 @@
       ]
     },
     "stonewall-orchard": {
-      "name": "Stonewall Orchard Golf Club",
-      "shortName": "Stonewall Orchard",
+      "name": "Stonewall Links",
+      "shortName": "Stonewall Links",
       "aliases": [
-        "stonewall"
+        "stonewall",
+        "stonewall links"
       ]
     },
     "alotian": {
@@ -1318,8 +1319,8 @@
       "aliases": []
     },
     "gasparilla-golf-club": {
-      "name": "Gasparilla Inn and Club",
-      "shortName": "Gasparilla Inn and",
+      "name": "Gasparilla Golf Club",
+      "shortName": "Gasparilla",
       "aliases": [
         "gasparilla"
       ]
@@ -1446,7 +1447,7 @@
       ]
     }
   },
-  "generatedAt": "2026-07-06T14:43:47.472Z",
+  "generatedAt": "2026-07-13T01:09:21.991Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
