@@ -15,7 +15,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const PROJECT = '/Users/jakenair/Desktop/teebox';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const PROJECT = REPO_ROOT;
 const SOURCE = '/Users/jakenair/Desktop/Course Logos';
 const TARGET = path.join(PROJECT, 'assets/logos');
 const COURSES_FILE = path.join(PROJECT, 'bingo-courses.js');

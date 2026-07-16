@@ -6,7 +6,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ROOT = '/Users/jakenair/Desktop/teebox';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const ROOT = REPO_ROOT;
 const LOGOS_DIR = path.join(ROOT, 'assets/logos');
 const OUT = path.join(LOGOS_DIR, 'manifest.js');
 

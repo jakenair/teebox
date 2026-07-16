@@ -13,7 +13,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const SPLASH_DIR = '/Users/jakenair/Desktop/teebox/ios/App/App/Assets.xcassets/Splash.imageset';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const SPLASH_DIR = `${REPO_ROOT}/ios/App/App/Assets.xcassets/Splash.imageset`;
 const SIZE = 2732; // square canvas; image is centered & cropped on device
 const BG = '#0b1a0e';
 const GOLD = '#e7d28a';

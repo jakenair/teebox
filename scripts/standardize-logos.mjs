@@ -11,7 +11,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const LOGOS_DIR = '/Users/jakenair/Desktop/teebox/assets/logos';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const LOGOS_DIR = `${REPO_ROOT}/assets/logos`;
 const TARGET_INNER = 200;   // max content size inside the canvas
 const CANVAS = 256;          // total canvas size
 

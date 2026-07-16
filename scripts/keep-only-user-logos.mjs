@@ -10,7 +10,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const LOGOS_DIR = '/Users/jakenair/Desktop/teebox/assets/logos';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const LOGOS_DIR = `${REPO_ROOT}/assets/logos`;
 const WRITE = process.argv.includes('--write');
 
 // Pulled from scripts/process-user-logos.mjs — every slug the user curated.

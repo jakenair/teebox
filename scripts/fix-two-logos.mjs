@@ -9,7 +9,9 @@ import fs from 'node:fs';
 import sharp from 'sharp';
 
 const SOURCE_DIR = '/Users/jakenair/Desktop/Course Logos';
-const TARGET_DIR = '/Users/jakenair/Desktop/teebox/assets/logos';
+const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Derived from this script's own location — never a hardcoded clone path.
+const TARGET_DIR = `${REPO_ROOT}/assets/logos`;
 
 const JOBS = [
   { src: 'Myopia Hunt Club .jpg',     slug: 'myopia-hunt' },
