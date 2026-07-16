@@ -19,8 +19,8 @@ function DisputeOpenedBuyer({order = {}, buyer = {}, listing = {}}) {
       </P>
       <Button href={url}>Manage dispute</Button>
       <P muted>
-        Keep all packaging and photo evidence. Funds remain on hold until the
-        case is resolved.
+        Keep all packaging and photo evidence. If the dispute is decided in your
+        favor, we refund your full payment to your original payment method.
       </P>
     </Base>
   );
