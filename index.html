@@ -5970,6 +5970,19 @@ window.confirmPayment = async function() {
     )).catch(() => null);
   } catch (_e) { window.__listingsPrefetch = null; }
 
+  // Perf (r148): paint the feed at boot instead of waiting for auth restore.
+  // The listings read needs no auth and the prefetch above is already in
+  // flight, so this call shows the skeleton immediately and swaps in cards
+  // the moment the prefetch resolves — time-to-first-card no longer pays the
+  // ~2s cold auth-restore tax. onAuthStateChanged still calls loadListings()
+  // once auth resolves, for a fresh role-aware fetch (existing behavior; that
+  // second call is now a quiet in-place swap, not a skeleton flash).
+  // The window export also revives the post-payment refresh at its
+  // `if (window.loadListings)` guard, which was silently dead — the function
+  // was never exported from this module.
+  window.loadListings = loadListings;
+  try { loadListings(); } catch (_e) {}
+
   // ── Dynamic Open Graph injection for shared listing links ──
   // When the SPA is opened with ?listing=<id>, fetch the listing doc
   // and overwrite the site-wide og:title / og:description / og:image /
@@ -7948,7 +7961,10 @@ window.confirmPayment = async function() {
   }
 
   async function loadListings() {
-    if (typeof showProductSkeleton === 'function') showProductSkeleton(8);
+    // r148: show the skeleton only when the grid has nothing real on it yet.
+    // Refreshes (auth restore, sign-in/out, post-payment) swap data in place
+    // instead of flashing already-rendered cards back to placeholders.
+    if (!(window.PRODUCTS || []).length && typeof showProductSkeleton === 'function') showProductSkeleton(8);
     try {
       // Cap the marketplace fetch to keep first-paint snappy and bandwidth
       // bounded. We display the most-recent N — the homepage grid never
@@ -7976,6 +7992,14 @@ window.confirmPayment = async function() {
       } else {
         snap = await getDocs(q);
       }
+      // r148: Firestore masks an unreachable backend as an EMPTY snapshot
+      // served from the (empty) local cache — getDocs resolves fine and the
+      // catch below never fires. An empty fromCache result on the public feed
+      // therefore means "offline", not "no listings"; throw so the error
+      // state (with Retry) renders instead of a false "No listings yet".
+      if (snap && snap.empty && snap.metadata && snap.metadata.fromCache) {
+        throw new Error('feed query served from empty local cache — offline');
+      }
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
         // Hide dead listings from the public feed so they never render as live
@@ -7997,7 +8021,15 @@ window.confirmPayment = async function() {
       window.PRODUCTS = window.CURRENT_USER
         ? items
         : [...items, ...window.DEFAULT_PRODUCTS];
-    } catch { window.PRODUCTS = window.CURRENT_USER ? [] : [...window.DEFAULT_PRODUCTS]; }
+      window.__listingsError = false;
+    } catch {
+      window.PRODUCTS = window.CURRENT_USER ? [] : [...window.DEFAULT_PRODUCTS];
+      window.__listingsError = true;
+    }
+    // r148: the first query has now RESOLVED (success or failure). Only from
+    // this point does an empty PRODUCTS array mean a genuinely empty
+    // marketplace rather than "still loading" — buildProducts keys off this.
+    window.__listingsLoaded = true;
     // Auto-derive a "Hot" badge from viewCount. Don't override badges that
     // were set explicitly (e.g. 'new' for items <72h old). The threshold is
     // top-25% of view counts, gated at >= 5 views so a 1-view listing isn't
@@ -8511,6 +8543,13 @@ window.confirmPayment = async function() {
 const DEFAULT_PRODUCTS = [];
 window.DEFAULT_PRODUCTS = DEFAULT_PRODUCTS;
 window.PRODUCTS = [...DEFAULT_PRODUCTS];
+// r148: first-load feed state. buildProducts() must never paint the
+// "No listings yet" empty state before the FIRST feed query resolves —
+// on a cold load PRODUCTS starts [] and the init-time buildProducts()
+// call runs before auth restore / the prefetch settles, so without this
+// gate every cold visitor saw a 0.5–2s "No listings yet" flash.
+window.__listingsLoaded = false; // true once the first feed query resolves
+window.__listingsError = false;  // true when the last feed query failed
 window.IS_VERIFIED_SELLER = false;
 window.CURRENT_USER = null;
 // Guest browse mode: default to TRUE so a fresh visitor lands on the
@@ -8606,6 +8645,11 @@ window.__actions['open-detail'] = function(el) {
 };
 window.__actions['handle-sell'] = function() {
   if (typeof handleSellClick === 'function') handleSellClick();
+};
+window.__actions['reload-listings'] = function() {
+  // r148: retry button on the feed error state. loadListings re-shows the
+  // skeleton (grid is empty in the error state) and refetches.
+  if (window.loadListings) { try { window.loadListings(); } catch (_e) {} }
 };
 window.__actions['open-detail-from-search'] = function(el) {
   document.getElementById('searchOverlay').classList.remove('open');
@@ -8956,12 +9000,29 @@ function buildProducts(filter) {
     // home doesn't look broken on a fresh install.
     const grid = document.getElementById('productGrid');
     if (!all.length) {
+      // r148 cold-load guard: PRODUCTS is [] both while the first listings
+      // query is still in flight AND when the marketplace is truly empty —
+      // only the second is a real empty state. Until the first query
+      // resolves, keep the skeleton up; never flash "No listings yet".
+      if (window.__listingsLoaded !== true) {
+        if (typeof showProductSkeleton === 'function') showProductSkeleton(8);
+        return;
+      }
+      if (window.__listingsError) {
+        grid.innerHTML =
+          '<div class="dash-empty" style="grid-column:1/-1;padding:3.5rem 1rem;">'+
+            '<div style="font-size:18px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">Couldn&rsquo;t load listings</div>'+
+            '<div style="margin-bottom:16px;">Check your connection and try again.</div>'+
+            '<button class="btn-primary" data-action="reload-listings" style="padding:10px 22px;font-size:14px;">Retry</button>'+
+          '</div>';
+      } else {
       grid.innerHTML =
         '<div class="dash-empty" style="grid-column:1/-1;padding:3.5rem 1rem;">'+
           '<div style="font-size:18px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">No listings yet</div>'+
           '<div style="margin-bottom:16px;">Be the first to list an item on TeeBox.</div>'+
           '<button class="btn-primary" data-action="handle-sell" style="padding:10px 22px;font-size:14px;">List an Item</button>'+
         '</div>';
+      }
     } else {
       // Decide WHY the filtered list is empty. If a category is active
       // while price/condition/brand are all at their defaults, the
