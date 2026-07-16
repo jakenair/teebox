@@ -19828,6 +19828,162 @@ if (uploadZone) {
     }
   }
 
+  // ── IG Story share image ────────────────────────────────────────────────
+  // Renders the day's result as a branded 1080x1920 PNG entirely client-side.
+  // SPOILER-FREE by design: colored tiles only, never the day's logos/answers
+  // (a story that shows answers kills the viewer's reason to play — and keeps
+  // third-party club marks out of what is effectively a marketing asset).
+  // No PII: score/points/streak/date only. Safe zones: IG overlays the
+  // profile chip (~top 250px) and reply bar (~bottom 250px) — all content
+  // stays inside y 250..1670.
+  const STORY = {
+    W: 1080, H: 1920,
+    green: '#133624', gold: '#E3BB45', cream: '#F3ECDB',   // brand — exact carousel values
+    bgTop: '#17452D', bgBot: '#0B1F14',
+    tileGreen: '#2E9E5B', tileDark: '#0C2015',
+    tileBorder: 'rgba(243,236,219,0.14)',
+  };
+  // Tile semantics (single-shot game): correct = green; revealed with
+  // attempts===1 = guessed-and-missed (gold); revealed with attempts>=2 =
+  // skipped via the Reveal button (dark). skipGuess stamps attempts>=2.
+  function storyTileFor(cell) {
+    if (cell && cell.state === 'correct') return 'green';
+    if (cell && cell.state === 'revealed' && Number(cell.attempts) === 1) return 'gold';
+    return 'dark';
+  }
+  async function ensureStoryFonts() {
+    try {
+      await Promise.all([
+        document.fonts.load('900 128px "Playfair Display"'),
+        document.fonts.load('800 150px "Playfair Display"'),
+        document.fonts.load('600 30px "DM Sans"'),
+        document.fonts.load('700 34px "DM Sans"'),
+      ]);
+      await document.fonts.ready;
+    } catch (_e) {}
+    // Verify, don't assume — a fallback-font render looks cheap. Callers may
+    // still proceed (system serif) but the flag is surfaced for QA.
+    return document.fonts.check('900 128px "Playfair Display"') &&
+           document.fonts.check('600 30px "DM Sans"');
+  }
+  function storyRoundRect(x, rx, ry, w, h, r) {
+    x.beginPath();
+    x.moveTo(rx + r, ry);
+    x.arcTo(rx + w, ry, rx + w, ry + h, r);
+    x.arcTo(rx + w, ry + h, rx, ry + h, r);
+    x.arcTo(rx, ry + h, rx, ry, r);
+    x.arcTo(rx, ry, rx + w, ry, r);
+    x.closePath();
+  }
+  async function renderStoryImage(overrides) {
+    const o = overrides || {};
+    const cells = o.cells || game.cells || [];
+    const score = (o.score != null) ? o.score : scoreCount();
+    const pts = (o.points != null) ? o.points : totalPoints();
+    const streakCount = (o.streak != null) ? o.streak : ((loadStreak() || {}).count || 0);
+    const dateLabel = o.dateLabel || new Date(TODAY + 'T12:00:00Z')
+      .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+      .toUpperCase();
+    const fontsOk = await ensureStoryFonts();
+    const serif = fontsOk ? '"Playfair Display", Georgia, serif' : 'Georgia, serif';
+    const sans = fontsOk ? '"DM Sans", system-ui, sans-serif' : 'system-ui, sans-serif';
+
+    const cv = document.createElement('canvas');
+    cv.width = STORY.W; cv.height = STORY.H;
+    const x = cv.getContext('2d');
+
+    // Background: brand green vertical gradient + faint gold glow up top.
+    const g = x.createLinearGradient(0, 0, 0, STORY.H);
+    g.addColorStop(0, STORY.bgTop); g.addColorStop(0.55, STORY.green); g.addColorStop(1, STORY.bgBot);
+    x.fillStyle = g; x.fillRect(0, 0, STORY.W, STORY.H);
+    const rg = x.createRadialGradient(540, 480, 40, 540, 480, 540);
+    rg.addColorStop(0, 'rgba(227,187,69,0.10)'); rg.addColorStop(1, 'rgba(227,187,69,0)');
+    x.fillStyle = rg; x.fillRect(0, 0, STORY.W, 1050);
+
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+
+    // Eyebrow with the carousel-style side rules.
+    if ('letterSpacing' in x) x.letterSpacing = '9px';
+    x.fillStyle = STORY.gold; x.font = `600 30px ${sans}`;
+    const eyebrow = 'TEEBOX PRESENTS';
+    x.fillText(eyebrow, 540, 340);
+    const ew = x.measureText(eyebrow).width;
+    if ('letterSpacing' in x) x.letterSpacing = '0px';
+    x.strokeStyle = 'rgba(227,187,69,0.55)'; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(540 - ew / 2 - 74, 340); x.lineTo(540 - ew / 2 - 26, 340); x.stroke();
+    x.beginPath(); x.moveTo(540 + ew / 2 + 26, 340); x.lineTo(540 + ew / 2 + 74, 340); x.stroke();
+
+    // Flag mark (VS15 forces text presentation → colorable glyph, not emoji).
+    x.fillStyle = STORY.gold; x.font = `56px ${sans}`;
+    x.fillText('⚑︎', 540, 428);
+
+    // Title + date.
+    x.fillStyle = STORY.cream; x.font = `900 122px ${serif}`;
+    x.fillText('Logo Bingo', 540, 528);
+    if ('letterSpacing' in x) x.letterSpacing = '6px';
+    x.fillStyle = 'rgba(243,236,219,0.55)'; x.font = `600 30px ${sans}`;
+    x.fillText(dateLabel, 540, 612);
+    if ('letterSpacing' in x) x.letterSpacing = '0px';
+
+    // 3x3 result grid — 216px tiles, 24px gap, centered; y 680..1376.
+    const T = 216, GAP = 24, X0 = (STORY.W - (3 * T + 2 * GAP)) / 2, Y0 = 680;
+    const tiles = [];
+    for (let i = 0; i < 9; i++) {
+      const kind = storyTileFor(cells[i]);
+      tiles.push(kind);
+      const tx = X0 + (i % 3) * (T + GAP), ty = Y0 + Math.floor(i / 3) * (T + GAP);
+      x.fillStyle = kind === 'green' ? STORY.tileGreen : kind === 'gold' ? STORY.gold : STORY.tileDark;
+      storyRoundRect(x, tx, ty, T, T, 26); x.fill();
+      // Soft top highlight for depth (premium, not flat).
+      const hg = x.createLinearGradient(0, ty, 0, ty + T * 0.45);
+      hg.addColorStop(0, 'rgba(255,255,255,0.16)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = hg; storyRoundRect(x, tx, ty, T, T, 26); x.fill();
+      x.strokeStyle = kind === 'dark' ? STORY.tileBorder : 'rgba(0,0,0,0.18)';
+      x.lineWidth = 2; storyRoundRect(x, tx + 1, ty + 1, T - 2, T - 2, 25); x.stroke();
+    }
+
+    // Score. The perfect-round variant runs a slightly smaller numeral so its
+    // three-line type stack keeps the same breathing room as the two-line one.
+    x.fillStyle = STORY.cream;
+    x.font = score === 9 ? `800 128px ${serif}` : `800 150px ${serif}`;
+    x.fillText(`${score}/9`, 540, score === 9 ? 1438 : 1468);
+    // Sub-lines. Middle-dot rationed to max ONE per line (design law) —
+    // a perfect round gets its own callout line instead of a 3-part strip.
+    const statBits = [`${Number(pts).toLocaleString()} PTS`];
+    if (streakCount > 0) statBits.push(`${streakCount}-DAY STREAK`);
+    if ('letterSpacing' in x) x.letterSpacing = '4px';
+    x.fillStyle = STORY.gold; x.font = `700 34px ${sans}`;
+    if (score === 9) {
+      x.fillText('PERFECT ROUND', 540, 1538);
+      x.fillStyle = 'rgba(227,187,69,0.82)'; x.font = `600 30px ${sans}`;
+      x.fillText(statBits.join('  ·  '), 540, 1594);
+    } else {
+      x.fillText(statBits.join('  ·  '), 540, 1560);
+    }
+    if ('letterSpacing' in x) x.letterSpacing = '0px';
+
+    // Divider + footer (kept inside the bottom safe zone). The divider yields
+    // to the second stat line in the perfect-round layout.
+    if (score !== 9) {
+      x.strokeStyle = 'rgba(227,187,69,0.55)'; x.lineWidth = 3;
+      x.beginPath(); x.moveTo(495, 1604); x.lineTo(585, 1604); x.stroke();
+    }
+    x.font = `600 34px ${sans}`;
+    const seg1 = 'teeboxmarket.com', seg2 = '  ·  ', seg3 = '@teeboxmarketplace';
+    const w1 = x.measureText(seg1).width, w2 = x.measureText(seg2).width, w3 = x.measureText(seg3).width;
+    let fx = 540 - (w1 + w2 + w3) / 2;
+    x.textAlign = 'left';
+    x.fillStyle = STORY.cream; x.fillText(seg1, fx, 1652); fx += w1;
+    x.fillStyle = 'rgba(243,236,219,0.45)'; x.fillText(seg2, fx, 1652); fx += w2;
+    x.fillStyle = STORY.gold; x.fillText(seg3, fx, 1652);
+    x.textAlign = 'center';
+
+    const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    return { blob, dataUrl: cv.toDataURL('image/png'), tiles, fontsOk };
+  }
+  // Exposed for the QA harness now and the share wiring once approved.
+  window.__bingoRenderShareImage = renderStoryImage;
+
   // ── Wire actions ───────────────────────────────────────────────────────
   // The global delegated click handler reads from window.__actions, so we
   // just register entries — no extra listeners needed for the cells.
