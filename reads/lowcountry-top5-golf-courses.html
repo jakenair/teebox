@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     TeeBox Reads post — image-rich "Lowcountry Top 5" piece.
+     Ranking matches the published carousel graphics.
+     Static, self-contained, no JS/CMS/Firestore. Served at
+     /reads/lowcountry-top5-golf-courses.html
+
+     REVIEW NOTES (not visible in page body):
+     - Congaree opening year VERIFIED as 2017 (golf.com, top100golfcourses.com).
+       The published carousel says 2018 — the carousel year appears to be wrong.
+       Card + article both use 2017.
+     - Secession credit: Bruce Devlin with Derrell Witt (card stays
+       "Bruce Devlin · 1992" per spec; Witt credited in prose).
+     - CC of Charleston: club est. 1900, current Raynor course 1925 — both used.
+     - Not linked from /reads/index.html yet; link at publish time.
+     ============================================================ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<title>The 5 Best Golf Courses in the Lowcountry — TeeBox Reads</title>
+<meta name="description" content="From the Ocean Course at Kiawah to Seth Raynor's hidden gems, the South Carolina Lowcountry holds some of the best golf in America. Here are the five courses worth building a trip around." />
+<link rel="canonical" href="https://teeboxmarket.com/reads/lowcountry-top5-golf-courses.html" />
+
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- Favicons (match index.html) -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
+
+<!-- Open Graph / Twitter (article) -->
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="The 5 Best Golf Courses in the Lowcountry" />
+<meta property="og:description" content="From the Ocean Course at Kiawah to Seth Raynor's hidden gems, the South Carolina Lowcountry holds some of the best golf in America." />
+<meta property="og:url" content="https://teeboxmarket.com/reads/lowcountry-top5-golf-courses.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/reads/lowcountry-top5/cover.webp" />
+<meta property="og:image:width" content="1080" />
+<meta property="og:image:height" content="1350" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-07-16T09:00:00-05:00" />
+<meta property="article:section" content="Where to Play" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@teeboxmarket" />
+<meta name="twitter:title" content="The 5 Best Golf Courses in the Lowcountry" />
+<meta name="twitter:description" content="From the Ocean Course at Kiawah to Seth Raynor's hidden gems — a tour of the five best golf courses in the South Carolina Lowcountry." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/reads/lowcountry-top5/cover.webp" />
+
+<!-- Fonts (match index.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- JSON-LD Article structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "The 5 Best Golf Courses in the Lowcountry",
+  "description": "From the Ocean Course at Kiawah to Seth Raynor's hidden gems, the South Carolina Lowcountry holds some of the best golf in America. Here are the five courses worth building a trip around.",
+  "image": "https://teeboxmarket.com/assets/reads/lowcountry-top5/cover.webp",
+  "datePublished": "2026-07-16T09:00:00-05:00",
+  "dateModified": "2026-07-16T09:00:00-05:00",
+  "articleSection": "Where to Play",
+  "author": { "@type": "Organization", "name": "TeeBox" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "TeeBox Market",
+    "logo": { "@type": "ImageObject", "url": "https://teeboxmarket.com/icon-512.png" }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://teeboxmarket.com/reads/lowcountry-top5-golf-courses.html"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
+    --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
+    --green-100: #d0e9d4; --green-50: #edf6ee;
+    --gold-600: #a07a12; --gold-500: #c9991e; --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    --cream: #faf8f3; --white: #ffffff;
+    --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--gray-900);
+    line-height: 1.7;
+    font-size: 18px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green-600); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--gold-600); }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .site-header {
+    background: var(--green-950);
+    color: var(--white);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--white); }
+  .nav-shop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .nav-shop:hover { background: var(--gold-400); color: var(--green-950); border-color: var(--gold-400); }
+
+  /* ── Article ────────────────────────────────────────── */
+  .article-wrap { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .back-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    transition: var(--transition);
+  }
+  .back-link:hover { color: var(--green-600); }
+
+  .article-eyebrow {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold-600);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h1.article-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+    color: var(--green-950);
+    margin-bottom: 1.1rem;
+  }
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .byline .by-name { color: var(--gray-900); font-weight: 600; }
+  .byline .dot { color: var(--gray-300); }
+
+  .lede {
+    font-size: 1.22rem;
+    line-height: 1.6;
+    color: var(--gray-700);
+    font-weight: 400;
+    margin-bottom: 1.9rem;
+  }
+  .article-body p { margin-bottom: 1.5rem; color: var(--gray-900); }
+  .article-body strong { color: var(--green-900); font-weight: 600; }
+
+  /* ── Images ─────────────────────────────────────────── */
+  img { max-width: 100%; height: auto; border-radius: var(--radius-lg); display: block; }
+  .hero-img {
+    width: 100%;
+    margin: 0 0 2rem;
+    box-shadow: var(--shadow-card);
+  }
+  .course-img {
+    width: 100%;
+    margin: 0 0 1.1rem;
+    box-shadow: var(--shadow-card);
+  }
+  figure { margin: 0; }
+  figcaption {
+    font-size: 0.82rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: -0.4rem;
+    margin-bottom: 1rem;
+  }
+  /* ── Course entries ─────────────────────────────────── */
+  .course {
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .course:first-of-type { border-top: 1px solid var(--gray-200); }
+  .course-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin-bottom: 0.35rem;
+  }
+  .course-name .rank { color: var(--gold-500); }
+  .course-meta {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 0.85rem;
+  }
+  .course p { margin-bottom: 0; color: var(--gray-900); }
+
+  .pullquote {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.32;
+    color: var(--green-800);
+    border-left: 4px solid var(--gold-400);
+    padding: 0.3rem 0 0.3rem 1.6rem;
+    margin: 2.5rem 0;
+  }
+  .article-body h2.section-h {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin: 2.75rem 0 1rem;
+  }
+  .note {
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: 2.25rem;
+  }
+
+  /* ── Closing CTA ────────────────────────────────────── */
+  .cta-block {
+    text-align: center;
+    background: linear-gradient(180deg, var(--green-900) 0%, var(--green-950) 100%);
+    border-radius: var(--radius-xl);
+    padding: 2.75rem 1.75rem;
+    margin: 3.5rem 0 1rem;
+    color: var(--white);
+  }
+  .cta-block h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1.2;
+    color: var(--white);
+    margin-bottom: 0.7rem;
+  }
+  .cta-block p { color: rgba(255,255,255,0.7); font-size: 1rem; margin-bottom: 1.6rem; }
+  .cta-pill {
+    display: inline-block;
+    background: var(--gold-400);
+    color: var(--green-950);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.85rem 1.9rem;
+    border-radius: 50px;
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .cta-pill:hover { background: var(--gold-300); color: var(--green-950); transform: translateY(-2px); }
+
+  .article-foot {
+    margin-top: 2.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+  }
+  .article-foot a { font-weight: 600; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .site-footer {
+    background: var(--green-950);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .site-footer .ft-word {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.25rem;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+  }
+  .site-footer .ft-word span { color: var(--white); }
+  .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; justify-content: center; margin-bottom: 1.25rem; }
+  .site-footer nav a { color: rgba(255,255,255,0.75); font-weight: 500; text-decoration: none; transition: var(--transition); }
+  .site-footer nav a:hover { color: var(--gold-400); }
+  .site-footer .ft-copy { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="nav-logo" href="/" aria-label="TeeBox home"><span>Tee</span>Box</a>
+  <a class="nav-shop" href="/">Shop the marketplace</a>
+</header>
+
+<article class="article-wrap">
+  <a class="back-link" href="/reads/">&larr; All Reads</a>
+
+  <div class="article-eyebrow">Where to Play</div>
+  <h1 class="article-title">The 5 Best Golf Courses in the Lowcountry</h1>
+  <div class="byline">
+    <span class="by-name">TeeBox</span>
+    <span class="dot">&middot;</span>
+    <span>July 16, 2026</span>
+    <span class="dot">&middot;</span>
+    <span>5 min read</span>
+  </div>
+
+  <img class="hero-img" src="/assets/reads/lowcountry-top5/cover.webp" alt="Aerial view of the Ocean Course at Kiawah Island — dunes, marsh, and Atlantic surf in the South Carolina Lowcountry" fetchpriority="high" width="1080" height="1350" />
+
+  <p class="lede">The South Carolina Lowcountry packs more great golf into a hundred miles of marsh and live oak than almost anywhere in America &mdash; a major-championship monster on the Atlantic, two Seth Raynor time capsules, and a pair of modern retreats built for people who love the game more than the scene. These are the five courses we&rsquo;d build a trip around.</p>
+
+  <div class="article-body">
+
+    <div class="course">
+      <div class="course-name"><span class="rank">1.</span> The Ocean Course at Kiawah Island</div>
+      <div class="course-meta">Kiawah Island &middot; Resort</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/lowcountry-top5/ocean-course.webp" alt="The Ocean Course at Kiawah Island — aerial of seaside holes running along the Atlantic beach" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Pete Dye&rsquo;s windswept masterpiece has more seaside holes than any course in North America, and it announced itself to the world with the 1991 Ryder Cup &mdash; the &ldquo;War by the Shore.&rdquo; Since then it has crowned a record-setting Rory McIlroy at the 2012 PGA Championship and a 50-year-old Phil Mickelson, the oldest major champion in history, at the 2021 PGA. <strong>It&rsquo;s brutally exposed, endlessly photogenic, and &mdash; best of all &mdash; you can actually play it.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">2.</span> Congaree</div>
+      <div class="course-meta">Ridgeland &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/lowcountry-top5/congaree.webp" alt="Congaree Golf Club — sprawling bunkers and firm fairways framed by moss-draped oaks at sunset" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Opened in 2017 on a former Lowcountry plantation, Congaree is Tom Fazio at his most rugged &mdash; sprawling sandy waste areas, firm turf, and centuries-old live oaks draped in Spanish moss. There are no traditional members here: founders Dan Friedkin and Bob McNair built the club around &ldquo;ambassadors&rdquo; who fund the Congaree Foundation and its college-prep golf program for underserved kids. <strong>The PGA Tour noticed too &mdash; Congaree hosted the 2021 Palmetto Championship and the CJ Cup in 2022.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">3.</span> Yeamans Hall Club</div>
+      <div class="course-meta">Hanahan &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/lowcountry-top5/yeamans-hall.webp" alt="Yeamans Hall Club — restored Seth Raynor green complexes and rugged bunkering beneath live oaks" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Seth Raynor finished Yeamans Hall in 1925, and for half a century it drifted into gentle neglect &mdash; until the superintendent found Raynor&rsquo;s original plans in the clubhouse attic. Tom Doak and Jim Urbina used them to bring the course back, restoring the massive geometric greens and template holes (Biarritz, Redan, Road) that make Raynor devotees weak in the knees; Urbina has remained architect of record since 2009. <strong>Quiet, understated, and pure &mdash; this is the connoisseur&rsquo;s pick of the Lowcountry.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">4.</span> Secession Golf Club</div>
+      <div class="course-meta">Beaufort &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/lowcountry-top5/secession.webp" alt="Secession Golf Club — bulkheaded green surrounded by tidal marsh in Beaufort, South Carolina" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Founded in 1992 and laid out by Bruce Devlin with Derrell Witt, Secession routes fourteen of its holes along the tidal marshes outside Beaufort, where the wind decides how hard the course plays. It&rsquo;s walking-only, caddies are part of the fabric, and the clubhouse culture &mdash; matches, member-guests, drinks on the porch &mdash; feels closer to Scotland than to a modern gated club. <strong>Ask anyone who&rsquo;s teed it up in a Secession member-guest: they&rsquo;re still talking about it.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">5.</span> Country Club of Charleston</div>
+      <div class="course-meta">Charleston &middot; Private</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/lowcountry-top5/cc-of-charleston.webp" alt="Country Club of Charleston — Seth Raynor green complex and bunkering framed by oaks on the Ashley River" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>The club dates to 1900, but the course that matters is the one Seth Raynor built on the Ashley River in 1925 &mdash; a template-hole showcase crowned by the famous 11th, a reverse Redan so severe it has been called the hardest par 3 in the state. The golf world got a long look in 2019, when the club hosted the U.S. Women&rsquo;s Open. <strong>Charleston charm out front, Raynor menace on the card.</strong></p>
+    </div>
+
+    <div class="pullquote">Marsh, live oaks, and sea breeze &mdash; the Lowcountry doesn&rsquo;t just host great golf, it grows it.</div>
+
+  </div>
+
+  <div class="cta-block">
+    <h2>Building a Lowcountry golf trip?</h2>
+    <p>Show up with the right gear &mdash; used drivers, irons, and putters listed by golfers, with buyer protection built in.</p>
+    <a class="cta-pill" href="/">Shop used gear on TeeBox &rarr;</a>
+  </div>
+
+  <div class="article-foot">
+    <a href="/reads/">&larr; Back to all Reads</a>
+  </div>
+</article>
+
+<footer class="site-footer">
+  <div class="ft-word"><span>Tee</span>Box</div>
+  <nav>
+    <a href="/">Marketplace</a>
+    <a href="/reads/">Reads</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </nav>
+  <div class="ft-copy">&copy; 2026 TeeBox Market. The peer-to-peer marketplace for golfers.</div>
+</footer>
+
+</body>
+</html>
