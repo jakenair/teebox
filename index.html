@@ -345,7 +345,6 @@
   body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
   .detail-seller { padding: 0.75rem 0; border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); margin: 0.75rem 0 1rem; }
-  .modal-fineprint { font-size: 11px; color: var(--gray-500); margin-top: -0.5rem; margin-bottom: 0.75rem; }
   /* Star icons on white surfaces use gold-600 (4.87:1 on white — passes AA).
      gold-400 was 1.96:1 — failed contrast for text-sized glyphs. */
   #reviewStars .star-pick[data-active="1"] { color: var(--gold-600); }
@@ -466,7 +465,6 @@
   .avatar-upload-row { display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem; }
   .avatar-upload-btn { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--gray-700); cursor: pointer; transition: var(--transition); }
   .avatar-upload-btn:hover { background: var(--green-50); border-color: var(--green-400); color: var(--green-700); }
-  .seller-link { color: var(--green-600); cursor: pointer; text-decoration: underline; font-weight: 600; }
   .profile-loading { padding: 3rem 1rem; text-align: center; color: var(--gray-500); }
 
   /* Verification badges (Feature #3) */
@@ -494,30 +492,6 @@
   /* Inline "Joined ..." caption shown on listing cards when seller has < 3 sales. */
   .seller-meta-line { font-size: 11px; color: var(--gray-500); margin-top: 2px; min-height: 14px; }
   .seller-meta-line:empty { display: none; }
-
-  /* Profile-page tenure block: pill + stat grid above the listings. */
-  .tenure-block { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--gray-100); margin-bottom: 14px; }
-  .tenure-block-pill-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .tenure-block-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
-  .tenure-stat { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 8px 10px; }
-  .tenure-stat-label { font-size: 10.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
-  .tenure-stat-value { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--gray-900); line-height: 1.1; }
-  .tenure-stat-value .tenure-stat-sub { font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--gray-500); margin-left: 4px; }
-
-  /* My Shop tenure card — own-tier display + "How to upgrade" tooltip. */
-  .my-tenure-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--white); margin-bottom: 14px; flex-wrap: wrap; }
-  .my-tenure-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-  .my-tenure-card-info strong { font-size: 13px; color: var(--gray-900); }
-  .my-tenure-card-info span { font-size: 12px; color: var(--gray-500); }
-  .tenure-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gray-100); color: var(--gray-500); font-weight: 700; font-size: 12px; cursor: help; border: 1px solid var(--gray-200); user-select: none; flex-shrink: 0; }
-  .tenure-help:hover, .tenure-help:focus { background: var(--green-50); color: var(--green-700); border-color: var(--green-400); outline: none; }
-  /* CSS-only tooltip — appears on hover/focus of .tenure-help. Hidden on
-     touch (no hover) but the same content sits in title= as a fallback. */
-  .tenure-help .tenure-help-tip { position: absolute; bottom: calc(100% + 8px); right: 0; background: var(--gray-900); color: var(--white); padding: 10px 12px; border-radius: var(--radius-md); font-size: 12px; font-weight: 500; line-height: 1.45; width: max-content; max-width: 260px; box-shadow: var(--shadow-card); opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 50; text-align: left; cursor: default; }
-  .tenure-help:hover .tenure-help-tip, .tenure-help:focus .tenure-help-tip { opacity: 1; pointer-events: auto; }
-  .tenure-help-tip strong { color: var(--gold-300); display: block; margin-bottom: 4px; font-size: 11.5px; }
-  .tenure-help-tip ul { margin: 4px 0 0; padding-left: 14px; }
-  .tenure-help-tip li { margin-bottom: 2px; }
 
   /* My Shop tier banner — sits at the top of the dashboard body. */
   .pro-tier-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--radius-lg); margin-bottom: 14px; }
@@ -575,11 +549,6 @@
   /* Golf bag chips (Feature #6) */
   .bag-row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; -webkit-overflow-scrolling: touch; }
   .bag-chip { flex: 0 0 auto; background: var(--green-50, #ecf5ef); color: var(--green-800, #1e4a2c); border: 1px solid var(--green-200, #cfe5d6); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-  .bag-edit-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-  .bag-edit-row { display: flex; gap: 6px; align-items: center; }
-  .bag-edit-row input { flex: 1; }
-  .bag-edit-row .bag-rm { background: var(--gray-100); border: 1px solid var(--gray-200); color: var(--gray-700); border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
-  .bag-edit-add { background: var(--gray-100); border: 1px dashed var(--gray-300); color: var(--gray-700); border-radius: 6px; padding: 8px; font-size: 12px; cursor: pointer; margin-top: 4px; font-weight: 600; }
   .bag-edit-hint { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
 
   /* Pinned / Featured listing (Feature #7) */
@@ -708,7 +677,6 @@
   /* Unread badge — used in nav inbox icon, bottom-nav inbox tab, user menu */
   .unread-badge { display: none; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 50px; background: var(--red-500); color: var(--white); font-size: 10px; font-weight: 700; text-align: center; line-height: 16px; position: absolute; top: 2px; right: 2px; box-sizing: border-box; }
   .unread-badge.active { display: inline-block; }
-  .btn-icon { position: relative; }
   .bottom-nav-item .bn-icon { position: relative; display: inline-block; }
   .bottom-nav-item .unread-badge { top: -4px; right: -8px; }
   .user-menu-item .unread-badge { position: static; margin-left: 6px; vertical-align: middle; }
@@ -786,24 +754,11 @@
   .mobile-top-logo { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; line-height: 1; }
   .mobile-top-logo span { color: var(--white); }
   .mobile-top-actions { display: flex; align-items: center; gap: 8px; }
-  .mobile-top-bingo {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-400) 100%);
-    color: var(--green-900);
-    border: 0; border-radius: 999px;
-    padding: 7px 16px;
-    font-family: inherit; font-size: 13px; font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 0 14px rgba(231, 210, 138, 0.55), 0 2px 6px rgba(197,162,83,0.35);
-    animation: mobileBingoGlow 2.6s ease-in-out infinite;
-    transition: transform 0.15s ease;
-  }
-  .mobile-top-bingo:active { transform: scale(0.97); }
   @keyframes mobileBingoGlow {
     0%, 100% { box-shadow: 0 0 14px rgba(231, 210, 138, 0.55), 0 2px 6px rgba(197,162,83,0.35); }
     50%      { box-shadow: 0 0 24px rgba(231, 210, 138, 0.85), 0 2px 10px rgba(197,162,83,0.55); }
   }
-  @media (prefers-reduced-motion: reduce) { .mobile-top-bingo { animation: none; } }
+  
   .mobile-top-icon { position: relative; background: transparent; border: 0; padding: 6px; color: var(--white); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
   .mobile-top-icon .ico { width: 22px; height: 22px; }
   .mobile-top-icon .unread-badge { position: absolute; top: 4px; right: 4px; }
@@ -868,13 +823,6 @@
   .mobile-nav-link.danger { color: rgba(255, 130, 110, 0.9); }
   .mobile-nav-link.danger:hover { background: rgba(255,80,60,0.10); color: rgb(255, 160, 140); }
   .mobile-nav-link.danger::before { background: var(--red-500); }
-  .mobile-nav-link-icon {
-    width: 22px; height: 22px;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: var(--gold-300); flex-shrink: 0;
-    font-size: 16px;
-  }
-  .mobile-nav-link.danger .mobile-nav-link-icon { color: rgb(255, 130, 110); }
   .mobile-nav-link-label { flex: 1; min-width: 0; }
   .mobile-nav-link-chev { color: rgba(255,255,255,0.25); font-size: 14px; transition: color 0.2s ease, transform 0.2s ease; }
   .mobile-nav-link:hover .mobile-nav-link-chev { color: var(--gold-400); transform: translateX(2px); }
@@ -976,7 +924,6 @@
       transform: none !important;
     }
   }
-  .ripple { position: relative; overflow: hidden; }
   /* Disable selection on chrome elements */
   nav, .cat-bar, .bottom-nav, .modal-header, .nav-search-icon { user-select: none; -webkit-user-select: none; }
 
@@ -1081,7 +1028,7 @@
   }
 
   /* Native-feel momentum scroll on horizontal rails */
-  .cat-bar, .product-grid-scroll, .ticker-track { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .cat-bar, .ticker-track { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 
   /* Toast slide-out animation (used by showToast) */
   .toast.toast-out { animation: toastOut 0.25s forwards; }
@@ -1155,7 +1102,6 @@
     .lightbox-prev { left: 8px; }
     .lightbox-next { right: 8px; }
   }
-  .main-photo { cursor: zoom-in; }
   .thumb { cursor: pointer; }
 
   /* Filter bar */
@@ -1183,9 +1129,6 @@
 
   /* Inline SVG icon system */
   .ico { width: 1em; height: 1em; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; fill: none; flex-shrink: 0; vertical-align: -0.15em; }
-  .ico-lg { width: 1.5em; height: 1.5em; }
-  .ico-xl { width: 2.25em; height: 2.25em; }
-  .ico-2xl { width: 3rem; height: 3rem; }
   .ico-fill { fill: currentColor; stroke: none; }
   .placeholder-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%); }
 
@@ -1195,9 +1138,6 @@
      `prefers-reduced-motion` users get instant visibility — no movement. */
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s cubic-bezier(.21,.7,.32,1), transform 0.6s cubic-bezier(.21,.7,.32,1); will-change: opacity, transform; }
   .reveal.in { opacity: 1; transform: translateY(0); }
-  .reveal.delay-1 { transition-delay: 0.08s; }
-  .reveal.delay-2 { transition-delay: 0.16s; }
-  .reveal.delay-3 { transition-delay: 0.24s; }
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
   }
@@ -1207,21 +1147,17 @@
      gets a gentle press-down on :active and a soft hover lift. Cards
      keep their bigger 4px lift; this rule layers underneath without
      overriding more specific transforms. */
-  button, .btn-buy, .btn-sell-sm, .btn-buy-now,
+  button, .btn-buy, .btn-buy-now,
   .btn-make-offer, .btn-message-seller, .cat-pill, .auth-btn,
   .desc-ai-btn, .nav-bingo-cta, .install-btn, .bingo-share-btn {
     transition: transform 0.15s cubic-bezier(.4,0,.2,1), box-shadow 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
   }
-  button:active:not(:disabled), .btn-buy:active, .btn-sell-sm:active,
+  button:active:not(:disabled), .btn-buy:active,
   .btn-buy-now:active, .btn-make-offer:active,
   .btn-message-seller:active, .cat-pill:active, .auth-btn:active,
   .desc-ai-btn:active, .nav-bingo-cta:active {
     transform: scale(0.97);
   }
-
-  /* Ripple on primary buttons. Uses a radial gradient that the .ripple
-     class animates on click via JS. */
-  .ripple-host { position: relative; overflow: hidden; }
   .ripple-host::after {
     content: '';
     position: absolute;
@@ -1335,8 +1271,6 @@
   .auth-mode-btn.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
   .email-input { letter-spacing: 0; text-align: left; }
   .auth-link { background: none; border: none; color: var(--green-600); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; margin-top: 2px; font-family: var(--font-body); }
-  .auth-link-muted { color: var(--gray-500); text-decoration: none; display: block; width: 100%; text-align: center; margin-top: 14px; font-size: 13px; }
-  .auth-link-muted:hover { color: var(--gray-700); text-decoration: underline; }
   /* Ghost/outline "Continue as guest" CTA on the auth screen — gives
      unsigned visitors an explicit way to dismiss the auth gate and
      browse the marketplace read-only. requireAuth() will surface the
@@ -1472,15 +1406,8 @@
   .nav-search input::placeholder { color: rgba(255,255,255,0.4); }
   .nav-search input:focus { border-color: var(--gold-400); }
   .nav-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.4); font-size: 15px; pointer-events: none; }
-  .nav-links { display: flex; gap: 0.25rem; margin-left: 2rem; align-items: center; flex: 1; }
-  .nav-links a { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13.5px; font-weight: 500; padding: 6px 14px; border-radius: 50px; transition: var(--transition); white-space: nowrap; }
-  .nav-links a:hover, .nav-links a.active { color: var(--white); background: rgba(255,255,255,0.1); }
-  .nav-links a.active { color: var(--gold-300); }
-  .nav-actions { display: flex; gap: 10px; align-items: center; margin-left: auto; flex-shrink: 0; }
   .btn-sell-nav { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 8px 22px; font-family: var(--font-body); font-size: var(--text-body-sm); font-weight: 600; cursor: pointer; transition: var(--transition); }
   .btn-sell-nav:hover { background: var(--gold-300); }
-  .btn-icon { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
-  .btn-icon:hover { color: var(--white); background: rgba(255,255,255,0.1); }
 
   /* Desktop Bingo CTA — pill button in top nav.
      Hidden on mobile because the bottom-nav already has a Bingo entry. */
@@ -1516,27 +1443,11 @@
     50%      { box-shadow: 0 2px 12px rgba(197, 162, 83, 0.5),  0 0 32px rgba(231, 210, 138, 0.7),  0 0 0 6px rgba(231, 210, 138, 0); }
   }
   @media (prefers-reduced-motion: reduce) { .nav-bingo-cta { animation: none; } }
-  .nav-bingo-label { font-size: 13.5px; font-weight: 700; letter-spacing: 0.2px; line-height: 1; }
-  .nav-bingo-sub { font-size: 10.5px; font-weight: 600; opacity: 0.78; line-height: 1; }
-  .nav-bingo-text { display: inline-flex; flex-direction: column; gap: 3px; }
-  /* Bottom-nav glow dot — replaces the dart emoji. Pure gold disc with
-     a soft pulse so it reads as "tap me, daily" without a literal target. */
-  .bn-bingo-glow {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: radial-gradient(circle, var(--gold-300) 0%, var(--gold-500) 70%);
-    box-shadow: 0 0 8px rgba(231,210,138,0.7);
-    margin-bottom: 3px;
-    animation: bnBingoPulse 2s ease-in-out infinite;
-  }
   @keyframes bnBingoPulse {
     0%, 100% { box-shadow: 0 0 8px rgba(231,210,138,0.7); transform: scale(1); }
     50%      { box-shadow: 0 0 16px rgba(231,210,138,1);  transform: scale(1.15); }
   }
-  @media (prefers-reduced-motion: reduce) { .bn-bingo-glow { animation: none; } }
-  .nav-bingo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-  .nav-bingo-label { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; letter-spacing: 0.4px; color: var(--white); }
-  .nav-bingo-sub { font-size: 9px; font-weight: 700; color: var(--gold-300); letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
-  .nav-bingo-cta.played .nav-bingo-sub { color: var(--gold-400); }
+  
   /* Tiny "play today" indicator dot — only on .unplayed. Lives on top of
      the gold glow for an extra "yes, today's puzzle is fresh" hint. */
   .nav-bingo-cta.unplayed::after { content: ""; position: absolute; top: 5px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--green-700); animation: navBingoPulse 2s ease-in-out infinite; }
@@ -1567,9 +1478,6 @@
      as navigation, not a strip of buttons. Spacing/type expressed in the
      --space / --text / --radius tokens introduced in the taste pass. */
   .nav-ribbon { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
-
-  /* Search promoted — wider since .nav-links is gone. */
-  .nav-search { max-width: 560px; }
 
   /* Shared ribbon-item shape. Anchors most of the cluster; the
      .ribbon-trigger duplicate is for <button> contexts (notif-btn)
@@ -1693,13 +1601,7 @@
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
     }
     .nav-search { max-width: 380px; }
-  }
-
-  /* Hide the now-unused .nav-links / .nav-bingo-cta rules' effects on
-     any stale markup. The current page no longer ships these, but
-     defensively hide them if a service-worker-cached older index.html
-     ever surfaces them transiently. */
-  .nav-links, .nav-bingo-cta { display: none; }
+  } .nav-bingo-cta { display: none; }
 
   /* CAT BAR — horizontally scrollable category pills.
      The wrapper sits below .nav and provides edge fades so users see there's
@@ -1786,12 +1688,7 @@
   .btn-outline:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); }
   /* Hero stats — second-tier display, sized as part of the hero unit
      (not subordinate footnote). Bumped 2026-06-05 audit follow-up:
-     1.8rem flat → clamp(1.9rem, 2.5vw, 2.4rem). Tighter gap from
-     title block so the three numbers live as the trailing credibility
-     row of the hero composition. */
-  .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
-  .hero-stat-n { font-family: var(--font-display); font-size: clamp(1.9rem, 2.5vw, 2.4rem); font-weight: 700; color: var(--gold-300); }
-  .hero-stat-l { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
+     1.8rem flat → clamp(1.9rem, 2.5vw{ display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
   .hero-featured { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
   .feat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.25rem; cursor: pointer; transition: var(--transition); }
   .feat-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-3px); border-color: rgba(224,184,64,0.3); }
@@ -1799,9 +1696,6 @@
   .feat-img { font-size: 3rem; text-align: center; margin-bottom: 0.75rem; display: block; }
   .feat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--gold-300); margin-bottom: 4px; }
   .feat-name { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 8px; }
-  .feat-price-row { display: flex; align-items: center; justify-content: space-between; }
-  .feat-price { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--white); }
-  .feat-change { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 50px; }
   .up { background: rgba(26,138,60,0.3); color: #6ed492; }
   .down { background: rgba(192,57,43,0.3); color: #f4948b; }
   /* "Most Viewed This Week" sidebar widget — reuses the .feat-card dark
@@ -1835,7 +1729,6 @@
   #productGrid { scroll-margin-top: calc(var(--nav-h) + 56px); }
   .product-card { background: var(--white); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--gray-200); cursor: pointer; transition: transform 200ms cubic-bezier(.4,0,.2,1), box-shadow 200ms cubic-bezier(.4,0,.2,1), border-color 200ms cubic-bezier(.4,0,.2,1); position: relative; }
   .product-card.sold { opacity: 0.6; }
-  .product-card.sold .product-image { filter: grayscale(0.5); }
   .sold-badge { position: absolute; top: 12px; right: 12px; background: #c0392b; color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.5px; z-index: 2; }
   .stock-badge { position: absolute; top: 12px; left: 12px; background: rgba(31, 72, 39, 0.92); color: var(--gold-300); font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; letter-spacing: 0.4px; text-transform: uppercase; z-index: 2; backdrop-filter: blur(4px); }
   .qty-selector { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; padding: 10px 12px; background: var(--gray-100); border-radius: var(--radius-sm); }
@@ -1884,7 +1777,6 @@
   .product-img-wrap { background: var(--gray-100); position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
   .product-img-wrap img:hover { transform: scale(1.04); }
-  .product-img-emoji { font-size: 3.5rem; }
   .product-badge { position: absolute; top: 10px; left: 10px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.8px; z-index: 1; }
   .badge-new { background: var(--green-100); color: var(--green-700); }
   .badge-hot { background: #fff0e0; color: #b35f00; }
@@ -1898,25 +1790,6 @@
   .cond-pill.cond-good      { background: #e0ecf5; color: #1e4a6b; }
   .cond-pill.cond-fair      { background: #fbe9c2; color: #8a5a09; }
   .cond-pill.cond-parts     { background: #fadcd8; color: #8a1f15; }
-
-  /* AI description button — sits inline with the "Description" label.
-     Disabled until title/brand/category/condition are non-empty. */
-  .ai-desc-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: linear-gradient(135deg, var(--gold-300), var(--gold-500));
-    color: var(--green-900);
-    border: 1px solid var(--gold-500);
-    border-radius: 50px;
-    padding: 5px 12px;
-    font-family: var(--font-body); font-size: 12px; font-weight: 700;
-    letter-spacing: 0.2px;
-    cursor: pointer;
-    transition: var(--transition);
-    text-transform: none;
-  }
-  .ai-desc-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(201,153,30,0.25); }
-  .ai-desc-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
-  .ai-desc-btn.loading { pointer-events: none; opacity: 0.7; }
   .ai-desc-spark { font-size: 13px; line-height: 1; }
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
   .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
@@ -1944,8 +1817,6 @@
      noise on a buyer-facing surface and competed with the primary action. */
   .product-btns { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
   .btn-buy { border: none; border-radius: var(--radius-sm); padding: 10px 8px; font-family: var(--font-body); font-size: 13.5px; font-weight: 700; cursor: pointer; transition: var(--transition); background: var(--green-600); color: var(--white); }
-  /* Retained for any legacy callers; new product cards do not render this. */
-  .btn-sell-sm { display: none; }
 
   /* TICKER — slowed to 60s (was 30s) and prices softened to 0.85 alpha
      so the moving strip no longer competes with the product grid. */
@@ -1974,10 +1845,6 @@
   .trend-info-meta { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
   .trend-price { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
   .trend-chg { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 50px; }
-  .trend-vol { font-size: 13px; color: var(--gray-500); }
-  .trend-bar-wrap { width: 80px; }
-  .trend-bar { height: 4px; border-radius: 2px; background: var(--gray-200); overflow: hidden; }
-  .trend-bar-fill { height: 100%; background: var(--green-400); border-radius: 2px; }
 
   /* DROPS */
   .drops-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
@@ -2093,10 +1960,6 @@
   /* min-width:0 so this grid item can't be blown past the 1fr column by
      its gallery's intrinsic (real-photo) width — Safari grid/flex overflow. */
   .detail-gallery { min-width: 0; }
-  .main-photo { width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; background: var(--gray-100); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-  .main-photo img { width: 100%; height: 100%; object-fit: cover; }
-  .main-photo-emoji { font-size: 5rem; }
-  .thumbnails { display: flex; gap: 8px; flex-wrap: wrap; }
   .thumb { width: 56px; height: 56px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: var(--transition); background: var(--gray-100); display: flex; align-items: center; justify-content: center; }
   .thumb:hover, .thumb.active { border-color: var(--green-500); }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -2279,7 +2142,6 @@
   .detail-actions { display: flex; flex-direction: column; gap: 10px; }
   .detail-trust-strip { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 12px; font-size: 12px; color: var(--gray-600); background: var(--green-50, #f1f7f3); border-radius: var(--radius-md); }
   .detail-trust-strip span { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
-  .detail-secondary-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .btn-buy-now { background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 16px; font-family: var(--font-body); font-size: 17px; font-weight: 800; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-buy-now:hover { background: var(--green-500); }
   /* Demoted from primary full-width — secondary half-width, lighter weight. */
@@ -2437,7 +2299,6 @@
   .search-res-cat { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
   /* Search-result price gets a color punch and weight bump so it pops
      within each row instead of disappearing alongside the title. */
-  .search-res-price { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--green-700); margin-left: 8px; flex-shrink: 0; }
   .search-res-price { margin-left: auto; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 
   /* DESKTOP REFINEMENTS (≥901px) */
@@ -2473,7 +2334,6 @@
     nav { padding: 0 1rem; }
     .nav-search { max-width: 280px; }
     .nav-logo { margin-right: 1rem; }
-    .nav-links { display: none; }
     .verify-modal, .info-modal, .sell-modal, .modal { max-width: calc(100vw - 1.5rem); }
     .verify-steps { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: 1fr 1fr !important; }
@@ -2483,12 +2343,10 @@
     body { font-size: 14px; }
     nav { padding: 0 0.75rem; }
     .nav-search { display: none; }
-    .nav-actions { gap: 6px; }
     .btn-sell-nav { padding: 6px 14px; font-size: 12.5px; }
     .cat-bar { padding: 0 0.75rem; }
     .hero { padding: 2rem 1rem 2.5rem; }
     .hero-title { font-size: clamp(1.7rem, 6vw, 2.4rem); }
-    .hero-stats { grid-template-columns: 1fr 1fr; gap: 1rem; }
     .hero-featured { grid-template-columns: 1fr; }
     .feat-card-big { padding: 1rem; }
     .section { padding: 1.5rem 1rem; }
@@ -2729,7 +2587,6 @@
   .chat-modal { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 520px; height: 80vh; max-height: 700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-hover); }
   .chat-header { background: var(--green-900); color: var(--white); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .chat-header-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .chat-header-emoji { font-size: 1.75rem; flex-shrink: 0; }
   /* Other-participant avatar in the thread header. Mirrors .profile-avatar
      (initials placeholder behind an eager-loading photo) at header scale, and
      is a real <button> so it's keyboard-tappable into openProfile(). */
@@ -2783,9 +2640,6 @@
   .chat-listing-card-title { font-weight: 600; font-size: 13px; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-listing-card-sub { font-size: 11px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
   .chat-listing-card-price { font-family: var(--font-display); font-weight: 700; color: var(--green-700); font-size: 14px; flex-shrink: 0; padding-left: 8px; }
-  .chat-listing-card-status { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
-  .chat-listing-card-status.sold { background: var(--gray-200); color: var(--gray-700); }
-  .chat-listing-card-status.pending { background: #fff3cd; color: #856404; }
   .chat-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; background: var(--gray-50); }
   .chat-empty { text-align: center; color: var(--gray-500); font-size: 13px; padding: 2rem 1rem; margin: auto; }
   /* Bubble sizes to its content but is bounded by .msg-wrap (capped at 70%
@@ -2803,7 +2657,6 @@
   .chat-skel-b { height: 40px; border-radius: 16px; background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%); background-size: 200% 100%; animation: sk-shimmer 1.4s infinite linear; }
   .chat-skel-b.them { align-self: flex-start; width: 58%; }
   .chat-skel-b.me { align-self: flex-end; width: 46%; }
-  .msg-failed { font-size: 10.5px; color: var(--red-500, #d04545); margin: 3px 2px 2px; cursor: pointer; }
   .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--gray-200); background: var(--white); flex-shrink: 0; }
   .chat-input { flex: 1; border: 1px solid var(--gray-200); border-radius: 20px; padding: 10px 16px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition); }
   .chat-input:focus { border-color: var(--green-700); }
@@ -2812,8 +2665,6 @@
   .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-message-seller { background: var(--white); color: var(--green-700); border: 1.5px solid var(--green-700); border-radius: var(--radius-md); padding: 10px 20px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; margin-top: 8px; }
   .btn-message-seller:hover { background: var(--green-50); }
-  .nav-badge { display: none; background: var(--gold); color: var(--green-900); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 4px; vertical-align: middle; }
-  .nav-badge.active { display: inline-block; }
   .inbox-item.unread .inbox-item-title { font-weight: 700; }
   .inbox-item.unread .inbox-item-preview { color: var(--green-900); font-weight: 600; }
   .inbox-item-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-left: auto; margin-right: 8px; display: none; }
@@ -2916,7 +2767,6 @@
   .bingo-leaderboard { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); }
   .bingo-lb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; gap: 12px; flex-wrap: wrap; }
   .bingo-lb-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--green-900); margin: 0; }
-  .bingo-lb-prize { font-size: 11px; font-weight: 700; color: var(--gold-700, #8a6f2e); background: rgba(197, 162, 83, 0.14); padding: 4px 10px; border-radius: 999px; }
   /* .bingo-lb-tabs / .bingo-lb-tab — shape lives in the canonical
      SEGMENTED CONTROL block (see dash section). Only the bingo-
      surface-specific margin overlays here. */
@@ -3149,11 +2999,6 @@
   .bingo-results-panel .brp-loading {
     color: var(--gray-500); font-style: italic; font-size: 13px;
   }
-  .bingo-results-panel .brp-cta {
-    display: inline-block; margin-top: 6px; font-size: 12px;
-    color: var(--green-700); text-decoration: underline; cursor: pointer;
-    background: none; border: none; padding: 0; font-family: inherit;
-  }
 
   @media (prefers-reduced-motion: reduce) {
     .bingo-cell-flip,
@@ -3198,7 +3043,6 @@
   .bingo-autocomplete-row { padding: 10px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; transition: background 0.12s ease; border-left: 3px solid transparent; }
   .bingo-autocomplete-row:last-child { border-bottom: none; }
   .bingo-autocomplete-row:hover, .bingo-autocomplete-row.active { background: var(--green-50); border-left-color: var(--green-600); }
-  .bingo-autocomplete-emoji { font-size: 1.3rem; flex-shrink: 0; }
   .bingo-autocomplete-name { font-weight: 600; color: var(--gray-900); }
   .bingo-autocomplete-meta { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
   .bingo-autocomplete-empty { padding: 18px 14px; text-align: center; font-size: 13px; color: var(--gray-500); }
@@ -8613,12 +8457,6 @@ const DROPS = [];
 const fav = new Set();
 let currentMode = 'buy';
 
-function imgOrEmojiHtml(p, cls='') {
-  const url = window.variantImgUrl(p, 0, 'w400');
-  if (url) return `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async"${cls?` class="${window.safeAttr(cls)}"`:''} />`;
-  return `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
-}
-
 // Image resilience (#3): if a listing photo fails to load/decode (a transient
 // CDN or jpg→webp content-type hiccup — the cause of the "blank photo / ?"
 // report, whose URL otherwise returns 200), swap it for a neutral placeholder
@@ -9473,8 +9311,6 @@ function filterCat(el,cat) {
   buildProducts(cat);
 }
 
-function toggleFav(e,id) { e.stopPropagation(); fav.has(id)?fav.delete(id):fav.add(id); buildProducts(); }
-
 // ── DETAIL MODAL ──
 let currentDetailId = null;
 function injectListingJsonLd(p) {
@@ -9908,7 +9744,6 @@ window.buildIgSwiper = function(container, urls, alt) {
 
 window.openDetailModal = openDetailModal;
 
-function closeDetailModal(e) { if(e.target===document.getElementById('detailBackdrop')) closeDetailModalDirect(); }
 function closeDetailModalDirect() { document.getElementById('detailBackdrop').classList.remove('open'); removeListingJsonLd(); currentDetailId = null; }
 window.closeDetailModalDirect = closeDetailModalDirect;
 
@@ -11844,22 +11679,6 @@ function renderShopTables() {
   }
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-}
-
-function formatListedDate(ts) {
-  if (!ts) return '—';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  const now = new Date();
-  const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return diffDays + ' days ago';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function maskBuyerId(id) {
   if (!id) return '????';
   return id.slice(-4).toUpperCase();
@@ -12928,7 +12747,6 @@ function openSearch() {
   // Empty input → hide the results dropdown entirely (typeahead spec).
   filterSearch('');
 }
-function closeSearch(e) { if(e.target===document.getElementById('searchOverlay')) document.getElementById('searchOverlay').classList.remove('open'); }
 // Debounced typeahead. The raw `input` event handler calls
 // filterSearch(value), which schedules a 150ms timer; the actual
 // match-and-render runs in filterSearchRender. Calling filterSearch
@@ -16989,19 +16807,12 @@ window.dismissAuthScreen = function dismissAuthScreen() {
 };
 
 A['show-auth']                = () => window.showAuthScreen('');
-A['dismiss-auth-screen']      = () => window.dismissAuthScreen();
 A['dismiss-sign-in-prompt']   = () => window.dismissSignInPrompt();
 A['show-auth-from-prompt']    = () => {
   const reason = window.__pendingAuthReason || '';
   window.dismissSignInPrompt();
   window.showAuthScreen(reason);
 };
-A['prompt-sign-in']          = (el) => {
-  const reason = (el && el.dataset && el.dataset.reason) || '';
-  window.requireAuth(reason);
-};
-
-A['toggle-email-mode']       = () => toggleEmailMode();
 A['set-email-mode']          = (el) => setEmailMode(el.dataset.emailmode);
 A['forgot-password']         = () => forgotPassword();
 A['submit-email']            = () => submitEmail();
@@ -17996,7 +17807,6 @@ A['filter-cat']              = (el, ev) => {
     if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 };
-A['close-modal-direct']      = () => closeModalDirect();
 A['close-detail-direct']     = () => closeDetailModalDirect();
 A['detail-buy-now']          = () => {
   const qInp = document.getElementById('detailQty');
@@ -18033,7 +17843,6 @@ A['confirm-report-review']    = () => { if (!window.requireAuth('to submit your 
 A['close-sell-direct']       = () => closeSellModalDirect();
 A['close-stripe-required']   = () => closeStripeRequiredDirect();
 A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
-A['ai-write-desc']            = () => { if (!window.requireAuth('to use AI description')) return; aiWriteDescription(); };
 A['ai-suggest-price']         = () => { if (!window.requireAuth('to suggest a price')) return; aiSuggestPrice(); };
 A['apply-ai-price']           = (el) => {
   const p = Number(el.dataset.price || 0);
