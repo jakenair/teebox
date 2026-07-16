@@ -44,7 +44,10 @@
 <meta name="apple-itunes-app" content="app-id=6763954448, app-argument=https://teeboxmarket.com/?play=bingo" />
 
 <!-- Redirect human visitors into the SPA. Bots that obey meta-refresh still
-     read the OG tags above first, which is what we want. -->
+     read the OG tags above first, which is what we want. The JS redirect
+     forwards query params (share-link UTMs) into the SPA; the meta-refresh
+     is the no-JS fallback and drops them (crawlers don't need attribution). -->
+<script>location.replace('/?play=bingo' + (location.search ? '&' + location.search.slice(1) : ''));</script>
 <meta http-equiv="refresh" content="0;url=/?play=bingo" />
 <style>
   :root { color-scheme: dark; }

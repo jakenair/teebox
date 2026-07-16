@@ -4496,7 +4496,7 @@
       <div class="bingo-date" id="bingoDateLbl">—</div>
       <span class="bingo-net-pill" id="bingoNetPill" aria-live="polite"><span class="dot"></span><span class="bingo-net-pill-text">Offline</span></span>
     </div>
-    <button class="bingo-share-btn" data-action="bingo-share" id="bingoShareTopBtn" type="button" disabled>Share</button>
+    <button class="bingo-share-btn" data-action="bingo-share" id="bingoShareTopBtn" type="button" disabled>Share Result</button>
   </header>
   <div class="bingo-brand" role="banner" aria-label="TeeBox Logo Bingo">
     <div class="bingo-brand-wordmark"><span>Tee</span>Box</div>
@@ -19786,46 +19786,88 @@ if (uploadZone) {
     // /bingo.html is a static stub with bingo-specific OG/Twitter tags so the
     // iMessage / Twitter / Slack preview shows the Logo Bingo card. The stub
     // immediately redirects humans to /?play=bingo (see bingo.html).
-    lines.push('Play: https://teeboxmarket.com/bingo.html');
+    // UTM so PostHog can measure the share loop (bingo.html forwards params
+    // through its redirect).
+    lines.push('Play: https://teeboxmarket.com/bingo.html?utm_source=ig_story&utm_medium=share&utm_campaign=bingo');
     return lines.join('\n');
   }
+  // Layered share helper — generic on purpose: the listing-share feature
+  // (r15x queue) calls this same function. Returns 'shared-file' |
+  // 'shared-text' | 'downloaded' | 'copied' | 'cancelled' | 'failed'.
+  // Order: Web Share w/ image file (iOS Safari 15+, Android Chrome, and —
+  // pending the TestFlight device test — Capacitor's WKWebView) → native
+  // Capacitor sheet (text-only; the Share plugin needs a file:// URL and
+  // Filesystem isn't bundled) → Web Share text + PNG download → clipboard
+  // + PNG download. A user-cancelled sheet (AbortError) STOPS the chain —
+  // cancel means cancel, not "try a worse method".
+  window.shareOrFallback = async function(opts) {
+    const { title, text, file, downloadName } = opts || {};
+    const dl = () => {
+      if (!file) return false;
+      try {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url; a.download = downloadName || file.name || 'teebox.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        return true;
+      } catch { return false; }
+    };
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title, text }); return 'shared-file'; }
+      catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+    }
+    try {
+      const Cap = window.Capacitor;
+      if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+        const Share = Cap.Plugins && Cap.Plugins.Share;
+        if (Share && typeof Share.share === 'function') {
+          await Share.share({ title, text, dialogTitle: title });
+          return 'shared-text';
+        }
+      }
+    } catch (e) { /* fall through */ }
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text });
+        return dl() ? 'downloaded' : 'shared-text';
+      } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+    }
+    const downloaded = dl();
+    try {
+      await navigator.clipboard.writeText(text || '');
+      return downloaded ? 'downloaded' : 'copied';
+    } catch {}
+    try { window.prompt('Copy your result:', text); } catch {}
+    return downloaded ? 'downloaded' : 'failed';
+  };
   async function shareResult() {
     if (!isComplete()) {
       if (window.showToast) window.showToast('Finish all 9 tiles first.');
       return;
     }
-    const text = buildShareText();
     const title = `Logo Bingo · ${TODAY}`;
-    // Capacitor Share plugin (native iOS/Android) → Web Share API → clipboard
+    const text = buildShareText();
+    // Render the branded story image; on any failure fall back to text-only
+    // (the render is a bonus, never a blocker).
+    let file = null;
     try {
-      const Cap = window.Capacitor;
-      if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
-        // The Share plugin is registered on the global at runtime by
-        // Capacitor's bridge — bare-spec imports don't resolve in WebView.
-        const Share = Cap.Plugins && Cap.Plugins.Share;
-        if (Share && typeof Share.share === 'function') {
-          await Share.share({ title, text, dialogTitle: title });
-          return;
-        }
+      const img = await renderStoryImage();
+      if (img && img.blob) {
+        file = new File([img.blob], `teebox-logo-bingo-${TODAY}.png`, { type: 'image/png' });
       }
     } catch (e) {
-      console.warn('[bingo] capacitor share failed, falling back:', e);
+      console.warn('[bingo] story image render failed, sharing text only:', e);
     }
-    try {
-      if (navigator.share) {
-        await navigator.share({ title, text });
-        return;
-      }
-    } catch (e) {
-      // user cancelled or unavailable — fall through to clipboard
-    }
-    try {
-      await navigator.clipboard.writeText(text);
+    const out = await window.shareOrFallback({ title, text, file, downloadName: `teebox-logo-bingo-${TODAY}.png` });
+    if (out === 'downloaded') {
+      if (window.showToast) window.showToast('Result copied & story image saved — add it to your Instagram Story.');
+    } else if (out === 'copied') {
       if (window.showToast) window.showToast('Copied result to clipboard.');
-    } catch {
-      // Last resort: prompt
-      try { window.prompt('Copy your result:', text); } catch {}
+    } else if (out === 'failed') {
+      if (window.showToast) window.showToast('Could not share — try a screenshot.');
     }
+    // 'shared-file' / 'shared-text' / 'cancelled': the sheet spoke for itself.
   }
 
   // ── IG Story share image ────────────────────────────────────────────────
