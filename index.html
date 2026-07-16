@@ -31,7 +31,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="TeeBox" />
 <meta property="og:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta property="og:description" content="Buy and sell golf gear with confidence. AI listing descriptions, secure payments, buyer protection, and fast payouts." />
+<meta property="og:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member — Stripe-secured checkout, buyer protection, 6.5% seller fee." />
 <meta property="og:url" content="https://teeboxmarket.com/" />
 <meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-default.png" />
@@ -43,7 +43,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@teeboxmarket" />
 <meta name="twitter:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta name="twitter:description" content="Buy and sell golf gear with confidence. AI listing descriptions, secure payments, buyer protection, and fast payouts." />
+<meta name="twitter:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member — Stripe-secured checkout, buyer protection, 6.5% seller fee." />
 <meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta name="twitter:image:alt" content="TeeBox: The Premier Golf Marketplace" />
 <!--
@@ -3388,7 +3388,7 @@
 <div id="authScreen">
   <div class="auth-box">
     <div class="auth-logo"><span>Tee</span>Box</div>
-    <div class="auth-sub">The Premier Golf Marketplace</div>
+    <div class="auth-sub">Buy and sell golf gear, golfer to golfer. 6.5% seller fee &middot; Stripe-secured checkout.</div>
     <div id="authEmailMode">
       <div class="auth-reason" id="authReason" role="status" aria-live="polite"></div>
       <div class="auth-mode-toggle auth-emailmode-toggle">
@@ -3436,8 +3436,8 @@
       </button>
 
       <button type="button" class="auth-guest-btn" data-action="continue-as-guest">
-        <span class="auth-guest-btn-label">Continue as guest</span>
-        <span class="auth-guest-btn-sub">Browse only. Sign in to buy or sell</span>
+        <span class="auth-guest-btn-label">Browse the marketplace first</span>
+        <span class="auth-guest-btn-sub">No account needed to look around</span>
       </button>
 
       <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
@@ -3570,7 +3570,7 @@
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
-          <div><strong>Pro Seller badge</strong> on every listing. Buyers see you're a trusted, high-volume seller.</div>
+          <div><strong>Pro Seller badge</strong> on every listing &mdash; stand out in the grid and on your storefront.</div>
         </li>
         <li>
           <span class="pro-perk-check" aria-hidden="true">✓</span>
@@ -3890,7 +3890,7 @@
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="info-body">
-      <p class="info-meta">Tell us what went wrong. We'll mediate within 2 business days.</p>
+      <p class="info-meta">Tell us what went wrong. We review every dispute and issue a decision within 7 business days.</p>
       <div style="margin:0.75rem 0">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Reason</label>
         <select id="disputeReason" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px">
@@ -4803,7 +4803,7 @@
     <div class="how-inner">
       <h2 class="how-title">How TeeBox Works</h2>
       <div class="how-grid">
-        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search" aria-hidden="true"></span><h3>Browse Listings</h3><p>Explore thousands of golf items posted directly by sellers. See one you like? Buy it now at the listed price — no bidding, no waiting.</p></div>
+        <div class="how-card"><div class="how-num">01</div><span class="how-icon" data-ico="search" aria-hidden="true"></span><h3>Browse Listings</h3><p>Browse gear posted directly by sellers. See one you like? Buy it now at the listed price — no bidding, no waiting.</p></div>
         <div class="how-card"><div class="how-num">02</div><span class="how-icon" data-ico="message" aria-hidden="true"></span><h3>Message the Seller</h3><p>Ask questions, request more photos, and confirm condition before you commit. Every conversation is logged.</p></div>
         <div class="how-card"><div class="how-num">03</div><span class="how-icon" data-ico="truck" aria-hidden="true"></span><h3>Ship &amp; Receive</h3><p>Sellers ship the item directly with tracking. Payments are secured by Stripe, and TeeBox can help mediate if something goes wrong. Reach support within 7 days if there's an issue.</p></div>
       </div>
@@ -8856,9 +8856,10 @@ function buildProducts(filter) {
       } else {
       grid.innerHTML =
         '<div class="dash-empty" style="grid-column:1/-1;padding:3.5rem 1rem;">'+
-          '<div style="font-size:18px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">No listings yet</div>'+
-          '<div style="margin-bottom:16px;">Be the first to list an item on TeeBox.</div>'+
+          '<div style="font-size:18px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">The marketplace is just getting started</div>'+
+          '<div style="margin-bottom:16px;">Be one of the first sellers on TeeBox &mdash; or save a search and we\'ll email you when gear you want is listed.</div>'+
           '<button class="btn-primary" data-action="handle-sell" style="padding:10px 22px;font-size:14px;">List an Item</button>'+
+          '<div style="margin-top:10px;font-size:13px;"><a href="#" data-action="save-current-search">Save a search instead</a></div>'+
         '</div>';
       }
     } else {
@@ -8888,9 +8889,10 @@ function buildProducts(filter) {
         const catLabel = window.CATEGORY_LABEL(savedCat) || 'items';
         const callout =
           '<div class="cat-empty-callout" style="grid-column:1/-1;">'+
-            '<div class="cat-empty-title">No '+window.safeText(catLabel)+' listed yet. Be the first to list one!</div>'+
-            '<div class="cat-empty-sub">Got '+window.safeText(String(catLabel).toLowerCase())+' to sell? List it now and reach golfers actively shopping TeeBox.</div>'+
-            '<button class="btn-primary" data-action="handle-sell" style="padding:10px 22px;font-size:14px;">Sell Now</button>'+
+            '<div class="cat-empty-title">No '+window.safeText(catLabel)+' right now.</div>'+
+            '<div class="cat-empty-sub">New gear lands daily &mdash; save this search and we\'ll email you the moment '+window.safeText(String(catLabel).toLowerCase())+' are listed.</div>'+
+            '<button class="btn-primary" data-action="save-current-search" style="padding:10px 22px;font-size:14px;">Save this search</button>'+
+            '<div style="margin-top:10px;font-size:13px;"><a href="#" data-action="handle-sell">Have '+window.safeText(String(catLabel).toLowerCase())+' to sell? List them now</a></div>'+
           '</div>';
         if (crossList.length) {
           const heading =
@@ -8975,7 +8977,7 @@ async function hydrateSellerProPills(rootEl) {
       const isPro = !!(prof && prof._user && prof._user.isPro);
       if (!isPro) return;
       bySeller.get(sid).forEach(slot => {
-        slot.innerHTML = ' <span class="pro-pill sm" title="Pro Seller: verified high-volume seller on TeeBox">Pro</span>';
+        slot.innerHTML = ' <span class="pro-pill sm" title="Pro Seller">Pro</span>';
       });
     } catch (_e) { /* ignore */ }
   });
@@ -11521,7 +11523,7 @@ function renderShopTables() {
   // ACTIVE LISTINGS TABLE
   const activeEl = document.getElementById('dashTabActive');
   if (active.length === 0) {
-    activeEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No active listings yet</div>Tap <strong>Sell Now</strong> in the nav to post your first item. Listings go live immediately for verified sellers.</div>';
+    activeEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No active listings yet</div>Tap <strong>Sell Now</strong> in the nav to post your first item &mdash; most listings are live within a minute.</div>';
   } else {
     const emptyCount = active.filter(l => !Array.isArray(l.photos) || l.photos.length === 0).length;
     const purgeBar = emptyCount > 0
@@ -13018,7 +13020,7 @@ async function openSavedSearches() {
               <button class="filter-clear" data-action="delete-saved-search" data-search-id="${window.safeAttr(window.safeId(s.id))}">Delete</button>
             </div>`;
           }).join('')
-        : '<div class="profile-loading" style="padding:2rem">No saved searches yet. Filter the marketplace and tap <strong>Save Search</strong>.</div>';
+        : '<div class="profile-loading" style="padding:2rem">No saved searches yet. Set your filters on the marketplace and tap <strong>Save Search</strong> &mdash; we\'ll email you when new matches land.</div>';
       sb.classList.add('open');
     }
     // Stash for apply/delete
@@ -13517,7 +13519,7 @@ async function submitDispute() {
       createdAt: serverTimestamp(),
     });
     document.getElementById('disputeBackdrop').classList.remove('open');
-    showToast('Report submitted. We\'ll be in touch within 2 business days.');
+    showToast('Report submitted. We\'ll review and reply within 7 business days.');
   } catch (e) {
     console.error('submitDispute failed:', e);
     showToast('Could not submit report.');
@@ -14001,7 +14003,7 @@ async function openMyOffers() {
         });
     }
     if (!offers.length) {
-      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No offers yet. Tap <strong>Make Offer</strong> on a listing to negotiate with the seller.</div>';
+      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No offers yet. Offers are temporarily paused while we upgrade checkout &mdash; they\'ll be back soon.</div>';
       return;
     }
     // Resolve listing snapshots
@@ -14214,7 +14216,7 @@ async function openSavedSearchesV2() {
       legacy.docs.forEach(d => items.push({ id: d.id, _src: 'legacy', ...d.data() }));
     } catch (_e) {}
     if (!items.length) {
-      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No saved searches yet. Open the search overlay and tap <strong>Save this search</strong>.</div>';
+      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No saved searches yet. Set your filters on the marketplace and tap <strong>Save Search</strong> &mdash; we\'ll email you when new matches land.</div>';
       window.__savedSearches = [];
       return;
     }
@@ -15817,7 +15819,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   const u = profile._user || { sellerVerified: false, phone: false, email: false, isPro: false };
   let badges = '';
   if (u.isPro) {
-    badges += `<span class="pro-pill" title="Pro Seller: verified high-volume seller on TeeBox">Pro Seller</span>`;
+    badges += `<span class="pro-pill" title="Pro Seller">Pro Seller</span>`;
   }
   if (u.sellerVerified) {
     badges += `<span class="verified-pill" title="Verified seller">Verified Seller</span>`;
