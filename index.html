@@ -5043,6 +5043,10 @@
                self/demo-listing guards in openChatForListing come free;
                openDetailModal hides it on the viewer's own listing. -->
           <button class="btn-message-seller" data-action="detail-message-seller">Message Seller</button>
+          <!-- r156: the organic loop — share this listing anywhere; the link
+               deep-links straight back to it (fetch fallback covers listings
+               outside the feed cache, incl. sold). -->
+          <button class="btn-message-seller" data-action="share-listing" id="detailShareBtn">Share Listing</button>
           <button class="btn-link-muted" data-action="report-listing" aria-label="Report this listing" style="background:none;border:0;color:var(--gray-500);font-size:12px;text-decoration:underline;padding:4px;cursor:pointer;">Report this listing</button>
         </div>
       </div>
@@ -8675,6 +8679,26 @@ window.__actions['view-my-orders'] = function() {
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
   if (typeof openOrders === 'function') { try { openOrders(); } catch (_e) {} }
 };
+window.__actions['share-listing'] = async function() {
+  // r156: share the open listing. UTM'd link so PostHog measures the loop;
+  // no PII, no backend. Native sheet → copy-link toast fallback via the
+  // shared shareOrFallback helper (defined in the bingo module, present by
+  // user-tap time).
+  // currentDetailId is a top-level `let` in this same script scope (not a
+  // window prop) — bare reference resolves it at call time.
+  const id = (typeof currentDetailId !== 'undefined' && currentDetailId) || null;
+  if (!id) return;
+  const p = (window.PRODUCTS || []).find(x => String(x.id) === String(id));
+  const url = 'https://teeboxmarket.com/?listing=' + encodeURIComponent(String(id)) +
+    '&utm_source=seller_share&utm_medium=share&utm_campaign=listing';
+  const title = (p && p.name) ? p.name : 'A listing on TeeBox';
+  const text = p ? `${p.name} — $${Number(p.ask || 0).toLocaleString()} on TeeBox` : 'Check out this listing on TeeBox';
+  const out = window.shareOrFallback
+    ? await window.shareOrFallback({ title, text, url })
+    : 'failed';
+  if (out === 'copied' && window.showToast) window.showToast('Link copied — send it anywhere.');
+  else if (out === 'failed' && window.showToast) window.showToast('Could not share this listing.');
+};
 window.__actions['open-detail-from-search'] = function(el) {
   document.getElementById('searchOverlay').classList.remove('open');
   setTimeout(() => openDetailModal(el.dataset.productId), 100);
@@ -9537,9 +9561,36 @@ function removeListingJsonLd() {
   const old = document.getElementById('ldListing');
   if (old) old.remove();
 }
-function openDetailModal(id) {
-  const p = window.PRODUCTS.find(x=>String(x.id)===String(id));
-  if (!p) return;
+// r156: fetch fallback for listings outside the 200-item feed cache. A
+// SHARED link is disproportionately an older/sold listing — exactly the ones
+// not in cache — so without this the links people share are the ones that
+// die. Mirrors the feed's normalization ({id, name: title, ...data}) and its
+// visibility rules, EXCEPT sold stays viewable (detail already renders the
+// locked 'Sold' state; a shared sold listing should open, not 404).
+window.__fetchListingForDetail = async function(id) {
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const snap = await getDoc(doc(getFirestore(), 'listings', String(id)));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    if (['removed', 'flagged', 'expired'].includes(String(d.status || ''))) return null;
+    if (!Array.isArray(d.photos) || !d.photos.length) return null;
+    return { id: snap.id, name: d.title, ...d };
+  } catch (_e) { return null; }
+};
+async function openDetailModal(id) {
+  let p = window.PRODUCTS.find(x=>String(x.id)===String(id));
+  if (!p) {
+    p = await window.__fetchListingForDetail(id);
+    if (!p) {
+      if (window.showToast) window.showToast('This listing is no longer available.');
+      return;
+    }
+    // Seed the cache so every downstream flow (buy, message, share) that
+    // resolves by id finds it.
+    if (!window.PRODUCTS.some(x => String(x.id) === String(p.id))) window.PRODUCTS.push(p);
+  }
   currentDetailId = id;
   injectListingJsonLd(p);
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
@@ -9750,6 +9801,13 @@ function openDetailModal(id) {
   // "More like this" row — same category, current listing excluded, max 6.
   renderMoreLikeThis(p);
   document.getElementById('detailBackdrop').classList.add('open');
+  // r156: single choke point for detail-overlay history — every entry route
+  // (card tap, search, deep link, chat listing card) lands here. The URL
+  // reflects the open listing so copy-address-bar IS a share link; Back
+  // closes the sheet and restores the previous URL.
+  if (window.__pushOverlay) {
+    window.__pushOverlay('detail', '/?listing=' + encodeURIComponent(String(id)));
+  }
 }
 
 // Build the "More like this" thumbnail row inside the detail modal. Pulls
@@ -15146,7 +15204,19 @@ if (__launch || __action || __brandQ || __listingQ || __sellerQ || __sellerPath)
     if (__launch === 'inbox')     window.openInbox && window.openInbox();
     if (__launch === 'watchlist') (window.openWatchlist || openWatchlistWithDropBadges)();
     if (__listingQ) {
-      window.openDetailModal && window.openDetailModal(__listingQ);
+      // r156: retry until the feed cache lands instead of a blind one-shot —
+      // the old 800ms timer routinely fired before listings arrived (~2s on
+      // cold load), killing deep links on exactly the cold start a shared
+      // link produces. The fetch fallback inside openDetailModal covers
+      // not-in-cache listings; this loop just prefers the free cache hit.
+      const openWhenReady = (left) => {
+        if (window.__listingsLoaded || left <= 0) {
+          window.openDetailModal && window.openDetailModal(__listingQ);
+          return;
+        }
+        setTimeout(() => openWhenReady(left - 1), 250);
+      };
+      openWhenReady(24);
     } else if (__brandQ) {
       // Brand slugs come from /brand/<slug> SEO pages — feed the slug into the
       // global search so the user lands on a pre-filtered marketplace.
@@ -18107,6 +18177,93 @@ A['filter-cat']              = (el, ev) => {
   }
 };
 A['close-detail-direct']     = () => closeDetailModalDirect();
+
+// ─────────────────────────────────────────────────────────────
+// r156: OVERLAY HISTORY (heuristic #2) — browser Back closes the top
+// overlay instead of leaving the site. Mechanics:
+//   • __pushOverlay(name, url?) records the overlay on our stack and pushes
+//     a history entry (detail passes its deep-link URL so the address bar
+//     reflects the open listing).
+//   • popstate pops our stack and closes that overlay IF still open (a
+//     no-op when it was already closed by its X — closers are idempotent).
+//   • X-button close actions are wrapped post-'load' (bingo registers its
+//     closer in a later module): after a wrapped closer runs, if the stack
+//     top is that overlay we call history.back() to consume the entry, so
+//     the NEXT Back press does what the user expects.
+// Overlays opened without a push (programmatic flows) simply keep the old
+// behavior for that instance — pushes and pops always stay 1:1.
+// ─────────────────────────────────────────────────────────────
+const __OV = {
+  detail:    { el: 'detailBackdrop',   act: 'close-detail-direct' },
+  checkout:  { el: 'checkoutBackdrop', act: 'close-checkout-direct' },
+  search:    { el: 'searchOverlay',    act: 'close-search' },
+  inbox:     { el: 'inboxBackdrop',    act: 'close-inbox' },
+  chat:      { el: 'chatBackdrop',     act: 'close-chat' },
+  dashboard: { el: 'shopDashboard',    act: 'close-shop-dashboard' },
+  orders:    { el: 'ordersBackdrop',   act: null },
+  notif:     { el: 'notifPanel',       act: 'close-notifications' },
+  bingo:     { el: 'bingoScreen',      act: 'close-bingo' },
+  drawer:    { el: 'mobileNavDrawer',  act: 'close-mobile-nav' },
+  info:      { act: 'close-info',
+               isOpen: () => !!document.querySelector('.info-backdrop.open') },
+};
+const __ovStack = [];
+function __ovIsOpen(name) {
+  const o = __OV[name]; if (!o) return false;
+  if (o.isOpen) return o.isOpen();
+  const el = document.getElementById(o.el);
+  return !!(el && el.classList.contains('open'));
+}
+function __ovClose(name) {
+  const o = __OV[name]; if (!o) return;
+  const fn = o.act && A[o.act];
+  if (typeof fn === 'function') { try { fn(); } catch (_e) {} }
+  else if (o.el) { const el = document.getElementById(o.el); if (el) el.classList.remove('open'); }
+}
+window.__pushOverlay = function(name, url) {
+  try {
+    __ovStack.push(name);
+    history.pushState({ tb: name }, '', url || null);
+  } catch (_e) {}
+};
+window.addEventListener('popstate', () => {
+  const name = __ovStack.pop();
+  if (name && __ovIsOpen(name)) __ovClose(name);
+  // URL is whatever the history entry says — for detail that returns the
+  // address bar from /?listing=<id> to the previous state automatically.
+});
+window.addEventListener('load', () => {
+  // Wrap closers for stack/history sync (after ALL registrations exist).
+  Object.keys(__OV).forEach((name) => {
+    const act = __OV[name].act;
+    if (!act || typeof A[act] !== 'function') return;
+    const orig = A[act];
+    A[act] = function(...args) {
+      const r = orig.apply(this, args);
+      if (__ovStack[__ovStack.length - 1] === name) {
+        try { history.back(); } catch (_e) {}
+      }
+      return r;
+    };
+  });
+  // Wrap open paths that AREN'T the detail choke point (detail pushes inside
+  // openDetailModal so every entry route is covered). Async opens verify the
+  // overlay actually opened before pushing.
+  [['open-search', 'search'], ['open-inbox', 'inbox'], ['open-orders', 'orders'],
+   ['open-shop-dashboard', 'dashboard'], ['open-bingo', 'bingo'], ['open-journal', 'info'],
+   ['toggle-mobile-nav', 'drawer'], ['toggle-notifications', 'notif'], ['open-conv', 'chat'],
+   ['detail-buy-now', 'checkout'],
+  ].forEach(([act, name]) => {
+    if (typeof A[act] !== 'function') return;
+    const orig = A[act];
+    A[act] = function(...args) {
+      const wasOpen = __ovIsOpen(name);
+      const r = orig.apply(this, args);
+      setTimeout(() => { if (!wasOpen && __ovIsOpen(name)) window.__pushOverlay(name); }, 350);
+      return r;
+    };
+  });
+});
 A['detail-buy-now']          = () => {
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
@@ -19972,8 +20129,15 @@ if (uploadZone) {
         return true;
       } catch { return false; }
     };
+    const url = opts && opts.url;
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title, text }); return 'shared-file'; }
+      catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+    }
+    // r156: URL share (listing links). Native sheet first; the clipboard
+    // rung below copies text+url together.
+    if (url && !file && navigator.share) {
+      try { await navigator.share({ title, text, url }); return 'shared-text'; }
       catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
     }
     try {
@@ -19981,7 +20145,7 @@ if (uploadZone) {
       if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
         const Share = Cap.Plugins && Cap.Plugins.Share;
         if (Share && typeof Share.share === 'function') {
-          await Share.share({ title, text, dialogTitle: title });
+          await Share.share(url ? { title, text, url, dialogTitle: title } : { title, text, dialogTitle: title });
           return 'shared-text';
         }
       }
@@ -19994,7 +20158,7 @@ if (uploadZone) {
     }
     const downloaded = dl();
     try {
-      await navigator.clipboard.writeText(text || '');
+      await navigator.clipboard.writeText(url ? ((text ? text + '\n' : '') + url) : (text || ''));
       return downloaded ? 'downloaded' : 'copied';
     } catch {}
     try { window.prompt('Copy your result:', text); } catch {}
