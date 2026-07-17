@@ -2235,6 +2235,11 @@
      before buying still see the option, but it doesn't compete with Buy. */
   /* r151: .btn-message-seller-link retired — the detail affordance was
      promoted to the real .btn-message-seller secondary button. */
+  /* r160: inline sell-form validation. Persistent field-level errors —
+     never a vanishing toast on the form a seller is mid-way through. */
+  .field-invalid { border-color: var(--red-500) !important; }
+  .field-invalid:focus { box-shadow: 0 0 0 3px rgba(192,57,43,0.15) !important; }
+  .field-error-msg { color: var(--red-500); font-size: 12.5px; font-weight: 600; margin-top: 4px; line-height: 1.4; }
   /* Sticky on mobile so the CTA + trust strip stay reachable while scrolling. */
   @media (max-width: 720px) {
     .detail-actions { position: sticky; bottom: 0; background: var(--white); padding-top: 12px; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); z-index: 4; }
@@ -7840,6 +7845,65 @@ window.confirmPayment = async function() {
   };
 
   // ── IMAGE UPLOAD ──
+  // ── r160: inline sell-form validation (heuristic #12) ──────────────────
+  // A seller who can't tell WHY their listing won't post just leaves. Every
+  // validation failure marks the exact field, writes a persistent message
+  // under it, and scrolls+focuses the first problem. Messages clear the
+  // moment the seller edits that field — never a vanishing toast.
+  function clearSellErrors() {
+    document.querySelectorAll('#sellModalBackdrop .field-invalid').forEach(el => {
+      el.classList.remove('field-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+    document.querySelectorAll('#sellModalBackdrop .field-error-msg').forEach(el => el.remove());
+  }
+  function applySellErrors(errors) {
+    // errors: [[elementId, message], ...] — first entry gets scroll+focus.
+    clearSellErrors();
+    errors.forEach(([id, msg]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.add('field-invalid');
+      el.setAttribute('aria-invalid', 'true');
+      const m = document.createElement('div');
+      m.className = 'field-error-msg';
+      m.setAttribute('role', 'alert');
+      m.textContent = msg;
+      // Photos target is a container — message goes INSIDE at the top so it
+      // sits with the uploader; inputs get it as a sibling after themselves.
+      if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+        el.insertAdjacentElement('afterend', m);
+        const clear = () => { el.classList.remove('field-invalid'); el.removeAttribute('aria-invalid'); m.remove(); };
+        el.addEventListener('input', clear, { once: true });
+        el.addEventListener('change', clear, { once: true });
+      } else {
+        el.insertAdjacentElement('beforebegin', m);
+      }
+    });
+    const first = errors.length && document.getElementById(errors[0][0]);
+    if (first) {
+      try { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) { first.scrollIntoView(); }
+      if (typeof first.focus === 'function') setTimeout(() => first.focus({ preventScroll: true }), 350);
+    }
+  }
+  // Validates the shared sell/edit field set; returns [] when clean.
+  function collectSellErrors({ title, brand, cat, price, condition, files, checkDesc }) {
+    const errors = [];
+    if (!title) errors.push(['sellTitle', 'Add a title so buyers can find your item.']);
+    if (!brand) errors.push(['sellBrand', 'Add the brand (or "Unbranded").']);
+    if (!cat) errors.push(['sellCat', 'Pick the category buyers will browse.']);
+    if (!price || !Number.isFinite(price) || price <= 0) errors.push(['sellPrice', 'Enter a price greater than $0.']);
+    if (!condition) errors.push(['sellCondition', 'Pick a condition.']);
+    if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
+    else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
+    const blocked = checkDesc != null && window.findExplicitContent && window.findExplicitContent(title + ' ' + checkDesc);
+    if (blocked) errors.push(['sellTitle', 'Please remove inappropriate language from the title or description.']);
+    return errors;
+  }
+
+  // Exposed for QA harnesses (module-scoped otherwise).
+  window.__sellValidation = { collect: collectSellErrors, apply: applySellErrors, clear: clearSellErrors };
+
   let selectedFiles = [];
 
   window.onPhotoSelect = function(e) { addFiles(Array.from(e.target.files)); e.target.value = ''; };
@@ -8150,24 +8214,13 @@ window.confirmPayment = async function() {
     let quantity = parseInt(document.getElementById('sellQuantity').value, 10) || 1;
     if (quantity < 1) quantity = 1;
     if (quantity > 99) quantity = 99;
-    if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
-    if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
-    if (selectedFiles.length < 1) {
-      showToast('Please add at least 1 photo before submitting.', 'error');
-      return;
-    }
-    const blocked = window.findExplicitContent && window.findExplicitContent(title + ' ' + desc);
-    if (blocked) {
-      showToast('Please remove inappropriate language from the title or description.', 'error');
-      return;
-    }
-    // High-value listings still require a verification-photo set (anti-fraud,
-    // NOT a quality floor) — kept while the standard minimum drops to 1.
+    // r160: inline field-level errors replace the vanishing generic toast.
+    const __sellErrs = collectSellErrors({ title, brand, cat, price, condition, files: selectedFiles, checkDesc: desc });
+    if (__sellErrs.length) { applySellErrors(__sellErrs); return; }
+    clearSellErrors();
+    // High-value verification-photo rule (anti-fraud) is enforced inline by
+    // collectSellErrors above; isHighValue still drives the flow below.
     const isHighValue = price >= 300;
-    if (isHighValue && selectedFiles.length < 4) {
-      showToast('Listings over $300 require at least 4 photos including a verification photo.', 'error');
-      return;
-    }
     // #2: first-time sellers accept the Seller Terms INLINE here (the merged
     // step — no separate verify screen). Acceptance is recorded + they become a
     // verified seller via requestSellerVerification (persists termsAgreed +
@@ -8492,15 +8545,10 @@ window.confirmPayment = async function() {
     let quantity = parseInt(document.getElementById('sellQuantity').value, 10) || 1;
     if (quantity < 1) quantity = 1;
     if (quantity > 99) quantity = 99;
-    if (!title || !brand || !price || !cat || !condition) { showToast('Please fill in all required fields.'); return; }
-    if (price <= 0 || !Number.isFinite(price)) { showToast('Please enter a valid price.'); return; }
-    if (selectedFiles.length < 1) { showToast('A listing needs at least one photo.'); return; }
-    const blocked = window.findExplicitContent && window.findExplicitContent(title + ' ' + desc);
-    if (blocked) { showToast('Please remove inappropriate language from the title or description.'); return; }
-    if (price >= 300 && selectedFiles.length < 4) {
-      showToast('Listings over $300 require at least 4 photos including a verification photo.');
-      return;
-    }
+    // r160: inline field-level errors replace the vanishing toasts (edit path).
+    const __editErrs = collectSellErrors({ title, brand, cat, price, condition, files: selectedFiles, checkDesc: desc });
+    if (__editErrs.length) { applySellErrors(__editErrs); return; }
+    clearSellErrors();
     const btn = document.getElementById('submitListingBtn');
     const hasNewFiles = selectedFiles.some(f => !(f && f.__existingUrl));
     btn.disabled = true; btn.textContent = hasNewFiles ? 'Uploading photos…' : 'Saving…';
