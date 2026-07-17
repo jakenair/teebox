@@ -1071,14 +1071,45 @@
   .ss-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
   .ss-row:last-child { border-bottom: none; }
   .ss-row > div { flex: 1; font-size: 13.5px; }
-  .order-card { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 12px; }
-  .order-head { font-family: var(--font-display); margin-bottom: 8px; }
-  .order-stages { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--gray-500); margin: 6px 0; }
+  /* Batch-2 rebuild: white card, thumb + clamped title + Playfair price,
+     CSS chevrons between stage pills (no more text-node arrows), matched
+     action buttons. */
+  .order-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 12px; }
+  .order-top { display: flex; gap: 12px; align-items: center; }
+  .order-thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--gray-100); flex-shrink: 0; }
+  .order-thumb.placeholder { display: inline-flex; align-items: center; justify-content: center; font-size: 22px; color: var(--green-700); background: var(--green-50); }
+  .order-title { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; color: var(--gray-900); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .order-price { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--gray-900); flex-shrink: 0; }
+  .order-meta { font-size: 12px; color: var(--gray-500); margin: 8px 0 2px; }
+  .order-stages { display: flex; gap: 4px; flex-wrap: wrap; font-size: 12px; color: var(--gray-500); margin: 6px 0; align-items: center; }
   .order-stages .stage { padding: 2px 8px; border-radius: 50px; background: var(--gray-200); }
+  .order-stages .stage + .stage { position: relative; margin-left: 14px; }
+  .order-stages .stage + .stage::before { content: '›'; position: absolute; left: -11px; top: 50%; transform: translateY(-52%); color: var(--gray-400); font-weight: 600; }
   .order-stages .stage.on { background: var(--green-600); color: var(--white); }
   .order-tracking { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
+  .order-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .order-actions > * { flex: 1; }
   .renew-btn, .ship-btn { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 5px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
   .renew-btn:hover, .ship-btn:hover { background: var(--gold-300); }
+  /* Batch-2: tokened secondary/danger variants replace the inline Tailwind
+     blue (label buttons) and hardcoded terracotta (refund) on the money path. */
+  .ship-btn.secondary { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-200); text-decoration: none; display: inline-block; }
+  .ship-btn.secondary:hover { background: var(--green-100); }
+  .ship-btn.danger { background: var(--red-100); color: var(--red-500); border: 1px solid rgba(192,57,43,0.3); }
+  .ship-btn.danger:hover { background: #fbdcd8; }
+  /* Dashboard table cells — extracted from repeated inline styles. */
+  .dash-status { color: var(--gray-500); font-size: 12px; }
+  .dash-cell-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  /* Order outcome sheet (success / failure) — replaces the vanishing toast. */
+  .order-confirm-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--green-50); color: var(--green-600); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; margin: 2px auto 12px; }
+  .order-confirm-icon.fail { background: var(--red-100); color: var(--red-500); }
+  .order-confirm-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; text-align: center; color: var(--green-950); margin-bottom: 4px; }
+  .order-confirm-sub { text-align: center; font-size: 13.5px; color: var(--gray-500); margin-bottom: 14px; }
+  .order-confirm-item { display: flex; gap: 12px; align-items: center; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 10px; }
+  .order-confirm-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: var(--gray-900); padding: 8px 2px 10px; border-bottom: 1px solid var(--gray-100); margin-bottom: 2px; }
+  .order-confirm-note { font-size: 12.5px; color: var(--gray-500); text-align: center; margin: 10px 0 14px; line-height: 1.5; }
+  .order-confirm-actions { display: flex; gap: 8px; }
+  .order-confirm-actions .btn-full { margin: 0; }
   .listing-delete-btn { background: transparent; border: 1px solid var(--gray-200); color: var(--gray-500); border-radius: 8px; width: 32px; height: 32px; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: var(--transition); vertical-align: middle; }
   .listing-delete-btn:hover { background: #fff5f5; border-color: var(--red-500); color: var(--red-500); }
   .listing-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1821,11 +1852,15 @@
      keeps the same colors but flows inline in the header. */
   .cond-pill { position: absolute; top: 46px; right: 10px; z-index: 1; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 50px; letter-spacing: 0.4px; background: var(--gray-200); color: var(--gray-700); white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .cond-pill.detail { position: static; display: inline-flex; align-items: center; margin-left: 8px; vertical-align: middle; }
-  .cond-pill.cond-new       { background: #e0f5e3; color: #1e6b2f; }
-  .cond-pill.cond-likenew   { background: #d6f0ec; color: #135e54; }
-  .cond-pill.cond-good      { background: #e0ecf5; color: #1e4a6b; }
-  .cond-pill.cond-fair      { background: #fbe9c2; color: #8a5a09; }
-  .cond-pill.cond-parts     { background: #fadcd8; color: #8a1f15; }
+  /* Batch-2: tier ramp re-derived from brand tokens (was teal/steel-blue
+     one-offs). Tier stays legible via label + saturation, not foreign hues.
+     These classes style BOTH the card pills and the detail sheet (the JS
+     applies them onto .detail-condition), so one fix covers both surfaces. */
+  .cond-pill.cond-new       { background: var(--green-50); color: var(--green-700); }
+  .cond-pill.cond-likenew   { background: var(--green-100); color: var(--green-600); }
+  .cond-pill.cond-good      { background: var(--gray-100); color: var(--gray-700); }
+  .cond-pill.cond-fair      { background: var(--gold-50); color: var(--gold-700); }
+  .cond-pill.cond-parts     { background: var(--red-100); color: var(--red-500); }
   .ai-desc-spark { font-size: 13px; line-height: 1; }
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
   .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
@@ -3639,6 +3674,19 @@
 </div>
 
 <!-- SAVED SEARCHES MODAL -->
+<!-- ORDER OUTCOME SHEET (batch-2) — persistent confirmation for a completed
+     or failed purchase; replaces the 3.25s toast at the highest-anxiety
+     moment in the product. Populated by window.showOrderOutcomeSheet(). -->
+<div class="modal-backdrop info-backdrop" id="orderConfirmBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="orderConfirmHeading" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title" id="orderConfirmHeading">Order Confirmed</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="orderConfirmBody"></div>
+  </div>
+</div>
+
 <!-- TEEBOX JOURNAL (r151) — in-app index of the Reads articles. Cards
      navigate to the existing static post pages; the only new machinery is
      this overlay. Static markup: the article list changes when reads/ does. -->
@@ -3842,7 +3890,7 @@
         </select>
       </div>
       <div id="reportDetailsRow" style="margin:0.75rem 0;display:none">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Details <span id="reportDetailsRequired" style="color:#b04428;display:none">(required)</span></label>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Details <span id="reportDetailsRequired" style="color:var(--red-500);display:none">(required)</span></label>
         <textarea id="reportDetails" rows="3" maxlength="500" placeholder="Tell us a little more…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px;resize:vertical"></textarea>
       </div>
       <div class="profile-actions">
@@ -4372,7 +4420,7 @@
         <button class="dash-tab active" data-tab="active" data-action="switch-dash-tab">Active Listings</button>
         <button class="dash-tab" data-tab="sold" data-action="switch-dash-tab">Sold Items</button>
         <button class="dash-tab" data-tab="payouts" data-action="switch-dash-tab">Payouts</button>
-        <button class="dash-tab" data-tab="offers" data-action="switch-dash-tab">Offers <span id="offersBadge" style="display:none;background:var(--gold-500,#d6a900);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;margin-left:4px"></span></button>
+        <button class="dash-tab" data-tab="offers" data-action="switch-dash-tab">Offers <span id="offersBadge" style="display:none;background:var(--gold-700);color:var(--white);border-radius:9px;padding:0 6px;font-size:11px;margin-left:4px"></span></button>
       </div>
       <div id="dashTabActive">
         <div class="dash-empty">Loading your listings…</div>
@@ -5334,11 +5382,17 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
           if (!paymentIntent) return;
           const status = paymentIntent.status;
           if (status === 'succeeded') {
-            if (window.showToast) showToast('Payment successful. Your order is confirmed.', 'success');
+            // Batch-2: persistent sheet on the 3DS return too (no listing
+            // context after the redirect — amount comes from the intent).
+            if (window.showOrderOutcomeSheet) window.showOrderOutcomeSheet({ ok: true, amountCents: paymentIntent.amount });
+            else if (window.showToast) showToast('Payment successful. Your order is confirmed.', 'success');
           } else if (status === 'processing') {
             if (window.showToast) showToast('Payment is processing. We will email you when it confirms.', 'info');
           } else if (status === 'requires_payment_method') {
-            if (window.showToast) showToast('Payment was not completed. Please try a different payment method.', 'error');
+            // Batch-2: a buyer whose payment FAILED must never be left
+            // guessing from a vanished toast.
+            if (window.showOrderOutcomeSheet) window.showOrderOutcomeSheet({ ok: false });
+            else if (window.showToast) showToast('Payment was not completed. Please try a different payment method.', 'error');
           } else {
             if (window.showToast) showToast('Payment status: ' + status, 'info');
           }
@@ -5768,7 +5822,13 @@ window.confirmPayment = async function() {
         }
       } catch (_e) {}
       closeCheckoutDirect();
-      showToast('Payment successful. Your order is confirmed.', 'success');
+      // Batch-2: persistent confirmation sheet instead of a 3.25s toast —
+      // the buyer lands somewhere real with item/total/next-steps/View Order.
+      if (window.showOrderOutcomeSheet) {
+        window.showOrderOutcomeSheet({ ok: true, product: checkoutProduct, qty: Number((checkoutProduct && checkoutProduct.__qty) || 1) });
+      } else {
+        showToast('Payment successful. Your order is confirmed.', 'success');
+      }
       const detailBackdrop = document.getElementById('detailBackdrop');
       if (detailBackdrop) detailBackdrop.classList.remove('open');
       // Re-fetch from Firestore after a short delay so the webhook has a
@@ -8609,6 +8669,11 @@ window.__actions['reload-listings'] = function() {
   // r148: retry button on the feed error state. loadListings re-shows the
   // skeleton (grid is empty in the error state) and refetches.
   if (window.loadListings) { try { window.loadListings(); } catch (_e) {} }
+};
+window.__actions['view-my-orders'] = function() {
+  // Batch-2: "View Order" on the purchase-confirmation sheet.
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  if (typeof openOrders === 'function') { try { openOrders(); } catch (_e) {} }
 };
 window.__actions['open-detail-from-search'] = function(el) {
   document.getElementById('searchOverlay').classList.remove('open');
@@ -11760,8 +11825,8 @@ function renderShopTables() {
             // server-side too (returns cached:true when labelUrl exists).
             const printLabelBtn = !o.refunded && (stage === 'awaiting_seller_shipment' || !stage)
               ? (o.labelUrl
-                  ? `<a class="ship-btn" href="${escapeHtml(String(o.labelUrl))}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;background:rgba(59,130,246,0.08);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3);margin-left:6px;">View Label</a>`
-                  : `<button class="ship-btn" style="background:rgba(59,130,246,0.08);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3);margin-left:6px;" data-action="print-shipping-label" data-order-id="${escapeHtml(String(o.id))}" title="Purchase a shipping label via Shippo">Print Label</button>`)
+                  ? `<a class="ship-btn secondary" href="${escapeHtml(String(o.labelUrl))}" target="_blank" rel="noopener">View Label</a>`
+                  : `<button class="ship-btn secondary" data-action="print-shipping-label" data-order-id="${escapeHtml(String(o.id))}" title="Purchase a shipping label via Shippo">Print Label</button>`)
               : '';
             // "Refund Order" is visible to the seller only while the order is
             // pre-fulfillment-but-paid AND not already refunded. We treat any
@@ -11771,7 +11836,7 @@ function renderShopTables() {
               && o.status === 'paid'
               && (stage === 'awaiting_seller_shipment' || stage === 'shipped');
             const refundBtn = canRefund
-              ? `<button class="ship-btn" style="background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);margin-left:6px;" data-action="refund-order" data-order-id="${escapeHtml(String(o.id))}" title="Issue a full refund to the buyer">Refund Order</button>`
+              ? `<button class="ship-btn danger" data-action="refund-order" data-order-id="${escapeHtml(String(o.id))}" title="Issue a full refund to the buyer">Refund Order</button>`
               : '';
             // Buyer-side shipping address (captured at checkout via Stripe
             // AddressElement, persisted by the webhook). Print address only —
@@ -11799,8 +11864,8 @@ function renderShopTables() {
                 <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
                 <td>${shipCell}</td>
                 <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
-                <td style="color:var(--gray-500);font-size:12px">${stageLabel}</td>
-                <td>${shipBtn}${printLabelBtn}${refundBtn}</td>
+                <td class="dash-status">${stageLabel}</td>
+                <td><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${refundBtn}</div></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -13199,6 +13264,58 @@ window.deleteSavedSearch = deleteSavedSearch;
 // ─────────────────────────────────────────────────────────────
 // ORDERS — buyer-facing list with shipment + delivery actions
 // ─────────────────────────────────────────────────────────────
+// Batch-2: persistent purchase-outcome sheet. ok:true → confirmation with
+// item/total/ship-window/View-Order; ok:false → "card was not charged"
+// failure state. Called from BOTH payment paths (in-session confirmPayment
+// and the 3DS redirect return). Falls back to a toast if the DOM isn't
+// ready (the 3DS handler can theoretically resolve mid-parse).
+window.showOrderOutcomeSheet = function(opts) {
+  const o = opts || {};
+  const back = document.getElementById('orderConfirmBackdrop');
+  const body = document.getElementById('orderConfirmBody');
+  if (!back || !body) {
+    if (window.showToast) window.showToast(o.ok ? 'Payment successful. Your order is confirmed.' : 'Payment was not completed. Your card was not charged.', o.ok ? 'success' : 'error');
+    return;
+  }
+  const heading = document.getElementById('orderConfirmHeading');
+  if (heading) heading.textContent = o.ok ? 'Order Confirmed' : 'Payment Failed';
+  if (o.ok) {
+    const p = o.product || null;
+    const qty = Math.max(1, Number(o.qty || 1));
+    const total = (o.amountCents != null)
+      ? (o.amountCents / 100)
+      : (p ? Number(p.ask || 0) * qty : null);
+    const thumbUrl = p && window.variantImgUrl ? window.variantImgUrl(p, 0, 'w200') : null;
+    const thumb = thumbUrl
+      ? `<img class="order-thumb" src="${window.safeAttr(thumbUrl)}" alt="" />`
+      : `<span class="order-thumb placeholder">${p ? window.CATEGORY_ICON(p.cat) : '⛳'}</span>`;
+    const itemRow = p
+      ? `<div class="order-confirm-item">${thumb}<div class="order-title">${window.safeText(p.name || p.title || '')}${qty > 1 ? ' × ' + qty : ''}</div></div>`
+      : '';
+    body.innerHTML =
+      `<div class="order-confirm-icon" aria-hidden="true">✓</div>`+
+      `<div class="order-confirm-title">You got it.</div>`+
+      `<div class="order-confirm-sub">Your payment went through and the seller has been notified.</div>`+
+      itemRow +
+      (total != null ? `<div class="order-confirm-total"><span>Total paid</span><span>$${Number(total).toLocaleString()}</span></div>` : '') +
+      `<div class="order-confirm-note">The seller ships within 3 business days. You&rsquo;ll get an email with tracking the moment it&rsquo;s on the way.</div>`+
+      `<div class="order-confirm-actions">`+
+        `<button class="btn-full green" data-action="view-my-orders">View Order</button>`+
+        `<button class="btn-full ghost" data-action="close-info">Keep Browsing</button>`+
+      `</div>`;
+  } else {
+    body.innerHTML =
+      `<div class="order-confirm-icon fail" aria-hidden="true">!</div>`+
+      `<div class="order-confirm-title">Payment didn&rsquo;t go through</div>`+
+      `<div class="order-confirm-sub">Your card was not charged.</div>`+
+      `<div class="order-confirm-note">The listing is still available &mdash; open it again to retry with a different payment method.</div>`+
+      `<div class="order-confirm-actions">`+
+        `<button class="btn-full green" data-action="close-info">OK</button>`+
+      `</div>`;
+  }
+  back.classList.add('open');
+};
+
 async function loadBuyerOrders() {
   if (!window.CURRENT_USER) return [];
   try {
@@ -13231,6 +13348,34 @@ async function openOrders() {
     document.getElementById('ordersBody').innerHTML = '<div class="profile-loading"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No orders yet</div>When you buy a listing it shows up here with shipping status.</div>';
     return;
   }
+  // Batch-2: resolve listing titles/thumbnails so no buyer ever sees a raw
+  // Firestore id on a purchase record. PRODUCTS cache first (free), then a
+  // per-listing getDoc fallback for items that aged out of the 200-item feed
+  // cache (sold listings usually have).
+  const lmap = {};
+  const missing = [];
+  for (const o of orders) {
+    const lid = o.listingId;
+    if (!lid || lmap[lid]) continue;
+    const cached = (window.PRODUCTS || []).find(p => String(p.id) === String(lid));
+    if (cached) {
+      lmap[lid] = { title: cached.name || cached.title || '', cat: cached.cat,
+                    photo: window.variantImgUrl ? window.variantImgUrl(cached, 0, 'w200') : null };
+    } else missing.push(lid);
+  }
+  if (missing.length) {
+    try {
+      const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const db = getFirestore();
+      const fetched = await Promise.all(missing.slice(0, 30).map(async (lid) => {
+        try { const s = await getDoc(doc(db, 'listings', lid)); return s.exists() ? { lid, d: s.data() } : null; }
+        catch { return null; }
+      }));
+      for (const f of fetched) {
+        if (f) lmap[f.lid] = { title: f.d.title || '', cat: f.d.cat, photo: (Array.isArray(f.d.photos) && f.d.photos[0]) || null };
+      }
+    } catch (_e) { /* fall back to order-ref titles */ }
+  }
   document.getElementById('ordersBody').innerHTML = orders.map(o => {
     const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
     const stages = [
@@ -13240,7 +13385,9 @@ async function openOrders() {
       { key: 'reviewed',                 label: 'Reviewed' },
     ];
     const stageIdx = Math.max(0, stages.findIndex(s => s.key === stage));
-    const tracker = stages.map((s, i) => `<span class="stage ${i <= stageIdx ? 'on' : ''}">${s.label}</span>`).join(' → ');
+    // Chevron separators come from CSS (.stage + .stage::before) — never
+    // loose text nodes that wrap orphaned.
+    const tracker = stages.map((s, i) => `<span class="stage ${i <= stageIdx ? 'on' : ''}">${s.label}</span>`).join('');
     const trackingLink = trackingUrlFor(o.carrier, o.trackingNumber);
     const tracking = o.trackingNumber
       ? `<div class="order-tracking">Tracking:
@@ -13254,13 +13401,25 @@ async function openOrders() {
       ? `<button class="btn-full green" data-action="confirm-delivery" data-order-id="${window.safeAttr(window.safeId(o.id))}">Confirm Delivery</button>`
       : '';
     const reportBtn = stage !== 'reviewed'
-      ? `<button class="filter-clear" data-action="report-problem" data-order-id="${window.safeAttr(window.safeId(o.id))}">Report a problem</button>`
+      ? `<button class="btn-full ghost" data-action="report-problem" data-order-id="${window.safeAttr(window.safeId(o.id))}">Report a problem</button>`
+      : '';
+    const L = lmap[o.listingId] || {};
+    const ref = String(o.id || '').slice(0, 6).toUpperCase();
+    const thumb = L.photo
+      ? `<img class="order-thumb" src="${window.safeAttr(L.photo)}" alt="" loading="lazy" decoding="async" />`
+      : `<span class="order-thumb placeholder">${window.CATEGORY_ICON(L.cat || '')}</span>`;
+    const placed = (o.createdAt && typeof o.createdAt.toDate === 'function')
+      ? o.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : '';
     return `<div class="order-card">
-      <div class="order-head"><strong>$${Number(o.amount||0).toLocaleString()}</strong> · ${window.safeText(o.listingId || '')}</div>
+      <div class="order-top">${thumb}
+        <div class="order-title">${window.safeText(L.title || 'Order ' + ref)}</div>
+        <div class="order-price">$${Number(o.amount||0).toLocaleString()}</div>
+      </div>
+      <div class="order-meta">${placed ? 'Placed ' + placed + ' · ' : ''}Order #${ref}</div>
       <div class="order-stages">${tracker}</div>
       ${tracking}
-      <div style="display:flex;gap:8px;margin-top:8px">${deliveryBtn}${reportBtn}</div>
+      <div class="order-actions">${deliveryBtn}${reportBtn}</div>
     </div>`;
   }).join('');
 }
@@ -16123,7 +16282,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
            <button class="btn-full ghost" data-action="download-my-data" id="downloadMyDataBtn" type="button">Download my data</button>
            <div style="font-size:12px;color:var(--gray-600);line-height:1.4;text-align:center;">Get a JSON copy of all your TeeBox data (GDPR Art. 20). Large bundles may take 5–10s.</div>
          </div>
-         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(176,68,40,0.08);color:#b04428;border:1px solid rgba(176,68,40,0.3);margin-top:8px;">Delete Account</button>
+         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(192,57,43,0.08);color:var(--red-500);border:1px solid rgba(192,57,43,0.3);margin-top:8px;">Delete Account</button>
        </div>`
     : `<div class="profile-mod-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
          <button class="btn-full ghost" data-action="report-user" data-uid="${window.safeAttr(profile.id)}">Report seller</button>
@@ -16552,7 +16711,7 @@ async function openBlockedUsers() {
     body.innerHTML = rows.join('');
   } catch (e) {
     console.error('openBlockedUsers failed:', e);
-    body.innerHTML = '<div class="profile-loading" style="padding:1.5rem;color:#b04428">Could not load blocked users.</div>';
+    body.innerHTML = '<div class="profile-loading" style="padding:1.5rem;color:var(--red-500)">Could not load blocked users.</div>';
   }
 }
 window.openBlockedUsers = openBlockedUsers;
