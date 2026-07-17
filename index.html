@@ -8059,6 +8059,11 @@ window.confirmPayment = async function() {
     // this point does an empty PRODUCTS array mean a genuinely empty
     // marketplace rather than "still loading" — buildProducts keys off this.
     window.__listingsLoaded = true;
+    // r157: announce readiness for waiters (deep-link router). An EVENT
+    // instead of polling — chained setTimeout polls get intensively
+    // throttled (~1/min) in background tabs, which is exactly where a
+    // shared link often opens.
+    try { window.dispatchEvent(new Event('teebox-listings-loaded')); } catch (_e) {}
     // Auto-derive a "Hot" badge from viewCount. Don't override badges that
     // were set explicitly (e.g. 'new' for items <72h old). The threshold is
     // top-25% of view counts, gated at >= 5 views so a 1-view listing isn't
@@ -15204,19 +15209,25 @@ if (__launch || __action || __brandQ || __listingQ || __sellerQ || __sellerPath)
     if (__launch === 'inbox')     window.openInbox && window.openInbox();
     if (__launch === 'watchlist') (window.openWatchlist || openWatchlistWithDropBadges)();
     if (__listingQ) {
-      // r156: retry until the feed cache lands instead of a blind one-shot —
-      // the old 800ms timer routinely fired before listings arrived (~2s on
-      // cold load), killing deep links on exactly the cold start a shared
-      // link produces. The fetch fallback inside openDetailModal covers
-      // not-in-cache listings; this loop just prefers the free cache hit.
-      const openWhenReady = (left) => {
-        if (window.__listingsLoaded || left <= 0) {
-          window.openDetailModal && window.openDetailModal(__listingQ);
-          return;
-        }
-        setTimeout(() => openWhenReady(left - 1), 250);
+      // r156/r157: wait for the feed cache EVENT instead of the old blind
+      // 800ms timer (which fired before listings arrived ~2s on cold load,
+      // killing deep links on exactly the cold start a shared link
+      // produces). Event-driven, not a poll chain: chained setTimeout polls
+      // are throttled to ~1/min in background tabs — where shared links
+      // often open. One depth-1 hard-fallback timer (exempt from intensive
+      // throttling) covers the pathological case; the getDoc fallback
+      // inside openDetailModal covers not-in-cache listings either way.
+      let __dlDone = false;
+      const openIt = () => {
+        if (__dlDone) return;
+        __dlDone = true;
+        window.openDetailModal && window.openDetailModal(__listingQ);
       };
-      openWhenReady(24);
+      if (window.__listingsLoaded) openIt();
+      else {
+        window.addEventListener('teebox-listings-loaded', openIt, { once: true });
+        setTimeout(openIt, 8000);
+      }
     } else if (__brandQ) {
       // Brand slugs come from /brand/<slug> SEO pages — feed the slug into the
       // global search so the user lands on a pre-filtered marketplace.
