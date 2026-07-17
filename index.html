@@ -20481,9 +20481,15 @@ if (uploadZone) {
     const serif = fontsOk ? '"Playfair Display", Georgia, serif' : 'Georgia, serif';
     const sans = fontsOk ? '"DM Sans", system-ui, sans-serif' : 'system-ui, sans-serif';
     // r164: the day's logos (same shared board for everyone; names hidden).
+    // r165: courseLogoUrl fallback — dailySeed's local-catalog courses carry
+    // logoUrl:'' by design (the /assets/logos/{id}.png convention), so
+    // pre-server-sync boards rendered 9 empty URLs → all flat tiles.
     const courses = o.courses || game.courses || [];
     const logos = await Promise.all(
-      Array.from({ length: 9 }, (_, i) => storyLoadLogo(courses[i] && courses[i].logoUrl))
+      Array.from({ length: 9 }, (_, i) => {
+        const c = courses[i];
+        return storyLoadLogo(c && (c.logoUrl || courseLogoUrl(c)));
+      })
     );
 
     const cv = document.createElement('canvas');
