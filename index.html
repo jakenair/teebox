@@ -751,6 +751,9 @@
 
   /* Mobile-only top header (defaults hidden — shown by body.has-bottom-nav rule below). */
   .mobile-top-bar { display: none; }
+  /* r163: native-app search row in the cat-bar — hidden everywhere by
+     default, shown only under body.is-native at mobile widths (below). */
+  .native-cat-search { display: none; }
   .mobile-top-logo { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; line-height: 1; }
   .mobile-top-logo span { color: var(--white); }
   .mobile-top-actions { display: flex; align-items: center; gap: 8px; }
@@ -899,6 +902,23 @@
     body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + env(safe-area-inset-top) + 52px); }
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
+
+    /* r163: NATIVE APP header simplification — search-first. Gated on
+       body.is-native (Capacitor.isNativePlatform) so mobile WEB keeps the
+       pill header pixel-identical; only the installed app changes.
+       Category filtering moves to the "Browse by category" chips inside
+       the search overlay. Row 1 = full-width search, row 2 = Journal +
+       Logo Bingo. --cat-bar-h stays correct via the existing JS height
+       sync (re-kicked when is-native lands — see the Capacitor boot). */
+    /* Scoped to .cat-bar — the search overlay's chips are also
+       .cat-pill[data-cat] and must stay visible. */
+    body.is-native .cat-bar .cat-pill[data-cat] { display: none; }
+    body.is-native .cat-bar-divider { display: none; }
+    body.is-native .native-cat-search { display: block; flex: 0 0 100%; max-width: none; }
+    body.is-native .cat-pill.cat-journal,
+    body.is-native .cat-pill.cat-bingo {
+      flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
   }
 
   /* Tap polish + overscroll lockdown */
@@ -2375,6 +2395,15 @@
   .search-overlay { display: none; position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.5); align-items: flex-start; justify-content: center; padding-top: 80px; }
   .search-overlay.open { display: flex; }
   .search-box { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 620px; overflow: hidden; }
+  /* r163: "Browse by category" chips — native app only (the app header
+     drops its category pills; this is their home). The base .cat-pill is
+     styled for the dark-green bar, so recolor for the white search box. */
+  .search-cat-row { display: none; }
+  body.is-native .search-cat-row { display: block; padding: 10px 14px 2px; }
+  .search-cat-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px; }
+  .search-cat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .search-cat-pills .cat-pill { background: var(--gray-100); border-color: var(--gray-200); color: var(--gray-700); }
+  .search-cat-pills .cat-pill.active { background: var(--green-700); border-color: var(--green-700); color: var(--white); }
   .search-box-input { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); }
   .search-box-input span { font-size: 18px; color: var(--gray-400); }
   .search-box-input input { flex: 1; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--gray-900); }
@@ -4836,6 +4865,12 @@
 <!-- CAT BAR -->
 <div class="cat-bar-wrap" id="catBarWrap">
   <div class="cat-bar" id="catBar">
+    <!-- r163: NATIVE APP ONLY (body.is-native) — search-first header row.
+         Hidden on web/desktop, where the desktop nav already has search. -->
+    <div class="nav-search native-cat-search">
+      <span class="nav-search-icon"></span>
+      <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
+    </div>
     <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
@@ -4873,6 +4908,9 @@
       document.body.style.setProperty('--cat-bar-h', wrap.offsetHeight + 'px');
     }
     function refresh() { updateFades(); syncBarHeight(); }
+    // r163: the Capacitor boot re-calls this after body.is-native lands
+    // (that class swaps the bar's contents, changing its height).
+    window.__syncCatBar = refresh;
     bar.addEventListener('scroll', updateFades, { passive: true });
     window.addEventListener('resize', refresh);
     if (window.visualViewport) window.visualViewport.addEventListener('resize', syncBarHeight);
@@ -5220,6 +5258,21 @@
 <div class="search-overlay" id="searchOverlay" data-close-on-backdrop="close-search">
   <div class="search-box">
     <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" placeholder="Search clubs, apparel, accessories…" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
+    <!-- r163: NATIVE APP ONLY (body.is-native) — the header's category pills
+         live here in the app. Tap = filter the feed + dismiss the overlay. -->
+    <div class="search-cat-row" aria-label="Browse by category">
+      <span class="search-cat-label">Browse by category</span>
+      <div class="search-cat-pills">
+        <button class="cat-pill active" data-action="search-cat" data-cat="all" type="button">All</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="shoes" type="button">Shoes</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="clubs" type="button">Clubs</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="apparel" type="button">Apparel</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="accessories" type="button">Accessories</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="bags" type="button">Bags</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="balls" type="button">Balls</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="headcovers" type="button">Headcovers</button>
+      </div>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:6px;margin:6px 4px 0">
       <button class="filter-clear" id="searchSaveBtn" type="button" data-action="open-save-search-name">Save this search</button>
     </div>
@@ -6534,7 +6587,13 @@ window.confirmPayment = async function() {
   // ──────────────────────────────────────────────────────────
   const Cap = (typeof window !== 'undefined') ? window.Capacitor : null;
   const IS_NATIVE = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
-  if (IS_NATIVE && document.body) document.body.classList.add('is-native');
+  if (IS_NATIVE && document.body) {
+    document.body.classList.add('is-native');
+    // r163: is-native reshapes the cat-bar (pills → search row + 2 pills),
+    // so re-measure --cat-bar-h — this module runs after the bar's initial
+    // height sync.
+    if (window.__syncCatBar) window.__syncCatBar();
+  }
   const FBAuthPlugin = (Cap && Cap.Plugins) ? Cap.Plugins.FirebaseAuthentication : null;
   // Mirror onto window so the action handlers in the sibling <script> tag
   // (this file's auth code lives in <script type="module">, which is its
@@ -9578,15 +9637,14 @@ function buildDrops() {
 
 function filterCat(el,cat) {
   document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
-  // If the trigger is a cat-pill button, mark it active. Otherwise (e.g.
-  // footer category link), mark the matching pill so the toolbar reflects
-  // the current filter.
+  // Mark every pill for this category active — the cat-bar pill and the
+  // search-overlay chip (r163) both carry data-cat, and whichever surface
+  // is visible should reflect the current filter regardless of which one
+  // (or a footer link) triggered it.
   if (el && el.classList && el.classList.contains('cat-pill')) {
     el.classList.add('active');
-  } else {
-    const match = document.querySelector('.cat-pill[data-cat="' + cat + '"]');
-    if (match) match.classList.add('active');
   }
+  document.querySelectorAll('.cat-pill[data-cat="' + cat + '"]').forEach(p => p.classList.add('active'));
   buildProducts(cat);
 }
 
@@ -18277,6 +18335,13 @@ A['filter-cat']              = (el, ev) => {
   }
 };
 A['close-detail-direct']     = () => closeDetailModalDirect();
+// r163: category chip inside the search overlay (native app). Filter the
+// feed, then dismiss via the close-search ACTION (not a raw classList
+// remove) so the r156 overlay-history wrapper consumes its history entry.
+A['search-cat']              = (el) => {
+  filterCat(el, el.dataset.cat);
+  if (A['close-search']) A['close-search']();
+};
 
 // ─────────────────────────────────────────────────────────────
 // r156: OVERLAY HISTORY (heuristic #2) — browser Back closes the top
@@ -18476,9 +18541,9 @@ document.querySelectorAll('.feat-img.placeholder-art:empty').forEach((el, i) => 
   el.innerHTML = window.CATEGORY_ICON(['clubs','apparel','accessories'][i] || 'clubs');
 });
 
-// Nav magnifying-glass + bell glyphs.
-const navSearch = document.getElementById('navSearchIcon');
-if (navSearch) navSearch.innerHTML = window.ICONS.search;
+// Nav magnifying-glass + bell glyphs. querySelectorAll so the r163
+// native-app search row's icon gets the same glyph as the desktop nav's.
+document.querySelectorAll('.nav-search-icon').forEach(el => { el.innerHTML = window.ICONS.search; });
 const navInbox = document.getElementById('navInboxIcon');
 if (navInbox) navInbox.innerHTML = window.ICONS.message;
 
