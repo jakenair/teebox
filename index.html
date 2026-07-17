@@ -4901,7 +4901,7 @@
           <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
           <button class="btn-outline" data-action="handle-sell">Start Selling</button>
         </div>
-        <p class="hero-fee-proof"><span class="hero-fee-icon" data-ico="check" aria-hidden="true"></span>Keep more of your sale — eBay takes ~13%, TeeBox takes 6.5%.</p>
+        <p class="hero-fee-proof"><span class="hero-fee-icon" data-ico="check" aria-hidden="true"></span>Keep more of your sale — 6.5% fee, shipping label included. eBay takes ~13% and you buy the label.</p>
       </div>
       <div class="hero-featured" id="heroFeatured">
         <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
@@ -12766,7 +12766,15 @@ function openSellModal() {
             (window.CURRENT_PROFILE._user && window.CURRENT_PROFILE._user.isPro)));
           const feePct = isPro ? 3 : 6.5;
           const net = v * (1 - feePct / 100);
-          th.textContent = `You'll receive ≈$${net.toFixed(2)} after the ${feePct}% TeeBox fee`;
+          // r162: the honest pitch with live dollars. Take-home math is
+          // untouched (seller nets ask − fee, full stop — TeeBox covers the
+          // shipping label as a deliberate launch subsidy, Jake-ruled). The
+          // eBay line uses the ~13% figure the hero already claims; eBay
+          // sellers also buy their own label, hence 'before shipping'.
+          const ebayNet = v * (1 - 13 / 100);
+          th.innerHTML =
+            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong> &mdash; ${feePct}% fee, shipping label on us.` +
+            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label): &asymp;$${ebayNet.toFixed(2)} before shipping.</span>`;
           th.style.display = '';
         } else {
           th.style.display = 'none';
