@@ -1717,9 +1717,9 @@
      does not compete with the gold primary. */
   .btn-outline { background: rgba(255,255,255,0.06); color: var(--white); border: 1.5px solid rgba(255,255,255,0.55); border-radius: 50px; padding: 12px 26px; font-family: var(--font-body); font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); }
   .btn-outline:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); }
-  /* Hero stats — second-tier display, sized as part of the hero unit
-     (not subordinate footnote). Bumped 2026-06-05 audit follow-up:
-     1.8rem flat → clamp(1.9rem, 2.5vw{ display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+  /* r153: the r149 orphan-CSS removal (.hero-stats) mangled this comment —
+     the dangling text swallowed the 10 rules below (unstyled hero widget in
+     prod). Comment closed, orphan rule-body remnant removed. */
   .hero-featured { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
   .feat-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.25rem; cursor: pointer; transition: var(--transition); }
   .feat-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-3px); border-color: rgba(224,184,64,0.3); }
