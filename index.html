@@ -5645,12 +5645,16 @@ window.openCheckout = async function(productId, qty, opts) {
   const sellerEl = document.getElementById('checkoutSeller');
   const renderCheckoutSeller = (prof) => {
     if (!prof) return;
-    const verified = !!(prof._user && prof._user.sellerVerified);
+    // r161: the badge means Stripe KYC now — rendered only when the public
+    // chargesReady mirror is true, so the tooltip claim is strictly TRUE.
+    // (The old criterion, sellerVerified, is set by agreeing to the seller
+    // ToS — under-claiming beats claiming verification we didn't do.)
+    const verified = prof.chargesReady === true;
     const name = prof.displayName || 'a TeeBox member';
     sellerEl.innerHTML =
       'Sold by <span style="color:var(--gray-700);font-weight:600;">' +
       window.safeText(name) + '</span>' +
-      (verified ? ' <span class="verified-pill sm" title="Verified seller">Verified</span>' : '');
+      (verified ? ' <span class="verified-pill sm" title="Completed Stripe identity &amp; payout verification">Verified</span>' : '');
   };
   let _cachedSeller = null;
   try {
@@ -9213,10 +9217,12 @@ async function hydrateVerifiedSellerPills(rootEl) {
   const tasks = Array.from(bySeller.keys()).map(async sid => {
     try {
       const prof = await loadProfile(sid);
-      const verified = !!(prof && prof._user && prof._user.sellerVerified);
+      // r161: badge = Stripe KYC (public chargesReady mirror), never the
+      // ToS-agreement placeholder — the tooltip claim must be strictly true.
+      const verified = !!(prof && prof.chargesReady === true);
       if (!verified) return;
       bySeller.get(sid).forEach(slot => {
-        slot.innerHTML = ' <span class="verified-pill sm" title="Verified seller">Verified</span>';
+        slot.innerHTML = ' <span class="verified-pill sm" title="Completed Stripe identity &amp; payout verification">Verified</span>';
         // Feature #3: tag the parent product card so the gold ribbon CSS
         // kicks in. Walk up to the closest .product-card — the slot lives
         // inside .product-brand inside .product-body inside .product-card.
