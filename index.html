@@ -14999,7 +14999,15 @@ if ('serviceWorker' in navigator) {
     }
   } else {
     let __swReloading = false;
+    // r158: only reload on a genuine SW UPDATE (old controller → new). On a
+    // FIRST install there is no stale bundle to refresh — and the reload was
+    // silently killing every first-visit deep link: the ?listing= router
+    // strips the param at ~1.5s, the fresh SW claims the page at ~2s,
+    // controllerchange reloaded the now-bare '/', and the shared listing
+    // never opened. First-time visitors are exactly who shared links reach.
+    const __swHadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!__swHadController) return; // first install — nothing stale, no reload
       if (__swReloading) return;
       __swReloading = true;
       window.location.reload();
