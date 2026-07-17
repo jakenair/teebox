@@ -20360,9 +20360,15 @@ if (uploadZone) {
 
   // ── IG Story share image ────────────────────────────────────────────────
   // Renders the day's result as a branded 1080x1920 PNG entirely client-side.
-  // SPOILER-FREE by design: colored tiles only, never the day's logos/answers
-  // (a story that shows answers kills the viewer's reason to play — and keeps
-  // third-party club marks out of what is effectively a marketing asset).
+  // r164: shows the day's REAL logos (names hidden) — the board is the same
+  // /dailyPuzzles doc for every player, so logos-without-names leak zero
+  // answers and turn the story into "here's today's puzzle, beat me."
+  // Result state rides a ring + corner badge (green check / gold dash /
+  // hollow dot), never the tile fill, so the logos stay legible. Trademark
+  // posture ruled by Jake 2026-07-17: same marks the game already shows,
+  // editorial/UGC-flavored; any club that objects gets its logo swapped for
+  // a neutral tile. If a logo fails to load, that tile falls back to the
+  // pre-r164 flat colored tile — the share never blocks on a fetch.
   // No PII: score/points/streak/date only. Safe zones: IG overlays the
   // profile chip (~top 250px) and reply bar (~bottom 250px) — all content
   // stays inside y 250..1670.
@@ -20405,6 +20411,63 @@ if (uploadZone) {
     x.arcTo(rx, ry, rx + w, ry, r);
     x.closePath();
   }
+  // r164: knock near-white logo backgrounds to transparent so hard-white
+  // PNGs sit clean on the warm-white tile. Render-time only — the shared
+  // /assets/logos sources stay untouched, and future days' white-background
+  // logos get the same cleanup for free. A tainted canvas (no CORS) keeps
+  // the opaque original rather than failing.
+  function storyKnockoutWhite(img) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    try {
+      const d = g.getImageData(0, 0, c.width, c.height);
+      const px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i] > 246 && px[i + 1] > 246 && px[i + 2] > 246) px[i + 3] = 0;
+      }
+      g.putImageData(d, 0, 0);
+    } catch (_e) {}
+    return c;
+  }
+  // Load one logo for the story render: CORS-clean, white knocked out,
+  // cached per URL, and never slower than ~4s/attempt — null means "use
+  // the flat fallback tile", so a dead fetch can't block the share sheet.
+  // teeboxmarket.com URLs are tried as SAME-ORIGIN relative paths first:
+  // the CSP img-src has no teeboxmarket.com entry (it doesn't need one on
+  // the web, where 'self' covers it), so inside the Capacitor app
+  // (origin capacitor://localhost) the absolute URL is CSP-blocked — but
+  // the same logos ship in the app bundle at the same /assets/logos path.
+  const __storyLogoCache = new Map();
+  function storyLoadLogoOnce(src) {
+    return Promise.race([
+      new Promise((res) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => res(im);
+        im.onerror = () => res(null);
+        im.src = src;
+      }),
+      new Promise((res) => setTimeout(() => res(null), 4000)),
+    ]);
+  }
+  async function storyLoadLogo(url) {
+    if (!url) return null;
+    if (__storyLogoCache.has(url)) return __storyLogoCache.get(url);
+    const m = url.match(/^https:\/\/(?:www\.)?teeboxmarket\.com(\/.+)$/);
+    const candidates = m ? [m[1], url] : [url];
+    for (const src of candidates) {
+      const im = await storyLoadLogoOnce(src);
+      if (im) {
+        const c = storyKnockoutWhite(im);
+        __storyLogoCache.set(url, c);
+        return c;
+      }
+    }
+    return null;
+  }
   async function renderStoryImage(overrides) {
     const o = overrides || {};
     const cells = o.cells || game.cells || [];
@@ -20417,6 +20480,11 @@ if (uploadZone) {
     const fontsOk = await ensureStoryFonts();
     const serif = fontsOk ? '"Playfair Display", Georgia, serif' : 'Georgia, serif';
     const sans = fontsOk ? '"DM Sans", system-ui, sans-serif' : 'system-ui, sans-serif';
+    // r164: the day's logos (same shared board for everyone; names hidden).
+    const courses = o.courses || game.courses || [];
+    const logos = await Promise.all(
+      Array.from({ length: 9 }, (_, i) => storyLoadLogo(courses[i] && courses[i].logoUrl))
+    );
 
     const cv = document.createElement('canvas');
     cv.width = STORY.W; cv.height = STORY.H;
@@ -20456,20 +20524,62 @@ if (uploadZone) {
     if ('letterSpacing' in x) x.letterSpacing = '0px';
 
     // 3x3 result grid — 216px tiles, 24px gap, centered; y 680..1376.
+    // r164: logo tiles (near-white, matching the game board's cell gradient)
+    // with a result ring + corner badge. Flat colored tile = fallback when
+    // a logo didn't load.
     const T = 216, GAP = 24, X0 = (STORY.W - (3 * T + 2 * GAP)) / 2, Y0 = 680;
     const tiles = [];
     for (let i = 0; i < 9; i++) {
       const kind = storyTileFor(cells[i]);
       tiles.push(kind);
       const tx = X0 + (i % 3) * (T + GAP), ty = Y0 + Math.floor(i / 3) * (T + GAP);
-      x.fillStyle = kind === 'green' ? STORY.tileGreen : kind === 'gold' ? STORY.gold : STORY.tileDark;
+      const logo = logos[i];
+      if (!logo) {
+        // Pre-r164 flat tile — logo unavailable.
+        x.fillStyle = kind === 'green' ? STORY.tileGreen : kind === 'gold' ? STORY.gold : STORY.tileDark;
+        storyRoundRect(x, tx, ty, T, T, 26); x.fill();
+        const hg = x.createLinearGradient(0, ty, 0, ty + T * 0.45);
+        hg.addColorStop(0, 'rgba(255,255,255,0.16)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = hg; storyRoundRect(x, tx, ty, T, T, 26); x.fill();
+        x.strokeStyle = kind === 'dark' ? STORY.tileBorder : 'rgba(0,0,0,0.18)';
+        x.lineWidth = 2; storyRoundRect(x, tx + 1, ty + 1, T - 2, T - 2, 25); x.stroke();
+        continue;
+      }
+      // Near-white tile matching .bingo-cell (#ffffff -> #fbf7ee).
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.28)'; x.shadowBlur = 18; x.shadowOffsetY = 6;
+      const tg = x.createLinearGradient(tx, ty, tx + T, ty + T);
+      tg.addColorStop(0, '#ffffff'); tg.addColorStop(1, '#fbf7ee');
+      x.fillStyle = tg;
       storyRoundRect(x, tx, ty, T, T, 26); x.fill();
-      // Soft top highlight for depth (premium, not flat).
-      const hg = x.createLinearGradient(0, ty, 0, ty + T * 0.45);
-      hg.addColorStop(0, 'rgba(255,255,255,0.16)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = hg; storyRoundRect(x, tx, ty, T, T, 26); x.fill();
-      x.strokeStyle = kind === 'dark' ? STORY.tileBorder : 'rgba(0,0,0,0.18)';
-      x.lineWidth = 2; storyRoundRect(x, tx + 1, ty + 1, T - 2, T - 2, 25); x.stroke();
+      x.restore();
+      // Logo centered, aspect preserved, 26px inset. Names never drawn.
+      const box = T - 52;
+      const s = Math.min(box / logo.width, box / logo.height);
+      const dw = logo.width * s, dh = logo.height * s;
+      x.drawImage(logo, tx + (T - dw) / 2, ty + (T - dh) / 2, dw, dh);
+      // Result ring: green = got it, gold = guessed & missed, faint = skipped.
+      const ringColor = kind === 'green' ? STORY.tileGreen
+                      : kind === 'gold'  ? STORY.gold
+                      : 'rgba(12,32,21,0.22)';
+      x.strokeStyle = ringColor; x.lineWidth = kind === 'dark' ? 3 : 5;
+      storyRoundRect(x, tx + 2.5, ty + 2.5, T - 5, T - 5, 24); x.stroke();
+      // Corner badge (top-right): white check / gold dash / hollow dot —
+      // result texture with zero answer leakage.
+      const dx = tx + T - 26, dy = ty + 26;
+      if (kind === 'green' || kind === 'gold') {
+        x.fillStyle = ringColor;
+        x.beginPath(); x.arc(dx, dy, 15, 0, Math.PI * 2); x.fill();
+        x.strokeStyle = 'rgba(255,255,255,0.85)'; x.lineWidth = 3.5;
+        if (kind === 'green') {
+          x.beginPath(); x.moveTo(dx - 6.5, dy + 0.5); x.lineTo(dx - 2, dy + 5.5); x.lineTo(dx + 7, dy - 5); x.stroke();
+        } else {
+          x.beginPath(); x.moveTo(dx - 6, dy); x.lineTo(dx + 6, dy); x.stroke();
+        }
+      } else {
+        x.strokeStyle = 'rgba(12,32,21,0.35)'; x.lineWidth = 3;
+        x.beginPath(); x.arc(dx, dy, 13, 0, Math.PI * 2); x.stroke();
+      }
     }
 
     // Score. The perfect-round variant runs a slightly smaller numeral so its
