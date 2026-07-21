@@ -1339,6 +1339,18 @@
   .auth-mode-btn.active { background: var(--white); color: var(--green-700); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
   .email-input { letter-spacing: 0; text-align: left; }
   .auth-link { background: none; border: none; color: var(--green-600); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; margin-top: 2px; font-family: var(--font-body); }
+  /* r170: display-name gate modal (requireDisplayName). z-index above the
+     chat modal (250) so the gate can open over an in-progress thread. */
+  #nameGateBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
+  #nameGateBackdrop.open { display: flex; }
+  .name-gate-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 420px; width: 100%; padding: 28px 24px 20px; box-shadow: var(--shadow-hover); text-align: center; animation: slideUp 0.24s cubic-bezier(.4,0,.2,1); }
+  .name-gate-title { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: var(--green-900); margin-bottom: 8px; }
+  .name-gate-sub { font-size: 14px; color: var(--gray-600); line-height: 1.5; margin-bottom: 16px; }
+  .name-gate-error { color: #b3261e; font-size: 12.5px; min-height: 16px; margin: 4px 0 6px; }
+  /* r170: dismissible profile-photo nudge banner (profile editor). */
+  .photo-nudge-banner { display: flex; align-items: center; gap: 10px; background: var(--green-50); border: 1px solid var(--green-200); color: var(--green-800); font-size: 13px; line-height: 1.45; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; text-align: left; }
+  .photo-nudge-banner span { flex: 1; }
+  .photo-nudge-dismiss { background: none; border: none; color: var(--green-700); font-size: 16px; cursor: pointer; padding: 0 4px; flex-shrink: 0; }
   /* Ghost/outline "Continue as guest" CTA on the auth screen — gives
      unsigned visitors an explicit way to dismiss the auth gate and
      browse the marketplace read-only. requireAuth() will surface the
@@ -3538,6 +3550,9 @@
       </div>
       <div class="auth-title" id="emailTitle">Sign in to TeeBox</div>
       <div class="auth-desc" id="emailDesc">Enter your email and password to continue.</div>
+      <!-- r170: name is required at signup — every TeeBox account has a
+           display name. Hidden in sign-in mode (applyEmailMode toggles). -->
+      <input class="auth-input email-input" type="text" id="nameSignupInput" placeholder="Your name" autocomplete="name" maxlength="60" style="display:none" />
       <input class="auth-input email-input" type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <input class="auth-input email-input" type="password" id="passwordInput" placeholder="Password (8+ characters)" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <!-- GDPR marketing-consent checkbox. Hidden on sign-in; shown on
@@ -4551,6 +4566,28 @@
     </div>
     <div class="inbox-body" id="inboxBody">
       <div class="inbox-empty" aria-busy="true"><div class="sk sk-line long"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>
+    </div>
+  </div>
+</div>
+<!-- NAME GATE (r170): one-field "add your name" prompt + optional photo
+     nudge. Opened by requireDisplayName() before message-send / chat-open /
+     listing publish when the account has no display name. NEVER gates
+     browsing; dismissing simply abandons the gated action. -->
+<div id="nameGateBackdrop" data-close-on-backdrop="dismiss-name-gate">
+  <div class="name-gate-modal" role="dialog" aria-modal="true" aria-labelledby="nameGateTitle">
+    <div id="nameGateStep1">
+      <div class="name-gate-title" id="nameGateTitle">Add your name</div>
+      <p class="name-gate-sub" id="nameGateReason">TeeBox is golfer-to-golfer — people like to know who they&rsquo;re dealing with. Add your name to continue.</p>
+      <input class="auth-input" id="nameGateInput" type="text" maxlength="60" placeholder="Your name" autocomplete="name" />
+      <div class="name-gate-error" id="nameGateError"></div>
+      <button class="auth-btn" id="nameGateSaveBtn" data-action="save-name-gate">Save &amp; continue</button>
+      <button type="button" class="auth-link" data-action="dismiss-name-gate">Not now</button>
+    </div>
+    <div id="nameGateStep2" style="display:none">
+      <div class="name-gate-title">Thanks, <span id="nameGateFirst"></span>!</div>
+      <p class="name-gate-sub">Want to add a profile photo too? Buyers and sellers are more likely to deal with a face they can see. Totally optional — you can always do it later from your profile.</p>
+      <button class="auth-btn" data-action="name-gate-add-photo">Add a photo</button>
+      <button type="button" class="auth-link" data-action="name-gate-continue">Maybe later</button>
     </div>
   </div>
 </div>
@@ -5971,7 +6008,7 @@ window.confirmPayment = async function() {
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
   // Resend from `noreply@mail.teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
-  import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence, updateProfile as fbUpdateProfile } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -6368,6 +6405,7 @@ window.confirmPayment = async function() {
       badge.setAttribute('title', 'Open account menu');
       badge.setAttribute('aria-label', `Open account menu for ${labelText}`);
       await checkSellerStatus(user.uid);
+      resolveDisplayName(user); // fire-and-forget: r170 name resolution + seeding
       preloadOwnAvatar(user.uid); // fire-and-forget: cache-warm own avatar
       // checkSellerStatus also stamps window.CURRENT_PROFILE_NAME if the
       // Firestore profile has a displayName — refresh the badge from there.
@@ -6505,6 +6543,7 @@ window.confirmPayment = async function() {
       // the previous user's hearted listings. Firestore is the source of
       // truth — hydrateWatchlist() rebuilds it on the next sign-in.
       try { if (typeof fav !== 'undefined' && fav && fav.clear) fav.clear(); } catch (_) {}
+      window.CURRENT_DISPLAY_NAME = ''; // r170: reset the name-gate state
       // Guests get the live marketplace too. listings rules allow anonymous
       // read (allow read: if true), so loadListings() fetches real listings,
       // filters expired/photoless, appends DEFAULT_PRODUCTS as a teaser for
@@ -6513,6 +6552,45 @@ window.confirmPayment = async function() {
       loadListings();
     }
   });
+
+  // r170: canonical display-name resolution + one-time seeding.
+  // profiles/{uid}.displayName is what every render surface reads (chat,
+  // listings, orders), but before r170 no signup path ever wrote it — OAuth
+  // names lived only on the Auth user, and email signups collected no name.
+  // At sign-in: prefer the profile name; when the profile is nameless but
+  // the Auth user has a name (Google/Apple), seed it — profile CREATE may
+  // include displayName directly (rules whitelist); an EXISTING nameless doc
+  // must go through the updateProfile callable (displayName is callable-only
+  // on update). Stamps window.CURRENT_DISPLAY_NAME for requireDisplayName().
+  // Best-effort: a failed seed still stamps the Auth name so the gate never
+  // nags a user who demonstrably has one.
+  async function resolveDisplayName(user) {
+    try {
+      let profExists = false; let profName = ''; let bio = ''; let location = '';
+      try {
+        const snap = await getDoc(doc(db, 'profiles', user.uid));
+        if (snap.exists()) {
+          profExists = true;
+          const d = snap.data() || {};
+          profName = (d.displayName || '').trim();
+          bio = d.bio || '';
+          location = d.location || '';
+        }
+      } catch (_e) {}
+      if (profName) { window.CURRENT_DISPLAY_NAME = profName; return; }
+      const authName = (user.displayName || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      window.CURRENT_DISPLAY_NAME = authName;
+      if (!authName) return;
+      if (!profExists) {
+        await setDoc(doc(db, 'profiles', user.uid), { displayName: authName }, { merge: true });
+      } else {
+        // The deployed updateProfile callable overwrites absent content
+        // fields with '' — send current bio/location alongside the name so
+        // this seed can't blank them.
+        await httpsCallable(fns, 'updateProfile')({ displayName: authName, bio, location });
+      }
+    } catch (e) { console.warn('displayName resolve/seed failed:', e && e.code || e); }
+  }
 
   // Perf: warm the signed-in user's OWN avatar into the browser/WKWebView image
   // cache at sign-in, so opening their profile later is instant (no lazy fetch
@@ -6732,6 +6810,12 @@ window.confirmPayment = async function() {
     const mktInput = document.getElementById('marketingConsentInput');
     if (mkt) mkt.classList.toggle('show', !isSignIn);
     if (mktInput && isSignIn) mktInput.checked = false;
+    // r170: the required name field is sign-up only.
+    const nameInput = document.getElementById('nameSignupInput');
+    if (nameInput) {
+      nameInput.style.display = isSignIn ? 'none' : '';
+      if (isSignIn) nameInput.value = '';
+    }
   }
   window.setEmailMode = function(mode) {
     if (mode !== 'signin' && mode !== 'signup') return;
@@ -6749,6 +6833,14 @@ window.confirmPayment = async function() {
     const pw = document.getElementById('passwordInput').value;
     const err = document.getElementById('authErrorEmail');
     const btn = document.getElementById('emailSubmitBtn');
+    // r170: name is required to create an account (sign-in unaffected).
+    const nameEl = document.getElementById('nameSignupInput');
+    const signupName = nameEl ? nameEl.value.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    if (emailMode === 'signup' && signupName.length < 2) {
+      err.textContent = 'Please enter your name.';
+      if (nameEl) nameEl.focus();
+      return;
+    }
     if (!EMAIL_RE.test(email)) {
       err.textContent = 'Enter a valid email address.';
       return;
@@ -6797,9 +6889,19 @@ window.confirmPayment = async function() {
         // only [phone, termsAgreed, termsAgreedAt, displayName, watchlist,
         // blocked] are accepted at create time. Anything else (including
         // `email`, `createdAt`, `isVerifiedSeller`) is rejected by rules.
+        // r170: stamp the signup name everywhere it's read — Firebase Auth
+        // (badge/OAuth-parity), users/{uid} (checkSellerStatus), and
+        // profiles/{uid} (the public doc every render site reads). Profile
+        // create-with-displayName is allowed by rules; content moderation
+        // is covered by the moderateProfileOnCreate trigger.
+        try { await fbUpdateProfile(cred.user, { displayName: signupName }); } catch (_e) {}
         try {
-          await setDoc(doc(db, 'users', cred.user.uid), { displayName: '' }, { merge: true });
+          await setDoc(doc(db, 'users', cred.user.uid), { displayName: signupName }, { merge: true });
         } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
+        try {
+          await setDoc(doc(db, 'profiles', cred.user.uid), { displayName: signupName }, { merge: true });
+        } catch (e) { console.warn('profiles doc seed failed:', e && e.code || e); }
+        window.CURRENT_DISPLAY_NAME = signupName;
         // GDPR: record the marketing-consent decision via the callable.
         // The callable (server-side) writes the audit trail to
         // users/{uid}.marketingConsent and cascades emailPrefs.* on opt-in.
@@ -8278,6 +8380,10 @@ window.confirmPayment = async function() {
     // blocked on a payout-setup re-check (matches the documented
     // "Edit path is not gated" decision below).
     if (window.__editingListingId) { return saveListingEdit(); }
+    // r170: a display name is required to PUBLISH a new listing (edits above
+    // are not gated, same principle as the Stripe gate). The sell form keeps
+    // its state while the modal is up, so the replay just re-submits.
+    if (window.requireDisplayName && !window.requireDisplayName('to publish a listing', () => window.submitListing())) return;
     // ─────────────────────────────────────────────────────────────
     // LIST-FIRST (2026-06): publishing NO LONGER requires Stripe Connect to be
     // complete. The listing goes live immediately and renders as "finalizing
@@ -10238,6 +10344,8 @@ async function openChatForListing(listingId) {
     showToast('Please sign in to message the seller.');
     return;
   }
+  // r170: name gate before a thread is opened/created — replay reopens it.
+  if (window.requireDisplayName && !window.requireDisplayName('to message the seller', () => openChatForListing(listingId))) return;
 
   // Get the listing — check Firestore first, fall back to hardcoded products
   let listing = null;
@@ -10645,6 +10753,9 @@ async function sendMessage() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || !currentChat.conversationId) return;
+  // r170: a display name is required to message. The typed text stays in the
+  // input (nothing cleared before this point), so the replay resends it.
+  if (window.requireDisplayName && !window.requireDisplayName('to send messages', () => sendMessage())) return;
 
   // Off-platform detection: HARD severity (phone/email/payment app) prompts
   // the sender to reconsider before the doc is written. Authoritative
@@ -17103,7 +17214,15 @@ async function renderProfileEditor() {
   if (!window.CURRENT_USER) return;
   const profile = await loadProfile(window.CURRENT_USER.uid) || {};
   document.getElementById('profileModalTitle').textContent = 'Edit Profile';
+  // r170: dismissible photo nudge — trust framing, purely optional, shown
+  // only while the profile has no photo and the user hasn't dismissed it.
+  const _photoNudge = (!profile.avatarUrl && (() => {
+    try { return !localStorage.getItem('teebox.photoNudgeDismissed.' + window.CURRENT_USER.uid); } catch (_e) { return true; }
+  })())
+    ? `<div class="photo-nudge-banner" id="photoNudgeBanner"><span>Add a profile photo — buyers and sellers are more likely to deal with a face they can see.</span><button type="button" class="photo-nudge-dismiss" data-action="dismiss-photo-nudge" aria-label="Dismiss">×</button></div>`
+    : '';
   document.getElementById('profileBody').innerHTML = `
+    ${_photoNudge}
     <div class="profile-header">
       <div class="profile-avatar" id="editAvatarPreview">${avatarHtml(profile)}</div>
       <div>
@@ -17169,6 +17288,16 @@ async function onAvatarFile(ev) {
 
 async function saveProfileEdits() {
   if (!window.CURRENT_USER) return;
+  // r170: a display name can't be blanked out. Mirrors the server-side
+  // reject in the updateProfile callable; validating here keeps the
+  // message friendly and the form state intact.
+  const _nameVal = document.getElementById('editDisplayName').value.replace(/\s+/g, ' ').trim();
+  if (_nameVal.length < 2) {
+    showToast('Please enter a display name (at least 2 characters).');
+    const _ne = document.getElementById('editDisplayName');
+    if (_ne) _ne.focus();
+    return;
+  }
   const btn = document.getElementById('saveProfileBtn');
   btn.disabled = true;
   btn.textContent = 'Saving…';
@@ -17235,6 +17364,13 @@ async function saveProfileEdits() {
 
     PROFILE_CACHE.delete(uid);
     pendingAvatarFile = null;
+    // r170: keep the name-gate state in sync so the gate never re-fires
+    // after a successful save (and the avatar flag skips the photo nudge).
+    if (updates.displayName) {
+      window.CURRENT_DISPLAY_NAME = updates.displayName;
+      window.CURRENT_PROFILE_NAME = updates.displayName;
+    }
+    if (updates.avatarUrl) window.CURRENT_PROFILE_AVATAR = updates.avatarUrl;
     // Fire a one-time welcome toast the first time a user gives themselves
     // a real displayName. Keyed per-uid so it never re-fires after profile
     // edits, and never fires if they skip naming themselves.
@@ -17325,6 +17461,105 @@ window.requireAuth = function requireAuth(reason, intent) {
   showSignInPrompt(reason || '', typeof intent === 'function' ? intent : null);
   return false;
 };
+
+// ── Display-name gate (r170) ──────────────────────────────
+// Mirrors requireAuth's contract: returns true to proceed; otherwise opens
+// the "Add your name" modal, stashes the intent for replay after a
+// successful save, and returns false. Gates user-to-user ACTIONS only
+// (message send, chat open, listing publish) — browsing is NEVER gated.
+// Passes on either the resolved profile name (CURRENT_DISPLAY_NAME, stamped
+// at sign-in by resolveDisplayName) or the Auth displayName, so it can't
+// misfire during the brief post-sign-in resolution window.
+window.__pendingNameIntent = null;
+window.requireDisplayName = function requireDisplayName(reason, intent) {
+  if (!window.CURRENT_USER) return true; // signed-out is requireAuth's job
+  if ((window.CURRENT_DISPLAY_NAME || '').trim()) return true;
+  if ((window.CURRENT_USER.displayName || '').trim()) return true;
+  window.__pendingNameIntent = (typeof intent === 'function') ? intent : null;
+  const err = document.getElementById('nameGateError');
+  if (err) err.textContent = '';
+  const s1 = document.getElementById('nameGateStep1');
+  const s2 = document.getElementById('nameGateStep2');
+  if (s1) s1.style.display = '';
+  if (s2) s2.style.display = 'none';
+  const bd = document.getElementById('nameGateBackdrop');
+  if (bd) bd.classList.add('open');
+  setTimeout(() => { const i = document.getElementById('nameGateInput'); if (i) i.focus(); }, 120);
+  return false;
+};
+
+async function saveNameGate() {
+  const input = document.getElementById('nameGateInput');
+  const err = document.getElementById('nameGateError');
+  const btn = document.getElementById('nameGateSaveBtn');
+  const name = (input ? input.value : '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (name.length < 2) {
+    if (err) err.textContent = 'Please enter your name (at least 2 characters).';
+    return;
+  }
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const uid = window.CURRENT_USER.uid;
+    // The DEPLOYED updateProfile callable treats absent displayName/bio/
+    // location as '' and overwrites — send the current bio/location along
+    // with the new name so this one-field save can't blank the rest.
+    let bio = ''; let location = '';
+    try {
+      const prof = (typeof loadProfile === 'function') ? await loadProfile(uid) : null;
+      bio = (prof && prof.bio) || '';
+      location = (prof && prof.location) || '';
+    } catch (_e) {}
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    await httpsCallable(fns, 'updateProfile')({ displayName: name, bio, location });
+    window.CURRENT_DISPLAY_NAME = name;
+    window.CURRENT_PROFILE_NAME = name;
+    try { PROFILE_CACHE.delete(uid); } catch (_e) {}
+    // Step 2: the optional photo nudge — skipped when they already have a
+    // photo or have dismissed the nudge before. Never blocks the intent.
+    const first = name.split(/\s+/)[0];
+    const fEl = document.getElementById('nameGateFirst');
+    if (fEl) fEl.textContent = first;
+    const dismissed = (() => { try { return !!localStorage.getItem('teebox.photoNudgeDismissed.' + uid); } catch (_e) { return false; } })();
+    if (dismissed || window.CURRENT_PROFILE_AVATAR) {
+      finishNameGate();
+    } else {
+      const s1 = document.getElementById('nameGateStep1');
+      const s2 = document.getElementById('nameGateStep2');
+      if (s1) s1.style.display = 'none';
+      if (s2) s2.style.display = '';
+    }
+  } catch (e) {
+    console.error('name gate save failed', e);
+    if (window.isContentViolationError && window.isContentViolationError(e)) {
+      if (err) err.textContent = "That name isn't allowed on TeeBox — try a different one.";
+    } else if (err) {
+      err.textContent = 'Could not save your name. Please try again.';
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+}
+
+function finishNameGate() {
+  const bd = document.getElementById('nameGateBackdrop');
+  if (bd) bd.classList.remove('open');
+  const intent = window.__pendingNameIntent;
+  window.__pendingNameIntent = null;
+  if (typeof intent === 'function') {
+    setTimeout(() => { try { intent(); } catch (e) { console.warn('name-gate intent replay failed:', e); } }, 150);
+  }
+}
+
+// Enter in the name field = Save (CSP blocks inline handlers).
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && ev.target && ev.target.id === 'nameGateInput') {
+    ev.preventDefault();
+    saveNameGate();
+  }
+});
 
 window.showSignInPrompt = function showSignInPrompt(reason, intent) {
   const backdrop = document.getElementById('signInPromptBackdrop');
@@ -18044,6 +18279,35 @@ A['toggle-chat-menu']        = (el) => {
   if (!m) return;
   const open = m.classList.toggle('open');
   el.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+// r170: display-name gate + photo nudge actions.
+A['save-name-gate']          = () => { saveNameGate(); };
+A['dismiss-name-gate']       = () => {
+  window.__pendingNameIntent = null; // abandoning the gated action is fine — browsing is never gated
+  const bd = document.getElementById('nameGateBackdrop');
+  if (bd) bd.classList.remove('open');
+};
+A['name-gate-continue']      = () => {
+  try { localStorage.setItem('teebox.photoNudgeDismissed.' + ((window.CURRENT_USER && window.CURRENT_USER.uid) || ''), '1'); } catch (_e) {}
+  finishNameGate();
+};
+A['name-gate-add-photo']     = () => {
+  // Replay the gated action first (finishNameGate), then open the profile
+  // editor on top so their message/listing isn't lost while they upload.
+  finishNameGate();
+  setTimeout(() => {
+    try {
+      if (window.CURRENT_USER && typeof openProfile === 'function') {
+        openProfile(window.CURRENT_USER.uid);
+        setTimeout(() => { try { renderProfileEditor(); } catch (_e) {} }, 350);
+      }
+    } catch (_e) {}
+  }, 450);
+};
+A['dismiss-photo-nudge']     = () => {
+  try { localStorage.setItem('teebox.photoNudgeDismissed.' + ((window.CURRENT_USER && window.CURRENT_USER.uid) || ''), '1'); } catch (_e) {}
+  const b = document.getElementById('photoNudgeBanner');
+  if (b) b.remove();
 };
 A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
 A['toggle-watch']            = (el, ev) => {
