@@ -2735,11 +2735,11 @@
   .card-seller-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
   .card-seller-name { font-size: 12px; font-weight: 600; color: var(--gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-seller:hover .card-seller-name { text-decoration: underline; color: var(--green-700); }
-  .chat-header-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* The partner name is its own button so tapping it opens their profile,
-     same as the avatar. Reset to look like the inline sub text. */
-  .chat-header-sub-btn { background: none; border: none; padding: 0; margin: 0; display: block; max-width: 100%; text-align: left; cursor: pointer; }
-  .chat-header-sub-btn:hover .chat-header-sub { color: rgba(255,255,255,0.85); text-decoration: underline; }
+  .chat-header-title { display: block; font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The partner name (title) is its own button so tapping it opens their
+     profile. Reset the button chrome so it reads as plain header text. */
+  .chat-header-title-btn { background: none; border: none; padding: 0; margin: 0; display: block; max-width: 100%; text-align: left; cursor: pointer; }
+  .chat-header-title-btn:hover .chat-header-title { text-decoration: underline; }
   .chat-header-sub { font-size: 12px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: var(--transition); }
   .chat-close:hover { background: rgba(255,255,255,0.2); }
@@ -4535,12 +4535,12 @@
   <div class="chat-modal" role="dialog" aria-modal="true" aria-label="Conversation">
     <div class="chat-header">
       <div class="chat-header-info">
-        <button class="chat-header-avatar" id="chatHeaderAvatar" type="button" data-action="open-chat-partner" aria-label="View profile">?</button>
+        <button class="chat-header-avatar" id="chatHeaderAvatar" type="button" data-action="chat-open-listing" aria-label="View listing">?</button>
         <div style="min-width:0;">
-          <div class="chat-header-title" id="chatTitle">Conversation</div>
-          <button class="chat-header-sub-btn" id="chatSubBtn" type="button" data-action="open-chat-partner">
-            <span class="chat-header-sub" id="chatSub">—</span>
+          <button class="chat-header-title-btn" id="chatTitleBtn" type="button" data-action="open-chat-partner">
+            <span class="chat-header-title" id="chatTitle">…</span>
           </button>
+          <div class="chat-header-sub" id="chatSub">—</div>
         </div>
       </div>
       <div class="chat-header-actions">
@@ -10275,33 +10275,60 @@ async function openChatForListing(listingId) {
 
 function openChatUI() {
   const avatarEl = document.getElementById('chatHeaderAvatar');
-  // Header now shows WHO you're talking to: the other participant's avatar +
-  // name (tappable → openProfile). Listing context lives in the pinned card
-  // below (renderChatListingCard). Title stays the listing; sub is the name.
-  if (avatarEl) avatarEl.innerHTML = '?'; // instant placeholder until profile resolves
-  document.getElementById('chatTitle').textContent = currentChat.listing.title || 'Conversation';
-  document.getElementById('chatSub').textContent = currentChat.listing.brand || '';
+  // Header identifies WHO you're talking to: title = the other participant's
+  // display name (tappable → openProfile), sub = a muted listing reference.
+  // The avatar slot shows the listing photo (tappable → listing detail) and
+  // falls back to the partner's avatar/monogram only when the listing has no
+  // photo. Full item details (brand/condition/price) live ONLY in the pinned
+  // card below (renderChatListingCard) — never duplicated here.
+  // Prefer the pre-generated w400 variant for the 40px circle; variantImgUrl
+  // falls back to photos[0] and safeImgUrl-validates either way.
+  const listingPhoto = currentChat.listing && window.variantImgUrl
+    ? window.variantImgUrl(currentChat.listing, 0, 'w400')
+    : '';
+  if (avatarEl) {
+    if (listingPhoto) {
+      avatarEl.innerHTML =
+        `<img src="${window.safeAttr(listingPhoto)}" alt="" loading="eager" fetchpriority="high" decoding="async" class="avatar-img" />`;
+      avatarEl.dataset.action = 'chat-open-listing';
+      avatarEl.setAttribute('aria-label', 'View listing');
+      if (typeof hydrateAvatars === 'function') hydrateAvatars(avatarEl);
+    } else {
+      avatarEl.innerHTML = '?'; // placeholder until the partner profile resolves
+      avatarEl.dataset.action = 'open-chat-partner';
+      avatarEl.setAttribute('aria-label', 'View profile');
+    }
+  }
+  document.getElementById('chatTitle').textContent = '…'; // partner name resolves just below
+  document.getElementById('chatSub').textContent = currentChat.listing.title || '';
   // Resolve the partner's profile once (cached via loadProfile/PROFILE_CACHE),
-  // then render their avatar + name. Guard against a thread switch landing the
-  // wrong avatar by capturing the conversationId we opened with.
+  // then render their name in the title — and their avatar only when the
+  // listing had no photo. Guard against a thread switch landing the wrong
+  // name/avatar by capturing the conversationId we opened with.
   (function resolvePartner() {
     const otherId = currentChat && currentChat.otherUserId;
     const openedCid = currentChat && currentChat.conversationId;
     if (!otherId || typeof loadProfile !== 'function') return;
-    const sub = document.getElementById('chatSub');
     loadProfile(otherId).then((prof) => {
       // Stale-guard: bail if the user has since opened a different thread.
       if (!currentChat || currentChat.conversationId !== openedCid) return;
       const name = prof && (prof.displayName || (prof._user && prof._user.displayName));
-      if (name && document.getElementById('chatSub') === sub) sub.textContent = name;
-      const av = document.getElementById('chatHeaderAvatar');
-      if (av && typeof avatarHtml === 'function') {
-        // Reuse the profile-pic-lag pattern: initials placeholder behind an
-        // eager/fetchpriority-high <img>, faded in by hydrateAvatars().
-        av.innerHTML = avatarHtml(prof || { id: otherId });
-        if (typeof hydrateAvatars === 'function') hydrateAvatars(av);
+      const titleEl = document.getElementById('chatTitle');
+      if (titleEl) titleEl.textContent = name || 'TeeBox member';
+      if (!listingPhoto) {
+        const av = document.getElementById('chatHeaderAvatar');
+        if (av && typeof avatarHtml === 'function') {
+          // Reuse the profile-pic-lag pattern: initials placeholder behind an
+          // eager/fetchpriority-high <img>, faded in by hydrateAvatars().
+          av.innerHTML = avatarHtml(prof || { id: otherId });
+          if (typeof hydrateAvatars === 'function') hydrateAvatars(av);
+        }
       }
-    }).catch(() => {});
+    }).catch(() => {
+      if (!currentChat || currentChat.conversationId !== openedCid) return;
+      const titleEl = document.getElementById('chatTitle');
+      if (titleEl && titleEl.textContent === '…') titleEl.textContent = 'TeeBox member';
+    });
   })();
   document.getElementById('chatInput').value = '';
   document.getElementById('chatBody').innerHTML = '<div class="chat-skeleton"><div class="chat-skel-b them"></div><div class="chat-skel-b me"></div><div class="chat-skel-b them"></div></div>';
@@ -18489,9 +18516,10 @@ A['retry-checkout']          = () => {
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
 A['open-conv']               = (el) => { if (!window.requireAuth('to open this conversation')) return; openChatFromConversation(el.dataset.convId); };
-// Tap the thread-header avatar or partner name → open that participant's
-// public profile. Works for any uid (buyer or seller); openProfile renders
-// empty listings/sold gracefully as "New seller".
+// Tap the thread-header partner name (or the avatar, when it's showing the
+// partner-monogram fallback for a photo-less listing) → open that
+// participant's public profile. Works for any uid (buyer or seller);
+// openProfile renders empty listings/sold gracefully as "New seller".
 A['open-chat-partner']       = () => { const uid = currentChat && currentChat.otherUserId; if (uid && typeof openProfile === 'function') openProfile(uid); };
 // Notifications panel (Feature: notifications-v1)
 A['toggle-notifications']    = () => { if (!window.requireAuth('to view your notifications')) return; toggleNotifications(); };
