@@ -7100,19 +7100,43 @@ exports.updateProfile = onCall(USER_CALLABLE, async (request) => {
   const uid = request.auth.uid;
   const data = request.data || {};
 
-  const displayName = typeof data.displayName === "string" ?
-    data.displayName.trim().slice(0, 60) : "";
-  const bio = typeof data.bio === "string" ?
-    data.bio.trim().slice(0, 600) : "";
-  const location = typeof data.location === "string" ?
-    data.location.trim().slice(0, 80) : "";
+  // r170: content fields are written only when PROVIDED — an absent field no
+  // longer blanks the stored value. (Pre-r170 clients always send all three
+  // strings, so this is backward-compatible; it makes partial saves like the
+  // name-gate and sign-in seeding safe.) A PROVIDED displayName must be a
+  // real name: blanking it is rejected, as are too-short and reserved /
+  // staff-impersonation names. Moderation triggers (Admin SDK writes) can
+  // still clear a violating name — that path bypasses this callable.
+  const hasField = (k) => typeof data[k] === "string";
+  const displayName = hasField("displayName") ?
+    data.displayName.replace(/\s+/g, " ").trim().slice(0, 60) : null;
+  const bio = hasField("bio") ? data.bio.trim().slice(0, 600) : null;
+  const location = hasField("location") ?
+    data.location.trim().slice(0, 80) : null;
+
+  if (displayName !== null) {
+    if (displayName.length < 2) {
+      throw new HttpsError(
+          "invalid-argument",
+          "Display name must be at least 2 characters.",
+          {error: "display_name_required"});
+    }
+    const RESERVED_NAMES = new RegExp(
+        "^(teebox|admin|administrator|support|moderator|mod|" +
+        "teebox\\s+(support|admin|team|official|staff))$", "i");
+    if (RESERVED_NAMES.test(displayName)) {
+      throw new HttpsError(
+          "invalid-argument", "That display name is reserved.",
+          {error: "display_name_reserved"});
+    }
+  }
 
   const updates = {
-    displayName,
-    bio,
-    location,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+  if (displayName !== null) updates.displayName = displayName;
+  if (bio !== null) updates.bio = bio;
+  if (location !== null) updates.location = location;
 
   if (data.handicap !== undefined && data.handicap !== null &&
       data.handicap !== "") {
@@ -7154,7 +7178,11 @@ exports.updateProfile = onCall(USER_CALLABLE, async (request) => {
   let modResult;
   try {
     modResult = await scanFields(
-        {displayName, bio, location}, "profile", uid, request);
+        {
+          displayName: displayName || "",
+          bio: bio || "",
+          location: location || "",
+        }, "profile", uid, request);
   } catch (e) {
     logger.error(
         "updateProfile: content scan threw — saving but flagging " +
