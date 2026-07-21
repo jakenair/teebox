@@ -38,6 +38,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // any future opt-out we might wire into user prefs. See PR 4 in
         // BUG_TRIAGE_2026_05_17.md — Bug 5 prerequisite.
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
+        // Push fix (2026-07-21): receive FCM registration-token mints/refreshes
+        // (didReceiveRegistrationToken below). Without a MessagingDelegate the
+        // minted FCM token was never retrieved — the Capacitor plugin fell back
+        // to the raw APNs hex token, which the server's FCM multicast rejects,
+        // so no iOS push ever delivered.
+        Messaging.messaging().delegate = self
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
         }
@@ -76,9 +82,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // sendEachForMulticast targets — without this the client yields raw APNs
         // tokens and every push silently fails to deliver.
         Messaging.messaging().apnsToken = deviceToken
+        // Hand the Capacitor push plugin the FCM REGISTRATION token (String),
+        // never the raw APNs Data. The plugin's registration event forwards
+        // whatever object arrives on this NotificationCenter name — a Data
+        // posts as an APNs hex string (the pre-fix bug), a String passes
+        // through verbatim. JS stores it at users/{uid}/fcmTokens/{token},
+        // which sendEachForMulticast targets — so it MUST be the FCM token.
+        Messaging.messaging().token { token, error in
+            if let token = token {
+                NotificationCenter.default.post(
+                    name: .capacitorDidRegisterForRemoteNotifications, object: token)
+            } else if let error = error {
+                NotificationCenter.default.post(
+                    name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+            }
+        }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
     func application(_ application: UIApplication, didReceiveRemoteNotification notification: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
@@ -93,4 +116,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+}
+
+// Push fix (2026-07-21): FCM token refresh path. Fires when Messaging mints
+// or rotates the registration token (first mint after apnsToken is set, app
+// restore on a new device, periodic rotation). Posting the String keeps the
+// stored fcmTokens doc current without waiting for the next register() call.
+extension AppDelegate: MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let fcmToken = fcmToken else { return }
+        NotificationCenter.default.post(
+            name: .capacitorDidRegisterForRemoteNotifications, object: fcmToken)
+    }
 }
