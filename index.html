@@ -1137,6 +1137,19 @@
   .chat-header-actions { display: flex; gap: 6px; margin-left: auto; }
   .chat-header-actions button { background: rgba(255,255,255,0.1); border: none; color: var(--white); font-size: 11px; padding: 4px 10px; border-radius: 50px; cursor: pointer; }
   .chat-header-actions button:hover { background: rgba(255,255,255,0.2); }
+  /* r168: on phones Archive/Block/Report collapse into a ⋯ overflow menu so
+     the partner name gets the full header width. Inline buttons stay on
+     desktop; .chat-header-more is display:none until the mobile breakpoint. */
+  .chat-header-more { position: relative; display: none; }
+  .chat-header-actions .chat-more-btn { font-size: 16px; line-height: 1; padding: 4px 11px; }
+  .chat-more-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--white); border-radius: 12px; box-shadow: var(--shadow-hover); padding: 6px; min-width: 150px; z-index: 60; }
+  .chat-more-menu.open { display: block; }
+  .chat-header-actions .chat-more-menu button { display: block; width: 100%; text-align: left; background: none; color: var(--gray-800); font-size: 13px; font-weight: 600; padding: 10px 12px; border-radius: 8px; }
+  .chat-header-actions .chat-more-menu button:hover { background: var(--gray-100); }
+  @media (max-width: 600px) {
+    .chat-header-actions .chat-act-inline { display: none; }
+    .chat-header-more { display: block; }
+  }
 
   /* Image lightbox */
   .lightbox { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 1rem; }
@@ -4544,9 +4557,17 @@
         </div>
       </div>
       <div class="chat-header-actions">
-        <button data-action="archive-conv" type="button">Archive</button>
-        <button data-action="block-conv" type="button">Block</button>
-        <button data-action="report-conv" type="button">Report</button>
+        <button class="chat-act-inline" data-action="archive-conv" type="button">Archive</button>
+        <button class="chat-act-inline" data-action="block-conv" type="button">Block</button>
+        <button class="chat-act-inline" data-action="report-conv" type="button">Report</button>
+        <div class="chat-header-more" id="chatHeaderMore">
+          <button class="chat-more-btn" id="chatMoreBtn" data-action="toggle-chat-menu" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="chat-more-menu" id="chatMoreMenu" role="menu">
+            <button data-action="archive-conv" role="menuitem" type="button">Archive</button>
+            <button data-action="block-conv" role="menuitem" type="button">Block</button>
+            <button data-action="report-conv" role="menuitem" type="button">Report</button>
+          </div>
+        </div>
         <button class="chat-close" data-action="close-chat" type="button" aria-label="Close chat">×</button>
       </div>
     </div>
@@ -10455,7 +10476,27 @@ function renderChatListingCard(listing) {
   card.classList.add('show');
 }
 
+// r168: close the mobile ⋯ overflow menu (Archive/Block/Report). Called on
+// item selection, outside click, and chat close so it can never stay stuck.
+function closeChatMoreMenu() {
+  const m = document.getElementById('chatMoreMenu');
+  if (m) m.classList.remove('open');
+  const b = document.getElementById('chatMoreBtn');
+  if (b) b.setAttribute('aria-expanded', 'false');
+}
+// Outside-click dismiss. The delegated data-action listener registers earlier
+// in the document, so a menu item's action fires first and this closes the
+// menu after; the ⋯ toggle button is exempt (its own action owns open/close).
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('chatMoreMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  const wrap = document.getElementById('chatHeaderMore');
+  const inWrap = wrap && wrap.contains(ev.target);
+  if (!inWrap || ev.target.closest('.chat-more-menu')) closeChatMoreMenu();
+});
+
 function closeChat() {
+  closeChatMoreMenu();
   document.getElementById('chatBackdrop').classList.remove('open');
   if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
   // Clear presence so the server resumes sending pushes for this user.
@@ -17954,6 +17995,12 @@ A['submit-dispute']          = () => { if (!window.requireAuth('to submit your d
 A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
 A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
 A['archive-conv']            = () => { if (!window.requireAuth('to archive this conversation')) return; archiveConversation(); };
+A['toggle-chat-menu']        = (el) => {
+  const m = document.getElementById('chatMoreMenu');
+  if (!m) return;
+  const open = m.classList.toggle('open');
+  el.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
 A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
 A['toggle-watch']            = (el, ev) => {
   ev.stopPropagation();
