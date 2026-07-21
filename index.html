@@ -2780,6 +2780,17 @@
   .msg-mine { align-self: flex-end; background: var(--green-700); color: var(--white); border-bottom-right-radius: 4px; }
   .msg-theirs { align-self: flex-start; background: var(--white); color: var(--gray-900); border: 1px solid var(--gray-200); border-bottom-left-radius: 4px; }
   .msg-time { font-size: 10px; color: var(--gray-500); margin: 3px 2px 2px; }
+  /* r169: per-message sender avatars. Each message renders inside a .msg-row
+     flex row — avatar beside the bubble column, theirs on the left, mine on
+     the right (row-reverse). Bubble/timestamp layout inside .msg-wrap is
+     untouched; the row only adds the avatar gutter. The bottom margin drops
+     the avatar level with the bubble's bottom edge (skipping the timestamp). */
+  .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
+  .msg-row-mine { flex-direction: row-reverse; }
+  .msg-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--green-300), var(--green-600)); color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; margin-bottom: 20px; }
+  .msg-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .msg-avatar img.avatar-img { opacity: 0; transition: opacity .35s ease; animation: avatarReveal 0s linear 2s forwards; }
+  .msg-avatar img.avatar-img.avatar-loaded { opacity: 1; animation: none; }
   .msg-divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 14px 0 8px; }
   .msg-divider::before, .msg-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .msg-divider span { font-size: 10.5px; font-weight: 700; color: var(--gold-600); text-transform: uppercase; letter-spacing: .6px; }
@@ -10599,9 +10610,35 @@ function renderMessages(messages) {
     }
     const t = fmtMsgTime(m.createdAt);
     const timeHtml = t ? `<div class="msg-time">${t}</div>` : '';
-    return divider + `<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div>${timeHtml}</div>`;
+    // r169: sender avatar beside every bubble — placeholder '?' now, filled by
+    // hydrateMsgAvatars below (photo-over-initial, monogram fallback — same
+    // avatarHtml helper as the thread header).
+    const rowCls = mine ? 'msg-row msg-row-mine' : 'msg-row msg-row-theirs';
+    const avatar = `<span class="msg-avatar" data-avatar-uid="${sidAttr}" aria-hidden="true">?</span>`;
+    return divider + `<div class="${rowCls}">${avatar}<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div>${timeHtml}</div></div>`;
   }).join('');
+  hydrateMsgAvatars(body);
   body.scrollTop = body.scrollHeight;
+}
+
+// r169: fill per-message avatar slots. loadProfile is PROFILE_CACHE-backed,
+// so the per-snapshot re-render costs at most two cache hits (the thread has
+// exactly two participants); avatarHtml renders the photo-over-initial
+// pattern with the monogram fallback when a user has no avatarUrl. Slots are
+// captured per-render — stale nodes from a superseded render are detached
+// and harmlessly skipped via isConnected.
+function hydrateMsgAvatars(root) {
+  if (typeof loadProfile !== 'function' || typeof avatarHtml !== 'function') return;
+  const slots = Array.from((root || document).querySelectorAll('.msg-avatar[data-avatar-uid]'));
+  const uids = [...new Set(slots.map(s => s.dataset.avatarUid).filter(Boolean))];
+  uids.forEach((uid) => {
+    loadProfile(uid).then((prof) => {
+      slots.filter(s => s.dataset.avatarUid === uid && s.isConnected).forEach((s) => {
+        s.innerHTML = avatarHtml(prof || { id: uid });
+        if (typeof hydrateAvatars === 'function') hydrateAvatars(s);
+      });
+    }).catch(() => {});
+  });
 }
 
 async function sendMessage() {
@@ -10638,11 +10675,18 @@ async function sendMessage() {
     const _cb = document.getElementById('chatBody');
     if (_cb) {
       _optimistic = document.createElement('div');
-      _optimistic.className = 'msg-wrap msg-mine-wrap';
-      _optimistic.innerHTML = '<div class="msg msg-mine" style="opacity:.55">' +
+      // r169: match renderMessages' row structure so the pending bubble
+      // aligns identically to the real one that replaces it.
+      _optimistic.className = 'msg-row msg-row-mine';
+      const _myUid = (window.CURRENT_USER && window.CURRENT_USER.uid) || '';
+      _optimistic.innerHTML = '<span class="msg-avatar" data-avatar-uid="' +
+        _myUid.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) +
+        '" aria-hidden="true">?</span>' +
+        '<div class="msg-wrap msg-mine-wrap"><div class="msg msg-mine" style="opacity:.55">' +
         text.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) +
-        '</div><div class="msg-time">Sending…</div>';
+        '</div><div class="msg-time">Sending…</div></div>';
       _cb.appendChild(_optimistic); _cb.scrollTop = _cb.scrollHeight;
+      try { hydrateMsgAvatars(_optimistic); } catch (_e) {}
     }
   } catch (_e) {}
   try {
