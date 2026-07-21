@@ -342,7 +342,7 @@
     --text-body-xs: 12px;
     --text-label: 11px;          /* uppercase tracking labels */
   }
-  body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+  body { font-family: var(--font-body); background: var(--cream); color: var(--gray-900); font-size: 15px; line-height: 1.6; }
 
   .detail-seller { padding: 0.75rem 0; border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); margin: 0.75rem 0 1rem; }
   /* Star icons on white surfaces use gold-600 (4.87:1 on white — passes AA).
@@ -756,6 +756,17 @@
   .native-cat-search { display: none; }
   .mobile-top-logo { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--gold-300); letter-spacing: -0.5px; text-decoration: none; line-height: 1; }
   .mobile-top-logo span { color: var(--white); }
+  /* r171 QA: invisible hit-area extension to reach 44px effective tap
+     targets without any visual/layout change. The logo renders 22px tall
+     and the hamburger 41px wide; ::after catches taps in the surrounding
+     whitespace. (Inbox/bell buttons already measure 44×45.) */
+  .mobile-top-logo, .mobile-top-bar [data-action="toggle-mobile-nav"],
+  body.is-native .cat-bar .cat-pill { position: relative; }
+  .mobile-top-logo::after { content: ''; position: absolute; inset: -11px -4px; }
+  .mobile-top-bar [data-action="toggle-mobile-nav"]::after { content: ''; position: absolute; inset: 0 -3px; }
+  /* Native header keeps only the Journal + Logo Bingo pills (28px tall) —
+     extend their hit area toward the empty row gap. */
+  body.is-native .cat-bar .cat-pill::after { content: ''; position: absolute; inset: -8px -4px; }
   .mobile-top-actions { display: flex; align-items: center; gap: 8px; }
   @keyframes mobileBingoGlow {
     0%, 100% { box-shadow: 0 0 14px rgba(231, 210, 138, 0.55), 0 2px 6px rgba(197,162,83,0.35); }
@@ -852,7 +863,8 @@
     .bottom-nav-item.sell { color: var(--gold-500); }
     .bottom-nav-item.sell .ico { stroke-width: 2; }
     .bottom-nav-item.sell.active { color: var(--gold-600); }
-    body.has-bottom-nav { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+    /* r171: clearance lives INSIDE the scroller (body no longer scrolls). */
+    body.has-bottom-nav #app-scroll { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     /* Hide the DESKTOP nav only — the bottom-nav has its own class, and the
        drawer's inner is now a <div> so it's not affected. */
     body.has-bottom-nav nav:not(.bottom-nav) { display: none; }
@@ -883,7 +895,13 @@
        cat-bar script) so any row count stays correct. */
     body.has-bottom-nav { --cat-bar-h: 92px; }
     body.has-bottom-nav .cat-bar-wrap {
-      top: calc(env(safe-area-inset-top) + 52px);
+      /* r171: --top-bar-h is the measured .mobile-top-bar height (JS sync,
+         includes the safe-area padding); the old env()+52px stays as the
+         pre-JS fallback. 52px under-measured the bar (~64px) and clipped
+         the top of the native search row. */
+      /* -1px: overlap the top bar by a pixel so no sub-pixel seam shows
+         scrolling content between the two fixed bars. */
+      top: calc(var(--top-bar-h, calc(env(safe-area-inset-top) + 52px)) - 1px);
       background: linear-gradient(180deg, var(--green-800) 0%, var(--green-900) 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
@@ -893,13 +911,20 @@
     }
     body.has-bottom-nav .cat-bar::before, body.has-bottom-nav .cat-bar::after { display: none; }
     body.has-bottom-nav .cat-pill { padding: 5px 11px; font-size: 12.5px; }
+    /* r171 QA: 44px effective hit area for the 28px web-mobile pills — same
+       invisible ::after extension as the native Journal/Bingo pills, scoped
+       to the bar (the search overlay's chips are also .cat-pill and stay
+       untouched). ±8px vertical reaches 44px; ±3px horizontal splits the
+       6px pill gap without overlapping the neighbor. */
+    body.has-bottom-nav .cat-bar .cat-pill { position: relative; }
+    body.has-bottom-nav .cat-bar .cat-pill::after { content: ''; position: absolute; inset: -8px -3px; }
     /* Push the divider + Logo Bingo to the right edge of whatever row they wrap
        to; shorter (18px) than the base so it reads as a soft separator between
        the categories and the game, not a full-height rule. */
     body.has-bottom-nav .cat-bar-divider { margin-left: auto; margin-right: 6px; height: 18px; }
     body.has-bottom-nav .cat-bar-wrap::before { background: linear-gradient(to right, var(--green-800) 30%, transparent); }
     body.has-bottom-nav .cat-bar-wrap::after { background: linear-gradient(to left, var(--green-900) 30%, transparent); }
-    body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + env(safe-area-inset-top) + 52px); }
+    body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + var(--top-bar-h, calc(env(safe-area-inset-top) + 52px))); }
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
 
@@ -923,7 +948,21 @@
 
   /* Tap polish + overscroll lockdown */
   html { -webkit-text-size-adjust: 100%; }
-  body { overscroll-behavior-y: contain; }
+  /* r171: locked shell. The document itself NEVER scrolls (kills the iOS
+     whole-page rubber-band); #app-scroll — the single wrapper around all
+     body content — is the one scroll container. Fixed chrome (nav, mobile
+     top bar, cat-bar, bottom-nav, modal backdrops) is viewport-anchored and
+     unaffected. Modal scroll-locks and scroll-to-top calls target the
+     container (see __appScroll sites). */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  #app-scroll {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    /* Content clears the home indicator at the end of the scroll. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   button, .product-card, .cat-pill, [data-action] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   button, [data-action] { transition: transform 0.06s ease, background 0.18s ease, opacity 0.18s ease; }
   button:active, [data-action]:active { transform: scale(0.97); }
@@ -1780,7 +1819,9 @@
   .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: rgba(224,184,64,0.15); border: 1px solid rgba(224,184,64,0.3); border-radius: 50px; padding: 5px 14px; margin-bottom: 1.25rem; font-size: 12px; font-weight: 600; color: var(--gold-300); letter-spacing: 1.5px; text-transform: uppercase; }
   .hero-title { font-family: var(--font-display); font-size: clamp(2.4rem,4vw,3.5rem); font-weight: 900; color: var(--white); line-height: 1.1; margin-bottom: 1rem; }
   .hero-title em { color: var(--gold-300); font-style: normal; }
-  .hero-sub { color: rgba(255,255,255,0.65); font-size: 16px; line-height: 1.7; margin-bottom: 2rem; max-width: 440px; }
+  /* r171 QA: 0.65 alpha dipped under 4.5:1 AA over the gradient's lighter
+     green-600 end; 0.72 clears AA across the whole gradient. */
+  .hero-sub { color: rgba(255,255,255,0.72); font-size: 16px; line-height: 1.7; margin-bottom: 2rem; max-width: 440px; }
   .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
   /* Fee-proof line under the hero CTAs — substantiates "6.5%, lowest in golf"
      with a concrete comparison so the claim doesn't read as a slogan. */
@@ -3290,6 +3331,9 @@
 </style>
 </head>
 <body class="is-anon">
+<!-- r171: single scroll container — wraps ALL body content (scripts included;
+     they execute identically). The document/body is overflow:hidden. -->
+<div id="app-scroll">
 
 <!-- AUTH SPLASH — covers the is-anon flash until Firebase Auth resolves.
      Rendered visible in static HTML (no JS needed to show it); removed in
@@ -4975,6 +5019,16 @@
     // so it overrides the has-bottom-nav fallback for the content below.
     function syncBarHeight() {
       document.body.style.setProperty('--cat-bar-h', wrap.offsetHeight + 'px');
+      // r171: the mobile top bar's height was hardcoded as 52px in the
+      // cat-bar/main offsets, but it really renders ~64px (44px buttons +
+      // padding) — the fixed cat-bar slid under it and clipped the top of
+      // the native search row. Sync the REAL rendered height (includes the
+      // safe-area inset padding) into --top-bar-h; CSS keeps the old value
+      // as its fallback.
+      var tb = document.querySelector('.mobile-top-bar');
+      if (tb && tb.offsetHeight) {
+        document.body.style.setProperty('--top-bar-h', tb.offsetHeight + 'px');
+      }
     }
     function refresh() { updateFades(); syncBarHeight(); }
     // r163: the Capacitor boot re-calls this after body.is-native lands
@@ -11024,7 +11078,7 @@ async function openInbox() {
     return;
   }
   document.getElementById('inboxBackdrop').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
   await loadInbox();
 }
 
@@ -11033,7 +11087,7 @@ function closeInbox() {
   if (ib) ib.classList.remove('open');
   // Only release body scroll if no other overlay is still claiming it.
   const stillBlocking = document.querySelector('#shopDashboard.open, #chatBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open, #notifPanel.open');
-  if (!stillBlocking) document.body.style.overflow = '';
+  if (!stillBlocking) (document.getElementById('app-scroll')||document.body).style.overflowY = '';
 }
 
 async function loadInbox() {
@@ -11357,7 +11411,7 @@ function openNotifications() {
   if (btn) btn.setAttribute('aria-expanded', 'true');
   // On mobile the panel is a full-screen sheet — lock body scroll.
   if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
-    document.body.style.overflow = 'hidden';
+    (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
   }
   loadNotifications();
 }
@@ -11374,7 +11428,7 @@ function closeNotifications() {
   // Inbox / shop dashboard / chat each set body overflow; we shouldn't
   // clobber theirs. Heuristic: only clear if no .open backdrop visible.
   const stillBlocking = document.querySelector('#shopDashboard.open, #inboxBackdrop.open, #chatBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open');
-  if (!stillBlocking) document.body.style.overflow = '';
+  if (!stillBlocking) (document.getElementById('app-scroll')||document.body).style.overflowY = '';
 }
 
 function toggleNotifications() {
@@ -11789,7 +11843,7 @@ async function openShopDashboard() {
     showToast('Please sign in to view your shop.'); return;
   }
   document.getElementById('shopDashboard').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
   // Reset count-up state so each open re-animates the headline numbers.
   ['statRevenue','statSold','statActive','statAvg','statViews'].forEach(id => {
     const el = document.getElementById(id);
@@ -12534,7 +12588,7 @@ function exportPayoutsCsv() {
 
 function closeShopDashboard() {
   document.getElementById('shopDashboard').classList.remove('open');
-  document.body.style.overflow = '';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = '';
   // Defensive: if the user closes the dashboard mid-tour, tear it down so
   // the backdrop + tooltip don't linger over the rest of the app.
   try { dismissSellerTour({ markSeen: false }); } catch (_) {}
@@ -15098,11 +15152,11 @@ function openLightbox(urls, startIndex = 0) {
   lightboxState = { urls: urls.slice(), i: Math.max(0, Math.min(startIndex, urls.length - 1)) };
   document.getElementById('lightboxImg').src = lightboxState.urls[lightboxState.i];
   document.getElementById('lightbox').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
 }
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
-  document.body.style.overflow = '';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = '';
 }
 function stepLightbox(d) {
   if (!lightboxState.urls.length) return;
@@ -15474,9 +15528,9 @@ window.__actions = window.__actions || {};
 window.__actions['bn-home'] = () => {
   ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop']
     .forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('open'); });
-  document.body.style.overflow = '';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = '';
   document.getElementById('shopDashboard').classList.remove('open');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'});
   document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === 'home'));
   // Reset top nav active state to Marketplace (mirror of bottom-nav home).
   document.querySelectorAll('#topNavLinks a').forEach(a =>
@@ -18126,8 +18180,8 @@ A['stripe-connect']          = async () => {
   }
 };
 A['close-inbox']             = () => closeInbox();
-A['close-inbox-and-browse']  = () => { closeInbox(); try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
-A['close-watchlist-browse']  = () => { const so = document.getElementById('searchOverlay'); if (so) so.classList.remove('open'); try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
+A['close-inbox-and-browse']  = () => { closeInbox(); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
+A['close-watchlist-browse']  = () => { const so = document.getElementById('searchOverlay'); if (so) so.classList.remove('open'); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
 A['close-chat']              = () => closeChat();
 A['send-message']            = () => { if (!window.requireAuth('to send a message')) return; sendMessage(); };
 // Pinned chat listing card → reopen the listing detail modal. Best-effort:
@@ -18234,7 +18288,7 @@ A['toggle-mobile-nav']       = () => {
   d.setAttribute('aria-hidden', opening ? 'false' : 'true');
   const btn = document.querySelector('.mobile-nav-toggle');
   if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
-  document.body.style.overflow = opening ? 'hidden' : '';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = opening ? 'hidden' : '';
 };
 A['close-mobile-nav']        = () => {
   const d = document.getElementById('mobileNavDrawer');
@@ -18243,7 +18297,7 @@ A['close-mobile-nav']        = () => {
   d.setAttribute('aria-hidden', 'true');
   const btn = document.querySelector('.mobile-nav-toggle');
   if (btn) btn.setAttribute('aria-expanded', 'false');
-  document.body.style.overflow = '';
+  (document.getElementById('app-scroll')||document.body).style.overflowY = '';
 };
 A['close-mobile-nav-and-go'] = (el) => {
   A['close-mobile-nav']();
@@ -18983,7 +19037,7 @@ document.addEventListener('click', (ev) => {
     drawer.setAttribute('aria-hidden', 'true');
     const btn = document.querySelector('.mobile-nav-toggle');
     if (btn) btn.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
+    (document.getElementById('app-scroll')||document.body).style.overflowY = '';
   }, 80);
 });
 
@@ -20070,7 +20124,7 @@ if (uploadZone) {
       screen.classList.add('open');
       screen.setAttribute('aria-hidden', 'false');
     }
-    document.body.style.overflow = 'hidden';
+    (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
 
     // Async: pull the canonical /dailyPuzzles/{date} doc and swap our
     // local-fallback courses for the server's whenever they disagree.
@@ -20208,7 +20262,7 @@ if (uploadZone) {
       screen.classList.remove('open');
       screen.setAttribute('aria-hidden', 'true');
     }
-    document.body.style.overflow = '';
+    (document.getElementById('app-scroll')||document.body).style.overflowY = '';
     closeGuessModal();
     // Restore home tab as active
     document.querySelectorAll('.bottom-nav-item').forEach(b => {
@@ -21289,5 +21343,6 @@ if (uploadZone) {
   // Reflect today's progress on the desktop nav CTA pill.
   updateNavBingoCta();
 </script>
+</div><!-- /#app-scroll (r171) -->
 </body>
 </html>

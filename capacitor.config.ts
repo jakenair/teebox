@@ -21,7 +21,13 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   bundledWebRuntime: false,
   ios: {
-    contentInset: 'always',
+    // r171: 'never', paired with StatusBar.overlaysWebView: true below. The
+    // old 'always' + overlays:false combo double-inset the page: the webview
+    // was laid out below the status bar (so env(safe-area-inset-top) = 0)
+    // AND WKWebView auto-added a safe-area content inset — the "extra green
+    // block" above the header. In overlay mode the CSS env() rules (mobile
+    // top bar / cat-bar / main offsets) carry the inset exactly once.
+    contentInset: 'never',
     backgroundColor: '#0b1a0e',
     // Avoid the swipe-back gesture interfering with horizontal-swipe UI.
     allowsLinkPreview: false,
@@ -50,7 +56,9 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'LIGHT',          // light content on dark green nav background
       backgroundColor: '#0b1a0e',
-      overlaysWebView: false,
+      // r171: webview extends under the status bar; the fixed header's
+      // env(safe-area-inset-top) padding owns the inset (see ios.contentInset).
+      overlaysWebView: true,
     },
     FirebaseAuthentication: {
       providers: ['google.com', 'apple.com'],
