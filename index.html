@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background:#0b1a0e"><!-- r172: inline so the canvas is
+  dark from the first streamed byte — kills the white pre-paint flash before
+  the head CSS parses. Body (cream) covers it once the app renders. -->
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -1316,7 +1318,9 @@
   #authSplash.fade { opacity: 0; pointer-events: none; }
   #authSplash.hidden { display: none; }
   .auth-splash-inner { display: flex; flex-direction: column; align-items: center; }
-  .auth-splash-logo { font-family: var(--font-display); font-size: 2.6rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
+  /* r172: Georgia-first (not the webfont) so the splash wordmark never
+     font-swaps mid-splash and matches the native LaunchWordmark timing. */
+  .auth-splash-logo { font-family: Georgia, 'Times New Roman', serif; font-size: 2.6rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
   .auth-splash-logo span { color: var(--gold-400); }
   .auth-splash-tag { margin-top: 8px; font-family: var(--font-body); font-size: 0.875rem; font-weight: 500; letter-spacing: 0.2px; color: rgba(255,255,255,0.6); }
   .auth-splash-spinner { margin-top: 2.25rem; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
@@ -3346,15 +3350,29 @@
   </div>
 </div>
 <script>
-  // Tear-down hook for the auth splash. Idempotent; called from BOTH
-  // branches of onAuthStateChanged once auth state is known.
+  // Tear-down hook for the auth splash. Idempotent.
   window.__dismissAuthSplash = function () {
     var s = document.getElementById('authSplash');
     if (!s || s.classList.contains('fade')) return;
     s.classList.add('fade');
     setTimeout(function () { s.classList.add('hidden'); }, 360);
   };
-  // Safety net: never let the splash get stuck if auth is slow/offline.
+  // r172: the splash now dismisses on FIRST MEANINGFUL CONTENT, not on auth
+  // resolution alone. Conditions: auth state known AND (the first feed query
+  // has settled — loaded OR errored, both render a meaningful state — OR the
+  // auth gate needs to show, which the splash must not cover). Flags are set
+  // by onAuthStateChanged, the loadListings settle points, and showAuthScreen.
+  window.__splashAuthKnown = false;
+  window.__splashContentReady = false;
+  window.__maybeDismissSplash = function () {
+    if (!window.__splashAuthKnown) return;
+    var gate = document.getElementById('authScreen');
+    var gateOpen = !!(gate && gate.classList.contains('open'));
+    if (window.__splashContentReady || gateOpen) window.__dismissAuthSplash();
+  };
+  // Safety net: never let the splash get stuck if auth is slow/offline or
+  // the load path throws. 6s per Jake — invisible on a normal load (content
+  // dismisses it first); only the broken-load case ever waits this long.
   setTimeout(function () { try { window.__dismissAuthSplash(); } catch (e) {} }, 6000);
 </script>
 
@@ -6423,7 +6441,10 @@ window.confirmPayment = async function() {
       // CSS selectors (body.is-signed-in / body.is-anon). Replaces the
       // older direct .style.display writes that were sprinkled across the
       // auth callback. See `.ribbon-signed-in` / `.ribbon-anon` rules.
-      window.__dismissAuthSplash && window.__dismissAuthSplash();
+      // r172: mark auth known; the splash drops when content is ready
+      // (__maybeDismissSplash), no longer here directly.
+      window.__splashAuthKnown = true;
+      window.__maybeDismissSplash && window.__maybeDismissSplash();
       document.body.classList.add('is-signed-in');
       document.body.classList.remove('is-anon');
       // Phase 2: soft email-verification prompt (never gates anything).
@@ -6584,7 +6605,8 @@ window.confirmPayment = async function() {
         document.body.classList.add('is-anon');
         document.body.classList.remove('is-signed-in');
       }
-      window.__dismissAuthSplash && window.__dismissAuthSplash();
+      window.__splashAuthKnown = true; // r172: content readiness drives dismissal
+      window.__maybeDismissSplash && window.__maybeDismissSplash();
       try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
@@ -6757,6 +6779,18 @@ window.confirmPayment = async function() {
     // so re-measure --cat-bar-h — this module runs after the bar's initial
     // height sync.
     if (window.__syncCatBar) window.__syncCatBar();
+    // r172: launchAutoHide is OFF (capacitor.config) — hide the native splash
+    // only once the web #authSplash has PAINTED (double-rAF = a frame has
+    // rendered), so there's no dark-but-empty gap on cold starts. The web
+    // splash then owns the wait-for-content. 4s fallback: never stick.
+    try {
+      const SplashNative = Cap.Plugins && Cap.Plugins.SplashScreen;
+      if (SplashNative && SplashNative.hide) {
+        const hideNative = () => { try { SplashNative.hide({ fadeOutDuration: 250 }); } catch (_e) {} };
+        requestAnimationFrame(() => requestAnimationFrame(hideNative));
+        setTimeout(hideNative, 4000);
+      }
+    } catch (_e) { /* splash hide is cosmetic — never block boot */ }
   }
   const FBAuthPlugin = (Cap && Cap.Plugins) ? Cap.Plugins.FirebaseAuthentication : null;
   // Mirror onto window so the action handlers in the sibling <script> tag
@@ -8382,6 +8416,10 @@ window.confirmPayment = async function() {
     // this point does an empty PRODUCTS array mean a genuinely empty
     // marketplace rather than "still loading" — buildProducts keys off this.
     window.__listingsLoaded = true;
+    // r172: first meaningful content (loaded OR error state — both render) —
+    // release the splash if auth is already known.
+    window.__splashContentReady = true;
+    try { window.__maybeDismissSplash && window.__maybeDismissSplash(); } catch (_e) {}
     // r157: announce readiness for waiters (deep-link router). An EVENT
     // instead of polling — chained setTimeout polls get intensively
     // throttled (~1/min) in background tabs, which is exactly where a
@@ -17664,6 +17702,9 @@ window.showAuthScreen = function showAuthScreen(reason) {
       reasonEl.classList.remove('visible');
     }
   }
+  // r172: the auth gate is meaningful content — never leave the splash
+  // covering it (cold signed-out loads open the gate before listings land).
+  try { window.__maybeDismissSplash && window.__maybeDismissSplash(); } catch (_e) {}
   // Focus the email field for keyboard users (skipped on small mobile
   // since the OS keyboard popping is more disruptive than helpful).
   setTimeout(() => {

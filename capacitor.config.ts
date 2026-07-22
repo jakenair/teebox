@@ -40,8 +40,12 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
+      // r172: autoHide OFF — the old 1.5s timer could drop the native splash
+      // before the webview painted (dark-but-empty gap on cold starts). JS
+      // now hides it once the web #authSplash has painted (double-rAF in the
+      // Capacitor boot), with a 4s in-page fallback so it can never stick.
       launchShowDuration: 1500,
-      launchAutoHide: true,
+      launchAutoHide: false,
       backgroundColor: '#0b1a0e',
       androidScaleType: 'CENTER_CROP',
       // Gold spinner to match the web auth-splash spinner (--gold-400 #e0b840),
