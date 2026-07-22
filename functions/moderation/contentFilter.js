@@ -473,6 +473,10 @@ module.exports = {
   scanContent,
   scanFields,
   shouldHoldListing,
+  // r173: public — modDetectOffPlatform (index.js) folds obfuscated
+  // contact info through the SAME normalization pipeline (NFKC →
+  // confusables → lowercase → leet) instead of rebuilding it.
+  normalize,
   // Exposed for unit tests only. Do NOT import these elsewhere — the
   // public surface is scanContent / scanFields.
   __testing: {

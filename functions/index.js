@@ -2692,6 +2692,12 @@ function modEscapeKw(k) {
   return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// r173: lazy accessor for contentFilter's normalize — same pipeline the
+// profanity scanner uses (NFKC → confusables → lowercase → leet fold).
+function modNormalizeText(t) {
+  return require("./moderation/contentFilter").normalize(t);
+}
+
 function modDetectOffPlatform(text, extraBadDomains) {
   if (!text) {
     return {matched: false, severity: null, knownBad: false,
@@ -2726,6 +2732,88 @@ function modDetectOffPlatform(text, extraBadDomains) {
         if (!severity) severity = "SOFT";
       }
     }
+  }
+
+  // ── r173: obfuscation folding ─────────────────────────────────────
+  // The raw-text layers above miss trivially disguised contact info. Fold
+  // the text through moderation/contentFilter's normalize() (NFKC →
+  // confusables → lowercase → leet) plus three targeted folds, and rescan.
+  // Consequence of a hit here matches the regular HARD path (interstitial /
+  // hold rules) — these are detectors, not new penalties.
+  try {
+    const norm = modNormalizeText(s);
+    // (a) Leet/confusable keyword pass — catches v3nmo, PayPa1, vеnmo
+    // (Cyrillic е). Two variants because contentFilter's leet map folds
+    // 1→i (right for slurs); payment brands need 1→l too.
+    const normL = lc.replace(/[0134578$@!]/g,
+        (ch) => ({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s",
+          "7": "t", "8": "b", "$": "s", "@": "a", "!": "i"}[ch] || ch));
+    // (b) Separator-tolerant pass — catches "v e n m o", "pay pal",
+    // "z-e-l-l-e". Boundary-anchored letters-with-separators regex (NOT a
+    // squashed substring — that flagged "gazelle" for zelle). Scoped to
+    // keywords whose letters run ≥5 to bound false positives.
+    const SEP = "[\\s.\\-_*+/\\\\|·]*";
+    for (const kw of MOD_OFF_PLATFORM_KEYWORDS_HARD) {
+      const letters = kw.replace(/[^a-z0-9]/gi, "");
+      if (letters.length < 5) continue; // btc/f&f/gpay too FP-prone separated
+      let hit = false;
+      for (const v of [norm, normL]) {
+        if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(v)) { hit = true; break; }
+        const sepRe = new RegExp(
+            "\\b" + letters.split("").map((c) => modEscapeKw(c)).join(SEP) + "\\b", "i");
+        if (sepRe.test(v)) { hit = true; break; }
+      }
+      if (hit && !types.has("kw:" + kw)) {
+        patterns.push({type: "keyword", name: kw, severity: "HARD", obfuscated: true});
+        types.add("kw:" + kw);
+        types.add("obfuscated_keyword");
+        severity = "HARD";
+      }
+    }
+    // (b2) Social-handle mentions — SOFT (flag/log, no hard consequence):
+    // "@mikegolf on insta", "IG: mikegolf". The bare-word insta/ig SOFT
+    // keywords below can't match ":"-suffixed forms with \b.
+    if (severity !== "HARD") {
+      if (/(?:^|\s)@[a-z0-9_.]{3,30}\b/i.test(s) ||
+          /\b(?:ig|insta)\s*[:\-]?\s*[a-z0-9_.]{3,30}\b/i.test(lc)) {
+        patterns.push({type: "regex", name: "social_handle", severity: "SOFT"});
+        types.add("social_handle");
+        if (!severity) severity = "SOFT";
+      }
+    }
+    // (c) Spelled-out phone numbers: "five one two five five five ...".
+    const DIGIT_WORDS = {zero: "0", oh: "0", one: "1", two: "2", three: "3",
+      four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9"};
+    const digitFolded = lc.replace(
+        /\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/g,
+        (w) => DIGIT_WORDS[w]);
+    const digitRun = digitFolded.replace(/[^0-9]+/g, " ").split(" ")
+        .filter(Boolean).join("");
+    if (digitRun.length >= 10 && digitRun.length <= 13 &&
+        /\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/.test(lc)) {
+      patterns.push({type: "regex", name: "phone_words", severity: "HARD",
+        match: digitRun.slice(0, 20)});
+      types.add("phone_words");
+      severity = "HARD";
+    }
+    // (d) Spelled-out emails/domains: "mike at gmail dot com",
+    // "mike[at]gmail[dot]com", "sketchy dot com".
+    const SPELLED_EMAIL_RE =
+      /\b[a-z0-9._%+\-]+\s*[([{]?\s*at\s*[)\]}]?\s*[a-z0-9\-]+\s*[([{]?\s*dot\s*[)\]}]?\s*[a-z]{2,10}\b/i;
+    const SPELLED_DOMAIN_RE =
+      /\b[a-z0-9\-]{3,}\s+dot\s+(?:com|net|org|io|co|me|app|shop|link|gg)\b/i;
+    if (SPELLED_EMAIL_RE.test(lc)) {
+      patterns.push({type: "regex", name: "spelled_email", severity: "HARD"});
+      types.add("spelled_email");
+      severity = "HARD";
+    } else if (SPELLED_DOMAIN_RE.test(lc)) {
+      patterns.push({type: "regex", name: "spelled_domain", severity: "HARD"});
+      types.add("spelled_domain");
+      severity = "HARD";
+    }
+  } catch (e) {
+    // Folding layer is additive — a throw must never kill the base scan.
+    logger.warn("modDetectOffPlatform obfuscation layer threw", e);
   }
 
   // Generic external-URL layer (the durable phishing fix). ANY link to a
@@ -3354,6 +3442,49 @@ async function applySellerSaleStatsIdempotent(db, orderId) {
     return {applied: true, sellerId, amount};
   });
 }
+
+// syncBlockedThreads (r173) — when a user's blocked map changes, stamp/clear
+// `blockedBy.{blockerUid}` on every conversation the pair shares (Admin SDK;
+// the field is NOT in the client update whitelist so it can't be forged).
+// Both clients hide threads with a non-empty blockedBy from the inbox and
+// the unread-badge count. Unblocking clears the key; if BOTH users blocked
+// each other, each key is independent so one unblock doesn't unhide the
+// other's block.
+exports.syncBlockedThreads = onDocumentUpdated(
+  {document: "users/{uid}", ...LIGHT_TRIGGER},
+  async (event) => {
+    try {
+      const uid = event.params.uid;
+      const before = (event.data && event.data.before && event.data.before.data()) || {};
+      const after = (event.data && event.data.after && event.data.after.data()) || {};
+      const beforeIds = new Set(Object.keys(before.blocked || {}));
+      const afterIds = new Set(Object.keys(after.blocked || {}));
+      const changed = [];
+      for (const id of afterIds) if (!beforeIds.has(id)) changed.push({other: id, blocked: true});
+      for (const id of beforeIds) if (!afterIds.has(id)) changed.push({other: id, blocked: false});
+      if (!changed.length) return;
+      const db = admin.firestore();
+      // One query covers every pair: all conversations this user is in.
+      const convs = await db.collection("conversations")
+          .where("participants", "array-contains", uid).limit(500).get();
+      const batch = db.batch();
+      let writes = 0;
+      for (const {other, blocked} of changed) {
+        for (const d of convs.docs) {
+          const parts = d.data().participants || [];
+          if (!parts.includes(other)) continue;
+          batch.set(d.ref, {
+            blockedBy: {[uid]: blocked ? true : admin.firestore.FieldValue.delete()},
+          }, {merge: true});
+          writes++;
+        }
+      }
+      if (writes) await batch.commit();
+    } catch (err) {
+      logger.error("syncBlockedThreads error", err);
+    }
+  },
+);
 
 // aggregateSellerStats — now an IDEMPOTENT BACKSTOP only. The authoritative
 // count is applied synchronously inside confirmOrderDelivered's transaction
@@ -7620,6 +7751,15 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     throw new HttpsError("unauthenticated", "Sign in to send messages.");
   }
   const senderId = request.auth.uid;
+  // r173: a verified contact channel is required to message — kills
+  // seconds-old throwaway-account DMs. Phone-auth sessions count as
+  // verified (mirrors the isEmailVerified() helper in firestore.rules).
+  const _tok = request.auth.token || {};
+  if (_tok.email_verified !== true && !_tok.phone_number) {
+    throw new HttpsError("failed-precondition",
+        "Verify your email to send messages.",
+        {error: "email_unverified"});
+  }
   const data = request.data || {};
   const conversationId = String(data.conversationId || "").slice(0, 200);
   const recipientId = String(data.recipientId || "").slice(0, 200);
@@ -7764,6 +7904,15 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   const senderRef = db.collection("users").doc(senderId);
   const senderSnap = await senderRef.get();
   const sender = senderSnap.exists ? (senderSnap.data() || {}) : {};
+
+  // r173: symmetric block. Blocking was one-directional (only "someone who
+  // blocked you can't be reached BY you") — now the blocker can't message
+  // the person they blocked either.
+  if (sender.blocked && sender.blocked[recipientId]) {
+    throw new HttpsError("failed-precondition",
+        "You've blocked this user. Unblock them to send a message.",
+        {error: "you_blocked_recipient"});
+  }
 
   // ──── Rule 1: new-account send cap ────
   if (config.enabled !== false) {
