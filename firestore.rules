@@ -817,29 +817,19 @@ service cloud.firestore {
         function conv() {
           return get(/databases/$(database)/documents/conversations/$(convId)).data;
         }
-        function recipientUid() {
-          return conv().participants[0] == request.auth.uid
-            ? conv().participants[1]
-            : conv().participants[0];
-        }
-        function notBlockedByRecipient() {
-          return !exists(/databases/$(database)/documents/users/$(recipientUid()))
-            || !( request.auth.uid in
-                  get(/databases/$(database)/documents/users/$(recipientUid())).data.get('blocked', {}).keys() );
-        }
         allow read: if request.auth != null
                     && request.auth.uid in conv().participants;
-        allow create: if request.auth != null
-          && appCheckOk()
-          && request.auth.uid == request.resource.data.senderId
-          && request.auth.uid in conv().participants
-          && request.resource.data.keys().hasAll(['senderId','text','createdAt'])
-          && request.resource.data.keys().hasOnly(['senderId','text','createdAt'])
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000
-          && request.resource.data.createdAt == request.time
-          && notBlockedByRecipient();
+        // r173: messages are CALLABLE-ONLY. The sendMessage callable (Admin
+        // SDK, bypasses these rules) is the sole writer, which makes its
+        // content scan, phishing hard-block, block checks, and rate-limit/
+        // hold rules a REAL gate — the old client-create clause let a
+        // scripted client skip every one of them, with the async
+        // moderateMessage trigger as the only (post-delivery) backstop.
+        // The last legit in-app direct writer (the seller prefill,
+        // index.html openChatForListingAsSeller) now goes through the
+        // callable. The old senderId/schema/blocked validations moved with
+        // it: the callable enforces all of them and more.
+        allow create: if false;
         allow update, delete: if false;
       }
 
