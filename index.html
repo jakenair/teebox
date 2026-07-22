@@ -10969,6 +10969,12 @@ async function sendMessage() {
       }
     } else if (code === 'functions/permission-denied' || code === 'permission-denied') {
       showToast('You can no longer message this user.');
+    } else if ((err && err.details && err.details.error) === 'email_unverified') {
+      // r173: messaging now requires a verified email (throwaway-DM guard).
+      showToast('Verify your email to send messages — check your inbox for the link.');
+      try { window.maybeShowVerifyBanner && window.CURRENT_USER && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+    } else if ((err && err.details && err.details.error) === 'you_blocked_recipient') {
+      showToast("You've blocked this user. Unblock them to send a message.");
     } else {
       showToast('Could not send message.');
     }
@@ -11361,6 +11367,10 @@ function isConvUnread(conv, myUid) {
 // archive timestamp; a new message (lastMessageAt > archive time) re-
 // surfaces the thread so transaction-relevant replies aren't missed.
 function isConvHidden(conv, myUid) {
+  // r173: a blocked pair hides the thread on BOTH sides. blockedBy is
+  // server-stamped (syncBlockedThreads trigger, not client-writable), so
+  // neither party can forge it; unblocking clears it and the thread returns.
+  if (conv.blockedBy && Object.keys(conv.blockedBy).length > 0) return true;
   const h = conv.hidden && conv.hidden[myUid];
   if (!h) return false;
   const lastMsg = conv.lastMessageAt;
@@ -14324,7 +14334,7 @@ window.submitDispute = submitDispute;
 // ─────────────────────────────────────────────────────────────
 async function blockConversation() {
   if (!currentChat || !currentChat.otherUserId) { showToast('No active conversation.'); return; }
-  if (!confirm('Block this user? They will no longer be able to message you about new listings.')) return;
+  if (!confirm('Block this user? Neither of you will be able to message the other, and your existing conversations will be hidden.')) return;
   const otherUid = currentChat.otherUserId;
   try {
     const { getFirestore, doc, setDoc, serverTimestamp } =
@@ -14342,26 +14352,18 @@ async function blockConversation() {
 }
 window.blockConversation = blockConversation;
 
-async function reportConversation() {
+// r173: the old inline prompt() built a payload the reports rules rejected
+// (no targetType, free-text reason vs the enum) — every submission failed.
+// Route through the shared report dialog, whose confirmReport payload is
+// schema-valid (targetType/enum reason/details/status).
+function reportConversation() {
   if (!currentChat || !currentChat.otherUserId) return;
-  const reason = prompt('Why are you reporting this user? (Spam, scam, abuse, prohibited item, other)');
-  if (!reason) return;
-  try {
-    const { getFirestore, collection, addDoc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await addDoc(collection(db, 'reports'), {
-      reporterId: window.CURRENT_USER.uid,
-      targetUid: currentChat.otherUserId,
-      conversationId: currentChat.conversationId || null,
-      reason: String(reason).slice(0, 500),
-      createdAt: serverTimestamp(),
-    });
-    showToast('Report submitted. Thanks for keeping TeeBox safe.');
-  } catch (e) {
-    console.error('reportConversation failed:', e);
-    showToast('Could not submit report.');
-  }
+  window.openReportDialog({
+    targetType: 'user',
+    targetId: currentChat.otherUserId,
+    targetUid: currentChat.otherUserId,
+    conversationId: currentChat.conversationId || undefined,
+  });
 }
 window.reportConversation = reportConversation;
 
@@ -14690,13 +14692,27 @@ async function openChatForListingAsSeller(listingId, buyerId, prefillText) {
     });
     convId = newConv.id;
   }
-  // Drop a message in.
+  // Drop a message in — r173: routed through the sendMessage callable so
+  // the prefill gets the same content scan + rate limits + block checks as
+  // every other message. (The old direct addDoc bypassed all of them, and
+  // messages-subcollection creates are now denied client-side by rules.)
+  // fns/httpsCallable are NOT in this plain-block scope — local import.
   if (prefillText) {
-    await addDoc(collection(firestoreDb, 'conversations', convId, 'messages'), {
-      senderId: window.CURRENT_USER.uid,
-      text: String(prefillText).slice(0, 2000),
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const { getFunctions, httpsCallable } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+      const fns = getFunctions();
+      await httpsCallable(fns, 'sendMessage')({
+        conversationId: convId,
+        recipientId: buyerId,
+        text: String(prefillText).slice(0, 2000),
+        clientFlag: null,
+      });
+    } catch (e) {
+      // Never brick the flow — the thread still opens and the seller can
+      // type the message manually if the prefill was scanned out.
+      console.warn('prefill send failed:', e && (e.code || e.message) || e);
+    }
   }
   // Open chat UI to that conv.
   if (typeof openChatFromConversation === 'function') openChatFromConversation(convId);
