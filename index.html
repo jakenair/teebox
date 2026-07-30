@@ -1973,6 +1973,9 @@
      ones still reserve the same 2-line slot (min-height in em so the 13px
      mobile override scales with it). Kills the 1-vs-4-line wrap variance. */
   .product-name { font-size: 14px; font-weight: 600; color: var(--gray-900); margin-bottom: 6px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7em; }
+  /* r182: the name is a real crawlable anchor; visually identical to the
+     old plain text (the card's delegated handler intercepts JS clicks). */
+  .product-name-link { color: inherit; text-decoration: none; }
   /* Seller rating row injected by hydrateSellerRatings — empty by default
      so a 0-review seller leaves no visual gap on the card. */
   .product-rating { font-size: 11.5px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; line-height: 1; min-height: 0; display: flex; align-items: center; gap: 4px; }
@@ -9059,7 +9062,10 @@ if (!window.__imgFallbackBound) {
 
 // Register handlers used by the `data-action` delegator in <head>.
 window.__actions = window.__actions || {};
-window.__actions['open-detail'] = function(el) {
+window.__actions['open-detail'] = function(el, ev) {
+  // r182: the card name is now a real <a href="/listing/<id>/"> for
+  // crawlers — JS users stay in the SPA modal, so swallow the navigation.
+  if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
   openDetailModal(el.dataset.productId);
 };
 window.__actions['handle-sell'] = function() {
@@ -9330,7 +9336,7 @@ function renderProductCardHtml(p, i) {
     `</div>`+
     `<div class="product-body">`+
       `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
-      `<div class="product-name">${window.safeText(p.name)}</div>`+
+      `<div class="product-name"><a class="product-name-link" href="/listing/${idAttr}/">${window.safeText(p.name)}</a></div>`+
       `${sellerIdentitySlot}`+
       `${sellerRatingSlot}`+
       `<div class="product-price"><span class="product-price-val">$${Number(p.ask||0).toLocaleString()}</span></div>`+
