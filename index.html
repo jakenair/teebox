@@ -1829,9 +1829,11 @@
   .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
   /* Fee-proof line under the hero CTAs — substantiates "6.5%, lowest in golf"
      with a concrete comparison so the claim doesn't read as a slogan. */
-  .hero-fee-proof { display: inline-flex; align-items: center; gap: 7px; margin: 14px 0 0; font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.78); }
-  .hero-fee-proof .hero-fee-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: 0 0 auto; color: var(--gold-300); }
-  .hero-fee-proof .hero-fee-icon .ico { width: 15px; height: 15px; }
+  /* r177: glyph dropped, size/alpha stepped down — the words carry it. */
+  .hero-fee-proof { display: block; margin: 12px 0 0; font-size: 12.5px; font-weight: 400; color: rgba(255,255,255,0.62); }
+  /* r177: hero sell CTA — underlined text link, subordinate to the gold pill. */
+  .hero-sell-link { background: none; border: none; padding: 12px 4px; font-family: var(--font-body); font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: var(--transition); }
+  .hero-sell-link:hover { color: var(--gold-300); }
   .btn-primary { background: var(--gold-400); color: var(--green-900); border: none; border-radius: 50px; padding: 13px 28px; font-family: var(--font-body); font-size: 15px; font-weight: 600; cursor: pointer; transition: var(--transition); }
   .btn-primary:hover { background: var(--gold-300); transform: translateY(-2px); }
   /* Hero secondary CTA (audit #5, 2026-06-04). Border alpha bumped
@@ -4972,8 +4974,10 @@
     <button id="navSignInBtn" class="nav-signin-btn ribbon-anon" data-action="show-auth" type="button" aria-label="Sign in or create account">Sign In</button>
     <!-- Terminal CTA — both states. Copy swaps via body class. -->
     <button class="btn-sell-nav" data-action="handle-sell" aria-label="Sell">
-      <span class="sell-copy-anon">Start Selling</span>
-      <span class="sell-copy-auth">Sell Now</span>
+      <!-- r177: one word for the sell CTA in both auth states — was
+           "Start Selling"/"Sell Now", two labels for one action. -->
+      <span class="sell-copy-anon">Sell</span>
+      <span class="sell-copy-auth">Sell</span>
     </button>
   </div>
 </nav>
@@ -5073,10 +5077,14 @@
         <h1 class="hero-title">The Premier<br/><em>Golf Marketplace</em></h1>
         <p class="hero-sub">The peer-to-peer marketplace for golfers. Buy and sell clubs, apparel, accessories, and the rest of the gear that makes the game feel right. Direct between members, with secured payments and a flat 6.5% seller fee.</p>
         <div class="hero-ctas">
-          <button class="btn-primary" data-action="open-modal-buy">Shop Now</button>
-          <button class="btn-outline" data-action="handle-sell">Start Selling</button>
+          <!-- r177: one dominant CTA. The old symmetric filled/ghost pill
+               pair with generic verbs read as templated; selling demotes to
+               an underlined text link (the nav gold "Sell" pill remains the
+               primary sell entry). -->
+          <button class="btn-primary" data-action="open-modal-buy">Shop clubs &amp; gear</button>
+          <button class="hero-sell-link" data-action="handle-sell" type="button">Sell your gear &rarr;</button>
         </div>
-        <p class="hero-fee-proof"><span class="hero-fee-icon" data-ico="check" aria-hidden="true"></span>Keep more of your sale — 6.5% fee, shipping label included. eBay takes ~13% and you buy the label.</p>
+        <p class="hero-fee-proof">Keep more of your sale — 6.5% fee, shipping label included. eBay takes ~13% and you buy the label.</p>
       </div>
       <div class="hero-featured" id="heroFeatured">
         <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
