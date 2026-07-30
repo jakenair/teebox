@@ -3416,6 +3416,24 @@
   window.safeId = function(s) {
     return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 128);
   };
+  // r179: a listing is only REALLY pending while its reservation window is
+  // open. createPaymentIntent mints a 15-min hold (status:'pending' +
+  // pendingUntil) when a checkout opens on the last unit; if that checkout
+  // is abandoned, nothing server-side releases it (no webhook fires for an
+  // unconfirmed PI, and the server's lazy reclaim only runs inside the next
+  // createPaymentIntent call — which the old status-only client gates never
+  // allowed anyone to reach). Honoring pendingUntil expiry here makes stale
+  // reservations self-heal: the next buyer's checkout goes through and the
+  // server transaction (the real gate) atomically re-reserves or 409s.
+  window.isListingPendingNow = function(p) {
+    if (!p || p.status !== 'pending') return false;
+    const pu = p.pendingUntil;
+    const ms = pu && typeof pu.toMillis === 'function' ? pu.toMillis()
+      : (pu && pu._seconds ? pu._seconds * 1000 : (typeof pu === 'number' ? pu : 0));
+    if (!ms) return true; // no window recorded → trust the status
+    return ms > Date.now();
+  };
+
   window.safeImgUrl = function(u) {
     if (!u) return '';
     var s = String(u);
@@ -5795,7 +5813,7 @@ window.openCheckout = async function(productId, qty, opts) {
   // If the listing is already sold or pending, surface the same status the
   // detail modal shows rather than starting a payment that will 409.
   if (p.status === 'sold')   { showToast('Sorry, this listing has already sold.'); return; }
-  if (p.status === 'pending') { showToast('Another buyer is checking out. Try again in a few minutes.'); return; }
+  if (window.isListingPendingNow && window.isListingPendingNow(p)) { showToast('Another buyer is checking out. Try again in a few minutes.'); return; }
 
   // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
   const totalQty = Math.max(1, Number(p.quantity || 1));
@@ -10033,7 +10051,7 @@ async function openDetailModal(id) {
   const buyBtn  = document.getElementById('detailBuyNowBtn');
   const msgBtn  = document.querySelector('.btn-message-seller');
   const isSold     = p.status === 'sold';
-  const isPending  = p.status === 'pending';
+  const isPending  = window.isListingPendingNow ? window.isListingPendingNow(p) : (p.status === 'pending');
   // You can't buy your own listing. Show a clear, non-buyable state on the
   // owner's own item rather than a button that no-ops (the server also rejects
   // self-purchase at createPaymentIntent, and openCheckout has a toast guard).
@@ -10713,7 +10731,7 @@ function renderChatListingCard(listing) {
   const subBits = [brand, cond].filter(Boolean);
   let subText = subBits.join(' · ');
   if (status === 'sold') subText = (subText ? subText + ' · ' : '') + 'SOLD';
-  else if (status === 'pending') subText = (subText ? subText + ' · ' : '') + 'Sale pending';
+  else if (window.isListingPendingNow ? window.isListingPendingNow(listing) : status === 'pending') subText = (subText ? subText + ' · ' : '') + 'Sale pending';
   subEl.textContent = subText;
   priceEl.textContent = ask > 0 ? ('$' + ask.toLocaleString()) : '';
   // Thumb: prefer photos[0] (real listing); else fall back to category icon.
