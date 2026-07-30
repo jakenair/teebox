@@ -5065,6 +5065,22 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
   async (event) => {
     try {
       const uid = event.params.uid;
+      // r179: stamp the public profile's createdAt from the Auth record.
+      // No signup path ever wrote it (client whitelists exclude it), so the
+      // four member-since/tenure render surfaces silently no-op'd. Server-
+      // only write (field is outside the client hasOnly() whitelists).
+      try {
+        const authRec = await admin.auth().getUser(uid);
+        const created = authRec && authRec.metadata &&
+          authRec.metadata.creationTime;
+        if (created) {
+          await admin.firestore().collection("profiles").doc(uid).set(
+              {createdAt: admin.firestore.Timestamp.fromDate(new Date(created))},
+              {merge: true});
+        }
+      } catch (e) {
+        logger.warn("welcomeOnFirstProfileWrite: createdAt stamp failed", e);
+      }
       const u = await lookupUser(uid);
       if (!u || !u.email) return;
       // Render via canonical <Base/> layout (SignupWelcome.jsx). Replaces
