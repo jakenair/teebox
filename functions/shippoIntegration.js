@@ -50,6 +50,13 @@ const admin = require("firebase-admin");
 //   firebase functions:secrets:set SHIPPO_API_KEY
 // Test value starts with shippo_test_; live with shippo_live_.
 const SHIPPO_API_KEY = defineSecret("SHIPPO_API_KEY");
+// r-label-cap (2026-07-30): Stripe key for the seller-pays-excess partial
+// transfer reversal; ops webhook for failed-recovery alerts. Same params as
+// index.js — firebase-functions dedupes secret definitions by name.
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+const {OPS_ALERT_WEBHOOK} = require("./opsAlert");
+// TeeBox absorbs the label up to this cap; the seller pays the excess.
+const LABEL_CAP_USD = 15;
 
 const USER_CALLABLE = {
   region: "us-central1",
@@ -189,7 +196,7 @@ function addressIsComplete(a) {
 // ─── Main callable ────────────────────────────────────────────────────
 
 exports.createShippingLabel = onCall(
-    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY]},
+    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, STRIPE_SECRET_KEY, OPS_ALERT_WEBHOOK]},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Sign in required.");
@@ -396,6 +403,26 @@ exports.createShippingLabel = onCall(
         };
       }
 
+      // ─── Step 2.5: $15 label-cap gate (2026-07-30, Jake ruling) ───
+      // TeeBox absorbs label cost up to LABEL_CAP_USD; the excess comes out
+      // of the seller's payout via a partial transfer reversal. First call
+      // over the cap returns overCap (no purchase) so the client can show
+      // the disclosure; the seller re-calls with confirmExcess:true.
+      const rateUsd = Number(rate.amount || 0);
+      const excessUsd = Math.max(0, rateUsd - LABEL_CAP_USD);
+      if (excessUsd > 0.005 && data.confirmExcess !== true) {
+        return {
+          ok: false,
+          reason: "label-over-cap",
+          overCap: true,
+          rateAmount: rateUsd,
+          capAmount: LABEL_CAP_USD,
+          excessAmount: Math.round(excessUsd * 100) / 100,
+          carrier: rate.provider || "USPS",
+          serviceLevel: (rate.servicelevel && rate.servicelevel.name) || null,
+        };
+      }
+
       // ─── Step 3: Buy label ────────────────────────────────────────
       const txnBody = {
         rate: rate.object_id,
@@ -463,7 +490,43 @@ exports.createShippingLabel = onCall(
           (rate.servicelevel && rate.servicelevel.token) || null,
         shippingLabelEnv: env,
         shippingLabelPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
+        ...(excessUsd > 0.005 ? {
+          labelExcessCents: Math.round(excessUsd * 100),
+          labelCapCents: LABEL_CAP_USD * 100,
+        } : {}),
       }, {merge: true});
+
+      // Seller-pays-excess: recover the over-cap portion from the seller's
+      // payout via a partial transfer reversal on the order's transfer
+      // (same mechanism the dispute flow uses). Best-effort — a failed
+      // reversal never voids the purchased label; it logs + ops-alerts for
+      // manual recovery instead.
+      if (excessUsd > 0.005) {
+        try {
+          const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
+          const transferId = order.transferId;
+          if (stripeClient && transferId) {
+            await stripeClient.transfers.createReversal(transferId, {
+              amount: Math.round(excessUsd * 100),
+              metadata: {reason: "label_excess_over_cap", orderId,
+                labelRateUsd: String(rateUsd), capUsd: String(LABEL_CAP_USD)},
+            });
+            await orderRef.set({labelExcessRecovered: true}, {merge: true});
+          } else {
+            logger.error("label-excess: no stripe client or transferId",
+                {orderId, transferId: transferId || null});
+          }
+        } catch (e) {
+          logger.error("label-excess reversal FAILED — manual recovery needed",
+              {orderId, excessUsd, err: e.message});
+          try {
+            const {opsAlert} = require("./opsAlert");
+            await opsAlert("warn",
+                `Label excess $${excessUsd.toFixed(2)} on order ${orderId} ` +
+                "not recovered — reverse manually.");
+          } catch (_e) { /* best-effort */ }
+        }
+      }
 
       logger.info(
           `createShippingLabel: ${orderId} bought ` +
