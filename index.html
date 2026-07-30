@@ -2122,8 +2122,9 @@
   /* overflow-x guard (#4): belt-and-suspenders so real-Safari 100vw/scrollbar
      math can't let inner content push the modal past the viewport width. */
   .detail-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 780px; width: 100%; max-height: 90vh; overflow-x: hidden; overflow-y: auto; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
-  .detail-header { background: var(--green-900); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; }
-  .detail-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--white); }
+  .detail-header { background: var(--green-900); padding: 0.55rem 1.1rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; }
+  .detail-chrome { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--white); letter-spacing: -0.3px; }
+  .detail-chrome span { color: var(--gold-400); }
   /* minmax(0,1fr) — NOT bare 1fr. A 1fr track's auto-minimum floors to its
      content's min-content (~780px from the gallery image), which blows the
      column past the 390px modal and renders the whole detail ~2x too big.
@@ -2178,23 +2179,6 @@
      fix (r136). The slide already has a neutral --gray-100 bg, so portrait or
      wide items letterbox cleanly instead of getting their edges cropped. */
   .ig-slide img { width: 100%; max-width: 100%; height: 100%; object-fit: contain; display: block; }
-  .ig-count-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.55);
-    color: var(--white);
-    font-family: var(--font-body);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 50px;
-    pointer-events: none;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: 2;
-    letter-spacing: 0.2px;
-  }
   .ig-arrow {
     position: absolute;
     top: 50%;
@@ -2225,28 +2209,32 @@
     .ig-swiper:hover .ig-arrow:not(:disabled) { opacity: 1; }
     .ig-arrow:focus-visible { opacity: 1; outline: 2px solid var(--green-500); outline-offset: 2px; }
   }
-  .ig-dots {
+  /* r175: thumbnail strip (replaces dot pagination). Scrolls horizontally
+     for many-photo listings; hidden entirely for single-photo listings. */
+  .ig-thumbs {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    margin-top: 10px;
-    min-height: 10px;
+    gap: 8px;
+    margin-top: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
-  .ig-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--gray-300);
-    transition: background 160ms ease, transform 160ms ease;
-    cursor: pointer;
-    border: none;
+  .ig-thumbs::-webkit-scrollbar { display: none; }
+  .ig-thumb {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 2px solid transparent;
     padding: 0;
+    background: var(--gray-100);
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 160ms ease, border-color 160ms ease;
   }
-  .ig-dot.active {
-    background: var(--green-600);
-    transform: scale(1.4);
-  }
+  .ig-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ig-thumb.active { opacity: 1; border-color: var(--green-600); }
   .ig-swiper-empty {
     width: 100%;
     aspect-ratio: 1;
@@ -2261,24 +2249,19 @@
      the image touches both screen edges, matching Instagram. */
   @media (max-width: 600px) {
     .detail-body .ig-swiper { margin-left: -1rem; margin-right: -1rem; width: calc(100% + 2rem); }
-    .detail-body .ig-swiper-track { border-radius: 0; }
+    /* r175: taller 4:5 photo on phones — the vertical reclaimed from the
+       header/price/strip goes back to the product image. */
+    .detail-body .ig-swiper-track { border-radius: 0; aspect-ratio: 4 / 5; }
   }
   .detail-info { min-width: 0; }
   .detail-brand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 4px; }
   .detail-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; line-height: 1.3; }
   .detail-condition { display: inline-flex; align-items: center; gap: 6px; background: var(--green-50); color: var(--green-700); border-radius: 50px; padding: 4px 12px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
-  /* Single hero-size price box (buy-now only — no bid/ask split). The
-     class stays `.ask` for historical reasons; its label reads "Price". */
-  .detail-prices { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 1rem; }
-  .detail-price-box { border-radius: var(--radius-md); padding: 14px 18px; text-align: left; }
-  /* Neutral-brand price box (r137, CRO P1). Was pink/red (#fde8e6 bg, red
-     label + value) — leftover from the old bid/ask "ask = red" theme, which
-     made the price read as an error/warning at the decision point. */
-  .detail-price-box.ask { background: var(--green-50); border: 1.5px solid var(--green-200); }
-  .detail-price-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .detail-price-box.ask .detail-price-lbl { color: var(--green-700); }
-  .detail-price-val { font-family: var(--font-display); font-weight: 800; }
-  .detail-price-box.ask .detail-price-val { color: var(--gray-900); font-size: 2.2rem; line-height: 1.05; }
+  /* r175: plain price type (buy-now only). Replaced the bordered/tinted
+     price box + uppercase PRICE label — whitespace and scale do the work. */
+  .detail-price-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 2px 0 12px; }
+  .detail-price-plain { font-family: var(--font-display); font-weight: 800; font-size: 2.2rem; line-height: 1.05; color: var(--gray-900); }
+  .detail-price-row .detail-condition { margin-bottom: 0; }
   /* Payment-element loading skeleton (r138, CRO P5) — reassurance while the
      Stripe Payment Element mounts (the audit's top drop-off moment). Toggled
      by openCheckout; hidden by default so it never shows on a closed modal. */
@@ -2313,8 +2296,8 @@
      vertical rhythm so the protection signal lands at the highest-anxiety
      moment. (Audit fix.) */
   .detail-actions { display: flex; flex-direction: column; gap: 10px; }
-  .detail-trust-strip { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 12px; font-size: 12px; color: var(--gray-600); background: var(--green-50, #f1f7f3); border-radius: var(--radius-md); }
-  .detail-trust-strip span { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+  .detail-trust-strip { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--gray-500); }
+  .detail-trust-strip span { display: inline-flex; align-items: center; font-weight: 500; }
   .btn-buy-now { background: var(--green-600); color: var(--white); border: none; border-radius: var(--radius-md); padding: 16px; font-family: var(--font-body); font-size: 17px; font-weight: 800; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-buy-now:hover { background: var(--green-500); }
   /* Demoted from primary full-width — secondary half-width, lighter weight. */
@@ -2561,7 +2544,7 @@
        becomes a true full-screen sheet (no top gap, no dimmed nav peeking). */
     .detail-backdrop { padding: 0 !important; align-items: stretch !important; }
     .detail-modal { width: 100% !important; max-width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0!important; }
-    .detail-header { padding: max(0.85rem, env(safe-area-inset-top)) 1.1rem 0.85rem; }
+    .detail-header { padding: max(0.55rem, env(safe-area-inset-top)) 1.1rem 0.55rem; }
     .detail-body { padding: 1rem 1rem 1.25rem; }
     /* Full-bleed the sticky Buy-Now bar with a safe-area inset + a clean top
        divider so it can never visually merge into the content above it. */
@@ -5186,7 +5169,9 @@
 <div class="detail-backdrop" id="detailBackdrop" data-close-on-backdrop="close-detail-direct">
   <div class="detail-modal" role="dialog" aria-modal="true" aria-label="Listing details">
     <div class="detail-header">
-      <span class="detail-title" id="detailTitle">Product Details</span>
+      <!-- r175: chrome-only bar — the listing title lives once, in the body
+           (#detailName). Reclaims ~27px of the mobile fold. -->
+      <span class="detail-chrome" aria-hidden="true"><span>Tee</span>Box</span>
       <button class="modal-close" data-action="close-detail-direct" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="detail-body">
@@ -5194,10 +5179,12 @@
       <div class="detail-info">
         <div class="detail-brand" id="detailBrand"></div>
         <div class="detail-name" id="detailName"></div>
-        <div class="detail-prices">
-          <div class="detail-price-box ask"><div class="detail-price-lbl">Price</div><div class="detail-price-val" id="detailAsk"></div></div>
+        <!-- r175: price is plain display type + inline condition chip — the
+             bordered/tinted box and its PRICE label are gone. -->
+        <div class="detail-price-row">
+          <div class="detail-price-plain" id="detailAsk"></div>
+          <div class="detail-condition" id="detailCondition"></div>
         </div>
-        <div class="detail-condition" id="detailCondition"></div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
         <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
@@ -5211,19 +5198,17 @@
           </div>
           <span class="qty-remaining" id="detailQtyRemaining"></span>
         </div>
-        <!-- One-of-a-kind cue for single-unit listings (r137, CRO P7a).
-             Shown/hidden by openDetailModal based on quantity. -->
-        <div class="detail-oneofone" id="detailOneOfOne" style="display:none;font-size:12.5px;font-weight:600;color:var(--green-700);margin:2px 0 6px;">◆ 1 available — one of a kind</div>
         <div class="detail-actions">
           <!-- Owner-only "Edit listing" link. Hidden by default;
                openDetailModal() reveals it + sets data-listing-id
                only when the signed-in user owns this listing. -->
           <button id="detailEditListingBtn" class="btn-link-muted" data-action="edit-listing" style="display:none;background:var(--green-50);border:1px solid var(--green-200);color:var(--green-700);font-size:13px;font-weight:600;padding:9px;border-radius:var(--radius-md);width:100%;cursor:pointer;margin-bottom:6px;">Edit listing</button>
-          <div class="detail-trust-strip" aria-label="Buyer protection">
-            <span title="Buyer protection — 7 days from delivery to open a dispute"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>Buyer Protection</span>
-            <span title="Stripe secure checkout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure Checkout</span>
-          </div>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now</button>
+          <!-- r175: protection reassurance is one muted line UNDER the buy
+               button — the tinted box above it is gone. -->
+          <div class="detail-trust-strip" aria-label="Buyer protection">
+            <span title="Buyer protection — 7 days from delivery to open a dispute">Buyer protection</span><span aria-hidden="true">&middot;</span><span title="Stripe secure checkout">Stripe secure checkout</span>
+          </div>
           <!-- Shown by openDetailModal when the seller hasn't finished Stripe
                payout setup (profiles.chargesReady !== true): listing is visible
                but not buyable yet. -->
@@ -5812,9 +5797,7 @@ window.openCheckout = async function(productId, qty, opts) {
 
   document.getElementById('checkoutName').textContent = p.name;
   const qtyMeta = requestedQty > 1 ? ` · Qty ${requestedQty}` : '';
-  // One-of-a-kind cue (r137, CRO P7a) for single-unit listings.
-  const oneOfOneMeta = (totalQty === 1 && remaining === 1) ? ' · One of a kind' : '';
-  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}${oneOfOneMeta}`;
+  document.getElementById('checkoutMeta').textContent = `${p.brand} · ${p.condition || 'Good'}${qtyMeta}`;
 
   // Cents-precise itemized summary. Buyer doesn't pay a separate buyer fee
   // (platform fee is collected from the seller via Stripe Connect), so the
@@ -9981,7 +9964,6 @@ async function openDetailModal(id) {
       });
     }
   } catch (_e) { /* never block modal open on analytics */ }
-  document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
   // Detail condition badge — color-code via conditionBadgeMeta to match
@@ -10068,9 +10050,6 @@ async function openDetailModal(id) {
   } else {
     qtyRow.style.display = 'none';
   }
-  // One-of-a-kind cue (r137, CRO P7a): single-unit listing still available.
-  const oneOfOne = document.getElementById('detailOneOfOne');
-  if (oneOfOne) oneOfOne.style.display = (totalQty === 1 && remaining === 1 && !isSold && !isPending) ? '' : 'none';
   // Render seller link if this is a real (Firestore) listing
   const sellerEl = document.getElementById('detailSeller');
   sellerEl.innerHTML = '';
@@ -10107,6 +10086,28 @@ async function openDetailModal(id) {
       // Verified, Fast-responder) — never email/phone/totalRevenue/stripe*.
       const metaEl = row.querySelector('.seller-id-meta');
       if (metaEl && typeof sellerMetaHtml === 'function') metaEl.innerHTML = sellerMetaHtml(prof);
+      // r175: active-listing count appended to the seller meta line —
+      // positive signal replacing the removed "No reviews yet" card.
+      // Best-effort public query, stale-guarded; capped display at 25+.
+      (async () => {
+        try {
+          const { getFirestore, collection, query, where, getDocs, limit } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          const snap = await getDocs(query(
+            collection(getFirestore(), 'listings'),
+            where('sellerId', '==', p.sellerId),
+            where('status', '==', 'active'),
+            limit(26)
+          ));
+          if (currentDetailId !== _openedDetailId) return;
+          const n = snap.size;
+          if (n > 0 && metaEl && metaEl.isConnected) {
+            const label = n > 25 ? '25+' : String(n);
+            metaEl.insertAdjacentHTML('beforeend',
+              `<span class="sid-dot">&middot;</span><span>${label} listing${n === 1 ? '' : 's'}</span>`);
+          }
+        } catch (_e) { /* count is a nicety — never block the row */ }
+      })();
       // Visible-but-not-buyable (list-first): if the seller hasn't completed
       // Stripe payout setup (public profiles.chargesReady mirror !== true),
       // disable Buy + explain. UX only — createPaymentIntent is the real gate.
@@ -10240,12 +10241,8 @@ window.buildIgSwiper = function(container, urls, alt) {
   track.setAttribute('aria-label', 'Listing photos');
   swiper.appendChild(track);
 
-  // Photo count badge — only shown when 2+ photos exist
-  const badge = document.createElement('div');
-  badge.className = 'ig-count-badge';
-  badge.textContent = `1/${urls.length}`;
-  if (single) badge.style.display = 'none';
-  swiper.appendChild(badge);
+  // r175: count badge removed — the thumbnail strip below communicates
+  // position + total (you can't have both per the design pass).
 
   // Slides
   urls.forEach((url, i) => {
@@ -10286,30 +10283,39 @@ window.buildIgSwiper = function(container, urls, alt) {
     swiper.appendChild(nextBtn);
   }
 
-  // Dot indicators — only when 2+ photos
-  const dotsWrap = document.createElement('div');
-  dotsWrap.className = 'ig-dots';
-  const dots = [];
+  // r175: real thumbnail strip replaces the dot pagination — only when
+  // 2+ photos (a single photo gets neither strip nor badge).
+  const thumbsWrap = document.createElement('div');
+  thumbsWrap.className = 'ig-thumbs';
+  const thumbs = [];
   if (!single) {
-    urls.forEach((_, i) => {
-      const dot = document.createElement('button');
-      dot.type = 'button';
-      dot.className = 'ig-dot' + (i === 0 ? ' active' : '');
-      dot.setAttribute('aria-label', `Go to photo ${i + 1}`);
-      dot.addEventListener('click', () => goTo(i));
-      dotsWrap.appendChild(dot);
-      dots.push(dot);
+    urls.forEach((url, i) => {
+      const th = document.createElement('button');
+      th.type = 'button';
+      th.className = 'ig-thumb' + (i === 0 ? ' active' : '');
+      th.setAttribute('aria-label', `Go to photo ${i + 1} of ${urls.length}`);
+      const timg = document.createElement('img');
+      timg.src = url;
+      timg.alt = '';
+      timg.loading = 'lazy';
+      timg.draggable = false;
+      th.appendChild(timg);
+      th.addEventListener('click', () => goTo(i));
+      thumbsWrap.appendChild(th);
+      thumbs.push(th);
     });
   }
 
   container.appendChild(swiper);
-  container.appendChild(dotsWrap);
+  container.appendChild(thumbsWrap);
 
   let currentIdx = 0;
   function setIdx(i) {
     currentIdx = Math.max(0, Math.min(urls.length - 1, i));
-    badge.textContent = `${currentIdx + 1}/${urls.length}`;
-    dots.forEach((d, di) => d.classList.toggle('active', di === currentIdx));
+    thumbs.forEach((t, ti) => t.classList.toggle('active', ti === currentIdx));
+    // Keep the active thumb in view when the strip scrolls (10-photo case).
+    const at = thumbs[currentIdx];
+    if (at && at.scrollIntoView) { try { at.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch (_e) {} }
     if (prevBtn) prevBtn.disabled = currentIdx === 0;
     if (nextBtn) nextBtn.disabled = currentIdx === urls.length - 1;
     container._igIdx = currentIdx;
@@ -16299,9 +16305,9 @@ async function loadDetailReviews(p) {
     }
   } catch (_e) { agg = null; }
   if (!agg || !agg.count) {
-    el.innerHTML = `<div style="margin:14px 0;padding:12px 14px;background:var(--gray-50,#fafafa);border-radius:var(--radius-md);font-size:13px;color:var(--gray-500);">
-      No reviews yet for this seller.
-    </div>`;
+    // r175: no reviews → render nothing. The seller row carries the positive
+    // signal (join month, sales, active-listing count); a "no reviews yet"
+    // card was negative space at the decision point.
     return;
   }
   const stars = (n) => {
