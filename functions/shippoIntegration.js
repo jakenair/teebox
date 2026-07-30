@@ -58,6 +58,27 @@ const {OPS_ALERT_WEBHOOK} = require("./opsAlert");
 // TeeBox absorbs the label up to this cap; the seller pays the excess.
 const LABEL_CAP_USD = 15;
 
+// r181: category→parcel map. Before this, EVERY label was quoted from
+// DEFAULT_PARCEL (12×8×4, 2lb) regardless of item — a 48" club or a stand
+// bag physically can't ship as quoted, and a mis-declared parcel draws an
+// uncapped carrier dimensional adjustment billed to the label purchaser
+// (us) after the fact. Keyed off listing.cat at label time via the
+// existing overrides.parcel hook; true per-item dims are the parked
+// spec-fields work. All dims inches, weights lb.
+const CATEGORY_PARCELS = {
+  apparel: {length: "12", width: "10", height: "1", weight: "1"},
+  accessories: {length: "12", width: "10", height: "4", weight: "2"},
+  headcovers: {length: "12", width: "10", height: "4", weight: "1"},
+  shoes: {length: "14", width: "10", height: "5", weight: "3"},
+  balls: {length: "12", width: "8", height: "4", weight: "3"},
+  clubs: {length: "48", width: "6", height: "6", weight: "5"},
+  bags: {length: "38", width: "14", height: "12", weight: "12"},
+};
+function parcelForCategory(cat) {
+  const p = CATEGORY_PARCELS[String(cat || "").toLowerCase()];
+  return p ? {...p, distance_unit: "in", mass_unit: "lb"} : null;
+}
+
 const USER_CALLABLE = {
   region: "us-central1",
   memory: "256MiB",
@@ -326,8 +347,21 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Parcel (default 12×8×4, 2lb) ──────────────────────────────
-      const parcel = overrides.parcel || DEFAULT_PARCEL;
+      // ─── Parcel (r181: explicit override > category map > default) ─
+      // Category comes from the listing the order references; a deleted
+      // listing (or unknown cat) falls back to DEFAULT_PARCEL as before.
+      let catParcel = null;
+      try {
+        if (order.listingId) {
+          const lSnap = await admin.firestore()
+              .collection("listings").doc(String(order.listingId)).get();
+          if (lSnap.exists) catParcel = parcelForCategory(lSnap.data().cat);
+        }
+      } catch (e) {
+        logger.warn("createShippingLabel: listing cat lookup failed " +
+            "(using default parcel)", {orderId, err: e.message});
+      }
+      const parcel = overrides.parcel || catParcel || DEFAULT_PARCEL;
 
       // ─── Step 1: Create shipment + get rates ───────────────────────
       const shipmentBody = {
