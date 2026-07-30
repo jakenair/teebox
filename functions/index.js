@@ -3443,6 +3443,47 @@ async function applySellerSaleStatsIdempotent(db, orderId) {
   });
 }
 
+// releaseExpiredReservations (r179 belt-and-braces) — scheduled sweep that
+// releases listings whose checkout-reservation window (pendingUntil) has
+// lapsed with no succeeded payment. Primary healing is client-side
+// (isListingPendingNow lets the next buyer's createPaymentIntent reclaim
+// lazily); this sweep keeps the CATALOG DATA honest even with zero buyer
+// traffic — a stale `pending` otherwise sits in feed queries indefinitely.
+// Query is status-only (tiny set; avoids a composite index) with the expiry
+// filtered in code. A listing mid-ACH/wallet settlement is safe: the
+// payment_intent.processing handler extends pendingUntil by 10 days, so it
+// never looks expired here; a succeeded payment flips status to sold.
+exports.releaseExpiredReservations = onSchedule(
+  {schedule: "every 30 minutes", ...SCHEDULED_BATCH},
+  async () => {
+    const db = admin.firestore();
+    const now = Date.now();
+    const snap = await db.collection("listings")
+        .where("status", "==", "pending").limit(300).get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    let released = 0;
+    snap.forEach((d) => {
+      const pu = d.data().pendingUntil;
+      const ms = pu && typeof pu.toMillis === "function" ? pu.toMillis() : 0;
+      if (ms > 0 && ms < now) {
+        batch.update(d.ref, {
+          status: "active",
+          pendingBuyer: admin.firestore.FieldValue.delete(),
+          pendingUntil: admin.firestore.FieldValue.delete(),
+          pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
+          quantityReserved: admin.firestore.FieldValue.delete(),
+        });
+        released++;
+      }
+    });
+    if (released) {
+      await batch.commit();
+      logger.info(`releaseExpiredReservations: released ${released} stale reservation(s)`);
+    }
+  },
+);
+
 // syncBlockedThreads (r173) — when a user's blocked map changes, stamp/clear
 // `blockedBy.{blockerUid}` on every conversation the pair shares (Admin SDK;
 // the field is NOT in the client update whitelist so it can't be forged).
