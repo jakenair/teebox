@@ -2324,7 +2324,13 @@
   .sell-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 580px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); margin: auto; }
   .sell-form { padding: 1.5rem; }
   .sell-form .form-row { margin-bottom: 1rem; }
-  .sell-form label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 6px; }
+  /* r176: sentence-case labels — the all-caps 0.8px-tracked treatment read
+     as bureaucratic form chrome. */
+  .sell-form label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-500); margin-bottom: 6px; }
+  .qty-toggle-link { background: none; border: none; padding: 0; margin: -2px 0 12px; font-family: var(--font-body); font-size: 12.5px; font-weight: 600; color: var(--green-600); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; display: inline-block; }
+  .qty-toggle-link:hover { color: var(--gold-600); }
+  .btn-cancel-link { background: none; border: none; padding: 10px; margin: 0; width: 100%; font-family: var(--font-body); font-size: 13.5px; font-weight: 600; color: var(--gray-500); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .btn-cancel-link:hover { color: var(--gray-700); }
   .sell-form input, .sell-form select, .sell-form textarea { width: 100%; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 14px; color: var(--gray-900); outline: none; transition: var(--transition); }
   .sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color: var(--gold-400); }
   .sell-form textarea { height: 80px; resize: vertical; }
@@ -2417,6 +2423,13 @@
   .upload-zone:hover, .upload-zone.dragover { border-color: var(--green-500); background: var(--green-50); }
   .upload-zone-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
   .upload-zone-text { font-size: 14px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+  /* r176: photo-affordance copy swaps by pointer type — camera language on
+     touch, drag & drop on desktop. */
+  .uz-coarse { display: none; }
+  @media (hover: none) and (pointer: coarse) {
+    .uz-fine { display: none; }
+    .uz-coarse { display: inline; }
+  }
   .upload-zone-sub { font-size: 12px; color: var(--gray-400); }
   .upload-previews { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .upload-preview { position: relative; width: 72px; height: 72px; border-radius: var(--radius-md); overflow: hidden; border: 1.5px solid var(--gray-200); }
@@ -5263,7 +5276,8 @@
         <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
         <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
           <span class="upload-zone-icon" data-ico="camera" aria-hidden="true"></span>
-          <div class="upload-zone-text">Click to upload or drag & drop</div>
+          <!-- r176: touch devices get camera-first copy; desktop keeps drag & drop. -->
+          <div class="upload-zone-text"><span class="uz-fine">Click to upload or drag &amp; drop</span><span class="uz-coarse">📷 Add photos — take one or pick from your library</span></div>
           <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
         </div>
         <input type="file" id="photoInput" accept="image/*" multiple style="display:none" />
@@ -5285,15 +5299,19 @@
           <option value="Vokey"></option><option value="Pro V1"></option><option value="TP5"></option><option value="Bushnell"></option><option value="Garmin"></option><option value="Arccos"></option>
         </datalist>
       </div>
+      <!-- r176: Category is its own full row ABOVE price (mis-tag guard);
+           "Ask Price" → "Price" (dead bid/ask language, order book killed
+           r135); quantity defaults to 1 and hides behind a toggle. -->
+      <div class="form-row"><label for="sellCat">Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
       <div class="form-row-2">
-        <div class="form-row"><label for="sellCat">Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
-        <div class="form-row"><label for="sellPrice">Ask Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
-        <div id="sellTakeHome" style="display:none;margin:-4px 0 10px;font-size:12.5px;color:var(--gray-700);font-weight:600;"></div>
-      </div>
-      <div class="form-row-2">
+        <div class="form-row"><label for="sellPrice">Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
-        <div class="form-row"><label for="sellQuantity">Quantity in stock</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" /></div>
       </div>
+      <div id="sellTakeHome" style="display:none;margin:-4px 0 10px;font-size:12.5px;color:var(--gray-700);font-weight:600;"></div>
+      <div class="form-row" id="sellQtyRow" style="display:none">
+        <label for="sellQuantity">Quantity</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" />
+      </div>
+      <button type="button" class="qty-toggle-link" id="sellQtyToggle" data-action="toggle-sell-qty">I have more than one</button>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <div style="margin-top:-4px;margin-bottom:10px;">
         <!-- aiPriceBtn starts hidden; visibility is gated by the Firestore
@@ -5340,9 +5358,10 @@
           <button type="button" class="btn-stripe-connect" data-action="recheck-email-verify" style="background:var(--green-600);">I've verified</button>
         </div>
       </div>
-      <div class="modal-footer" style="padding:0;margin-top:1rem;">
-        <button class="btn-full ghost" data-action="close-sell-direct">Cancel</button>
-        <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Submit Listing</button>
+      <!-- r176: one primary action; Cancel demoted to a text link. -->
+      <div class="modal-footer" style="padding:0;margin-top:1rem;display:block;">
+        <button class="btn-full green" id="submitListingBtn" data-action="submit-listing">Post it</button>
+        <button class="btn-cancel-link" data-action="close-sell-direct" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -8636,7 +8655,7 @@ window.confirmPayment = async function() {
       // matched word or category — those are audit detail only).
       if (window.isContentViolationError && window.isContentViolationError(e)) {
         showContentViolationToast();
-        btn.disabled = false; btn.textContent = 'Submit Listing';
+        btn.disabled = false; btn.textContent = 'Post it';
         return;
       }
       let msg = 'Error submitting. Try again.';
@@ -8672,7 +8691,7 @@ window.confirmPayment = async function() {
       }
       showToast(msg);
     }
-    btn.disabled = false; btn.textContent = 'Submit Listing';
+    btn.disabled = false; btn.textContent = 'Post it';
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -8720,9 +8739,22 @@ window.confirmPayment = async function() {
     const titleEl = document.querySelector('#sellModalBackdrop .modal-title');
     if (titleEl) titleEl.textContent = 'List an Item for Sale';
     const submitBtn = document.getElementById('submitListingBtn');
-    if (submitBtn) { submitBtn.textContent = 'Submit Listing'; submitBtn.disabled = false; }
+    if (submitBtn) { submitBtn.textContent = 'Post it'; submitBtn.disabled = false; }
     const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
     if (vbar) vbar.style.display = '';
+    // r176: collapse the quantity row back behind its toggle for the next open.
+    try { if (typeof window.__setSellQtyVisible === 'function') window.__setSellQtyVisible(false); } catch (_e) {}
+  };
+
+  // r176: quantity lives behind "I have more than one" — most P2P listings
+  // are single items. Expanding reveals the input; collapsing resets to 1.
+  window.__setSellQtyVisible = function(show) {
+    const row = document.getElementById('sellQtyRow');
+    const link = document.getElementById('sellQtyToggle');
+    if (!row || !link) return;
+    row.style.display = show ? '' : 'none';
+    link.style.display = show ? 'none' : '';
+    if (!show) { const q = document.getElementById('sellQuantity'); if (q) q.value = '1'; }
   };
 
   // Open the sell modal pre-populated with an existing listing's
@@ -8776,6 +8808,9 @@ window.confirmPayment = async function() {
     set('sellPrice', (p.ask != null ? p.ask : ''));
     set('sellCondition', p.condition || 'Like New');
     set('sellQuantity', (p.quantity != null ? p.quantity : 1));
+    // r176: quantity row hides behind the "more than one" toggle — auto-expand
+    // when editing a listing that already has multi-stock.
+    try { if (typeof window.__setSellQtyVisible === 'function') window.__setSellQtyVisible(Number(p.quantity || 1) > 1); } catch (_e) {}
     set('sellDesc', p.desc || '');
 
     // Load existing photos as ordered, non-uploaded markers so the
@@ -18963,6 +18998,7 @@ A['confirm-report-review']    = () => { if (!window.requireAuth('to submit your 
 A['close-sell-direct']       = () => closeSellModalDirect();
 A['close-stripe-required']   = () => closeStripeRequiredDirect();
 A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
+A['toggle-sell-qty']         = () => { if (window.__setSellQtyVisible) window.__setSellQtyVisible(true); const q = document.getElementById('sellQuantity'); if (q) q.focus(); };
 A['ai-suggest-price']         = () => { if (!window.requireAuth('to suggest a price')) return; aiSuggestPrice(); };
 A['apply-ai-price']           = (el) => {
   const p = Number(el.dataset.price || 0);
