@@ -1,0 +1,9 @@
+#!/bin/bash
+# WARN-only deploy-drift check (2026-07-31). Never blocks a push — web-only
+# pushes are common and don't need a function redeploy. It just surfaces any
+# function whose deployed code is behind main so it can't rot invisibly.
+# Enable once per clone:  git config core.hooksPath .githooks
+if command -v node >/dev/null 2>&1 && [ -f scripts/check-deploy-drift.mjs ]; then
+  node scripts/check-deploy-drift.mjs || true
+fi
+exit 0
