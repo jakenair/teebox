@@ -33,7 +33,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="TeeBox" />
 <meta property="og:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta property="og:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, buyer protection, 6.5% seller fee." />
+<meta property="og:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, 7-day dispute window, 6.5% seller fee." />
 <meta property="og:url" content="https://teeboxmarket.com/" />
 <meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-default.png" />
@@ -45,7 +45,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@teeboxmarket" />
 <meta name="twitter:title" content="TeeBox: The Premier Golf Marketplace" />
-<meta name="twitter:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, buyer protection, 6.5% seller fee." />
+<meta name="twitter:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, 7-day dispute window, 6.5% seller fee." />
 <meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
 <meta name="twitter:image:alt" content="TeeBox: The Premier Golf Marketplace" />
 <!--
@@ -3777,7 +3777,7 @@
         <h4>13. Chargebacks</h4>
         If a buyer initiates a chargeback that is decided in the buyer's favor by the card network, the chargeback amount plus any network fee will be deducted from your payout balance or future payouts. TeeBox does not guarantee the result of any chargeback dispute.
         <h4>14. Account Suspension and Appeal</h4>
-        TeeBox may suspend a seller for confirmed counterfeit listings, failure to ship two or more sold orders, buyer-protection findings against the seller, repeated policy violations, or DMCA/counterfeit takedowns. We will notify you by email and you may appeal within 14 days by emailing <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a>. Our decision on appeal is final.
+        TeeBox may suspend a seller for confirmed counterfeit listings, failure to ship two or more sold orders, dispute findings against the seller, repeated policy violations, or DMCA/counterfeit takedowns. We will notify you by email and you may appeal within 14 days by emailing <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a>. Our decision on appeal is final.
         <h4>15. Off-Platform Circumvention</h4>
         Soliciting or completing a sale outside TeeBox after a buyer has contacted you through the platform is prohibited. First violation: warning. Second: permanent suspension and forfeiture of pending payouts.
       </div>
@@ -4037,7 +4037,7 @@
       <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="info-body">
-      <p class="info-meta">Thanks for keeping TeeBox safe. We'll review within 48 hours.</p>
+      <p class="info-meta">Thanks for keeping TeeBox safe. We review every report.</p>
       <div style="margin:0.75rem 0">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Reason</label>
         <select id="reportReason" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;font-family:var(--font-body);font-size:14px">
@@ -4450,7 +4450,7 @@
       <h4>6. Shipping &amp; Delivery</h4>
       <p>Sellers must ship sold items within 3 business days using a tracked, insured carrier. Risk of loss passes to the buyer upon delivery to the carrier. Disputes about lost or damaged items must be pursued first with the carrier and the seller.</p>
 
-      <h4>7. Disputes &amp; Buyer Protection</h4>
+      <h4>7. Disputes &amp; Refunds</h4>
       <p>If you have a problem with a transaction, contact the other party first via in-app messaging. If you cannot resolve it, contact <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a> within 7 days of the delivery date. TeeBox may, at its discretion, mediate, refund, or remove a member from the platform, but is not obligated to do so and is not financially liable for losses arising from a transaction.</p>
 
       <h4>8. Prohibited Conduct</h4>
@@ -4701,7 +4701,7 @@
       </div>
     </div>
     <div class="chat-warning">
-      <span data-ico="lock" aria-hidden="true"></span> Keep deals on TeeBox. Off-platform purchases aren't protected by our buyer-protection program.
+      <span data-ico="lock" aria-hidden="true"></span> Keep deals on TeeBox. Off-platform purchases get no dispute support and no refunds from TeeBox.
     </div>
     <!-- Pinned listing context card. Populated on chat open by openChatUI()
          from currentChat.listing. Sits OUTSIDE #chatBody so it survives
@@ -5174,7 +5174,7 @@
     <div class="trust-item"><span class="trust-icon" data-ico="user" aria-hidden="true"></span><span class="trust-text">Member-to-Member</span></div>
     <div class="trust-item"><span class="trust-icon" data-ico="lock" aria-hidden="true"></span><span class="trust-text">Stripe Payments</span></div>
     <div class="trust-item"><span class="trust-icon" data-ico="truck" aria-hidden="true"></span><span class="trust-text">Direct Shipping</span></div>
-    <div class="trust-item"><span class="trust-icon" data-ico="shield" aria-hidden="true"></span><span class="trust-text">Buyer Protection</span></div>
+    <div class="trust-item"><span class="trust-icon" data-ico="shield" aria-hidden="true"></span><span class="trust-text">7-Day Dispute Window</span></div>
     <div class="trust-item"><span class="trust-icon" data-ico="message" aria-hidden="true"></span><span class="trust-text">In-App Messaging</span></div>
   </div>
 
@@ -5247,8 +5247,8 @@
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now</button>
           <!-- r175: protection reassurance is one muted line UNDER the buy
                button — the tinted box above it is gone. -->
-          <div class="detail-trust-strip" aria-label="Buyer protection">
-            <span title="Buyer protection — 7 days from delivery to open a dispute">Buyer protection</span><span aria-hidden="true">&middot;</span><span title="Stripe secure checkout">Stripe secure checkout</span>
+          <div class="detail-trust-strip" aria-label="Dispute window">
+            <span title="Open a dispute within 7 days of delivery; TeeBox reviews and can refund through Stripe">7-day dispute window</span><span aria-hidden="true">&middot;</span><span title="Stripe secure checkout">Stripe secure checkout</span>
           </div>
           <!-- Shown by openDetailModal when the seller hasn't finished Stripe
                payout setup (profiles.chargesReady !== true): listing is visible
@@ -5498,12 +5498,12 @@
         Ships within 5 business days · tracked &amp; insured
       </div>
 
-      <!-- Buyer-protection callout -->
+      <!-- Dispute-window callout (r185 de-brand) -->
       <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;">
         <span data-ico="shield" style="color:var(--green-700);flex-shrink:0;margin-top:1px;"></span>
         <div style="font-size:12.5px;color:var(--green-700);line-height:1.45;">
-          <strong style="display:block;font-size:13px;margin-bottom:2px;color:var(--green-700);">Buyer Protection</strong>
-          Full refund if your item arrives not as described, never ships, or the seller doesn't ship within 5 business days. You have 7 days after delivery to report a problem. <a href="/refunds.html" target="_blank" rel="noopener" style="color:var(--green-700);text-decoration:underline;font-weight:600;">How buyer protection works</a>
+          <strong style="display:block;font-size:13px;margin-bottom:2px;color:var(--green-700);">7-Day Dispute Window</strong>
+          If your item never ships, never arrives, or arrives not as described, open a dispute within 7 days of delivery. TeeBox reviews every case and works with the seller; refunds are issued through Stripe at TeeBox's discretion. <a href="/refunds.html" target="_blank" rel="noopener" style="color:var(--green-700);text-decoration:underline;font-weight:600;">How disputes work</a>
         </div>
       </div>
 
@@ -10860,7 +10860,7 @@ function renderMessages(messages) {
     const interstitial = showInterstitial ? `
       <div class="msg-interstitial">
         <div class="msg-interstitial-head">⚠ Heads up</div>
-        <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app forfeits buyer protection.</strong></p>
+        <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app means no dispute support or refunds from TeeBox.</strong></p>
         <div class="msg-interstitial-actions">
           <button class="btn-ghost" onclick="this.closest('.msg-wrap').classList.remove('msg-hidden'); this.closest('.msg-interstitial').remove();">Show message anyway</button>
           <button class="btn-ghost btn-warn" data-action="report-message" data-mid="${midAttr}" data-sender="${sidAttr}">Report this message</button>
@@ -10923,7 +10923,7 @@ async function sendMessage() {
       const det = window.detectOffPlatform(text);
       if (det && det.matched) {
         if (det.severity === 'HARD') {
-          const ok = window.confirm("This message looks like it might be moving the deal off TeeBox. Paying outside the app forfeits buyer protection. Send anyway?");
+          const ok = window.confirm("This message looks like it might be moving the deal off TeeBox. Paying outside the app means no dispute support or refunds from TeeBox. Send anyway?");
           if (!ok) return;
         }
         clientFlag = { severity: det.severity, patterns: (det.patterns || []).slice(0, 6) };
@@ -14397,7 +14397,7 @@ async function submitDispute() {
       createdAt: serverTimestamp(),
     });
     document.getElementById('disputeBackdrop').classList.remove('open');
-    showToast('Report submitted. We\'ll review and reply within 7 business days.');
+    showToast('Report submitted. TeeBox reviews every dispute and follows up by email.');
   } catch (e) {
     console.error('submitDispute failed:', e);
     showToast('Could not submit report.');
