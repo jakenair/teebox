@@ -3333,6 +3333,142 @@
   .seller-tour-tip[data-arrow="left"]::before   { left: -6px; top: 24px; }
   .seller-tour-tip[data-arrow="right"]::before  { right: -6px; top: 24px; }
   .seller-tour-tip[data-arrow="none"]::before   { display: none; }
+
+  /* ══════════════════════════════════════════════════════════════════
+     r186: APP SHELL (UI-audit section 1). Everything below is gated on
+     body.is-native (Capacitor.isNativePlatform) so the WEBSITE — desktop
+     and mobile web — renders pixel-identical. JS half: applyAppShell().
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* 1.5 — hide webview scrollbars app-wide (native app only) */
+  body.is-native ::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  body.is-native, body.is-native * { scrollbar-width: none; }
+
+  /* 1.1 — bottom tab bar: dark green chrome, gold active, cream inactive,
+     Sell as a raised gold circle. Web keeps the white bar untouched. */
+  @media (max-width: 900px) {
+    body.is-native .bottom-nav {
+      background: var(--green-900);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 -4px 18px rgba(0,0,0,0.28);
+    }
+    body.is-native .bottom-nav-item { color: rgba(246,239,225,0.55); font-size: 10px; }
+    body.is-native .bottom-nav-item.active { color: var(--gold-300); }
+    body.is-native .bottom-nav-item.active::before { background: var(--gold-400); }
+    body.is-native .bottom-nav-item.sell,
+    body.is-native .bottom-nav-item.sell.active { color: var(--gold-300); }
+    body.is-native .bottom-nav-item.sell > span {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--gold-400); color: var(--green-900);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-top: -20px;
+      border: 3px solid var(--green-900);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+    body.is-native .bottom-nav-item.sell .ico { width: 24px; height: 24px; stroke-width: 2.2; }
+    body.is-native .bottom-nav-item.sell.active > span { background: var(--gold-300); }
+  }
+
+  /* 1.2/1.3/1.4 — drawer demotion (app only): tabs now own primary nav, so
+     the drawer keeps only secondary items (Journal, Logo Bingo, About,
+     Sign Out, Legal) + the identity block. Delete Account leaves the
+     drawer entirely — it lives on the Profile page (Apple 5.1.1(v) slot). */
+  body.is-native .mobile-nav-section-signed-in { display: none; }
+  body.is-native .mobile-nav-link[data-action="bn-home"],
+  body.is-native .mobile-nav-link[data-anchor="trending"],
+  body.is-native .mobile-nav-link[data-action="open-profile-self"],
+  body.is-native .mobile-nav-link[data-action="open-delete-account"] { display: none; }
+
+  .drawer-identity { display: none; }
+  body.is-native .drawer-identity {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px 16px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-decoration: none; cursor: pointer;
+  }
+  body.is-native.is-anon .drawer-identity { display: none; }
+  .drawer-identity-avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    background: var(--gold-400); color: var(--green-900);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 18px;
+    overflow: hidden;
+  }
+  .drawer-identity-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .drawer-identity-name { display: block; font-weight: 700; font-size: 15px; color: var(--white); }
+  .drawer-identity-link { font-size: 12.5px; font-weight: 600; color: var(--gold-300); }
+
+  /* 1.6 — collapsing header on scroll (app only). Past ~88px the cat-bar
+     (search row + Journal/Bingo pills) slides up under the top bar and a
+     compact search icon appears in the top bar. Pinned chrome while
+     scrolling = the single top-bar row. */
+  .mobile-top-search { display: none; }
+  body.is-native .cat-bar-wrap {
+    transition: transform 0.25s ease, opacity 0.2s ease;
+    will-change: transform;
+  }
+  body.is-native.hdr-collapsed .cat-bar-wrap {
+    transform: translateY(-120%); opacity: 0; pointer-events: none;
+  }
+  body.is-native.hdr-collapsed .mobile-top-search { display: inline-flex; }
+  @media (prefers-reduced-motion: reduce) {
+    body.is-native .cat-bar-wrap { transition: none; }
+  }
+
+  /* 1.8 — navigation conventions (app only): pushed full-screen surfaces
+     get a ← back button on the LEFT; centered modals keep ✕. JS swaps the
+     glyph (adds .app-back); these rules move it into position. */
+  body.is-native .app-back { order: -1; }
+  body.is-native .app-back .ico { width: 20px; height: 20px; }
+  body.is-native .inbox-header { justify-content: flex-start; gap: 8px; }
+  body.is-native .inbox-header h2 { flex: 1; }
+  body.is-native .dash-header { gap: 8px; }
+  body.is-native .dash-header > div { flex: 1; }
+  body.is-native #profileBackdrop .modal-header { justify-content: flex-start; gap: 8px; }
+  body.is-native #profileBackdrop .modal-title { flex: 1; }
+  body.is-native .detail-header { justify-content: flex-start; }
+  body.is-native .detail-header .detail-chrome { flex: 1; text-align: center; margin-right: 40px; }
+  body.is-native .chat-header .app-back { margin-right: 2px; flex-shrink: 0; }
+
+  /* 1.1 — ACTIVITY hub (app only): full-screen page, segmented tabs for
+     My Orders / Messages / Likes / Saved Searches. The panes ADOPT the
+     existing list containers (#ordersBody, #inboxBody, #savedSearchesBody)
+     so every renderer/refresh path keeps working unmodified. */
+  #activityBackdrop { display: none; position: fixed; inset: 0; z-index: 239; background: var(--green-900); }
+  #activityBackdrop.open { display: flex; }
+  .activity-modal { display: flex; flex-direction: column; width: 100%; height: 100%; background: var(--green-900); }
+  .activity-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: calc(env(safe-area-inset-top) + 8px) 10px 6px;
+    color: var(--white);
+  }
+  .activity-back {
+    background: none; border: 0; color: var(--white); cursor: pointer;
+    width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; flex-shrink: 0; padding: 0;
+  }
+  .activity-back:active { background: rgba(255,255,255,0.12); }
+  .activity-back .ico { width: 22px; height: 22px; }
+  .activity-header h2 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; margin: 0; }
+  .activity-segs { display: flex; gap: 6px; padding: 6px 12px 14px; }
+  .activity-seg {
+    flex: 1; border: 0; border-radius: 999px; padding: 8px 2px;
+    background: rgba(255,255,255,0.09); color: rgba(246,239,225,0.75);
+    font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    position: relative; transition: background 0.15s ease, color 0.15s ease;
+  }
+  .activity-seg::after { content: ''; position: absolute; inset: -6px -2px; }
+  .activity-seg.active { background: var(--gold-400); color: var(--green-900); }
+  .activity-body {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    background: var(--cream); border-radius: 16px 16px 0 0;
+    padding: 16px 14px calc(20px + env(safe-area-inset-bottom));
+  }
+  .activity-pane { display: none; }
+  .activity-pane.active { display: block; }
+  /* Adopted containers may carry their own max-height/scroll from their
+     modal homes — neutralize inside the activity scroller. */
+  .activity-pane .inbox-body, .activity-pane .info-body { max-height: none; overflow: visible; padding: 0; }
 </style>
 </head>
 <body class="is-anon">
@@ -3589,6 +3725,9 @@
     instagram: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" class="ico-fill"/></svg>',
     tiktok:    '<svg class="ico" viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>',
     trash:     '<svg class="ico" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>',
+    home:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6"/></svg>',
+    activity:  '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    arrowLeft: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   };
 
   // Map listing categories to placeholder icons.
@@ -4650,6 +4789,32 @@
     </div>
   </div>
 </div>
+
+<!-- ACTIVITY HUB (r186, app only — opened from the bottom tab bar, which
+     only points here under body.is-native). Segments ADOPT the existing
+     list containers (#ordersBody / #inboxBody / #savedSearchesBody) so the
+     existing renderers and live-refresh paths keep working; Likes gets its
+     own container because openWatchlist borrows #searchResults. -->
+<div id="activityBackdrop" data-close-on-backdrop="close-activity">
+  <div class="activity-modal" role="dialog" aria-modal="true" aria-label="Activity">
+    <div class="activity-header">
+      <button class="activity-back" data-action="close-activity" type="button" aria-label="Back"><span data-ico="arrowLeft"></span></button>
+      <h2>Activity</h2>
+    </div>
+    <div class="activity-segs" role="tablist" aria-label="Activity sections">
+      <button class="activity-seg active" data-action="activity-seg" data-seg="orders" role="tab" aria-selected="true" type="button">Orders</button>
+      <button class="activity-seg" data-action="activity-seg" data-seg="messages" role="tab" aria-selected="false" type="button">Messages</button>
+      <button class="activity-seg" data-action="activity-seg" data-seg="likes" role="tab" aria-selected="false" type="button">Likes</button>
+      <button class="activity-seg" data-action="activity-seg" data-seg="searches" role="tab" aria-selected="false" type="button">Searches</button>
+    </div>
+    <div class="activity-body">
+      <div class="activity-pane" id="activityPaneOrders"></div>
+      <div class="activity-pane" id="activityPaneMessages"></div>
+      <div class="activity-pane" id="activityPaneLikes"><div id="activityLikesBody"></div></div>
+      <div class="activity-pane" id="activityPaneSearches"></div>
+    </div>
+  </div>
+</div>
 <!-- NAME GATE (r170): one-field "add your name" prompt + optional photo
      nudge. Opened by requireDisplayName() before message-send / chat-open /
      listing publish when the account has no display name. NEVER gates
@@ -4810,6 +4975,12 @@
     <!-- Bingo moved out of the mobile top bar 2026-06-04 — lives on the
          cat-bar (desktop) + drawer Discover section (mobile). Top-bar
          reserves space for transactional items: Inbox + Alerts. -->
+    <!-- r186: compact search — hidden except in the app while the header is
+         collapsed (body.is-native.hdr-collapsed), when the cat-bar search
+         row has slid away. -->
+    <button class="mobile-top-icon mobile-top-search" data-action="open-search" type="button" aria-label="Search">
+      <span data-ico="search"></span>
+    </button>
     <button class="mobile-top-icon" data-action="open-inbox" type="button" aria-label="Inbox">
       <span data-ico="message"></span><span class="unread-badge" aria-hidden="true"></span>
     </button>
@@ -4829,6 +5000,16 @@
       <span class="mobile-nav-drawer-title">TeeBox</span>
       <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
     </div>
+
+    <!-- r186: identity block — app only (CSS-gated body.is-native, hidden
+         while anon). Populated by syncDrawerIdentity() on drawer open. -->
+    <a href="#" class="drawer-identity" id="drawerIdentity" data-action="drawer-view-shop">
+      <span class="drawer-identity-avatar" id="drawerIdentityAvatar" aria-hidden="true"></span>
+      <span class="drawer-identity-text">
+        <span class="drawer-identity-name" id="drawerIdentityName"></span>
+        <span class="drawer-identity-link">View shop →</span>
+      </span>
+    </a>
 
     <!-- Reorder 2026-06-04 — promote transactional items to first
          section. Mirrors the desktop ribbon order: Dashboard, Orders,
@@ -6809,6 +6990,10 @@ window.confirmPayment = async function() {
     // so re-measure --cat-bar-h — this module runs after the bar's initial
     // height sync.
     if (window.__syncCatBar) window.__syncCatBar();
+    // r186: app-shell upgrades (bottom-tab slots → Home/Browse/Sell/
+    // Activity/Profile, ←-back on pushed pages, collapsing header).
+    // Defined in the classic script below, which has already parsed.
+    if (window.applyAppShell) window.applyAppShell();
     // r172: launchAutoHide is OFF (capacitor.config) — hide the native splash
     // only once the web #authSplash has PAINTED (double-rAF = a frame has
     // rendered), so there's no dark-but-empty gap on cold starts. The web
@@ -6836,6 +7021,9 @@ window.confirmPayment = async function() {
   try {
     window.Cap = Cap;
     window.IS_NATIVE = IS_NATIVE;
+    // r186: audit-requested alias — one global flag for "running inside the
+    // Capacitor app". Same value as IS_NATIVE; prefer this in new code.
+    window.IS_APP = IS_NATIVE;
     window.FBAuthPlugin = FBAuthPlugin;
     window.firebaseAuth = auth;
     window.GoogleAuthProvider = GoogleAuthProvider;
@@ -11185,6 +11373,8 @@ async function openInbox() {
     showToast('Please sign in to view your messages.');
     return;
   }
+  // r186: reclaim #inboxBody if the Activity hub adopted it.
+  if (window.__activityRestore) window.__activityRestore();
   document.getElementById('inboxBackdrop').classList.add('open');
   (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
   await loadInbox();
@@ -13921,7 +14111,15 @@ async function openOrders() {
   } else if (!window.CURRENT_USER) { showToast('Sign in to view your orders.'); return; }
   const back = document.getElementById('ordersBackdrop');
   if (!back) return;
+  // r186: reclaim #ordersBody if the Activity hub adopted it.
+  if (window.__activityRestore) window.__activityRestore();
   back.classList.add('open');
+  await loadOrdersList();
+}
+
+// r186: render half of openOrders — targets #ordersBody by id, wherever it
+// currently lives (its modal home, or adopted into the Activity hub).
+async function loadOrdersList() {
   document.getElementById('ordersBody').innerHTML = '<div class="profile-loading" aria-busy="true"><div class="sk sk-line long"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>';
   const orders = await loadBuyerOrders();
   if (!orders.length) {
@@ -15063,10 +15261,19 @@ window.confirmSaveSearch = confirmSaveSearch;
 // the new top-level collection AND merge any legacy subcollection rows.
 async function openSavedSearchesV2() {
   if (!window.CURRENT_USER) { showToast('Sign in to view saved searches.'); return; }
+  // r186: reclaim #savedSearchesBody if the Activity hub adopted it.
+  if (window.__activityRestore) window.__activityRestore();
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
   const sb = document.getElementById('savedSearchesBackdrop');
   if (!sb) return;
   sb.classList.add('open');
+  await loadSavedSearchesList();
+}
+
+// r186: render half of openSavedSearchesV2 — targets #savedSearchesBody by
+// id wherever it lives. Also the refresh path after notify-toggle/delete,
+// so refreshes no longer force the standalone modal open over Activity.
+async function loadSavedSearchesList() {
   const body = document.getElementById('savedSearchesBody');
   body.innerHTML = '<div class="profile-loading" aria-busy="true"><div class="sk sk-line long"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>';
   try {
@@ -15157,7 +15364,7 @@ async function toggleSavedSearchNotify(id) {
       notifyOnNew: !s.notifyOnNew,
       updatedAt: serverTimestamp(),
     });
-    openSavedSearchesV2();
+    loadSavedSearchesList(); // r186: refresh in place (works inside Activity too)
   } catch (e) {
     console.error('toggleSavedSearchNotify failed:', e);
     showToast('Could not update alert.');
@@ -15212,7 +15419,7 @@ async function deleteSavedSearchV2(id, src) {
     } else {
       await deleteDoc(doc(db, 'savedSearches', id));
     }
-    openSavedSearchesV2();
+    loadSavedSearchesList(); // r186: refresh in place (works inside Activity too)
   } catch (e) {
     console.error('deleteSavedSearchV2 failed:', e);
     showToast('Could not delete saved search.');
@@ -15656,7 +15863,10 @@ updateOnline();
 // 5. Bottom-nav action: Browse → close any open modals + scroll up.
 window.__actions = window.__actions || {};
 window.__actions['bn-home'] = () => {
-  ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop']
+  // r186: return any list containers the Activity hub adopted before
+  // closing overlays, so Inbox/Orders/Saved-Searches reopen intact.
+  if (window.__activityRestore) window.__activityRestore();
+  ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop']
     .forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('open'); });
   (document.getElementById('app-scroll')||document.body).style.overflowY = '';
   document.getElementById('shopDashboard').classList.remove('open');
@@ -15695,6 +15905,161 @@ document.querySelectorAll('.bottom-nav-item').forEach(btn => {
       b.classList.toggle('active', b === btn));
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// r186: APP SHELL (UI-audit section 1). applyAppShell() is invoked from
+// the Capacitor module boot only when isNativePlatform() — none of this
+// runs on the website. CSS half lives under `body.is-native` in <style>.
+// ─────────────────────────────────────────────────────────────
+window.applyAppShell = function applyAppShell() {
+  const I = window.ICONS || {};
+  // 1) Bottom tabs → Home / Browse / Sell / Activity / Profile. Mutate the
+  //    existing buttons (never replace nodes) so the active-pill click
+  //    listeners attached above survive.
+  try {
+    const nav = document.querySelector('.bottom-nav');
+    if (nav) {
+      const set = (tab, icon, label, opts) => {
+        const btn = nav.querySelector('.bottom-nav-item[data-tab="' + tab + '"]');
+        if (!btn) return;
+        if (opts && opts.action) btn.setAttribute('data-action', opts.action);
+        if (opts && opts.newTab) btn.setAttribute('data-tab', opts.newTab);
+        btn.innerHTML = (opts && opts.badge)
+          ? '<span class="bn-icon" aria-hidden="true">' + icon + '<span class="unread-badge" aria-hidden="true"></span></span>' + label
+          : '<span aria-hidden="true">' + icon + '</span>' + label;
+      };
+      set('home',    I.home,     'Home');
+      set('search',  I.search,   'Browse');
+      set('inbox',   I.activity, 'Activity', { action: 'open-activity', newTab: 'activity', badge: true });
+      set('account', I.user,     'Profile');
+    }
+  } catch (e) { console.warn('applyAppShell tabs failed:', e); }
+  // 2) Pushed full-screen surfaces get a ← back glyph (CSS moves it left).
+  //    Centered modals (sell, checkout, orders, dispute, …) keep their ✕.
+  try {
+    ['.inbox-close', '.dash-close', '#profileBackdrop .modal-close',
+     '.detail-header .modal-close', '.chat-close'].forEach((sel) => {
+      const btn = document.querySelector(sel);
+      if (!btn) return;
+      btn.innerHTML = I.arrowLeft || '←';
+      btn.classList.add('app-back');
+      btn.setAttribute('aria-label', 'Back');
+    });
+    // Chat: the ✕ lives in the right-side actions cluster — move the node
+    // to the head of the chat header so the arrow sits on the left.
+    const chatClose = document.querySelector('.chat-close');
+    const chatHeader = document.querySelector('.chat-header');
+    if (chatClose && chatHeader && chatHeader.firstElementChild !== chatClose) {
+      chatHeader.insertBefore(chatClose, chatHeader.firstElementChild);
+    }
+  } catch (e) { console.warn('applyAppShell back-glyphs failed:', e); }
+  // 3) Collapsing header: past ~88px the cat-bar slides away (CSS), the
+  //    compact top-bar search icon appears. Hysteresis avoids jitter at
+  //    the threshold. #app-scroll is the app's only scroller (r171).
+  try {
+    const sc = document.getElementById('app-scroll');
+    if (sc && !sc.__hdrCollapseWired) {
+      sc.__hdrCollapseWired = true;
+      let ticking = false;
+      sc.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          ticking = false;
+          const y = sc.scrollTop;
+          const collapsed = document.body.classList.contains('hdr-collapsed');
+          if (!collapsed && y > 88) document.body.classList.add('hdr-collapsed');
+          else if (collapsed && y < 24) document.body.classList.remove('hdr-collapsed');
+        });
+      }, { passive: true });
+    }
+  } catch (e) { console.warn('applyAppShell collapse failed:', e); }
+};
+
+// Drawer identity block (app only — the block is display:none on web).
+window.syncDrawerIdentity = function syncDrawerIdentity() {
+  const u = window.CURRENT_USER;
+  const nameEl = document.getElementById('drawerIdentityName');
+  const avEl = document.getElementById('drawerIdentityAvatar');
+  if (!u || !nameEl || !avEl) return;
+  const name = u.displayName || (u.email ? u.email.split('@')[0] : 'Golfer');
+  nameEl.textContent = name;
+  if (u.photoURL) avEl.innerHTML = '<img src="' + window.safeAttr(u.photoURL) + '" alt="" />';
+  else avEl.textContent = (name.trim()[0] || 'G').toUpperCase();
+};
+window.__actions['drawer-view-shop'] = function() {
+  const f = window.__actions;
+  if (f['close-mobile-nav']) f['close-mobile-nav']();
+  if (f['open-profile-self']) f['open-profile-self']();
+};
+
+// ─────────────────────────────────────────────────────────────
+// r186: ACTIVITY HUB. Segments adopt the existing list containers so the
+// existing renderers (loadOrdersList / loadInbox / loadSavedSearchesList)
+// and their refresh paths keep targeting the same nodes by id. Adopted
+// nodes are returned home by __activityRestore() before anything else
+// opens the donor overlays (openInbox/openOrders/openSavedSearchesV2 and
+// bn-home all call it first).
+// ─────────────────────────────────────────────────────────────
+window.__actNodesMoved = {};
+window.__activityRestore = function __activityRestore() {
+  const moved = window.__actNodesMoved || {};
+  Object.keys(moved).forEach((id) => {
+    const node = document.getElementById(id);
+    const home = moved[id];
+    if (node && home && home.parent) {
+      if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(node, home.next);
+      else home.parent.appendChild(node);
+    }
+  });
+  window.__actNodesMoved = {};
+};
+function __activityAdopt(pane, id) {
+  const node = document.getElementById(id);
+  if (!node || node.parentNode === pane) return;
+  window.__actNodesMoved[id] = { parent: node.parentNode, next: node.nextSibling };
+  pane.appendChild(node);
+}
+async function activityShow(seg) {
+  const paneId = { orders: 'activityPaneOrders', messages: 'activityPaneMessages',
+                   likes: 'activityPaneLikes', searches: 'activityPaneSearches' }[seg];
+  if (!paneId) return;
+  window.__activitySeg = seg;
+  document.querySelectorAll('.activity-seg').forEach((b) => {
+    const on = b.dataset.seg === seg;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.activity-pane').forEach((p) => p.classList.toggle('active', p.id === paneId));
+  const pane = document.getElementById(paneId);
+  window.__activityRestore();
+  try {
+    if (seg === 'orders')        { __activityAdopt(pane, 'ordersBody');        await loadOrdersList(); }
+    else if (seg === 'messages') { __activityAdopt(pane, 'inboxBody');         await loadInbox(); }
+    else if (seg === 'likes')    { await renderWatchlistInto(document.getElementById('activityLikesBody'), 'bn-home'); }
+    else if (seg === 'searches') { __activityAdopt(pane, 'savedSearchesBody'); await loadSavedSearchesList(); }
+  } catch (e) { console.warn('activityShow failed:', e); }
+}
+window.__actions['open-activity'] = function() {
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to view your activity', () => window.__actions['open-activity']())) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to view your activity.'); return; }
+  const b = document.getElementById('activityBackdrop');
+  if (!b) return;
+  b.classList.add('open');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
+  activityShow(window.__activitySeg || 'orders');
+};
+window.__actions['close-activity'] = function() {
+  window.__activityRestore();
+  const b = document.getElementById('activityBackdrop');
+  if (b) b.classList.remove('open');
+  const stillBlocking = document.querySelector('#shopDashboard.open, #chatBackdrop.open, #inboxBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open, #notifPanel.open');
+  if (!stillBlocking) (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+};
+window.__actions['activity-seg'] = function(el) {
+  if (el && el.dataset && el.dataset.seg) activityShow(el.dataset.seg);
+};
 
 // 6. Launch shortcuts + deep links from brand SEO pages + path-style routes.
 //    PWA manifest shortcuts: /?launch=sell /?launch=inbox /?launch=watchlist
@@ -16319,15 +16684,24 @@ async function openWatchlist() {
     showToast('Sign in to view your liked items.');
     return;
   }
-  const watch = await loadWatchlist();
-  const ids = Object.keys(watch);
-  const items = ids.map(id => window.PRODUCTS.find(p => String(p.id) === id)).filter(Boolean);
   // Reuse the search overlay to display
   document.getElementById('searchOverlay').classList.add('open');
   const results = document.getElementById('searchResults');
-  // The marketplace typeahead hides this list when the search input is
-  // empty; the watchlist re-uses the same overlay, so reset display
-  // before populating.
+  // The overlay now opens before the Firestore read — blank any stale
+  // typeahead results so they can't flash while the watchlist loads.
+  results.style.display = '';
+  results.innerHTML = '';
+  await renderWatchlistInto(results);
+}
+
+// r186: render half of openWatchlist, extracted so the Activity hub's
+// Likes segment can render into its own container (the standalone flow
+// borrows #searchResults, which Activity must not touch). ctaAction lets
+// the empty-state CTA do the right thing per context.
+async function renderWatchlistInto(results, ctaAction) {
+  const watch = await loadWatchlist();
+  const ids = Object.keys(watch);
+  const items = ids.map(id => window.PRODUCTS.find(p => String(p.id) === id)).filter(Boolean);
   results.style.display = '';
   if (!items.length) {
     results.innerHTML =
@@ -16335,7 +16709,7 @@ async function openWatchlist() {
         '<div class="empty-state-icon">' + (window.ICONS && window.ICONS.heart || '') + '</div>' +
         '<h3 class="empty-state-title">No saved items yet</h3>' +
         '<p class="empty-state-sub">Tap the <strong>heart</strong> on any listing to save it here for later.</p>' +
-        '<button class="empty-state-cta" data-action="close-watchlist-browse" type="button">Browse listings</button>' +
+        '<button class="empty-state-cta" data-action="' + (ctaAction || 'close-watchlist-browse') + '" type="button">Browse listings</button>' +
       '</div>';
     return;
   }
@@ -18417,6 +18791,8 @@ A['toggle-mobile-nav']       = () => {
   const d = document.getElementById('mobileNavDrawer');
   if (!d) return;
   const opening = !d.classList.contains('open');
+  // r186: refresh the app-only identity block whenever the drawer opens.
+  if (opening && window.syncDrawerIdentity) window.syncDrawerIdentity();
   d.classList.toggle('open', opening);
   d.setAttribute('aria-hidden', opening ? 'false' : 'true');
   const btn = document.querySelector('.mobile-nav-toggle');
@@ -18935,6 +19311,7 @@ const __OV = {
   chat:      { el: 'chatBackdrop',     act: 'close-chat' },
   dashboard: { el: 'shopDashboard',    act: 'close-shop-dashboard' },
   orders:    { el: 'ordersBackdrop',   act: null },
+  activity:  { el: 'activityBackdrop', act: 'close-activity' },
   notif:     { el: 'notifPanel',       act: 'close-notifications' },
   bingo:     { el: 'bingoScreen',      act: 'close-bingo' },
   drawer:    { el: 'mobileNavDrawer',  act: 'close-mobile-nav' },
@@ -18984,6 +19361,7 @@ window.addEventListener('load', () => {
   // openDetailModal so every entry route is covered). Async opens verify the
   // overlay actually opened before pushing.
   [['open-search', 'search'], ['open-inbox', 'inbox'], ['open-orders', 'orders'],
+   ['open-activity', 'activity'],
    ['open-shop-dashboard', 'dashboard'], ['open-bingo', 'bingo'], ['open-journal', 'info'],
    ['toggle-mobile-nav', 'drawer'], ['toggle-notifications', 'notif'], ['open-conv', 'chat'],
    ['detail-buy-now', 'checkout'],
