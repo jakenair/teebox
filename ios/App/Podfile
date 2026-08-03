@@ -22,6 +22,12 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  # r186 §8: Google Sign-In on iOS. The plugin's default 'Lite' subspec
+  # compiles the GIDSignIn flow OUT — signInWithGoogle() then hangs forever
+  # with no error (documented in the sign-in-google handler). This subspec
+  # pulls GoogleSignIn 7.1.0 and lives here (not in capacitor_pods, which
+  # `cap sync` regenerates). Reversed client ID already in Info.plist.
+  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   # Firebase Crashlytics — iOS crash + non-fatal error reporting.
   # CapacitorFirebaseAuthentication transitively pulls FirebaseAuth ~> 11.7.0
   # (which drags FirebaseCore 11.7.x). Pin Crashlytics to the matching 11.7.x

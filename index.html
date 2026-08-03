@@ -1456,11 +1456,11 @@
   .auth-google-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
   .auth-google-btn:active { transform: scale(0.98); }
   .auth-google-icon { width: 20px; height: 20px; flex-shrink: 0; }
-  /* Google is WEB-ONLY (per decision after on-device issues). iOS uses Apple
-     + email; the web keeps Continue-with-Google (signInWithPopup). Hide the
-     Google entry in the native app. To re-enable in-app later, remove this
-     rule (the native subspec + skipNativeAuth plumbing is still in place). */
-  body.is-native .auth-divider, body.is-native .auth-google-btn { display: none; }
+  /* r186 §8: Google RE-ENABLED in-app (Jake-approved 2026-08-03). The
+     Podfile now carries the CapacitorFirebaseAuthentication/Google subspec
+     (GoogleSignIn 7.1.0), so the native sheet no longer hangs — the old
+     protective hide is gone. DO NOT re-hide without also understanding the
+     pod state; the hang mode is silent (no error, no result). */
 
   /* Sign in with Apple — black-on-light per Apple HIG. Same dimensions
      as the Google button so the two providers stack as visual peers. */
@@ -3842,6 +3842,33 @@
     }
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §8: GOOGLE SIGN-IN (UI-audit section 8). App-only reposition —
+     social buttons above the email form via CSS order (approved: web
+     auth screen stays byte-identical; the web funnel reorder is
+     follow-up #5, its own measured release).
+     App order: reason → mode toggle → title → desc → Google → Apple →
+     divider → name/email/password → consent → error → submit → forgot →
+     guest → fineprint.
+     ══════════════════════════════════════════════════════════════════ */
+  body.is-native #authEmailMode { display: flex; flex-direction: column; }
+  body.is-native #authEmailMode .auth-reason { order: 1; }
+  body.is-native #authEmailMode .auth-emailmode-toggle { order: 2; }
+  body.is-native #authEmailMode .auth-title { order: 3; }
+  body.is-native #authEmailMode .auth-desc { order: 4; }
+  body.is-native #authEmailMode .auth-google-btn { order: 5; min-height: 48px; }
+  body.is-native #authEmailMode .auth-apple-btn { order: 6; min-height: 48px; margin-top: 10px; }
+  body.is-native #authEmailMode .auth-divider { order: 7; }
+  body.is-native #authEmailMode #nameSignupInput { order: 8; }
+  body.is-native #authEmailMode #emailInput { order: 9; }
+  body.is-native #authEmailMode #passwordInput { order: 10; }
+  body.is-native #authEmailMode .auth-marketing-consent { order: 11; }
+  body.is-native #authEmailMode .auth-error { order: 12; }
+  body.is-native #authEmailMode .auth-btn { order: 13; }
+  body.is-native #authEmailMode .auth-link { order: 14; }
+  body.is-native #authEmailMode .auth-guest-btn { order: 15; }
+  body.is-native #authEmailMode .auth-fineprint { order: 16; }
+
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
      with tabular lining figures; serif stays for headings/editorial.
      MAINTENANCE HAZARD (sweep 2026-08-02): this selector-list approach is
@@ -4199,12 +4226,13 @@
       <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
       <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
 
-      <!-- Google sign-in (Phase 3, WEB half). Reuses the existing
-           A['sign-in-google'] handler (web path: signInWithPopup). The icon
-           must be an <svg> (not a <span>) so the handler's querySelector('span')
-           targets the LABEL for its loading state. Hidden in the native iOS app
-           (body.is-native) until the FirebaseMessaging /Google pod subspec ships
-           in the next build — without it the native flow hangs (see 16220). -->
+      <!-- Google sign-in — BOTH platforms as of r186 §8: web via
+           signInWithPopup, iOS via the plugin's native sheet (the Podfile
+           now carries the /Google subspec; the old hang is fixed at the
+           dependency, not papered over). The icon must be an <svg> (not a
+           <span>) so the handler's querySelector('span') targets the LABEL
+           for its loading state. In-app, CSS `order` lifts Google/Apple
+           above the email form (audit §8.3) — web DOM + layout unchanged. -->
       <div class="auth-divider">or</div>
       <button type="button" class="auth-google-btn" data-action="sign-in-google" aria-label="Continue with Google">
         <svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>
@@ -18935,6 +18963,16 @@ A['sign-in-google']          = async (btn) => {
       ]);
       if (!_exchangeRes.ok) {
         const _errText = await _exchangeRes.text().catch(() => '');
+        // r186 §8: surface the function's same-email refusal honestly.
+        // _findOrCreateUser throws ALREADY_EXISTS when this email belongs
+        // to an account without the Google provider (anti-takeover). The
+        // old generic message hid that; map it to actionable copy. (No
+        // "link from settings" wording — that flow doesn't exist.)
+        if (/ALREADY_EXISTS|already.?exists|different sign.?in method/i.test(_errText)) {
+          const _dup = new Error('email exists under a different method');
+          _dup.code = 'teebox/email-exists-different-method';
+          throw _dup;
+        }
         throw new Error('exchange HTTP ' + _exchangeRes.status + ': ' + _errText.substring(0, 200));
       }
       const _exchangeJson = await _exchangeRes.json();
@@ -19001,6 +19039,9 @@ A['sign-in-google']          = async (btn) => {
     else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
     else if (code === 'auth/account-exists-with-different-credential') {
       msg = 'An account with that email already exists. Sign in with email or your original method first.';
+    } else if (code === 'teebox/email-exists-different-method') {
+      // r186 §8: native exchange-path twin of the case above.
+      msg = 'An account with that email already exists. Sign in with your email and password instead.';
     } else if (code === 'auth/internal-error') {
       msg = 'Something went wrong. Force-quit the app and try again, or use email sign-in.';
     }
