@@ -3520,7 +3520,9 @@
       display: inline-flex; align-items: center; justify-content: center;
     }
     .app-teaser-ico .ico { width: 22px; height: 22px; }
-    .app-teaser-bingo .app-teaser-ico { background: rgba(224,184,64,0.16); color: var(--gold-500); }
+    /* gold-700: gold-500 on the light tint measured 2.46:1 (§7 sweep);
+       gold-700 = 5.88:1 on cream. Brand gold tokens untouched. */
+    .app-teaser-bingo .app-teaser-ico { background: rgba(224,184,64,0.16); color: var(--gold-700); }
     .app-teaser-text { flex: 1; min-width: 0; }
     .app-teaser-title { display: block; font-weight: 700; font-size: 14.5px; color: var(--gray-900); }
     .app-teaser-sub { display: block; font-size: 12.5px; color: var(--gray-700); margin-top: 2px; }
@@ -3696,7 +3698,7 @@
        (module keeps toggling [disabled]), gold primary once complete. */
     body.is-native .bingo-header .bingo-share-btn { display: none; }
     body.is-native .bingo-footer-share {
-      background: var(--white); color: var(--gray-500);
+      background: var(--white); color: var(--ink-light-2, var(--gray-600));
       border: 1.5px solid var(--gray-200); border-radius: 999px;
     }
     body.is-native .bingo-footer-share:disabled { opacity: 1; }
@@ -3760,8 +3762,84 @@
       background: var(--gray-100); border-radius: var(--radius-md);
     }
     .rev-empty-title { font-size: 14.5px; font-weight: 700; color: var(--gray-700); }
-    .rev-empty-sub { font-size: 12.5px; color: var(--gray-500); line-height: 1.5; max-width: 250px; }
+    /* gray-600: gray-500 on gray-100 measured 3.93:1 (§7 sweep). */
+    .rev-empty-sub { font-size: 12.5px; color: var(--gray-600); line-height: 1.5; max-width: 250px; }
     body.is-native .rev-zero .dash-range { opacity: 0.45; pointer-events: none; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §7: CONTRAST TOKENS · ENTRY-POINT DEDUP · TOUCH TARGETS ·
+     DEAD-TAP LABEL (UI-audit section 7). App-only. Constraints honored:
+     16px input zoom-guard untouched; [data-feature="offers"] untouched;
+     install-banner rules untouched (audited L746/L751/L2511); no
+     transform-based pressed states (reduced-motion neutralizers stand).
+     ══════════════════════════════════════════════════════════════════ */
+  /* 7.1 ink tokens — two text tones per background, measured (WCAG):
+     ink-dark-1  = #fff              → 14.1:1 on green-800 (primary ≥7)
+     ink-dark-2  = cream @ .78       → 8.1–9.8:1 on green-800/900/950
+     ink-light-1 = gray-900          → 16.1:1 on cream (primary ≥7)
+     ink-light-2 = gray-600          → 6.3–6.9:1 on cream/white/gray-100 */
+  body.is-native {
+    --ink-dark-1: #ffffff;
+    --ink-dark-2: rgba(246, 239, 225, 0.78);
+    --ink-light-1: var(--gray-900);
+    --ink-light-2: var(--gray-600);
+  }
+  /* 7.1 failing-pair fixes (measured pre-fix → post-fix, all app-only):
+     placeholder .40 = 3.56 → .62 = 6.36; the gray-500-on-light family
+     (4.33/4.08/3.93) and trending's gray-400 (2.40) → ink-light-2. */
+  body.is-native .nav-search input::placeholder { color: rgba(255, 255, 255, 0.62); }
+  body.is-native .trend-info-meta,
+  body.is-native .stat-label,
+  body.is-native .analytics-card .a-label,
+  body.is-native .analytics-card .a-sub,
+  body.is-native .stat-sub,
+  body.is-native .bingo-stat-l,
+  body.is-native .bingo-footer-msg { color: var(--ink-light-2); }
+  @media (max-width: 900px) {
+    /* 7.3 entry-point dedup (approved): the cat-bar Journal/Bingo pill
+       row hides in-app — home teasers are the contextual shortcut, the
+       drawer is canonical. Header shrinks to the search row (the JS
+       height sync re-measures --cat-bar-h automatically). The browse
+       header's Saved Searches link hides — Activity segment is
+       canonical; the Profile hub entry stays (account directory). */
+    body.is-native .cat-bar .cat-pill.cat-journal,
+    body.is-native .cat-bar .cat-pill.cat-bingo,
+    body.is-native .cat-bar .cat-bar-divider { display: none; }
+    body.is-native #homeLatest .section-link[data-action="open-saved-searches"] { display: none; }
+    /* 7.4 touch targets — invisible ::after hit-slop (r171 pattern; no
+       transforms, so reduced-motion neutralizers are irrelevant here).
+       Isolated controls get a blanket ±8px reach; grouped controls
+       (range/tab rows) get vertical-only slop so neighbors don't overlap. */
+    body.is-native .fav-btn,
+    body.is-native .bingo-guess-close,
+    body.is-native .mobile-nav-drawer-close,
+    body.is-native .inbox-close,
+    body.is-native .chat-close,
+    body.is-native .dash-close { position: relative; }
+    body.is-native .fav-btn::after,
+    body.is-native .bingo-guess-close::after,
+    body.is-native .mobile-nav-drawer-close::after,
+    body.is-native .inbox-close::after,
+    body.is-native .chat-close::after,
+    body.is-native .dash-close::after { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
+    body.is-native .dash-range button,
+    body.is-native .dash-tab,
+    body.is-native .bingo-lb-tab { position: relative; }
+    body.is-native .dash-range button::after,
+    body.is-native .dash-tab::after,
+    body.is-native .bingo-lb-tab::after { content: ''; position: absolute; inset: -10px -1px; }
+    /* <select> can't carry pseudo-elements — give the sort pill a real
+       44px minimum instead. */
+    body.is-native .app-sort-slot select { min-height: 44px; }
+    /* 7.x dead-tap label (approved): native [disabled] stays — only the
+       visible copy changes while inert. The ::after MUST re-declare its
+       own font-size (it inherits the parent's 0). */
+    body.is-native .bingo-footer-share[disabled] { font-size: 0; }
+    body.is-native .bingo-footer-share[disabled]::after {
+      content: 'Finish today’s board to share';
+      font-size: 14.5px; font-weight: 600; letter-spacing: normal;
+    }
   }
 
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
