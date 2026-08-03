@@ -1456,11 +1456,16 @@
   .auth-google-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
   .auth-google-btn:active { transform: scale(0.98); }
   .auth-google-icon { width: 20px; height: 20px; flex-shrink: 0; }
-  /* r186 §8: Google RE-ENABLED in-app (Jake-approved 2026-08-03). The
-     Podfile now carries the CapacitorFirebaseAuthentication/Google subspec
-     (GoogleSignIn 7.1.0), so the native sheet no longer hangs — the old
-     protective hide is gone. DO NOT re-hide without also understanding the
-     pod state; the hang mode is silent (no error, no result). */
+  /* Google is WEB-ONLY. The Podfile ships the plugin's /Lite subspec, which
+     compiles the GIDSignIn flow OUT — a visible native button would hang
+     SILENTLY (no error, no result) on tap. This hide is a safety interlock
+     with the pod state: remove it ONLY in the native-Google isolated
+     release (follow-up #6, APP_UI_AUDIT doc) that adds the /Google subspec.
+     r186 briefly removed it (2026-08-03) and reverted the same day — r186
+     is UI-only. NOTE: unlike the pre-r186 rule, the divider is NOT hidden
+     in-app any more — it now separates Apple from the email form in the
+     §8 reposition. */
+  body.is-native .auth-google-btn { display: none; }
 
   /* Sign in with Apple — black-on-light per Apple HIG. Same dimensions
      as the Google button so the two providers stack as visual peers. */
@@ -3843,11 +3848,13 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     r186 §8: GOOGLE SIGN-IN (UI-audit section 8). App-only reposition —
-     social buttons above the email form via CSS order (approved: web
-     auth screen stays byte-identical; the web funnel reorder is
-     follow-up #5, its own measured release).
-     App order: reason → mode toggle → title → desc → Google → Apple →
+     r186 §8: AUTH REPOSITION (UI-audit section 8). App-only — the social
+     block above the email form via CSS order (web auth screen stays
+     byte-identical; the web funnel reorder is follow-up #5). Google keeps
+     an order slot but is display:none in-app (pod-state interlock above)
+     until follow-up #6 ships natively — today the visible app order is
+     Apple → divider → email form.
+     Full order: reason → mode toggle → title → desc → [Google] → Apple →
      divider → name/email/password → consent → error → submit → forgot →
      guest → fineprint.
      ══════════════════════════════════════════════════════════════════ */
@@ -4226,12 +4233,13 @@
       <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
       <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
 
-      <!-- Google sign-in — BOTH platforms as of r186 §8: web via
-           signInWithPopup, iOS via the plugin's native sheet (the Podfile
-           now carries the /Google subspec; the old hang is fixed at the
-           dependency, not papered over). The icon must be an <svg> (not a
-           <span>) so the handler's querySelector('span') targets the LABEL
-           for its loading state. In-app, CSS `order` lifts Google/Apple
+      <!-- Google sign-in — WEB ONLY (signInWithPopup). Hidden in-app by the
+           pod-state interlock rule (see .auth-google-btn CSS): the shipped
+           /Lite subspec compiles GIDSignIn out and a native tap would hang
+           silently. Native enablement = follow-up #6, isolated release.
+           The icon must be an <svg> (not a <span>) so the handler's
+           querySelector('span') targets the LABEL for its loading state.
+           In-app, CSS `order` lifts the social block (currently Apple)
            above the email form (audit §8.3) — web DOM + layout unchanged. -->
       <div class="auth-divider">or</div>
       <button type="button" class="auth-google-btn" data-action="sign-in-google" aria-label="Continue with Google">
