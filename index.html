@@ -3639,6 +3639,44 @@
     body.is-native .card-meta-app { display: block; order: 3; font-size: 11.5px; color: var(--gray-700); margin-top: 2px; }
     body.is-native .card-seller { order: 4; margin-top: 8px; }
   }
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §4: TRENDING LIST ROWS + THEME SEAM (UI-audit section 4).
+     App-only. Web keeps the desktop table byte-identical (the renderer
+     only gained inert state classes on the status spans).
+     ══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    /* 4.1/4.2 — table → list rows: rank, thumb, 2-line title, price
+       right-aligned; ~72px rows, hairline separators; Status column
+       collapses to an exceptional-state badge (Sold) only. */
+    body.is-native .trending-table { display: block; border: 0; box-shadow: none; background: none; border-radius: 0; }
+    body.is-native .trending-table thead { display: none; }
+    body.is-native .trending-table tbody { display: block; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); overflow: hidden; }
+    body.is-native .trending-table tbody tr { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 8px 14px; border-top: 0; border-bottom: 1px solid var(--gray-100); }
+    body.is-native .trending-table tbody tr:last-child { border-bottom: 0; }
+    body.is-native .trending-table td { display: block; padding: 0; border: 0; }
+    body.is-native .trending-table td:nth-child(2) { flex: 1; min-width: 0; }
+    body.is-native .trend-rank { width: 20px; text-align: center; font-size: 13px; }
+    body.is-native .trend-thumb { width: 52px; height: 52px; }
+    body.is-native .trend-info-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    /* .trend-price carries its own font-display, so the td-level numeral
+       rule doesn't reach it — override the span directly. */
+    body.is-native .trend-price { font-family: var(--font-body); font-variant-numeric: tabular-nums lining-nums; font-size: 15.5px; font-weight: 700; }
+    body.is-native .trend-chg.trend-active { display: none; }
+    body.is-native .trend-chg.trend-sold { font-size: 11px; }
+
+    /* 4.3 — theme seam: the cream content sheet meets the green chrome
+       exactly once, with a 16px top radius. The -16px solid box-shadow
+       paints green-900 behind the corner notches; the band itself hides
+       under the fixed cat-bar (home) / sticky dash-header (My Shop).
+       Activity sheet already ships this treatment (§1); Bingo's seam
+       lands with the §5 bingo pass. */
+    body.is-native main { border-radius: 16px 16px 0 0; box-shadow: 0 -16px 0 var(--green-900); }
+    body.is-native #shopDashboard { background: var(--green-900); }
+    body.is-native #shopDashboard.open { display: flex; flex-direction: column; }
+    body.is-native .dash-header { box-shadow: none; }
+    body.is-native .dash-body { background: var(--cream); border-radius: 16px 16px 0 0; flex: 1 0 auto; width: 100%; }
+  }
+
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
      with tabular lining figures; serif stays for headings/editorial. */
   body.is-native .product-price-val,
@@ -9610,7 +9648,11 @@ function buildTrending() {
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : window.CATEGORY_ICON(p.cat);
     const isSold = p.status === 'sold';
-    const statusBadge = isSold ? '<span class="trend-chg" style="background:var(--gray-200);color:var(--gray-700)">Sold</span>' : '<span class="trend-chg" style="background:var(--up-bg);color:var(--up-green)">Active</span>';
+    // r186 §4: state classes are CSS hooks only — inline styles unchanged,
+    // so the web table renders identically. In-app the routine "Active"
+    // badge hides (audit: badge exceptional states only) and rows restyle
+    // to 72px list rows.
+    const statusBadge = isSold ? '<span class="trend-chg trend-sold" style="background:var(--gray-200);color:var(--gray-700)">Sold</span>' : '<span class="trend-chg trend-active" style="background:var(--up-bg);color:var(--up-green)">Active</span>';
     return `<tr data-action="open-detail" data-product-id="${window.safeAttr(id)}" style="cursor:pointer">`+
       `<td><div class="trend-rank">${i+1}</div></td>`+
       `<td><div class="trend-item"><div class="trend-thumb">${thumb}</div>`+
