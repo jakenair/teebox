@@ -3672,7 +3672,12 @@
        lands with the §5 bingo pass. */
     body.is-native main { border-radius: 16px 16px 0 0; box-shadow: 0 -16px 0 var(--green-900); }
     body.is-native #shopDashboard { background: var(--green-900); }
-    body.is-native #shopDashboard.open { display: flex; flex-direction: column; }
+    /* align-items:stretch !important: the r171 iOS sheet rule (≤600px)
+       sets align-items:flex-end !important on #shopDashboard as a modal
+       container — dormant while .open was display:block, but it bites
+       once we go flex (children shrank + pinned right). Higher-specificity
+       !important restores normal column stretch. */
+    body.is-native #shopDashboard.open { display: flex; flex-direction: column; align-items: stretch !important; }
     body.is-native .dash-header { box-shadow: none; }
     body.is-native .dash-body { background: var(--cream); border-radius: 16px 16px 0 0; flex: 1 0 auto; width: 100%; }
   }
@@ -3720,6 +3725,43 @@
   }
   @media (prefers-reduced-motion: reduce) {
     body.is-native .bingo-cell[data-state="correct"] { transform: none; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §6: MY SHOP zero states + revenue header (UI-audit section 6).
+     App-only, display-only — no computation paths touched. All figures
+     here render exclusively inside #shopDashboard (owner-scoped:
+     SHOP_DATA queries where sellerId == CURRENT_USER.uid); nothing is
+     added to the public profile/storefront path.
+     ══════════════════════════════════════════════════════════════════ */
+  .rev-empty { display: none; }
+  @media (max-width: 900px) {
+    /* 6.1 — omit delta chips while both windows are zero (Revenue/Sold/
+       Avg zero out together; Active has no chip → all four tiles align). */
+    body.is-native .stat-delta.stat-delta-zero { display: none; }
+    /* 6.2 — rising-trend glyphs (conversion ↗, views chart line) hide
+       while their metric is zero. */
+    body.is-native .a-ico.a-ico-zero { visibility: hidden; }
+    /* 6.3 — header: title stacks above the 7d/30d/90d/All control on
+       narrow widths. align-items is inline-styled, hence the !important;
+       flex-direction isn't, so no specificity fight there. */
+    body.is-native .dash-sec-head {
+      flex-direction: column;
+      align-items: flex-start !important;
+      gap: 8px;
+    }
+    /* 6.3 — all-zero series: deliberate empty state instead of a
+       $1-scale chart; range control muted (nothing to range over). */
+    body.is-native .rev-zero .chart-wrap { display: none; }
+    body.is-native .rev-zero .rev-empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; gap: 4px;
+      padding: 30px 16px;
+      background: var(--gray-100); border-radius: var(--radius-md);
+    }
+    .rev-empty-title { font-size: 14.5px; font-weight: 700; color: var(--gray-700); }
+    .rev-empty-sub { font-size: 12.5px; color: var(--gray-500); line-height: 1.5; max-width: 250px; }
+    body.is-native .rev-zero .dash-range { opacity: 0.45; pointer-events: none; }
   }
 
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
@@ -4981,7 +5023,7 @@
           <div class="a-value" id="statViews" data-count="0">0</div>
           <div class="a-sub">Across all your listings</div>
         </div>
-        <div class="a-ico" data-ico="chart" aria-hidden="true"></div>
+        <div class="a-ico a-ico-views" data-ico="chart" aria-hidden="true"></div>
       </div>
       <div class="analytics-card">
         <div>
@@ -4989,13 +5031,15 @@
           <div class="a-value" id="statConv">0.0%</div>
           <div class="a-sub" id="statConvSub">Views that turn into sales</div>
         </div>
-        <div class="a-ico" aria-hidden="true">↗</div>
+        <div class="a-ico a-ico-conv" aria-hidden="true">↗</div>
       </div>
     </div>
 
     <!-- REVENUE CHART -->
     <div class="dash-section">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+      <!-- r186 §6: .dash-sec-head class is an app-only CSS hook (inert on
+           web — no web rule reads it); inline styles stay authoritative. -->
+      <div class="dash-sec-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
         <h2 style="margin:0;">Revenue Over Time</h2>
         <div class="dash-range" id="dashRange">
           <button data-range="7" class="active">7d</button>
@@ -5006,6 +5050,12 @@
       </div>
       <div class="chart-wrap">
         <canvas id="revenueChart"></canvas>
+      </div>
+      <!-- r186 §6: app-only zero-state (display:none on web) — shown via
+           .rev-zero on the section when the plotted series is all zeros. -->
+      <div class="rev-empty" id="revEmpty" aria-hidden="true">
+        <div class="rev-empty-title">No sales yet</div>
+        <div class="rev-empty-sub">Your revenue chart will appear after your first sale.</div>
       </div>
     </div>
 
@@ -12666,6 +12716,21 @@ function renderShopStats() {
       ? (itemsSold + ' sale' + (itemsSold === 1 ? '' : 's') + ' on ' + totalViews.toLocaleString() + ' view' + (totalViews === 1 ? '' : 's'))
       : 'Views that turn into sales';
   }
+  // r186 §6 (display-only, app-gated): honest zero states. The revenue
+  // tile's sub reads "No sales yet" at zero (web keeps "All time"), and
+  // the conversion card's decorative ↗ hides while the rate is 0 (a
+  // permanent up-arrow at 0.0% was audit item 6.2). Class toggles are
+  // inert on web — only body.is-native CSS reads them.
+  if (window.IS_NATIVE) {
+    const revSub = document.getElementById('statRevenueSub');
+    if (revSub) revSub.textContent = itemsSold > 0 ? 'All time' : 'No sales yet';
+  }
+  const convIco = document.querySelector('.a-ico-conv');
+  if (convIco) convIco.classList.toggle('a-ico-zero', !(convPct > 0));
+  // Views card: its chart glyph is also a rising trend line — same audit
+  // rule, hide it while views are zero.
+  const viewsIco = document.querySelector('.a-ico-views');
+  if (viewsIco) viewsIco.classList.toggle('a-ico-zero', !(totalViews > 0));
 
   // If the advanced section is already open, refresh it now that data is in.
   const adv = document.getElementById('advancedSection');
@@ -12710,7 +12775,10 @@ function applyDelta(elId, curr, prev) {
     else if (pct < -0.5) { cls = 'down'; txt = '▼ −' + Math.abs(Math.round(pct)) + '%'; }
     else { cls = 'flat'; txt = 'flat'; }
   }
-  el.className = 'stat-delta ' + cls;
+  // r186 §6 (display-only): flag the both-zero case so the app can omit
+  // the chip entirely (audit 6.1 — heights align since Revenue/Sold/Avg
+  // zero out together and Active has no chip). Class is inert on web.
+  el.className = 'stat-delta ' + cls + ((prev === 0 && curr === 0) ? ' stat-delta-zero' : '');
   el.textContent = txt;
 }
 
@@ -13532,6 +13600,12 @@ function renderRevenueChart(rangeDays) {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   });
   const data = Object.values(buckets);
+  // r186 §6 (display-only): flag an all-zero series so the app swaps the
+  // $1-scale chart for a deliberate empty state and mutes the range
+  // control. The chart still renders beneath (hidden by app CSS) — no
+  // computation or data path changes. Class is inert on web.
+  const revSection = canvas.closest('.dash-section');
+  if (revSection) revSection.classList.toggle('rev-zero', data.every(v => !v));
 
   if (revenueChartInstance) revenueChartInstance.destroy();
 
@@ -16380,6 +16454,16 @@ window.applyAppShell = function applyAppShell() {
     }
     if (window.updateAppFilterChips) window.updateAppFilterChips();
   } catch (e) { console.warn('applyAppShell filters failed:', e); }
+  // 6) §6: Chart.js canvas text (revenue chart + detail sparkline) was the
+  //    THIRD font on screen (its default Helvetica stack next to Playfair
+  //    and DM Sans). App-only by construction — this fn never runs on web,
+  //    so web canvases keep their current rendering. Chart.js loads via a
+  //    deferred script that executes before this module boot.
+  try {
+    if (window.Chart && Chart.defaults && Chart.defaults.font) {
+      Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+    }
+  } catch (_e) { /* chart font is cosmetic — never block boot */ }
 };
 
 // r186 §3: applied-filter chips + count badge, derived from the single
