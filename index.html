@@ -3537,6 +3537,122 @@
     .trust-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .trust-icon .ico { width: 20px; height: 20px; }
   }
+
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §3: BROWSE / FILTERS / CARDS / NUMERALS (UI-audit section 3).
+     App-only (body.is-native). Shape approved 2026-08-02: filter panel →
+     [⚙ Filters ·n][Sort ▾] toolbar + bottom sheet (adopting the real
+     #filterBar); removable applied-filter chips; card = photo → title →
+     price (largest, sans tabular) → "Brand · Condition" → seller row;
+     brand pill-row / rating / on-card Buy Now hidden in-app.
+     ══════════════════════════════════════════════════════════════════ */
+  .app-filter-toolbar, .app-filter-chips, .card-meta-app { display: none; }
+  #filterSheetBackdrop { display: none; }
+  @media (max-width: 900px) {
+    /* Toolbar + chips */
+    body.is-native .app-filter-toolbar { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; }
+    body.is-native .app-filter-btn {
+      display: inline-flex; align-items: center; gap: 6px; position: relative;
+      background: var(--white); border: 1px solid var(--gray-200); border-radius: 999px;
+      padding: 8px 14px; font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      color: var(--green-900); cursor: pointer;
+    }
+    body.is-native .app-filter-btn::after { content: ''; position: absolute; inset: -6px 0; }
+    body.is-native .app-filter-btn .ico { width: 15px; height: 15px; }
+    .app-filter-count {
+      background: var(--gold-400); color: var(--green-900); border-radius: 999px;
+      min-width: 18px; height: 18px; padding: 0 5px; margin-left: 2px;
+      font-size: 11px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-variant-numeric: tabular-nums lining-nums;
+    }
+    .app-filter-count[hidden] { display: none; }
+    body.is-native .app-sort-slot select {
+      appearance: none; -webkit-appearance: none;
+      background: var(--white); border: 1px solid var(--gray-200); border-radius: 999px;
+      padding: 8px 14px; font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      color: var(--green-900);
+    }
+    body.is-native .app-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
+    body.is-native .app-filter-chips[hidden] { display: none; }
+    .af-chip {
+      display: inline-flex; align-items: center; gap: 6px; position: relative;
+      background: var(--green-50, #edf6ee); border: 1px solid var(--green-400, #7fbf95);
+      color: var(--green-900); border-radius: 999px; padding: 5px 10px;
+      font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .af-chip::after { content: ''; position: absolute; inset: -8px -2px; }
+    .af-chip .af-x { font-size: 14px; line-height: 1; color: var(--green-700); }
+
+    /* Bottom sheet (modal → ✕). Adopted #filterBar restyles to a stacked
+       column; the empty sort group (its select lives in the toolbar) hides. */
+    #filterSheetBackdrop { position: fixed; inset: 0; z-index: 246; background: rgba(0,0,0,0.5); align-items: flex-end; justify-content: center; }
+    #filterSheetBackdrop.open { display: flex; }
+    .app-sheet {
+      background: var(--cream); width: 100%; max-height: 82vh; overflow-y: auto;
+      border-radius: 20px 20px 0 0;
+      padding: 8px 18px calc(16px + env(safe-area-inset-bottom));
+      animation: sheetUp 0.32s cubic-bezier(.32,.72,0,1);
+    }
+    .app-sheet-grab { width: 36px; height: 4px; border-radius: 2px; background: var(--gray-300); margin: 4px auto 10px; }
+    .app-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .app-sheet-title { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--gray-900); }
+    body.is-native #filterSheetBody .filter-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; border-bottom: 0; padding: 4px 0 8px; margin: 0; }
+    body.is-native #filterSheetBody .filter-group-sort { display: none; }
+    body.is-native #filterSheetBody .filter-group input { font-size: 16px; padding: 12px; }
+    body.is-native #filterSheetBody .condition-pill { padding: 9px 16px; font-size: 13.5px; position: relative; }
+    body.is-native #filterSheetBody .condition-pill::after { content: ''; position: absolute; inset: -7px -2px; }
+    /* Clear = plain text, Save Search = gold outline — clearly distinct
+       from the condition value chips (audit §3.2). */
+    body.is-native #filterSheetBody #filterSave {
+      order: 98; background: none; border: 1.5px solid var(--gold-500);
+      color: var(--gold-700, #7a5c0a); border-radius: 999px;
+      padding: 11px 16px; font-size: 13.5px; font-weight: 700;
+    }
+    body.is-native #filterSheetBody #filterClear {
+      order: 99; margin-left: 0; background: none; border: 0;
+      color: var(--gray-700); text-decoration: underline;
+      padding: 10px 4px; font-size: 13.5px;
+    }
+    .app-sheet-apply {
+      display: block; width: 100%; margin-top: 4px;
+      background: var(--gold-400); color: var(--green-900); border: 0; border-radius: 999px;
+      padding: 13px; font-family: var(--font-body); font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+
+    /* Cards: photo → title → price → meta → seller. Brand pill-row,
+       rating slot and on-card Buy Now hidden in-app (approved). */
+    /* §3.3: the r161 verified-seller gold ribbon effectively gold-bordered
+       EVERY card (all current sellers are KYC-verified) — the audit's
+       "gold border on default cards". In-app, cards keep the neutral
+       gray-200 hairline; gold stays reserved for featured/pinned. The
+       ribbon is untouched on web. */
+    body.is-native .product-card.verified-card { outline: none; box-shadow: none; }
+    body.is-native .product-card.verified-card::before { display: none; }
+    body.is-native .product-body { display: flex; flex-direction: column; }
+    body.is-native .product-brand,
+    body.is-native .product-rating,
+    body.is-native .product-btns { display: none; }
+    body.is-native .product-name { order: 1; margin-bottom: 2px; min-height: 0; }
+    body.is-native .product-price { order: 2; border-top: 0; padding-top: 0; margin-top: 2px; }
+    body.is-native .product-price-val { font-size: 18px; font-weight: 700; }
+    body.is-native .card-meta-app { display: block; order: 3; font-size: 11.5px; color: var(--gray-700); margin-top: 2px; }
+    body.is-native .card-seller { order: 4; margin-top: 8px; }
+  }
+  /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
+     with tabular lining figures; serif stays for headings/editorial. */
+  body.is-native .product-price-val,
+  body.is-native .detail-price-plain,
+  body.is-native .order-price,
+  body.is-native .search-res-price,
+  body.is-native .stat-value,
+  body.is-native .trending-table td,
+  body.is-native .dash-table td,
+  body.is-native .feat-price,
+  body.is-native .ticker-price {
+    font-family: var(--font-body);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
 </style>
 </head>
 <body class="is-anon">
@@ -3794,6 +3910,7 @@
     tiktok:    '<svg class="ico" viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>',
     trash:     '<svg class="ico" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>',
     home:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6"/></svg>',
+    sliders:   '<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6"/></svg>',
     activity:  '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
     arrowLeft: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   };
@@ -4883,6 +5000,21 @@
     </div>
   </div>
 </div>
+
+<!-- FILTER BOTTOM SHEET (r186 §3, app only). #filterSheetBody adopts the
+     real #filterBar at boot (in-app), so Min/Max/Condition/Clear/Save keep
+     their parse-time listeners. Modal → ✕ close per the r186 convention. -->
+<div id="filterSheetBackdrop" data-close-on-backdrop="close-filter-sheet">
+  <div class="app-sheet" role="dialog" aria-modal="true" aria-label="Filters">
+    <div class="app-sheet-grab" aria-hidden="true"></div>
+    <div class="app-sheet-head">
+      <span class="app-sheet-title">Filters</span>
+      <button class="modal-close" data-action="close-filter-sheet" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="app-sheet-body" id="filterSheetBody"></div>
+    <button class="app-sheet-apply" data-action="close-filter-sheet" type="button">Show results</button>
+  </div>
+</div>
 <!-- NAME GATE (r170): one-field "add your name" prompt + optional photo
      nudge. Opened by requireDisplayName() before message-send / chat-open /
      listing publish when the account has no display name. NEVER gates
@@ -5411,8 +5543,21 @@
 
   <div class="section reveal" id="homeLatest">
     <div class="section-header"><h2 class="section-title">Latest Listings<span id="activeBrandChipSlot"></span></h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
+
+    <!-- r186 §3: APP-ONLY filter toolbar + applied-filter chips. Hidden on
+         web; in-app the real #sortMode is adopted into the sort slot and
+         #filterBar is adopted into the bottom sheet (listeners survive —
+         same adoption pattern as the Activity hub). -->
+    <div class="app-filter-toolbar" id="appFilterToolbar">
+      <button class="app-filter-btn" data-action="open-filter-sheet" type="button" aria-label="Open filters">
+        <span data-ico="sliders" aria-hidden="true"></span>Filters<span class="app-filter-count" id="appFilterCount" hidden></span>
+      </button>
+      <span class="app-sort-slot" id="appSortSlot"></span>
+    </div>
+    <div class="app-filter-chips" id="appFilterChips" hidden></div>
+
     <div class="filter-bar" id="filterBar">
-      <div class="filter-group">
+      <div class="filter-group filter-group-sort">
         <label>Sort</label>
         <select id="sortMode" aria-label="Sort listings">
           <option value="newest">Newest</option>
@@ -9620,6 +9765,13 @@ function renderProductCardHtml(p, i) {
       `${sellerIdentitySlot}`+
       `${sellerRatingSlot}`+
       `<div class="product-price"><span class="product-price-val">$${Number(p.ask||0).toLocaleString()}</span></div>`+
+      `${(() => {
+        // r186 §3 (app-only): one muted "Brand · Condition" metadata line.
+        // display:none on web — the ONLY renderer change for the audit pass.
+        const cm = window.conditionBadgeMeta ? window.conditionBadgeMeta(p.condition) : null;
+        const bits = [p.brand ? window.safeText(p.brand) : '', cm ? window.safeText(cm.label) : (p.condition ? window.safeText(p.condition) : '')].filter(Boolean);
+        return bits.length ? '<div class="card-meta-app">' + bits.join(' · ') + '</div>' : '';
+      })()}`+
       `<div class="product-btns">`+
         `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
       `</div>`+
@@ -15967,6 +16119,8 @@ window.__actions['bn-home'] = () => {
   if (window.__activityRestore) window.__activityRestore();
   ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop']
     .forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('open'); });
+  const fsb = document.getElementById('filterSheetBackdrop');
+  if (fsb) fsb.classList.remove('open');
   (document.getElementById('app-scroll')||document.body).style.overflowY = '';
   document.getElementById('shopDashboard').classList.remove('open');
   (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'});
@@ -16089,6 +16243,77 @@ window.applyAppShell = function applyAppShell() {
       if (streak >= 2) sub.textContent = 'Today’s puzzle · ' + streak + '-day streak 🔥';
     }
   } catch (_e) { /* teaser keeps its static copy */ }
+  // 5) §3 browse toolbar + filter sheet: adopt the REAL controls so their
+  //    parse-time listeners keep working. #sortMode → toolbar slot,
+  //    #filterBar → bottom sheet. App-only (this fn never runs on web).
+  try {
+    const slot = document.getElementById('appSortSlot');
+    const sm = document.getElementById('sortMode');
+    if (slot && sm && sm.parentElement !== slot) slot.appendChild(sm);
+    const sheetBody = document.getElementById('filterSheetBody');
+    const fb = document.getElementById('filterBar');
+    if (sheetBody && fb && fb.parentElement !== sheetBody) sheetBody.appendChild(fb);
+    // Every filter mutation (sheet inputs, saved-search apply, clear, brand
+    // links) funnels through buildProducts() — hook it once so the chips +
+    // count badge can never go stale. App-only: this fn never runs on web.
+    if (!window.__chipsHooked && typeof buildProducts === 'function') {
+      window.__chipsHooked = true;
+      const __bpOrig = buildProducts;
+      buildProducts = function(...args) {
+        const r = __bpOrig.apply(this, args);
+        try { window.updateAppFilterChips(); } catch (_e) {}
+        return r;
+      };
+    }
+    if (window.updateAppFilterChips) window.updateAppFilterChips();
+  } catch (e) { console.warn('applyAppShell filters failed:', e); }
+};
+
+// r186 §3: applied-filter chips + count badge, derived from the single
+// source of truth (window.__filter). Chip removal re-drives the existing
+// control listeners (input event / pill click) — no duplicated state.
+window.updateAppFilterChips = function updateAppFilterChips() {
+  const wrap = document.getElementById('appFilterChips');
+  const badge = document.getElementById('appFilterCount');
+  if (!wrap) return;
+  const f = window.__filter || {};
+  const chips = [];
+  if (f.min != null) chips.push({ kind: 'min', label: 'Min $' + f.min });
+  if (f.max != null) chips.push({ kind: 'max', label: 'Max $' + f.max });
+  (f.conditions ? Array.from(f.conditions) : []).forEach((c) =>
+    chips.push({ kind: 'cond', cond: c, label: c === 'New with Tags' ? 'New' : c }));
+  wrap.innerHTML = chips.map((c) =>
+    '<button class="af-chip" type="button" data-action="remove-filter-chip" data-kind="' + c.kind + '"' +
+    (c.cond ? ' data-cond="' + window.safeAttr(c.cond) + '"' : '') +
+    ' aria-label="Remove filter ' + window.safeAttr(c.label) + '">' +
+    window.safeText(c.label) + '<span class="af-x" aria-hidden="true">×</span></button>').join('');
+  wrap.hidden = chips.length === 0;
+  if (badge) { badge.textContent = String(chips.length); badge.hidden = chips.length === 0; }
+};
+window.__actions['open-filter-sheet'] = function() {
+  const b = document.getElementById('filterSheetBackdrop');
+  if (!b) return;
+  b.classList.add('open');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
+};
+window.__actions['close-filter-sheet'] = function() {
+  const b = document.getElementById('filterSheetBackdrop');
+  if (b) b.classList.remove('open');
+  const stillBlocking = document.querySelector('#shopDashboard.open, #chatBackdrop.open, #inboxBackdrop.open, #activityBackdrop.open, .modal-backdrop.open, .detail-backdrop.open, .verify-backdrop.open, .info-backdrop.open, #notifPanel.open');
+  if (!stillBlocking) (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+  if (window.updateAppFilterChips) window.updateAppFilterChips();
+};
+window.__actions['remove-filter-chip'] = function(el) {
+  if (!el || !el.dataset) return;
+  const kind = el.dataset.kind;
+  if (kind === 'min' || kind === 'max') {
+    const input = document.getElementById(kind === 'min' ? 'filterMin' : 'filterMax');
+    if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
+  } else if (kind === 'cond') {
+    const pills = document.querySelectorAll('#filterCondition .condition-pill');
+    for (const pill of pills) { if (pill.dataset.cond === el.dataset.cond) { pill.click(); break; } }
+  }
+  if (window.updateAppFilterChips) window.updateAppFilterChips();
 };
 
 // Drawer identity block (app only — the block is display:none on web).
@@ -19433,6 +19658,7 @@ const __OV = {
   dashboard: { el: 'shopDashboard',    act: 'close-shop-dashboard' },
   orders:    { el: 'ordersBackdrop',   act: null },
   activity:  { el: 'activityBackdrop', act: 'close-activity' },
+  filtersheet: { el: 'filterSheetBackdrop', act: 'close-filter-sheet' },
   notif:     { el: 'notifPanel',       act: 'close-notifications' },
   bingo:     { el: 'bingoScreen',      act: 'close-bingo' },
   drawer:    { el: 'mobileNavDrawer',  act: 'close-mobile-nav' },
@@ -19482,7 +19708,7 @@ window.addEventListener('load', () => {
   // openDetailModal so every entry route is covered). Async opens verify the
   // overlay actually opened before pushing.
   [['open-search', 'search'], ['open-inbox', 'inbox'], ['open-orders', 'orders'],
-   ['open-activity', 'activity'],
+   ['open-activity', 'activity'], ['open-filter-sheet', 'filtersheet'],
    ['open-shop-dashboard', 'dashboard'], ['open-bingo', 'bingo'], ['open-journal', 'info'],
    ['toggle-mobile-nav', 'drawer'], ['toggle-notifications', 'notif'], ['open-conv', 'chat'],
    ['detail-buy-now', 'checkout'],
