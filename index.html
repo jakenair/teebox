@@ -3469,6 +3469,74 @@
   /* Adopted containers may carry their own max-height/scroll from their
      modal homes — neutralize inside the activity scroller. */
   .activity-pane .inbox-body, .activity-pane .info-body { max-height: none; overflow: visible; padding: 0; }
+
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §2: APP HOME (UI-audit section 2). App-only except the trust-bar
+     mobile layout fix at the bottom (explicitly sanctioned by the audit).
+     Shape (approved 2026-08-02): search chrome → category chips → New
+     Listings → Bingo teaser → Journal teaser → Trending. Hero, ticker and
+     How-TeeBox-Works are hidden in-app; the trust/feature grid shows only
+     on first launch (body.app-first-launch) or logged-out.
+     ══════════════════════════════════════════════════════════════════ */
+  .app-home-chips, .app-teaser { display: none; }
+  @media (max-width: 900px) {
+    body.is-native main { display: flex; flex-direction: column; }
+    body.is-native main > .hero,
+    body.is-native main > .ticker-wrap,
+    body.is-native main > .how-section { display: none; }
+    /* Order: chips 0 → listings 1 → bingo 2 → journal 3 → trending 4 →
+       drops 5 (retired, JS-hidden) → trust bar 6. */
+    body.is-native .app-home-chips {
+      display: flex; order: 0;
+      gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding: 12px 14px 4px;
+    }
+    body.is-native .app-home-chips .cat-pill {
+      flex: 0 0 auto; position: relative;
+      background: var(--white); color: var(--green-900);
+      border: 1px solid var(--gray-200); border-radius: 999px;
+      padding: 7px 14px; font-size: 13px; font-weight: 600;
+    }
+    /* 44pt effective hit area for the 32px chips (r171 convention). */
+    body.is-native .app-home-chips .cat-pill::after { content: ''; position: absolute; inset: -7px -2px; }
+    body.is-native .app-home-chips .cat-pill.active {
+      background: var(--green-800); color: var(--gold-300); border-color: var(--green-800);
+    }
+    body.is-native #homeLatest { order: 1; }
+    body.is-native .app-teaser {
+      display: flex; align-items: center; gap: 12px;
+      margin: 6px 14px; padding: 14px;
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg); text-decoration: none;
+    }
+    body.is-native .app-teaser-bingo { order: 2; margin-top: 10px; }
+    body.is-native .app-teaser-journal { order: 3; }
+    body.is-native #trending { order: 4; }
+    body.is-native main > #drops { order: 5; }
+    body.is-native main > .trust-bar { order: 6; }
+    .app-teaser-ico {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      background: var(--green-50, #edf6ee); color: var(--green-800);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .app-teaser-ico .ico { width: 22px; height: 22px; }
+    .app-teaser-bingo .app-teaser-ico { background: rgba(224,184,64,0.16); color: var(--gold-500); }
+    .app-teaser-text { flex: 1; min-width: 0; }
+    .app-teaser-title { display: block; font-weight: 700; font-size: 14.5px; color: var(--gray-900); }
+    .app-teaser-sub { display: block; font-size: 12.5px; color: var(--gray-700); margin-top: 2px; }
+    .app-teaser-cta { font-size: 13px; font-weight: 700; color: var(--green-700); flex-shrink: 0; }
+    /* Feature grid in-app: first launch or logged-out only. */
+    body.is-native.is-signed-in:not(.app-first-launch) .trust-bar { display: none; }
+  }
+  /* Audit §2.3 (sanctioned on web too): the 5-item trust/feature strip
+     wrapped into a ragged centered orphan on phones. Proper 2-col grid,
+     equal gaps, icons in fixed 24px boxes. Desktop row is untouched. */
+  @media (max-width: 600px) {
+    .trust-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; padding: 1.25rem 1.25rem; }
+    .trust-item { display: flex; align-items: center; gap: 10px; }
+    .trust-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .trust-icon .ico { width: 20px; height: 20px; }
+  }
 </style>
 </head>
 <body class="is-anon">
@@ -5305,12 +5373,43 @@
 
   <div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div>
 
+  <!-- r186 §2: APP-ONLY home elements — display:none on the website, shown
+       and flex-ordered under body.is-native. Chips reuse the filter-cat
+       pipeline (data-cat), so active-state + feed filtering stay in sync
+       with the web pills and the search-overlay chips. -->
+  <div class="app-home-chips" id="appHomeChips" role="group" aria-label="Filter by category">
+    <button class="cat-pill active" data-action="filter-cat" data-cat="all" type="button">All</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="clubs" type="button">Clubs</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="accessories" type="button">Accessories</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="bags" type="button">Bags</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="shoes" type="button">Shoes</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="balls" type="button">Balls</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="headcovers" type="button">Headcovers</button>
+  </div>
+  <a href="#" class="app-teaser app-teaser-bingo" data-action="open-bingo" aria-label="Play Logo Bingo — today's puzzle">
+    <span class="app-teaser-ico" data-ico="flame" aria-hidden="true"></span>
+    <span class="app-teaser-text">
+      <span class="app-teaser-title">Logo Bingo</span>
+      <span class="app-teaser-sub" id="appBingoTeaserSub">Today&rsquo;s puzzle &middot; play now</span>
+    </span>
+    <span class="app-teaser-cta">Play &rarr;</span>
+  </a>
+  <a href="#" class="app-teaser app-teaser-journal" data-action="open-journal" aria-label="Read the TeeBox Journal">
+    <span class="app-teaser-ico" data-ico="star" aria-hidden="true"></span>
+    <span class="app-teaser-text">
+      <span class="app-teaser-title">The Journal</span>
+      <span class="app-teaser-sub">Course guides &amp; gear reads</span>
+    </span>
+    <span class="app-teaser-cta">Read &rarr;</span>
+  </a>
+
   <div class="section reveal" id="trending">
     <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
     <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
   </div>
 
-  <div class="section reveal">
+  <div class="section reveal" id="homeLatest">
     <div class="section-header"><h2 class="section-title">Latest Listings<span id="activeBrandChipSlot"></span></h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
     <div class="filter-bar" id="filterBar">
       <div class="filter-group">
@@ -15974,6 +16073,22 @@ window.applyAppShell = function applyAppShell() {
       }, { passive: true });
     }
   } catch (e) { console.warn('applyAppShell collapse failed:', e); }
+  // 4) §2 app home: first-launch flag (feature grid shows once, or while
+  //    logged out) + Bingo teaser streak line.
+  try {
+    if (!localStorage.getItem('teebox.app.launched')) {
+      document.body.classList.add('app-first-launch');
+      localStorage.setItem('teebox.app.launched', '1');
+    }
+  } catch (_e) { /* storage unavailable → grid stays logged-out-only */ }
+  try {
+    const sub = document.getElementById('appBingoTeaserSub');
+    if (sub) {
+      let streak = 0;
+      try { streak = Number((JSON.parse(localStorage.getItem('teebox.bingo.streak') || '{}')).count) || 0; } catch (_e) {}
+      if (streak >= 2) sub.textContent = 'Today’s puzzle · ' + streak + '-day streak 🔥';
+    }
+  } catch (_e) { /* teaser keeps its static copy */ }
 };
 
 // Drawer identity block (app only — the block is display:none on web).
@@ -17265,6 +17380,12 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   // scrolling on iPad Air landscape. Profile-actions (Edit/Sign Out/Delete)
   // render right under the header, BEFORE the account-hub list. Build 18
   // was rejected because Delete Account sat below the hub.
+  //
+  // r186 (2026-08-02 UI audit, approved deviation): the audit asked for
+  // Delete Account "at the bottom of Profile → Settings under an Account
+  // section". DO NOT do that — it is exactly the build-18 rejection. The
+  // r186 change removed the app DRAWER entry only (CSS gated body.is-native);
+  // this profile-actions placement is the Apple-accepted slot and stays.
   //
   // GDPR Art. 20: "Download my data" sits in the same actions block so
   // the export option is just as discoverable as the deletion option —
