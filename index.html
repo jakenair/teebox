@@ -3873,6 +3873,15 @@
   body.is-native #authEmailMode .auth-error { order: 12; }
   body.is-native #authEmailMode .auth-btn { order: 13; }
   body.is-native #authEmailMode .auth-link { order: 14; }
+  /* Lockout rider: same order as the forgot link it references — DOM
+     order breaks the tie, so it renders directly beneath it. */
+  .auth-google-hint { display: none; }
+  body.is-native #authEmailMode .auth-google-hint {
+    display: block; order: 14;
+    font-size: 12.5px; line-height: 1.5; text-align: center;
+    color: var(--ink-light-2, var(--gray-600));
+    margin-top: 2px; padding: 0 8px;
+  }
   body.is-native #authEmailMode .auth-guest-btn { order: 15; }
   body.is-native #authEmailMode .auth-fineprint { order: 16; }
 
@@ -4232,6 +4241,12 @@
       <div class="auth-error" id="authErrorEmail"></div>
       <button class="auth-btn" id="emailSubmitBtn" data-action="submit-email">Sign In</button>
       <button type="button" class="auth-link" id="forgotPwBtn" data-action="forgot-password">Forgot your password?</button>
+      <!-- r186 lockout rider (approved after the 2026-08-03 live test
+           proved the reset route works end-to-end): 27 web-Google accounts
+           have no password and no Google button in-app — this line makes
+           the working recovery route discoverable. App-only (display:none
+           on web, where the Google button exists). -->
+      <div class="auth-google-hint">Signed up with Google on the web? Tap &ldquo;Forgot your password?&rdquo; to set a password for the app.</div>
 
       <!-- Google sign-in — WEB ONLY (signInWithPopup). Hidden in-app by the
            pod-state interlock rule (see .auth-google-btn CSS): the shipped
