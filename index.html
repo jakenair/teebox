@@ -3678,7 +3678,14 @@
   }
 
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
-     with tabular lining figures; serif stays for headings/editorial. */
+     with tabular lining figures; serif stays for headings/editorial.
+     MAINTENANCE HAZARD (sweep 2026-08-02): this selector-list approach is
+     inherently leaky — any NEW numeral surface that declares its own
+     font-family (or an inline style) silently escapes it. The list below
+     was verified complete against all 63 font-display rules + inline
+     templates on 2026-08-02; extend it when adding numeral surfaces.
+     (.drop-price intentionally omitted — retired Drops section, hidden
+     everywhere. Chart.js canvas numerals are out of CSS reach — see §6.) */
   body.is-native .product-price-val,
   body.is-native .detail-price-plain,
   body.is-native .order-price,
@@ -3686,9 +3693,28 @@
   body.is-native .stat-value,
   body.is-native .trending-table td,
   body.is-native .dash-table td,
-  body.is-native .feat-price,
-  body.is-native .ticker-price {
+  body.is-native .feat-mv-price,
+  body.is-native .ticker-price,
+  body.is-native .profile-stat-n,
+  body.is-native .profile-listing-price,
+  body.is-native .featured-listing-price,
+  body.is-native .sold-feed-price,
+  body.is-native .analytics-card .a-value,
+  body.is-native .adv-kv-row .adv-v,
+  body.is-native .offer-row .offer-amt,
+  body.is-native .mlt-price,
+  body.is-native .chat-listing-card-price,
+  body.is-native .bingo-stat-v,
+  body.is-native .bingo-lb-rank {
     font-family: var(--font-body);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  /* #checkoutTotal carries an INLINE font-display style (money-path markup
+     stays untouched by decision 2026-08-02) — !important is required to
+     beat the inline style. body.is-native never exists on web, so the web
+     checkout keeps its serif total. */
+  body.is-native #checkoutTotal {
+    font-family: var(--font-body) !important;
     font-variant-numeric: tabular-nums lining-nums;
   }
 </style>
