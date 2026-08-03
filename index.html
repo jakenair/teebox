@@ -3677,6 +3677,51 @@
     body.is-native .dash-body { background: var(--cream); border-radius: 16px 16px 0 0; flex: 1 0 auto; width: 100%; }
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     r186 §5: LOGO BINGO (UI-audit section 5) + the §4-deferred seam.
+     App-only. Web bingo (mobile + desktop) renders unchanged.
+     ══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    /* 5.1 — de-dupe branding: the sticky header (back / title / date) is
+       the one identity; the in-page wordmark + "Logo Bingo · Play Today"
+       pill hide so the stat row and board move up. */
+    body.is-native .bingo-brand { display: none; }
+    /* 5.2 — one Share CTA: the header button hides; the footer button is
+       the single CTA — quiet ghost while the puzzle is incomplete
+       (module keeps toggling [disabled]), gold primary once complete. */
+    body.is-native .bingo-header .bingo-share-btn { display: none; }
+    body.is-native .bingo-footer-share {
+      background: var(--white); color: var(--gray-500);
+      border: 1.5px solid var(--gray-200); border-radius: 999px;
+    }
+    body.is-native .bingo-footer-share:disabled { opacity: 1; }
+    body.is-native .bingo-footer-share:not([disabled]) {
+      background: var(--gold-400); border-color: var(--gold-400);
+      color: var(--green-900);
+      box-shadow: 0 4px 14px rgba(224, 184, 64, 0.35);
+    }
+    /* 5.3 — stronger solved-tile state: soft gold tint, 2px gold border,
+       slight scale (the pre-existing correct-state was a quiet green
+       wash that read too close to unselected cream). */
+    body.is-native .bingo-cell[data-state="correct"] {
+      background: rgba(224, 184, 64, 0.14);
+      border: 2px solid var(--gold-500);
+      transform: scale(1.02);
+    }
+    /* §4-deferred seam: green chrome meets the cream sheet once. The
+       .bingo-body wrapper (everything below the header once .bingo-brand
+       hides) becomes the 16px-radius cream sheet on a green-900 screen. */
+    body.is-native #bingoScreen { background: var(--green-900); }
+    body.is-native .bingo-body {
+      background: var(--cream);
+      border-radius: 16px 16px 0 0;
+      padding-top: 1.4rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.is-native .bingo-cell[data-state="correct"] { transform: none; }
+  }
+
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
      with tabular lining figures; serif stays for headings/editorial.
      MAINTENANCE HAZARD (sweep 2026-08-02): this selector-list approach is
