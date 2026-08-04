@@ -3383,6 +3383,14 @@
   body.is-native .mobile-nav-link[data-anchor="trending"],
   body.is-native .mobile-nav-link[data-action="open-profile-self"],
   body.is-native .mobile-nav-link[data-action="open-delete-account"] { display: none; }
+  /* r186 signed-out drawer (found on-device; pre-existing on main, made
+     prominent by the demotion): while anon in-app, Sign Out hides and a
+     Sign In entry shows. .drawer-signin is hidden everywhere else — the
+     web drawer is deliberately untouched (its anon state is a pre-existing
+     main bug, logged in the investigation notes). */
+  .drawer-signin { display: none; }
+  body.is-native.is-anon .drawer-signin { display: flex; }
+  body.is-native.is-anon .mobile-nav-link[data-action="sign-out"] { display: none; }
 
   .drawer-identity { display: none; }
   body.is-native .drawer-identity {
@@ -5559,6 +5567,14 @@
 
     <div class="mobile-nav-section">
       <span class="mobile-nav-section-label">Account</span>
+      <!-- r186: signed-out drawer fix (app-gated). Hidden everywhere by
+           default; shown ONLY body.is-native.is-anon — the demoted app
+           drawer previously offered a guest nothing but "Sign Out". Web
+           drawer keeps its pre-existing behavior (see investigation notes). -->
+      <a href="#" class="mobile-nav-link drawer-signin" data-action="show-auth">
+        <span class="mobile-nav-link-label">Sign In</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
       <a href="#" class="mobile-nav-link" data-action="open-profile-self">
         <span class="mobile-nav-link-label">Profile</span>
         <span class="mobile-nav-link-chev">›</span>
