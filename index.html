@@ -3936,9 +3936,16 @@
      edge-to-edge, under the status bar and down to the home indicator;
      web (desktop + mobile browser) keeps the centered card design. */
   @media (max-width: 900px) {
-    body.is-native #authScreen { padding: 0; align-items: stretch; }
+    /* align-items:flex-start + min-height:100% (NOT stretch): stretch pins
+       the sheet to exactly viewport height, so taller content (Create
+       Account adds name + consent) overflows a CENTERED column — clipping
+       the top with no way to scroll to it. flex-start lets the sheet grow
+       with its content, #authScreen scrolls it, and justify-center still
+       centers the shorter Sign In mode (no free space when tall = no-op). */
+    body.is-native #authScreen { padding: 0; align-items: flex-start; }
     body.is-native .auth-box {
       max-width: none;
+      min-height: 100%;
       border-radius: 0;
       box-shadow: none;
       padding: calc(env(safe-area-inset-top) + 1.75rem) 1.5rem calc(env(safe-area-inset-bottom) + 1.25rem);
