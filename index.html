@@ -3417,6 +3417,17 @@
   body.is-native .mobile-nav-link[data-anchor="trending"],
   body.is-native .mobile-nav-link[data-action="open-profile-self"],
   body.is-native .mobile-nav-link[data-action="open-delete-account"] { display: none; }
+  /* r186 (on-device 2026-08-04): settings sub-panels opened FROM the
+     profile (Notifications / Email prefs / Shipping / Blocked users) sit
+     EARLIER in the DOM than #profileBackdrop with the same z-index 350 —
+     so they painted BEHIND the open profile and looked dead. Elevate the
+     four sub-panels one step. App-gated; the identical web bug is logged
+     as a follow-up (same discipline as the drawer). */
+  body.is-native #pushPrefsBackdrop,
+  body.is-native #emailPrefsBackdrop,
+  body.is-native #shippingSettingsBackdrop,
+  body.is-native #blockedUsersBackdrop { z-index: 351; }
+
   /* r186 signed-out drawer (found on-device; pre-existing on main, made
      prominent by the demotion): while anon in-app, Sign Out hides and a
      Sign In entry shows. .drawer-signin is hidden everywhere else — the
@@ -16093,7 +16104,14 @@ window.deleteSavedSearch = deleteSavedSearchV2;
 // (Feature #16). The base toggleWatch above already writes
 // `priceWhenAdded` on add so we have a comparison baseline here.
 async function openWatchlistWithDropBadges() {
-  await openWatchlist();
+  // openWatchlistBase, NOT `openWatchlist`: in a classic script the
+  // top-level declaration IS the window binding, so once
+  // `window.openWatchlist = openWatchlistWithDropBadges` runs below, a
+  // bare `openWatchlist()` here resolves to THIS wrapper → infinite
+  // recursion → RangeError on every Likes tap. Pre-existing on r185
+  // prod (Feature #16 era); first surfaced by the r186 on-device error
+  // reporter, 2026-08-04.
+  await openWatchlistBase();
   if (!window.CURRENT_USER) return;
   try {
     const watch = await loadWatchlist();
@@ -17434,9 +17452,9 @@ async function toggleWatch(productId) {
   }
 }
 
-async function openWatchlist() {
+async function openWatchlistBase() {
   if (typeof window.requireAuth === 'function') {
-    if (!window.requireAuth('to view your liked items', () => openWatchlist())) return;
+    if (!window.requireAuth('to view your liked items', () => openWatchlistBase())) return;
   } else if (!window.CURRENT_USER) {
     showToast('Sign in to view your liked items.');
     return;
