@@ -3884,6 +3884,9 @@
   }
   body.is-native #authEmailMode .auth-guest-btn { order: 15; }
   body.is-native #authEmailMode .auth-fineprint { order: 16; }
+  /* Build stamp — deliberately UNGATED (visible web + app): its whole job
+     is identifying the running bundle when JS may not have executed. */
+  .auth-build { display: block; margin-top: 6px; font-size: 10px; letter-spacing: 0.4px; color: var(--gray-500); text-align: center; }
 
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
      with tabular lining figures; serif stays for headings/editorial.
@@ -4281,7 +4284,11 @@
         <span class="auth-guest-btn-sub">No account needed to look around</span>
       </button>
 
-      <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.</div>
+      <div class="auth-fineprint">By continuing you agree to our <a href="#" data-action="open-terms">Terms of Service</a> and <a href="#" data-action="open-privacy">Privacy Policy</a>.
+        <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
+             even when the boot wedges on this exact screen. BUMP PER RELEASE
+             alongside sw.js CACHE_VERSION (ship-plan step). -->
+        <span class="auth-build" aria-hidden="true">r186</span></div>
     </div>
   </div>
 </div>
