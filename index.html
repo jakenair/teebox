@@ -7187,7 +7187,8 @@ window.confirmPayment = async function() {
       // r172: mark auth known; the splash drops when content is ready
       // (__maybeDismissSplash), no longer here directly.
       window.__splashAuthKnown = true;
-      window.__maybeDismissSplash && window.__maybeDismissSplash();
+      if (window.__maybeDismissSplash) window.__maybeDismissSplash();
+      else console.error('[boot] __maybeDismissSplash missing (signed-in branch) — splash dismissal path lost; earlier script error is the root cause');
       document.body.classList.add('is-signed-in');
       document.body.classList.remove('is-anon');
       // Phase 2: soft email-verification prompt (never gates anything).
@@ -7254,11 +7255,13 @@ window.confirmPayment = async function() {
       } catch (_e) {}
       // Hydrate watchlist & maybe prompt for any unreviewed orders.
       if (window.hydrateWatchlist) window.hydrateWatchlist();
+      else console.error('[boot] hydrateWatchlist missing — hearts will render unhydrated; earlier script error is the root cause');
       // Hydrate blocked-users set so buildProducts can client-filter
       // their listings before the next paint.
       if (window.hydrateBlockedUsers) window.hydrateBlockedUsers().then(() => {
         if (typeof buildProducts === 'function') buildProducts();
       });
+      else console.error('[boot] hydrateBlockedUsers missing — BLOCKED SELLERS’ LISTINGS MAY RENDER; earlier script error is the root cause');
       setTimeout(() => { if (window.maybePromptReview) window.maybePromptReview(); }, 2000);
       // Best-effort FCM push subscription (web only — iOS native uses APNs
       // already wired in AppDelegate). Asks for permission once we know the
@@ -7349,7 +7352,8 @@ window.confirmPayment = async function() {
         document.body.classList.remove('is-signed-in');
       }
       window.__splashAuthKnown = true; // r172: content readiness drives dismissal
-      window.__maybeDismissSplash && window.__maybeDismissSplash();
+      if (window.__maybeDismissSplash) window.__maybeDismissSplash();
+      else console.error('[boot] __maybeDismissSplash missing (anon branch) — splash dismissal path lost; earlier script error is the root cause');
       try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}
       window.IS_VERIFIED_SELLER = false;
       window.CURRENT_PROFILE_NAME = '';
@@ -7521,11 +7525,18 @@ window.confirmPayment = async function() {
     // r163: is-native reshapes the cat-bar (pills → search row + 2 pills),
     // so re-measure --cat-bar-h — this module runs after the bar's initial
     // height sync.
+    // r186 boot-integrity rule: these guards must NEVER skip silently. If
+    // either function is missing here, the big classic script (~L9000–19300)
+    // died at parse/run time before defining it — a FATAL boot condition
+    // that previously masqueraded as a cosmetic tab-bar glitch. Log loud,
+    // don't recover: the FIRST red error above these lines is the root cause.
     if (window.__syncCatBar) window.__syncCatBar();
+    else console.error('[boot] __syncCatBar missing — cat-bar script never initialized; an earlier script error is the root cause');
     // r186: app-shell upgrades (bottom-tab slots → Home/Browse/Sell/
     // Activity/Profile, ←-back on pushed pages, collapsing header).
     // Defined in the classic script below, which has already parsed.
     if (window.applyAppShell) window.applyAppShell();
+    else console.error('[boot] applyAppShell missing — classic app script died before ~L15700; app shell NOT applied (old tab labels are the visible symptom); the first red error above is the root cause');
     // r172: launchAutoHide is OFF (capacitor.config) — hide the native splash
     // only once the web #authSplash has PAINTED (double-rAF = a frame has
     // rendered), so there's no dark-but-empty gap on cold starts. The web
