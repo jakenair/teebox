@@ -3930,6 +3930,22 @@
      is identifying the running bundle when JS may not have executed. */
   .auth-build { display: block; margin-top: 6px; font-size: 10px; letter-spacing: 0.4px; color: var(--gray-500); text-align: center; }
 
+  /* r186: FULL-BLEED auth screen in-app (Jake, 2026-08-04 device pass) —
+     the floating 400px card inside a green ring read as "cut off / not
+     fit to the screen" on the phone. In-app the white sheet now fills
+     edge-to-edge, under the status bar and down to the home indicator;
+     web (desktop + mobile browser) keeps the centered card design. */
+  @media (max-width: 900px) {
+    body.is-native #authScreen { padding: 0; align-items: stretch; }
+    body.is-native .auth-box {
+      max-width: none;
+      border-radius: 0;
+      box-shadow: none;
+      padding: calc(env(safe-area-inset-top) + 1.75rem) 1.5rem calc(env(safe-area-inset-bottom) + 1.25rem);
+      display: flex; flex-direction: column; justify-content: center;
+    }
+  }
+
   /* §3.5 numerals (app-gated): prices, stats and counts render in the sans
      with tabular lining figures; serif stays for headings/editorial.
      MAINTENANCE HAZARD (sweep 2026-08-02): this selector-list approach is
