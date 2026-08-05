@@ -114,40 +114,6 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // TEMPORARY BOOT DIAGNOSTIC (r186) — REVERT BEFORE SHIP (pre-flight
-  // greps for "bootErrBox"; must be 0 at ship time). Paints any uncaught
-  // error onto the screen so the device-only boot freeze is readable
-  // WITHOUT a connected inspector: message + index.html line number.
-  // ══════════════════════════════════════════════════════════════════
-  (function () {
-    var buf = [];
-    function paint() {
-      try {
-        if (!document.body || !buf.length) return;
-        var el = document.getElementById('bootErrBox');
-        if (!el) {
-          el = document.createElement('div');
-          el.id = 'bootErrBox';
-          el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#7a1d1d;color:#fff;font:11px/1.5 monospace;padding:10px;border-radius:8px;max-height:45vh;overflow:auto;white-space:pre-wrap;word-break:break-all;';
-        }
-        if (!el.parentNode) document.body.appendChild(el);
-        el.textContent = buf.join('\n────────\n');
-      } catch (_) {}
-    }
-    window.addEventListener('error', function (e) {
-      buf.push('[JS ERROR] ' + (e.message || '?') + '\n  at ' + (e.filename || '?') + ':' + (e.lineno || '?') + ':' + (e.colno || '?'));
-      paint(); setTimeout(paint, 500);
-    });
-    window.addEventListener('unhandledrejection', function (e) {
-      var r = e && e.reason;
-      buf.push('[PROMISE] ' + ((r && (r.stack || r.message)) || String(r)));
-      paint(); setTimeout(paint, 500);
-    });
-    setTimeout(paint, 1500);
-    setTimeout(paint, 4000);
-  })();
-
   function getDeviceType() {
     try {
       var Cap = window.Capacitor;
