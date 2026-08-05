@@ -22,6 +22,13 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  # r186: the CapacitorFirebaseAuthentication/Google subspec was briefly
+  # added here (2026-08-03) and REVERTED same day — r186 ships UI-only.
+  # Native Google enablement is a standalone work item (see
+  # .internal-docs/APP_UI_AUDIT_2026-08-02.md follow-up #6): it drags
+  # GoogleSignIn 7.1.0 + a GTMSessionFetcher downgrade, and a prior
+  # attempt (v1.5.0 b58, a582432) was itself rolled back to web-only
+  # (6670525) — it must ship as an isolated release, one variable.
   # Firebase Crashlytics — iOS crash + non-fatal error reporting.
   # CapacitorFirebaseAuthentication transitively pulls FirebaseAuth ~> 11.7.0
   # (which drags FirebaseCore 11.7.x). Pin Crashlytics to the matching 11.7.x
