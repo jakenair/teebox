@@ -16759,7 +16759,14 @@ window.syncDrawerIdentity = function syncDrawerIdentity() {
   if (!u || !nameEl || !avEl) return;
   const name = u.displayName || (u.email ? u.email.split('@')[0] : 'Golfer');
   nameEl.textContent = name;
-  if (u.photoURL) avEl.innerHTML = '<img src="' + window.safeAttr(u.photoURL) + '" alt="" />';
+  // Photo priority (device finding 2026-08-04 — email/password accounts
+  // have no Auth photoURL, but the TeeBox profile photo is preloaded at
+  // sign-in into CURRENT_PROFILE_AVATAR from profiles/{uid}.avatarUrl):
+  // Auth photo → profile avatar → monogram initial.
+  const photo = window.safeImgUrl
+    ? (window.safeImgUrl(u.photoURL) || window.safeImgUrl(window.CURRENT_PROFILE_AVATAR))
+    : (u.photoURL || window.CURRENT_PROFILE_AVATAR);
+  if (photo) avEl.innerHTML = '<img src="' + window.safeAttr(photo) + '" alt="" />';
   else avEl.textContent = (name.trim()[0] || 'G').toUpperCase();
 };
 window.__actions['drawer-view-shop'] = function() {
