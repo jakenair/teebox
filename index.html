@@ -888,6 +888,15 @@
     .bottom-nav {
       display: grid; grid-template-columns: repeat(5, 1fr);
       position: fixed; bottom: 0; left: 0; right: 0;
+      /* top:auto + height:auto are LOAD-BEARING (P0 fix, 2026-08-04):
+         .bottom-nav is a <nav>, so the desktop `nav { top:0; height:
+         var(--nav-h) }` element rule leaks in; with BOTH top and bottom
+         set, top wins the over-constrained resolution — the tab bar has
+         been rendering at y=0 UNDERNEATH the fixed header (z 110 < 120),
+         i.e. invisible, killing the only Sell/Activity/Profile entries.
+         Found on-device; every harness [0,0,390,64] measurement that was
+         written off as an artifact was this bug reproducing faithfully. */
+      top: auto; height: auto;
       background: var(--white); border-top: 1px solid var(--gray-200);
       padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
       z-index: 110;
