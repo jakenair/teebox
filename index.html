@@ -3738,7 +3738,13 @@
        once we go flex (children shrank + pinned right). Higher-specificity
        !important restores normal column stretch. */
     body.is-native #shopDashboard.open { display: flex; flex-direction: column; align-items: stretch !important; }
+    /* Device finding 2026-08-04: the dashboard header had no status-bar
+       inset in-app — "My Shop" collided with the clock and the ← circle.
+       Own the safe area like the activity/bingo headers do. The #id in
+       the selector is required to beat `#shopDashboard .dash-header`'s
+       mobile padding rule. */
     body.is-native .dash-header { box-shadow: none; }
+    body.is-native #shopDashboard .dash-header { padding: calc(env(safe-area-inset-top) + 10px) 1rem 14px; align-items: center; }
     body.is-native .dash-body { background: var(--cream); border-radius: 16px 16px 0 0; flex: 1 0 auto; width: 100%; }
   }
 
@@ -16692,6 +16698,29 @@ window.applyAppShell = function applyAppShell() {
     }
     if (window.updateAppFilterChips) window.updateAppFilterChips();
   } catch (e) { console.warn('applyAppShell filters failed:', e); }
+  // 6b) Device finding 2026-08-04: the profile hub's NAVIGATION items
+  //     (My Shop / My Orders / Likes / Saved Searches) opened their
+  //     destination BEHIND the still-open profile (z/DOM-order losers).
+  //     Unlike the settings sub-panels (which correctly stack above),
+  //     these leave the profile — so close it first. Capture phase runs
+  //     before the data-action delegator's bubble listener. Native-only
+  //     by construction (this fn never runs on web; web twin logged).
+  try {
+    if (!window.__hubNavWired) {
+      window.__hubNavWired = true;
+      const NAV_ACTIONS = ['open-shop-dashboard', 'open-orders', 'open-watchlist', 'open-saved-searches'];
+      document.addEventListener('click', (ev) => {
+        const t = ev.target && ev.target.closest && ev.target.closest('[data-action]');
+        if (!t || !NAV_ACTIONS.includes(t.getAttribute('data-action'))) return;
+        const prof = document.getElementById('profileBackdrop');
+        if (prof && prof.classList.contains('open')) {
+          const close = window.__actions && window.__actions['close-profile'];
+          if (typeof close === 'function') { try { close(); } catch (_e) {} }
+          else prof.classList.remove('open');
+        }
+      }, true);
+    }
+  } catch (e) { console.warn('applyAppShell hub-nav failed:', e); }
   // 6) §6: Chart.js canvas text (revenue chart + detail sparkline) was the
   //    THIRD font on screen (its default Helvetica stack next to Playfair
   //    and DM Sans). App-only by construction — this fn never runs on web,
