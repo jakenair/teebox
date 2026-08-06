@@ -25,6 +25,12 @@
       location.replace('/?seller=' + encodeURIComponent(m[1]) + (hash ? hash : ''));
       return;
     }
+    // Order path (email CTAs link /orders/<id>) → ?order=<id>
+    m = path.match(/^\/orders\/([^\/]+)/);
+    if (m) {
+      location.replace('/?order=' + encodeURIComponent(m[1]) + (hash ? hash : ''));
+      return;
+    }
     // Brand SEO: /brand/<slug> works directly; if it's missing, bounce home.
     if (/^\/brand\//.test(path)) {
       location.replace('/');

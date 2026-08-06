@@ -29,7 +29,8 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
     <P>
       <strong>Next step:</strong> use any carrier (USPS, UPS, FedEx) to ship
       within 3 business days, then mark the order shipped from your dashboard
-      with the tracking number. Late shipments hurt your seller rating and
+      with the tracking number. The buyer&apos;s shipping address is on your
+      dashboard&apos;s Sold tab. Late shipments hurt your seller rating and
       can trigger an automatic refund.
     </P>
   );

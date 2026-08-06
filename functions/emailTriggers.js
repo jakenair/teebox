@@ -322,6 +322,20 @@ async function recordEmailMiss({uid, template, orderId, reason}) {
   }
 }
 
+// Resolve a party's deliverable address: Firebase Auth is canonical, the
+// users-doc email is a legacy/smoke fallback (real accounts have NO doc
+// email). 2026-08-06 sweep: every producer below EXCEPT onOrderCreatedEmail
+// still guarded on the doc email, so shipped / delivered / payout / refund /
+// dispute / review emails silently never sent to real users. Callers must
+// recordEmailMiss on null — never silently skip.
+const authEmailGetter = (u) => admin.auth().getUser(u);
+async function resolvePartyEmail(party, fallbackUid) {
+  const uid = (party && party.uid) || fallbackUid || null;
+  const {email} = await resolveUserEmail(
+      uid, party && party.email, authEmailGetter);
+  return {uid, email};
+}
+
 // 1. Order placed → buyer + seller
 exports.onOrderCreatedEmail = onDocumentCreated(
     {document: "orders/{orderId}", secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET], ...EMAIL_FN},
@@ -377,13 +391,19 @@ exports.onOrderLabelEmail = onDocumentUpdated(
       if (before.labelUrl || !after.labelUrl) return; // only on first set
       const order = {id: event.params.orderId, ...after};
       const {buyer, listing} = await loadOrderParties(order);
-      if (!buyer.email) return;
+      const {uid: buyerUid, email: buyerEmail} =
+        await resolvePartyEmail(buyer, order.buyerId);
+      if (!buyerEmail) {
+        await recordEmailMiss({uid: buyerUid, template: "LabelCreated",
+          orderId: order.id, reason: "no buyer email (auth + doc both empty)"});
+        return;
+      }
       await sendTemplated({
         category: CATEGORIES.TRANSACTIONAL,
         templateCategory: "transactional",
         templateName: "LabelCreated",
-        to: buyer.email,
-        uid: buyer.uid,
+        to: buyerEmail,
+        uid: buyerUid,
         ctx: {order, buyer, listing},
       });
     },
@@ -430,18 +450,25 @@ exports.onOrderShippingStatusEmail = onDocumentUpdated(
             });
           }
           break;
-        case "out_for_delivery":
-          if (buyer.email) {
+        case "out_for_delivery": {
+          const {uid: buyerUid, email: buyerEmail} =
+            await resolvePartyEmail(buyer, order.buyerId);
+          if (buyerEmail) {
             await sendTemplated({
               category: CATEGORIES.TRANSACTIONAL,
               templateCategory: "transactional",
               templateName: "OrderOutForDelivery",
-              to: buyer.email,
-              uid: buyer.uid,
+              to: buyerEmail,
+              uid: buyerUid,
               ctx,
             });
+          } else {
+            await recordEmailMiss({uid: buyerUid,
+              template: "OrderOutForDelivery", orderId: order.id,
+              reason: "no buyer email (auth + doc both empty)"});
           }
           break;
+        }
         case "delivered":
           // NEUTERED r118 — confirmOrderDelivered callable is the single source
           // of truth for delivered (notifies the SELLER only; no DeliveredBuyer
@@ -478,7 +505,14 @@ exports.onPayoutReleasedEmail = onDocumentCreated(
       const db = admin.firestore();
       const sellerSnap = await db.collection("users").doc(payout.sellerId).get();
       const seller = sellerSnap.exists ? {uid: sellerSnap.id, ...sellerSnap.data()} : {};
-      if (!seller.email) return;
+      const {uid: sellerUid, email: sellerEmail} =
+        await resolvePartyEmail(seller, payout.sellerId);
+      if (!sellerEmail) {
+        await recordEmailMiss({uid: sellerUid, template: "FundsReleased",
+          orderId: payout.orderId || null,
+          reason: "no seller email (auth + doc both empty)"});
+        return;
+      }
       const orderSnap = payout.orderId ?
         await db.collection("orders").doc(payout.orderId).get() :
         null;
@@ -489,8 +523,8 @@ exports.onPayoutReleasedEmail = onDocumentCreated(
         category: CATEGORIES.TRANSACTIONAL,
         templateCategory: "transactional",
         templateName: "FundsReleased",
-        to: seller.email,
-        uid: seller.uid,
+        to: sellerEmail,
+        uid: sellerUid,
         ctx: {order, seller, payout},
       });
     },
@@ -507,13 +541,19 @@ exports.onRefundEmail = onDocumentCreated(
       if (!orderSnap.exists) return;
       const order = {id: orderSnap.id, ...orderSnap.data()};
       const {buyer} = await loadOrderParties(order);
-      if (!buyer.email) return;
+      const {uid: buyerUid, email: buyerEmail} =
+        await resolvePartyEmail(buyer, order.buyerId);
+      if (!buyerEmail) {
+        await recordEmailMiss({uid: buyerUid, template: "RefundIssued",
+          orderId: order.id, reason: "no buyer email (auth + doc both empty)"});
+        return;
+      }
       await sendTemplated({
         category: CATEGORIES.TRANSACTIONAL,
         templateCategory: "transactional",
         templateName: "RefundIssued",
-        to: buyer.email,
-        uid: buyer.uid,
+        to: buyerEmail,
+        uid: buyerUid,
         ctx: {order, buyer, refund},
       });
     },
@@ -531,23 +571,29 @@ exports.onDisputeOpenedEmail = onDocumentCreated(
       const order = {id: orderSnap.id, ...orderSnap.data()};
       const {buyer, seller, listing} = await loadOrderParties(order);
       const ctx = {order, buyer, seller, listing, dispute};
+      const [b, s] = await Promise.all([
+        resolvePartyEmail(buyer, order.buyerId),
+        resolvePartyEmail(seller, order.sellerId),
+      ]);
       await Promise.allSettled([
-        buyer.email && sendTemplated({
+        b.email ? sendTemplated({
           category: CATEGORIES.TRANSACTIONAL,
           templateCategory: "transactional",
           templateName: "DisputeOpenedBuyer",
-          to: buyer.email,
-          uid: buyer.uid,
+          to: b.email,
+          uid: b.uid,
           ctx,
-        }),
-        seller.email && sendTemplated({
+        }) : recordEmailMiss({uid: b.uid, template: "DisputeOpenedBuyer",
+          orderId: order.id, reason: "no buyer email (auth + doc both empty)"}),
+        s.email ? sendTemplated({
           category: CATEGORIES.TRANSACTIONAL,
           templateCategory: "transactional",
           templateName: "DisputeOpenedSeller",
-          to: seller.email,
-          uid: seller.uid,
+          to: s.email,
+          uid: s.uid,
           ctx,
-        }),
+        }) : recordEmailMiss({uid: s.uid, template: "DisputeOpenedSeller",
+          orderId: order.id, reason: "no seller email (auth + doc both empty)"}),
       ]);
     },
 );
@@ -670,13 +716,20 @@ exports.reviewRequestScheduler = onSchedule(
         const order = {id: o.id, ...o.data()};
         if (order.reviewed || order.reviewEmailSent) continue;
         const {buyer, seller, listing} = await loadOrderParties(order);
-        if (!buyer.email) continue;
+        const {uid: buyerUid, email: buyerEmail} =
+          await resolvePartyEmail(buyer, order.buyerId);
+        if (!buyerEmail) {
+          await recordEmailMiss({uid: buyerUid, template: "ReviewRequest",
+            orderId: order.id,
+            reason: "no buyer email (auth + doc both empty)"});
+          continue;
+        }
         await sendTemplated({
           category: CATEGORIES.REVIEW_REQUEST,
           templateCategory: "lifecycle",
           templateName: "ReviewRequest",
-          to: buyer.email,
-          uid: buyer.uid,
+          to: buyerEmail,
+          uid: buyerUid,
           ctx: {user: buyer, order, listing, seller},
         });
         await o.ref.set({reviewEmailSent: true}, {merge: true});
@@ -1060,15 +1113,21 @@ exports.markOrderShipped = onCall(
           deepLink: `teebox://order/${orderId}`,
           orderId: String(orderId),
         }, "orders").catch((e) => logger.error("markOrderShipped: push failed (non-fatal)", e));
-        if (buyer.email) {
+        const {uid: buyerUid, email: buyerEmail} =
+          await resolvePartyEmail(buyer, order.buyerId);
+        if (buyerEmail) {
           await sendTemplated({
             category: CATEGORIES.TRANSACTIONAL,
             templateCategory: "transactional",
             templateName: "OrderShipped",
-            to: buyer.email,
-            uid: order.buyerId,
+            to: buyerEmail,
+            uid: buyerUid,
             ctx: {order, buyer, seller, listing},
           }).catch((e) => logger.error("markOrderShipped: email failed (non-fatal)", e));
+        } else {
+          await recordEmailMiss({uid: buyerUid, template: "OrderShipped",
+            orderId: String(orderId),
+            reason: "no buyer email (auth + doc both empty)"});
         }
       } catch (e) {
         logger.error("markOrderShipped: notify failed (non-fatal)", e);
@@ -1157,15 +1216,21 @@ exports.confirmOrderDelivered = onCall(
           deepLink: `teebox://order/${orderId}`,
           orderId: String(orderId),
         }, "orders").catch((e) => logger.error("confirmOrderDelivered: push failed (non-fatal)", e));
-        if (seller.email) {
+        const {uid: sellerUid, email: sellerEmail} =
+          await resolvePartyEmail(seller, order.sellerId);
+        if (sellerEmail) {
           await sendTemplated({
             category: CATEGORIES.TRANSACTIONAL,
             templateCategory: "transactional",
             templateName: "DeliveredSeller",
-            to: seller.email,
-            uid: order.sellerId,
+            to: sellerEmail,
+            uid: sellerUid,
             ctx: {order, buyer, seller, listing},
           }).catch((e) => logger.error("confirmOrderDelivered: email failed (non-fatal)", e));
+        } else {
+          await recordEmailMiss({uid: sellerUid, template: "DeliveredSeller",
+            orderId: String(orderId),
+            reason: "no seller email (auth + doc both empty)"});
         }
       } catch (e) {
         logger.error("confirmOrderDelivered: notify failed (non-fatal)", e);
