@@ -14180,7 +14180,27 @@ async function aiWriteDescription() {
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
     const fns = getFunctions();
     const fn = httpsCallable(fns, 'generateListingDescription');
-    const result = await fn({ title, brand, category, condition });
+    let result;
+    try {
+      result = await fn({ title, brand, category, condition });
+    } catch (e1) {
+      // Seller-gate self-serve: "becoming a seller" IS the Seller-Terms
+      // checkbox sitting in this same form. If it's already ticked,
+      // record the agreement and retry once instead of dead-ending on
+      // "verified sellers only".
+      const c1 = (e1 && e1.code) || '';
+      const m1 = (e1 && e1.message) || '';
+      const cb1 = document.getElementById('sellTermsCheckbox');
+      if (c1 === 'functions/failed-precondition' &&
+          !/verify your email/i.test(m1) && cb1 && cb1.checked) {
+        const verify = httpsCallable(fns, 'requestSellerVerification');
+        await verify({ termsAgreed: true });
+        window.IS_VERIFIED_SELLER = true;
+        result = await fn({ title, brand, category, condition });
+      } else {
+        throw e1;
+      }
+    }
     const text = result && result.data && result.data.description;
     if (typeof text === 'string' && text.trim()) {
       ta.value = text.trim();
@@ -14196,7 +14216,21 @@ async function aiWriteDescription() {
     if (code === 'functions/resource-exhausted') {
       showToast('Daily limit reached. Edit manually.');
     } else if (code === 'functions/failed-precondition') {
-      showToast('Verified sellers only. Complete seller setup first.');
+      // Never a dead end: say WHICH precondition and point at the fix.
+      const emsg = (e && e.message) || '';
+      const cb = document.getElementById('sellTermsCheckbox');
+      if (/verify your email/i.test(emsg)) {
+        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+        showToast('Verify your email first — tap the link in your inbox (Resend is on the banner).');
+      } else if (cb && !cb.checked) {
+        try {
+          const row = document.getElementById('sellTermsRow');
+          if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_e) {}
+        showToast('Check “I agree to the Seller Terms” below — that makes you a seller, and AI tools unlock.');
+      } else {
+        showToast('Agree to the Seller Terms in the sell form to become a seller, then try again.');
+      }
     } else if (code === 'functions/unauthenticated') {
       showToast('Sign in to use AI description.');
     } else {

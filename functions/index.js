@@ -1902,15 +1902,12 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
     {merge: true}
   );
 
-  // Revoke refresh tokens so the seller-verified state propagates
-  // immediately on the next API call (otherwise the listing-create
-  // rules check would block until the existing ID token expires).
-  try {
-    await admin.auth().revokeRefreshTokens(uid);
-  } catch (e) {
-    logger.warn(
-      `revokeRefreshTokens after sellerVerified failed for ${uid}: ${e.message}`);
-  }
+  // NOTE: this used to revokeRefreshTokens(uid) "so the seller-verified
+  // state propagates" — but sellerVerified was never a token claim: the
+  // listing-create rule and every callable gate read the users doc, which
+  // the write above updates instantly. The revoke's only real effect was
+  // forcing a surprise re-auth within an hour of becoming a seller
+  // (removed 2026-08-05).
 
   return {verified: true};
 });
@@ -6093,9 +6090,13 @@ exports.generateListingDescription = onCall(
     const userData = userSnap.exists ? userSnap.data() : {};
     const isVerified = !!(userData.isVerifiedSeller || userData.sellerVerified);
     if (!isVerified) {
+      // Message must carry the HOW — older shipped app bundles surface
+      // e.message directly, and "Verified sellers only." left users with
+      // no path forward (2026-08-05 incident).
       throw new HttpsError(
           "failed-precondition",
-          "Verified sellers only.",
+          "Agree to the Seller Terms in the sell form to become a seller, " +
+          "then try again.",
       );
     }
 
