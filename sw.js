@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-08-06-r190';
+const CACHE_VERSION = 'teebox-v1-2026-08-06-r191';
 // Bingo logos are pinned in their OWN cache namespace so we can cache them
 // aggressively (cache-first) without colliding with the broader logos-bypass
 // policy. The page sends a CACHE_BINGO_LOGOS message on bingo-tab open with
@@ -18,6 +18,7 @@ const SHELL = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
+  '/assets/splash-wordmark.png',
   '/offline.html',
   '/404.html',
 ];

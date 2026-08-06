@@ -1326,13 +1326,17 @@
   #authSplash { position: fixed; inset: 0; z-index: 600; background: var(--green-950); display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease; }
   #authSplash.fade { opacity: 0; pointer-events: none; }
   #authSplash.hidden { display: none; }
-  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; }
-  /* r172: Georgia-first (not the webfont) so the splash wordmark never
-     font-swaps mid-splash and matches the native LaunchWordmark timing. */
-  .auth-splash-logo { font-family: Georgia, 'Times New Roman', serif; font-size: 2.6rem; font-weight: 900; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
-  .auth-splash-logo span { color: var(--gold-400); }
-  .auth-splash-tag { margin-top: 8px; font-family: var(--font-body); font-size: 0.875rem; font-weight: 500; letter-spacing: 0.2px; color: rgba(255,255,255,0.6); }
-  .auth-splash-spinner { margin-top: 2.25rem; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
+  /* r191: mirror the native LaunchScreen geometry exactly (wordmark image
+     167×54 centered at centerY−46pt, tagline 2pt below in the SYSTEM font at
+     14/500/60%-white) so the native→web handoff doesn't move a pixel. The
+     translateY(-34px) offsets the flex-centered [img+2px+tag] group (~78px
+     tall) so the IMAGE center lands at exactly centerY−46 like the storyboard
+     constraint. Spinner is web-only, absolutely positioned below the group so
+     it can't shift the wordmark. (Supersedes the r172 Georgia text wordmark.) */
+  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; position: relative; transform: translateY(-34px); }
+  .auth-splash-logo-img { width: 167px; height: 54px; display: block; }
+  .auth-splash-tag { margin-top: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); }
+  .auth-splash-spinner { position: absolute; left: 50%; top: calc(100% + 36px); margin-left: -13px; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
   @keyframes authSplashSpin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .auth-splash-spinner { animation: none; } }
   /* Auth screen is locked: the "Continue as guest" button at the bottom
@@ -3997,7 +4001,11 @@
      both branches of onAuthStateChanged. -->
 <div id="authSplash" aria-hidden="true">
   <div class="auth-splash-inner">
-    <div class="auth-splash-logo"><span>Tee</span>Box</div>
+    <!-- r191: same IMAGE asset as the native LaunchScreen (wordmark@3x) at the
+         same 167×54pt so the native→web splash handoff is pixel-stable — the
+         old Georgia TEXT wordmark rendered at a different size and visibly
+         "resized" mid-boot in the app (2026-08-06 device-walk finding 1). -->
+    <img class="auth-splash-logo-img" src="/assets/splash-wordmark.png" alt="TeeBox" width="167" height="54" />
     <div class="auth-splash-tag">The Premier Golf Marketplace</div>
     <div class="auth-splash-spinner" role="presentation"></div>
   </div>
@@ -4345,7 +4353,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r186</span></div>
+        <span class="auth-build" aria-hidden="true">r191</span></div>
     </div>
   </div>
 </div>
