@@ -9331,6 +9331,9 @@ window.confirmPayment = async function() {
       showSellVerifyPrompt();
       return;
     }
+    // Stale-claim guard: the rules create-gate reads the TOKEN's
+    // email_verified, which lags the account after a mid-session verify.
+    await window.__ensureVerifiedClaimFresh();
     const title = document.getElementById('sellTitle').value.trim();
     const brand = document.getElementById('sellBrand').value.trim();
     const cat = document.getElementById('sellCat').value;
@@ -9509,6 +9512,10 @@ window.confirmPayment = async function() {
           try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
           msg = 'Verify your email to publish — tap Resend on the banner above.';
         } else {
+          // Account IS verified — the denial may be a stale token claim
+          // (rules read the token, which lags a mid-session verify).
+          // Refresh it so the retry we're about to suggest can succeed.
+          await window.__ensureVerifiedClaimFresh();
           msg = "Couldn't publish — make sure all fields are valid and try again. If it persists, refresh the page.";
         }
       } else if (code.includes('unauthenticated')) {
@@ -19440,8 +19447,37 @@ A['manage-subscription']     = async () => {
     showToast('Could not open billing portal. Try again later.');
   }
 };
+// Stale-claim guard (2026-08-05 first-listing incident): clicking the email
+// verify link updates the ACCOUNT instantly, but the cached ID token keeps
+// email_verified=false for up to an hour — and callables + firestore.rules
+// trust the TOKEN. When the live record says verified but the cached claim
+// doesn't, force-mint a fresh token. getIdTokenResult() reads the cached
+// token (no network), so the refresh round-trip only happens on the rare
+// stale path. Never throws — the server has its own live-record fallback.
+window.__ensureVerifiedClaimFresh = async function() {
+  const u = window.CURRENT_USER;
+  if (!u || !u.emailVerified) return;
+  try {
+    const t = await u.getIdTokenResult();
+    if (!t || !t.claims || t.claims.email_verified !== true) {
+      await u.getIdToken(true);
+    }
+  } catch (_e) { /* best-effort */ }
+};
 A['stripe-connect']          = async () => {
   if (!window.requireAuth('to set up payouts')) return;
+  // Stripe onboarding requires a verified email server-side. Check the LIVE
+  // account state up front (reload — the cached flag goes stale after the
+  // user clicks the verify link) and route unverified sellers to the verify
+  // flow instead of a doomed call ending in a generic dead-end toast.
+  try { await window.CURRENT_USER.reload(); } catch (_e) {}
+  if (!window.CURRENT_USER.emailVerified) {
+    try { closeStripeRequiredDirect(); } catch (_e) {}
+    try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+    showToast('Verify your email to set up payouts — tap the link in your inbox (Resend is on the banner).', 'error');
+    return;
+  }
+  await window.__ensureVerifiedClaimFresh();
   // If the Stripe-required gate modal is open, close it so the seller's
   // listing draft is visible underneath when they return from onboarding.
   try { closeStripeRequiredDirect(); } catch (_e) {}
@@ -19488,7 +19524,16 @@ A['stripe-connect']          = async () => {
     window.location.href = url;
   } catch (e) {
     console.error('stripe-connect failed:', e);
-    showToast('Could not start Stripe setup. Try again.');
+    // Surface the SPECIFIC reason, never a dead end (mirrors the
+    // become-a-seller handler). The common rejection is email-not-verified.
+    const code = (e && e.code) || '';
+    const msg = (e && e.message) || '';
+    if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
+      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+      showToast('Verify your email to set up payouts — tap the link in your inbox (Resend is on the banner).', 'error');
+    } else {
+      showToast('Could not start Stripe setup. Try again.');
+    }
   }
 };
 A['close-inbox']             = () => closeInbox();
@@ -19522,6 +19567,10 @@ A['recheck-email-verify'] = async () => {
   if (!window.CURRENT_USER) return;
   try { await window.CURRENT_USER.reload(); } catch (_e) {}
   if (window.CURRENT_USER.emailVerified) {
+    // Account verified — but the cached ID token may still say otherwise
+    // (claims mint at sign-in). Refresh before resuming the publish so
+    // firestore.rules + callables see the new state.
+    await window.__ensureVerifiedClaimFresh();
     const vp = document.getElementById('sellVerifyPrompt');
     if (vp) vp.style.display = 'none';
     try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}

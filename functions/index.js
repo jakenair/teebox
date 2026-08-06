@@ -1841,6 +1841,28 @@ exports.moderateImage = onCall({...USER_CALLABLE, memory: "512MiB"}, async (requ
 // );
 
 // ─────────────────────────────────────────────────────────────
+// emailVerifiedLive(request)
+//   ID-token email_verified claims are minted at sign-in and stay
+//   stale for up to an hour after the user clicks the verify link —
+//   the account flips instantly but the cached token doesn't. Gates
+//   that trust the claim alone reject freshly-verified users
+//   (2026-08-05: cost a seller his first listing — three dead-end
+//   400s minutes after he verified). Fast path is the claim; on a
+//   false claim, confirm against the live Auth record before
+//   rejecting. The extra lookup only runs on the rare stale path.
+// ─────────────────────────────────────────────────────────────
+async function emailVerifiedLive(request) {
+  const tok = (request.auth && request.auth.token) || {};
+  if (tok.email_verified === true) return true;
+  try {
+    const live = await admin.auth().getUser(request.auth.uid);
+    return live.emailVerified === true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // requestSellerVerification (callable)
 //   Client can't set sellerVerified=true on its own user doc
 //   (Firestore rules block the field). This function is the only
@@ -1852,7 +1874,7 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
-  if (!request.auth.token || !request.auth.token.email_verified) {
+  if (!(await emailVerifiedLive(request))) {
     throw new HttpsError(
       "failed-precondition",
       "Please verify your email before continuing.");
@@ -5339,7 +5361,7 @@ exports.createStripeOnboardingLink = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
-    if (!request.auth.token || !request.auth.token.email_verified) {
+    if (!(await emailVerifiedLive(request))) {
       throw new HttpsError(
         "failed-precondition",
         "Please verify your email before continuing.");
@@ -6030,7 +6052,7 @@ exports.generateListingDescription = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in.");
     }
-    if (!request.auth.token || !request.auth.token.email_verified) {
+    if (!(await emailVerifiedLive(request))) {
       throw new HttpsError(
         "failed-precondition",
         "Please verify your email before continuing.");
@@ -6204,7 +6226,7 @@ exports.suggestListingPrice = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in.");
     }
-    if (!request.auth.token || !request.auth.token.email_verified) {
+    if (!(await emailVerifiedLive(request))) {
       throw new HttpsError(
         "failed-precondition",
         "Please verify your email before continuing.");
@@ -7812,7 +7834,8 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   // seconds-old throwaway-account DMs. Phone-auth sessions count as
   // verified (mirrors the isEmailVerified() helper in firestore.rules).
   const _tok = request.auth.token || {};
-  if (_tok.email_verified !== true && !_tok.phone_number) {
+  if (_tok.email_verified !== true && !_tok.phone_number &&
+      !(await emailVerifiedLive(request))) {
     throw new HttpsError("failed-precondition",
         "Verify your email to send messages.",
         {error: "email_unverified"});
