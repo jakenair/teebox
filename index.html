@@ -9297,7 +9297,12 @@ window.confirmPayment = async function() {
   window.showSellVerifyPrompt = showSellVerifyPrompt;
 
   window.submitListing = async function() {
-    if (!window.CURRENT_USER || !window.IS_VERIFIED_SELLER) { showToast('Please verify as a seller first.'); return; }
+    if (!window.CURRENT_USER) { showToast('Sign in to publish a listing.'); return; }
+    // NO IS_VERIFIED_SELLER gate here — that check was a leftover from the
+    // pre-merged flow and returned BEFORE the inline Seller-Terms step below
+    // (which exists precisely to verify first-time sellers at publish),
+    // making it unreachable and dead-ending every new seller with
+    // "Please verify as a seller first." (2026-08-05 incident, third wall).
     // EDIT MODE: when __editingListingId is set the modal is reused as
     // an edit form. Route to the update path (updateListing callable)
     // and skip the Stripe KYC gate entirely — a seller with a live
