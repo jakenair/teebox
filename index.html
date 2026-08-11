@@ -4353,7 +4353,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r192</span></div>
+        <span class="auth-build" aria-hidden="true">r193</span></div>
     </div>
   </div>
 </div>
@@ -14021,6 +14021,20 @@ function openSellModal() {
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('sellModalBackdrop').classList.add('open');
+  // r193: resolve the seller's tier once per modal-open so the live
+  // take-home line can show the real fee. The old check read
+  // window.CURRENT_PROFILE — which is never assigned anywhere — so every
+  // Pro seller saw 6.5% math. Best-effort; defaults to the standard fee.
+  if (!window.__SELLER_TIER) window.__SELLER_TIER = 'free';
+  (async () => {
+    try {
+      if (!window.CURRENT_USER) return;
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const s = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
+      window.__SELLER_TIER = (s.exists() && s.data().tier === 'pro') ? 'pro' : 'free';
+    } catch (_e) { /* keep default */ }
+  })();
   // Inline Seller-Terms row: show for not-yet-verified sellers (the merged ToS
   // step); hide in edit mode + once verified. Reset the inline verify prompt.
   try {
@@ -14085,8 +14099,9 @@ function openSellModal() {
       const th = document.getElementById('sellTakeHome');
       if (th) {
         if (v > 0) {
-          const isPro = !!(window.CURRENT_PROFILE && (window.CURRENT_PROFILE.isPro ||
-            (window.CURRENT_PROFILE._user && window.CURRENT_PROFILE._user.isPro)));
+          // r193: __SELLER_TIER is resolved fresh at sell-modal open (the old
+          // window.CURRENT_PROFILE check read a global nothing ever assigned).
+          const isPro = window.__SELLER_TIER === 'pro';
           const feePct = isPro ? 3 : 6.5;
           const net = v * (1 - feePct / 100);
           // r162: the honest pitch with live dollars. Take-home math is
@@ -17779,6 +17794,16 @@ async function loadProfile(uid) {
     } else {
       data._user = { sellerVerified: false, phone: false, email: false, isPro };
       data.stripeChargesEnabled = false;
+      // r193: a failed users-doc read is EXPECTED for other people's profiles
+      // (rules: self-only) — but when it fails for the SIGNED-IN user, or
+      // before auth has resolved (when ANY uid might turn out to be the
+      // signed-in user — the feed warms this cache pre-auth on cold loads),
+      // caching the negative poisons self-views for 5 minutes: false
+      // "Finish payout setup" nag, hidden Manage-payouts button, dropped
+      // own badges. Return UNCACHED so the next call refetches with auth.
+      if (!window.CURRENT_USER || window.CURRENT_USER.uid === uid) {
+        return data;
+      }
     }
     PROFILE_CACHE.set(uid, { data, fetchedAt: Date.now() });
     return data;
@@ -17943,6 +17968,28 @@ async function openProfile(uid) {
     loadSellerReviews(uid),
     loadRecentSoldOrders(uid),
   ]);
+  // r193: self-view renders owner-only state (payout nag, Manage payouts,
+  // own badges) — re-read it FRESH here, same read-fresh rule as the sell
+  // gate, so a stale or pre-auth-poisoned cache entry can never mis-render.
+  // One extra getDoc on a rare, user-initiated open. Mutating `profile`
+  // in place also heals the cached entry.
+  if (window.CURRENT_USER && window.CURRENT_USER.uid === uid && profile) {
+    try {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const us = await getDoc(doc(getFirestore(), 'users', uid));
+      if (us.exists()) {
+        const u = us.data() || {};
+        profile.stripeChargesEnabled = u.stripeChargesEnabled === true;
+        profile._user = {
+          sellerVerified: u.sellerVerified === true,
+          phone: !!u.phone,
+          email: !!u.email,
+          isPro: u.tier === 'pro' || !!(profile._user && profile._user.isPro),
+        };
+      }
+    } catch (_e) { /* best-effort — render with what we have */ }
+  }
   renderProfileView(profile, listings, reviews, recentSold);
 }
 
