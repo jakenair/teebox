@@ -4353,7 +4353,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r193</span></div>
+        <span class="auth-build" aria-hidden="true">r194</span></div>
     </div>
   </div>
 </div>
@@ -7555,12 +7555,21 @@ window.confirmPayment = async function() {
         const dismissed = data && data.marketingBannerDismissedAt;
         const needsReopt = !consent || consent.granted !== true;
         if (needsReopt && !dismissed) {
-          // Defer slightly so the auth-screen fade-out doesn't fight
-          // the banner appearing.
-          setTimeout(() => {
+          // r194 (audit W1): through the ambient queue — one prompt per
+          // page-load, idle browse only, lowest priority (interruptive).
+          const _showConsent = () => {
             const b = document.getElementById('marketingReoptBanner');
             if (b) b.classList.add('show');
-          }, 400);
+          };
+          const _hideConsent = () => {
+            const b = document.getElementById('marketingReoptBanner');
+            if (b) b.classList.remove('show');
+          };
+          if (window.__ambient) {
+            window.__ambient.request('consent', { show: _showConsent, hide: _hideConsent });
+          } else {
+            setTimeout(_showConsent, 400);
+          }
         }
       } catch (e) { /* banner is non-essential — never fail sign-in over it */ }
     } catch (e) {
@@ -7577,6 +7586,7 @@ window.confirmPayment = async function() {
   function hideMarketingBanner() {
     const b = document.getElementById('marketingReoptBanner');
     if (b) b.classList.remove('show');
+    try { window.__ambient.done('consent'); } catch (_e) {}
   }
   window.__actions = window.__actions || {};
   window.__actions['marketing-opt-in'] = async function() {
@@ -13627,7 +13637,23 @@ function maybeRunSellerTour() {
   } catch (_) { return; }
   // Wait one paint so renderShopTables / renderPayouts have populated the
   // DOM before we measure target rects.
-  setTimeout(() => { try { runSellerTour(); } catch (e) { console.warn('Tour failed:', e); } }, 350);
+  const _start = () => setTimeout(() => {
+    try { runSellerTour(); } catch (e) { console.warn('Tour failed:', e); }
+  }, 350);
+  // r194 (audit W1): the tour is contextual to the dashboard (its own
+  // surface is exempt from the busy check) but it still takes the single
+  // per-session ambient slot — it never stacks with another prompt, and
+  // it yields if the user leaves the dashboard or opens another surface
+  // (markSeen:false, so it returns on a future dashboard visit).
+  if (window.__ambient) {
+    window.__ambient.request('tour', {
+      show: _start,
+      hide: () => { try { dismissSellerTour({ markSeen: false }); } catch (_) {} },
+      surface: 'shopDashboard',
+    });
+  } else {
+    _start();
+  }
 }
 
 function runSellerTour() {
@@ -13813,6 +13839,7 @@ function dismissSellerTour(opts) {
     if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
   }, 200);
   SELLER_TOUR_STATE = null;
+  try { window.__ambient.done('tour'); } catch (_) {}
 }
 
 let revenueChartInstance = null;
@@ -16520,6 +16547,81 @@ if ('serviceWorker' in navigator) {
   }
 }
 
+// ── AMBIENT OVERLAY QUEUE (r194 — audit W1) ──────────────────────────
+// ONE rule for every prompt the user didn't ask for (marketing-consent
+// banner, install banner, seller tour, and any future nudge):
+//   1. At most ONE ambient prompt per page-load. Losers forfeit to a
+//      future session — no sequential parade after a dismissal.
+//   2. Ambient never renders while a task surface is open (any modal,
+//      backdrop, auth screen, dashboard), and YIELDS — hide + forfeit —
+//      the moment one opens. Nothing ever interrupts the sell form.
+//   3. Priority when several want the one slot: contextual > passive >
+//      interruptive — tour(3) > install(2) > consent(1).
+// The verify-email banner stays OUTSIDE the queue on purpose: it is
+// functional, and error handlers surface it contextually (r188).
+window.__ambient = (function () {
+  const BUSY_IDS = ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop','journalBackdrop','stripeRequiredBackdrop','filterSheetBackdrop','shopDashboard','notifPanel'];
+  const PRIORITY = { tour: 3, install: 2, consent: 1 };
+  let slotUsed = false;
+  let active = null;
+  let pending = [];
+  let guardTimer = null;
+  let waitTimer = null;
+  function busyFor(req) {
+    // Auth screen visible (boot, signed-out) counts as busy.
+    const auth = document.getElementById('authScreen');
+    if (auth && !auth.classList.contains('hidden')) return true;
+    for (const id of BUSY_IDS) {
+      if (req && req.surface === id) continue; // its own surface is fine
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('open')) return true;
+    }
+    return false;
+  }
+  function surfaceGone(req) {
+    if (!req || !req.surface) return false;
+    const el = document.getElementById(req.surface);
+    return !el || !el.classList.contains('open');
+  }
+  function tryShow() {
+    if (slotUsed || active || !pending.length) return;
+    pending.sort((a, b) => (PRIORITY[b.name] || 0) - (PRIORITY[a.name] || 0));
+    const top = pending[0];
+    if (busyFor(top)) {
+      // Not visible yet → WAIT for idle rather than forfeit.
+      clearTimeout(waitTimer);
+      waitTimer = setTimeout(tryShow, 1500);
+      return;
+    }
+    pending = []; // one per page-load: everyone else forfeits now
+    slotUsed = true;
+    active = top;
+    try { top.show(); } catch (_e) { active = null; return; }
+    guardTimer = setInterval(() => {
+      if (!active) { clearInterval(guardTimer); return; }
+      // A task surface opened, or the overlay's own surface closed → yield.
+      if (busyFor(active) || surfaceGone(active)) {
+        try { active.hide(); } catch (_e) {}
+        active = null;
+        clearInterval(guardTimer);
+      }
+    }, 400);
+  }
+  return {
+    request(name, opts) {
+      pending.push({ name, show: opts.show, hide: opts.hide, surface: opts.surface || null });
+      clearTimeout(waitTimer);
+      waitTimer = setTimeout(tryShow, 250);
+    },
+    done(name) { // overlay closed naturally (user action / completion)
+      if (active && active.name === name) {
+        active = null;
+        if (guardTimer) clearInterval(guardTimer);
+      }
+    },
+  };
+})();
+
 // 3. Install banner: capture beforeinstallprompt and surface our own
 //    button. Hide if already installed (display-mode: standalone) OR
 //    the user already dismissed in this session.
@@ -16550,9 +16652,27 @@ function __markInstallDismissed() {
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   __deferredPrompt = e;
-  if (!isStandalone() && !__installDismissedRecently()) {
-    if (__installBanner) __installBanner.hidden = false;
-  }
+  if (isStandalone() || __installDismissedRecently()) return;
+  // r194 (audit W1+W2): through the ambient queue — idle browse only —
+  // and CONTAINED: it leaves for the session once the user starts
+  // scrolling the feed (no 30-day mark; it may try again next visit).
+  window.__ambient.request('install', {
+    show: () => {
+      if (!__installBanner) return;
+      __installBanner.hidden = false;
+      const sc = document.getElementById('app-scroll') || window;
+      const onScroll = () => {
+        const y = (sc === window) ? window.scrollY : sc.scrollTop;
+        if (y > 500) {
+          sc.removeEventListener('scroll', onScroll);
+          __installBanner.hidden = true;
+          window.__ambient.done('install');
+        }
+      };
+      sc.addEventListener('scroll', onScroll, { passive: true });
+    },
+    hide: () => { if (__installBanner) __installBanner.hidden = true; },
+  });
 });
 
 if (__installBtn) __installBtn.addEventListener('click', async () => {
@@ -16574,6 +16694,7 @@ function __closeInstallBanner() {
     try { __installBanner.remove(); } catch {}
   }
   __markInstallDismissed();
+  try { window.__ambient.done('install'); } catch {}
 }
 if (__installDismiss) {
   __installDismiss.addEventListener('click', (ev) => {
