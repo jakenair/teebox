@@ -955,6 +955,19 @@
     body.is-native .cat-pill.cat-bingo {
       flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
+    /* r195 (audit W5): mobile WEB adopts the same search-first header —
+       the pill stack cost ~340px of chrome before content at 390px.
+       ADDITIVE selectors only (body.web-searchfirst is set by the early
+       body script for non-native ≤640px loads); the is-native rules above
+       are untouched so the app stays pixel-identical. Category chips live
+       in the search overlay, same as native. Desktop web keeps pills. */
+    body.web-searchfirst .cat-bar .cat-pill[data-cat] { display: none; }
+    body.web-searchfirst .cat-bar-divider { display: none; }
+    body.web-searchfirst .native-cat-search { display: block; flex: 0 0 100%; max-width: none; }
+    body.web-searchfirst .cat-pill.cat-journal,
+    body.web-searchfirst .cat-pill.cat-bingo {
+      flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
   }
 
   /* Tap polish + overscroll lockdown */
@@ -1831,6 +1844,9 @@
 
   /* HERO */
   .hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 60%, var(--green-600) 100%); padding: 4rem 2rem 3.5rem; position: relative; overflow: hidden; }
+  /* r195 (audit W4): signed-in users go straight to product — the native
+     app never shows the marketing pitch; web now matches. Guests keep it. */
+  body.is-signed-in .hero { display: none; }
   .hero::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='8'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
   .hero-inner { max-width: 1240px; margin: 0 auto; position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
   /* min-width:0 lets grid children shrink below their content's min-content, so a
@@ -2488,7 +2504,8 @@
      drops its category pills; this is their home). The base .cat-pill is
      styled for the dark-green bar, so recolor for the white search box. */
   .search-cat-row { display: none; }
-  body.is-native .search-cat-row { display: block; padding: 10px 14px 2px; }
+  body.is-native .search-cat-row,
+  body.web-searchfirst .search-cat-row { display: block; padding: 10px 14px 2px; }
   .search-cat-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px; }
   .search-cat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
   .search-cat-pills .cat-pill { background: var(--gray-100); border-color: var(--gray-200); color: var(--gray-700); }
@@ -2551,7 +2568,13 @@
     .nav-search { display: none; }
     .btn-sell-nav { padding: 6px 14px; font-size: 12.5px; }
     .cat-bar { padding: 0 0.75rem; }
-    .hero { padding: 2rem 1rem 2.5rem; }
+    /* r195 (audit W3): guests must meet PRODUCT in the first viewport.
+       Compact hero band — tighter padding + type so New Listings crests
+       the fold at 390×844 (was: full-viewport pitch before any product). */
+    .hero { padding: 1.4rem 1rem 1.6rem; }
+    .hero-title { font-size: 1.65rem; margin-bottom: 0.5rem; }
+    .hero-sub { font-size: 13.5px; line-height: 1.55; margin-bottom: 1rem; }
+    .hero-fee-proof { margin-top: 8px; font-size: 11.5px; }
     .hero-title { font-size: clamp(1.7rem, 6vw, 2.4rem); }
     .hero-featured { grid-template-columns: 1fr; }
     .feat-card-big { padding: 1rem; }
@@ -3992,6 +4015,26 @@
 </style>
 </head>
 <body class="is-anon">
+<script>
+  /* r195 (audit W5): mobile WEB gets the r163 search-first header. Set the
+     class before first paint / the cat-bar height sync so --cat-bar-h is
+     measured with the final layout. Native platforms use body.is-native
+     (same rules) — if Capacitor isn't detectable yet the overlap is
+     harmless, the two rule sets are identical. */
+  try {
+    var __cap = window.Capacitor;
+    var __isNative = !!(__cap && __cap.isNativePlatform && __cap.isNativePlatform());
+    if (!__isNative && window.matchMedia('(max-width: 640px)').matches) {
+      document.body.classList.add('web-searchfirst');
+      // Re-kick the cat-bar height sync once everything has laid out —
+      // closes a transient where --cat-bar-h is measured mid-settle and
+      // the hero briefly tucks under the header.
+      window.addEventListener('load', function () {
+        try { window.__syncCatBar && window.__syncCatBar(); } catch (_e) {}
+      });
+    }
+  } catch (_e) {}
+</script>
 <!-- r171: single scroll container — wraps ALL body content (scripts included;
      they execute identically). The document/body is overflow:hidden. -->
 <div id="app-scroll">
@@ -4353,7 +4396,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r194</span></div>
+        <span class="auth-build" aria-hidden="true">r195</span></div>
     </div>
   </div>
 </div>
