@@ -73,6 +73,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/olympic-club-lake.png"
     },
     {
+      "id": "san-francisco-gc",
+      "shortName": "San Francisco GC",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/san-francisco-gc.png"
+    },
+    {
       "id": "baltusrol-lower",
       "shortName": "Baltusrol Lower",
       "logoUrl": "https://teeboxmarket.com/assets/logos/baltusrol-lower.png"
@@ -91,6 +96,11 @@
       "id": "erin-hills",
       "shortName": "Erin Hills",
       "logoUrl": "https://teeboxmarket.com/assets/logos/erin-hills.png"
+    },
+    {
+      "id": "harbour-town",
+      "shortName": "Harbour Town",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/harbour-town.png"
     },
     {
       "id": "tobacco-road",
@@ -153,9 +163,19 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/quail-hollow.png"
     },
     {
+      "id": "yeamans-hall",
+      "shortName": "Yeamans Hall",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/yeamans-hall.png"
+    },
+    {
       "id": "sleepy-hollow",
       "shortName": "Sleepy Hollow",
       "logoUrl": "https://teeboxmarket.com/assets/logos/sleepy-hollow.png"
+    },
+    {
+      "id": "garden-city",
+      "shortName": "Garden City",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/garden-city.png"
     },
     {
       "id": "sand-valley",
@@ -218,6 +238,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/gozzer-ranch.png"
     },
     {
+      "id": "congaree",
+      "shortName": "Congaree",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/congaree.png"
+    },
+    {
       "id": "cabot-saint-lucia",
       "shortName": "Cabot Saint Lucia",
       "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-saint-lucia.png"
@@ -241,6 +266,11 @@
       "id": "metedeconk-national",
       "shortName": "Metedeconk",
       "logoUrl": "https://teeboxmarket.com/assets/logos/metedeconk-national.png"
+    },
+    {
+      "id": "palmetto-gc",
+      "shortName": "Palmetto",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/palmetto-gc.png"
     },
     {
       "id": "stanwich",
@@ -728,6 +758,14 @@
         "olympic lake"
       ]
     },
+    "san-francisco-gc": {
+      "name": "San Francisco Golf Club",
+      "shortName": "San Francisco GC",
+      "aliases": [
+        "sfgc",
+        "san francisco golf club"
+      ]
+    },
     "baltusrol-lower": {
       "name": "Baltusrol Golf Club (Lower)",
       "shortName": "Baltusrol Lower",
@@ -761,6 +799,14 @@
       "shortName": "Erin Hills",
       "aliases": [
         "erin hills gc"
+      ]
+    },
+    "harbour-town": {
+      "name": "Harbour Town Golf Links",
+      "shortName": "Harbour Town",
+      "aliases": [
+        "harbour town gl",
+        "sea pines harbour town"
       ]
     },
     "tobacco-road": {
@@ -859,11 +905,25 @@
         "wells fargo championship"
       ]
     },
+    "yeamans-hall": {
+      "name": "Yeamans Hall Club",
+      "shortName": "Yeamans Hall",
+      "aliases": [
+        "yeamans hall club"
+      ]
+    },
     "sleepy-hollow": {
       "name": "Sleepy Hollow Country Club",
       "shortName": "Sleepy Hollow",
       "aliases": [
         "sleepy hollow cc"
+      ]
+    },
+    "garden-city": {
+      "name": "Garden City Golf Club",
+      "shortName": "Garden City",
+      "aliases": [
+        "garden city gc"
       ]
     },
     "sand-valley": {
@@ -952,6 +1012,13 @@
         "gozzer ranch"
       ]
     },
+    "congaree": {
+      "name": "Congaree Golf Club",
+      "shortName": "Congaree",
+      "aliases": [
+        "congaree gc"
+      ]
+    },
     "cabot-saint-lucia": {
       "name": "Cabot Saint Lucia (Point Hardy)",
       "shortName": "Cabot Saint Lucia",
@@ -992,6 +1059,15 @@
       "aliases": [
         "metedeconk",
         "metedeconk national"
+      ]
+    },
+    "palmetto-gc": {
+      "name": "Palmetto Golf Club",
+      "shortName": "Palmetto",
+      "aliases": [
+        "palmetto",
+        "palmetto golf",
+        "palmetto aiken"
       ]
     },
     "stanwich": {
@@ -1501,7 +1577,7 @@
       ]
     }
   },
-  "generatedAt": "2026-08-12T18:50:23.629Z",
+  "generatedAt": "2026-08-12T19:24:47.406Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

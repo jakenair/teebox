@@ -1867,6 +1867,16 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'palmetto-gc',
+    name: 'Palmetto Golf Club',
+    shortName: 'Palmetto',
+    aliases: ['palmetto', 'palmetto golf', 'palmetto aiken'],
+    location: 'Aiken, South Carolina',
+    architect: 'Herbert Leeds & Alister MacKenzie',
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'stanwich',
     name: 'The Stanwich Club',
     shortName: 'Stanwich',
