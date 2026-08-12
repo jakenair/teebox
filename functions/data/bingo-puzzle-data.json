@@ -43,6 +43,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/fishers-island.png"
     },
     {
+      "id": "sand-hills",
+      "shortName": "Sand Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sand-hills.png"
+    },
+    {
       "id": "bandon-dunes",
       "shortName": "Bandon Dunes",
       "logoUrl": "https://teeboxmarket.com/assets/logos/bandon-dunes.png"
@@ -701,6 +706,13 @@
         "fishers",
         "fishers island club",
         "fic"
+      ]
+    },
+    "sand-hills": {
+      "name": "Sand Hills Golf Club",
+      "shortName": "Sand Hills",
+      "aliases": [
+        "sand hills gc"
       ]
     },
     "bandon-dunes": {
@@ -1577,7 +1589,7 @@
       ]
     }
   },
-  "generatedAt": "2026-08-12T19:24:47.406Z",
+  "generatedAt": "2026-08-12T21:08:43.340Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
