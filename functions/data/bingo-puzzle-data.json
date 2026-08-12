@@ -13,6 +13,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/cypress-point.png"
     },
     {
+      "id": "pebble-beach",
+      "shortName": "Pebble Beach",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/pebble-beach.png"
+    },
+    {
       "id": "shinnecock-hills",
       "shortName": "Shinnecock Hills",
       "logoUrl": "https://teeboxmarket.com/assets/logos/shinnecock-hills.png"
@@ -103,6 +108,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-citrus-farms.png"
     },
     {
+      "id": "prairie-dunes",
+      "shortName": "Prairie Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/prairie-dunes.png"
+    },
+    {
       "id": "castle-pines",
       "shortName": "Castle Pines",
       "logoUrl": "https://teeboxmarket.com/assets/logos/castle-pines.png"
@@ -116,6 +126,11 @@
       "id": "maidstone",
       "shortName": "Maidstone",
       "logoUrl": "https://teeboxmarket.com/assets/logos/maidstone.png"
+    },
+    {
+      "id": "st-andrews-old",
+      "shortName": "St Andrews (Old)",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/st-andrews-old.png"
     },
     {
       "id": "castle-stuart",
@@ -221,6 +236,11 @@
       "id": "mcarthur",
       "shortName": "McArthur",
       "logoUrl": "https://teeboxmarket.com/assets/logos/mcarthur.png"
+    },
+    {
+      "id": "metedeconk-national",
+      "shortName": "Metedeconk",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/metedeconk-national.png"
     },
     {
       "id": "stanwich",
@@ -604,6 +624,14 @@
         "cypress point cc"
       ]
     },
+    "pebble-beach": {
+      "name": "Pebble Beach Golf Links",
+      "shortName": "Pebble Beach",
+      "aliases": [
+        "pebble",
+        "pebble beach gl"
+      ]
+    },
     "shinnecock-hills": {
       "name": "Shinnecock Hills Golf Club",
       "shortName": "Shinnecock Hills",
@@ -761,6 +789,13 @@
         "pine barrens cabot"
       ]
     },
+    "prairie-dunes": {
+      "name": "Prairie Dunes Country Club",
+      "shortName": "Prairie Dunes",
+      "aliases": [
+        "prairie dunes cc"
+      ]
+    },
     "castle-pines": {
       "name": "Castle Pines Golf Club",
       "shortName": "Castle Pines",
@@ -781,6 +816,17 @@
       "shortName": "Maidstone",
       "aliases": [
         "maidstone club"
+      ]
+    },
+    "st-andrews-old": {
+      "name": "The Old Course at St Andrews",
+      "shortName": "St Andrews (Old)",
+      "aliases": [
+        "st andrews",
+        "old course",
+        "the old course",
+        "st andrews old course",
+        "home of golf"
       ]
     },
     "castle-stuart": {
@@ -938,6 +984,14 @@
       "aliases": [
         "mcarthur",
         "mcarthur golf"
+      ]
+    },
+    "metedeconk-national": {
+      "name": "Metedeconk National Golf Club",
+      "shortName": "Metedeconk",
+      "aliases": [
+        "metedeconk",
+        "metedeconk national"
       ]
     },
     "stanwich": {
@@ -1447,7 +1501,7 @@
       ]
     }
   },
-  "generatedAt": "2026-07-13T01:09:21.991Z",
+  "generatedAt": "2026-08-12T18:50:23.629Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

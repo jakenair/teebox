@@ -1857,6 +1857,16 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'metedeconk-national',
+    name: 'Metedeconk National Golf Club',
+    shortName: 'Metedeconk',
+    aliases: ['metedeconk', 'metedeconk national'],
+    location: 'Jackson, New Jersey',
+    architect: 'Robert Trent Jones Sr.',
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'stanwich',
     name: 'The Stanwich Club',
     shortName: 'Stanwich',
