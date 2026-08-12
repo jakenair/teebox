@@ -388,6 +388,26 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/pacific-dunes.png"
     },
     {
+      "id": "bandon-trails",
+      "shortName": "Bandon Trails",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/bandon-trails.png"
+    },
+    {
+      "id": "old-macdonald",
+      "shortName": "Old Macdonald",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/old-macdonald.png"
+    },
+    {
+      "id": "sheep-ranch",
+      "shortName": "Sheep Ranch",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sheep-ranch.png"
+    },
+    {
+      "id": "goat-hill-park",
+      "shortName": "Goat Hill",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/goat-hill-park.png"
+    },
+    {
       "id": "piping-rock",
       "shortName": "Piping Rock",
       "logoUrl": "https://teeboxmarket.com/assets/logos/piping-rock.png"
@@ -720,11 +740,7 @@
       "shortName": "Bandon Dunes",
       "aliases": [
         "bandon",
-        "bandon dunes",
-        "pacific dunes",
-        "old macdonald",
-        "bandon trails",
-        "sheep ranch"
+        "bandon dunes"
       ]
     },
     "winged-foot-west": {
@@ -1246,6 +1262,38 @@
         "bandon pacific dunes"
       ]
     },
+    "bandon-trails": {
+      "name": "Bandon Trails",
+      "shortName": "Bandon Trails",
+      "aliases": [
+        "trails",
+        "bandon trails"
+      ]
+    },
+    "old-macdonald": {
+      "name": "Old Macdonald",
+      "shortName": "Old Macdonald",
+      "aliases": [
+        "old mac",
+        "old macdonald bandon"
+      ]
+    },
+    "sheep-ranch": {
+      "name": "Sheep Ranch",
+      "shortName": "Sheep Ranch",
+      "aliases": [
+        "the sheep ranch",
+        "sheep ranch bandon"
+      ]
+    },
+    "goat-hill-park": {
+      "name": "Goat Hill Park",
+      "shortName": "Goat Hill",
+      "aliases": [
+        "goat hill",
+        "goat hill park golf"
+      ]
+    },
     "piping-rock": {
       "name": "Piping Rock Club",
       "shortName": "Piping Rock",
@@ -1589,7 +1637,7 @@
       ]
     }
   },
-  "generatedAt": "2026-08-12T21:08:43.340Z",
+  "generatedAt": "2026-08-12T21:18:20.271Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

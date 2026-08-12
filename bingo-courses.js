@@ -128,10 +128,12 @@ export const COURSES = [
     id: 'bandon-dunes',
     name: 'Bandon Dunes Resort',
     shortName: 'Bandon Dunes',
-    // Consolidated from 5 individual courses (Pacific Dunes, Old Macdonald,
-    // Bandon Trails, Sheep Ranch, Bandon Dunes) — they share one resort
-    // logo, so as a guess-the-logo target they all map to the umbrella brand.
-    aliases: ['bandon', 'bandon dunes', 'pacific dunes', 'old macdonald', 'bandon trails', 'sheep ranch'],
+    // Was a 5-course umbrella; the sibling courses now carry their OWN
+    // marks + entries (pacific-dunes since r166; bandon-trails,
+    // old-macdonald, sheep-ranch added 2026-08-12), so the umbrella keeps
+    // only the resort-brand aliases — a sibling course name must not
+    // score on the resort-logo tile.
+    aliases: ['bandon', 'bandon dunes'],
     location: 'Bandon, Oregon',
     architect: 'David McLay Kidd / Tom Doak / Coore & Crenshaw',
     logo: '',
@@ -2105,6 +2107,46 @@ export const COURSES = [
     aliases: ['bandon pacific dunes'],
     location: 'Bandon, Oregon',
     architect: 'Tom Doak',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'bandon-trails',
+    name: 'Bandon Trails',
+    shortName: 'Bandon Trails',
+    aliases: ['trails', 'bandon trails'],
+    location: 'Bandon, Oregon',
+    architect: 'Bill Coore & Ben Crenshaw',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'old-macdonald',
+    name: 'Old Macdonald',
+    shortName: 'Old Macdonald',
+    aliases: ['old mac', 'old macdonald bandon'],
+    location: 'Bandon, Oregon',
+    architect: 'Tom Doak & Jim Urbina',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'sheep-ranch',
+    name: 'Sheep Ranch',
+    shortName: 'Sheep Ranch',
+    aliases: ['the sheep ranch', 'sheep ranch bandon'],
+    location: 'Bandon, Oregon',
+    architect: 'Bill Coore & Ben Crenshaw',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'goat-hill-park',
+    name: 'Goat Hill Park',
+    shortName: 'Goat Hill',
+    aliases: ['goat hill', 'goat hill park golf'],
+    location: 'Oceanside, California',
+    architect: 'William H. Johnson',
     logo: '',
     logoUrl: '',
   },
