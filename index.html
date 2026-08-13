@@ -1844,9 +1844,14 @@
 
   /* HERO */
   .hero { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 60%, var(--green-600) 100%); padding: 4rem 2rem 3.5rem; position: relative; overflow: hidden; }
-  /* r195 (audit W4): signed-in users go straight to product — the native
-     app never shows the marketing pitch; web now matches. Guests keep it. */
-  body.is-signed-in .hero { display: none; }
+  /* r195 (audit W4) → r200 scope fix: signed-in users skip the marketing
+     hero on MOBILE only (that's where the native-app comparison holds and
+     where the hero cost a full viewport). Desktop keeps the hero for
+     everyone — founder ruling 2026-08-13: the ticker/hero landing is the
+     desktop look. Guests keep it everywhere. */
+  @media (max-width: 640px) {
+    body.is-signed-in .hero { display: none; }
+  }
   .hero::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='8'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
   .hero-inner { max-width: 1240px; margin: 0 auto; position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
   /* min-width:0 lets grid children shrink below their content's min-content, so a
@@ -4396,7 +4401,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r199</span></div>
+        <span class="auth-build" aria-hidden="true">r200</span></div>
     </div>
   </div>
 </div>
