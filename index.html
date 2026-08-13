@@ -2042,6 +2042,11 @@
   .ticker-item { display: flex; align-items: center; gap: 8px; padding: 0 1.5rem; border-right: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
   .ticker-name { font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.7); }
   .ticker-price { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); font-family: var(--font-display); }
+  /* r201: day-stable decorative deltas (founder ruling 2026-08-13). Muted
+     market green/red tuned for the dark strip, not the light-bg tokens. */
+  .ticker-delta { font-size: 11.5px; font-weight: 700; letter-spacing: 0.2px; }
+  .ticker-delta.up { color: #4ecb71; }
+  .ticker-delta.dn { color: #e8705f; }
   @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
   /* TRENDING */
@@ -4401,7 +4406,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r200</span></div>
+        <span class="auth-build" aria-hidden="true">r201</span></div>
     </div>
   </div>
 </div>
@@ -10013,15 +10018,30 @@ function buildTicker() {
   const wrap = track.closest('.ticker-wrap');
   if (wrap) wrap.style.display = '';
   try {
-    // r183: name + typical price only. The randomized ±% "change" deltas
-    // faked market-data precision (design-taste audit: invented numbers
-    // styled as live data) — cut; the reel is an honest curated price strip.
+    // r183 cut the randomized ±% deltas (invented numbers styled as live
+    // data). r201 re-adds them per founder ruling 2026-08-13 — aesthetic
+    // choice, decorative like the hand-authored prices themselves — with
+    // guardrails: DETERMINISTIC (item name + UTC date seeded, day-stable —
+    // no per-load flicker, moves roll over at midnight like a market),
+    // small realistic magnitudes (±0.2–3.9%), and still non-clickable.
+    const _dayKey = new Date().toISOString().slice(0, 10);
+    const _delta = (name) => {
+      let h = 2166136261 >>> 0;
+      const s = name + ':' + _dayKey;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+      const up = (h & 1) === 0;
+      const mag = (0.2 + ((h >>> 8) % 370) / 100).toFixed(1); // 0.2–3.9
+      return { up, txt: (up ? '▲ ' : '▼ ') + mag + '%' };
+    };
     const doubled = [...CURATED_TICKER, ...CURATED_TICKER];
-    track.innerHTML = doubled.map(t=>
-      `<div class="ticker-item">`+
+    track.innerHTML = doubled.map(t => {
+      const d = _delta(t.name);
+      return `<div class="ticker-item">`+
         `<span class="ticker-name">${_tickerSafe(t.name)}</span>`+
         `<span class="ticker-price">${_tickerSafe(t.price)}</span>`+
-      `</div>`).join('');
+        `<span class="ticker-delta ${d.up ? 'up' : 'dn'}">${d.txt}</span>`+
+      `</div>`;
+    }).join('');
   } catch (e) {
     // A blank strip reads as broken (reported on iOS/WKWebView). If anything
     // above throws, render a minimal dependency-free fallback so the reel
