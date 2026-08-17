@@ -1888,16 +1888,12 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
-  {
-    id: 'philadelphia-cricket',
-    name: 'Philadelphia Cricket Club (Wissahickon)',
-    shortName: 'Philadelphia Cricket',
-    aliases: ['philadelphia cricket', 'pcc', 'wissahickon'],
-    location: 'Flourtown, Pennsylvania',
-    architect: 'A.W. Tillinghast',
-    logo: '',
-    logoUrl: '',
-  },
+  // philadelphia-cricket BENCHED (founder ruling 2026-08-16, like
+  // augusta-national): the Native-head mark is one the club itself has been
+  // retiring under public pressure since 2020, and our copy was a sheared
+  // favicon scrape anyway. PNG stays in assets/logos so already-served
+  // boards keep rendering; no entry = never drawn again. If it returns,
+  // use the club's CURRENT mark, not a re-source of this one.
   {
     id: 'crooked-stick',
     name: 'Crooked Stick Golf Club',

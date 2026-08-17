@@ -283,11 +283,6 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/stanwich.png"
     },
     {
-      "id": "philadelphia-cricket",
-      "shortName": "Philadelphia Cricket",
-      "logoUrl": "https://teeboxmarket.com/assets/logos/philadelphia-cricket.png"
-    },
-    {
       "id": "liberty-national",
       "shortName": "Liberty National",
       "logoUrl": "https://teeboxmarket.com/assets/logos/liberty-national.png"
@@ -1106,15 +1101,6 @@
         "the stanwich club"
       ]
     },
-    "philadelphia-cricket": {
-      "name": "Philadelphia Cricket Club (Wissahickon)",
-      "shortName": "Philadelphia Cricket",
-      "aliases": [
-        "philadelphia cricket",
-        "pcc",
-        "wissahickon"
-      ]
-    },
     "liberty-national": {
       "name": "Liberty National Golf Club",
       "shortName": "Liberty National",
@@ -1637,7 +1623,7 @@
       ]
     }
   },
-  "generatedAt": "2026-08-12T21:18:20.271Z",
+  "generatedAt": "2026-08-17T00:41:17.361Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
