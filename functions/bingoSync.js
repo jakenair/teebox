@@ -383,6 +383,25 @@ exports.syncBingoProgress = onCall(
   const clientClaimedCorrect =
     sanitized.filter((c) => c.state === "correct").length;
 
+  // ── 2b. Board provenance (recording ONLY — founder ruling 2026-08-25) ──
+  // The client reports which board its cells were played on: puzzleSource
+  // ('server' = dailyPuzzles doc, 'local' = dailySeed fallback), the 9
+  // course ids, and a board hash. We STORE these verbatim (sanitized) so
+  // board divergence is queryable and retroactively validatable; we do NOT
+  // recompute scores against them or gate the leaderboard here. Old clients
+  // send none of this — all three stay null.
+  const puzzleSource =
+    data.puzzleSource === "server" || data.puzzleSource === "local"
+      ? data.puzzleSource : null;
+  const courseIds = Array.isArray(data.courseIds) &&
+      data.courseIds.length === 9 &&
+      data.courseIds.every(
+          (x) => typeof x === "string" && /^[a-z0-9-]{1,64}$/.test(x))
+    ? data.courseIds : null;
+  const boardHash =
+    typeof data.boardHash === "string" && /^[a-z0-9]{1,16}$/.test(data.boardHash)
+      ? data.boardHash : null;
+
   // ── 3. Timestamp plausibility ────────────────────────────────────────
   const now = Date.now();
   // solvedAt: optional, but if present must be a recent epoch ms.
@@ -543,6 +562,11 @@ exports.syncBingoProgress = onCall(
           solvedAt: finalSolvedAt,
           clientWonAt: Number.isFinite(clientWonAt) ? clientWonAt : null,
           syncedAt: admin.firestore.FieldValue.serverTimestamp(),
+          // Board provenance — stored only when the client reported it, so
+          // an old-client resync can't null out an earlier report.
+          ...(puzzleSource ? {puzzleSource} : {}),
+          ...(courseIds ? {courseIds} : {}),
+          ...(boardHash ? {boardHash} : {}),
         },
         {merge: true}
       );
