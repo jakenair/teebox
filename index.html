@@ -4488,7 +4488,7 @@
         <h4>4. Shipping Obligations</h4>
         Once a sale is confirmed, you agree to ship the item directly to the buyer within 3 business days using a tracked, insured carrier service. Failure to ship may result in refund to the buyer and account suspension.
         <h4>5. Fees</h4>
-        TeeBox charges a seller transaction fee of 6.5% of the sale price, deducted automatically from your payout. The fee may change with 30 days' notice.
+        TeeBox charges a seller transaction fee of 6.5% of the sale price, deducted automatically from your payout. Shipping labels purchased through TeeBox are also deducted from your payout at the carrier's rate, shown to you before purchase. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
         Payouts are issued to your linked bank account on Stripe's standard payout schedule after a successful sale. Buyers have 7 days from delivery to open a dispute; a confirmed dispute may reverse a payout.
         <h4>7. Disputes &amp; Indemnification</h4>
@@ -5922,7 +5922,7 @@
           <button class="btn-primary" data-action="open-modal-buy">Shop clubs &amp; gear</button>
           <button class="hero-sell-link" data-action="handle-sell" type="button">Sell your gear &rarr;</button>
         </div>
-        <p class="hero-fee-proof">Keep more of your sale: 6.5% fee, shipping label included. eBay takes ~13% and you buy the label.</p>
+        <p class="hero-fee-proof">Keep more of your sale: flat 6.5% fee. eBay takes ~13%.</p>
       </div>
       <div class="hero-featured" id="heroFeatured">
         <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
@@ -14196,9 +14196,18 @@ function openSellModal() {
       if (el) el.addEventListener('input', refresh);
     });
     const priceEl = document.getElementById('sellPrice');
-    if (priceEl) priceEl.addEventListener('input', () => {
-      const v = parseFloat(priceEl.value || '0');
-      // Live seller take-home: net after the TeeBox fee (3% Pro / 6.5% std).
+    // Structure 1 (2026-08-25): the take-home preview shows the fee AND an
+    // ESTIMATED label deduction by category — the label is funded from the
+    // seller's payout, and the exact price is shown before they buy it at
+    // ship time. Estimates are rounded from measured cheapest-carrier rates
+    // (baseline + coast-to-coast lanes, 2026-08-25); keep in sync with
+    // CATEGORY_PARCELS pricing reality, not with wishes.
+    const LABEL_EST_BY_CAT = {
+      apparel: 8, accessories: 8, headcovers: 8, shoes: 9, balls: 9,
+      clubs: 14, bags: 50,
+    };
+    const renderTakeHome = () => {
+      const v = parseFloat(priceEl && priceEl.value || '0');
       const th = document.getElementById('sellTakeHome');
       if (th) {
         if (v > 0) {
@@ -14206,21 +14215,27 @@ function openSellModal() {
           // window.CURRENT_PROFILE check read a global nothing ever assigned).
           const isPro = window.__SELLER_TIER === 'pro';
           const feePct = isPro ? 3 : 6.5;
-          const net = v * (1 - feePct / 100);
-          // r162: the honest pitch with live dollars. Take-home math is
-          // untouched (seller nets ask − fee, full stop — TeeBox covers the
-          // shipping label as a deliberate launch subsidy, Jake-ruled). The
-          // eBay line uses the ~13% figure the hero already claims; eBay
-          // sellers also buy their own label, hence 'before shipping'.
-          const ebayNet = v * (1 - 13 / 100);
+          const cat = (document.getElementById('sellCat') || {}).value || '';
+          const labelEst = LABEL_EST_BY_CAT[cat] || 8;
+          const net = Math.max(0, v * (1 - feePct / 100) - labelEst);
+          // Same estimated label applied to the eBay line — apples to
+          // apples, and conservative (retail postage usually costs more
+          // than our commercial rate).
+          const ebayNet = Math.max(0, v * (1 - 13 / 100) - labelEst);
           th.innerHTML =
-            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong>: ${feePct}% fee, shipping label on us.` +
-            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label): &asymp;$${ebayNet.toFixed(2)} before shipping.</span>`;
+            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong> (estimated): ${feePct}% fee, minus your shipping label (est. $${labelEst}${cat ? ` for ${cat}` : ''} &mdash; exact price shown before you buy it).` +
+            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label too): &asymp;$${ebayNet.toFixed(2)}.</span>`;
           th.style.display = '';
         } else {
           th.style.display = 'none';
         }
       }
+    };
+    const catEl = document.getElementById('sellCat');
+    if (catEl) catEl.addEventListener('change', renderTakeHome);
+    if (priceEl) priceEl.addEventListener('input', () => {
+      renderTakeHome();
+      const v = parseFloat(priceEl.value || '0');
       const notice = document.getElementById('authPhotoNotice');
       if (!notice) return;
       notice.style.display = v >= 300 ? '' : 'none';
