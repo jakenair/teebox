@@ -21501,6 +21501,14 @@ if (uploadZone) {
             attempts: totalAttempts,
             startedAt,
             clientWonAt: correctCount === 9 ? solvedAt : null,
+            // Board provenance (recording only — server stores, does not
+            // recompute): which board these cells were actually played on.
+            puzzleSource: state.puzzleSource === 'server' ? 'server'
+              : (state.puzzleSource === 'local' ? 'local' : null),
+            courseIds: Array.isArray(state.courses)
+              ? state.courses.map((c) => c && c.id).filter((x) => typeof x === 'string')
+              : null,
+            boardHash: typeof state.boardHash === 'string' ? state.boardHash : null,
           });
           removeFromQueue(date);
           didSyncAny = true;
@@ -21587,10 +21595,29 @@ if (uploadZone) {
   let game = {
     date: TODAY,
     courses: dailySeed(TODAY),
+    // Which board game.courses came from: 'server' (dailyPuzzles doc, via
+    // live fetch or cache) or 'local' (dailySeed fallback). Persisted with
+    // the game and reported at sync so board provenance is queryable.
+    puzzleSource: 'local',
     // For each cell index 0..8: { state: 'pending'|'correct'|'wrong'|'revealed', attempts: number, guess: string|null }
     cells: null,
     activeCell: -1,                  // index of the cell whose modal is open
   };
+  function boardHashOf(courses) {
+    try {
+      return hashStr((courses || []).map((c) => c && c.id).join('|')).toString(36);
+    } catch { return ''; }
+  }
+  // Restore the exact board the saved cells were played on (divergence fix:
+  // a relaunch must NEVER swap unsolved tiles to a different board — the
+  // saved snapshot wins over dailySeed()). Returns null for pre-fix saves
+  // with no snapshot; callers then keep their current board, matching the
+  // old behavior.
+  function restoreSavedBoard(saved) {
+    if (!saved || !Array.isArray(saved.courses) || saved.courses.length !== 9) return null;
+    const hydrated = hydrateCachedPuzzleToCourses({ courses: saved.courses });
+    return (hydrated && hydrated.length === 9 && hydrated.every(Boolean)) ? hydrated : null;
+  }
   function defaultCellState() {
     return Array.from({ length: 9 }, () => ({
       state: 'pending', attempts: 0, guess: null,
@@ -21601,25 +21628,47 @@ if (uploadZone) {
   }
 
   function hydrate() {
-    const saved = loadGameState(TODAY);
+    const saved = loadGameState(game.date);
     if (saved && Array.isArray(saved.cells) && saved.cells.length === 9) {
       game.cells = saved.cells;
+      // Divergence fix: cells only make sense against the board they were
+      // played on. Restore that board from the snapshot instead of keeping
+      // the dailySeed() the module booted with — on a stale bundle those
+      // differ, and the old behavior silently swapped every unsolved tile.
+      const board = restoreSavedBoard(saved);
+      if (board) {
+        game.courses = board;
+        game.puzzleSource = saved.puzzleSource === 'server' ? 'server' : 'local';
+      }
     } else {
       game.cells = defaultCellState();
-      persist();
+      persist({sync: false});
     }
   }
-  function persist() {
-    saveGameState(TODAY, {
+  function persist(opts) {
+    // Keyed by game.date (not the module-load TODAY constant): a page that
+    // lives across UTC midnight must save the game under the date it
+    // belongs to, or a post-roll save corrupts yesterday's record.
+    saveGameState(game.date, {
       cells: game.cells,
       finalScore: scoreCount(),
       completed: isComplete(),
       savedAt: Date.now(),
+      // Board snapshot — see restoreSavedBoard(). Also reported at sync
+      // (recording only; the server just stores it).
+      courses: (game.courses || []).map((c) => ({
+        id: c && c.id, shortName: (c && c.shortName) || '', logoUrl: (c && c.logoUrl) || '',
+      })),
+      puzzleSource: game.puzzleSource === 'server' ? 'server' : 'local',
+      boardHash: boardHashOf(game.courses),
     });
     // Local-first: the tap UI does not await the server. We just enqueue
     // a debounced sync; drainBingoSyncQueue() handles offline-replay,
-    // signed-out users, and rate-limiting.
-    try { enqueueBingoSync(TODAY); } catch {}
+    // signed-out users, and rate-limiting. Board-snapshot-only saves pass
+    // {sync:false} — nothing new for the server yet.
+    if (!opts || opts.sync !== false) {
+      try { enqueueBingoSync(game.date); } catch {}
+    }
   }
   function scoreCount() {
     return game.cells.filter(c => c.state === 'correct').length;
@@ -21884,9 +21933,17 @@ if (uploadZone) {
     if (t !== game.date) {
       game.date = t;
       game.courses = dailySeed(t);
+      game.puzzleSource = 'local';
       const saved = loadGameState(t);
       game.cells = (saved && Array.isArray(saved.cells) && saved.cells.length === 9)
         ? saved.cells : defaultCellState();
+      // Divergence fix: if today already has a saved game, its board
+      // snapshot wins over the dailySeed just computed (see hydrate()).
+      const board = restoreSavedBoard(saved);
+      if (board) {
+        game.courses = board;
+        game.puzzleSource = saved.puzzleSource === 'server' ? 'server' : 'local';
+      }
     } else if (!game.cells) {
       hydrate();
     }
@@ -21917,13 +21974,20 @@ if (uploadZone) {
         const newIds = courses.map((c) => c && c.id).join(',');
         const noProgress = !game.cells || game.cells.every(
           (c) => !c || c.state === 'pending');
+        const adoptedSource = __bingoPuzzleStale ? 'local' : 'server';
         if (localIds !== newIds) {
           if (noProgress) {
             game.courses = courses;
+            game.puzzleSource = adoptedSource;
+            // Snapshot the adopted board immediately — a relaunch before
+            // the first tap must restore THIS board, not re-seed locally.
+            persist({sync: false});
             render();
           } else {
             // Mid-round divergence — leave the player on their current
             // grid but warn so divergence is observable in the logs.
+            // Post-fix this should only fire when the SERVER doc itself
+            // changed mid-round (canon regen), never from a relaunch.
             console.warn(
               '[bingo] server puzzle differs from local mid-round; ' +
               'keeping current grid. local=', localIds, 'server=', newIds);
@@ -21933,6 +21997,8 @@ if (uploadZone) {
           // copies so any updated logoUrl (e.g. CDN migration) takes
           // effect on the next render.
           game.courses = courses;
+          game.puzzleSource = adoptedSource;
+          persist({sync: false});
         }
         precacheBingoLogos(courses);
         updateBingoStaleBanner();
