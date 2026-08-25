@@ -21353,15 +21353,40 @@ if (uploadZone) {
   // dedicated namespace so the user can still see the tiles offline. Skip
   // when there's no SW (private browsing, older Safari, native WebView
   // without registration yet) — the browser HTTP cache covers most cases.
+  //
+  // Native app: there is no SW (the app unregisters it at boot), so new
+  // logos were cold-cache until the tile probe fetched them — one bad-signal
+  // fetch meant a blank tile. warmBingoLogoCacheNative() is the app-side
+  // twin of the SW pinning: fire-and-forget fetches that warm the WKWebView
+  // HTTP cache. Strictly non-blocking (nothing awaits it) and each request
+  // aborts after 8s so a dead network can't hold sockets open.
+  function warmBingoLogoCacheNative(urls) {
+    urls.forEach((u) => {
+      try {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 8000);
+        // no-cors: an opaque response still populates the HTTP cache, and
+        // it mirrors how <img> fetches the same URL (no CORS dependency).
+        fetch(u, {mode: 'no-cors', cache: 'default', signal: ctl.signal})
+          .catch(() => {})
+          .finally(() => clearTimeout(timer));
+      } catch {}
+    });
+  }
   function precacheBingoLogos(courses) {
     try {
-      if (!('serviceWorker' in navigator)) return;
-      const ctrl = navigator.serviceWorker.controller;
-      if (!ctrl) return;
       const urls = courses
         .map((c) => courseLogoUrl(c))
         .filter((u) => typeof u === 'string' && u.length > 0);
       if (!urls.length) return;
+      const Cap = window.Capacitor;
+      if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+        warmBingoLogoCacheNative(urls);
+        return;
+      }
+      if (!('serviceWorker' in navigator)) return;
+      const ctrl = navigator.serviceWorker.controller;
+      if (!ctrl) return;
       ctrl.postMessage({type: 'CACHE_BINGO_LOGOS', urls});
     } catch {}
   }
