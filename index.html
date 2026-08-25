@@ -15181,9 +15181,6 @@ window.confirmShip = confirmShip;
 // ─────────────────────────────────────────────────────────────
 async function printShippingLabel(orderId) {
   if (!orderId || !window.CURRENT_USER) return;
-  // Soft user-confirmation — labels are non-refundable past a certain
-  // point and cost real money. Cheap UX guardrail.
-  if (!confirm('Purchase a shipping label for this order? You can re-open the PDF later.')) return;
   // Find the button element so we can spinner-state it.
   const btn = document.querySelector(`button[data-action="print-shipping-label"][data-order-id="${orderId.replace(/"/g, '\\"')}"]`);
   const oldLabel = btn ? btn.textContent : null;
@@ -15195,16 +15192,16 @@ async function printShippingLabel(orderId) {
     const fn = httpsCallable(fns, 'createShippingLabel');
     let res = await fn({ orderId });
     let data = (res && res.data) || {};
-    // r-label-cap: TeeBox covers the first $15; the seller confirms and
-    // pays the excess (deducted from their payout) before purchase.
-    if (data.overCap) {
+    // Structure 1: the seller funds the full label from their payout.
+    // The server's first response is a price quote — the seller confirms
+    // the exact deduction before anything is purchased.
+    if (data.quote || data.overCap) {
       const ok = confirm(
         `This label costs $${Number(data.rateAmount || 0).toFixed(2)} (${data.carrier || 'carrier'}${data.serviceLevel ? ' ' + data.serviceLevel : ''}).\n\n` +
-        `TeeBox covers the first $${Number(data.capAmount || 15).toFixed(2)} — the remaining $${Number(data.excessAmount || 0).toFixed(2)} ` +
-        `will be deducted from your payout for this order.\n\nBuy the label?`
+        `The full label cost is deducted from your payout for this order.\n\nBuy the label?`
       );
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = oldLabel; } return; }
-      res = await fn({ orderId, confirmExcess: true });
+      res = await fn({ orderId, confirmDeduct: true });
       data = (res && res.data) || {};
     }
     if (data.ok) {
@@ -15246,6 +15243,8 @@ async function printShippingLabel(orderId) {
         'label-purchase-failed': 'Label purchase failed. Check your Shippo balance and try again.',
         'shippo-down': 'Shipping rates are temporarily unavailable. Please retry in a few minutes.',
         'test-key-in-prod': 'Shipping labels are temporarily unavailable. Please retry shortly.',
+        'label-guard-unavailable': 'We couldn\'t verify your payout for this order just now. Please try again in a few minutes.',
+        'label-exceeds-proceeds': 'This label costs more than your remaining proceeds for this order. Contact support and we\'ll sort out shipping together.',
       };
       const msg = friendly[data.reason] || data.message ||
         'Couldn\'t generate a shipping label. Please try again.';
