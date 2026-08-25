@@ -9098,6 +9098,14 @@ window.confirmPayment = async function() {
     if (!brand) errors.push(['sellBrand', 'Add the brand (or "Unbranded").']);
     if (!cat) errors.push(['sellCat', 'Pick the category buyers will browse.']);
     if (!price || !Number.isFinite(price) || price <= 0) errors.push(['sellPrice', 'Enter a price greater than $0.']);
+    else {
+      // Category price floors (Structure 1): the shipping label is funded
+      // from the seller's payout, so the ask must comfortably cover it.
+      // Mirrors categoryFloor() in firestore.rules + updateListing.
+      const floor = cat === 'bags' ? 85 : (cat === 'clubs' ? 25 : 15);
+      if (price < floor) errors.push(['sellPrice',
+        `Minimum price for ${cat === 'bags' ? 'bags' : cat === 'clubs' ? 'clubs' : 'this category'} is $${floor} — it keeps the shipping label affordable out of your sale proceeds.`]);
+    }
     if (!condition) errors.push(['sellCondition', 'Pick a condition.']);
     if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
     else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
