@@ -162,14 +162,14 @@ function pickRate(rates, parcelWeightLb) {
       return /ups.*ground/i.test(tok);
     });
     if (upsGround) return upsGround;
-  } else {
-    const usps = sortable.find((r) => {
-      const carrier = (r.provider || "").toLowerCase();
-      return carrier === "usps";
-    });
-    if (usps) return usps;
   }
-  // Fallback to the absolute cheapest.
+  // Cheapest usable rate across carriers (founder ruling 2026-08-25).
+  // The old sub-70lb branch preferred the cheapest USPS rate regardless of
+  // price — fine for small parcels where USPS wins anyway, but USPS
+  // dimensional pricing made it buy a $115–172 Ground Advantage label for
+  // a 38x14x12 stand bag where UPS quotes $42–58, and a $17–23 label for
+  // the 48" club tube where UPS quotes $13–15. Under seller-funded labels
+  // that difference lands on the seller for a choice they didn't make.
   return sortable[0];
 }
 
