@@ -12,7 +12,13 @@
 // fabricate a lower fee.
 
 const PLATFORM_FEE_PERCENT = 0.065;
-const PLATFORM_FEE_PERCENT_PRO = 0.03;
+// Pro repriced to 6.5% (founder ruling, Phase 2 2026-08-25): at 3% the
+// platform cleared ~0.1% after Stripe's variable rate — a guaranteed
+// per-sale loss at every realistic price. Zero accounts were ever on Pro,
+// so nobody is grandfathered. The tier plumbing (server-written `tier`,
+// webhook, rules whitelist) is kept intact for a future perks-based
+// re-launch; signup is disabled in createSubscriptionCheckout.
+const PLATFORM_FEE_PERCENT_PRO = 0.065;
 
 /**
  * Compute the platform fee + seller payout for a sale.

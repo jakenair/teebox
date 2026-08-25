@@ -18,12 +18,12 @@ test("free tier charges 6.5%", () => {
   assert.equal(r.sellerPayoutCents, 9350);
 });
 
-test("pro tier charges 3%", () => {
+test("pro tier charges 6.5% — repriced 2026-08-25, tier plumbing intact", () => {
   const r = computeFees(10000, "pro");
   assert.equal(r.tier, "pro");
-  assert.equal(r.feeRate, 0.03);
-  assert.equal(r.platformFeeCents, 300);
-  assert.equal(r.sellerPayoutCents, 9700);
+  assert.equal(r.feeRate, 0.065);
+  assert.equal(r.platformFeeCents, 650);
+  assert.equal(r.sellerPayoutCents, 9350);
 });
 
 test("missing / unknown tier defaults to free (6.5%) — no client-fabricated discount", () => {
@@ -32,8 +32,10 @@ test("missing / unknown tier defaults to free (6.5%) — no client-fabricated di
     assert.equal(r.tier, "free", `tier=${JSON.stringify(t)} should be free`);
     assert.equal(r.platformFeeCents, 650);
   }
-  // Only the exact lowercase "pro" string gets the discount.
-  assert.equal(computeFees(10000, "pro").platformFeeCents, 300);
+  // The exact lowercase "pro" string still resolves the pro tier — same
+  // rate since the 2026-08-25 repricing, distinct tier label preserved.
+  assert.equal(computeFees(10000, "pro").platformFeeCents, 650);
+  assert.equal(computeFees(10000, "pro").tier, "pro");
 });
 
 test("fee rounds half-up and fee + payout always equals price", () => {
@@ -74,12 +76,12 @@ test("non-integer / garbage price is coerced to a safe integer", () => {
 });
 
 test("large amount stays exact (no float drift)", () => {
-  const r = computeFees(1000000, "pro"); // $10,000 sale, pro
-  assert.equal(r.platformFeeCents, 30000);
-  assert.equal(r.sellerPayoutCents, 970000);
+  const r = computeFees(1000000, "pro"); // $10,000 sale, pro (6.5% since 2026-08-25)
+  assert.equal(r.platformFeeCents, 65000);
+  assert.equal(r.sellerPayoutCents, 935000);
 });
 
 test("exported constants match the documented rates", () => {
   assert.equal(PLATFORM_FEE_PERCENT, 0.065);
-  assert.equal(PLATFORM_FEE_PERCENT_PRO, 0.03);
+  assert.equal(PLATFORM_FEE_PERCENT_PRO, 0.065);
 });

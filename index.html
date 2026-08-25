@@ -14211,10 +14211,11 @@ function openSellModal() {
       const th = document.getElementById('sellTakeHome');
       if (th) {
         if (v > 0) {
-          // r193: __SELLER_TIER is resolved fresh at sell-modal open (the old
-          // window.CURRENT_PROFILE check read a global nothing ever assigned).
-          const isPro = window.__SELLER_TIER === 'pro';
-          const feePct = isPro ? 3 : 6.5;
+          // Pro repriced to 6.5% and signup disabled (founder ruling
+          // 2026-08-25) — one flat rate for everyone, so the preview no
+          // longer branches on __SELLER_TIER (which stays resolved at
+          // modal-open for the future perks re-launch).
+          const feePct = 6.5;
           const cat = (document.getElementById('sellCat') || {}).value || '';
           const labelEst = LABEL_EST_BY_CAT[cat] || 8;
           const net = Math.max(0, v * (1 - feePct / 100) - labelEst);
