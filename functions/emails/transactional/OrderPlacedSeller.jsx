@@ -44,7 +44,9 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
       <H1>You sold {title}</H1>
       <P>
         Congrats — your listing sold for {formatUsd(order.amountCents)}.
-        Estimated payout after fees: <strong>{payout}</strong>.
+        Estimated payout after fees: <strong>{payout}</strong>. If you buy
+        your shipping label through TeeBox, its cost is deducted from this
+        payout — you&apos;ll see the exact price before purchase.
       </P>
       {nextStepText}
       <Button href={ctaHref}>{ctaLabel}</Button>

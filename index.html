@@ -4498,7 +4498,7 @@
         <h4>4. Shipping Obligations</h4>
         Once a sale is confirmed, you agree to ship the item directly to the buyer within 3 business days using a tracked, insured carrier service. Failure to ship may result in refund to the buyer and account suspension.
         <h4>5. Fees</h4>
-        TeeBox charges a seller transaction fee of 6.5% of the sale price, deducted automatically from your payout. The fee may change with 30 days' notice.
+        TeeBox charges a seller transaction fee of 6.5% of the sale price, deducted automatically from your payout. Shipping labels purchased through TeeBox are also deducted from your payout at the carrier's rate, shown to you before purchase. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
         Payouts are issued to your linked bank account on Stripe's standard payout schedule after a successful sale. Buyers have 7 days from delivery to open a dispute; a confirmed dispute may reverse a payout.
         <h4>7. Disputes &amp; Indemnification</h4>
@@ -5932,7 +5932,7 @@
           <button class="btn-primary" data-action="open-modal-buy">Shop clubs &amp; gear</button>
           <button class="hero-sell-link" data-action="handle-sell" type="button">Sell your gear &rarr;</button>
         </div>
-        <p class="hero-fee-proof">Keep more of your sale: 6.5% fee, shipping label included. eBay takes ~13% and you buy the label.</p>
+        <p class="hero-fee-proof">Keep more of your sale: flat 6.5% fee. eBay takes ~13%.</p>
       </div>
       <div class="hero-featured" id="heroFeatured">
         <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
@@ -9108,6 +9108,14 @@ window.confirmPayment = async function() {
     if (!brand) errors.push(['sellBrand', 'Add the brand (or "Unbranded").']);
     if (!cat) errors.push(['sellCat', 'Pick the category buyers will browse.']);
     if (!price || !Number.isFinite(price) || price <= 0) errors.push(['sellPrice', 'Enter a price greater than $0.']);
+    else {
+      // Category price floors (Structure 1): the shipping label is funded
+      // from the seller's payout, so the ask must comfortably cover it.
+      // Mirrors categoryFloor() in firestore.rules + updateListing.
+      const floor = cat === 'bags' ? 85 : (cat === 'clubs' ? 25 : 15);
+      if (price < floor) errors.push(['sellPrice',
+        `Minimum price for ${cat === 'bags' ? 'bags' : cat === 'clubs' ? 'clubs' : 'this category'} is $${floor} — it keeps the shipping label affordable out of your sale proceeds.`]);
+    }
     if (!condition) errors.push(['sellCondition', 'Pick a condition.']);
     if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
     else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
@@ -14198,31 +14206,47 @@ function openSellModal() {
       if (el) el.addEventListener('input', refresh);
     });
     const priceEl = document.getElementById('sellPrice');
-    if (priceEl) priceEl.addEventListener('input', () => {
-      const v = parseFloat(priceEl.value || '0');
-      // Live seller take-home: net after the TeeBox fee (3% Pro / 6.5% std).
+    // Structure 1 (2026-08-25): the take-home preview shows the fee AND an
+    // ESTIMATED label deduction by category — the label is funded from the
+    // seller's payout, and the exact price is shown before they buy it at
+    // ship time. Estimates are rounded from measured cheapest-carrier rates
+    // (baseline + coast-to-coast lanes, 2026-08-25); keep in sync with
+    // CATEGORY_PARCELS pricing reality, not with wishes.
+    const LABEL_EST_BY_CAT = {
+      apparel: 8, accessories: 8, headcovers: 8, shoes: 9, balls: 9,
+      clubs: 14, bags: 50,
+    };
+    const renderTakeHome = () => {
+      const v = parseFloat(priceEl && priceEl.value || '0');
       const th = document.getElementById('sellTakeHome');
       if (th) {
         if (v > 0) {
-          // r193: __SELLER_TIER is resolved fresh at sell-modal open (the old
-          // window.CURRENT_PROFILE check read a global nothing ever assigned).
-          const isPro = window.__SELLER_TIER === 'pro';
-          const feePct = isPro ? 3 : 6.5;
-          const net = v * (1 - feePct / 100);
-          // r162: the honest pitch with live dollars. Take-home math is
-          // untouched (seller nets ask − fee, full stop — TeeBox covers the
-          // shipping label as a deliberate launch subsidy, Jake-ruled). The
-          // eBay line uses the ~13% figure the hero already claims; eBay
-          // sellers also buy their own label, hence 'before shipping'.
-          const ebayNet = v * (1 - 13 / 100);
+          // Pro repriced to 6.5% and signup disabled (founder ruling
+          // 2026-08-25) — one flat rate for everyone, so the preview no
+          // longer branches on __SELLER_TIER (which stays resolved at
+          // modal-open for the future perks re-launch).
+          const feePct = 6.5;
+          const cat = (document.getElementById('sellCat') || {}).value || '';
+          const labelEst = LABEL_EST_BY_CAT[cat] || 8;
+          const net = Math.max(0, v * (1 - feePct / 100) - labelEst);
+          // Same estimated label applied to the eBay line — apples to
+          // apples, and conservative (retail postage usually costs more
+          // than our commercial rate).
+          const ebayNet = Math.max(0, v * (1 - 13 / 100) - labelEst);
           th.innerHTML =
-            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong>: ${feePct}% fee, shipping label on us.` +
-            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label): &asymp;$${ebayNet.toFixed(2)} before shipping.</span>`;
+            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong> (estimated): ${feePct}% fee, minus your shipping label (est. $${labelEst}${cat ? ` for ${cat}` : ''} &mdash; exact price shown before you buy it).` +
+            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label too): &asymp;$${ebayNet.toFixed(2)}.</span>`;
           th.style.display = '';
         } else {
           th.style.display = 'none';
         }
       }
+    };
+    const catEl = document.getElementById('sellCat');
+    if (catEl) catEl.addEventListener('change', renderTakeHome);
+    if (priceEl) priceEl.addEventListener('input', () => {
+      renderTakeHome();
+      const v = parseFloat(priceEl.value || '0');
       const notice = document.getElementById('authPhotoNotice');
       if (!notice) return;
       notice.style.display = v >= 300 ? '' : 'none';
@@ -15191,9 +15215,6 @@ window.confirmShip = confirmShip;
 // ─────────────────────────────────────────────────────────────
 async function printShippingLabel(orderId) {
   if (!orderId || !window.CURRENT_USER) return;
-  // Soft user-confirmation — labels are non-refundable past a certain
-  // point and cost real money. Cheap UX guardrail.
-  if (!confirm('Purchase a shipping label for this order? You can re-open the PDF later.')) return;
   // Find the button element so we can spinner-state it.
   const btn = document.querySelector(`button[data-action="print-shipping-label"][data-order-id="${orderId.replace(/"/g, '\\"')}"]`);
   const oldLabel = btn ? btn.textContent : null;
@@ -15205,16 +15226,16 @@ async function printShippingLabel(orderId) {
     const fn = httpsCallable(fns, 'createShippingLabel');
     let res = await fn({ orderId });
     let data = (res && res.data) || {};
-    // r-label-cap: TeeBox covers the first $15; the seller confirms and
-    // pays the excess (deducted from their payout) before purchase.
-    if (data.overCap) {
+    // Structure 1: the seller funds the full label from their payout.
+    // The server's first response is a price quote — the seller confirms
+    // the exact deduction before anything is purchased.
+    if (data.quote || data.overCap) {
       const ok = confirm(
         `This label costs $${Number(data.rateAmount || 0).toFixed(2)} (${data.carrier || 'carrier'}${data.serviceLevel ? ' ' + data.serviceLevel : ''}).\n\n` +
-        `TeeBox covers the first $${Number(data.capAmount || 15).toFixed(2)} — the remaining $${Number(data.excessAmount || 0).toFixed(2)} ` +
-        `will be deducted from your payout for this order.\n\nBuy the label?`
+        `The full label cost is deducted from your payout for this order.\n\nBuy the label?`
       );
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = oldLabel; } return; }
-      res = await fn({ orderId, confirmExcess: true });
+      res = await fn({ orderId, confirmDeduct: true });
       data = (res && res.data) || {};
     }
     if (data.ok) {
@@ -15256,6 +15277,8 @@ async function printShippingLabel(orderId) {
         'label-purchase-failed': 'Label purchase failed. Check your Shippo balance and try again.',
         'shippo-down': 'Shipping rates are temporarily unavailable. Please retry in a few minutes.',
         'test-key-in-prod': 'Shipping labels are temporarily unavailable. Please retry shortly.',
+        'label-guard-unavailable': 'We couldn\'t verify your payout for this order just now. Please try again in a few minutes.',
+        'label-exceeds-proceeds': 'This label costs more than your remaining proceeds for this order. Contact support and we\'ll sort out shipping together.',
       };
       const msg = friendly[data.reason] || data.message ||
         'Couldn\'t generate a shipping label. Please try again.';

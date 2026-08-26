@@ -5567,6 +5567,18 @@ exports.createSubscriptionCheckout = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
+    // Pro signup DISABLED (founder ruling 2026-08-25): the 3% rate was a
+    // guaranteed per-sale loss and has been repriced to 6.5% (lib/fees.js);
+    // selling the subscription in this state would charge $14.99/mo for
+    // nothing. Zero subscribers existed at disable time. The client maps
+    // "not configured" to a friendly "not available yet" toast. Re-enable
+    // only with the perks-based re-launch (see follow-up in
+    // .internal-docs/FEE_STRUCTURE1_2026-08-25.md).
+    throw new HttpsError(
+      "failed-precondition",
+      "Pro plan is not configured for new signups right now.",
+    );
+    // eslint-disable-next-line no-unreachable
     const priceId = stripeProPriceId.value();
     // M1: validate the price-ID shape — catches placeholder strings or
     // mis-pasted values that would otherwise surface as opaque Stripe
@@ -7191,6 +7203,20 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   if (!Number.isFinite(price) || price <= 0 || price >= 1000000) {
     throw new HttpsError(
         "invalid-argument", "Please enter a valid price.");
+  }
+  // Category price floors (C-guard part a, founder ruling 2026-08-25).
+  // Seller-funded labels are recovered from the payout via a bounded
+  // transfer reversal — the floor keeps the worst-case label affordable
+  // out of the listing's own proceeds. Mirrors categoryFloor() in
+  // firestore.rules (which covers direct-write creates).
+  const categoryFloor = cat === "bags" ? 85 : (cat === "clubs" ? 25 : 15);
+  if (price < categoryFloor) {
+    throw new HttpsError(
+        "invalid-argument",
+        `Minimum price for ${cat === "bags" ? "bags" :
+          cat === "clubs" ? "clubs" : "this category"} is ` +
+        `$${categoryFloor} — it keeps the shipping label affordable ` +
+        "out of your sale proceeds.");
   }
   if (photos.length < 1) {
     throw new HttpsError(

@@ -50,13 +50,15 @@ const admin = require("firebase-admin");
 //   firebase functions:secrets:set SHIPPO_API_KEY
 // Test value starts with shippo_test_; live with shippo_live_.
 const SHIPPO_API_KEY = defineSecret("SHIPPO_API_KEY");
-// r-label-cap (2026-07-30): Stripe key for the seller-pays-excess partial
-// transfer reversal; ops webhook for failed-recovery alerts. Same params as
-// index.js — firebase-functions dedupes secret definitions by name.
+// Stripe key for the seller-funded label recovery (partial transfer
+// reversal) + the pre-purchase proceeds guard; ops webhook for
+// failed-recovery alerts. Same params as index.js — firebase-functions
+// dedupes secret definitions by name.
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const {OPS_ALERT_WEBHOOK} = require("./opsAlert");
-// TeeBox absorbs the label up to this cap; the seller pays the excess.
-const LABEL_CAP_USD = 15;
+// Structure 1 (founder ruling 2026-08-25): sellers fund the FULL label
+// from their payout. The r180 $15 platform subsidy (LABEL_CAP_USD) is
+// retired — see Step 2.5/2.6 in createShippingLabel.
 
 // r181: category→parcel map. Before this, EVERY label was quoted from
 // DEFAULT_PARCEL (12×8×4, 2lb) regardless of item — a 48" club or a stand
@@ -162,14 +164,14 @@ function pickRate(rates, parcelWeightLb) {
       return /ups.*ground/i.test(tok);
     });
     if (upsGround) return upsGround;
-  } else {
-    const usps = sortable.find((r) => {
-      const carrier = (r.provider || "").toLowerCase();
-      return carrier === "usps";
-    });
-    if (usps) return usps;
   }
-  // Fallback to the absolute cheapest.
+  // Cheapest usable rate across carriers (founder ruling 2026-08-25).
+  // The old sub-70lb branch preferred the cheapest USPS rate regardless of
+  // price — fine for small parcels where USPS wins anyway, but USPS
+  // dimensional pricing made it buy a $115–172 Ground Advantage label for
+  // a 38x14x12 stand bag where UPS quotes $42–58, and a $17–23 label for
+  // the 48" club tube where UPS quotes $13–15. Under seller-funded labels
+  // that difference lands on the seller for a choice they didn't make.
   return sortable[0];
 }
 
@@ -437,24 +439,76 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Step 2.5: $15 label-cap gate (2026-07-30, Jake ruling) ───
-      // TeeBox absorbs label cost up to LABEL_CAP_USD; the excess comes out
-      // of the seller's payout via a partial transfer reversal. First call
-      // over the cap returns overCap (no purchase) so the client can show
-      // the disclosure; the seller re-calls with confirmExcess:true.
+      // ─── Step 2.5: seller-funded label (Structure 1, founder ruling
+      // 2026-08-25 — replaces the r180 $15-cap subsidy) ───────────────
+      // The seller funds the FULL label from their payout — no free-label
+      // perk, no cap, no category conditional. Flow: the first call returns
+      // a price quote (nothing purchased) so the client shows the exact
+      // deduction; the seller re-calls with confirmDeduct:true.
+      // confirmExcess is honored as consent too so an in-flight r180-era
+      // client can't wedge mid-flow.
       const rateUsd = Number(rate.amount || 0);
-      const excessUsd = Math.max(0, rateUsd - LABEL_CAP_USD);
-      if (excessUsd > 0.005 && data.confirmExcess !== true) {
+      const labelCents = Math.round(rateUsd * 100);
+      if (data.confirmDeduct !== true && data.confirmExcess !== true) {
         return {
           ok: false,
-          reason: "label-over-cap",
-          overCap: true,
+          reason: "label-deduct-quote",
+          quote: true,
           rateAmount: rateUsd,
-          capAmount: LABEL_CAP_USD,
-          excessAmount: Math.round(excessUsd * 100) / 100,
+          deductAmount: Math.round(rateUsd * 100) / 100,
           carrier: rate.provider || "USPS",
           serviceLevel: (rate.servicelevel && rate.servicelevel.name) || null,
         };
+      }
+
+      // ─── Step 2.6: pre-purchase proceeds guard (C-guard part b) ─────
+      // transfers.createReversal is all-or-nothing and hard-bounded by the
+      // transfer's un-reversed amount. If the label costs more than what
+      // remains of the seller's proceeds (possible after a partial refund,
+      // or a mispriced low-ask item that predates the listing floors),
+      // refuse BEFORE buying: nothing is spent, the failure is loud, and
+      // support decides. Buying first and failing the reversal would eat
+      // the label silently — the exact failure mode this guard retires.
+      {
+        let remainingCents = null;
+        try {
+          const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
+          if (order.transferId) {
+            const tr = await stripeClient.transfers.retrieve(order.transferId);
+            remainingCents =
+              (Number(tr.amount) || 0) - (Number(tr.amount_reversed) || 0);
+          }
+        } catch (e) {
+          logger.warn("label-guard: transfer retrieve failed", {
+            orderId, transferId: order.transferId || null, err: e.message});
+        }
+        if (remainingCents === null) {
+          // Can't verify the bound (missing transferId or Stripe blip) —
+          // refuse conservatively rather than buy unguarded. Transient;
+          // the seller just retries.
+          return {
+            ok: false,
+            reason: "label-guard-unavailable",
+            message: "We couldn't verify your payout for this order just " +
+              "now. Please try again in a few minutes.",
+          };
+        }
+        if (labelCents > remainingCents) {
+          const {opsAlert} = require("./opsAlert");
+          await opsAlert("error",
+              `Label $${rateUsd.toFixed(2)} exceeds remaining proceeds ` +
+              `$${(remainingCents / 100).toFixed(2)} on order ${orderId} — ` +
+              "purchase refused; needs a founder decision.");
+          return {
+            ok: false,
+            reason: "label-exceeds-proceeds",
+            message: "This label costs more than your remaining proceeds " +
+              "for this order, so we can't buy it against your payout. " +
+              "Contact support and we'll sort out shipping together.",
+            rateAmount: rateUsd,
+            remainingProceeds: Math.round(remainingCents) / 100,
+          };
+        }
       }
 
       // ─── Step 3: Buy label ────────────────────────────────────────
@@ -524,42 +578,42 @@ exports.createShippingLabel = onCall(
           (rate.servicelevel && rate.servicelevel.token) || null,
         shippingLabelEnv: env,
         shippingLabelPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
-        ...(excessUsd > 0.005 ? {
-          labelExcessCents: Math.round(excessUsd * 100),
-          labelCapCents: LABEL_CAP_USD * 100,
-        } : {}),
+        labelDeductCents: labelCents,
       }, {merge: true});
 
-      // Seller-pays-excess: recover the over-cap portion from the seller's
-      // payout via a partial transfer reversal on the order's transfer
-      // (same mechanism the dispute flow uses). Best-effort — a failed
-      // reversal never voids the purchased label; it logs + ops-alerts for
-      // manual recovery instead.
-      if (excessUsd > 0.005) {
+      // Seller-funded recovery: reverse the FULL label cost from the
+      // seller's payout via a partial transfer reversal on the order's
+      // transfer (same mechanism the dispute flow uses). The Step 2.6
+      // guard verified the bound seconds ago, so this should not fail;
+      // if it does anyway (race with a concurrent refund/dispute), keep
+      // the label with the seller, do NOT retry, alert at error level,
+      // and persist the debt so unrecovered labels are queryable instead
+      // of buried in logs. (Shippo's flat $0.05/label transaction fee
+      // stays platform-paid — not worth recovering.)
+      try {
+        const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
+        await stripeClient.transfers.createReversal(order.transferId, {
+          amount: labelCents,
+          metadata: {reason: "label_seller_funded", orderId,
+            labelRateUsd: String(rateUsd)},
+        });
+        await orderRef.set({labelRecovered: true}, {merge: true});
+      } catch (e) {
+        logger.error("label recovery FAILED — label kept, debt recorded",
+            {orderId, labelCents, err: e.message});
         try {
-          const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
-          const transferId = order.transferId;
-          if (stripeClient && transferId) {
-            await stripeClient.transfers.createReversal(transferId, {
-              amount: Math.round(excessUsd * 100),
-              metadata: {reason: "label_excess_over_cap", orderId,
-                labelRateUsd: String(rateUsd), capUsd: String(LABEL_CAP_USD)},
-            });
-            await orderRef.set({labelExcessRecovered: true}, {merge: true});
-          } else {
-            logger.error("label-excess: no stripe client or transferId",
-                {orderId, transferId: transferId || null});
-          }
-        } catch (e) {
-          logger.error("label-excess reversal FAILED — manual recovery needed",
-              {orderId, excessUsd, err: e.message});
-          try {
-            const {opsAlert} = require("./opsAlert");
-            await opsAlert("warn",
-                `Label excess $${excessUsd.toFixed(2)} on order ${orderId} ` +
-                "not recovered — reverse manually.");
-          } catch (_e) { /* best-effort */ }
-        }
+          await orderRef.set({
+            labelRecovered: false,
+            labelDebtCents: labelCents,
+          }, {merge: true});
+        } catch (_e) { /* best-effort */ }
+        try {
+          const {opsAlert} = require("./opsAlert");
+          await opsAlert("error",
+              `Label $${rateUsd.toFixed(2)} on order ${orderId} NOT ` +
+              "recovered from seller payout — labelDebtCents recorded, " +
+              "reverse manually.");
+        } catch (_e) { /* best-effort */ }
       }
 
       logger.info(

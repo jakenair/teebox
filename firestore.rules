@@ -148,6 +148,16 @@ service cloud.firestore {
           && (arr.size() < 10 || isStorageUrl(arr[9]));
     }
 
+    // Category price floors (C-guard part a, founder ruling 2026-08-25).
+    // Under seller-funded labels (Structure 1) the label is recovered from
+    // the seller's payout via a bounded transfer reversal; these floors keep
+    // every listing's worst-case label affordable out of its own proceeds
+    // (label ≤ 0.935 × ask with real headroom — measured worst rates:
+    // soft goods ~$10, clubs ~$15, bags ~$58). Enforced here for direct
+    // creates and in the updateListing callable for price edits.
+    function categoryFloor(cat) {
+      return cat == 'bags' ? 85 : (cat == 'clubs' ? 25 : 15);
+    }
     function isValidListingCreate(d) {
       return d.keys().hasAll(['sellerId','title','brand','cat','ask','condition','createdAt','status','expiresAt'])
         // Defense-in-depth field whitelist. Anything not in this list is
@@ -165,7 +175,7 @@ service cloud.firestore {
         && d.brand is string && d.brand.size() > 0 && d.brand.size() <= 60
         && d.cat is string && d.cat.size() > 0 && d.cat.size() <= 40
         && d.condition is string && d.condition.size() > 0 && d.condition.size() <= 40
-        && d.ask is number && d.ask > 0 && d.ask < 1000000
+        && d.ask is number && d.ask >= categoryFloor(d.cat) && d.ask < 1000000
         && (!('desc' in d.keys()) || (d.desc is string && d.desc.size() <= 4000))
         && (!('photos' in d.keys()) || (
               d.photos is list
