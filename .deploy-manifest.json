@@ -335,8 +335,9 @@
     "sha": null
   },
   "optimizeListingPhoto": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "at": "2026-07-06",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn. NB: deploys outside us-central1 (storage trigger), which is why the region-filtered bulk reconcile missed it.",
+    "sha": null
   },
   "proCanceledEmail": {
     "at": "2026-05-29",

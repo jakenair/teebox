@@ -48,6 +48,38 @@ try {
 
 const manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {};
 
+// ── Manifest ↔ gcloud reconcile (read-only; founder ruling 2026-08-25) ──
+// The original cross-check (below) only caught deploys NEWER than the
+// manifest SHA with zero code drift — so the 2026-07-31 bulk-stamped
+// entries (102/127 fiction, most claiming dates NEWER than the real
+// deploy) sailed through. This check is direction-agnostic: any manifest
+// `at` date that disagrees with gcloud's updateTime by more than a 1-day
+// grace (midnight/timezone slop) is an out-of-band deploy or a stale
+// record, flagged loudly and independent of code-lag. Run it before AND
+// after every ship so the manifest is verified truthful on both sides.
+const gcloudDates = new Map(deployed.map((f) => [f.name, f.updateTime.slice(0, 10)]));
+const outOfBand = [];
+for (const [name, entry] of Object.entries(manifest)) {
+  if (!entry || typeof entry !== "object" || !entry.at) continue;
+  const real = gcloudDates.get(name);
+  if (!real) {
+    outOfBand.push({ name, why: "manifest entry exists but gcloud shows no such deployed function" });
+    continue;
+  }
+  const recorded = String(entry.at).slice(0, 10);
+  const diffDays = Math.abs((new Date(real) - new Date(recorded)) / 86400000);
+  if (diffDays > 1) {
+    outOfBand.push({ name, why: `manifest says ${recorded}, gcloud says ${real} — deployed outside deploy-fn.sh (or record never true)` });
+  }
+}
+if (outOfBand.length) {
+  console.log(`\n🚨 manifest↔gcloud MISMATCH: ${outOfBand.length} entr${outOfBand.length === 1 ? "y" : "ies"} do not match deployed reality:`);
+  for (const o of outOfBand) console.log(`   ${o.name}: ${o.why}`);
+  console.log("   The manifest is NOT currently a truthful record — reconcile before trusting it.\n");
+} else {
+  console.log(`✓ manifest↔gcloud reconcile: all ${Object.keys(manifest).length} manifest entries match deployed updateTimes (±1d).`);
+}
+
 // Map function name → defining file (grep exports.<name>) + line range.
 function locate(name) {
   let hit;
@@ -145,7 +177,7 @@ if (!lag.length) {
   } else {
     console.log(`✓ deploy-drift: no genuine function-level lag detected (${coverage}).`);
   }
-  process.exit(0);
+  process.exit(STRICT && outOfBand.length ? 1 : 0);
 }
 console.log(`\n⚠ deploy-drift: ${lag.length} function(s) behind main (${coverage}):\n`);
 for (const l of lag) {
@@ -154,4 +186,4 @@ for (const l of lag) {
   if (l.commits) console.log(`     ${l.commits}`);
 }
 console.log(`\n  → redeploy via: scripts/deploy-fn.sh <name>\n`);
-process.exit(STRICT ? 1 : 0);
+process.exit(STRICT && (lag.length || outOfBand.length) ? 1 : 0);
