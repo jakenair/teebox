@@ -3081,6 +3081,10 @@
   .bingo-cell-num { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: var(--white); background: var(--green-700); padding: 2px 7px; border-radius: 50px; letter-spacing: 0.4px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
   .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; overflow: hidden; }
   .bingo-cell-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  /* Guessable fallback when a logo can't be fetched (cold cache + bad
+     signal). Initials, not the shortName — keeps the tile playable without
+     giving the answer away. Shared by board tiles and the guess modal. */
+  .bingo-logo-fallback { display: flex; align-items: center; justify-content: center; width: 74%; height: 74%; border-radius: 50%; border: 2px dashed var(--gray-400); color: var(--green-700); font-size: 1.6rem; font-weight: 800; letter-spacing: 1px; }
   .bingo-cell-name { font-size: 11.5px; font-weight: 600; color: var(--gray-700); line-height: 1.2; margin-top: 4px; word-break: break-word; }
   .bingo-cell-mark { position: absolute; top: 6px; right: 8px; font-size: 14px; font-weight: 700; }
   .bingo-cell[data-state="correct"] { background: var(--green-50); border: 2px solid var(--green-600); }
@@ -3282,6 +3286,12 @@
   .bingo-guess-close:hover { background: rgba(255,255,255,0.22); }
   .bingo-guess-body { padding: 1.25rem; flex: 1; overflow-y: auto; }
   .bingo-guess-logo { display: flex; align-items: center; justify-content: center; font-size: 4rem; height: 100px; background: var(--gray-100); border-radius: var(--radius-lg); margin-bottom: 1rem; }
+  /* Sizing for the shared resilient-loader markup: the plain <img> it emits
+     (replaces the old inline max-width/height styles) and the initials
+     fallback, which needs fixed dims here — 74% of the modal box would be
+     a stretched oval, not a chip. */
+  .bingo-guess-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  .bingo-guess-logo .bingo-logo-fallback { width: 72px; height: 72px; font-size: 1.5rem; }
   .bingo-guess-prompt { font-size: 13px; color: var(--gray-500); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
   .bingo-guess-input { width: 100%; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 12px 14px; font-family: var(--font-body); font-size: 16px; color: var(--gray-900); outline: none; transition: var(--transition); }
   .bingo-guess-input:focus { border-color: var(--gold-400); }
@@ -21211,6 +21221,55 @@ if (uploadZone) {
     });
   }
 
+  // ── Resilient logo loading (board tiles + guess modal) ──────────────
+  // The old probe had no onerror: one failed fetch (cold HTTP cache + bad
+  // signal — exactly the at-the-course case for a course added after the
+  // installed app bundle shipped) left the tile blank AND the guess modal
+  // empty for the whole session. Now: up to 3 attempts with short backoff,
+  // one bonus attempt when connectivity returns, and a guessable initials
+  // fallback in the meantime. A late success swaps the real logo in.
+  // Scoring is untouched — matchesCourse() never reads the logo.
+  const BINGO_LOGO_RETRY_MS = [1200, 3500];
+  function bingoLogoFallbackHtml(course) {
+    const name = (course && (course.shortName || course.name || '')) || '';
+    const initials = name.split(/\s+/).map((w) => w.charAt(0)).join('')
+        .replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || '?';
+    return `<span class="bingo-logo-fallback" aria-hidden="true">${initials}</span>`;
+  }
+  function loadBingoLogoInto(el, course) {
+    const url = courseLogoUrl(course);
+    if (!el || !url) return;
+    let attempt = 0;
+    let usedOnlineRetry = false;
+    const tryLoad = () => {
+      if (!el.isConnected) return; // container re-rendered — abandon
+      const probe = new Image();
+      probe.onload = () => {
+        if (el.isConnected) {
+          el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+        }
+      };
+      probe.onerror = () => {
+        if (!el.isConnected) return;
+        // Show the guessable fallback from the first miss on, but keep
+        // retrying underneath and swap the real logo in if one lands.
+        if (!el.querySelector('img')) el.innerHTML = bingoLogoFallbackHtml(course);
+        if (attempt < BINGO_LOGO_RETRY_MS.length) {
+          setTimeout(tryLoad, BINGO_LOGO_RETRY_MS[attempt]);
+          attempt += 1;
+        } else if (!usedOnlineRetry) {
+          // Retries exhausted — one last shot when the browser reports
+          // connectivity back. {once:true} + isConnected guard keeps
+          // re-renders from accumulating live listeners.
+          usedOnlineRetry = true;
+          window.addEventListener('online', tryLoad, {once: true});
+        }
+      };
+      probe.src = url;
+    };
+    tryLoad();
+  }
+
   // Pull today's puzzle. Order of preference:
   //   1. Cached server doc in localStorage (instant render, no flicker)
   //   2. Live fetch of /dailyPuzzles/{date} from Firestore (canonical)
@@ -21294,15 +21353,40 @@ if (uploadZone) {
   // dedicated namespace so the user can still see the tiles offline. Skip
   // when there's no SW (private browsing, older Safari, native WebView
   // without registration yet) — the browser HTTP cache covers most cases.
+  //
+  // Native app: there is no SW (the app unregisters it at boot), so new
+  // logos were cold-cache until the tile probe fetched them — one bad-signal
+  // fetch meant a blank tile. warmBingoLogoCacheNative() is the app-side
+  // twin of the SW pinning: fire-and-forget fetches that warm the WKWebView
+  // HTTP cache. Strictly non-blocking (nothing awaits it) and each request
+  // aborts after 8s so a dead network can't hold sockets open.
+  function warmBingoLogoCacheNative(urls) {
+    urls.forEach((u) => {
+      try {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 8000);
+        // no-cors: an opaque response still populates the HTTP cache, and
+        // it mirrors how <img> fetches the same URL (no CORS dependency).
+        fetch(u, {mode: 'no-cors', cache: 'default', signal: ctl.signal})
+          .catch(() => {})
+          .finally(() => clearTimeout(timer));
+      } catch {}
+    });
+  }
   function precacheBingoLogos(courses) {
     try {
-      if (!('serviceWorker' in navigator)) return;
-      const ctrl = navigator.serviceWorker.controller;
-      if (!ctrl) return;
       const urls = courses
         .map((c) => courseLogoUrl(c))
         .filter((u) => typeof u === 'string' && u.length > 0);
       if (!urls.length) return;
+      const Cap = window.Capacitor;
+      if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+        warmBingoLogoCacheNative(urls);
+        return;
+      }
+      if (!('serviceWorker' in navigator)) return;
+      const ctrl = navigator.serviceWorker.controller;
+      if (!ctrl) return;
       ctrl.postMessage({type: 'CACHE_BINGO_LOGOS', urls});
     } catch {}
   }
@@ -21417,6 +21501,14 @@ if (uploadZone) {
             attempts: totalAttempts,
             startedAt,
             clientWonAt: correctCount === 9 ? solvedAt : null,
+            // Board provenance (recording only — server stores, does not
+            // recompute): which board these cells were actually played on.
+            puzzleSource: state.puzzleSource === 'server' ? 'server'
+              : (state.puzzleSource === 'local' ? 'local' : null),
+            courseIds: Array.isArray(state.courses)
+              ? state.courses.map((c) => c && c.id).filter((x) => typeof x === 'string')
+              : null,
+            boardHash: typeof state.boardHash === 'string' ? state.boardHash : null,
           });
           removeFromQueue(date);
           didSyncAny = true;
@@ -21503,10 +21595,29 @@ if (uploadZone) {
   let game = {
     date: TODAY,
     courses: dailySeed(TODAY),
+    // Which board game.courses came from: 'server' (dailyPuzzles doc, via
+    // live fetch or cache) or 'local' (dailySeed fallback). Persisted with
+    // the game and reported at sync so board provenance is queryable.
+    puzzleSource: 'local',
     // For each cell index 0..8: { state: 'pending'|'correct'|'wrong'|'revealed', attempts: number, guess: string|null }
     cells: null,
     activeCell: -1,                  // index of the cell whose modal is open
   };
+  function boardHashOf(courses) {
+    try {
+      return hashStr((courses || []).map((c) => c && c.id).join('|')).toString(36);
+    } catch { return ''; }
+  }
+  // Restore the exact board the saved cells were played on (divergence fix:
+  // a relaunch must NEVER swap unsolved tiles to a different board — the
+  // saved snapshot wins over dailySeed()). Returns null for pre-fix saves
+  // with no snapshot; callers then keep their current board, matching the
+  // old behavior.
+  function restoreSavedBoard(saved) {
+    if (!saved || !Array.isArray(saved.courses) || saved.courses.length !== 9) return null;
+    const hydrated = hydrateCachedPuzzleToCourses({ courses: saved.courses });
+    return (hydrated && hydrated.length === 9 && hydrated.every(Boolean)) ? hydrated : null;
+  }
   function defaultCellState() {
     return Array.from({ length: 9 }, () => ({
       state: 'pending', attempts: 0, guess: null,
@@ -21517,25 +21628,47 @@ if (uploadZone) {
   }
 
   function hydrate() {
-    const saved = loadGameState(TODAY);
+    const saved = loadGameState(game.date);
     if (saved && Array.isArray(saved.cells) && saved.cells.length === 9) {
       game.cells = saved.cells;
+      // Divergence fix: cells only make sense against the board they were
+      // played on. Restore that board from the snapshot instead of keeping
+      // the dailySeed() the module booted with — on a stale bundle those
+      // differ, and the old behavior silently swapped every unsolved tile.
+      const board = restoreSavedBoard(saved);
+      if (board) {
+        game.courses = board;
+        game.puzzleSource = saved.puzzleSource === 'server' ? 'server' : 'local';
+      }
     } else {
       game.cells = defaultCellState();
-      persist();
+      persist({sync: false});
     }
   }
-  function persist() {
-    saveGameState(TODAY, {
+  function persist(opts) {
+    // Keyed by game.date (not the module-load TODAY constant): a page that
+    // lives across UTC midnight must save the game under the date it
+    // belongs to, or a post-roll save corrupts yesterday's record.
+    saveGameState(game.date, {
       cells: game.cells,
       finalScore: scoreCount(),
       completed: isComplete(),
       savedAt: Date.now(),
+      // Board snapshot — see restoreSavedBoard(). Also reported at sync
+      // (recording only; the server just stores it).
+      courses: (game.courses || []).map((c) => ({
+        id: c && c.id, shortName: (c && c.shortName) || '', logoUrl: (c && c.logoUrl) || '',
+      })),
+      puzzleSource: game.puzzleSource === 'server' ? 'server' : 'local',
+      boardHash: boardHashOf(game.courses),
     });
     // Local-first: the tap UI does not await the server. We just enqueue
     // a debounced sync; drainBingoSyncQueue() handles offline-replay,
-    // signed-out users, and rate-limiting.
-    try { enqueueBingoSync(TODAY); } catch {}
+    // signed-out users, and rate-limiting. Board-snapshot-only saves pass
+    // {sync:false} — nothing new for the server yet.
+    if (!opts || opts.sync !== false) {
+      try { enqueueBingoSync(game.date); } catch {}
+    }
   }
   function scoreCount() {
     return game.cells.filter(c => c.state === 'correct').length;
@@ -21613,23 +21746,11 @@ if (uploadZone) {
       grid.appendChild(div);
     });
 
-    // Try real logo asset; fall back to emoji on 404. Image element layered
-    // on top of emoji span — only inserted if the resource resolves.
-    //
-    // Probe order:
-    //   1. /assets/logos/{id}.png  — real logo or Wikipedia course photo
-    //   2. (no fallback — courses without PNG logos are filtered out via hasLogo)
     grid.querySelectorAll('.bingo-cell-logo').forEach((el) => {
       const id = el.dataset.logoId;
       const course = game.courses.find(c => c.id === id);
       if (!course) return;
-      const url = courseLogoUrl(course);
-      if (!url) return;
-      const probe = new Image();
-      probe.onload = () => {
-        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
-      };
-      probe.src = url;
+      loadBingoLogoInto(el, course);
     });
 
     // Stat row
@@ -21812,9 +21933,17 @@ if (uploadZone) {
     if (t !== game.date) {
       game.date = t;
       game.courses = dailySeed(t);
+      game.puzzleSource = 'local';
       const saved = loadGameState(t);
       game.cells = (saved && Array.isArray(saved.cells) && saved.cells.length === 9)
         ? saved.cells : defaultCellState();
+      // Divergence fix: if today already has a saved game, its board
+      // snapshot wins over the dailySeed just computed (see hydrate()).
+      const board = restoreSavedBoard(saved);
+      if (board) {
+        game.courses = board;
+        game.puzzleSource = saved.puzzleSource === 'server' ? 'server' : 'local';
+      }
     } else if (!game.cells) {
       hydrate();
     }
@@ -21845,13 +21974,20 @@ if (uploadZone) {
         const newIds = courses.map((c) => c && c.id).join(',');
         const noProgress = !game.cells || game.cells.every(
           (c) => !c || c.state === 'pending');
+        const adoptedSource = __bingoPuzzleStale ? 'local' : 'server';
         if (localIds !== newIds) {
           if (noProgress) {
             game.courses = courses;
+            game.puzzleSource = adoptedSource;
+            // Snapshot the adopted board immediately — a relaunch before
+            // the first tap must restore THIS board, not re-seed locally.
+            persist({sync: false});
             render();
           } else {
             // Mid-round divergence — leave the player on their current
             // grid but warn so divergence is observable in the logs.
+            // Post-fix this should only fire when the SERVER doc itself
+            // changed mid-round (canon regen), never from a relaunch.
             console.warn(
               '[bingo] server puzzle differs from local mid-round; ' +
               'keeping current grid. local=', localIds, 'server=', newIds);
@@ -21861,6 +21997,8 @@ if (uploadZone) {
           // copies so any updated logoUrl (e.g. CDN migration) takes
           // effect on the next render.
           game.courses = courses;
+          game.puzzleSource = adoptedSource;
+          persist({sync: false});
         }
         precacheBingoLogos(courses);
         updateBingoStaleBanner();
@@ -21985,8 +22123,11 @@ if (uploadZone) {
     const hint = document.getElementById('bingoGuessHint');
     const ac = document.getElementById('bingoAutocomplete');
     if (logo) {
-      const url = courseLogoUrl(course);
-      logo.innerHTML = url ? `<img src="${url}" alt="" loading="eager" style="max-width:100%;max-height:100%;object-fit:contain"/>` : '';
+      // Same resilient path as the board tile — if the tile is showing the
+      // initials fallback, the modal shows the identical fallback (still
+      // guessable); a late fetch success swaps the real logo in both.
+      logo.innerHTML = '';
+      loadBingoLogoInto(logo, course);
     }
     if (input) { input.value = ''; }
     if (hint) {
