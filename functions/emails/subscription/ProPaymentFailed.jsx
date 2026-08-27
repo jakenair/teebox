@@ -49,7 +49,7 @@ function ProPaymentFailed({user = {}} = {}) {
 
       <P muted>
         If we can't charge a working card within ~7 days, your Pro Seller plan
-        will end and your seller fee will revert to 6.5%. Questions? Reply to
+        will end and your seller fee will revert to 8.5%. Questions? Reply to
         this email and we'll help.
       </P>
     </Base>

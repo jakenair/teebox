@@ -10,39 +10,39 @@ const {
   PLATFORM_FEE_PERCENT_PRO,
 } = require("../../lib/fees");
 
-test("free tier charges 6.5%", () => {
+test("free tier charges 8.5%", () => {
   const r = computeFees(10000, "free");
   assert.equal(r.tier, "free");
-  assert.equal(r.feeRate, 0.065);
-  assert.equal(r.platformFeeCents, 650);
-  assert.equal(r.sellerPayoutCents, 9350);
+  assert.equal(r.feeRate, 0.085);
+  assert.equal(r.platformFeeCents, 850);
+  assert.equal(r.sellerPayoutCents, 9150);
 });
 
-test("pro tier charges 6.5% — repriced 2026-08-25, tier plumbing intact", () => {
+test("pro tier charges 8.5% — flattened to standard 2026-08-27, tier plumbing intact", () => {
   const r = computeFees(10000, "pro");
   assert.equal(r.tier, "pro");
-  assert.equal(r.feeRate, 0.065);
-  assert.equal(r.platformFeeCents, 650);
-  assert.equal(r.sellerPayoutCents, 9350);
+  assert.equal(r.feeRate, 0.085);
+  assert.equal(r.platformFeeCents, 850);
+  assert.equal(r.sellerPayoutCents, 9150);
 });
 
-test("missing / unknown tier defaults to free (6.5%) — no client-fabricated discount", () => {
+test("missing / unknown tier defaults to free (8.5%) — no client-fabricated discount", () => {
   for (const t of [undefined, null, "", "FREE", "Pro", "PRO", "gold", 0, true]) {
     const r = computeFees(10000, t);
     assert.equal(r.tier, "free", `tier=${JSON.stringify(t)} should be free`);
-    assert.equal(r.platformFeeCents, 650);
+    assert.equal(r.platformFeeCents, 850);
   }
   // The exact lowercase "pro" string still resolves the pro tier — same
   // rate since the 2026-08-25 repricing, distinct tier label preserved.
-  assert.equal(computeFees(10000, "pro").platformFeeCents, 650);
+  assert.equal(computeFees(10000, "pro").platformFeeCents, 850);
   assert.equal(computeFees(10000, "pro").tier, "pro");
 });
 
 test("fee rounds half-up and fee + payout always equals price", () => {
-  // 7700 * 0.065 = 500.5 → rounds to 501 (Math.round half-up).
+  // 7700 * 0.085 = 654.5 → rounds to 655 (Math.round half-up).
   const r = computeFees(7700, "free");
-  assert.equal(r.platformFeeCents, 501);
-  assert.equal(r.sellerPayoutCents, 7199);
+  assert.equal(r.platformFeeCents, 655);
+  assert.equal(r.sellerPayoutCents, 7045);
   assert.equal(r.platformFeeCents + r.sellerPayoutCents, 7700);
 });
 
@@ -76,12 +76,12 @@ test("non-integer / garbage price is coerced to a safe integer", () => {
 });
 
 test("large amount stays exact (no float drift)", () => {
-  const r = computeFees(1000000, "pro"); // $10,000 sale, pro (6.5% since 2026-08-25)
-  assert.equal(r.platformFeeCents, 65000);
-  assert.equal(r.sellerPayoutCents, 935000);
+  const r = computeFees(1000000, "pro"); // $10,000 sale, pro (8.5% since 2026-08-27)
+  assert.equal(r.platformFeeCents, 85000);
+  assert.equal(r.sellerPayoutCents, 915000);
 });
 
 test("exported constants match the documented rates", () => {
-  assert.equal(PLATFORM_FEE_PERCENT, 0.065);
-  assert.equal(PLATFORM_FEE_PERCENT_PRO, 0.065);
+  assert.equal(PLATFORM_FEE_PERCENT, 0.085);
+  assert.equal(PLATFORM_FEE_PERCENT_PRO, 0.085);
 });

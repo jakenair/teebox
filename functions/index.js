@@ -122,7 +122,7 @@ const SCHEDULED_BATCH = {
 // Product + Price in the Stripe Dashboard.
 const stripeProPriceId = defineSecret("STRIPE_PRO_PRICE_ID");
 
-// Tier-based platform fees. Free sellers pay 6.5%; Pro Seller subscribers
+// Tier-based platform fees. Free sellers pay 8.5%; Pro Seller subscribers
 // ($14.99/mo) pay 3%. Break-even is ~$385/mo of GMV. Keep these in sync
 // with the marketing copy in the Pro upgrade modal in index.html.
 // Fee constants from lib/fees.js. computeFees() wiring is deferred to its own
@@ -493,7 +493,7 @@ exports.createPaymentIntent = onRequest(
       const stripeChargesEnabled = !!sellerData.stripeChargesEnabled;
 
       // Tier-aware platform fee. Pro Seller subscribers ($14.99/mo,
-      // tier === 'pro') pay 3%; everyone else pays 6.5%. The tier value
+      // tier === 'pro') pay the same 8.5% as everyone else (fee flattened 2026-08-27). The tier value
       // is server-written by stripeWebhook on customer.subscription.*
       // events, so a malicious client can't fabricate it (the firestore
       // rules whitelist also blocks client writes to `tier`).
@@ -5568,7 +5568,7 @@ exports.createSubscriptionCheckout = onCall(
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
     // Pro signup DISABLED (founder ruling 2026-08-25): the 3% rate was a
-    // guaranteed per-sale loss and has been repriced to 6.5% (lib/fees.js);
+    // guaranteed per-sale loss and has been repriced to the standard rate (lib/fees.js, 8.5% since 2026-08-27);
     // selling the subscription in this state would charge $14.99/mo for
     // nothing. Zero subscribers existed at disable time. The client maps
     // "not configured" to a friendly "not available yet" toast. Re-enable

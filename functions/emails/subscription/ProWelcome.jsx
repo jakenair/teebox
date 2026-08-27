@@ -27,7 +27,7 @@ function ProWelcome({user = {}} = {}) {
       <H1>Welcome to Pro Seller</H1>
       <P>
         Thanks for upgrading, {firstName}. Your TeeBox seller fees just dropped
-        from 6.5% to <strong>3%</strong> on every sale — effective immediately.
+        from 8.5% to <strong>3%</strong> on every sale — effective immediately.
       </P>
 
       <Section
@@ -43,7 +43,7 @@ function ProWelcome({user = {}} = {}) {
           Pro Seller benefits
         </Text>
         <Text style={{margin: "8px 0 0", fontSize: "15px", lineHeight: "22px"}}>
-          - 3% seller fee (vs. 6.5% on the free plan)<br />
+          - 3% seller fee (vs. 8.5% on the free plan)<br />
           - Pro badge on your listings + profile<br />
           - Priority placement in search results<br />
           - Up to 50 active listings (vs. 10)<br />
@@ -71,7 +71,7 @@ function subject() {
 
 function previewText({user} = {}) {
   const first = (user && (user.firstName || user.displayName)) || "Welcome";
-  return `${first}, your seller fee dropped from 6.5% to 3%.`.slice(0, 90);
+  return `${first}, your seller fee dropped from 8.5% to 3%.`.slice(0, 90);
 }
 
 module.exports = ProWelcome;

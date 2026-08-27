@@ -23,7 +23,7 @@ function ProDowngraded({user = {}} = {}) {
       <H1>Pro Seller has ended</H1>
       <P>
         Hi {firstName} — your TeeBox Pro Seller plan has ended. Your seller
-        fee is now <strong>6.5%</strong> on new sales. Existing active
+        fee is now <strong>8.5%</strong> on new sales. Existing active
         listings stay live; the Pro badge has been removed.
       </P>
 
@@ -55,7 +55,7 @@ function ProDowngraded({user = {}} = {}) {
 }
 
 function subject() {
-  return "Pro Seller ended — fees are now 6.5%";
+  return "Pro Seller ended — fees are now 8.5%";
 }
 
 function previewText() {

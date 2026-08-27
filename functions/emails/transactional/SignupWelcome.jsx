@@ -39,7 +39,7 @@ function SignupWelcome({user = {}}) {
           >
             Sell your first club
           </a>{" "}
-          — flat 6.5% seller fee, payouts via Stripe.
+          — flat 8.5% seller fee, payouts via Stripe.
         </Text>
       </Section>
       <P muted>

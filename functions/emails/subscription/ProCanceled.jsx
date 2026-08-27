@@ -39,7 +39,7 @@ function ProCanceled({user = {}, subscription = {}} = {}) {
           What happens after {endsOn}
         </Text>
         <Text style={{margin: "6px 0 0", fontSize: "14px", lineHeight: "20px"}}>
-          - Seller fee returns to 6.5% on new sales<br />
+          - Seller fee returns to 8.5% on new sales<br />
           - Pro badge is removed from your listings + profile<br />
           - Active listings stay live but new listings cap at 10
         </Text>
