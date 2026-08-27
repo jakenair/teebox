@@ -46,7 +46,7 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
+    "sha": "57dc61d14a11724c23c729c453b763861cf1f185",
     "at": "2026-08-27"
   },
   "createShippingLabel": {
@@ -64,7 +64,7 @@
     "sha": null
   },
   "createSubscriptionCheckout": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
+    "sha": "57dc61d14a11724c23c729c453b763861cf1f185",
     "at": "2026-08-27"
   },
   "dailyBingoMonitor": {
@@ -586,9 +586,8 @@
     "sha": null
   },
   "welcomeOnFirstProfileWrite": {
-    "at": "2026-07-30",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "57dc61d14a11724c23c729c453b763861cf1f185",
+    "at": "2026-08-27"
   },
   "winBackScheduler": {
     "at": "2026-05-29",
