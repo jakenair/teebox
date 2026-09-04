@@ -123,6 +123,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-citrus-farms.png"
     },
     {
+      "id": "inverness",
+      "shortName": "Inverness",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/inverness.png"
+    },
+    {
       "id": "prairie-dunes",
       "shortName": "Prairie Dunes",
       "logoUrl": "https://teeboxmarket.com/assets/logos/prairie-dunes.png"
@@ -173,6 +178,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/yeamans-hall.png"
     },
     {
+      "id": "camargo-club",
+      "shortName": "Camargo",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/camargo-club.png"
+    },
+    {
       "id": "sleepy-hollow",
       "shortName": "Sleepy Hollow",
       "logoUrl": "https://teeboxmarket.com/assets/logos/sleepy-hollow.png"
@@ -181,6 +191,11 @@
       "id": "garden-city",
       "shortName": "Garden City",
       "logoUrl": "https://teeboxmarket.com/assets/logos/garden-city.png"
+    },
+    {
+      "id": "muirfield-village",
+      "shortName": "Muirfield Village",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/muirfield-village.png"
     },
     {
       "id": "sand-valley",
@@ -656,6 +671,31 @@
       "id": "wilmington-country-club",
       "shortName": "Wilmington Country Club",
       "logoUrl": "https://teeboxmarket.com/assets/logos/wilmington-country-club.png"
+    },
+    {
+      "id": "sand-ridge",
+      "shortName": "Sand Ridge",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/sand-ridge.png"
+    },
+    {
+      "id": "cherokee-country-club",
+      "shortName": "Cherokee",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/cherokee-country-club.png"
+    },
+    {
+      "id": "canterbury",
+      "shortName": "Canterbury",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/canterbury.png"
+    },
+    {
+      "id": "rodeo-dunes",
+      "shortName": "Rodeo Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/rodeo-dunes.png"
+    },
+    {
+      "id": "the-golf-club",
+      "shortName": "The Golf Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/the-golf-club.png"
     }
   ],
   "courseData": {
@@ -858,6 +898,13 @@
         "pine barrens cabot"
       ]
     },
+    "inverness": {
+      "name": "Inverness Club",
+      "shortName": "Inverness",
+      "aliases": [
+        "inverness club"
+      ]
+    },
     "prairie-dunes": {
       "name": "Prairie Dunes Country Club",
       "shortName": "Prairie Dunes",
@@ -935,6 +982,13 @@
         "yeamans hall club"
       ]
     },
+    "camargo-club": {
+      "name": "The Camargo Club",
+      "shortName": "Camargo",
+      "aliases": [
+        "camargo club"
+      ]
+    },
     "sleepy-hollow": {
       "name": "Sleepy Hollow Country Club",
       "shortName": "Sleepy Hollow",
@@ -947,6 +1001,14 @@
       "shortName": "Garden City",
       "aliases": [
         "garden city gc"
+      ]
+    },
+    "muirfield-village": {
+      "name": "Muirfield Village Golf Club",
+      "shortName": "Muirfield Village",
+      "aliases": [
+        "memorial tournament",
+        "muirfield village gc"
       ]
     },
     "sand-valley": {
@@ -1621,9 +1683,49 @@
       "aliases": [
         "wilmington cc"
       ]
+    },
+    "sand-ridge": {
+      "name": "Sand Ridge Golf Club",
+      "shortName": "Sand Ridge",
+      "aliases": [
+        "sand ridge gc"
+      ]
+    },
+    "cherokee-country-club": {
+      "name": "Cherokee Country Club",
+      "shortName": "Cherokee",
+      "aliases": [
+        "cherokee cc",
+        "cherokee knoxville"
+      ]
+    },
+    "canterbury": {
+      "name": "Canterbury Golf Club",
+      "shortName": "Canterbury",
+      "aliases": [
+        "canterbury gc"
+      ]
+    },
+    "rodeo-dunes": {
+      "name": "Rodeo Dunes",
+      "shortName": "Rodeo Dunes",
+      "aliases": [
+        "rodeo dunes gc",
+        "rodeo"
+      ]
+    },
+    "the-golf-club": {
+      "name": "The Golf Club",
+      "shortName": "The Golf Club",
+      "aliases": [
+        "tgc",
+        "the golf club new albany",
+        "golf club new albany",
+        "new albany"
+      ]
     }
   },
-  "generatedAt": "2026-08-17T00:41:17.361Z",
+  "generatedAt": "2026-09-04T15:14:34.555Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

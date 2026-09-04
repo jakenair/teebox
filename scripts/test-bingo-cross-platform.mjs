@@ -69,19 +69,42 @@ async function loadWebPool() {
 
 function webDailySeed(dateStr, pool) {
   // EXACT copy of dailySeed() from index.html — keep these aligned.
-  const rngOrder = mulberry32(hashStr("teebox-bingo-canon-v3"));
-  const arr = pool.slice();
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rngOrder() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
-  }
+  // Per-cycle reshuffle + cycle-boundary de-dup (was a stale single-shuffle
+  // reimplementation; re-synced 2026-09-04 to match index.html + the server's
+  // selectDailyCourses, both of which moved to cycleShuffle).
+  const pool0 = pool;
   const today = new Date(dateStr + "T00:00:00Z");
   const epoch = new Date("2026-01-01T00:00:00Z");
   const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
-  const windowCount = Math.max(1, Math.floor(arr.length / 9));
-  const start = (daysSince % windowCount) * 9;
+  const poolSize = pool0.length;
+  const windowCount = Math.max(1, Math.floor(poolSize / 9));
+  const cycle = Math.floor(daysSince / windowCount);
+  const windowIndex = daysSince % windowCount;
+  const cycleShuffle = (cyc) => {
+    const rng = mulberry32(hashStr("teebox-bingo-canon-v3:cycle:" + cyc));
+    const p = pool0.slice();
+    for (let i = p.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const t = p[i]; p[i] = p[j]; p[j] = t;
+    }
+    return p;
+  };
+  const arr = cycleShuffle(cycle);
+  if (cycle > 0) {
+    const prev = cycleShuffle(cycle - 1);
+    const forbidden = new Set(
+        prev.slice((windowCount - 1) * 9, windowCount * 9).map((c) => c.id));
+    for (let i = 0; i < 9; i++) {
+      if (forbidden.has(arr[i].id)) {
+        for (let j = poolSize - 10; j >= 9; j--) {
+          if (!forbidden.has(arr[j].id)) {
+            const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break;
+          }
+        }
+      }
+    }
+  }
+  const start = windowIndex * 9;
   return arr.slice(start, start + 9);
 }
 

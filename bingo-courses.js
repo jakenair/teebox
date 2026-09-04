@@ -2657,6 +2657,61 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
+  // ── 2026-09-04 batch (+5 new; inverness/camargo-club/muirfield-village
+  // already existed and became eligible when their logos were added) ──
+  {
+    id: 'sand-ridge',
+    name: 'Sand Ridge Golf Club',
+    shortName: 'Sand Ridge',
+    aliases: ['sand ridge gc'],
+    location: 'Chardon, Ohio',
+    architect: 'Tom Fazio',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'cherokee-country-club',
+    name: 'Cherokee Country Club',
+    shortName: 'Cherokee',
+    aliases: ['cherokee cc', 'cherokee knoxville'],
+    location: 'Knoxville, Tennessee',
+    architect: 'Donald Ross',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'canterbury',
+    name: 'Canterbury Golf Club',
+    shortName: 'Canterbury',
+    aliases: ['canterbury gc'],
+    location: 'Beachwood, Ohio',
+    architect: 'Herbert Strong',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    id: 'rodeo-dunes',
+    name: 'Rodeo Dunes',
+    shortName: 'Rodeo Dunes',
+    aliases: ['rodeo dunes gc', 'rodeo'],
+    location: 'Roggen, Colorado',
+    architect: 'Bill Coore & Ben Crenshaw',
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    // NOTE: "The Golf Club" normalizes to "" in the answer matcher ("the" +
+    // "golf club" both stripped), so it is matchable ONLY via the aliases
+    // below (tgc / new albany). Same pattern as the-country-club→"brookline".
+    id: 'the-golf-club',
+    name: 'The Golf Club',
+    shortName: 'The Golf Club',
+    aliases: ['tgc', 'the golf club new albany', 'golf club new albany', 'new albany'],
+    location: 'New Albany, Ohio',
+    architect: 'Pete Dye',
+    logo: '',
+    logoUrl: '',
+  },
 ];
 
 // Helper used by the runtime when rendering a tile. Returns either the

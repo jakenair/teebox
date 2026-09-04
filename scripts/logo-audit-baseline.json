@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-31T20:06:39.408Z",
+  "generatedAt": "2026-09-04T15:17:46.025Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 131,
-    "pass": 131,
+    "total": 139,
+    "pass": 139,
     "fail": 0
   },
   "entries": [
@@ -225,6 +225,15 @@
       "problems": []
     },
     {
+      "id": "inverness",
+      "shortName": "Inverness",
+      "localHash": "66d1a7514b44dfbb1aa0389942ad66e8d455b79366540649e30ec9f6505cf735",
+      "localBytes": 224698,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "prairie-dunes",
       "shortName": "Prairie Dunes",
       "localHash": "96b6065b9b391f6e4bc5b6029e466b3a09b8b2ec5bf551209e601a66e7640e7b",
@@ -315,6 +324,15 @@
       "problems": []
     },
     {
+      "id": "camargo-club",
+      "shortName": "Camargo",
+      "localHash": "84db8abb4e9c24d3f2c2cfb08b06dc728c76917ff87c79d914e1ae7b19e92a50",
+      "localBytes": 137756,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "sleepy-hollow",
       "shortName": "Sleepy Hollow",
       "localHash": "e890a4fa8d81c89dbbdfc035173b3fc93fa115946da77749d5a130c657e51e14",
@@ -328,6 +346,15 @@
       "shortName": "Garden City",
       "localHash": "30e9eba30668f896c4bfc564de0672510a2bbe9085f83acd0a0e0ea599eb63d8",
       "localBytes": 38509,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "muirfield-village",
+      "shortName": "Muirfield Village",
+      "localHash": "271c99d265f2825ad94494448ff84877f853f39887cf01c2a1acafcf4c6a51ba",
+      "localBytes": 168672,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1183,6 +1210,51 @@
       "shortName": "Wilmington Country Club",
       "localHash": "081cbc5c9fdc53b3148e78c55522f9149d184322b2f7046fbcd3fa7a7fd5eecf",
       "localBytes": 143585,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "sand-ridge",
+      "shortName": "Sand Ridge",
+      "localHash": "90897e93076a73eae05807d9770ddb2d1e8ca8f9a388fcb8720ab469c7cc3e56",
+      "localBytes": 119174,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "cherokee-country-club",
+      "shortName": "Cherokee",
+      "localHash": "e2530c4df78d5df593db20bf1c5689c7c4c0826f215afa3cec5be94ad3ad5528",
+      "localBytes": 144099,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "canterbury",
+      "shortName": "Canterbury",
+      "localHash": "0821ccee96884c6d50e178f5dc19e70f2f718d8bb576c36c122547bcaf1054a7",
+      "localBytes": 117772,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "rodeo-dunes",
+      "shortName": "Rodeo Dunes",
+      "localHash": "7fa0419b00f062d91087156edb11d73f1e303d98554608ca781d9f4aa79ba26d",
+      "localBytes": 120084,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "the-golf-club",
+      "shortName": "The Golf Club",
+      "localHash": "40ff7df992aef2186778756cdbe66edceffe4048400e60105bcf16ef49e27e69",
+      "localBytes": 136817,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
