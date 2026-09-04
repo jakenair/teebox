@@ -1,65 +1,79 @@
 const React = require("react");
-const {Base, Button, H1, P} = require("../layout/Base");
-const {Section, Text} = require("@react-email/components");
+const {
+  Base, Button, H1, P, Kicker, ProductRow, Receipt, ReceiptRow, Amount, NextStep,
+} = require("../layout/Base");
 
 // `shippoEnabled` is computed server-side in onOrderCreatedEmail
-// (emailTriggers.js) by checking whether the SHIPPO_API_KEY secret is
-// set. When false (v1 default), the CTA points to a help page and the
-// copy says "use any carrier". When true, it points to the in-app
-// label-printing flow. We don't trust the secret-check from inside the
-// template (templates are pure renderers) — the producer passes the
-// boolean down via ctx.
+// (emailTriggers.js). When false (v1 default) the CTA points to a help page
+// and the copy says "use any carrier"; when true it points at the in-app
+// label flow. Templates are pure renderers — the boolean is passed via ctx.
 function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled = false}) {
   const orderId = order.id || "—";
   const title = listing.title || "your item";
+  const sale = formatUsd(order.amountCents);
   const payout = formatUsd(order.sellerPayoutCents);
+  const feeCents = numOr(order.amountCents) - numOr(order.sellerPayoutCents);
+  const fee = feeCents > 0 ? `−${formatUsd(feeCents)}` : "—";
   const dashboardUrl = `https://teeboxmarket.com/orders/${orderId}`;
   const helpUrl = "https://teeboxmarket.com/support.html#shipping";
 
   const ctaHref = shippoEnabled ? dashboardUrl : helpUrl;
-  const ctaLabel = shippoEnabled ? "Print label & ship" : "How to ship your item";
-
-  const nextStepText = shippoEnabled ? (
-    <P>
-      <strong>Next step:</strong> print the shipping label from your dashboard
-      and drop the package within 3 business days. Late shipments hurt your
-      seller rating and can trigger an automatic refund.
-    </P>
-  ) : (
-    <P>
-      <strong>Next step:</strong> use any carrier (USPS, UPS, FedEx) to ship
-      within 3 business days, then mark the order shipped from your dashboard
-      with the tracking number. The buyer&apos;s shipping address is on your
-      dashboard&apos;s Sold tab. Late shipments hurt your seller rating and
-      can trigger an automatic refund.
-    </P>
-  );
+  const ctaLabel = shippoEnabled ? "Print shipping label" : "How to ship your item";
+  const buyerCity = (order.shipping && order.shipping.address && order.shipping.address.city) || null;
 
   return (
     <Base
-      preview={`You sold ${title}. ${shippoEnabled ? "Print the label" : "Ship via any carrier"} within 3 business days.`}
+      preview={`You sold ${title} — your payout is ${payout}. Ship within 3 business days.`}
       uid={seller.uid}
       category="transactional"
     >
-      <H1>You sold {title}</H1>
+      <Kicker>You made a sale</Kicker>
+      <H1>{title} sold.</H1>
       <P>
-        Congrats — your listing sold for {formatUsd(order.amountCents)}.
-        Estimated payout after fees: <strong>{payout}</strong>. If you buy
-        your shipping label through TeeBox, its cost is deducted from this
-        payout — you&apos;ll see the exact price before purchase.
+        Nice one{seller.firstName ? `, ${seller.firstName}` : ""}. The money&apos;s
+        cleared and your payout is on the way to your bank — here&apos;s the breakdown.
       </P>
-      {nextStepText}
+
+      <Amount label="You'll receive" value={payout} sub="Deposited to your bank on Stripe's schedule" />
+
+      <Receipt>
+        <ReceiptRow label="Sale price" value={sale} />
+        <ReceiptRow label="TeeBox fee · 8.5%" value={fee} negative />
+        <ReceiptRow label="Your payout" value={payout} strong />
+      </Receipt>
+
+      <ProductRow
+        imageUrl={listing.imageUrl}
+        name={title}
+        desc={buyerCity ? `Sold · ${buyerCity}` : "Sold"}
+      />
+
+      <NextStep>
+        {shippoEnabled ? (
+          <>
+            <strong>Ship within 3 business days.</strong> Print the label here and
+            the buyer&apos;s address fills in automatically — tracking is sent to
+            them for you. Late shipments hurt your rating and can trigger a refund.
+          </>
+        ) : (
+          <>
+            <strong>Ship within 3 business days</strong> with any carrier (USPS,
+            UPS, FedEx), then mark it shipped with the tracking number from your
+            Sold tab. Late shipments hurt your rating and can trigger a refund.
+          </>
+        )}
+      </NextStep>
+
       <Button href={ctaHref}>{ctaLabel}</Button>
-      <Section style={{margin: "24px 0", padding: "12px", backgroundColor: "#fff7e6", borderRadius: "6px"}}>
-        <Text style={{margin: 0, fontSize: "13px", color: "#92400e"}}>
-          <strong>Tip:</strong> include a thank-you note. Repeat buyers come
-          from sellers who treat each sale like a small business.
-        </Text>
-      </Section>
+      <P muted>
+        A handwritten thank-you in the box is how repeat buyers happen — the
+        sellers who treat each sale like a small business win the long game.
+      </P>
     </Base>
   );
 }
 
+function numOr(n) { return Number.isFinite(n) ? n : 0; }
 function formatUsd(cents) {
   if (!Number.isFinite(cents)) return "—";
   return `$${(cents / 100).toFixed(2)}`;

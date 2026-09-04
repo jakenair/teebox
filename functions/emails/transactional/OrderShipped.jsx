@@ -1,5 +1,7 @@
 const React = require("react");
-const {Base, Button, H1, P} = require("../layout/Base");
+const {
+  Base, Button, H1, P, Kicker, ProductRow, InfoBlock,
+} = require("../layout/Base");
 
 function OrderShipped({order = {}, buyer = {}, listing = {}, tracking = {}}) {
   const orderId = order.id || "—";
@@ -7,26 +9,31 @@ function OrderShipped({order = {}, buyer = {}, listing = {}, tracking = {}}) {
   const carrier = tracking.carrier || order.carrier || "the carrier";
   const trackingNumber = tracking.number || order.trackingNumber || "—";
   const eta = tracking.eta || order.estimatedDelivery || null;
-  const trackUrl =
-    tracking.publicUrl ||
-    `https://teeboxmarket.com/orders/${orderId}`;
+  const trackUrl = tracking.publicUrl || `https://teeboxmarket.com/orders/${orderId}`;
 
   return (
     <Base
-      preview={`${title} is in transit via ${carrier}. ${eta ? `ETA ${eta}.` : ""}`}
+      preview={`${title} is in transit via ${carrier}.${eta ? ` ETA ${eta}.` : ""}`}
       uid={buyer.uid}
       category="transactional"
     >
-      <H1>Your order is on the way</H1>
+      <Kicker>Shipped</Kicker>
+      <H1>It&apos;s on the way{eta ? `, arriving ~${eta}` : ""}.</H1>
       <P>
-        <strong>{title}</strong> shipped via {carrier}. Tracking number:{" "}
-        <strong>{trackingNumber}</strong>.
+        Your <strong>{title}</strong> is in transit via {carrier}. Follow it the
+        whole way with the tracking below.
       </P>
-      {eta ? <P>Estimated delivery: <strong>{eta}</strong>.</P> : null}
+
+      <ProductRow imageUrl={listing.imageUrl} name={title} desc={`Via ${carrier}`} />
+
+      <InfoBlock label={eta ? "Tracking · ETA " + eta : "Tracking number"}>
+        {trackingNumber}
+      </InfoBlock>
+
       <Button href={trackUrl}>Track package</Button>
       <P muted>
-        Once it arrives, inspect it right away. If anything's wrong, open a
-        dispute from the order page within 7 days — don't toss the packaging.
+        Inspect it as soon as it lands. If anything&apos;s wrong, open a dispute
+        from the order page within 7 days — and hang on to the packaging.
       </P>
     </Base>
   );

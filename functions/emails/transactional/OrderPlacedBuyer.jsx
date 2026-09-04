@@ -1,56 +1,58 @@
 const React = require("react");
-const {Base, Button, H1, P} = require("../layout/Base");
-const {Section, Row, Column, Text, Img} = require("@react-email/components");
+const {
+  Base, Button, H1, P, Kicker, ProductRow, Receipt, ReceiptRow, InfoBlock,
+} = require("../layout/Base");
 
 function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
   const orderId = order.id || "—";
   const total = formatUsd(order.amountCents);
   const title = listing.title || "your item";
   const orderUrl = `https://teeboxmarket.com/orders/${orderId}`;
+  const ship = order.shipping || {};
+  const addr = ship.address || null;
 
   return (
     <Base
-      preview={`Order confirmed: ${title}. Seller has 3 business days to ship.`}
+      preview={`Order confirmed: ${title}. The seller ships within 3 business days.`}
       uid={buyer.uid}
       category="transactional"
     >
-      <H1>Order confirmed</H1>
+      <Kicker>Order confirmed</Kicker>
+      <H1>You&apos;re all set.</H1>
       <P>
-        Thanks, {buyer.firstName || "golfer"}. Your order for <strong>{title}</strong>{" "}
-        is locked in. The seller has 3 business days to ship it with tracking.
+        Thanks, {buyer.firstName || "golfer"} — payment went through and we&apos;ve
+        told the seller. They&apos;ll ship your <strong>{title}</strong> within{" "}
+        <strong>3 business days</strong>, and you&apos;ll get tracking the moment
+        it&apos;s on the move.
       </P>
-      <Section
-        style={{
-          backgroundColor: "#f5f7f6",
-          padding: "16px",
-          borderRadius: "6px",
-          margin: "16px 0",
-        }}
-      >
-        <Row>
-          <Column>
-            <Text style={{margin: 0, fontSize: "13px", color: "#6b7280"}}>
-              Order #{orderId.slice(0, 8)}
-            </Text>
-            <Text style={{margin: "4px 0 0", fontSize: "16px", fontWeight: "600"}}>
-              {title} — {total}
-            </Text>
-          </Column>
-          {listing.imageUrl ? (
-            <Column style={{width: "80px"}}>
-              <Img
-                src={listing.imageUrl}
-                alt={title}
-                style={{width: "72px", height: "72px", borderRadius: "4px", objectFit: "cover"}}
-              />
-            </Column>
-          ) : null}
-        </Row>
-      </Section>
-      <Button href={orderUrl}>View order</Button>
+
+      <ProductRow
+        imageUrl={listing.imageUrl}
+        name={title}
+        desc={listing.condition || listing.brand || null}
+        price={total}
+      />
+
+      <Receipt>
+        <ReceiptRow label="Item" value={total} />
+        <ReceiptRow label="Shipping" value="Included" />
+        <ReceiptRow label="Total paid" value={total} strong />
+      </Receipt>
+
+      {addr ? (
+        <InfoBlock label="Shipping to">
+          <strong>{ship.name || "You"}</strong>
+          <br />
+          {[addr.line1, addr.line2].filter(Boolean).join(", ")}
+          <br />
+          {[addr.city, addr.state, addr.postal_code].filter(Boolean).join(", ")}
+        </InfoBlock>
+      ) : null}
+
+      <Button href={orderUrl}>View your order</Button>
       <P muted>
-        If your item arrives not as described or never ships, open a dispute
-        from the order page — you have 7 days from delivery and we'll mediate.
+        Not as described, or it never ships? Open a dispute from the order page —
+        you have 7 days from delivery and we&apos;ll mediate.
       </P>
     </Base>
   );
