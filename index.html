@@ -4416,7 +4416,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r205</span></div>
+        <span class="auth-build" aria-hidden="true">r206</span></div>
     </div>
   </div>
 </div>
@@ -13388,11 +13388,19 @@ function renderShopTables() {
                    <div>${escapeHtml([a.city, a.state, a.postal_code].filter(Boolean).join(', '))}</div>
                  </div>`
               : '<span style="color:var(--gray-400);font-size:12px">—</span>';
+            // Real product thumbnail (w400 webp variant → original photo),
+            // falling back to the category placeholder for listings with no
+            // usable image. The listing doc (with photos/photoVariants) is
+            // already in soldListingsById, so this is no extra Firestore read.
+            const soldThumbUrl = window.variantImgUrl(listing, 0, 'w400');
+            const soldThumb = soldThumbUrl
+              ? `<img src="${escapeHtml(soldThumbUrl)}" alt="" loading="lazy" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'item-emoji placeholder-art',style:'width:36px;height:36px;border-radius:6px',innerHTML:this.dataset.fallback}))" data-fallback="${escapeHtml(window.CATEGORY_ICON(listing.cat))}">`
+              : `<span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(listing.cat)}</span>`;
             return `
               <tr>
                 <td>
                   <div class="item-cell">
-                    <span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(listing.cat)}</span>
+                    ${soldThumb}
                     <div>
                       <div style="font-weight:600">${escapeHtml(listing.title || 'Item #' + (o.listingId || '—'))}</div>
                       <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(listing.brand || '')}</div>
