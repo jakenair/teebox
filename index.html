@@ -1443,7 +1443,7 @@
   .auth-marketing-consent .auth-marketing-label strong { color: var(--gray-900); font-weight: 600; }
   /* One-time re-opt-in banner for the migrated cohort (users w/ no
      marketingConsent record). Non-modal, dismissible, top-of-page. */
-  .marketing-reopt-banner { display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 540px; background: var(--white); border: 1px solid var(--gray-200); border-left: 4px solid var(--green-600); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 14px 16px; z-index: 1200; font-family: var(--font-body); }
+  .marketing-reopt-banner { display: none; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 540px; background: var(--white); border: 1px solid var(--gray-200); border-left: 4px solid var(--green-600); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 14px 16px; z-index: 1200; font-family: var(--font-body); }
   .marketing-reopt-banner.show { display: block; }
   .marketing-reopt-banner .mrb-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
   .marketing-reopt-banner .mrb-body { font-size: 13px; line-height: 1.45; color: var(--gray-600); margin-bottom: 10px; }
@@ -4451,7 +4451,7 @@
 <div class="marketing-reopt-banner" id="marketingReoptBanner" role="region" aria-label="Marketing email opt-in">
   <button type="button" class="mrb-close" data-action="dismiss-marketing-banner" aria-label="Close">×</button>
   <div class="mrb-title">Get personalized golf deals</div>
-  <div class="mrb-body">We only send marketing email when you ask us to. Want saved-search matches, price drop alerts, and weekly deal roundups in your inbox?</div>
+  <div class="mrb-body">We only send marketing emails when you ask us to. Want saved-search matches, price drop alerts, and weekly deal roundups in your inbox?</div>
   <div class="mrb-actions">
     <button type="button" class="mrb-btn primary" data-action="marketing-opt-in">Yes, send me deals</button>
     <button type="button" class="mrb-btn secondary" data-action="marketing-opt-out">No thanks</button>
