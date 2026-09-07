@@ -81,6 +81,52 @@ function parcelForCategory(cat) {
   return p ? {...p, distance_unit: "in", mass_unit: "lb"} : null;
 }
 
+// ─── Structure 2 (buyer-paid shipping) — flat tiers + live-rate categories ──
+// Founder ruling 2026-09-04: buyer pays shipping (Mercari model). HYBRID
+// pricing — flat tiers for soft/small/medium (shown upfront on the listing),
+// live carrier rate for oversize (clubs, bags) where cross-country variance is
+// too wide to flatten. Flat cents set to cover a worst-case (long-haul) label
+// from real Shippo quotes; platform absorbs rare overage. A category ABSENT
+// from this map (clubs, bags) => live rate via Shippo.
+const FLAT_SHIPPING_CENTS = {
+  apparel: 1000,      // $10  (real long-haul ~$8.76)
+  headcovers: 1000,   // $10
+  accessories: 1200,  // $12
+  balls: 1200,        // $12
+  shoes: 1400,        // $14
+  // clubs, bags → live rate (not listed)
+};
+
+// Returns {cents, method:'flat'|'live', carrier, service} or {error}.
+// Flat categories are resolved with zero Shippo calls; live categories
+// rate-shop with pickRate (cheapest overall <70lb).
+async function quoteShippingCents(apiKey, category, fromAddress, toAddress) {
+  const cat = String(category || "").toLowerCase();
+  const flat = FLAT_SHIPPING_CENTS[cat];
+  if (Number.isFinite(flat)) {
+    return {cents: flat, method: "flat", carrier: null, service: null};
+  }
+  const parcel = parcelForCategory(cat) || DEFAULT_PARCEL;
+  const shipmentRes = await shippoFetch(apiKey, "/shipments/", {
+    address_from: fromAddress,
+    address_to: toAddress,
+    parcels: [parcel],
+    async: false,
+  });
+  if (shipmentRes.networkErr || !shipmentRes.ok ||
+      !shipmentRes.body || !Array.isArray(shipmentRes.body.rates)) {
+    return {error: "rate-unavailable"};
+  }
+  const rate = pickRate(shipmentRes.body.rates, Number(parcel.weight));
+  if (!rate) return {error: "no-rate"};
+  return {
+    cents: Math.round(Number(rate.amount) * 100),
+    method: "live",
+    carrier: rate.provider || null,
+    service: (rate.servicelevel && rate.servicelevel.name) || null,
+  };
+}
+
 const USER_CALLABLE = {
   region: "us-central1",
   memory: "256MiB",
@@ -640,6 +686,78 @@ exports.createShippingLabel = onCall(
  * The client can show a small "TEST MODE" badge in the seller dashboard
  * when env === "test" so beta testers know the labels are fake.
  */
+// ─── Callable: getShippingQuote (Structure 2) ──────────────────────────
+// Checkout calls this once the buyer's address is entered (before payment)
+// to price shipping. Flat categories return instantly (no Shippo call);
+// oversize categories (clubs, bags) return the live carrier rate. The
+// buyer's total = item + shippingCents; the seller keeps item − fee.
+exports.getShippingQuote = onCall(
+    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY]},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Sign in required.");
+      }
+      const {listingId, toAddress} = request.data || {};
+      if (!listingId || typeof listingId !== "string") {
+        throw new HttpsError("invalid-argument", "listingId required.");
+      }
+      const toAddr = normalizeAddress(toAddress);
+      if (!toAddr || !addressIsComplete(toAddr)) {
+        throw new HttpsError(
+            "invalid-argument",
+            "A complete shipping address is required to quote shipping.");
+      }
+      const db = admin.firestore();
+      const lSnap = await db.collection("listings").doc(listingId).get();
+      if (!lSnap.exists) {
+        throw new HttpsError("not-found", "Listing not found.");
+      }
+      const listing = lSnap.data() || {};
+      const cat = String(listing.cat || "").toLowerCase();
+
+      // Flat categories: no seller address / Shippo call needed.
+      const flat = FLAT_SHIPPING_CENTS[cat];
+      if (Number.isFinite(flat)) {
+        return {shippingCents: flat, method: "flat", category: cat};
+      }
+
+      // Live-rate categories (clubs, bags): need the seller's ship-from.
+      const sellerSnap = await db.collection("users")
+          .doc(String(listing.sellerId || "")).get();
+      const fromAddr = normalizeAddress(
+          (sellerSnap.exists ? sellerSnap.data() : {}).shippingFrom);
+      if (!fromAddr || !addressIsComplete(fromAddr)) {
+        throw new HttpsError(
+            "failed-precondition",
+            "This seller hasn't set a ship-from address yet.");
+      }
+      let apiKey = "";
+      try {
+        apiKey = SHIPPO_API_KEY.value() || "";
+      } catch (_e) {
+        apiKey = "";
+      }
+      if (!apiKey || apiKey.length < 8) {
+        throw new HttpsError(
+            "failed-precondition",
+            "Live shipping quotes aren't available right now.");
+      }
+      const q = await quoteShippingCents(apiKey, cat, fromAddr, toAddr);
+      if (q.error) {
+        throw new HttpsError(
+            "unavailable",
+            "Couldn't get a shipping rate right now. Please try again.");
+      }
+      return {
+        shippingCents: q.cents,
+        method: q.method,
+        carrier: q.carrier,
+        service: q.service,
+        category: cat,
+      };
+    },
+);
+
 exports.getShippingFeatureFlag = onCall(
     {...USER_CALLABLE, secrets: [SHIPPO_API_KEY]},
     async (request) => {
