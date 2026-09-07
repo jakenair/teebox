@@ -129,9 +129,8 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "at": "2026-08-17",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "49c2b1207e25e0e21757210cc59957d42d094a00",
+    "at": "2026-09-07"
   },
   "generateListingDescription": {
     "at": "2026-08-06",
@@ -290,20 +289,20 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "onOrderCreatedEmail": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
-    "at": "2026-08-27"
+    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
+    "at": "2026-09-07"
   },
   "onOrderLabelEmail": {
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
     "at": "2026-08-27"
   },
   "onOrderShippingStatusEmail": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
-    "at": "2026-08-27"
+    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
+    "at": "2026-09-07"
   },
   "onPayoutReleasedEmail": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
-    "at": "2026-08-27"
+    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
+    "at": "2026-09-07"
   },
   "onPriceDropEventEmail": {
     "at": "2026-05-29",
@@ -311,8 +310,8 @@
     "sha": null
   },
   "onRefundEmail": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
-    "at": "2026-08-27"
+    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
+    "at": "2026-09-07"
   },
   "onReportCreate": {
     "at": "2026-05-15",
@@ -475,9 +474,8 @@
     "sha": null
   },
   "runGenerateDailyPuzzles": {
-    "at": "2026-07-13",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "49c2b1207e25e0e21757210cc59957d42d094a00",
+    "at": "2026-09-07"
   },
   "savedSearchMatchSchedulerV2": {
     "at": "2026-05-29",
@@ -586,8 +584,8 @@
     "sha": null
   },
   "welcomeOnFirstProfileWrite": {
-    "sha": "57dc61d14a11724c23c729c453b763861cf1f185",
-    "at": "2026-08-27"
+    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
+    "at": "2026-09-07"
   },
   "winBackScheduler": {
     "at": "2026-05-29",
