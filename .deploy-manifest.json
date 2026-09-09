@@ -129,8 +129,8 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "sha": "49c2b1207e25e0e21757210cc59957d42d094a00",
-    "at": "2026-09-07"
+    "sha": "2b08fe5d81280675573ce942120a829e7d8a59f7",
+    "at": "2026-09-09"
   },
   "generateListingDescription": {
     "at": "2026-08-06",
@@ -474,8 +474,8 @@
     "sha": null
   },
   "runGenerateDailyPuzzles": {
-    "sha": "49c2b1207e25e0e21757210cc59957d42d094a00",
-    "at": "2026-09-07"
+    "sha": "2b08fe5d81280675573ce942120a829e7d8a59f7",
+    "at": "2026-09-09"
   },
   "savedSearchMatchSchedulerV2": {
     "at": "2026-05-29",
@@ -541,9 +541,8 @@
     "sha": null
   },
   "syncBingoProgress": {
-    "at": "2026-07-13",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "2b08fe5d81280675573ce942120a829e7d8a59f7",
+    "at": "2026-09-09"
   },
   "syncBlockedThreads": {
     "at": "2026-07-22",
