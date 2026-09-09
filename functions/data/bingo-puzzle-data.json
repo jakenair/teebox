@@ -68,6 +68,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/los-angeles-cc-north.png"
     },
     {
+      "id": "riviera",
+      "shortName": "Riviera",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/riviera.png"
+    },
+    {
       "id": "oakland-hills-south",
       "shortName": "Oakland Hills South",
       "logoUrl": "https://teeboxmarket.com/assets/logos/oakland-hills-south.png"
@@ -226,6 +231,11 @@
       "id": "pasatiempo",
       "shortName": "Pasatiempo",
       "logoUrl": "https://teeboxmarket.com/assets/logos/pasatiempo.png"
+    },
+    {
+      "id": "valley-club-of-montecito",
+      "shortName": "Valley Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/valley-club-of-montecito.png"
     },
     {
       "id": "plainfield",
@@ -804,6 +814,14 @@
         "lacc north course"
       ]
     },
+    "riviera": {
+      "name": "The Riviera Country Club",
+      "shortName": "Riviera",
+      "aliases": [
+        "riviera cc",
+        "the riv"
+      ]
+    },
     "oakland-hills-south": {
       "name": "Oakland Hills Country Club (South)",
       "shortName": "Oakland Hills South",
@@ -1052,6 +1070,15 @@
       "shortName": "Pasatiempo",
       "aliases": [
         "pasatiempo gc"
+      ]
+    },
+    "valley-club-of-montecito": {
+      "name": "The Valley Club of Montecito",
+      "shortName": "Valley Club",
+      "aliases": [
+        "valley club of montecito",
+        "valley club montecito",
+        "the valley club"
       ]
     },
     "plainfield": {
@@ -1725,7 +1752,7 @@
       ]
     }
   },
-  "generatedAt": "2026-09-04T15:14:34.555Z",
+  "generatedAt": "2026-09-09T03:14:41.268Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

@@ -1177,6 +1177,16 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'valley-club-of-montecito',
+    name: 'The Valley Club of Montecito',
+    shortName: 'Valley Club',
+    aliases: ['valley club of montecito', 'valley club montecito', 'the valley club'],
+    location: 'Montecito, California',
+    architect: 'Alister MacKenzie',
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'congressional-blue',
     name: 'Congressional Country Club (Blue)',
     shortName: 'Congressional',
