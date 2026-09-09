@@ -4498,7 +4498,7 @@
         <h4>4. Shipping Obligations</h4>
         Once a sale is confirmed, you agree to ship the item directly to the buyer within 3 business days using a tracked, insured carrier service. Failure to ship may result in refund to the buyer and account suspension.
         <h4>5. Fees</h4>
-        TeeBox charges a seller transaction fee of 8.5% of the sale price, deducted automatically from your payout. Shipping labels purchased through TeeBox are also deducted from your payout at the carrier's rate, shown to you before purchase. The fee may change with 30 days' notice.
+        TeeBox charges a seller transaction fee of 8.5% of the item price, deducted automatically from your payout. Shipping is paid by the buyer at checkout and funds the prepaid shipping label &mdash; nothing is deducted from your payout for shipping. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
         Payouts are issued to your linked bank account on Stripe's standard payout schedule after a successful sale. Buyers have 7 days from delivery to open a dispute; a confirmed dispute may reverse a payout.
         <h4>7. Disputes &amp; Indemnification</h4>
@@ -14355,16 +14355,10 @@ function openSellModal() {
       if (el) el.addEventListener('input', refresh);
     });
     const priceEl = document.getElementById('sellPrice');
-    // Structure 1 (2026-08-25): the take-home preview shows the fee AND an
-    // ESTIMATED label deduction by category — the label is funded from the
-    // seller's payout, and the exact price is shown before they buy it at
-    // ship time. Estimates are rounded from measured cheapest-carrier rates
-    // (baseline + coast-to-coast lanes, 2026-08-25); keep in sync with
-    // CATEGORY_PARCELS pricing reality, not with wishes.
-    const LABEL_EST_BY_CAT = {
-      apparel: 8, accessories: 8, headcovers: 8, shoes: 9, balls: 9,
-      clubs: 14, bags: 50,
-    };
+    // Structure 2 (founder ruling 2026-09-04, shipped 2026-09-08): the
+    // buyer pays shipping at checkout and it funds the prepaid label, so
+    // the take-home is exactly item − 8.5% — no label estimate, no
+    // category dependence (Structure 1's LABEL_EST_BY_CAT retired).
     const renderTakeHome = () => {
       const v = parseFloat(priceEl && priceEl.value || '0');
       const th = document.getElementById('sellTakeHome');
@@ -14375,24 +14369,19 @@ function openSellModal() {
           // longer branches on __SELLER_TIER (which stays resolved at
           // modal-open for the future perks re-launch).
           const feePct = 8.5;
-          const cat = (document.getElementById('sellCat') || {}).value || '';
-          const labelEst = LABEL_EST_BY_CAT[cat] || 8;
-          const net = Math.max(0, v * (1 - feePct / 100) - labelEst);
-          // Same estimated label applied to the eBay line — apples to
-          // apples, and conservative (retail postage usually costs more
-          // than our commercial rate).
-          const ebayNet = Math.max(0, v * (1 - 13 / 100) - labelEst);
+          const net = v * (1 - feePct / 100);
+          // Fee-only on the eBay line too — apples to apples (buyers
+          // commonly fund shipping on both platforms now).
+          const ebayNet = v * (1 - 13 / 100);
           th.innerHTML =
-            `You&rsquo;ll receive <strong>&asymp;$${net.toFixed(2)}</strong> (estimated): ${feePct}% fee, minus your shipping label (est. $${labelEst}${cat ? ` for ${cat}` : ''} &mdash; exact price shown before you buy it).` +
-            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13% + you buy the label too): &asymp;$${ebayNet.toFixed(2)}.</span>`;
+            `You&rsquo;ll receive <strong>$${net.toFixed(2)}</strong>: ${feePct}% fee, and your buyer pays for shipping.` +
+            `<span style="display:block;font-weight:500;color:var(--gray-500);margin-top:2px;">On eBay (~13%): &asymp;$${ebayNet.toFixed(2)}.</span>`;
           th.style.display = '';
         } else {
           th.style.display = 'none';
         }
       }
     };
-    const catEl = document.getElementById('sellCat');
-    if (catEl) catEl.addEventListener('change', renderTakeHome);
     if (priceEl) priceEl.addEventListener('input', () => {
       renderTakeHome();
       const v = parseFloat(priceEl.value || '0');

@@ -6,6 +6,14 @@ const {
 function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
   const orderId = order.id || "—";
   const total = formatUsd(order.amountCents);
+  // Structure 2: amountCents = item + shipping; break the receipt down.
+  // Legacy orders (no itemCents) were item-only with shipping included.
+  const itemVal = Number.isFinite(order.itemCents)
+    ? order.itemCents : order.amountCents;
+  const item = formatUsd(itemVal);
+  const shipCents = Number.isFinite(order.shippingCents)
+    ? order.shippingCents : 0;
+  const shippingLine = shipCents > 0 ? formatUsd(shipCents) : "Included";
   const title = listing.title || "your item";
   const orderUrl = `https://teeboxmarket.com/orders/${orderId}`;
   const ship = order.shipping || {};
@@ -30,12 +38,12 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
         imageUrl={listing.imageUrl}
         name={title}
         desc={listing.condition || listing.brand || null}
-        price={total}
+        price={item}
       />
 
       <Receipt>
-        <ReceiptRow label="Item" value={total} />
-        <ReceiptRow label="Shipping" value="Included" />
+        <ReceiptRow label="Item" value={item} />
+        <ReceiptRow label="Shipping" value={shippingLine} />
         <ReceiptRow label="Total paid" value={total} strong />
       </Receipt>
 

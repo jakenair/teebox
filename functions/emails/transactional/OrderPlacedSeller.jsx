@@ -10,15 +10,22 @@ const {
 function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled = false}) {
   const orderId = order.id || "—";
   const title = listing.title || "your item";
-  const sale = formatUsd(order.amountCents);
+  // Structure 2: order.amountCents = item + buyer-paid shipping, so the
+  // seller's receipt is built from itemCents (their sale) — shipping never
+  // touches their math. Legacy orders (no itemCents) were item-only.
+  const itemVal = Number.isFinite(order.itemCents)
+    ? order.itemCents : numOr(order.amountCents);
+  const sale = formatUsd(itemVal);
   const payout = formatUsd(order.sellerPayoutCents);
-  const feeCents = numOr(order.amountCents) - numOr(order.sellerPayoutCents);
+  const feeCents = Number.isFinite(order.platformFeeCents)
+    ? order.platformFeeCents
+    : itemVal - numOr(order.sellerPayoutCents);
   const fee = feeCents > 0 ? `−${formatUsd(feeCents)}` : "—";
   const dashboardUrl = `https://teeboxmarket.com/orders/${orderId}`;
   const helpUrl = "https://teeboxmarket.com/support.html#shipping";
 
   const ctaHref = shippoEnabled ? dashboardUrl : helpUrl;
-  const ctaLabel = shippoEnabled ? "Print shipping label" : "How to ship your item";
+  const ctaLabel = shippoEnabled ? "Print prepaid label" : "How to ship your item";
   const buyerCity = (order.shipping && order.shipping.address && order.shipping.address.city) || null;
 
   return (
@@ -51,9 +58,11 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
       <NextStep>
         {shippoEnabled ? (
           <>
-            <strong>Ship within 3 business days.</strong> Print the label here and
-            the buyer&apos;s address fills in automatically — tracking is sent to
-            them for you. Late shipments hurt your rating and can trigger a refund.
+            <strong>Ship within 3 business days.</strong> Your buyer already paid
+            for shipping — print the prepaid label here at no cost to you, with
+            the buyer&apos;s address filled in and tracking sent to them
+            automatically. Late shipments hurt your rating and can trigger a
+            refund.
           </>
         ) : (
           <>
