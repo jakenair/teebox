@@ -35,10 +35,15 @@
  *   {ok: false, reason: "label-purchase-failed", message, details}
  *                                                              transaction failed
  *   {ok: false, reason: "shippo-down", message}               Shippo 5xx / network error
+ *   {ok: false, reason: "label-exceeds-collected", message}   live-rate label >
+ *                                                              buyer-paid shipping
  *   {ok: true, labelUrl, trackingNumber, carrier, rateAmount, env}
  *
- * Cost: Shippo charges $0.05/label as transaction fee on top of carrier
- * postage. Sellers pay this; we mark up zero in v1.
+ * Cost (Structure 2, founder ruling 2026-09-04): the label is prepaid by
+ * the BUYER's shipping payment, which the platform retains at charge time
+ * (application_fee_amount = fee + shipping in createPaymentIntent). The
+ * seller pays nothing and confirms nothing — they just print. Shippo's
+ * flat $0.05/label transaction fee stays platform-paid.
  */
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
@@ -50,15 +55,13 @@ const admin = require("firebase-admin");
 //   firebase functions:secrets:set SHIPPO_API_KEY
 // Test value starts with shippo_test_; live with shippo_live_.
 const SHIPPO_API_KEY = defineSecret("SHIPPO_API_KEY");
-// Stripe key for the seller-funded label recovery (partial transfer
-// reversal) + the pre-purchase proceeds guard; ops webhook for
-// failed-recovery alerts. Same params as index.js — firebase-functions
-// dedupes secret definitions by name.
+// Stripe key for updateCheckoutShipping (retrieving + re-pricing the
+// checkout PaymentIntent); ops webhook for guard alerts. Same params as
+// index.js — firebase-functions dedupes secret definitions by name.
+// (Structure 1's seller-funded label recovery, which also used this key
+// inside createShippingLabel, is retired — Structure 2, 2026-09-04.)
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const {OPS_ALERT_WEBHOOK} = require("./opsAlert");
-// Structure 1 (founder ruling 2026-08-25): sellers fund the FULL label
-// from their payout. The r180 $15 platform subsidy (LABEL_CAP_USD) is
-// retired — see Step 2.5/2.6 in createShippingLabel.
 
 // r181: category→parcel map. Before this, EVERY label was quoted from
 // DEFAULT_PARCEL (12×8×4, 2lb) regardless of item — a 48" club or a stand
@@ -265,7 +268,9 @@ function addressIsComplete(a) {
 // ─── Main callable ────────────────────────────────────────────────────
 
 exports.createShippingLabel = onCall(
-    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, STRIPE_SECRET_KEY, OPS_ALERT_WEBHOOK]},
+    // STRIPE_SECRET_KEY dropped from this binding with Structure 1's
+    // payout-deduction retirement — the label flow makes no Stripe calls.
+    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, OPS_ALERT_WEBHOOK]},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Sign in required.");
@@ -485,76 +490,40 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Step 2.5: seller-funded label (Structure 1, founder ruling
-      // 2026-08-25 — replaces the r180 $15-cap subsidy) ───────────────
-      // The seller funds the FULL label from their payout — no free-label
-      // perk, no cap, no category conditional. Flow: the first call returns
-      // a price quote (nothing purchased) so the client shows the exact
-      // deduction; the seller re-calls with confirmDeduct:true.
-      // confirmExcess is honored as consent too so an in-flight r180-era
-      // client can't wedge mid-flow.
+      // ─── Step 2.5: Structure 2 guard (founder ruling 2026-09-04) ───
+      // Buyer-paid shipping: the label is prepaid by the shipping the
+      // buyer paid at checkout (retained by the platform via
+      // application_fee_amount) — nothing is deducted from the seller's
+      // payout, no quote→confirm round-trip. Structure 1's confirmDeduct
+      // flow, proceeds guard, and transfer-reversal recovery are retired
+      // (an old client still sending confirmDeduct:true is harmlessly
+      // ignored). Guard: a live-rate order collected the EXACT carrier
+      // rate at checkout — if today's rate exceeds what was collected
+      // (carrier repriced between purchase and print), refuse and alert
+      // instead of silently eating the difference. Flat-tier overage is
+      // absorbed by design (tiers priced above worst-case lanes), and a
+      // legacy order with no shippingCents buys unguarded: deducting
+      // nothing from the seller is the safe failure.
       const rateUsd = Number(rate.amount || 0);
       const labelCents = Math.round(rateUsd * 100);
-      if (data.confirmDeduct !== true && data.confirmExcess !== true) {
+      const collectedShippingCents = Number(order.shippingCents);
+      if (order.shippingMethod === "live" &&
+          Number.isFinite(collectedShippingCents) &&
+          labelCents > collectedShippingCents) {
+        const {opsAlert} = require("./opsAlert");
+        await opsAlert("error",
+            `Label $${rateUsd.toFixed(2)} exceeds buyer-paid shipping ` +
+            `$${(collectedShippingCents / 100).toFixed(2)} on order ` +
+            `${orderId} — purchase refused; needs a founder decision.`);
         return {
           ok: false,
-          reason: "label-deduct-quote",
-          quote: true,
+          reason: "label-exceeds-collected",
+          message: "Today's carrier rate came back higher than the " +
+            "shipping collected for this order, so we didn't buy the " +
+            "label. Contact support and we'll sort it out together.",
           rateAmount: rateUsd,
-          deductAmount: Math.round(rateUsd * 100) / 100,
-          carrier: rate.provider || "USPS",
-          serviceLevel: (rate.servicelevel && rate.servicelevel.name) || null,
+          collectedShipping: Math.round(collectedShippingCents) / 100,
         };
-      }
-
-      // ─── Step 2.6: pre-purchase proceeds guard (C-guard part b) ─────
-      // transfers.createReversal is all-or-nothing and hard-bounded by the
-      // transfer's un-reversed amount. If the label costs more than what
-      // remains of the seller's proceeds (possible after a partial refund,
-      // or a mispriced low-ask item that predates the listing floors),
-      // refuse BEFORE buying: nothing is spent, the failure is loud, and
-      // support decides. Buying first and failing the reversal would eat
-      // the label silently — the exact failure mode this guard retires.
-      {
-        let remainingCents = null;
-        try {
-          const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
-          if (order.transferId) {
-            const tr = await stripeClient.transfers.retrieve(order.transferId);
-            remainingCents =
-              (Number(tr.amount) || 0) - (Number(tr.amount_reversed) || 0);
-          }
-        } catch (e) {
-          logger.warn("label-guard: transfer retrieve failed", {
-            orderId, transferId: order.transferId || null, err: e.message});
-        }
-        if (remainingCents === null) {
-          // Can't verify the bound (missing transferId or Stripe blip) —
-          // refuse conservatively rather than buy unguarded. Transient;
-          // the seller just retries.
-          return {
-            ok: false,
-            reason: "label-guard-unavailable",
-            message: "We couldn't verify your payout for this order just " +
-              "now. Please try again in a few minutes.",
-          };
-        }
-        if (labelCents > remainingCents) {
-          const {opsAlert} = require("./opsAlert");
-          await opsAlert("error",
-              `Label $${rateUsd.toFixed(2)} exceeds remaining proceeds ` +
-              `$${(remainingCents / 100).toFixed(2)} on order ${orderId} — ` +
-              "purchase refused; needs a founder decision.");
-          return {
-            ok: false,
-            reason: "label-exceeds-proceeds",
-            message: "This label costs more than your remaining proceeds " +
-              "for this order, so we can't buy it against your payout. " +
-              "Contact support and we'll sort out shipping together.",
-            rateAmount: rateUsd,
-            remainingProceeds: Math.round(remainingCents) / 100,
-          };
-        }
       }
 
       // ─── Step 3: Buy label ────────────────────────────────────────
@@ -624,43 +593,10 @@ exports.createShippingLabel = onCall(
           (rate.servicelevel && rate.servicelevel.token) || null,
         shippingLabelEnv: env,
         shippingLabelPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
-        labelDeductCents: labelCents,
+        // Structure 2: funded by the buyer's shipping payment — no payout
+        // deduction, no labelDeductCents, no transfer reversal.
+        labelFundedBy: "buyer_shipping",
       }, {merge: true});
-
-      // Seller-funded recovery: reverse the FULL label cost from the
-      // seller's payout via a partial transfer reversal on the order's
-      // transfer (same mechanism the dispute flow uses). The Step 2.6
-      // guard verified the bound seconds ago, so this should not fail;
-      // if it does anyway (race with a concurrent refund/dispute), keep
-      // the label with the seller, do NOT retry, alert at error level,
-      // and persist the debt so unrecovered labels are queryable instead
-      // of buried in logs. (Shippo's flat $0.05/label transaction fee
-      // stays platform-paid — not worth recovering.)
-      try {
-        const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
-        await stripeClient.transfers.createReversal(order.transferId, {
-          amount: labelCents,
-          metadata: {reason: "label_seller_funded", orderId,
-            labelRateUsd: String(rateUsd)},
-        });
-        await orderRef.set({labelRecovered: true}, {merge: true});
-      } catch (e) {
-        logger.error("label recovery FAILED — label kept, debt recorded",
-            {orderId, labelCents, err: e.message});
-        try {
-          await orderRef.set({
-            labelRecovered: false,
-            labelDebtCents: labelCents,
-          }, {merge: true});
-        } catch (_e) { /* best-effort */ }
-        try {
-          const {opsAlert} = require("./opsAlert");
-          await opsAlert("error",
-              `Label $${rateUsd.toFixed(2)} on order ${orderId} NOT ` +
-              "recovered from seller payout — labelDebtCents recorded, " +
-              "reverse manually.");
-        } catch (_e) { /* best-effort */ }
-      }
 
       logger.info(
           `createShippingLabel: ${orderId} bought ` +
