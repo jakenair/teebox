@@ -686,6 +686,53 @@ exports.createShippingLabel = onCall(
  * The client can show a small "TEST MODE" badge in the seller dashboard
  * when env === "test" so beta testers know the labels are fake.
  */
+// ─── Structure 2: shared listing→quote resolver ────────────────────────
+// One resolver behind BOTH getShippingQuote (pre-payment display) and
+// updateCheckoutShipping (the PI re-price) so the number the buyer sees
+// and the number the buyer is charged can never disagree.
+// Throws HttpsError; returns {shippingCents, method, carrier, service,
+// category}.
+async function quoteForListing(db, listing, toAddr) {
+  const cat = String(listing.cat || "").toLowerCase();
+
+  // Flat categories: no seller address / Shippo call needed.
+  const flat = FLAT_SHIPPING_CENTS[cat];
+  if (Number.isFinite(flat)) {
+    return {shippingCents: flat, method: "flat",
+      carrier: null, service: null, category: cat};
+  }
+
+  // Live-rate categories (clubs, bags): need the seller's ship-from.
+  const sellerSnap = await db.collection("users")
+      .doc(String(listing.sellerId || "")).get();
+  const fromAddr = normalizeAddress(
+      (sellerSnap.exists ? sellerSnap.data() : {}).shippingFrom);
+  if (!fromAddr || !addressIsComplete(fromAddr)) {
+    throw new HttpsError(
+        "failed-precondition",
+        "This seller hasn't set a ship-from address yet.");
+  }
+  let apiKey = "";
+  try {
+    apiKey = SHIPPO_API_KEY.value() || "";
+  } catch (_e) {
+    apiKey = "";
+  }
+  if (!apiKey || apiKey.length < 8) {
+    throw new HttpsError(
+        "failed-precondition",
+        "Live shipping quotes aren't available right now.");
+  }
+  const q = await quoteShippingCents(apiKey, cat, fromAddr, toAddr);
+  if (q.error) {
+    throw new HttpsError(
+        "unavailable",
+        "Couldn't get a shipping rate right now. Please try again.");
+  }
+  return {shippingCents: q.cents, method: q.method,
+    carrier: q.carrier, service: q.service, category: cat};
+}
+
 // ─── Callable: getShippingQuote (Structure 2) ──────────────────────────
 // Checkout calls this once the buyer's address is entered (before payment)
 // to price shipping. Flat categories return instantly (no Shippo call);
@@ -712,48 +759,119 @@ exports.getShippingQuote = onCall(
       if (!lSnap.exists) {
         throw new HttpsError("not-found", "Listing not found.");
       }
-      const listing = lSnap.data() || {};
-      const cat = String(listing.cat || "").toLowerCase();
+      return await quoteForListing(db, lSnap.data() || {}, toAddr);
+    },
+);
 
-      // Flat categories: no seller address / Shippo call needed.
-      const flat = FLAT_SHIPPING_CENTS[cat];
-      if (Number.isFinite(flat)) {
-        return {shippingCents: flat, method: "flat", category: cat};
+// ─── Callable: updateCheckoutShipping (Structure 2) ────────────────────
+// Live-rate categories (clubs, bags) can't be priced when the PI is
+// created — the checkout modal creates the PI before the buyer types an
+// address. Once the AddressElement reports complete, the client calls
+// this with the PI id + address; we re-quote SERVER-SIDE (the client
+// never supplies a price) and update the PI in place:
+//   amount = item + shipping
+//   application_fee_amount = fee + shipping
+// The client keeps Pay disabled until this returns. Callable also works
+// for flat categories (idempotent — same amount), but the client only
+// calls it when createPaymentIntent returned shippingPending.
+exports.updateCheckoutShipping = onCall(
+    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, STRIPE_SECRET_KEY]},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Sign in required.");
+      }
+      const uid = request.auth.uid;
+      const {paymentIntentId, toAddress} = request.data || {};
+      if (!paymentIntentId || typeof paymentIntentId !== "string" ||
+          !paymentIntentId.startsWith("pi_") || paymentIntentId.length > 200) {
+        throw new HttpsError("invalid-argument", "paymentIntentId required.");
+      }
+      const toAddr = normalizeAddress(toAddress);
+      if (!toAddr || !addressIsComplete(toAddr)) {
+        throw new HttpsError(
+            "invalid-argument",
+            "A complete shipping address is required to quote shipping.");
       }
 
-      // Live-rate categories (clubs, bags): need the seller's ship-from.
-      const sellerSnap = await db.collection("users")
-          .doc(String(listing.sellerId || "")).get();
-      const fromAddr = normalizeAddress(
-          (sellerSnap.exists ? sellerSnap.data() : {}).shippingFrom);
-      if (!fromAddr || !addressIsComplete(fromAddr)) {
+      const stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
+      const pi = await stripeClient.paymentIntents.retrieve(paymentIntentId);
+      const md = (pi && pi.metadata) || {};
+
+      // Only the buyer who owns this PI may re-price it, and only before
+      // payment. (The amount is recomputed server-side from PI metadata +
+      // our own quote either way — this gate just keeps strangers from
+      // poking other people's checkouts.)
+      if (md.buyerId !== uid) {
+        throw new HttpsError(
+            "permission-denied", "This checkout isn't yours.");
+      }
+      const updatable = ["requires_payment_method", "requires_confirmation",
+        "requires_action"];
+      if (!updatable.includes(pi.status)) {
+        throw new HttpsError(
+            "failed-precondition", "This payment has already been processed.");
+      }
+      const itemCents = Number(md.itemCents);
+      const platformFeeCents = Number(md.platformFeeCents);
+      if (!Number.isFinite(itemCents) || itemCents <= 0 ||
+          !Number.isFinite(platformFeeCents) || platformFeeCents < 0) {
+        // Pre-Structure-2 PI with no item/fee split — never re-price a
+        // charge we can't decompose.
         throw new HttpsError(
             "failed-precondition",
-            "This seller hasn't set a ship-from address yet.");
+            "This checkout can't be re-priced. Close it and try again.");
       }
-      let apiKey = "";
-      try {
-        apiKey = SHIPPO_API_KEY.value() || "";
-      } catch (_e) {
-        apiKey = "";
+
+      const db = admin.firestore();
+      const lSnap = await db.collection("listings")
+          .doc(String(md.listingId || "")).get();
+      if (!lSnap.exists) {
+        throw new HttpsError("not-found", "Listing not found.");
       }
-      if (!apiKey || apiKey.length < 8) {
-        throw new HttpsError(
-            "failed-precondition",
-            "Live shipping quotes aren't available right now.");
-      }
-      const q = await quoteShippingCents(apiKey, cat, fromAddr, toAddr);
-      if (q.error) {
-        throw new HttpsError(
-            "unavailable",
-            "Couldn't get a shipping rate right now. Please try again.");
-      }
+      const q = await quoteForListing(db, lSnap.data() || {}, toAddr);
+
+      const amountCents = itemCents + q.shippingCents;
+      await stripeClient.paymentIntents.update(paymentIntentId, {
+        amount: amountCents,
+        application_fee_amount: platformFeeCents + q.shippingCents,
+        // Attach the destination now (confirmPayment re-sends it from the
+        // AddressElement at confirm — this is belt-and-braces so the
+        // order's ship-to survives any confirm-path change).
+        shipping: {
+          name: toAddr.name || request.auth.token.name || "TeeBox buyer",
+          address: {
+            line1: toAddr.street1,
+            line2: toAddr.street2 || undefined,
+            city: toAddr.city,
+            state: toAddr.state,
+            postal_code: toAddr.zip,
+            country: toAddr.country || "US",
+          },
+        },
+        // Metadata updates merge per-key; empty string deletes the key,
+        // clearing the shippingPending flag the webhook alerts on.
+        metadata: {
+          shippingCents: String(q.shippingCents),
+          shippingMethod: q.method,
+          shippingCarrier: q.carrier || "",
+          shippingService: q.service || "",
+          shippingPending: "",
+        },
+      });
+
+      logger.info(
+          `updateCheckoutShipping: ${paymentIntentId} → ` +
+          `$${(q.shippingCents / 100).toFixed(2)} ` +
+          `(${q.method}${q.carrier ? " " + q.carrier : ""})`);
+
       return {
-        shippingCents: q.cents,
+        ok: true,
+        itemCents,
+        shippingCents: q.shippingCents,
+        amountCents,
         method: q.method,
         carrier: q.carrier,
         service: q.service,
-        category: cat,
       };
     },
 );
