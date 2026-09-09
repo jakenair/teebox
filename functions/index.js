@@ -7309,19 +7309,16 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     throw new HttpsError(
         "invalid-argument", "Please enter a valid price.");
   }
-  // Category price floors (C-guard part a, founder ruling 2026-08-25).
-  // Seller-funded labels are recovered from the payout via a bounded
-  // transfer reversal — the floor keeps the worst-case label affordable
-  // out of the listing's own proceeds. Mirrors categoryFloor() in
-  // firestore.rules (which covers direct-write creates).
-  const categoryFloor = cat === "bags" ? 85 : (cat === "clubs" ? 25 : 15);
-  if (price < categoryFloor) {
+  // Price floor (Structure 2, founder ruling 2026-09-08): buyers fund
+  // shipping now, so the Structure-1 label-affordability floors are
+  // retired — a token $5 floor stays to deter junk listings. Mirrors
+  // categoryFloor() in firestore.rules (which covers direct-write
+  // creates) and collectSellErrors client-side.
+  const priceFloor = 5;
+  if (price < priceFloor) {
     throw new HttpsError(
         "invalid-argument",
-        `Minimum price for ${cat === "bags" ? "bags" :
-          cat === "clubs" ? "clubs" : "this category"} is ` +
-        `$${categoryFloor} — it keeps the shipping label affordable ` +
-        "out of your sale proceeds.");
+        `Minimum listing price is $${priceFloor}.`);
   }
   if (photos.length < 1) {
     throw new HttpsError(

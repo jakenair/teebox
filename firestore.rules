@@ -148,15 +148,16 @@ service cloud.firestore {
           && (arr.size() < 10 || isStorageUrl(arr[9]));
     }
 
-    // Category price floors (C-guard part a, founder ruling 2026-08-25).
-    // Under seller-funded labels (Structure 1) the label is recovered from
-    // the seller's payout via a bounded transfer reversal; these floors keep
-    // every listing's worst-case label affordable out of its own proceeds
-    // (label ≤ 0.935 × ask with real headroom — measured worst rates:
-    // soft goods ~$10, clubs ~$15, bags ~$58). Enforced here for direct
-    // creates and in the updateListing callable for price edits.
+    // Price floor (Structure 2, founder ruling 2026-09-08). Under
+    // buyer-paid shipping the seller no longer funds the label, so the
+    // Structure-1 label-affordability floors ($15/$25/$85) are retired.
+    // A token $5 floor stays to deter junk listings — a $5 sleeve of
+    // balls now nets the seller $4.58. Enforced here for direct creates
+    // and in the updateListing callable for price edits. Kept as a
+    // function (not inlined) so a future per-category floor is a
+    // one-line change.
     function categoryFloor(cat) {
-      return cat == 'bags' ? 85 : (cat == 'clubs' ? 25 : 15);
+      return 5;
     }
     function isValidListingCreate(d) {
       return d.keys().hasAll(['sellerId','title','brand','cat','ask','condition','createdAt','status','expiresAt'])
