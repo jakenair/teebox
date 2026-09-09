@@ -787,4 +787,7 @@ module.exports._internal = {
   addressIsComplete,
   DEFAULT_PARCEL,
   HEAVY_LB,
+  // Shared with createPaymentIntent (index.js) so the checkout charge and
+  // the quote engine can never disagree on a flat tier.
+  FLAT_SHIPPING_CENTS,
 };

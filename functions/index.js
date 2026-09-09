@@ -128,6 +128,10 @@ const stripeProPriceId = defineSecret("STRIPE_PRO_PRICE_ID");
 // Fee constants from lib/fees.js. computeFees() wiring is deferred to its own
 // dedicated money-math deploy (see createPaymentIntent) — inline for now.
 const {PLATFORM_FEE_PERCENT, PLATFORM_FEE_PERCENT_PRO} = require("./lib/fees");
+// Structure 2 (founder ruling 2026-09-04): buyer-paid shipping. Flat tiers
+// live in shippoIntegration.js next to the live-rate quote engine so the
+// checkout charge and getShippingQuote can never disagree on a price.
+const {FLAT_SHIPPING_CENTS} = require("./shippoIntegration")._internal;
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
@@ -363,7 +367,11 @@ exports.createPaymentIntent = onRequest(
     }
     const buyerId = authUser.uid;
 
-    const {listingId, quantity} = req.body || {};
+    // `shippingAware: true` marks a Structure-2 client that renders the
+    // shipping line in its order summary. Absent (stale/legacy client) the
+    // charge stays item-only — charging more than the buyer's UI shows is
+    // never acceptable — and we alert for visibility on the stale tail.
+    const {listingId, quantity, shippingAware} = req.body || {};
     if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
       return res.status(400).json({error: "Missing or invalid listingId"});
     }
@@ -478,6 +486,7 @@ exports.createPaymentIntent = onRequest(
           isLastUnit,
           sellerId: listing.sellerId,
           title: listing.title || "Listing",
+          cat: listing.cat || "",
         };
       });
 
@@ -557,6 +566,45 @@ exports.createPaymentIntent = onRequest(
         });
       }
 
+      // ── Structure 2 (founder ruling 2026-09-04): buyer-paid shipping ──
+      // The 8.5% fee stays on the ITEM only; the buyer's shipping payment
+      // is retained by the platform (application_fee_amount = fee +
+      // shipping) to fund the prepaid label. Flat categories are priced
+      // right here from the category alone — no address needed. Live-rate
+      // categories (clubs, bags — absent from FLAT_SHIPPING_CENTS) are
+      // created item-only with shippingPending and re-priced by
+      // updateCheckoutShipping once the buyer's address is complete: the
+      // PI exists before the address is typed (the AddressElement lives
+      // inside the same checkout modal), so an exact quote can't happen at
+      // create time. Shipping is one parcel per ORDER, not per unit —
+      // matches the label flow, which buys one label per order.
+      // MUST stay below the charges gate above: the gate's 409 fires
+      // before any shipping logic (MONEY_GATE_RUNBOOK sends no address).
+      const listingCat = String(reservation.cat || "").toLowerCase();
+      let shippingCents = 0;
+      let shippingMethod = "legacy";
+      let shippingPending = false;
+      if (shippingAware === true) {
+        const flatCents = FLAT_SHIPPING_CENTS[listingCat];
+        if (Number.isFinite(flatCents)) {
+          shippingCents = flatCents;
+          shippingMethod = "flat";
+        } else {
+          shippingMethod = "live";
+          shippingPending = true;
+        }
+      } else {
+        // Item-only charge from a shipping-unaware client: the platform
+        // absorbs the label for this order. Expected briefly around the
+        // Structure-2 web deploy (stale tabs/SW); a sustained stream means
+        // the web half didn't ship — page on it.
+        await opsAlert("warn",
+            "createPaymentIntent: legacy shipping-unaware checkout — " +
+            "item-only charge, platform absorbs this order's label",
+            {listingId, buyerUid: authUser.uid});
+      }
+      const totalAmountCents = reservation.priceCents + shippingCents;
+
       const stripeClient = stripe(stripeSecret.value());
 
       // Truncate description to Stripe's 1000-char limit, defensively.
@@ -565,10 +613,14 @@ exports.createPaymentIntent = onRequest(
       // Idempotency: same buyer + listing + qty + 5-minute bucket → same
       // PI. Including qty in the key matters: without it, a buyer who
       // tweaks the quantity selector and retries within 5 min would get
-      // back the original PI for the wrong amount.
-      const idempotencyKey = `pi_${listingId}_${buyerId}_${reservation.qty}_${Math.floor(
-        Date.now() / (5 * 60 * 1000)
-      )}`;
+      // back the original PI for the wrong amount. Shipping method + cents
+      // are included for the same reason: a legacy retry and a
+      // shipping-aware retry inside one bucket differ in amount/metadata,
+      // and Stripe rejects a reused key with different params.
+      const idempotencyKey = `pi_${listingId}_${buyerId}_${reservation.qty}_` +
+        `${shippingMethod}${shippingCents}_${Math.floor(
+          Date.now() / (5 * 60 * 1000)
+        )}`;
 
       // Stripe Connect destination charge: platform receives the funds,
       // automatically transfers (priceCents - applicationFee) to the
@@ -578,7 +630,7 @@ exports.createPaymentIntent = onRequest(
       try {
         paymentIntent = await stripeClient.paymentIntents.create(
           {
-            amount: reservation.priceCents,
+            amount: totalAmountCents,
             currency: "usd",
             automatic_payment_methods: {enabled: true},
             payment_method_options: {
@@ -592,7 +644,10 @@ exports.createPaymentIntent = onRequest(
             // email_verified gate above), so .email is present + trusted.
             receipt_email: authUser.email,
             // ── Connect bits ──
-            application_fee_amount: platformFeeCents,
+            // Fee + shipping both stay with the platform: the destination
+            // transfer to the seller = amount − application_fee =
+            // item − fee. The shipping portion funds the prepaid label.
+            application_fee_amount: platformFeeCents + shippingCents,
             transfer_data: {destination: stripeAccountId},
             // Charge the seller's account for any disputes/refunds rather
             // than the platform — keeps platform liability bounded.
@@ -608,6 +663,15 @@ exports.createPaymentIntent = onRequest(
               unitPriceCents: String(reservation.unitPriceCents),
               sellerTier,
               feeRateBps: String(Math.round(feeRate * 10000)),
+              // Structure 2: item vs shipping split. shippingPending="1"
+              // marks a live-rate PI awaiting its updateCheckoutShipping
+              // re-price — it must never reach payment in that state (the
+              // client gates Pay on the quote; the webhook alerts if one
+              // slips through anyway).
+              itemCents: String(reservation.priceCents),
+              shippingCents: String(shippingCents),
+              shippingMethod,
+              ...(shippingPending ? {shippingPending: "1"} : {}),
             },
           },
           {idempotencyKey}
@@ -634,7 +698,16 @@ exports.createPaymentIntent = onRequest(
 
       return res.json({
         clientSecret: paymentIntent.client_secret,
-        amountCents: reservation.priceCents,
+        // Total the buyer pays right now (item + shipping). For a live-rate
+        // category this excludes shipping until updateCheckoutShipping
+        // re-prices the PI — shippingPending tells the client to gate Pay
+        // and call it once the address is complete.
+        amountCents: totalAmountCents,
+        itemCents: reservation.priceCents,
+        shippingCents,
+        shippingMethod,
+        shippingPending,
+        paymentIntentId: paymentIntent.id,
       });
     } catch (err) {
       if (err instanceof HttpError) {
@@ -1450,8 +1523,29 @@ async function handlePaymentSucceeded(pi) {
     sellerPayoutCents,
     quantity,
     unitPriceCents,
+    itemCents,
+    shippingCents,
+    shippingMethod,
+    shippingPending,
   } = pi.metadata || {};
   const orderQty = Math.max(1, parseInt(quantity || "1", 10));
+  // Structure 2: pi.amount = item + shipping. Item-only value drives the
+  // sale rollups (priceHistory, GMV) so shipping never inflates them.
+  // Legacy PIs (no itemCents metadata) were item-only — fall back cleanly.
+  const orderItemCents = Number(itemCents) || pi.amount;
+  const orderShippingCents = Number(shippingCents) || 0;
+
+  // A live-rate PI must be re-priced (updateCheckoutShipping) before the
+  // buyer can pay — the client gates the Pay button on it. If one slips
+  // through, shipping was never collected and the platform eats the full
+  // label with no revenue against it: loud, not silent.
+  if (shippingPending === "1") {
+    await opsAlert("error",
+        `Order ${pi.id} PAID with shippingPending — live-rate shipping ` +
+        "was never collected; label cost is unfunded. Investigate the " +
+        "client Pay gate.",
+        {orderId: pi.id, listingId: listingId || null});
+  }
 
   // Capture the destination-charge transferId so charge.dispute.
   // funds_withdrawn can reverse it without a round-trip back to Stripe.
@@ -1508,7 +1602,13 @@ async function handlePaymentSucceeded(pi) {
       amount: pi.amount / 100,
       currency: pi.currency,
       quantity: orderQty,
-      unitPriceCents: Number(unitPriceCents) || pi.amount,
+      // Structure 2 split: amountCents is what the buyer paid (item +
+      // shipping); itemCents/shippingCents break it down. sellerPayoutCents
+      // stays item − fee — the buyer's shipping never touches the payout.
+      itemCents: orderItemCents,
+      shippingCents: orderShippingCents,
+      shippingMethod: shippingMethod || "legacy",
+      unitPriceCents: Number(unitPriceCents) || orderItemCents,
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
       transferId: transferId || null,
@@ -1579,7 +1679,8 @@ async function handlePaymentSucceeded(pi) {
           await db.runTransaction(async (tx) => {
             const snap = await tx.get(histRef);
             const sales = (snap.exists ? snap.data().sales || [] : []).slice(-119);
-            sales.push({t: Date.now(), priceCents: pi.amount});
+            // Item-only — a $58 bag shipping charge is not a sale price.
+            sales.push({t: Date.now(), priceCents: orderItemCents});
             tx.set(
               histRef,
               {model, sales, updatedAt: admin.firestore.FieldValue.serverTimestamp()},
@@ -1600,7 +1701,9 @@ async function handlePaymentSucceeded(pi) {
   try {
     await db.collection("globalStats").doc("all").set(
       {
-        totalGmvCents: admin.firestore.FieldValue.increment(pi.amount),
+        // Item-only GMV — buyer-paid shipping (Structure 2) is pass-through
+        // label funding, not merchandise volume.
+        totalGmvCents: admin.firestore.FieldValue.increment(orderItemCents),
         totalSold: admin.firestore.FieldValue.increment(1),
         lastSaleAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1629,9 +1732,11 @@ async function handlePaymentSucceeded(pi) {
       buyerId: buyerId || null,
       sellerId: sellerId || null,
       amountCents: pi.amount,
+      itemCents: orderItemCents,
+      shippingCents: orderShippingCents,
       currency: pi.currency,
       qty: orderQty,
-      unitPriceCents: Number(unitPriceCents) || pi.amount,
+      unitPriceCents: Number(unitPriceCents) || orderItemCents,
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
     },
