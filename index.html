@@ -6098,6 +6098,9 @@
           <div class="detail-price-plain" id="detailAsk"></div>
           <div class="detail-condition" id="detailCondition"></div>
         </div>
+        <!-- Structure 2: buyer pays shipping — flat tier shown upfront,
+             oversize (clubs, bags) quoted live at checkout. -->
+        <div id="detailShipNote" style="font-size:12.5px;color:var(--gray-600);margin:-6px 0 12px;"></div>
         <div class="detail-desc" id="detailDesc"></div>
         <div class="detail-seller" id="detailSeller"></div>
         <canvas id="detailSparkline" height="60" style="margin: 8px 0; display:none"></canvas>
@@ -6352,9 +6355,13 @@
           <span>Buyer fees</span>
           <span>None</span>
         </div>
+        <!-- Structure 2: buyer pays shipping. Flat tiers fill in when the
+             PaymentIntent is created; live-rate categories (clubs, bags)
+             show "—" until the address is complete and
+             updateCheckoutShipping returns the carrier rate. -->
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
           <span>Shipping</span>
-          <span>Free</span>
+          <span id="checkoutShipPrice">—</span>
         </div>
         <hr style="border:none;border-top:1px solid var(--gray-200);margin:8px 0 10px;" />
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
@@ -6461,6 +6468,22 @@ let paymentElement = null;       // the mounted Payment Element
 let addressElement = null;       // shipping AddressElement — required by /privacy.html promise
 let checkoutProduct = null;
 let checkoutClientSecret = null; // PaymentIntent client secret for the open checkout
+// Structure 2 (buyer-paid shipping): per-checkout shipping state.
+// Flat categories arrive fully priced from createPaymentIntent; live-rate
+// categories (clubs, bags) come back shippingPending and Pay stays
+// disabled until updateCheckoutShipping re-prices the PI from the
+// completed address. quoteSeq discards stale quote responses when the
+// buyer edits the address mid-flight.
+let checkoutShipState = null;    // {pending, quoted, paymentIntentId, quoteSeq}
+
+// Flat shipping tiers by category, DISPLAY ONLY — the server
+// (FLAT_SHIPPING_CENTS, functions/shippoIntegration.js) is the source of
+// truth for what's charged; this mirror powers the listing-page
+// "+ $X shipping" line. Categories absent here (clubs, bags) are quoted
+// live at checkout.
+window.FLAT_SHIPPING_DOLLARS_BY_CAT = {
+  apparel: 10, headcovers: 10, accessories: 12, balls: 12, shoes: 14,
+};
 let paymentElementLoading = false; // guard against double-fire on rapid re-clicks
 
 // Handle the redirect-back leg of confirmPayment for payment methods that
@@ -6597,6 +6620,10 @@ async function mountPaymentElement(product) {
       body: JSON.stringify({
         listingId: String(product.id),
         quantity: Number(product.__qty || 1),
+        // Structure 2: tells the server this client renders the shipping
+        // line — without it the charge stays item-only (stale-client
+        // honesty guard) and the platform absorbs the label.
+        shippingAware: true,
       }),
     });
     if (!res.ok) {
@@ -6655,8 +6682,99 @@ async function mountPaymentElement(product) {
       defaultValues: _displayName ? { name: _displayName } : undefined,
     });
     addressElement.mount('#address-element');
+    // Live-rate categories: re-price the PI once the address completes.
+    // The handler no-ops unless checkoutShipState.pending (flat categories
+    // are fully priced at create; the address just rides along at confirm).
+    addressElement.on('change', onCheckoutAddressChange);
+
+    // Hand the server's pricing back to openCheckout so the order summary
+    // shows exactly what the PI will charge.
+    return data;
   } finally {
     paymentElementLoading = false;
+  }
+}
+
+// Structure 2: render the order summary + Pay button from the server's
+// pricing (never from client math). `d` is the createPaymentIntent
+// response — or an updateCheckoutShipping response reshaped by the
+// address handler below. Null (concurrent-mount bail) keeps Pay disabled.
+function renderCheckoutTotals(d) {
+  const fmtC = (c) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const payBtn = document.getElementById('payBtn');
+  const shipEl = document.getElementById('checkoutShipPrice');
+  const totalEl = document.getElementById('checkoutTotal');
+  if (!d) {
+    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Loading…'; }
+    return;
+  }
+  if (d.shippingPending) {
+    // Live-rate category (clubs, bags): exact carrier rate needs the
+    // buyer's address. Pay stays disabled until the re-price lands.
+    checkoutShipState = { pending: true, quoted: false, paymentIntentId: d.paymentIntentId || null, itemCents: d.itemCents, quoteSeq: 0 };
+    if (shipEl) shipEl.textContent = '—';
+    if (totalEl && Number.isFinite(d.itemCents)) totalEl.textContent = fmtC(d.itemCents) + ' + shipping';
+    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Enter address for shipping'; }
+    return;
+  }
+  checkoutShipState = { pending: false, quoted: true };
+  if (shipEl) shipEl.textContent = (Number(d.shippingCents) > 0) ? fmtC(d.shippingCents) : 'Free';
+  if (totalEl && Number.isFinite(d.amountCents)) totalEl.textContent = fmtC(d.amountCents);
+  if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay ' + fmtC(d.amountCents); }
+}
+
+// AddressElement change handler — live-rate re-price. Calls
+// updateCheckoutShipping (plain-block callable pattern: local
+// getFunctions/httpsCallable import) with the PI id + completed address;
+// the server re-quotes and updates the PI amount, we just display what it
+// returns. Stale responses (buyer kept editing) are discarded via quoteSeq.
+async function onCheckoutAddressChange(ev) {
+  const st = checkoutShipState;
+  if (!st || !st.pending) return;
+  const payBtn = document.getElementById('payBtn');
+  const shipEl = document.getElementById('checkoutShipPrice');
+  if (!ev || !ev.complete) {
+    st.quoted = false;
+    st.quoteSeq++; // invalidate any in-flight quote
+    if (shipEl) shipEl.textContent = '—';
+    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Enter address for shipping'; }
+    return;
+  }
+  const seq = ++st.quoteSeq;
+  st.quoted = false;
+  setCheckoutError('');
+  if (shipEl) shipEl.textContent = 'Calculating…';
+  if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Getting shipping rate…'; }
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fn = httpsCallable(getFunctions(), 'updateCheckoutShipping');
+    const res = await fn({
+      paymentIntentId: st.paymentIntentId,
+      toAddress: {
+        name: (ev.value && ev.value.name) || '',
+        address: (ev.value && ev.value.address) || null,
+      },
+    });
+    const d = (res && res.data) || {};
+    if (checkoutShipState !== st || seq !== st.quoteSeq) return; // stale
+    if (!d.ok) throw new Error('Couldn\'t get a shipping rate. Please try again.');
+    renderCheckoutTotals({
+      amountCents: d.amountCents,
+      itemCents: d.itemCents,
+      shippingCents: d.shippingCents,
+      shippingPending: false,
+    });
+  } catch (e) {
+    if (checkoutShipState !== st || seq !== st.quoteSeq) return; // stale
+    // HttpsError messages are already human-readable (e.g. "This seller
+    // hasn't set a ship-from address yet."); fall back for internals.
+    const raw = (e && e.message) || '';
+    setCheckoutError(/internal/i.test(raw) || !raw
+      ? 'Couldn\'t get a shipping rate. Check the address and try again.'
+      : raw);
+    if (shipEl) shipEl.textContent = 'Unavailable';
+    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Shipping unavailable'; }
   }
 }
 
@@ -6807,12 +6925,14 @@ window.openCheckout = async function(productId, qty, opts) {
   // button into a "Try again" so the buyer has an obvious recovery path
   // without having to close + reopen the modal.
   try {
-    await mountPaymentElement(checkoutProduct);
+    const piData = await mountPaymentElement(checkoutProduct);
     // Mounted — hide the loading skeleton and restore the element's min-height.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
-    payBtn.disabled = false;
-    payBtn.textContent = 'Pay ' + fmt(totalDollars);
+    // Structure 2: totals and the Pay label come from the SERVER's pricing
+    // (item + shipping), not from client math — renderCheckoutTotals also
+    // gates Pay while a live-rate category awaits its address quote.
+    renderCheckoutTotals(piData || null);
     payBtn.dataset.action = 'confirm-payment';
   } catch (err) {
     // Mount failed — hide the skeleton so the error message is visible.
@@ -6843,6 +6963,9 @@ window.closeCheckoutDirect = function() {
   }
   stripeElements = null;
   checkoutClientSecret = null;
+  checkoutShipState = null;
+  const _shipEl = document.getElementById('checkoutShipPrice');
+  if (_shipEl) _shipEl.textContent = '—';
   // Reset the Pay button back to its default action so a stale "Try again"
   // state doesn't leak into the next open.
   const _payBtn = document.getElementById('payBtn');
@@ -6858,6 +6981,13 @@ window.confirmPayment = async function() {
   if (!checkoutProduct || !window.CURRENT_USER) return;
   if (!stripeInstance || !stripeElements || !checkoutClientSecret) {
     setCheckoutError('Payment is still loading. Please wait a moment and try again.');
+    return;
+  }
+  // Structure 2: a live-rate PI (clubs, bags) must be re-priced with the
+  // buyer's shipping before it can be paid — the disabled Pay button
+  // enforces this visually; this guard enforces it for any other path in.
+  if (checkoutShipState && checkoutShipState.pending && !checkoutShipState.quoted) {
+    setCheckoutError('Please complete your shipping address so we can price shipping first.');
     return;
   }
   const btn = document.getElementById('payBtn');
@@ -10991,6 +11121,16 @@ async function openDetailModal(id) {
     detailCondEl.style.display = 'none';
   }
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
+  // Structure 2: buyer-paid shipping line under the price. Flat tiers are
+  // mirrored from the server map (display only — the charge always comes
+  // from the server); clubs/bags get a live carrier quote at checkout.
+  const _shipNoteEl = document.getElementById('detailShipNote');
+  if (_shipNoteEl) {
+    const _tier = (window.FLAT_SHIPPING_DOLLARS_BY_CAT || {})[String(p.cat || '').toLowerCase()];
+    _shipNoteEl.textContent = Number.isFinite(_tier)
+      ? `+ $${_tier} shipping`
+      : 'Shipping calculated at checkout';
+  }
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
 
   // Reflect listing status in the action buttons.
