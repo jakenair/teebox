@@ -48,12 +48,12 @@ const config: CapacitorConfig = {
       launchAutoHide: false,
       backgroundColor: '#0b1a0e',
       androidScaleType: 'CENTER_CROP',
-      // Gold spinner to match the web auth-splash spinner (--gold-400 #e0b840),
-      // shown over the #0b1a0e launch screen so there's no seam before the
-      // WKWebView's own #authSplash takes over.
-      showSpinner: true,
-      iosSpinnerStyle: 'large',
-      spinnerColor: '#e0b840',
+      // r208: native spinner OFF. iOS centers the UIActivityIndicator over
+      // the launch image, which lands it on top of the wordmark/tagline —
+      // so cold start showed TWO spinners (this one overlapping the text,
+      // then the web #authSplash ring below it). The web ring is the only
+      // spinner now; the native splash is just the static brand screen.
+      showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
