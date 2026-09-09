@@ -13161,9 +13161,20 @@ function getListingViews(listing) {
   return total;
 }
 
+// Structure 2: order.amount includes the buyer-paid shipping that funds
+// the label — it never belongs in a SELLER's sale/revenue figures. Use the
+// item-only value everywhere the dashboard talks about sales; legacy
+// orders (no itemCents) were item-only already. Buyer-facing surfaces
+// (order confirmation, purchase history) keep the full paid total.
+function orderItemDollars(o) {
+  return (o && o.itemCents != null)
+    ? o.itemCents / 100
+    : Number((o && o.amount) || 0);
+}
+
 function renderShopStats() {
   const { listings, orders } = window.SHOP_DATA;
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + orderItemDollars(o), 0);
   const itemsSold = orders.length;
   const activeListings = listings.filter(l => l.status !== 'sold').length;
   const avgSale = itemsSold > 0 ? totalRevenue / itemsSold : 0;
@@ -13233,7 +13244,7 @@ function renderShopStats() {
     const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : (o.createdAt ? new Date(o.createdAt) : null);
     if (!d) return;
     const t = d.getTime();
-    const amt = Number(o.amount || 0);
+    const amt = orderItemDollars(o);
     if (t >= w0Start && t <= now) { w0Rev += amt; w0Cnt += 1; }
     else if (t >= w1Start && t < w0Start) { w1Rev += amt; w1Cnt += 1; }
   });
@@ -13285,7 +13296,7 @@ function renderAdvancedInsights() {
   const revByListing = {};
   orders.forEach(o => {
     const k = o.listingId || '__unknown';
-    revByListing[k] = (revByListing[k] || 0) + Number(o.amount || 0);
+    revByListing[k] = (revByListing[k] || 0) + orderItemDollars(o);
   });
   const bestEl = document.getElementById('advBestSellers');
   if (bestEl) {
@@ -13351,7 +13362,7 @@ function renderAdvancedInsights() {
         return (d && (!acc || d > acc)) ? d : acc;
       }, null);
       const lastLbl = lastDeliveredDate ? lastDeliveredDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-      const totalPaid = delivered.reduce((s, o) => s + Number(o.amount || 0), 0);
+      const totalPaid = delivered.reduce((s, o) => s + orderItemDollars(o), 0);
       cadEl.innerHTML =
         '<div class="adv-kv-row"><span class="adv-k">Sales / week</span><span class="adv-v">' + perWeek.toFixed(1) + '</span></div>' +
         '<div class="adv-kv-row"><span class="adv-k">Last payout</span><span class="adv-v">' + window.safeText(lastLbl) + '</span></div>' +
@@ -13550,7 +13561,7 @@ function renderShopTables() {
                 </td>
                 <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
                 <td>${shipCell}</td>
-                <td style="font-weight:600;color:var(--up-green)">$${(o.amount || 0).toLocaleString()}</td>
+                <td style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
                 <td class="dash-status">${stageLabel}</td>
                 <td><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${refundBtn}</div></td>
               </tr>`;
@@ -13703,7 +13714,7 @@ async function renderPayouts() {
   let paid30 = 0;      // delivered in last 30 days
   let lifetime = 0;    // delivered all time
   orders.forEach(o => {
-    const amt = Number(o.amount || 0);
+    const amt = orderItemDollars(o);
     const stage = o.fulfillmentStatus || 'awaiting_seller_shipment';
     if (stage === 'shipped') pending += amt;
     if (stage === 'delivered' || stage === 'reviewed') {
@@ -13738,7 +13749,7 @@ async function renderPayouts() {
         <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(listing.brand || '')}</div>
       </td>
       <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
-      <td style="font-weight:600">${escapeHtml(fmt$(o.amount))}</td>
+      <td style="font-weight:600">${escapeHtml(fmt$(orderItemDollars(o)))}</td>
       <td><span class="payout-status ${statusCls}">${statusTxt}</span></td>
     </tr>`;
   }).join('');
@@ -13798,7 +13809,7 @@ function exportPayoutsCsv() {
     const isPaid = stage === 'delivered' || stage === 'reviewed';
     const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
     const dateStr = d ? d.toISOString().slice(0, 10) : '';
-    lines.push([esc(dateStr), esc(title), esc(Number(o.amount || 0).toFixed(2)), esc(isPaid ? 'Paid' : 'Pending')].join(','));
+    lines.push([esc(dateStr), esc(title), esc(orderItemDollars(o).toFixed(2)), esc(isPaid ? 'Paid' : 'Pending')].join(','));
   });
   const csv = lines.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -14102,7 +14113,7 @@ function renderRevenueChart(rangeDays) {
     const d = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
     if (d < startDate) return;
     const key = d.toISOString().slice(0,10);
-    if (key in buckets) buckets[key] += (o.amount || 0);
+    if (key in buckets) buckets[key] += orderItemDollars(o);
   });
 
   const labels = Object.keys(buckets).map(k => {
