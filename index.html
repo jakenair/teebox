@@ -4498,7 +4498,7 @@
         <h4>4. Shipping Obligations</h4>
         Once a sale is confirmed, you agree to ship the item directly to the buyer within 3 business days using a tracked, insured carrier service. Failure to ship may result in refund to the buyer and account suspension.
         <h4>5. Fees</h4>
-        TeeBox charges a seller transaction fee of 8.5% of the item price, deducted automatically from your payout. Shipping is paid by the buyer at checkout and funds the prepaid shipping label &mdash; nothing is deducted from your payout for shipping. The fee may change with 30 days' notice.
+        TeeBox charges a seller transaction fee of 8.5% of the item price, deducted automatically from your payout. Shipping is paid by the buyer at checkout and funds the prepaid shipping label &mdash; nothing is deducted from your payout for shipping. Use the TeeBox label: if you ship on your own instead, the buyer's shipping payment is not passed through to you. The fee may change with 30 days' notice.
         <h4>6. Payouts</h4>
         Payouts are issued to your linked bank account on Stripe's standard payout schedule after a successful sale. Buyers have 7 days from delivery to open a dispute; a confirmed dispute may reverse a payout.
         <h4>7. Disputes &amp; Indemnification</h4>
@@ -6211,6 +6211,14 @@
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
       </div>
       <div id="sellTakeHome" style="display:none;margin:-4px 0 10px;font-size:12.5px;color:var(--gray-700);font-weight:600;"></div>
+      <!-- Structure 2: clubs/bags are quoted live at checkout from the
+           seller's ship-from address — without one, buyers can't check
+           out. Non-blocking prompt, shown by updateSellShipFromNotice()
+           when cat ∈ {clubs, bags} and users/{uid}.shippingFrom is empty. -->
+      <div id="sellShipFromNotice" style="display:none;margin:-2px 0 10px;padding:10px 12px;background:var(--gold-50, #fdf7e7);border:1px solid var(--gold-200, #eddfa8);border-radius:var(--radius-md);font-size:12.5px;color:var(--gray-700);line-height:1.45;">
+        Buyers of clubs and bags get an exact shipping quote from <strong>your ship-from address</strong> — they can't check out until you add it.
+        <button type="button" data-action="open-shipping-settings" style="background:none;border:none;padding:0;color:var(--green-700);font-weight:700;font-size:12.5px;cursor:pointer;text-decoration:underline;">Add it now</button>
+      </div>
       <div class="form-row" id="sellQtyRow" style="display:none">
         <label for="sellQuantity">Quantity</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" />
       </div>
@@ -14306,6 +14314,12 @@ function openSellModal() {
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
       const s = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
       window.__SELLER_TIER = (s.exists() && s.data().tier === 'pro') ? 'pro' : 'free';
+      // Structure 2: live-rate categories (clubs, bags) need the seller's
+      // ship-from before buyers can check out — resolve its presence here
+      // (same doc read) for the sell-form prompt.
+      const sf = (s.exists() && s.data().shippingFrom) || null;
+      window.__SHIP_FROM_SET = !!(sf && (sf.line1 || sf.street1));
+      if (typeof window.updateSellShipFromNotice === 'function') window.updateSellShipFromNotice();
     } catch (_e) { /* keep default */ }
   })();
   // Inline Seller-Terms row: show for not-yet-verified sellers (the merged ToS
@@ -14393,6 +14407,19 @@ function openSellModal() {
         }
       }
     };
+    // Structure 2: show the ship-from prompt when a live-rate category
+    // (clubs, bags) is selected and the seller has no ship-from address.
+    // __SHIP_FROM_SET is resolved at sell-modal open (undefined = still
+    // loading — stay hidden rather than false-alarm).
+    window.updateSellShipFromNotice = () => {
+      const n = document.getElementById('sellShipFromNotice');
+      if (!n) return;
+      const cat = ((document.getElementById('sellCat') || {}).value || '').toLowerCase();
+      const liveRate = cat === 'clubs' || cat === 'bags';
+      n.style.display = (liveRate && window.__SHIP_FROM_SET === false) ? '' : 'none';
+    };
+    const sellCatEl = document.getElementById('sellCat');
+    if (sellCatEl) sellCatEl.addEventListener('change', window.updateSellShipFromNotice);
     if (priceEl) priceEl.addEventListener('input', () => {
       renderTakeHome();
       const v = parseFloat(priceEl.value || '0');
@@ -15500,6 +15527,9 @@ async function saveShippingSettings() {
     const db = getFirestore();
     await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { shippingFrom: payload }, { merge: true });
+    // Clear the sell-form live-rate prompt if it's showing (Structure 2).
+    window.__SHIP_FROM_SET = true;
+    if (typeof window.updateSellShipFromNotice === 'function') window.updateSellShipFromNotice();
     document.getElementById('shippingSettingsBackdrop').classList.remove('open');
     if (window.showToast) showToast('Shipping address saved.', 'success');
   } catch (e) {
