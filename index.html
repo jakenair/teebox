@@ -4416,7 +4416,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r210</span></div>
+        <span class="auth-build" aria-hidden="true">r211</span></div>
     </div>
   </div>
 </div>
@@ -4465,7 +4465,7 @@
 <div class="verify-email-banner" id="verifyEmailBanner" role="region" aria-label="Verify your email">
   <button type="button" class="veb-close" data-action="dismiss-verify-banner" aria-label="Dismiss">×</button>
   <div class="veb-title">Verify your email</div>
-  <div class="veb-body">We sent a confirmation link to <strong id="verifyEmailAddr">your inbox</strong>. Verify to secure your account and keep your notifications on.</div>
+  <div class="veb-body">We sent a confirmation link to <strong id="verifyEmailAddr">your inbox</strong>. Verify to set up payouts and keep your notifications on. <strong>Don&rsquo;t see it? Check your spam or Promotions folder</strong> — or tap Resend below.</div>
   <div class="veb-actions">
     <button type="button" class="veb-btn primary" data-action="resend-verification-email">Resend link</button>
     <button type="button" class="veb-btn secondary" data-action="dismiss-verify-banner">Not now</button>
@@ -8080,7 +8080,7 @@ window.confirmPayment = async function() {
         try {
           const sendVerify = httpsCallable(fns, 'sendBrandedVerification');
           await sendVerify();
-          if (window.showToast) showToast('Verification email sent to ' + email + '. Check your inbox.', 'success');
+          if (window.showToast) showToast('Verification link sent to ' + email + ' — check your inbox, and your spam or Promotions folder if you don\'t see it.', 'success');
         } catch (_) {}
       }
       // onAuthStateChanged fires and dismisses the auth screen.
@@ -20134,7 +20134,7 @@ A['resend-verification-email'] = async () => {
     if (out.alreadyVerified) {
       showToast('Your email is already verified.', 'success');
     } else {
-      showToast('Verification email sent to ' + u.email + '. Check your inbox.', 'success');
+      showToast('Verification link sent to ' + u.email + ' — check your inbox, and your spam or Promotions folder.', 'success');
     }
   } catch (e) {
     const code = e && e.code;
