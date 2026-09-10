@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-04T15:17:46.025Z",
+  "generatedAt": "2026-09-10T01:55:14.228Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 139,
-    "pass": 139,
+    "total": 148,
+    "pass": 148,
     "fail": 0
   },
   "entries": [
@@ -126,6 +126,15 @@
       "problems": []
     },
     {
+      "id": "riviera",
+      "shortName": "Riviera",
+      "localHash": "60434dfa4004a653e89f494cb03eb1fb2135523bc9feadff4ab56dd1e1aa71aa",
+      "localBytes": 18710,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "oakland-hills-south",
       "shortName": "Oakland Hills South",
       "localHash": "90c2fcb9de384d45478c3dc93980747b4469d5d27465ecbf8271dcc4e35ff131",
@@ -234,10 +243,37 @@
       "problems": []
     },
     {
+      "id": "crystal-downs",
+      "shortName": "Crystal Downs",
+      "localHash": "f2d8d0043254cae4a251fa558c5e6ebe178eb6c0a8026d4c44cc3a1626b47e64",
+      "localBytes": 215747,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "prairie-dunes",
       "shortName": "Prairie Dunes",
       "localHash": "96b6065b9b391f6e4bc5b6029e466b3a09b8b2ec5bf551209e601a66e7640e7b",
       "localBytes": 92178,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "quaker-ridge",
+      "shortName": "Quaker Ridge",
+      "localHash": "bd6436bad90bff3f5381960f1fd08e0be22d2d8b230a0abad51ff334ea829dc4",
+      "localBytes": 140400,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "east-lake",
+      "shortName": "East Lake",
+      "localHash": "eb348b35eadb1f6d98252284d2636cd5f45d644c65b63bf2dacefe6b288e8316",
+      "localBytes": 79422,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -256,6 +292,15 @@
       "shortName": "Friar's Head",
       "localHash": "ccd12f7e0569c6d32cc7e0eccd848af6cb21bef92325a231cb0c27b3b3b10dfe",
       "localBytes": 11427,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "somerset-hills",
+      "shortName": "Somerset Hills",
+      "localHash": "aba3028f2796269ef807c57cd92207ffe2508c3b59528e957c7365103097f667",
+      "localBytes": 299230,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -351,6 +396,15 @@
       "problems": []
     },
     {
+      "id": "detroit-golf-club",
+      "shortName": "Detroit Golf Club",
+      "localHash": "7c06e143c5572ca90adc888fcffc63b9c1e8fc15beb6bee35207c236e8761585",
+      "localBytes": 195228,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "muirfield-village",
       "shortName": "Muirfield Village",
       "localHash": "271c99d265f2825ad94494448ff84877f853f39887cf01c2a1acafcf4c6a51ba",
@@ -409,6 +463,15 @@
       "shortName": "Pasatiempo",
       "localHash": "856e5e92e3040b74052c77ba8bfd67ae74cd1b0c492395f9b46f50f1f24f1aa9",
       "localBytes": 39092,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "valley-club-of-montecito",
+      "shortName": "Valley Club",
+      "localHash": "f7b38ace357836fba77b76a322b92645c66cb53fe36302b95bb56e93d452c2be",
+      "localBytes": 53878,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -535,6 +598,15 @@
       "shortName": "Stanwich",
       "localHash": "21316532363e3e6b303a28ef03da41061651396ba9274356b2dff9b98dbf8423",
       "localBytes": 32779,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "crooked-stick",
+      "shortName": "Crooked Stick",
+      "localHash": "fdd4e148d99eb21fb7b8d6bb4da73fe69d8936bc28f9c171b6fa8cdb898950af",
+      "localBytes": 22564,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1255,6 +1327,15 @@
       "shortName": "The Golf Club",
       "localHash": "40ff7df992aef2186778756cdbe66edceffe4048400e60105bcf16ef49e27e69",
       "localBytes": 136817,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "colonial-country-club",
+      "shortName": "Colonial",
+      "localHash": "011f412e6b97c15ff629a99bde6f4dbd655a59749cc7f3e2a7fd07b58445ed6f",
+      "localBytes": 224053,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []

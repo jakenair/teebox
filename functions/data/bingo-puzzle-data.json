@@ -133,9 +133,24 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/inverness.png"
     },
     {
+      "id": "crystal-downs",
+      "shortName": "Crystal Downs",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/crystal-downs.png"
+    },
+    {
       "id": "prairie-dunes",
       "shortName": "Prairie Dunes",
       "logoUrl": "https://teeboxmarket.com/assets/logos/prairie-dunes.png"
+    },
+    {
+      "id": "quaker-ridge",
+      "shortName": "Quaker Ridge",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/quaker-ridge.png"
+    },
+    {
+      "id": "east-lake",
+      "shortName": "East Lake",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/east-lake.png"
     },
     {
       "id": "castle-pines",
@@ -146,6 +161,11 @@
       "id": "friars-head",
       "shortName": "Friar's Head",
       "logoUrl": "https://teeboxmarket.com/assets/logos/friars-head.png"
+    },
+    {
+      "id": "somerset-hills",
+      "shortName": "Somerset Hills",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/somerset-hills.png"
     },
     {
       "id": "maidstone",
@@ -196,6 +216,11 @@
       "id": "garden-city",
       "shortName": "Garden City",
       "logoUrl": "https://teeboxmarket.com/assets/logos/garden-city.png"
+    },
+    {
+      "id": "detroit-golf-club",
+      "shortName": "Detroit Golf Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/detroit-golf-club.png"
     },
     {
       "id": "muirfield-village",
@@ -306,6 +331,11 @@
       "id": "stanwich",
       "shortName": "Stanwich",
       "logoUrl": "https://teeboxmarket.com/assets/logos/stanwich.png"
+    },
+    {
+      "id": "crooked-stick",
+      "shortName": "Crooked Stick",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/crooked-stick.png"
     },
     {
       "id": "liberty-national",
@@ -706,6 +736,11 @@
       "id": "the-golf-club",
       "shortName": "The Golf Club",
       "logoUrl": "https://teeboxmarket.com/assets/logos/the-golf-club.png"
+    },
+    {
+      "id": "colonial-country-club",
+      "shortName": "Colonial",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/colonial-country-club.png"
     }
   ],
   "courseData": {
@@ -923,11 +958,33 @@
         "inverness club"
       ]
     },
+    "crystal-downs": {
+      "name": "Crystal Downs Country Club",
+      "shortName": "Crystal Downs",
+      "aliases": [
+        "crystal downs cc"
+      ]
+    },
     "prairie-dunes": {
       "name": "Prairie Dunes Country Club",
       "shortName": "Prairie Dunes",
       "aliases": [
         "prairie dunes cc"
+      ]
+    },
+    "quaker-ridge": {
+      "name": "Quaker Ridge Golf Club",
+      "shortName": "Quaker Ridge",
+      "aliases": [
+        "quaker ridge gc"
+      ]
+    },
+    "east-lake": {
+      "name": "East Lake Golf Club",
+      "shortName": "East Lake",
+      "aliases": [
+        "east lake gc",
+        "tour championship"
       ]
     },
     "castle-pines": {
@@ -943,6 +1000,13 @@
       "aliases": [
         "friars head",
         "friars head gc"
+      ]
+    },
+    "somerset-hills": {
+      "name": "Somerset Hills Country Club",
+      "shortName": "Somerset Hills",
+      "aliases": [
+        "somerset hills cc"
       ]
     },
     "maidstone": {
@@ -1019,6 +1083,14 @@
       "shortName": "Garden City",
       "aliases": [
         "garden city gc"
+      ]
+    },
+    "detroit-golf-club": {
+      "name": "Detroit Golf Club",
+      "shortName": "Detroit Golf Club",
+      "aliases": [
+        "detroit gc",
+        "rocket mortgage classic"
       ]
     },
     "muirfield-village": {
@@ -1188,6 +1260,13 @@
       "aliases": [
         "stanwich",
         "the stanwich club"
+      ]
+    },
+    "crooked-stick": {
+      "name": "Crooked Stick Golf Club",
+      "shortName": "Crooked Stick",
+      "aliases": [
+        "crooked stick"
       ]
     },
     "liberty-national": {
@@ -1750,9 +1829,19 @@
         "golf club new albany",
         "new albany"
       ]
+    },
+    "colonial-country-club": {
+      "name": "Colonial Country Club",
+      "shortName": "Colonial",
+      "aliases": [
+        "colonial cc",
+        "colonial fort worth",
+        "charles schwab challenge",
+        "hogans alley"
+      ]
     }
   },
-  "generatedAt": "2026-09-09T03:14:41.268Z",
+  "generatedAt": "2026-09-10T01:55:05.047Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

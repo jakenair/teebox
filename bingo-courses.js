@@ -2722,6 +2722,19 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
+  // 2026-09-09 batch (+1 new entry; east-lake/crystal-downs/quaker-ridge/
+  // somerset-hills/crooked-stick/detroit-golf-club already existed, now
+  // eligible with logos added).
+  {
+    id: 'colonial-country-club',
+    name: 'Colonial Country Club',
+    shortName: 'Colonial',
+    aliases: ['colonial cc', 'colonial fort worth', 'charles schwab challenge', 'hogans alley'],
+    location: 'Fort Worth, Texas',
+    architect: 'Perry Maxwell',
+    logo: '',
+    logoUrl: '',
+  },
 ];
 
 // Helper used by the runtime when rendering a tile. Returns either the
