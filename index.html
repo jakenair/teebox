@@ -471,6 +471,10 @@
 
   /* Verification badges (Feature #3) */
   .verified-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--green-600); color: var(--white); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 50px; letter-spacing: 0.3px; vertical-align: middle; }
+  /* Gold-chrome verified-seller badge (Instagram-seal style). */
+  .verified-badge { display: inline-flex; width: 15px; height: 15px; vertical-align: -3px; margin-left: 3px; flex: none; }
+  .verified-badge svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0.5px 0.5px rgba(120,80,0,0.25)); }
+  .verified-badge.lg { width: 20px; height: 20px; }
   .verified-pill.sm { font-size: 10px; padding: 2px 6px; }
 
   /* Pro Seller pill — gold-on-green, sits next to brand on listing cards
@@ -4035,6 +4039,7 @@
 </style>
 </head>
 <body class="is-anon">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="tb-verified-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.45" stop-color="#e6b93f"/><stop offset="0.72" stop-color="#c08a1e"/><stop offset="1" stop-color="#9c6f14"/></linearGradient></defs></svg>
 <script>
   /* r195 (audit W5): mobile WEB gets the r163 search-first header. Set the
      class before first paint / the cat-bar height sync so --cat-bar-h is
@@ -4279,6 +4284,10 @@
   // ─── Inline SVG icon library (no external font / no emojis) ───
   // Each value is a complete <svg> string sized via the .ico CSS class.
   // Using innerHTML with these is safe — they contain no user data.
+  // Verified-seller badge — gold-chrome starburst seal + white check (replaces
+  // the old green "Verified" text pill). References the shared #tb-verified-gold
+  // gradient defined once after <body> (avoids duplicate-id gradient defs).
+  window.VERIFIED_BADGE = '<span class="verified-badge" role="img" aria-label="Verified seller" title="Verified seller"><svg viewBox="0 0 24 24"><path d="M 12 0.6 L 14.41 3.02 L 17.7 2.13 L 18.58 5.42 L 21.87 6.3 L 20.98 9.59 L 23.4 12 L 20.98 14.41 L 21.87 17.7 L 18.58 18.58 L 17.7 21.87 L 14.41 20.98 L 12 23.4 L 9.59 20.98 L 6.3 21.87 L 5.42 18.58 L 2.13 17.7 L 3.02 14.41 L 0.6 12 L 3.02 9.59 L 2.13 6.3 L 5.42 5.42 L 6.3 2.13 L 9.59 3.02 L 12 0.6 Z" fill="url(#tb-verified-gold)" stroke="#8a6110" stroke-width="0.4" stroke-linejoin="round"/><path d="M8.2 12.2 l2.4 2.4 l5-5.2" fill="none" stroke="#fffdf5" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
   window.ICONS = {
     club:      '<svg class="ico" viewBox="0 0 24 24"><path d="M14 4l-9 9.5a2 2 0 002.8 2.8L17.3 7M14 4l3.3 3.3M14 4l4-1 1 1-1 4-3.3-3.3M5 18l1 2 2 1"/></svg>',
     shoe:      '<svg class="ico" viewBox="0 0 24 24"><path d="M3 16h18a0 0 0 010 0v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2zM3 16V9a4 4 0 014-4l3 4 4-1 4 5h2a3 3 0 013 3"/></svg>',
@@ -4416,7 +4425,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r212</span></div>
+        <span class="auth-build" aria-hidden="true">r213</span></div>
     </div>
   </div>
 </div>
@@ -6876,7 +6885,7 @@ window.openCheckout = async function(productId, qty, opts) {
     sellerEl.innerHTML =
       'Sold by <span style="color:var(--gray-700);font-weight:600;">' +
       window.safeText(name) + '</span>' +
-      (verified ? ' <span class="verified-pill sm" title="Completed Stripe identity &amp; payout verification">Verified</span>' : '');
+      (verified ? (' ' + window.VERIFIED_BADGE) : '');
   };
   let _cachedSeller = null;
   try {
@@ -10637,7 +10646,7 @@ async function hydrateVerifiedSellerPills(rootEl) {
       const verified = !!(prof && prof.chargesReady === true);
       if (!verified) return;
       bySeller.get(sid).forEach(slot => {
-        slot.innerHTML = ' <span class="verified-pill sm" title="Completed Stripe identity &amp; payout verification">Verified</span>';
+        slot.innerHTML = (' ' + window.VERIFIED_BADGE);
         // Feature #3: tag the parent product card so the gold ribbon CSS
         // kicks in. Walk up to the closest .product-card — the slot lives
         // inside .product-brand inside .product-body inside .product-card.
@@ -18232,7 +18241,7 @@ function sellerMetaHtml(prof) {
   // Pills. _user.isPro = public isPro mirror; _user.sellerVerified is owner-only
   // (so the Verified pill only shows on the seller's own view — existing behavior).
   if (prof._user && prof._user.isPro) html += ` <span class="pro-pill sm">Pro</span>`;
-  if (prof._user && prof._user.sellerVerified) html += ` <span class="verified-pill sm" title="Verified seller">Verified</span>`;
+  if (prof._user && prof._user.sellerVerified) html += (' ' + window.VERIFIED_BADGE);
   // Fast-responder badge — SURFACE ONLY. Shows when a backend job has set
   // profiles/{uid}.fastResponder=true. That aggregate (median reply time from
   // conversations) is a SEPARATE backend task, flagged — not built here.
@@ -18433,7 +18442,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     badges += `<span class="pro-pill" title="Pro Seller">Pro Seller</span>`;
   }
   if (u.sellerVerified) {
-    badges += `<span class="verified-pill" title="Verified seller">Verified Seller</span>`;
+    badges += (window.VERIFIED_BADGE + ' <span style="font-size:12px;font-weight:700;color:#9c6f14;vertical-align:middle">Verified Seller</span>');
   }
   if (u.phone) {
     badges += `<span class="verify-icon" title="Phone verified">Phone</span>`;
