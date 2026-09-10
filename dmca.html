@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>DMCA Notice &amp; Takedown: TeeBox Market</title>
 <meta name="description" content="TeeBox Market DMCA policy: how copyright owners file a takedown notice, how sellers file a counter-notice, and how trademark and counterfeit reports are handled." />
 <meta name="theme-color" content="#0b1a0e" />
@@ -32,7 +32,9 @@
   header {
     background: var(--green-900);
     color: var(--white);
-    padding: 1.5rem 1.25rem;
+    /* safe-area-inset so the "Back to TeeBox" link clears the notch/
+       Dynamic Island in the iOS in-app WebView (needs viewport-fit=cover). */
+    padding: calc(env(safe-area-inset-top, 0px) + 1.5rem) 1.25rem 1.5rem;
     text-align: center;
   }
   header .logo {
