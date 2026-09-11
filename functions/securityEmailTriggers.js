@@ -307,6 +307,11 @@ const STAMP_FIELD = Object.freeze({
   two_factor_code: "twoFactorCodeLastSentAt",
 });
 
+// Idempotency decision (once-ever vs. windowed) lives in a pure lib so it
+// can be unit-tested without the emulator. See securityEventDedup.js for
+// the full rationale (the 376-email `email_verified` flood).
+const {shouldSkipSecurityEvent} = require("./lib/securityEventDedup");
+
 // ═══════════════════════════════════════════════════════════════════════
 // A. notifySecurityEvent — callable producer
 // ═══════════════════════════════════════════════════════════════════════
@@ -359,11 +364,16 @@ exports.notifySecurityEvent = onCall(
       const stampField = STAMP_FIELD[eventType];
       if (stampField && eventType !== "two_factor_code") {
         const existing = user[stampField];
-        if (existing && existing.toMillis && Date.now() - existing.toMillis() < 60 * 1000) {
+        const stampMillis = existing && existing.toMillis ?
+          existing.toMillis() : null;
+        const {skip, reason} = shouldSkipSecurityEvent({
+          eventType, stampMillis, nowMillis: Date.now(),
+        });
+        if (skip) {
           logger.info(
-              `[notifySecurityEvent] dedupe: ${eventType} fired <60s ago for ${uid}`,
+              `[notifySecurityEvent] ${reason}: ${eventType} for ${uid}`,
           );
-          return {skipped: true, reason: "duplicate"};
+          return {skipped: true, reason};
         }
       }
       if (eventType === "two_factor_code") {
