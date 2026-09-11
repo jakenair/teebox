@@ -1552,6 +1552,13 @@
      read as a plain agreement, not the onboarding flow: swap the title and
      drop the step indicators + "start listing" subtitle. */
   .verify-readonly-title { display: none; }
+  /* The Seller Agreement reuses the verify modal in readonly-mode and is
+     opened from ON TOP of other surfaces — the "Your Profile" sheet
+     (.info-backdrop, z-index 350) and the Sell modal's terms checkbox
+     (.sell-modal-backdrop, z-index 200). At the base verify z-index (300)
+     it rendered BEHIND the profile sheet (invisible). Lift readonly-mode
+     above both; stays below the auth screen (500), which never co-occurs. */
+  .verify-backdrop.readonly-mode { z-index: 420; }
   .verify-backdrop.readonly-mode .verify-readonly-title { display: block; }
   .verify-backdrop:not(.readonly-mode) .verify-readonly-footer { display: none; }
   .verify-readonly-footer { display: flex; padding: 0 1.5rem 1.5rem; }
@@ -4426,7 +4433,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r215</span></div>
+        <span class="auth-build" aria-hidden="true">r216</span></div>
     </div>
   </div>
 </div>
@@ -12645,6 +12652,53 @@ async function openChatFromConversation(conversationId) {
 window.__notifCache = { ts: 0, data: null };
 const NOTIF_CACHE_MS = 30000;
 
+// ── Notification "seen" high-water mark ──────────────────────────────
+// The red bell dot must CLEAR once the user has viewed the panel, and
+// only re-light when something genuinely new arrives. Orders + offers are
+// persistent state (a shipped order sits in the list for days), so
+// counting their mere presence kept the dot lit forever — the exact bug
+// where a "Shipped: awaiting delivery" order never stopped showing unread.
+// Instead we remember the newest activity timestamp the user has seen
+// (per-uid, localStorage) and light the dot for orders/offers only when
+// there is activity newer than that. Messages keep their own unread
+// semantics (they clear when the conversation is read); Stripe action
+// items stay lit until resolved.
+function _notifSeenKey() {
+  const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  return uid ? ('tb_notifSeen_' + uid) : null;
+}
+function getNotifSeenTs() {
+  try { const k = _notifSeenKey(); if (!k) return 0; return Number(localStorage.getItem(k)) || 0; }
+  catch (_e) { return 0; }
+}
+function setNotifSeenTs(ts) {
+  try { const k = _notifSeenKey(); if (k && ts) localStorage.setItem(k, String(ts)); }
+  catch (_e) {}
+}
+function _notifTsMillis(v) {
+  if (!v) return 0;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  const n = new Date(v).getTime();
+  return Number.isFinite(n) ? n : 0;
+}
+// Newest createdAt/respondedAt across orders + offers in the cache.
+function newestNotifActivityTs(data) {
+  let newest = 0;
+  const scan = (arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(o => { newest = Math.max(newest, _notifTsMillis(o.createdAt), _notifTsMillis(o.respondedAt)); });
+  };
+  if (data) { scan(data.orders); scan(data.offers); }
+  return newest;
+}
+// Persist the current newest activity as "seen" — called when the user
+// opens the notifications panel.
+function markNotificationsSeen() {
+  const data = window.__notifCache && window.__notifCache.data;
+  const newest = newestNotifActivityTs(data);
+  if (newest) setNotifSeenTs(newest);
+}
+
 function openNotifications() {
   const panel = document.getElementById('notifPanel');
   const btn = document.getElementById('navNotifBtn');
@@ -12656,7 +12710,9 @@ function openNotifications() {
   if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
     (document.getElementById('app-scroll')||document.body).style.overflowY = 'hidden';
   }
-  loadNotifications();
+  // Opening the panel = the user has seen the current activity. Mark the
+  // newest order/offer as seen once the data resolves, then clear the dot.
+  loadNotifications().then(() => { markNotificationsSeen(); refreshNotifDot(); }).catch(() => {});
 }
 
 function closeNotifications() {
@@ -13021,14 +13077,19 @@ function renderNotifSection({ title, result, errorMsg, emptyMsg, rowsHtml }) {
 
 function refreshNotifDot() {
   const data = window.__notifCache.data;
-  let unread = 0;
+  let dot = false;
   if (data) {
-    if (Array.isArray(data.offers))   unread += data.offers.length;
-    if (Array.isArray(data.orders))   unread += data.orders.length;
-    if (Array.isArray(data.messages)) unread += data.messages.length;
-    if (data.stripe && data.stripe.needsAction) unread += 1;
+    // Messages carry their own unread state — they clear when the
+    // conversation is read, so count their presence directly.
+    if (Array.isArray(data.messages) && data.messages.length) dot = true;
+    // Stripe action items are a real to-do; keep the dot lit until resolved.
+    if (data.stripe && data.stripe.needsAction) dot = true;
+    // Orders + offers are persistent state: light the dot only for
+    // activity NEWER than the last time the user opened the panel, so
+    // viewing clears it and a genuinely new order/offer re-lights it.
+    if (newestNotifActivityTs(data) > getNotifSeenTs()) dot = true;
   }
-  document.querySelectorAll('.notif-dot').forEach(d => d.classList.toggle('active', unread > 0));
+  document.querySelectorAll('.notif-dot').forEach(d => d.classList.toggle('active', dot));
 }
 
 // Bust the notif cache + kick a background refresh so the red dot
