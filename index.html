@@ -4433,7 +4433,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r216</span></div>
+        <span class="auth-build" aria-hidden="true">r217</span></div>
     </div>
   </div>
 </div>
@@ -15301,13 +15301,18 @@ async function loadOrdersList() {
     // Chevron separators come from CSS (.stage + .stage::before) — never
     // loose text nodes that wrap orphaned.
     const tracker = stages.map((s, i) => `<span class="stage ${i <= stageIdx ? 'on' : ''}">${s.label}</span>`).join('');
-    const trackingLink = trackingUrlFor(o.carrier, o.trackingNumber);
+    // Prefer trackingCarrier (auto-detected from the number — ground truth)
+    // over carrier (a seller dropdown that defaults to USPS and can disagree
+    // with the actual number). trackingUrlFor falls back to a plain search
+    // when neither resolves to a known carrier.
+    const linkCarrier = o.trackingCarrier || o.carrier;
+    const trackingLink = trackingUrlFor(linkCarrier, o.trackingNumber);
     const tracking = o.trackingNumber
       ? `<div class="order-tracking">Tracking:
           <a href="${window.safeAttr(trackingLink)}" target="_blank" rel="noopener noreferrer"
              style="color:var(--green-700);font-weight:600;text-decoration:underline;">
              ${window.safeText(o.trackingNumber)}
-          </a>${o.carrier ? ' · ' + window.safeText(o.carrier) : ''}
+          </a>${linkCarrier ? ' · ' + window.safeText(linkCarrier) : ''}
         </div>`
       : '';
     const deliveryBtn = stage === 'shipped'
@@ -15455,9 +15460,14 @@ async function confirmShip() {
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
     const fns = getFunctions();
+    // Write-time root-cause fix: store the number-detected carrier as the
+    // authoritative `carrier` too, so a stale dropdown default (USPS) can't
+    // disagree with the tracking number the way it did on order
+    // pi_3UBp2g… (carrier=USPS but a FedEx number). trackingCarrier is
+    // result.detected (always set once validateTrackingNumber passes).
     await httpsCallable(fns, 'markOrderShipped')({
       orderId,
-      carrier: String(carrier).slice(0, 20),
+      carrier: String(trackingCarrier).slice(0, 20),
       trackingCarrier: trackingCarrier,
       trackingNumber: tracking.slice(0, 60),
     });
