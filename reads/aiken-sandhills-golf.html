@@ -131,7 +131,9 @@
   .site-header {
     background: var(--green-950);
     color: var(--white);
-    padding: 1.1rem 1.5rem;
+    /* safe-area-inset so the header clears the status bar/notch in the iOS
+       in-app WebView (viewport-fit=cover already set). */
+    padding: calc(env(safe-area-inset-top, 0px) + 1.1rem) 1.5rem 1.1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
