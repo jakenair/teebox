@@ -371,7 +371,7 @@ exports.createPaymentIntent = onRequest(
     // shipping line in its order summary. Absent (stale/legacy client) the
     // charge stays item-only — charging more than the buyer's UI shows is
     // never acceptable — and we alert for visibility on the stale tail.
-    const {listingId, quantity, shippingAware} = req.body || {};
+    const {listingId, quantity, shippingAware, offerId} = req.body || {};
     if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
       return res.status(400).json({error: "Missing or invalid listingId"});
     }
@@ -381,6 +381,56 @@ exports.createPaymentIntent = onRequest(
 
     const db = admin.firestore();
     const listingRef = db.collection("listings").doc(listingId);
+
+    // ── Offer-priced checkout (accept-and-pay) ──
+    // When the buyer is paying an offer the seller agreed to, the price
+    // comes from the frozen offer doc, NOT listing.ask. PAYMENT IS THE
+    // ACCEPTANCE — no buyer-side status write is needed (or allowed by
+    // rules); the server is the sole price authority:
+    //   status 'accepted'  → buyer pays offer.amount (seller took the offer)
+    //   status 'countered' → buyer pays offer.counterAmount (accepts counter)
+    // Any other state (pending/declined/expired) is not payable. The offer
+    // doc is immutable once it leaves 'pending' (rules only permit updates
+    // while pending), so amount/counterAmount can't shift under us — a
+    // pre-transaction read is safe. Offers are always single-unit.
+    let offerPriceCents = null;
+    let validatedOfferId = null;
+    if (offerId != null) {
+      if (typeof offerId !== "string" || offerId.length > 128) {
+        return res.status(400).json({error: "Invalid offerId"});
+      }
+      const offerSnap = await db.collection("offers").doc(offerId).get();
+      if (!offerSnap.exists) {
+        return res.status(404).json({error: "Offer not found"});
+      }
+      const offer = offerSnap.data() || {};
+      if (offer.buyerId !== buyerId) {
+        return res.status(403).json({error: "This offer isn't yours"});
+      }
+      if (offer.listingId !== listingId) {
+        return res.status(400).json(
+            {error: "Offer doesn't match this listing"});
+      }
+      if (offer.fulfilledOrderId) {
+        return res.status(409).json(
+            {error: "This offer was already used for a purchase."});
+      }
+      let agreedDollars = null;
+      if (offer.status === "accepted") {
+        agreedDollars = Number(offer.amount);
+      } else if (offer.status === "countered") {
+        agreedDollars = Number(offer.counterAmount);
+      } else {
+        return res.status(409).json(
+            {error: "This offer isn't ready for checkout yet."});
+      }
+      if (!Number.isFinite(agreedDollars) || agreedDollars <= 0) {
+        return res.status(400).json({error: "Offer has an invalid amount"});
+      }
+      offerPriceCents = Math.round(agreedDollars * 100);
+      validatedOfferId = offerId;
+      qty = 1; // Offers are always single-unit.
+    }
 
     try {
       // Per-UID rate limit: 60 req / rolling 60s. Stripe idempotency
@@ -448,7 +498,12 @@ exports.createPaymentIntent = onRequest(
           );
         }
 
-        const unitPriceCents = Math.round(Number(listing.ask) * 100);
+        // Offer-priced checkout overrides the sticker with the frozen,
+        // server-validated offer amount; otherwise use the listing ask.
+        // Both flow through the same fee + shipping math below.
+        const unitPriceCents = offerPriceCents != null
+          ? offerPriceCents
+          : Math.round(Number(listing.ask) * 100);
         if (!Number.isFinite(unitPriceCents) || unitPriceCents <= 0) {
           throw new HttpError(500, "Listing has invalid price");
         }
@@ -672,6 +727,9 @@ exports.createPaymentIntent = onRequest(
               shippingCents: String(shippingCents),
               shippingMethod,
               ...(shippingPending ? {shippingPending: "1"} : {}),
+              // Offer-priced checkout: carry the offer id so the webhook
+              // can stamp it fulfilled and block a second use.
+              ...(validatedOfferId ? {offerId: validatedOfferId} : {}),
             },
           },
           {idempotencyKey}
@@ -1527,6 +1585,7 @@ async function handlePaymentSucceeded(pi) {
     shippingCents,
     shippingMethod,
     shippingPending,
+    offerId,
   } = pi.metadata || {};
   const orderQty = Math.max(1, parseInt(quantity || "1", 10));
   // Structure 2: pi.amount = item + shipping. Item-only value drives the
@@ -1660,6 +1719,25 @@ async function handlePaymentSucceeded(pi) {
 
   // Early-out on redelivery so we never double-count rollups.
   if (alreadyProcessed) return;
+
+  // Offer-priced checkout: stamp the offer fulfilled so it can't be
+  // reused for a second discounted purchase. createPaymentIntent already
+  // refuses an offer carrying fulfilledOrderId; this closes the loop on
+  // success. Best-effort — the order is already committed, and for the
+  // common single-unit listing the sold/pending guard is the hard stop.
+  if (offerId) {
+    try {
+      await db.collection("offers").doc(offerId).set({
+        fulfilledOrderId: pi.id,
+        status: "fulfilled",
+        fulfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    } catch (offerErr) {
+      logger.warn(
+          `handlePaymentSucceeded: offer ${offerId} fulfill-stamp failed`,
+          offerErr);
+    }
+  }
 
   // After the order/listing transaction commits, append the sale to
   // the public priceHistory document for this model so the detail

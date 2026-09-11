@@ -365,12 +365,13 @@
   .review-report-btn:hover { color: var(--red-500); }
   .ico.ico-fill { fill: currentColor; stroke: none; }
   /* Make-an-offer (Feature #14) */
-  /* TEMP: offer-payment flow not yet wired (createPaymentIntent always
-     uses listing.ask, never the accepted offer amount). Hide every UI
-     entry point that would let a buyer/seller create or accept a new
-     offer. Existing offer data stays viewable. Flip this off when the
-     accept-offer → buyer-pays flow ships. */
-  [data-feature="offers"] { display: none !important; }
+  /* Offers are LIVE (r215): buyer makes an offer → seller accepts /
+     counters / declines → buyer pays the agreed price at checkout
+     (createPaymentIntent prices from the frozen offer, not listing.ask;
+     first-to-pay-wins, no reservation lock). The old
+     `[data-feature="offers"] { display:none }` kill-switch that hid every
+     entry point is removed. To re-hide the whole feature in an emergency,
+     restore that one rule. */
   .btn-make-offer { background: var(--white); color: var(--gold-600, #b88a00); border: 1.5px solid var(--gold-500, #d6a900); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-make-offer:hover { background: var(--gold-50, #fff8dc); }
   .btn-make-offer:disabled { background: var(--gray-400); color: var(--white); border-color: var(--gray-400); cursor: not-allowed; }
@@ -4425,7 +4426,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r213</span></div>
+        <span class="auth-build" aria-hidden="true">r215</span></div>
     </div>
   </div>
 </div>
@@ -6129,6 +6130,10 @@
                only when the signed-in user owns this listing. -->
           <button id="detailEditListingBtn" class="btn-link-muted" data-action="edit-listing" style="display:none;background:var(--green-50);border:1px solid var(--green-200);color:var(--green-700);font-size:13px;font-weight:600;padding:9px;border-radius:var(--radius-md);width:100%;cursor:pointer;margin-bottom:6px;">Edit listing</button>
           <button class="btn-buy-now" id="detailBuyNowBtn" data-action="detail-buy-now">Buy Now</button>
+          <!-- Make Offer — buyer pitches a price; seller accepts/counters/
+               declines. openDetailModal hides this on the viewer's own
+               listing and on sold/pending items (like Buy Now). -->
+          <button class="btn-make-offer" id="detailMakeOfferBtn" data-action="make-offer" data-feature="offers" style="margin-top:8px;">Make Offer</button>
           <!-- r175: protection reassurance is one muted line UNDER the buy
                button — the tinted box above it is gone. -->
           <div class="detail-trust-strip" aria-label="Dispute window">
@@ -6641,6 +6646,9 @@ async function mountPaymentElement(product) {
         // line — without it the charge stays item-only (stale-client
         // honesty guard) and the platform absorbs the label.
         shippingAware: true,
+        // Offer-priced checkout: when present the server prices the item
+        // from the frozen offer (never listing.ask) and forces qty 1.
+        ...(product.__offerId ? { offerId: String(product.__offerId) } : {}),
       }),
     });
     if (!res.ok) {
@@ -6808,7 +6816,7 @@ window.openCheckout = async function(productId, qty, opts) {
   // Guest gate: surface the polished sign-in prompt and remember the
   // user's intent so we can replay openCheckout() after they sign in.
   if (typeof window.requireAuth === 'function') {
-    if (!window.requireAuth('to buy this listing', () => window.openCheckout(productId, qty))) return;
+    if (!window.requireAuth('to buy this listing', () => window.openCheckout(productId, qty, opts))) return;
   } else if (!window.CURRENT_USER) {
     showToast('Please sign in to purchase.');
     return;
@@ -6827,10 +6835,20 @@ window.openCheckout = async function(productId, qty, opts) {
   if (window.isListingPendingNow && window.isListingPendingNow(p)) { showToast('Another buyer is checking out. Try again in a few minutes.'); return; }
 
   // Quantity comes from the detail modal stepper. Default 1; cap at remaining stock.
+  // Offer-priced checkout is always single-unit and its price comes from
+  // the agreed offer amount, not the sticker (the server re-validates both).
+  const isOfferBuy = !!(opts && opts.offerId);
   const totalQty = Math.max(1, Number(p.quantity || 1));
   const remaining = Math.max(1, totalQty - Math.max(0, Number(p.quantitySold || 0)));
-  const requestedQty = Math.min(remaining, Math.max(1, Number(qty || 1)));
+  const requestedQty = isOfferBuy ? 1 : Math.min(remaining, Math.max(1, Number(qty || 1)));
   checkoutProduct = Object.assign({}, p, { __qty: requestedQty });
+  if (isOfferBuy) {
+    checkoutProduct.__offerId = String(opts.offerId);
+    // Display the agreed offer price in the order summary. The server is
+    // authoritative — this only keeps the modal's item line honest.
+    const offerAmt = Number(opts.offerAmount);
+    if (Number.isFinite(offerAmt) && offerAmt > 0) checkoutProduct.ask = offerAmt;
+  }
   // Mirror onto window so action handlers in sibling <script> tags
   // (e.g. retry-checkout) can re-open the same product without re-querying.
   window.checkoutProduct = checkoutProduct;
@@ -11173,6 +11191,13 @@ async function openDetailModal(id) {
     // listing instead of failing with a post-tap "can't message yourself".
     msgBtn.disabled = false;
     msgBtn.style.display = isOwnListing ? 'none' : '';
+  }
+  // Make Offer — same visibility rules as Buy Now: hidden on your own
+  // listing, on sold/pending items, and on demo listings (no real id).
+  const makeOfferBtn = document.getElementById('detailMakeOfferBtn');
+  if (makeOfferBtn) {
+    const offerable = !locked && typeof p.id === 'string' && !!p.sellerId;
+    makeOfferBtn.style.display = offerable ? '' : 'none';
   }
   // Reset the not-buyable note on every open; the async seller-profile check
   // (below, in loadProfile().then) re-shows it when the seller isn't
@@ -15712,12 +15737,6 @@ window.__actions['delete-saved-search'] = (el) => deleteSavedSearchV2(el.dataset
 //   - Decline writes status='declined' (with confirm).
 let __pendingOfferListing = null;
 function openMakeOfferModal() {
-  // TEMP: offer-payment flow not yet wired — short-circuit so any stale
-  // entry point (deeplink, programmatic call, leftover cached UI) can't
-  // create a new offer that would land in a half-built accept-pay flow.
-  showToast('Offers are temporarily paused while we upgrade checkout. Coming soon.');
-  return;
-  // eslint-disable-next-line no-unreachable
   if (typeof window.requireAuth === 'function') {
     if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return;
   } else if (!window.CURRENT_USER) { showToast('Sign in to make an offer.'); return; }
@@ -15808,6 +15827,39 @@ async function submitOffer() {
 window.openMakeOfferModal = openMakeOfferModal;
 window.submitOffer = submitOffer;
 
+// Buyer pays an offer the seller agreed to (accepted or countered).
+// Payment IS the acceptance — no separate status write. We ensure the
+// listing is available to openCheckout (it may not be in the current
+// feed if the buyer reached this from "My Offers"), then hand off with
+// the offer context. The server re-validates the offer + prices it.
+async function payOffer(offerId, listingId, agreedAmount) {
+  if (typeof window.requireAuth === 'function') {
+    if (!window.requireAuth('to complete your purchase', () => payOffer(offerId, listingId, agreedAmount))) return;
+  } else if (!window.CURRENT_USER) { showToast('Sign in to complete your purchase.'); return; }
+  if (!offerId || !listingId) { showToast('Could not open checkout for this offer.'); return; }
+  try {
+    // Make sure the listing is in window.PRODUCTS so openCheckout can find it.
+    let p = (window.PRODUCTS || []).find(x => String(x.id) === String(listingId));
+    if (!p) {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const snap = await getDoc(doc(getFirestore(), 'listings', String(listingId)));
+      if (!snap.exists()) { showToast('That listing is no longer available.'); return; }
+      p = { id: snap.id, ...snap.data() };
+      window.PRODUCTS = window.PRODUCTS || [];
+      if (!window.PRODUCTS.some(x => String(x.id) === String(p.id))) window.PRODUCTS.push(p);
+    }
+    if (p.status === 'sold') { showToast('This item has already sold.'); return; }
+    // Close any open offer modals before the checkout sheet opens.
+    document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+    window.openCheckout(String(listingId), 1, { offerId: String(offerId), offerAmount: Number(agreedAmount) || undefined });
+  } catch (e) {
+    console.error('payOffer failed:', e);
+    showToast('Could not open checkout for this offer.');
+  }
+}
+window.payOffer = payOffer;
+
 async function loadSellerOffers() {
   if (!window.CURRENT_USER) return [];
   try {
@@ -15868,13 +15920,8 @@ async function renderSellerOffers() {
     if (offers.length) { badge.textContent = String(offers.length); badge.style.display = 'inline-block'; }
     else { badge.style.display = 'none'; }
   }
-  // TEMP: offer-payment flow not yet wired — show a paused banner at
-  // the top of the seller's Offers tab. Existing offers stay visible
-  // (so data isn't lost) but the per-row Accept/Counter buttons are
-  // hidden via [data-feature="offers"] below.
-  const pausedBanner = '<div class="dash-empty" style="background:var(--gold-50,#fff8dc);border:1px solid var(--gold-500,#d6a900);color:var(--gray-800);text-align:left;padding:12px 14px;margin-bottom:12px"><div style="font-weight:600;margin-bottom:4px">Offers temporarily paused</div>We are upgrading the accept-and-pay flow. Pending offers below stay visible; new offers and acceptances are paused for now.</div>';
   if (!offers.length) {
-    el.innerHTML = pausedBanner + '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No pending offers</div>Offers are temporarily paused while we upgrade checkout.</div>';
+    el.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No pending offers</div>When a buyer offers on one of your listings, it shows up here to Accept, Counter, or Decline.</div>';
     return;
   }
   // Build buyer-name resolution + listing snapshot in parallel.
@@ -15927,24 +15974,15 @@ async function renderSellerOffers() {
         <button class="btn-counter" data-action="counter-offer" data-offer-id="${id}" data-amount="${Number(o.amount||0)}">Counter</button>
         <button class="btn-decline" data-action="decline-offer" data-offer-id="${id}">Decline</button>
       </div>
-      <div class="dash-empty" style="grid-column:1/-1;padding:8px 0 0;font-size:12.5px;color:var(--gray-500);text-align:left">Offers paused. Coming soon.</div>
     </div>`;
   }).join('');
-  el.innerHTML = pausedBanner + rows;
+  el.innerHTML = rows;
 }
 window.renderSellerOffers = renderSellerOffers;
 
 async function acceptOffer(offerId, listingId, buyerId, amount) {
-  // TEMP: the accept-offer → buyer-pays flow is half-built
-  // (createPaymentIntent always uses listing.ask, never the accepted
-  // offer amount). Block acceptance until that's wired so a seller
-  // doesn't get stuck on the placeholder "Pay here: [checkout link
-  // will appear after we wire Stripe…]" chat message.
-  showToast('Offers paused. Coming soon. We are upgrading the accept-and-pay flow.');
-  return;
-  // eslint-disable-next-line no-unreachable
   if (!window.CURRENT_USER || !offerId) return;
-  if (!confirm(`Accept this $${Number(amount).toLocaleString()} offer? We'll open a chat with the buyer with checkout instructions.`)) return;
+  if (!confirm(`Accept this $${Number(amount).toLocaleString()} offer? The buyer will be able to pay this price right away — the listing stays live until someone pays.`)) return;
   try {
     const { getFirestore, doc, updateDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -15954,11 +15992,12 @@ async function acceptOffer(offerId, listingId, buyerId, amount) {
       respondedAt: serverTimestamp(),
     });
     invalidateNotifCache();
-    showToast('Offer accepted. Opening chat with buyer…', 'success');
-    // Open conversation; auto-prefill checkout text.
+    showToast('Offer accepted. The buyer can pay now — we notified them.', 'success');
+    // Let the buyer know it's ready to pay (in-app chat context, best-effort).
+    // The buyer's own "My Offers" now shows a Pay button; this is just a nudge.
     if (listingId && buyerId) {
       try {
-        await openChatForListingAsSeller(listingId, buyerId, `Your $${Number(amount).toLocaleString()} offer is accepted! Pay here: [checkout link will appear after we wire Stripe in the next sprint].`);
+        await openChatForListingAsSeller(listingId, buyerId, `Your $${Number(amount).toLocaleString()} offer is accepted — open "My Offers" to pay and I'll ship it out.`);
       } catch (_e) { /* fallback: just toast */ }
     }
     renderSellerOffers();
@@ -16126,7 +16165,7 @@ async function openMyOffers() {
         });
     }
     if (!offers.length) {
-      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No offers yet. Offers are temporarily paused while we upgrade checkout &mdash; they\'ll be back soon.</div>';
+      body.innerHTML = '<div class="profile-loading" style="padding:2rem">No offers yet. Find something you like and tap <strong>Make Offer</strong> to send the seller a price.</div>';
       return;
     }
     // Resolve listing snapshots
@@ -16148,21 +16187,30 @@ async function openMyOffers() {
       const status = o.status || 'pending';
       const statusCls = status === 'accepted' ? 'accepted' : status === 'declined' ? 'declined' : status === 'countered' ? 'countered' : '';
       const id = window.safeAttr(window.safeId(o.id));
-      const counterRow = status === 'countered' && o.counterAmount
+      const lid = window.safeAttr(window.safeId(o.listingId));
+      // Accepted → Pay button (payment IS the acceptance server-side).
+      // Countered → Accept-$X pays the counter; Walk away lets it expire.
+      const actionRow = status === 'accepted'
         ? `<div class="offer-actions" data-feature="offers">
-            <button class="btn-accept"  data-action="accept-counter"  data-offer-id="${id}">Accept $${Number(o.counterAmount).toLocaleString()}</button>
-            <button class="btn-decline" data-action="decline-counter" data-offer-id="${id}">Walk away</button>
+            <button class="btn-accept" data-action="pay-offer" data-offer-id="${id}" data-listing-id="${lid}" data-amount="${Number(o.amount||0)}">Pay $${Number(o.amount||0).toLocaleString()}</button>
            </div>`
-        : '';
+        : (status === 'countered' && o.counterAmount)
+          ? `<div class="offer-actions" data-feature="offers">
+              <button class="btn-accept"  data-action="accept-counter"  data-offer-id="${id}">Accept $${Number(o.counterAmount).toLocaleString()}</button>
+              <button class="btn-decline" data-action="decline-counter" data-offer-id="${id}">Walk away</button>
+             </div>`
+          : '';
       const subText = status === 'pending'
         ? `Awaiting seller · ${window.safeText(timeRemaining(o.expiresAt))}`
         : status === 'accepted'
-          ? 'Accepted. Check your messages for checkout details.'
-          : status === 'declined'
-            ? 'Declined by seller.'
-            : status === 'countered'
-              ? `Seller countered $${Number(o.counterAmount || 0).toLocaleString()}`
-              : status;
+          ? 'Accepted — pay now to lock it in (plus shipping).'
+          : status === 'fulfilled'
+            ? 'Purchased ✓ — check your orders.'
+            : status === 'declined'
+              ? 'Declined by seller.'
+              : status === 'countered'
+                ? `Seller countered $${Number(o.counterAmount || 0).toLocaleString()}`
+                : status;
       return `<div class="offer-row">
         <div class="offer-img">${img}</div>
         <div class="offer-meta">
@@ -16173,7 +16221,7 @@ async function openMyOffers() {
           <div class="offer-amt">$${Number(o.amount || 0).toLocaleString()}</div>
           <span class="offer-status-pill ${statusCls}">${window.safeText(status)}</span>
         </div>
-        ${counterRow}
+        ${actionRow}
       </div>`;
     }).join('');
   } catch (e) {
@@ -16184,41 +16232,24 @@ async function openMyOffers() {
 window.openMyOffers = openMyOffers;
 
 async function acceptCounter(offerId) {
-  // TEMP: counter-accept routes into the same broken accept-pay flow
-  // as acceptOffer. Block it until checkout is wired to the offer
-  // amount (today createPaymentIntent always uses listing.ask).
-  showToast('Offers paused. Coming soon. We are upgrading the accept-and-pay flow.');
-  return;
-  // eslint-disable-next-line no-unreachable
+  // Accepting a counter = paying it. Payment IS the acceptance (the buyer
+  // can't write offer status under the rules; the server prices the
+  // 'countered' offer at counterAmount and stamps it fulfilled on success).
   if (!window.CURRENT_USER || !offerId) return;
-  if (!confirm("Accept the seller's counter? We'll open a chat with checkout details.")) return;
   try {
-    const { getFirestore, doc, getDoc, updateDoc, serverTimestamp } =
+    const { getFirestore, doc, getDoc } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const offSnap = await getDoc(doc(db, 'offers', offerId));
-    if (!offSnap.exists()) return;
-    // Buyer can't write status='accepted' under current rules, so we
-    // signal acceptance by sending the seller a message via the chat
-    // and let the seller flip status to accepted from their side.
+    if (!offSnap.exists()) { showToast('That offer is no longer available.'); return; }
     const off = offSnap.data();
     const counter = Number(off.counterAmount || 0);
-    showToast('Telling the seller you accept…');
-    try {
-      // Reuse existing buyer chat path
-      await openChatForListing(off.listingId);
-      // Wait a tick then send a message
-      setTimeout(async () => {
-        const input = document.getElementById('chatInput');
-        if (input) {
-          input.value = `I accept your $${counter.toLocaleString()} counter — ready to pay.`;
-          if (typeof sendMessage === 'function') sendMessage();
-        }
-      }, 600);
-    } catch (_e) {}
+    if (!(counter > 0)) { showToast('That counter is no longer valid.'); return; }
+    if (!confirm(`Accept the seller's $${counter.toLocaleString()} counter and pay now? (Plus shipping.)`)) return;
+    await payOffer(offerId, off.listingId, counter);
   } catch (e) {
     console.error('acceptCounter failed:', e);
-    showToast('Could not accept counter.');
+    showToast('Could not open checkout for this counter.');
   }
 }
 window.acceptCounter = acceptCounter;
@@ -16232,6 +16263,23 @@ async function declineCounter(offerId) {
   document.getElementById('myOffersBackdrop').classList.remove('open');
 }
 window.declineCounter = declineCounter;
+
+// ── Wire the offer buttons into the delegated action dispatch. These
+// were authored long ago but never registered (the feature shipped
+// hidden behind [data-feature="offers"]); registering them here is what
+// turns the make/accept/counter/decline/pay buttons live. Handlers read
+// their args from the button's data-* attributes.
+window.__actions = window.__actions || {};
+window.__actions['make-offer']            = function()   { openMakeOfferModal(); };
+window.__actions['submit-offer']          = function()   { submitOffer(); };
+window.__actions['open-my-offers']        = function()   { openMyOffers(); };
+window.__actions['confirm-counter-offer'] = function()   { confirmCounterOffer(); };
+window.__actions['accept-offer']          = function(el) { acceptOffer(el.dataset.offerId, el.dataset.listingId, el.dataset.buyerId, Number(el.dataset.amount)); };
+window.__actions['counter-offer']         = function(el) { openCounterOffer(el.dataset.offerId, Number(el.dataset.amount)); };
+window.__actions['decline-offer']         = function(el) { declineOffer(el.dataset.offerId); };
+window.__actions['accept-counter']        = function(el) { acceptCounter(el.dataset.offerId); };
+window.__actions['decline-counter']       = function(el) { declineCounter(el.dataset.offerId); };
+window.__actions['pay-offer']             = function(el) { payOffer(el.dataset.offerId, el.dataset.listingId, Number(el.dataset.amount)); };
 
 // ═════════════════════════════════════════════════════════════
 // FEATURE #15 — SAVED SEARCHES (top-level v1.1 collection w/ alerts)
