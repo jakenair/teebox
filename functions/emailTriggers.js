@@ -425,7 +425,9 @@ exports.onOrderShippingStatusEmail = onDocumentUpdated(
       const order = {id: event.params.orderId, ...after};
       const {buyer, seller, listing} = await loadOrderParties(order);
       const tracking = {
-        carrier: after.carrier,
+        // Prefer the number-detected carrier over the seller dropdown
+        // (which defaults to USPS and can disagree with the number).
+        carrier: after.trackingCarrier || after.carrier,
         number: after.trackingNumber,
         publicUrl: after.trackingUrl,
         eta: after.estimatedDelivery,

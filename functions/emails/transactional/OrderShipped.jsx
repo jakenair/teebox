@@ -3,13 +3,36 @@ const {
   Base, Button, H1, P, Kicker, ProductRow, InfoBlock,
 } = require("../layout/Base");
 
+// Build the carrier's public tracking URL from a carrier name + number.
+// Mirrors the client trackingUrlFor() so the email's "Track package" button
+// deep-links to the real carrier (USPS/UPS/FedEx/DHL) instead of a TeeBox
+// page. Falls back to a plain search when the carrier isn't recognized.
+function carrierTrackUrl(carrier, number) {
+  if (!number) return null;
+  const c = String(carrier || "").toLowerCase();
+  const tn = encodeURIComponent(number);
+  if (c.includes("usps")) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${tn}`;
+  if (c.includes("ups")) return `https://www.ups.com/track?tracknum=${tn}`;
+  if (c.includes("fedex")) return `https://www.fedex.com/fedextrack/?trknbr=${tn}`;
+  if (c.includes("dhl")) return `https://www.dhl.com/us-en/home/tracking/tracking-parcel.html?tracking-id=${tn}`;
+  return `https://www.google.com/search?q=${encodeURIComponent((carrier || "") + " tracking " + number)}`;
+}
+
 function OrderShipped({order = {}, buyer = {}, listing = {}, tracking = {}}) {
   const orderId = order.id || "—";
   const title = listing.title || "your item";
-  const carrier = tracking.carrier || order.carrier || "the carrier";
+  // Prefer the number-detected carrier (trackingCarrier) over the seller
+  // dropdown (order.carrier), which defaults to USPS and can be wrong.
+  const carrier = tracking.carrier || order.trackingCarrier || order.carrier || "the carrier";
   const trackingNumber = tracking.number || order.trackingNumber || "—";
   const eta = tracking.eta || order.estimatedDelivery || null;
-  const trackUrl = tracking.publicUrl || `https://teeboxmarket.com/orders/${orderId}`;
+  // A Shippo label sets tracking.publicUrl; otherwise deep-link to the
+  // carrier from the number. Only fall back to the TeeBox order page when
+  // there's no usable tracking number at all.
+  const hasNumber = trackingNumber && trackingNumber !== "—";
+  const trackUrl = tracking.publicUrl ||
+    (hasNumber ? carrierTrackUrl(carrier, trackingNumber) : null) ||
+    `https://teeboxmarket.com/orders/${orderId}`;
 
   return (
     <Base

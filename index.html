@@ -4433,7 +4433,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r217</span></div>
+        <span class="auth-build" aria-hidden="true">r218</span></div>
     </div>
   </div>
 </div>
@@ -13631,6 +13631,14 @@ function renderShopTables() {
             const refundBtn = canRefund
               ? `<button class="ship-btn danger" data-action="refund-order" data-order-id="${escapeHtml(String(o.id))}" title="Issue a full refund to the buyer">Refund Order</button>`
               : '';
+            // Message the buyer about this order — reuses the SAME
+            // buyer↔seller thread for the listing (openChatForListingAsSeller
+            // finds the existing conversation by listingId+participants; it
+            // does not create a second thread). Styled as a secondary
+            // dashboard button to match the sibling actions in this row.
+            const msgBuyerBtn = (o.buyerId && o.listingId)
+              ? `<button class="ship-btn secondary" data-action="message-buyer" data-listing-id="${escapeHtml(String(o.listingId))}" data-buyer-id="${escapeHtml(String(o.buyerId))}" title="Message the buyer about this order">Message Buyer</button>`
+              : '';
             // Buyer-side shipping address (captured at checkout via Stripe
             // AddressElement, persisted by the webhook). Print address only —
             // never email/phone — to keep PII in the dashboard minimal.
@@ -13666,7 +13674,7 @@ function renderShopTables() {
                 <td>${shipCell}</td>
                 <td style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
                 <td class="dash-status">${stageLabel}</td>
-                <td><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${refundBtn}</div></td>
+                <td><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -15321,6 +15329,14 @@ async function loadOrdersList() {
     const reportBtn = stage !== 'reviewed'
       ? `<button class="btn-full ghost" data-action="report-problem" data-order-id="${window.safeAttr(window.safeId(o.id))}">Report a problem</button>`
       : '';
+    // Message the seller about this order — reuses the SAME buyer↔seller
+    // thread for the listing (openChatForListing finds/creates the one
+    // conversation by listingId; no second thread). Uses the app's standard
+    // .btn-message-seller styling (same as the listing's Message Seller
+    // button) as its own full-width row below the action pair.
+    const msgSellerBtn = o.listingId
+      ? `<button class="btn-message-seller" data-action="message-seller-order" data-listing-id="${window.safeAttr(window.safeId(o.listingId))}">Message seller</button>`
+      : '';
     const L = lmap[o.listingId] || {};
     const ref = String(o.id || '').slice(0, 6).toUpperCase();
     const thumb = L.photo
@@ -15338,6 +15354,7 @@ async function loadOrdersList() {
       <div class="order-stages">${tracker}</div>
       ${tracking}
       <div class="order-actions">${deliveryBtn}${reportBtn}</div>
+      ${msgSellerBtn}
     </div>`;
   }).join('');
 }
@@ -20349,6 +20366,11 @@ A['confirm-ship']            = () => { if (!window.requireAuth('to confirm shipm
 A['confirm-delivery']        = (el) => { if (!window.requireAuth('to confirm delivery')) return; confirmDelivery(el.dataset.orderId); };
 A['refund-order']            = (el) => { if (!window.requireAuth('to refund this order')) return; refundOrder(el.dataset.orderId); };
 A['report-problem']          = (el) => { if (!window.requireAuth('to report a problem with this order')) return; openDispute(el.dataset.orderId); };
+// Order-level messaging — both reuse the existing buyer↔seller thread for
+// the listing (no second thread per order). Buyer side → openChatForListing;
+// seller side → openChatForListingAsSeller (finds the same conversation).
+A['message-seller-order']    = (el) => { const lid = el && el.dataset && el.dataset.listingId; if (lid) openChatForListing(lid); };
+A['message-buyer']           = (el) => { if (!window.requireAuth('to message the buyer')) return; const d = el && el.dataset || {}; if (d.listingId && d.buyerId) openChatForListingAsSeller(d.listingId, d.buyerId); };
 A['submit-dispute']          = () => { if (!window.requireAuth('to submit your dispute')) return; submitDispute(); };
 A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
 A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
