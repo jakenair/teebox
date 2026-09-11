@@ -1,13 +1,11 @@
 {
   "abandonedCartScheduler": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "abandonedDraftScheduler": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "aggregateEmailMetrics": {
     "at": "2026-05-15",
@@ -77,12 +75,12 @@
     "sha": null
   },
   "dailyEmailSmoke": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "dailyEmailSmokeManual": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "dailyFounderBriefing": {
     "at": "2026-07-31",
@@ -242,9 +240,8 @@
     "sha": null
   },
   "notifyOnNewMessage": {
-    "at": "2026-06-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "notifyOnOfferCreated": {
     "at": "2026-05-29",
@@ -266,18 +263,16 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "notifySecurityEvent": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onBingoWinAggregate": {
     "at": "2026-07-31",
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "onListingLive": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onListingPriceUpdate": {
     "at": "2026-05-15",
@@ -289,29 +284,28 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "onOrderCreatedEmail": {
-    "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8",
-    "at": "2026-09-09"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onOrderLabelEmail": {
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
-    "at": "2026-08-27"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onOrderShippingStatusEmail": {
-    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
-    "at": "2026-09-07"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onPayoutReleasedEmail": {
-    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
-    "at": "2026-09-07"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onPriceDropEventEmail": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onRefundEmail": {
-    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
-    "at": "2026-09-07"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "onReportCreate": {
     "at": "2026-05-15",
@@ -464,9 +458,8 @@
     "at": "2026-08-27"
   },
   "reviewRequestScheduler": {
-    "at": "2026-08-06",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "revokeMySession": {
     "at": "2026-05-15",
@@ -478,19 +471,16 @@
     "at": "2026-09-10"
   },
   "savedSearchMatchSchedulerV2": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "sendBrandedPasswordReset": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "sendBrandedVerification": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "sendMessage": {
     "at": "2026-08-06",
@@ -498,9 +488,8 @@
     "sha": null
   },
   "sendSecurityEmail": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "serveSitemap": {
     "at": "2026-05-15",
@@ -578,18 +567,16 @@
     "sha": null
   },
   "weeklyDigestScheduler": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "welcomeOnFirstProfileWrite": {
-    "sha": "a12cde24cbe5cb93f97177433bcdb3d728360ff7",
-    "at": "2026-09-07"
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "winBackScheduler": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   },
   "updateCheckoutShipping": {
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8",
@@ -600,5 +587,9 @@
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8",
     "at": "2026-09-09",
     "note": "created via raw gcloud @ HEAD (firebase CLI blocked on unrelated concurrency validation); config matched to getShippingFeatureFlag template"
+  },
+  "onDisputeOpenedEmail": {
+    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39",
+    "at": "2026-09-11"
   }
 }
