@@ -89,9 +89,13 @@ service cloud.firestore {
       // untouched, so an already-onboarded seller can still edit/renew even if
       // Stripe later flips their flag. Checkout money-gate is independent and
       // unchanged.
+      // Email/phone verification no longer gates listing creation (founder
+      // ruling 2026-09-13): the stripeChargesEnabled requirement below is the
+      // real gate, and it means the seller completed Stripe Connect KYC —
+      // a far stronger identity + anti-spam signal than an email click.
+      // (isEmailVerified() requirement removed; kept elsewhere.)
       allow create: if request.auth != null
         && appCheckOk()
-        && isEmailVerified()
         && request.resource.data.sellerId == request.auth.uid
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('stripeChargesEnabled', false) == true
         && isValidListingCreate(request.resource.data);

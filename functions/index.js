@@ -2057,11 +2057,12 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
-  if (!(await emailVerifiedLive(request))) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Please verify your email before continuing.");
-  }
+  // Email verification no longer gates seller onboarding (founder ruling
+  // 2026-09-13). The real identity gate is Stripe Connect KYC — required to
+  // list via the stripeChargesEnabled rule — which is far stronger than an
+  // email click. This unblocks the ~41% of signups (comcast/yahoo/aol/…)
+  // whose verification mail never lands. Email verification is now
+  // notifications-only, never a wall in front of selling.
   const uid = request.auth.uid;
   const phone = request.auth.token.phone_number || null;
   const data = request.data || {};
@@ -5541,11 +5542,9 @@ exports.createStripeOnboardingLink = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
-    if (!(await emailVerifiedLive(request))) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Please verify your email before continuing.");
-    }
+    // Email verification no longer gates Stripe onboarding (founder ruling
+    // 2026-09-13): Stripe's own KYC is the identity gate. See
+    // requestSellerVerification above for the full rationale.
     const uid = request.auth.uid;
     const db = admin.firestore();
     const stripeClient = stripe(stripeSecret.value());

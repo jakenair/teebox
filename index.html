@@ -4433,7 +4433,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r218</span></div>
+        <span class="auth-build" aria-hidden="true">r219</span></div>
     </div>
   </div>
 </div>
@@ -9603,20 +9603,10 @@ window.confirmPayment = async function() {
     // `stripeChargesEnabled` is read AFTER publish only, to decide the seller
     // "finish setup to get paid" nudge.
     //
-    // Precondition (firestore.rules create gate): EMAIL must be verified. The
-    // cached flag goes stale after the user clicks the verify link without
-    // re-signing-in, so reload() first; then surface a clear message + the
-    // Resend banner instead of letting the rules write fail silently.
-    try { await window.CURRENT_USER.reload(); } catch (_e) {}
-    if (!window.CURRENT_USER.emailVerified) {
-      // #3: keep the seller IN the flow — reveal the inline verify prompt
-      // (one-tap Resend + "I've verified" recheck) instead of a vanishing toast.
-      showSellVerifyPrompt();
-      return;
-    }
-    // Stale-claim guard: the rules create-gate reads the TOKEN's
-    // email_verified, which lags the account after a mid-session verify.
-    await window.__ensureVerifiedClaimFresh();
+    // Email verification no longer gates listing creation (founder ruling
+    // 2026-09-13) — the rules gate on stripeChargesEnabled (Stripe KYC),
+    // which the sell-entry Stripe-required dialog already enforces before
+    // this point. No email pre-check here.
     const title = document.getElementById('sellTitle').value.trim();
     const brand = document.getElementById('sellBrand').value.trim();
     const cat = document.getElementById('sellCat').value;
@@ -20145,18 +20135,9 @@ window.__ensureVerifiedClaimFresh = async function() {
 };
 A['stripe-connect']          = async () => {
   if (!window.requireAuth('to set up payouts')) return;
-  // Stripe onboarding requires a verified email server-side. Check the LIVE
-  // account state up front (reload — the cached flag goes stale after the
-  // user clicks the verify link) and route unverified sellers to the verify
-  // flow instead of a doomed call ending in a generic dead-end toast.
-  try { await window.CURRENT_USER.reload(); } catch (_e) {}
-  if (!window.CURRENT_USER.emailVerified) {
-    try { closeStripeRequiredDirect(); } catch (_e) {}
-    try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
-    showToast('Verify your email to set up payouts — tap the link in your inbox (Resend is on the banner).', 'error');
-    return;
-  }
-  await window.__ensureVerifiedClaimFresh();
+  // Email verification no longer gates Stripe onboarding (founder ruling
+  // 2026-09-13) — Stripe's own KYC is the identity gate, so go straight to
+  // onboarding. The server no longer rejects on unverified email.
   // If the Stripe-required gate modal is open, close it so the seller's
   // listing draft is visible underneath when they return from onboarding.
   try { closeStripeRequiredDirect(); } catch (_e) {}
