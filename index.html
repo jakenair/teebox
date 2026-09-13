@@ -4447,7 +4447,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r222</span></div>
+        <span class="auth-build" aria-hidden="true">r223</span></div>
     </div>
   </div>
 </div>
@@ -9712,6 +9712,16 @@ window.confirmPayment = async function() {
         return;
       }
     }
+    // Double-submit guard: a fast double event (touch+click, or a re-
+    // dispatched delegated click) fired submitListing() twice ~77ms apart and
+    // created two identical listings (Brian's L.A.B putter, 2026-09-13). The
+    // btn.disabled below does NOT stop an already-dispatched delegated click,
+    // so gate re-entry with an in-flight flag cleared in the finally. Set
+    // here (after all validation) so a validation-fail early-return can't
+    // wedge it. Everything from here to the first await (addDoc) is
+    // synchronous, so a second handler always observes the flag and bails.
+    if (window.__submitListingBusy) return;
+    window.__submitListingBusy = true;
     const btn = document.getElementById('submitListingBtn');
     btn.disabled = true; btn.textContent = selectedFiles.length > 0 ? 'Uploading photos…' : 'Submitting…';
     // Track the just-created listing doc so we can roll it back if the
@@ -9868,8 +9878,12 @@ window.confirmPayment = async function() {
         msg = 'Error: ' + e.message.slice(0, 120);
       }
       showToast(msg);
+    } finally {
+      // Always release the in-flight guard + re-enable the button, on
+      // success, error, or the content-violation early-return above.
+      window.__submitListingBusy = false;
+      btn.disabled = false; btn.textContent = 'Post it';
     }
-    btn.disabled = false; btn.textContent = 'Post it';
   };
 
   // ─────────────────────────────────────────────────────────────
