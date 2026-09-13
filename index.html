@@ -4447,7 +4447,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r221</span></div>
+        <span class="auth-build" aria-hidden="true">r222</span></div>
     </div>
   </div>
 </div>
@@ -18191,7 +18191,19 @@ async function toggleWatch(productId) {
       // Contextual push prompt — first item added to watchlist.
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
-    buildProducts();
+    // Sync every rendered like button for this product to the new state
+    // (grid card + detail + more-like-this) WITHOUT repainting the whole
+    // feed. A full buildProducts() here rebuilt every card + the hero
+    // widget on each like, which is the visible screen flash. The tapped
+    // button's pop animation is already handled optimistically in the
+    // toggle-watch action handler; this just keeps any other instances of
+    // the same product in sync.
+    try {
+      const nowLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
+      document.querySelectorAll('.fav-btn[data-product-id]').forEach((btn) => {
+        if (String(btn.dataset.productId) === id) btn.classList.toggle('liked', nowLiked);
+      });
+    } catch (_e) { /* non-fatal — optimistic state already applied */ }
   } catch (e) {
     console.error('toggleWatch failed:', e);
     showToast('Could not update likes.');
