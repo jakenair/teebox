@@ -733,11 +733,6 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/rodeo-dunes.png"
     },
     {
-      "id": "the-golf-club",
-      "shortName": "The Golf Club",
-      "logoUrl": "https://teeboxmarket.com/assets/logos/the-golf-club.png"
-    },
-    {
       "id": "colonial-country-club",
       "shortName": "Colonial",
       "logoUrl": "https://teeboxmarket.com/assets/logos/colonial-country-club.png"
@@ -1820,16 +1815,6 @@
         "rodeo"
       ]
     },
-    "the-golf-club": {
-      "name": "The Golf Club",
-      "shortName": "The Golf Club",
-      "aliases": [
-        "tgc",
-        "the golf club new albany",
-        "golf club new albany",
-        "new albany"
-      ]
-    },
     "colonial-country-club": {
       "name": "Colonial Country Club",
       "shortName": "Colonial",
@@ -1841,7 +1826,7 @@
       ]
     }
   },
-  "generatedAt": "2026-09-10T01:55:05.047Z",
+  "generatedAt": "2026-09-13T18:56:35.337Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

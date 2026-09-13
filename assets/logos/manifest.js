@@ -134,7 +134,6 @@ export const LOGOS_AVAILABLE = new Set([
   'streamsong-blue',
   'the-country-club',
   'the-country-club-of-darien',
-  'the-golf-club',
   'the-hay',
   'the-park',
   'the-tuxedo-club',

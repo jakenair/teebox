@@ -2709,19 +2709,9 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
-  {
-    // NOTE: "The Golf Club" normalizes to "" in the answer matcher ("the" +
-    // "golf club" both stripped), so it is matchable ONLY via the aliases
-    // below (tgc / new albany). Same pattern as the-country-club→"brookline".
-    id: 'the-golf-club',
-    name: 'The Golf Club',
-    shortName: 'The Golf Club',
-    aliases: ['tgc', 'the golf club new albany', 'golf club new albany', 'new albany'],
-    location: 'New Albany, Ohio',
-    architect: 'Pete Dye',
-    logo: '',
-    logoUrl: '',
-  },
+  // "The Golf Club" (New Albany, OH) removed from Logo Bingo 2026-09-13:
+  // it normalized to "" in the answer matcher (matchable only via aliases),
+  // so it played poorly. Entry + /assets/logos/the-golf-club.png both removed.
   // 2026-09-09 batch (+1 new entry; east-lake/crystal-downs/quaker-ridge/
   // somerset-hills/crooked-stick/detroit-golf-club already existed, now
   // eligible with logos added).

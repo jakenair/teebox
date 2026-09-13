@@ -329,6 +329,7 @@ exports.runGenerateDailyPuzzles = onCall(USER_CALLABLE, async (request) => {
 // export the canon too so the test can compare against the web client.
 exports.__test = {
   selectDailyCourses,
+  writePuzzleForDate,
   hashStr,
   mulberry32,
   CANON,
