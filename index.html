@@ -1406,6 +1406,8 @@
   .auth-btn:hover { background: var(--green-500); }
   .auth-btn:disabled { background: var(--gray-500); color: var(--white); cursor: not-allowed; }
   .auth-error { font-size: 13px; color: var(--red-500); margin-bottom: 10px; min-height: 18px; }
+  .email-typo-hint { font-size: 13px; color: var(--gray-700); margin: -4px 0 10px; line-height: 1.4; }
+  .email-typo-hint button { background: none; border: none; padding: 0; color: var(--green-700); font-weight: 700; text-decoration: underline; cursor: pointer; font-size: 13px; font-family: inherit; }
   /* Auth-mode segmented control — shares geometry with .dash-tabs
      and .bingo-lb-tabs via the canonical SEGMENTED CONTROL block
      below the auth section. Only the surface-specific variant
@@ -2689,6 +2691,15 @@
   .dash-header { background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 12px rgba(11,26,14,0.18); }
   .dash-header h1 { font-family: var(--font-display); font-size: var(--text-display-lg); font-weight: 700; letter-spacing: -0.01em; }
   .dash-header p { font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 4px; }
+  /* Ship-it banner — action-needed alert for unshipped Paid orders. */
+  .ship-it-banner { display: flex; align-items: center; gap: 14px; margin: 1.25rem 1.25rem 0; padding: 14px 16px; background: var(--gold-50, #fff8dc); border: 1px solid var(--gold-500, #d6a900); border-left: 4px solid var(--gold-600, #b88a00); border-radius: var(--radius-md); }
+  .ship-it-banner .sib-icon { font-size: 22px; line-height: 1; flex: none; }
+  .ship-it-banner .sib-body { flex: 1; min-width: 0; }
+  .ship-it-banner .sib-title { font-weight: 700; font-size: 15px; color: var(--gray-900, #1c1c18); }
+  .ship-it-banner .sib-sub { font-size: 12.5px; color: var(--gray-700); margin-top: 2px; line-height: 1.35; }
+  .ship-it-banner .sib-cta { flex: none; background: var(--green-700); color: var(--white); border: none; border-radius: var(--radius-md); padding: 10px 16px; font-family: var(--font-body); font-size: 13.5px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+  .ship-it-banner .sib-cta:hover { background: var(--green-600); }
+  @media (max-width: 600px) { .ship-it-banner { flex-wrap: wrap; margin: 1rem 1rem 0; } .ship-it-banner .sib-cta { width: 100%; } }
   .dash-close { background: rgba(255,255,255,0.1); color: var(--white); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: var(--transition); }
   .dash-close:hover { background: rgba(255,255,255,0.22); transform: scale(1.05); }
   .dash-body { max-width: 1240px; margin: 0 auto; padding: 2rem; }
@@ -4379,6 +4390,9 @@
            display name. Hidden in sign-in mode (applyEmailMode toggles). -->
       <input class="auth-input email-input" type="text" id="nameSignupInput" placeholder="Your name" autocomplete="name" maxlength="60" style="display:none" />
       <input class="auth-input email-input" type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <!-- Soft "did you mean X?" hint for obvious email typos (.con, gmial,
+           yahooo, …). Never blocks submit — one tap accepts the fix. -->
+      <div class="email-typo-hint" id="emailTypoHint" style="display:none"></div>
       <input class="auth-input email-input" type="password" id="passwordInput" placeholder="Password (8+ characters)" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <!-- GDPR marketing-consent checkbox. Hidden on sign-in; shown on
            Create Account. Default unchecked — affirmative opt-in only. -->
@@ -4433,7 +4447,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r219</span></div>
+        <span class="auth-build" aria-hidden="true">r220</span></div>
     </div>
   </div>
 </div>
@@ -5281,6 +5295,12 @@
     <button class="dash-close" data-action="close-shop-dashboard" type="button" aria-label="Close My Shop">×</button>
   </div>
   <div class="dash-body">
+
+    <!-- SHIP-IT BANNER: persistent, action-needed alert for Paid orders
+         awaiting shipment. Email/push aren't guaranteed to reach the seller
+         (unverified/bouncing address, push permission off), so the dashboard
+         itself is the reliable signal. Populated by renderShipItBanner(). -->
+    <div id="shipItBanner" style="display:none"></div>
 
     <!-- TIER BANNER (Pro Seller upsell / status) -->
     <div id="proTierBanner"></div>
@@ -8016,6 +8036,53 @@ window.confirmPayment = async function() {
     emailMode = emailMode === 'signin' ? 'signup' : 'signin';
     applyEmailMode();
   };
+
+  // Soft email-typo suggester — catches obvious domain/TLD typos and offers
+  // a one-tap fix. NEVER blocks submit (a real address we don't know about
+  // must still go through). Intentionally a small whitelist, not fuzzy
+  // matching, so it can't "correct" a valid address.
+  const EMAIL_TYPO_MAP = {
+    'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmail.om': 'gmail.com',
+    'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yahoo.comm': 'yahoo.com',
+    'hotmial.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmil.com': 'hotmail.com',
+    'iclould.com': 'icloud.com', 'iclod.com': 'icloud.com', 'outlok.com': 'outlook.com',
+    'comcast.com': 'comcast.net',
+  };
+  function suggestEmailFix(email) {
+    const raw = String(email || '').trim();
+    const at = raw.lastIndexOf('@');
+    if (at < 1) return null;
+    const local = raw.slice(0, at); // preserve local-part case
+    const domain = raw.slice(at + 1).toLowerCase();
+    if (!domain) return null;
+    if (EMAIL_TYPO_MAP[domain]) return local + '@' + EMAIL_TYPO_MAP[domain];
+    // Generic bad-TLD catch: <name>.con/.cmo/.vom/.xom/.ocm/.comm/.om → .com
+    const m = domain.match(/^(.+)\.(con|cmo|vom|xom|ocm|comm|om)$/);
+    if (m) return local + '@' + m[1] + '.com';
+    return null;
+  }
+  window.suggestEmailFix = suggestEmailFix;
+  window.showEmailTypoHint = function() {
+    const inp = document.getElementById('emailInput');
+    const hint = document.getElementById('emailTypoHint');
+    if (!inp || !hint) return;
+    const fix = suggestEmailFix(inp.value);
+    if (!fix || fix.toLowerCase() === inp.value.trim().toLowerCase()) { hint.style.display = 'none'; hint.innerHTML = ''; return; }
+    hint.style.display = 'block';
+    hint.innerHTML = 'Did you mean <button type="button" data-action="accept-email-fix" data-fix="' +
+      window.safeAttr(fix) + '">' + window.safeText(fix) + '</button>?';
+  };
+  (function wireEmailTypoHint() {
+    const inp = document.getElementById('emailInput');
+    if (inp && !inp.__typoWired) {
+      inp.__typoWired = true;
+      inp.addEventListener('blur', window.showEmailTypoHint);
+      inp.addEventListener('input', () => {
+        const h = document.getElementById('emailTypoHint');
+        if (h && h.style.display !== 'none') { h.style.display = 'none'; h.innerHTML = ''; }
+      });
+    }
+  })();
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   window.submitEmail = async function() {
@@ -13265,8 +13332,32 @@ function orderItemDollars(o) {
     : Number((o && o.amount) || 0);
 }
 
+// Persistent "you have a sale — ship it" banner for Paid orders awaiting
+// shipment. This is the reliable in-app signal now that a seller's email
+// may be unverified/bouncing and push isn't guaranteed.
+function renderShipItBanner(orders) {
+  const el = document.getElementById('shipItBanner');
+  if (!el) return;
+  const toShip = (orders || []).filter(o =>
+    (o.fulfillmentStatus || 'awaiting_seller_shipment') === 'awaiting_seller_shipment' && !o.refunded);
+  const n = toShip.length;
+  if (!n) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<div class="ship-it-banner" role="status" aria-live="polite">' +
+      '<div class="sib-icon" aria-hidden="true">📦</div>' +
+      '<div class="sib-body">' +
+        '<div class="sib-title">' + (n === 1 ? 'You have a sale — ship it' : n + ' sales waiting to ship') + '</div>' +
+        '<div class="sib-sub">' + (n === 1 ? 'A buyer paid and is waiting.' : 'Buyers paid and are waiting.') +
+          ' Ship within 3 business days with tracking.</div>' +
+      '</div>' +
+      '<button class="sib-cta" data-action="switch-dash-tab" data-tab="sold">View ' + (n === 1 ? 'order' : 'orders') + '</button>' +
+    '</div>';
+}
+
 function renderShopStats() {
   const { listings, orders } = window.SHOP_DATA;
+  renderShipItBanner(orders);
   const totalRevenue = orders.reduce((sum, o) => sum + orderItemDollars(o), 0);
   const itemsSold = orders.length;
   const activeListings = listings.filter(l => l.status !== 'sold').length;
@@ -20019,6 +20110,15 @@ A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+A['accept-email-fix']        = (el) => {
+  const inp = document.getElementById('emailInput');
+  if (inp && el && el.dataset.fix) {
+    inp.value = el.dataset.fix;
+    const h = document.getElementById('emailTypoHint');
+    if (h) { h.style.display = 'none'; h.innerHTML = ''; }
+    try { inp.focus(); } catch (_e) {}
+  }
+};
 A['toggle-advanced-insights']= (el) => {
   const sec = document.getElementById('advancedSection');
   if (!sec) return;
