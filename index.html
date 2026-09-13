@@ -1999,7 +1999,14 @@
      Color-coded by condition tier. Detail-view variant ".cond-pill.detail"
      keeps the same colors but flows inline in the header. */
   .cond-pill { position: absolute; top: 46px; right: 10px; z-index: 1; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 50px; letter-spacing: 0.4px; background: var(--gray-200); color: var(--gray-700); white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .cond-pill.detail { position: static; display: inline-flex; align-items: center; margin-left: 8px; vertical-align: middle; }
+  /* Detail variant: inline chip in the body next to the price. MUST clear
+     the card-corner positioning props (.cond-pill sets position:absolute +
+     top:46px + right:10px + z-index:1). Chrome ignores top/right/z-index on
+     a static element, but iOS WKWebView honored the leftover z-index:1 and
+     painted the chip OVER the sticky detail header while scrolling — hence
+     the "condition pill floats in the header" bug that only showed on
+     device. Explicitly reset all four so it can never escape the flow. */
+  .cond-pill.detail { position: static; top: auto; right: auto; z-index: auto; display: inline-flex; align-items: center; margin-left: 8px; vertical-align: middle; }
   /* Batch-2: tier ramp re-derived from brand tokens (was teal/steel-blue
      one-offs). Tier stays legible via label + saturation, not foreign hues.
      These classes style BOTH the card pills and the detail sheet (the JS
@@ -4447,7 +4454,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r223</span></div>
+        <span class="auth-build" aria-hidden="true">r224</span></div>
     </div>
   </div>
 </div>
