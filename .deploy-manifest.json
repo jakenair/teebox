@@ -57,9 +57,8 @@
     "sha": null
   },
   "createStripeOnboardingLink": {
-    "at": "2026-08-06",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "1a55fe6ea53cc0f99341d65371988d9796a94811",
+    "at": "2026-09-13"
   },
   "createSubscriptionCheckout": {
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185",
@@ -449,9 +448,8 @@
     "sha": null
   },
   "requestSellerVerification": {
-    "at": "2026-08-06",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "1a55fe6ea53cc0f99341d65371988d9796a94811",
+    "at": "2026-09-13"
   },
   "resendWebhook": {
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d",
