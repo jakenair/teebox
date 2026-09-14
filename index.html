@@ -4454,7 +4454,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r224</span></div>
+        <span class="auth-build" aria-hidden="true">r225</span></div>
     </div>
   </div>
 </div>
@@ -19426,12 +19426,27 @@ let pendingAvatarFile = null;
 async function onAvatarFile(ev) {
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    showToast('Avatar must be under 2MB.');
+  // The OLD code hard-rejected the ORIGINAL at 2MB before any resize, so
+  // most phone photos (3–8MB) bounced with "too large" — even after the
+  // user tried to crop (Josh, 2026-09-14). downscaleAvatar (512px JPEG,
+  // ~tens of KB) always fits the 2MB storage rule, so we resize UP FRONT
+  // and only then validate. Safety bound on the original so we don't spend
+  // memory decoding an absurd file.
+  if (file.size > 30 * 1024 * 1024) {
+    showToast('That image is too large. Please pick one under 30MB.');
     return;
   }
-  pendingAvatarFile = file;
-  const blobUrl = URL.createObjectURL(file);
+  let prepared = file;
+  try { prepared = await downscaleAvatar(file); } catch (_e) { prepared = file; }
+  // Final guard, matching the storage.rules 2MB cap. downscaleAvatar makes
+  // this virtually impossible to trip; it only fires if the resize couldn't
+  // shrink the image (e.g. an undecodable format) AND it's still over 2MB.
+  if (prepared.size > 2 * 1024 * 1024) {
+    showToast('Couldn’t process that image — try a different photo (JPEG or PNG).');
+    return;
+  }
+  pendingAvatarFile = prepared;
+  const blobUrl = URL.createObjectURL(prepared);
   const preview = document.getElementById('editAvatarPreview');
   if (preview) preview.innerHTML = `<img src="${blobUrl}" alt="" />`;
 }
