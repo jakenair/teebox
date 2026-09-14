@@ -55,11 +55,12 @@
   the real App Store ID ever changes, update both this file and bingo.html.
 -->
 <!--
-  ANALYTICS — Plausible. Privacy-friendly, GDPR-compliant, no cookie banner.
-  Sign up at plausible.io and add teeboxmarket.com as a site.
-  Falls through silently if the user is on adblock — that's fine.
+  ANALYTICS — PostHog only (see the posthog-js loader below). Plausible was
+  removed 2026-09-14 to drop its paid subscription: PostHog's free tier
+  (1M events/mo) already captures pageviews + unique visitors
+  (capture_pageview:true), so visitor analytics live in the PostHog
+  dashboard at no cost. (plausible.io left in the CSP allowlist is inert.)
 -->
-<script defer data-domain="teeboxmarket.com" src="https://plausible.io/js/script.js"></script>
 
 <!--
   ANALYTICS — PostHog Cloud (product analytics).
@@ -4454,7 +4455,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r225</span></div>
+        <span class="auth-build" aria-hidden="true">r226</span></div>
     </div>
   </div>
 </div>
