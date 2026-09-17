@@ -8287,7 +8287,11 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 
   // ──── Rule 4: PII-per-recipient cap ────
   const piiWindowMs = config.piiPerRecipientWindowHours * 3600 * 1000;
-  const isHardPii = !!(clientFlag && clientFlag.severity === "HARD");
+  // Audit 2026-09-17 (M1): don't trust the client's flag alone — a scripted
+  // client can send clientFlag:null to skip the per-recipient PII cap. The
+  // server already ran its own detector (offDet) on the text; OR it in.
+  const isHardPii = !!((clientFlag && clientFlag.severity === "HARD") ||
+    (offDet && offDet.severity === "HARD"));
   const piiSentTo = (sender.piiSentTo && typeof sender.piiSentTo === "object") ?
     sender.piiSentTo : {};
   let heldByRule4 = false;
@@ -8547,3 +8551,135 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
+
+// ─────────────────────────────────────────────────────────────
+// PASSPORT PHOTO MODERATION (audit 2026-09-17, HIGH). Course-passport photos
+// are PUBLIC (profile wall, Discover feed, course pages) but used to bypass
+// optimizeListingPhoto, which only handles listings/. This trigger covers
+// passport/{uid}/{courseId}/{file}:
+//   1. Re-encode via sharp → strips EXIF/GPS (client downscale is fail-open
+//      for e.g. HEIC on desktop, so originals with location data could land).
+//   2. Cloud Vision SafeSearch with the same thresholds as listings.
+//   3. On a trip: delete the object AND pull its URL out of the round's
+//      `photos` array (+ hasPhotos), notify the owner, ops-alert. Fail-closed
+//      on scan errors (delete + notify) — a public feed can't carry unverified
+//      images.
+// Deploy: gen2, us-east1, storage finalize on teebox-market.firebasestorage.app
+// (same shape as optimizeListingPhoto).
+// ─────────────────────────────────────────────────────────────
+exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
+  .onObjectFinalized(
+    {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app"},
+    async (event) => {
+      const obj = event.data;
+      if (!obj || !obj.name) return;
+      if (!obj.name.startsWith("passport/")) return;
+      const contentType = obj.contentType || "";
+      if (!contentType.startsWith("image/")) return;
+      if (obj.metadata && obj.metadata.optimized === "true") return; // our own re-save
+      const parts = obj.name.split("/");
+      if (parts.length < 4) return;
+      const ownerUid = parts[1];
+      const courseId = parts[2];
+      const bucket = admin.storage().bucket(obj.bucket);
+      const file = bucket.file(obj.name);
+      const db = admin.firestore();
+      const roundRef = db.collection("passport").doc(ownerUid)
+          .collection("played").doc(courseId);
+
+      // Remove this object's URL from the round doc (URL contains the encoded
+      // object path) and delete the object. Shared by NSFW + fail-closed paths.
+      async function purge(reason) {
+        try { await file.delete({ignoreNotFound: true}); } catch (e) {
+          logger.error("passport moderation: delete failed", obj.name, e);
+        }
+        try {
+          const snap = await roundRef.get();
+          if (snap.exists) {
+            const enc = encodeURIComponent(obj.name);
+            const photos = (snap.data().photos || []).filter((u) =>
+              typeof u !== "string" || (!u.includes(enc) && !u.includes(obj.name)));
+            await roundRef.update({
+              photos,
+              hasPhotos: photos.length > 0,
+              moderationFlags: admin.firestore.FieldValue.arrayUnion({
+                reason, path: obj.name, at: new Date().toISOString(),
+              }),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+        } catch (e) { logger.error("passport moderation: doc update failed", obj.name, e); }
+        try {
+          await db.collection("users").doc(ownerUid).collection("notifications").add({
+            kind: "passport-photo-removed",
+            subject: "A passport photo was removed",
+            body: reason === "image_scan_error" ?
+              "We couldn't verify one of your course photos, so it was removed. " +
+              "Please try re-uploading it as a JPEG or PNG." :
+              "One of your course photos didn't meet our community guidelines " +
+              "and was removed.",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          });
+        } catch (e) { logger.error("passport moderation: notify failed", ownerUid, e); }
+        try {
+          await opsAlert("warn", "Passport photo removed by moderation",
+              {ownerUid, courseId, path: obj.name, reason});
+        } catch (_e) { /* best-effort */ }
+      }
+
+      // 1) Re-encode (strips EXIF/GPS). Keep the client's download token so the
+      //    URL already stored on the round keeps working.
+      try {
+        const sharp = require("sharp");
+        const crypto = require("crypto");
+        const [buf] = await file.download();
+        const out = await sharp(buf).rotate().jpeg({quality: 85, mozjpeg: true}).toBuffer();
+        const token = (obj.metadata && obj.metadata.firebaseStorageDownloadTokens) ||
+            crypto.randomUUID();
+        await file.save(out, {
+          metadata: {
+            contentType: "image/jpeg",
+            cacheControl: "public, max-age=31536000, immutable",
+            metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
+          },
+          resumable: false,
+        });
+      } catch (err) {
+        logger.error("optimizePassportPhoto: re-encode failed (fail-closed)", obj.name, err && err.message);
+        await purge("image_process_error");
+        return;
+      }
+
+      // 2) SafeSearch (same thresholds as listings; retries transient errors).
+      let safeSearch = null;
+      let scanFailed = false;
+      try {
+        const vision = require("@google-cloud/vision");
+        const client = new vision.ImageAnnotatorClient();
+        const gcsUri = `gs://${obj.bucket}/${obj.name}`;
+        let lastErr = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const [result] = await client.safeSearchDetection(gcsUri);
+            safeSearch = result && result.safeSearchAnnotation;
+            lastErr = null;
+            break;
+          } catch (e) {
+            lastErr = e;
+            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+          }
+        }
+        if (lastErr) throw lastErr;
+      } catch (err) {
+        logger.error("optimizePassportPhoto: SafeSearch failed after retries (fail-closed)",
+            obj.name, err && err.message);
+        scanFailed = true;
+      }
+      if (scanFailed || !safeSearch) { await purge("image_scan_error"); return; }
+      if (isSafeForMarketplace(safeSearch)) return; // clean
+      const reason = describeSafeSearchTrip(safeSearch);
+      logger.warn("passport moderation: NSFW photo removed",
+          {path: obj.name, ownerUid, courseId, reason, signals: safeSearch});
+      await purge(reason);
+    });

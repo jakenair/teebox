@@ -572,34 +572,75 @@ service cloud.firestore {
     match /passport/{userId}/played/{courseId} {
       allow read: if true;
 
-      allow create, update: if request.auth != null
+      // Audit 2026-09-17: hardened — slug-shaped courseId, bounded courseName,
+      // photos must be our Storage bucket (no external image hosts), optional
+      // hasPhotos bool (feed query key), and createdAt is server time on create
+      // and immutable on update (blocks pinning a post to the top of Discover).
+      function passportPhotosOk(arr) {
+        return (arr.size() < 1  || isStorageUrl(arr[0]))
+            && (arr.size() < 2  || isStorageUrl(arr[1]))
+            && (arr.size() < 3  || isStorageUrl(arr[2]))
+            && (arr.size() < 4  || isStorageUrl(arr[3]))
+            && (arr.size() < 5  || isStorageUrl(arr[4]))
+            && (arr.size() < 6  || isStorageUrl(arr[5]))
+            && (arr.size() < 7  || isStorageUrl(arr[6]))
+            && (arr.size() < 8  || isStorageUrl(arr[7]))
+            && (arr.size() < 9  || isStorageUrl(arr[8]))
+            && (arr.size() < 10 || isStorageUrl(arr[9]))
+            && (arr.size() < 11 || isStorageUrl(arr[10]))
+            && (arr.size() < 12 || isStorageUrl(arr[11]));
+      }
+      function passportDocOk() {
+        return request.resource.data.courseId is string
+          && request.resource.data.courseId == courseId
+          && courseId.size() > 0 && courseId.size() <= 128
+          && courseId.matches('^[a-z0-9][a-z0-9-]*$')
+          && request.resource.data.grade is string
+          && request.resource.data.grade in ['F','D','C','C+','B','B+','A','A+']
+          && (!('courseName' in request.resource.data.keys())
+              || (request.resource.data.courseName is string
+                  && request.resource.data.courseName.size() <= 120))
+          && (!('review' in request.resource.data.keys())
+              || (request.resource.data.review is string
+                  && request.resource.data.review.size() <= 2000))
+          && (!('tags' in request.resource.data.keys())
+              || (request.resource.data.tags is list
+                  && request.resource.data.tags.size() <= 20))
+          && (!('photos' in request.resource.data.keys())
+              || (request.resource.data.photos is list
+                  && request.resource.data.photos.size() <= 12
+                  && passportPhotosOk(request.resource.data.photos)))
+          && (!('hasPhotos' in request.resource.data.keys())
+              || request.resource.data.hasPhotos is bool);
+      }
+      allow create: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
-        && request.resource.data.courseId is string
-        && request.resource.data.courseId == courseId
-        && courseId.size() > 0 && courseId.size() <= 128
-        && request.resource.data.grade is string
-        && request.resource.data.grade in ['F','D','C','C+','B','B+','A','A+']
-        && (!('review' in request.resource.data.keys())
-            || (request.resource.data.review is string
-                && request.resource.data.review.size() <= 2000))
-        && (!('tags' in request.resource.data.keys())
-            || (request.resource.data.tags is list
-                && request.resource.data.tags.size() <= 20))
-        && (!('photos' in request.resource.data.keys())
-            || (request.resource.data.photos is list
-                && request.resource.data.photos.size() <= 12));
+        && passportDocOk()
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && appCheckOk()
+        && passportDocOk()
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
 
       allow delete: if request.auth != null && request.auth.uid == userId;
 
       // Likes — one doc per liker (doc id IS the liker's uid, so a user can
       // like a course post once). Public read (counts + who-liked); a signed-in
       // user may only create/delete their OWN like doc.
+      // Parent round must exist (no orphan likes/comments under a deleted or
+      // never-created post).
+      function parentRoundExists() {
+        return exists(/databases/$(database)/documents/passport/$(userId)/played/$(courseId));
+      }
       match /likes/{likerId} {
         allow read: if true;
         allow create: if request.auth != null
           && appCheckOk()
-          && request.auth.uid == likerId;
+          && request.auth.uid == likerId
+          && parentRoundExists();
         allow delete: if request.auth != null && request.auth.uid == likerId;
       }
 
@@ -610,10 +651,12 @@ service cloud.firestore {
         allow read: if true;
         allow create: if request.auth != null
           && appCheckOk()
+          && parentRoundExists()
           && request.resource.data.authorUid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 500;
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.createdAt == request.time;
         allow delete: if request.auth != null
           && (request.auth.uid == resource.data.authorUid
               || request.auth.uid == userId);
@@ -823,6 +866,20 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && request.auth.uid in resource.data.participants;
 
+      // Audit 2026-09-17 (H1): the create allowlist used to be hasAll-only, so a
+      // client could seed lastMessageText/lastMessageSenderId/lastRead/hidden/
+      // blockedBy on a brand-new thread — a fake "preview" that skipped the
+      // sendMessage callable's moderation, block and rate-limit gates. Now
+      // hasOnly: exactly the fields the two in-app create paths write.
+      function otherParticipant() {
+        return request.resource.data.participants[0] == request.auth.uid
+          ? request.resource.data.participants[1]
+          : request.resource.data.participants[0];
+      }
+      function creatorBlockedByOther() {
+        return exists(/databases/$(database)/documents/users/$(otherParticipant()))
+          && request.auth.uid in get(/databases/$(database)/documents/users/$(otherParticipant())).data.get('blocked', {});
+      }
       allow create: if request.auth != null
         && appCheckOk()
         && request.resource.data.participants is list
@@ -830,6 +887,13 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants[0] != request.resource.data.participants[1]
         && request.resource.data.keys().hasAll(['participants','listingId','buyerId','sellerId','createdAt'])
+        && request.resource.data.keys().hasOnly(['participants','listingId','buyerId','sellerId','createdAt','listingTitle','listingCat','listingEmoji','lastMessageAt'])
+        && (!('listingCat' in request.resource.data.keys())
+            || (request.resource.data.listingCat is string
+                && request.resource.data.listingCat.size() <= 32))
+        && (!('lastMessageAt' in request.resource.data.keys())
+            || request.resource.data.lastMessageAt is timestamp)
+        && !creatorBlockedByOther()
         && request.resource.data.listingId is string
         && request.resource.data.listingId.size() > 0
         && request.resource.data.listingId.size() <= 128
@@ -845,34 +909,24 @@ service cloud.firestore {
                 && request.resource.data.listingTitle.size() <= 200))
         && (!('listingEmoji' in request.resource.data.keys())
             || (request.resource.data.listingEmoji is string
-                && request.resource.data.listingEmoji.size() <= 16))
-        && (!('lastMessageText' in request.resource.data.keys())
-            || (request.resource.data.lastMessageText is string
-                && request.resource.data.lastMessageText.size() <= 200));
+                && request.resource.data.listingEmoji.size() <= 16));
 
+      // Audit 2026-09-17 (H1/M3): clients may only advance THEIR OWN read
+      // cursor (lastRead.{me}) or archive flag (hidden.{me}). lastMessageAt /
+      // lastMessageText / lastMessageSenderId are owned by the sendMessage
+      // callable (Admin SDK, bypasses rules) — a client rewriting the preview
+      // or the other party's read cursor is never legitimate.
       allow update: if request.auth != null
         && appCheckOk()
         && request.auth.uid in resource.data.participants
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['lastMessageAt','lastMessageText','lastMessageSenderId','lastRead','hidden'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastRead','hidden'])
         && request.resource.data.participants == resource.data.participants
         && request.resource.data.get('listingId', '') == resource.data.get('listingId', '')
         && request.resource.data.get('buyerId', '') == resource.data.get('buyerId', '')
         && request.resource.data.get('sellerId', '') == resource.data.get('sellerId', '')
-        && (!('lastMessageText' in request.resource.data.keys())
-            || (request.resource.data.lastMessageText is string
-                && request.resource.data.lastMessageText.size() <= 200))
-        // Sender-spoof guard: enforce "the last sender must be me" ONLY when
-        // lastMessageSenderId is actually being changed (in the diff). It must
-        // not gate lastRead (read cursor) or hidden (archive) updates, which
-        // are direct client writes that never touch this field.
-        && (!('lastMessageSenderId' in request.resource.data.diff(resource.data).affectedKeys())
-            || request.resource.data.lastMessageSenderId == request.auth.uid)
-        // ARCHIVE (soft-hide): a participant may toggle ONLY their own key
-        // in the `hidden` map (hidden.{uid}) — they cannot archive on
-        // behalf of the other participant. All other fields stay locked by
-        // the hasOnly allowlist above. delete stays disabled, so the shared
-        // thread is never destroyed.
+        && (request.resource.data.get('lastRead', {}) == resource.data.get('lastRead', {})
+            || request.resource.data.get('lastRead', {}).diff(resource.data.get('lastRead', {}))
+                 .affectedKeys().hasOnly([request.auth.uid]))
         && (request.resource.data.get('hidden', {}) == resource.data.get('hidden', {})
             || request.resource.data.get('hidden', {}).diff(resource.data.get('hidden', {}))
                  .affectedKeys().hasOnly([request.auth.uid]));

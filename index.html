@@ -4677,7 +4677,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r236</span></div>
+        <span class="auth-build" aria-hidden="true">r237</span></div>
     </div>
   </div>
 </div>
@@ -8631,6 +8631,10 @@ window.confirmPayment = async function() {
     try { window.closeShopDashboard && window.closeShopDashboard(); } catch {}
     try { window.closeInbox && window.closeInbox(); } catch {}
     try { window.closeChat && window.closeChat(); } catch {}
+    // Audit 2026-09-17 (M2): drop the previous user's inbox listener + cached
+    // conversation previews so the next sign-in on this device never renders
+    // someone else's threads.
+    try { window.detachUnreadListener && window.detachUnreadListener(); } catch {}
     try { window.closeDetailModalDirect && window.closeDetailModalDirect(); } catch {}
     try { window.closeModalDirect && window.closeModalDirect(); } catch {}
     try { window.closeSellModalDirect && window.closeSellModalDirect(); } catch {}
@@ -20145,7 +20149,7 @@ function ppAddPhoto() {
     let added = 0;
     for (const f of files.slice(0, room)) {
       if (f.size > 30 * 1024 * 1024) continue;
-      const small = await ppDownscaleImage(f, 1440, 0.85);
+      const small = await ppDownscaleImage(f, 1080, 0.85); // match single-pick size
       if (!__ppState) return;
       __ppState.photos.push({ file: small, previewUrl: URL.createObjectURL(small) });
       added++;
@@ -20158,12 +20162,17 @@ function ppAddPhoto() {
 
 // Downscale an image to fit within `max` px (longest side), re-encoded JPEG.
 // EXIF-orientation-safe via createImageBitmap; falls back to the original.
-async function ppDownscaleImage(file, max = 1440, quality = 0.85) {
+async function ppDownscaleImage(file, max = 1080, quality = 0.85) {
   try {
-    const bmp = await createImageBitmap(file);
-    let w = bmp.width, h = bmp.height;
-    const scale = Math.min(1, max / Math.max(w, h));
-    w = Math.round(w * scale); h = Math.round(h * scale);
+    // Decode + scale off the main thread via createImageBitmap resize options
+    // (a 12MP photo is ~48MB RGBA if decoded at full size first). Probe the
+    // natural size cheaply, then decode straight to the target size.
+    const probe = await createImageBitmap(file);
+    const pw = probe.width, ph = probe.height;
+    if (probe.close) probe.close();
+    const scale = Math.min(1, max / Math.max(pw, ph));
+    const w = Math.round(pw * scale), h = Math.round(ph * scale);
+    const bmp = await createImageBitmap(file, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
@@ -20207,15 +20216,18 @@ async function ppSave() {
         import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js"),
       ]);
     const stg = getStorage();
-    const urls = [];
-    for (let i = 0; i < st.photos.length; i++) {
-      const p = st.photos[i];
-      if (p.url) { urls.push(p.url); continue; }
-      if (!p.file) continue;
-      const r = sref(stg, `passport/${uid}/${st.courseId}/${Date.now()}_${i}.jpg`);
-      await uploadBytes(r, p.file, { contentType: 'image/jpeg' });
-      urls.push(await getDownloadURL(r));
-    }
+    // Upload new photos in PARALLEL (was sequential await per photo — 12
+    // photos ≈ 15-20s on mobile; now bandwidth-bound). Paths are
+    // Date.now()-unique so a long immutable cache is safe.
+    const stamp = Date.now();
+    const urls = await Promise.all(st.photos.map(async (p, i) => {
+      if (p.url) return p.url;
+      if (!p.file) return null;
+      const r = sref(stg, `passport/${uid}/${st.courseId}/${stamp}_${i}.jpg`);
+      await uploadBytes(r, p.file, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000, immutable' });
+      return getDownloadURL(r);
+    }));
+    for (let i = urls.length - 1; i >= 0; i--) if (!urls[i]) urls.splice(i, 1);
     const db = getFirestore();
     const payload = {
       courseId: st.courseId,
@@ -20224,11 +20236,12 @@ async function ppSave() {
       tags: Array.from(st.tags).slice(0, 20),
       review,
       photos: urls.slice(0, 12),
+      // Feed query key (where hasPhotos == true) — Discover is photo-driven.
+      hasPhotos: urls.length > 0,
       updatedAt: serverTimestamp(),
-      // Denormalised poster identity so the Discover feed renders without a
-      // profile read per card (falls back to a profile fetch for old docs).
-      ownerName: ((window.CURRENT_PROFILE_NAME || (window.CURRENT_USER && window.CURRENT_USER.displayName) || '')).slice(0, 80),
-      ownerAvatar: (window.CURRENT_PROFILE_AVATAR || (window.CURRENT_USER && window.CURRENT_USER.photoURL) || ''),
+      // NOTE (audit 2026-09-17): poster identity is NOT stored on the doc —
+      // it was client-supplied and spoofable. The feed/course page/comments
+      // resolve name+avatar from profiles/{uid} (session-cached) instead.
     };
     if (!st.editing) payload.createdAt = serverTimestamp();
     // merge:true keeps createdAt intact when editing.
@@ -20290,7 +20303,7 @@ async function openPassportCourseDetail(uid, courseId) {
     <button type="button" class="pp-detail-coursebtn" data-action="open-course-page" data-course="${ca}">View course &amp; all rounds here &rarr;</button>
     ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>${detailDots}` : ''}
     ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
-    ${data.review ? `<p class="pp-detail-review">${window.safeText(data.review)}</p>` : ''}
+    ${data.review ? `<p class="pp-detail-review">${window.safeText(String(data.review).replace(/\n{3,}/g, '\n\n'))}</p>` : ''}
     <div class="pp-likebar">
       <button type="button" class="pp-like-btn" id="ppLikeBtn" data-action="passport-like" data-uid="${ua}" data-course="${ca}">
         <span class="pp-like-ico">&#9825;</span><span id="ppLikeCount"></span>
@@ -20320,12 +20333,18 @@ async function ppLoadLikes(uid, courseId) {
   __ppLikeState = { uid, courseId, liked: false, count: 0, busy: false };
   const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
   try {
-    const { getFirestore, collection, getDocs } =
+    const { getFirestore, collection, doc, getDoc, getCountFromServer } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    const snap = await getDocs(collection(db, 'passport', uid, 'played', courseId, 'likes'));
-    __ppLikeState.count = snap.size;
-    __ppLikeState.liked = !!(myUid && snap.docs.some(d => d.id === myUid));
+    // 2 reads instead of N: aggregate count + "did I like it" point-read.
+    // (Was a full getDocs of the likes subcollection — 1k likes = 1k reads.)
+    const likesCol = collection(db, 'passport', uid, 'played', courseId, 'likes');
+    const [cnt, mine] = await Promise.all([
+      getCountFromServer(likesCol),
+      myUid ? getDoc(doc(likesCol, myUid)) : Promise.resolve(null),
+    ]);
+    __ppLikeState.count = cnt.data().count || 0;
+    __ppLikeState.liked = !!(mine && mine.exists());
   } catch (e) { console.warn('passport likes read failed', e); }
   ppRenderLike();
 }
@@ -20397,23 +20416,23 @@ async function ppLoadComments(uid, courseId) {
   const isOwner = !!(myUid && myUid === uid);
   let comments = [];
   try {
-    const { getFirestore, collection, getDocs } =
+    const { getFirestore, collection, getDocs, query, orderBy, limitToLast } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    const snap = await getDocs(collection(db, 'passport', uid, 'played', courseId, 'comments'));
+    // Bounded: newest 100 (was an unbounded read of the whole subcollection).
+    const snap = await getDocs(query(collection(db, 'passport', uid, 'played', courseId, 'comments'), orderBy('createdAt'), limitToLast(100)));
     snap.forEach(d => comments.push({ id: d.id, ...d.data() }));
   } catch (e) { console.warn('passport comments read failed', e); }
-  comments.sort((a, b) => {
-    const am = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-    const bm = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-    return am - bm;
-  });
+  // Author identity from profiles/{authorUid}, never from the comment doc.
+  const authors = comments.map(cm => ({ uid: cm.authorUid }));
+  await ppResolvePosters(authors);
+  comments.forEach((cm, i) => { cm._name = authors[i].ownerName || 'Golfer'; });
   if (list) {
     list.innerHTML = comments.length
       ? comments.map(cm => {
           const canDel = !!(myUid && (myUid === cm.authorUid || isOwner));
           return `<div class="pp-comment">
-            <div class="pp-comment-body"><span class="pp-comment-name">${window.safeText(cm.authorName || 'Golfer')}</span>${window.safeText(cm.text || '')}</div>
+            <div class="pp-comment-body"><span class="pp-comment-name">${window.safeText(cm._name)}</span>${window.safeText(cm.text || '')}</div>
             ${canDel ? `<button type="button" class="pp-comment-del" data-action="passport-comment-del" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}" data-id="${window.safeAttr(cm.id)}" aria-label="Delete comment">&times;</button>` : ''}
           </div>`;
         }).join('')
@@ -20436,14 +20455,15 @@ async function ppSendComment(uid, courseId) {
   if (!text) return;
   const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
   if (!myUid) { window.requireAuth && window.requireAuth('to comment'); return; }
-  const authorName = (window.CURRENT_USER && (window.CURRENT_USER.displayName || '')) || 'Golfer';
   input.disabled = true;
   try {
     const { getFirestore, collection, addDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
+    // No authorName on the doc — resolved from profiles/{authorUid} on render
+    // (audit 2026-09-17: stored names were spoofable).
     await addDoc(collection(db, 'passport', uid, 'played', courseId, 'comments'), {
-      authorUid: myUid, authorName: authorName.slice(0, 80), text, createdAt: serverTimestamp(),
+      authorUid: myUid, text, createdAt: serverTimestamp(),
     });
     input.value = '';
     await ppLoadComments(uid, courseId);
@@ -20481,15 +20501,21 @@ async function openPassportFeed() {
   let posts = [];
   try {
     const fs = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const { getFirestore, collectionGroup, getDocs, query, orderBy, limit } = fs;
+    const { getFirestore, collectionGroup, getDocs, query, where, orderBy, limit } = fs;
     const db = getFirestore();
     let snap;
     try {
-      // Preferred: newest first (needs a 'played' collection-group index on
-      // createdAt — deploy later; falls back to unordered until then).
-      snap = await getDocs(query(collectionGroup(db, 'played'), orderBy('createdAt', 'desc'), limit(60)));
-    } catch (_e) {
-      snap = await getDocs(query(collectionGroup(db, 'played'), limit(200)));
+      // Preferred: photo rounds only, newest first (collection-group index
+      // hasPhotos ASC, createdAt DESC). Filtering server-side means the
+      // feed can't shrink toward empty as photo-less rounds accumulate.
+      snap = await getDocs(query(collectionGroup(db, 'played'),
+        where('hasPhotos', '==', true), orderBy('createdAt', 'desc'), limit(60)));
+    } catch (_e1) {
+      try {
+        snap = await getDocs(query(collectionGroup(db, 'played'), orderBy('createdAt', 'desc'), limit(60)));
+      } catch (_e2) {
+        snap = await getDocs(query(collectionGroup(db, 'played'), limit(200)));
+      }
     }
     snap.forEach(d => {
       const data = d.data() || {};
@@ -20519,15 +20545,21 @@ async function openPassportFeed() {
   const cat = await loadPassportCourses();
   await ppResolvePosters(posts);
   const html = posts.map(p => ppFeedCard(p, cat)).join('');
-  __ppFeedHTML = html;
   // Only repaint if the content actually changed (avoids a flash when the
-  // cached render already matches what we just fetched).
-  if (body.innerHTML !== html) { body.innerHTML = html; ppWireFeed(); }
-  else ppWireFeed();
+  // cached render already matches what we just fetched). Compare against the
+  // previous SOURCE string — innerHTML re-serialises entities (e.g. &#10084;)
+  // so comparing to the DOM was always "different".
+  const changed = html !== __ppFeedHTML;
+  __ppFeedHTML = html;
+  if (changed) { body.innerHTML = html; ppWireFeed(); }
 }
 
+// Resolve poster identity from profiles/{uid} (session-cached). Never trust
+// name/avatar stored on the post — audit 2026-09-17: those were client-
+// supplied and could impersonate another member in the feed.
 async function ppResolvePosters(posts) {
-  const need = [...new Set(posts.filter(p => !p.ownerName && !__ppPosterCache[p.uid]).map(p => p.uid))];
+  posts.forEach(p => { p.ownerName = ''; p.ownerAvatar = ''; });
+  const need = [...new Set(posts.filter(p => !__ppPosterCache[p.uid]).map(p => p.uid))];
   if (need.length) {
     try {
       const { getFirestore, doc, getDoc } =
@@ -20690,11 +20722,18 @@ async function openCoursePage(courseId) {
   if (subEl) subEl.textContent = c.location || '';
   let posts = [];
   try {
-    const { getFirestore, collectionGroup, getDocs, query, limit } =
+    const { getFirestore, collectionGroup, getDocs, query, where, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    // Client-side filter by courseId (no per-course index needed at this scale).
-    const snap = await getDocs(query(collectionGroup(db, 'played'), limit(300)));
+    // Server-side filter (collection-group index courseId ASC, createdAt DESC).
+    // Falls back to the old 300-doc scan only if the index isn't there.
+    let snap;
+    try {
+      snap = await getDocs(query(collectionGroup(db, 'played'),
+        where('courseId', '==', courseId), orderBy('createdAt', 'desc'), limit(60)));
+    } catch (_e) {
+      snap = await getDocs(query(collectionGroup(db, 'played'), limit(300)));
+    }
     snap.forEach(d => {
       const data = d.data() || {};
       if (data.courseId !== courseId) return;

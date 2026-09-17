@@ -93,3 +93,79 @@ test("conversations/{id}: only participants can read; non-participant + anon den
   await assertFails(getDoc(doc(db(mallory), "conversations", "C1")));
   await assertFails(getDoc(doc(db(anon), "conversations", "C1")));
 });
+
+// ─────────────────────────────────────────────────────────────
+// Audit 2026-09-17 — Course Passport + messaging hardening invariants.
+// ─────────────────────────────────────────────────────────────
+const {serverTimestamp, updateDoc, addDoc, collection} = require("firebase/firestore");
+const STORAGE_URL = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/passport%2Fu1%2Fpine-valley%2F1.jpg?alt=media";
+
+test("passport: owner can create a round with server createdAt; others cannot", async () => {
+  const me = testEnv.authenticatedContext("u1");
+  const other = testEnv.authenticatedContext("u2");
+  const round = {courseId: "pine-valley", grade: "A+", photos: [STORAGE_URL], hasPhotos: true, createdAt: serverTimestamp()};
+  await assertSucceeds(setDoc(doc(db(me), "passport/u1/played", "pine-valley"), round));
+  await assertFails(setDoc(doc(db(other), "passport/u1/played", "pine-valley"), round));
+});
+
+test("passport: createdAt must be server time on create and immutable on update (no feed pinning)", async () => {
+  const me = testEnv.authenticatedContext("u1");
+  const future = new Date("2100-01-01");
+  await assertFails(setDoc(doc(db(me), "passport/u1/played", "pine-valley"),
+    {courseId: "pine-valley", grade: "A", createdAt: future}));
+  await seed("passport/u1/played", "pine-valley", {courseId: "pine-valley", grade: "A", createdAt: new Date("2026-09-01")});
+  await assertFails(updateDoc(doc(db(me), "passport/u1/played", "pine-valley"), {createdAt: future}));
+  await assertSucceeds(updateDoc(doc(db(me), "passport/u1/played", "pine-valley"), {review: "great"}));
+});
+
+test("passport: photos must be our Storage bucket; courseId must be slug-shaped", async () => {
+  const me = testEnv.authenticatedContext("u1");
+  await assertFails(setDoc(doc(db(me), "passport/u1/played", "pine-valley"),
+    {courseId: "pine-valley", grade: "A", photos: ["https://evil.example/x.jpg"], createdAt: serverTimestamp()}));
+  await assertFails(setDoc(doc(db(me), "passport/u1/played", "Not A Slug!"),
+    {courseId: "Not A Slug!", grade: "A", createdAt: serverTimestamp()}));
+});
+
+test("passport: likes/comments require an existing parent round; comment createdAt is server time", async () => {
+  const fan = testEnv.authenticatedContext("u2");
+  // no parent round yet → both denied
+  await assertFails(setDoc(doc(db(fan), "passport/u1/played/pine-valley/likes", "u2"), {createdAt: serverTimestamp()}));
+  await assertFails(addDoc(collection(db(fan), "passport/u1/played/pine-valley/comments"),
+    {authorUid: "u2", text: "nice", createdAt: serverTimestamp()}));
+  await seed("passport/u1/played", "pine-valley", {courseId: "pine-valley", grade: "A", createdAt: new Date()});
+  await assertSucceeds(setDoc(doc(db(fan), "passport/u1/played/pine-valley/likes", "u2"), {createdAt: serverTimestamp()}));
+  await assertSucceeds(addDoc(collection(db(fan), "passport/u1/played/pine-valley/comments"),
+    {authorUid: "u2", text: "nice", createdAt: serverTimestamp()}));
+  // client-supplied createdAt or spoofed author → denied
+  await assertFails(addDoc(collection(db(fan), "passport/u1/played/pine-valley/comments"),
+    {authorUid: "u2", text: "nice", createdAt: new Date("2100-01-01")}));
+  await assertFails(addDoc(collection(db(fan), "passport/u1/played/pine-valley/comments"),
+    {authorUid: "u1", text: "as someone else", createdAt: serverTimestamp()}));
+});
+
+test("conversations: create rejects a seeded lastMessageText preview (moderation bypass)", async () => {
+  await seed("listings", "L1", {sellerId: "seller", title: "Putter"});
+  const buyer = testEnv.authenticatedContext("buyer");
+  const base = {participants: ["buyer", "seller"], listingId: "L1", buyerId: "buyer", sellerId: "seller", createdAt: serverTimestamp(), lastMessageAt: serverTimestamp()};
+  await assertSucceeds(addDoc(collection(db(buyer), "conversations"), base));
+  await assertFails(addDoc(collection(db(buyer), "conversations"), {...base, lastMessageText: "Payment failed — confirm at evil.shop"}));
+  await assertFails(addDoc(collection(db(buyer), "conversations"), {...base, lastRead: {seller: serverTimestamp()}}));
+});
+
+test("conversations: create denied when the other participant has blocked the creator", async () => {
+  await seed("listings", "L1", {sellerId: "seller", title: "Putter"});
+  await seed("users", "seller", {blocked: {buyer: {blockedAt: new Date()}}});
+  const buyer = testEnv.authenticatedContext("buyer");
+  await assertFails(addDoc(collection(db(buyer), "conversations"),
+    {participants: ["buyer", "seller"], listingId: "L1", buyerId: "buyer", sellerId: "seller", createdAt: serverTimestamp()}));
+});
+
+test("conversations: update allows only own lastRead/hidden keys; lastMessage* is callable-only", async () => {
+  await seed("conversations", "C1", {participants: ["buyer", "seller"], listingId: "L1", buyerId: "buyer", sellerId: "seller", lastRead: {}, hidden: {}});
+  const buyer = testEnv.authenticatedContext("buyer");
+  await assertSucceeds(updateDoc(doc(db(buyer), "conversations", "C1"), {"lastRead.buyer": serverTimestamp()}));
+  await assertSucceeds(updateDoc(doc(db(buyer), "conversations", "C1"), {"hidden.buyer": serverTimestamp()}));
+  await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {"lastRead.seller": serverTimestamp()}));
+  await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageText: "spoofed preview"}));
+  await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageSenderId: "buyer", lastMessageAt: serverTimestamp()}));
+});
