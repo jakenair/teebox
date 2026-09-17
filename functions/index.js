@@ -8577,6 +8577,11 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
       // wrapper {message:{data:<base64 JSON>}}, or (c) a raw JSON string/
       // Buffer. Unwrap all three so `obj.name` is always the object path.
       let obj = event && event.data;
+      // Observed in prod (audit 2026-09-17): with no FUNCTION_SIGNATURE_TYPE
+      // set, the framework hands the raw GCS notification body straight
+      // through — `event` IS the StorageObjectData (has .name/.bucket/
+      // .contentType) and event.data is undefined. Accept that shape first.
+      if (!obj && event && typeof event.name === "string" && event.name) obj = event;
       const rawType = Buffer.isBuffer(obj) ? "buffer" : typeof obj;
       const rawKeys = (obj && typeof obj === "object" && !Buffer.isBuffer(obj)) ? Object.keys(obj).slice(0, 8) : [];
       try {
