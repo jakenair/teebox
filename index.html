@@ -4660,7 +4660,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r233</span></div>
+        <span class="auth-build" aria-hidden="true">r234</span></div>
     </div>
   </div>
 </div>
@@ -6502,7 +6502,7 @@
     </div>
     <div class="pp-modal-foot">
       <button class="btn-full ghost" data-action="passport-close" type="button">Cancel</button>
-      <button class="btn-full green" data-action="passport-save" id="ppSaveBtn" type="button">Save course</button>
+      <button class="btn-full green" data-action="passport-save" id="ppSaveBtn" type="button">Post</button>
     </div>
   </div>
 </div>
@@ -19993,7 +19993,7 @@ async function openAddPassportCourse(existing) {
     search.onfocus = () => { if (!__ppState.courseId) ppRenderCourseMenu(search.value, cat); };
   }
   const btn = document.getElementById('ppSaveBtn');
-  if (btn) { btn.disabled = false; btn.textContent = __ppState.editing ? 'Save changes' : 'Save course'; }
+  if (btn) { btn.disabled = false; btn.textContent = __ppState.editing ? 'Update' : 'Post'; }
   back.classList.add('open'); back.setAttribute('aria-hidden', 'false');
 }
 
@@ -20166,7 +20166,7 @@ async function ppSave() {
   const btn = document.getElementById('ppSaveBtn');
   const reviewEl = document.getElementById('ppReview');
   const review = ((reviewEl && reviewEl.value) || '').trim().slice(0, 2000);
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = st.editing ? 'Saving…' : 'Posting…'; }
   try {
     const [{ getFirestore, doc, setDoc, serverTimestamp }, { getStorage, ref: sref, uploadBytes, getDownloadURL }] =
       await Promise.all([
@@ -20208,7 +20208,7 @@ async function ppSave() {
   } catch (e) {
     console.error('passport save failed', e);
     showToast('Could not save. Please try again.', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = st.editing ? 'Save changes' : 'Save course'; }
+    if (btn) { btn.disabled = false; btn.textContent = st.editing ? 'Update' : 'Post'; }
   }
 }
 
