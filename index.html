@@ -812,6 +812,7 @@
     background: rgba(0,0,0,0.18);
   }
   .mobile-nav-drawer-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--gold-300); letter-spacing: 0.3px; }
+  .mobile-nav-drawer-title span { color: var(--white); }
   .mobile-nav-drawer-close { background: transparent; border: 0; font-size: 28px; line-height: 1; color: rgba(255,255,255,0.6); cursor: pointer; padding: 4px 8px; transition: color 0.15s ease, transform 0.1s ease; }
   .mobile-nav-drawer-close:hover { color: var(--white); }
   .mobile-nav-drawer-close:active { transform: scale(0.92); }
@@ -1628,6 +1629,33 @@
   .pp-comment-send { flex: none; border: none; background: var(--green-600); color: #fff; font-weight: 700; font-size: 13px; border-radius: var(--radius-md); padding: 9px 14px; cursor: pointer; }
   .pp-comment-send:disabled { opacity: 0.5; cursor: default; }
   .pp-detail-photo { cursor: pointer; }
+
+  /* Passport FEED — Discover surface, Instagram-style column of recent
+     rounds across everyone. Full-screen overlay like Logo Bingo. */
+  #passportFeedScreen { display: none; position: fixed; inset: 0; z-index: 320; background: var(--cream); flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #passportFeedScreen.open { display: flex; }
+  .pf-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; padding-top: calc(env(safe-area-inset-top) + 12px); background: var(--green-900); color: var(--white); position: sticky; top: 0; z-index: 2; }
+  .pf-back { background: transparent; border: 0; color: var(--white); font-size: 24px; line-height: 1; cursor: pointer; padding: 6px 8px; min-width: 40px; }
+  .pf-titlewrap { flex: 1; }
+  .pf-title { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: var(--gold-300); line-height: 1.1; }
+  .pf-title span { color: var(--white); }
+  .pf-sub { font-size: 12px; color: rgba(255,255,255,0.6); }
+  .pf-body { max-width: 560px; width: 100%; margin: 0 auto; padding: 14px 12px 40px; }
+  .pf-loading, .pf-empty { text-align: center; color: var(--gray-500); font-size: 14px; padding: 40px 20px; line-height: 1.6; }
+  .pf-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .pf-card-user { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 10px 12px; cursor: pointer; text-align: left; }
+  .pf-ava { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex: none; background: var(--green-900); display: flex; align-items: center; justify-content: center; }
+  .pf-ava img { width: 100%; height: 100%; object-fit: cover; }
+  .pf-ava-fallback { color: var(--gold-300); font-weight: 800; font-size: 14px; }
+  .pf-user-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+  .pf-user-text strong { font-size: 14px; color: var(--gray-900); }
+  .pf-user-text small { font-size: 12px; color: var(--gray-500); }
+  .pf-photo-btn { position: relative; display: block; width: 100%; border: 0; padding: 0; background: #000; cursor: pointer; }
+  .pf-photo { display: block; width: 100%; aspect-ratio: 1/1; object-fit: cover; }
+  .pf-course-chip { position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.94); border-radius: 999px; padding: 5px 11px 5px 6px; font-size: 12.5px; font-weight: 700; color: var(--gray-900); box-shadow: 0 1px 4px rgba(0,0,0,0.25); max-width: 78%; }
+  .pf-course-chip img { width: 22px; height: 22px; object-fit: contain; flex: none; }
+  .pf-grade-seal { position: absolute; right: 10px; bottom: 10px; min-width: 30px; height: 30px; padding: 0 8px; line-height: 30px; text-align: center; border-radius: 999px; color: #fff; font-weight: 800; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .pf-review { margin: 0; padding: 10px 14px 14px; font-size: 13.5px; color: var(--gray-700); line-height: 1.5; }
 
   /* Passport add/edit modal + detail sheet */
   .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
@@ -4620,7 +4648,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r230</span></div>
+        <span class="auth-build" aria-hidden="true">r231</span></div>
     </div>
   </div>
 </div>
@@ -5305,6 +5333,41 @@
   </div>
 </div>
 
+<!-- GUIDELINES & POLICIES — collapses the old flat Legal list (drawer +
+     profile) into one entry so those surfaces aren't a wall of links. Each
+     row still opens the same bundled policy page via openLegalUrl. -->
+<div class="modal-backdrop info-backdrop" id="guidelinesBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">Guidelines &amp; policies</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body">
+      <p class="info-meta">The terms that govern buying, selling, and using TeeBox.</p>
+      <div class="account-hub-list">
+        <button class="account-hub-item" data-action="open-terms-page" type="button">
+          <span class="account-hub-label">Terms of Service</span><span class="account-hub-chev">›</span>
+        </button>
+        <button class="account-hub-item" data-action="open-privacy-full" type="button">
+          <span class="account-hub-label">Privacy Policy</span><span class="account-hub-chev">›</span>
+        </button>
+        <button class="account-hub-item" data-action="open-dmca" type="button">
+          <span class="account-hub-label">DMCA Policy</span><span class="account-hub-chev">›</span>
+        </button>
+        <button class="account-hub-item" data-action="open-refund-policy" type="button">
+          <span class="account-hub-label">Refund Policy</span><span class="account-hub-chev">›</span>
+        </button>
+        <button class="account-hub-item" data-action="open-acceptable-use" type="button">
+          <span class="account-hub-label">Acceptable Use</span><span class="account-hub-chev">›</span>
+        </button>
+        <button class="account-hub-item" data-action="open-seller-agreement" type="button">
+          <span class="account-hub-label">Seller Agreement</span><span class="account-hub-chev">›</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- PROFILE MODAL -->
 <div class="modal-backdrop info-backdrop" id="profileBackdrop" data-close-on-backdrop="close-profile">
   <div class="info-modal" role="dialog" aria-modal="true" id="profileModalInner">
@@ -5843,10 +5906,26 @@
 </header>
 
 <!-- MOBILE NAV DRAWER (slides in from the right) -->
+<!-- PASSPORT FEED — Discover surface (drawer: Passport). Recent rounds from
+     everyone, Instagram-style. Populated by openPassportFeed(). -->
+<div id="passportFeedScreen" aria-hidden="true">
+  <header class="pf-header">
+    <button class="pf-back" data-action="close-passport-feed" aria-label="Back" type="button">←</button>
+    <div class="pf-titlewrap">
+      <div class="pf-title"><span>Tee</span>Box Passport</div>
+      <div class="pf-sub">Recently played, from the community</div>
+    </div>
+    <span style="min-width:40px" aria-hidden="true"></span>
+  </header>
+  <div class="pf-body" id="passportFeedBody">
+    <div class="pf-loading">Loading recent rounds…</div>
+  </div>
+</div>
+
 <div class="mobile-nav-drawer" id="mobileNavDrawer" data-action="close-mobile-nav" aria-hidden="true">
   <div class="mobile-nav-drawer-inner" role="navigation" aria-label="App menu" onclick="event.stopPropagation()">
     <div class="mobile-nav-drawer-head">
-      <span class="mobile-nav-drawer-title">TeeBox</span>
+      <span class="mobile-nav-drawer-title"><span>Tee</span>Box</span>
       <button class="mobile-nav-drawer-close" data-action="close-mobile-nav" type="button" aria-label="Close menu">×</button>
     </div>
 
@@ -5905,6 +5984,10 @@
         <span class="mobile-nav-link-label">Logo Bingo</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
+      <a href="#" class="mobile-nav-link" data-action="open-passport-feed">
+        <span class="mobile-nav-link-label">Passport</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
       <a href="#" class="mobile-nav-link" data-action="open-journal">
         <span class="mobile-nav-link-label">Journal</span>
         <span class="mobile-nav-link-chev">›</span>
@@ -5929,40 +6012,16 @@
         <span class="mobile-nav-link-label">About TeeBox</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
+      <a href="#" class="mobile-nav-link" data-action="open-guidelines">
+        <span class="mobile-nav-link-label">Guidelines</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
       <a href="#" class="mobile-nav-link" data-action="sign-out">
         <span class="mobile-nav-link-label">Sign Out</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link danger" data-action="open-delete-account">
         <span class="mobile-nav-link-label">Delete Account</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-    </div>
-
-    <div class="mobile-nav-section">
-      <span class="mobile-nav-section-label">Legal</span>
-      <a href="#" class="mobile-nav-link" data-action="open-terms-page">
-        <span class="mobile-nav-link-label">Terms of Service</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-privacy-full">
-        <span class="mobile-nav-link-label">Privacy Policy</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-dmca">
-        <span class="mobile-nav-link-label">DMCA Policy</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-refund-policy">
-        <span class="mobile-nav-link-label">Refund Policy</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-acceptable-use">
-        <span class="mobile-nav-link-label">Acceptable Use</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
-      <a href="#" class="mobile-nav-link" data-action="open-seller-agreement">
-        <span class="mobile-nav-link-label">View Seller Agreement</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
     </div>
@@ -17310,7 +17369,7 @@ if ('serviceWorker' in navigator) {
 // The verify-email banner stays OUTSIDE the queue on purpose: it is
 // functional, and error handlers surface it contextually (r188).
 window.__ambient = (function () {
-  const BUSY_IDS = ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop','journalBackdrop','stripeRequiredBackdrop','filterSheetBackdrop','shopDashboard','notifPanel'];
+  const BUSY_IDS = ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','guidelinesBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop','journalBackdrop','stripeRequiredBackdrop','filterSheetBackdrop','shopDashboard','notifPanel'];
   const PRIORITY = { tour: 3, install: 2, consent: 1 };
   let slotUsed = false;
   let active = null;
@@ -17479,7 +17538,7 @@ window.__actions['bn-home'] = () => {
   // r186: return any list containers the Activity hub adopted before
   // closing overlays, so Inbox/Orders/Saved-Searches reopen intact.
   if (window.__activityRestore) window.__activityRestore();
-  ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop']
+  ['searchOverlay','modalBackdrop','sellModalBackdrop','detailBackdrop','checkoutBackdrop','verifyBackdrop','chatBackdrop','inboxBackdrop','profileBackdrop','aboutBackdrop','guidelinesBackdrop','termsBackdrop','privacyBackdrop','reviewBackdrop','savedSearchesBackdrop','ordersBackdrop','disputeBackdrop','lightbox','bingoScreen','bingoGuessBackdrop','activityBackdrop']
     .forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('open'); });
   const fsb = document.getElementById('filterSheetBackdrop');
   if (fsb) fsb.classList.remove('open');
@@ -18822,8 +18881,17 @@ async function openProfile(uid) {
   // shimmer where their picture should be. The image is already in the HTTP
   // cache (preloadOwnAvatar), so it shows with no network round-trip.
   const _isOwnProfile = !!(window.CURRENT_USER && window.CURRENT_USER.uid === uid);
-  const _cachedAvatar = _isOwnProfile ? window.safeImgUrl(window.CURRENT_PROFILE_AVATAR) : '';
-  const _cachedName = _isOwnProfile ? (window.CURRENT_PROFILE_NAME || '') : '';
+  // Fall back to Firebase Auth's own photoURL/displayName when the profile
+  // caches haven't warmed yet (cold start, or a tap right after sign-in
+  // before preloadOwnAvatar/checkSellerStatus resolve). These come off the
+  // in-memory auth user with zero network, so the identity paints instantly
+  // instead of shimmering until all four profile reads finish.
+  const _cachedAvatar = _isOwnProfile
+    ? window.safeImgUrl(window.CURRENT_PROFILE_AVATAR || (window.CURRENT_USER && window.CURRENT_USER.photoURL) || '')
+    : '';
+  const _cachedName = _isOwnProfile
+    ? (window.CURRENT_PROFILE_NAME || (window.CURRENT_USER && window.CURRENT_USER.displayName) || '')
+    : '';
   const _skelAvatar = _cachedAvatar
     ? '<div class="ps-avatar" style="overflow:hidden;position:relative;border-radius:50%;">' +
         '<img src="' + window.safeAttr(_cachedAvatar) + '" alt="" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>'
@@ -19152,28 +19220,8 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">About TeeBox</span>
              <span class="account-hub-chev">›</span>
            </button>
-           <button class="account-hub-item" data-action="open-terms-page" type="button">
-             <span class="account-hub-label">Terms of Service</span>
-             <span class="account-hub-chev">›</span>
-           </button>
-           <button class="account-hub-item" data-action="open-privacy-full" type="button">
-             <span class="account-hub-label">Privacy Policy</span>
-             <span class="account-hub-chev">›</span>
-           </button>
-           <button class="account-hub-item" data-action="open-dmca" type="button">
-             <span class="account-hub-label">DMCA Policy</span>
-             <span class="account-hub-chev">›</span>
-           </button>
-           <button class="account-hub-item" data-action="open-refund-policy" type="button">
-             <span class="account-hub-label">Refund Policy</span>
-             <span class="account-hub-chev">›</span>
-           </button>
-           <button class="account-hub-item" data-action="open-acceptable-use" type="button">
-             <span class="account-hub-label">Acceptable Use</span>
-             <span class="account-hub-chev">›</span>
-           </button>
-           <button class="account-hub-item" data-action="open-seller-agreement" type="button">
-             <span class="account-hub-label">View Seller Agreement</span>
+           <button class="account-hub-item" data-action="open-guidelines" type="button">
+             <span class="account-hub-label">Guidelines &amp; policies</span>
              <span class="account-hub-chev">›</span>
            </button>
          </div>
@@ -20089,6 +20137,10 @@ async function ppSave() {
       review,
       photos: urls.slice(0, 12),
       updatedAt: serverTimestamp(),
+      // Denormalised poster identity so the Discover feed renders without a
+      // profile read per card (falls back to a profile fetch for old docs).
+      ownerName: ((window.CURRENT_PROFILE_NAME || (window.CURRENT_USER && window.CURRENT_USER.displayName) || '')).slice(0, 80),
+      ownerAvatar: (window.CURRENT_PROFILE_AVATAR || (window.CURRENT_USER && window.CURRENT_USER.photoURL) || ''),
     };
     if (!st.editing) payload.createdAt = serverTimestamp();
     // merge:true keeps createdAt intact when editing.
@@ -20313,6 +20365,111 @@ async function ppDeleteComment(uid, courseId, commentId) {
     await ppLoadComments(uid, courseId);
   } catch (e) { console.warn('passport comment delete failed', e); showToast('Could not delete. Try again.', 'error'); }
 }
+
+// ── Passport FEED (Discover) ─────────────────────────────────────────
+const __ppPosterCache = {};
+
+async function openPassportFeed() {
+  const screen = document.getElementById('passportFeedScreen');
+  const body = document.getElementById('passportFeedBody');
+  if (!screen || !body) return;
+  screen.classList.add('open'); screen.setAttribute('aria-hidden', 'false');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
+  body.scrollTop = 0;
+  body.innerHTML = '<div class="pf-loading">Loading recent rounds…</div>';
+  let posts = [];
+  try {
+    const fs = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const { getFirestore, collectionGroup, getDocs, query, orderBy, limit } = fs;
+    const db = getFirestore();
+    let snap;
+    try {
+      // Preferred: newest first (needs a 'played' collection-group index on
+      // createdAt — deploy later; falls back to unordered until then).
+      snap = await getDocs(query(collectionGroup(db, 'played'), orderBy('createdAt', 'desc'), limit(60)));
+    } catch (_e) {
+      snap = await getDocs(query(collectionGroup(db, 'played'), limit(200)));
+    }
+    snap.forEach(d => {
+      const data = d.data() || {};
+      const parent = d.ref.parent && d.ref.parent.parent;
+      const uid = parent ? parent.id : null;
+      if (!uid) return;
+      posts.push({
+        uid, courseId: data.courseId, courseName: data.courseName, grade: data.grade,
+        photos: Array.isArray(data.photos) ? data.photos : [], review: data.review || '',
+        createdAt: data.createdAt, ownerName: data.ownerName || '', ownerAvatar: data.ownerAvatar || '',
+      });
+    });
+  } catch (e) { console.warn('passport feed read failed', e); }
+  // Photo-driven feed — only rounds with at least one photo.
+  posts = posts.filter(p => p.photos && p.photos.length);
+  posts.sort((a, b) => {
+    const am = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const bm = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return bm - am;
+  });
+  posts = posts.slice(0, 60);
+  if (!posts.length) {
+    body.innerHTML = '<div class="pf-empty">No rounds posted yet.<br>Add courses to your passport with a photo and they’ll show up here.</div>';
+    return;
+  }
+  const cat = await loadPassportCourses();
+  await ppResolvePosters(posts);
+  body.innerHTML = posts.map(p => ppFeedCard(p, cat)).join('');
+}
+
+async function ppResolvePosters(posts) {
+  const need = [...new Set(posts.filter(p => !p.ownerName && !__ppPosterCache[p.uid]).map(p => p.uid))];
+  if (need.length) {
+    try {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const db = getFirestore();
+      await Promise.all(need.map(async uid => {
+        try {
+          const s = await getDoc(doc(db, 'profiles', uid));
+          const d = s.exists() ? s.data() : {};
+          __ppPosterCache[uid] = { name: d.displayName || 'Golfer', avatar: d.avatarUrl || '' };
+        } catch (_e) { __ppPosterCache[uid] = { name: 'Golfer', avatar: '' }; }
+      }));
+    } catch (_e) { /* best-effort */ }
+  }
+  posts.forEach(p => {
+    const m = __ppPosterCache[p.uid] || {};
+    p.ownerName = p.ownerName || m.name || 'Golfer';
+    p.ownerAvatar = p.ownerAvatar || m.avatar || '';
+  });
+}
+
+function ppFeedCard(p, cat) {
+  const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
+  const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#8a7550';
+  const photo = window.safeAttr(p.photos[0]);
+  const ava = p.ownerAvatar
+    ? `<img src="${window.safeAttr(p.ownerAvatar)}" alt="" loading="lazy" />`
+    : `<span class="pf-ava-fallback">${window.safeText((p.ownerName || 'G').slice(0, 1).toUpperCase())}</span>`;
+  const review = p.review ? (p.review.length > 140 ? p.review.slice(0, 140) + '…' : p.review) : '';
+  return `<article class="pf-card">
+    <button type="button" class="pf-card-user" data-action="passport-feed-user" data-uid="${window.safeAttr(p.uid)}">
+      <span class="pf-ava">${ava}</span>
+      <span class="pf-user-text"><strong>${window.safeText(p.ownerName)}</strong><small>played ${window.safeText(c.shortName)}</small></span>
+    </button>
+    <button type="button" class="pf-photo-btn" data-action="passport-feed-open" data-uid="${window.safeAttr(p.uid)}" data-course="${window.safeAttr(p.courseId)}">
+      <img class="pf-photo" src="${photo}" alt="${window.safeAttr(c.shortName)}" loading="lazy" />
+      <span class="pf-course-chip"><img src="${window.safeAttr(c.logo)}" alt="" />${window.safeText(c.shortName)}</span>
+      ${p.grade ? `<span class="pf-grade-seal" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
+    </button>
+    ${review ? `<p class="pf-review">${window.safeText(review)}</p>` : ''}
+  </article>`;
+}
+
+function closePassportFeed() {
+  const s = document.getElementById('passportFeedScreen');
+  if (s) { s.classList.remove('open'); s.setAttribute('aria-hidden', 'true'); }
+  (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+}
+window.openPassportFeed = openPassportFeed;
 
 function ppDetailClose() {
   const back = document.getElementById('ppDetailBackdrop');
@@ -21532,6 +21689,10 @@ A['passport-detail-close']   = () => { ppDetailClose(); };
 A['passport-like']           = () => { ppToggleLike(false); };
 A['passport-comment-send']   = (el) => { ppSendComment(el.dataset.uid, el.dataset.course); };
 A['passport-comment-del']    = (el) => { ppDeleteComment(el.dataset.uid, el.dataset.course, el.dataset.id); };
+A['open-passport-feed']      = () => { openPassportFeed(); };
+A['close-passport-feed']     = () => { closePassportFeed(); };
+A['passport-feed-open']      = (el) => { openPassportCourseDetail(el.dataset.uid, el.dataset.course); };
+A['passport-feed-user']      = (el) => { closePassportFeed(); openProfile(el.dataset.uid); };
 A['passport-edit']           = (el) => { ppDetailClose(); if (__ppDetailData) openAddPassportCourse(__ppDetailData); };
 A['passport-delete']         = (el) => { ppDelete(el.dataset.uid, el.dataset.course); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
@@ -21541,6 +21702,7 @@ A['seller-tour-next']        = () => advanceSellerTour();
 A['seller-tour-skip']        = () => dismissSellerTour({ markSeen: true });
 
 A['open-about']              = () => openInfo('aboutBackdrop');
+A['open-guidelines']         = () => openInfo('guidelinesBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
 A['close-info']              = () => document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
@@ -22087,10 +22249,37 @@ document.querySelectorAll('.nav-search-icon').forEach(el => { el.innerHTML = win
 const navInbox = document.getElementById('navInboxIcon');
 if (navInbox) navInbox.innerHTML = window.ICONS.message;
 
-// Wire star-rating picker (1..5)
+// Wire star-rating picker (1..5) — tap OR drag across the stars. The old
+// build only had per-button click handlers, which on iOS WKWebView were
+// easy to miss (users reported "couldn't give any stars"). Pointer events
+// on the container capture the drag and resolve the star under the finger,
+// so a tap and a swipe both work; the per-button click stays as a fallback.
 document.querySelectorAll('#reviewStars .star-pick').forEach((btn, i) => {
   btn.addEventListener('click', () => setStarRating(i + 1));
 });
+(function wireStarDrag() {
+  const cont = document.getElementById('reviewStars');
+  if (!cont) return;
+  cont.style.touchAction = 'none';
+  const ratingFromX = (clientX) => {
+    const btns = cont.querySelectorAll('.star-pick');
+    for (let i = 0; i < btns.length; i++) {
+      if (clientX < btns[i].getBoundingClientRect().right) return i + 1;
+    }
+    return btns.length || 5;
+  };
+  let dragging = false;
+  cont.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    try { cont.setPointerCapture(e.pointerId); } catch (_e) {}
+    setStarRating(ratingFromX(e.clientX));
+    if (e.cancelable) e.preventDefault();
+  });
+  cont.addEventListener('pointermove', (e) => { if (dragging) setStarRating(ratingFromX(e.clientX)); });
+  const end = () => { dragging = false; };
+  cont.addEventListener('pointerup', end);
+  cont.addEventListener('pointercancel', end);
+})();
 
 // Close the user menu when clicking outside it.
 document.addEventListener('click', (ev) => {

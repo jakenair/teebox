@@ -620,6 +620,15 @@ service cloud.firestore {
       }
     }
 
+    // Collection-group READ for the passport feed (Discover). A specific-path
+    // rule does NOT authorize a collectionGroup('played') query — that needs a
+    // recursive-wildcard match on the 'played' collection id. Read-only here;
+    // writes stay governed by the specific passport/{uid}/played/{courseId}
+    // rule above. Passport rounds are public by design.
+    match /{path=**}/played/{courseId} {
+      allow read: if true;
+    }
+
     match /reviews/{reviewId} {
       allow read: if true;
 
