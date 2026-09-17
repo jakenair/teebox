@@ -1541,6 +1541,82 @@
   .crop-zoom::-moz-range-thumb { width: 20px; height: 20px; border: none; border-radius: 50%; background: var(--green-600); cursor: pointer; }
   .crop-actions { display: flex; gap: 10px; }
   .crop-actions .btn-full { flex: 1; }
+
+  /* ── Course Passport ─────────────────────────────────────────────── */
+  .passport-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 0.85rem; }
+  .passport-count { font-size: 13px; color: var(--gray-500); }
+  .passport-count strong { color: var(--gray-900); font-size: 15px; }
+  .passport-tier { color: var(--green-600); font-weight: 700; }
+  .passport-empty-note { color: var(--gray-500); }
+  .passport-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; }
+  .passport-loading, .passport-empty { grid-column: 1 / -1; color: var(--gray-500); font-size: 13px; padding: 6px 0; }
+  .passport-cell { background: none; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; -webkit-tap-highlight-color: transparent; }
+  .passport-ring { position: relative; width: 72px; height: 72px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 3px var(--ring, var(--gray-200)), 0 2px 8px rgba(0,0,0,0.12); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .passport-logo { width: 78%; height: 78%; object-fit: contain; }
+  .passport-grade-badge { position: absolute; bottom: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; color: #fff; font-size: 10.5px; font-weight: 800; line-height: 20px; box-shadow: 0 0 0 2px var(--white); }
+  .passport-cell-name { font-size: 11.5px; font-weight: 600; color: var(--gray-700); line-height: 1.25; max-width: 84px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .passport-add-ring { box-shadow: 0 0 0 2px var(--gray-200); background: var(--gray-100); }
+  .passport-add-plus { font-size: 30px; color: var(--gray-500); font-weight: 300; line-height: 1; }
+  .passport-cell:active .passport-ring { transform: scale(0.96); }
+
+  /* Passport add/edit modal + detail sheet */
+  .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
+  .pp-backdrop.open { display: flex; }
+  .pp-modal, .pp-sheet { background: var(--white); border-radius: var(--radius-lg); width: min(94vw, 480px); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 44px rgba(0,0,0,0.35); }
+  .pp-modal-head, .pp-detail-head { position: relative; }
+  .pp-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid var(--gray-200); }
+  .pp-modal-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--gray-900); }
+  .pp-x { background: none; border: none; font-size: 26px; line-height: 1; color: var(--gray-500); cursor: pointer; padding: 0 4px; }
+  .pp-modal-body { padding: 1rem 1.1rem; overflow-y: auto; }
+  .pp-field { display: block; margin-bottom: 1.1rem; }
+  .pp-label { display: block; font-size: 12.5px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; }
+  .pp-optional { font-weight: 500; color: var(--gray-500); }
+  .pp-input { width: 100%; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 12px; font-size: 14px; font-family: inherit; color: var(--gray-900); background: var(--white); }
+  .pp-textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
+  .pp-course-menu { border: 1px solid var(--gray-200); border-radius: var(--radius-md); margin-top: 6px; max-height: 240px; overflow-y: auto; background: var(--white); }
+  .pp-course-opt { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--gray-100); padding: 8px 10px; cursor: pointer; text-align: left; }
+  .pp-course-opt:last-child { border-bottom: none; }
+  .pp-course-opt img { width: 30px; height: 30px; object-fit: contain; flex: none; }
+  .pp-course-opt span { display: flex; flex-direction: column; min-width: 0; }
+  .pp-course-opt strong { font-size: 13.5px; color: var(--gray-900); }
+  .pp-course-opt small { font-size: 11.5px; color: var(--gray-500); }
+  .pp-course-none { padding: 10px; font-size: 13px; color: var(--gray-500); }
+  .pp-course-picked { display: flex; align-items: center; gap: 10px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 8px 10px; }
+  .pp-course-picked img { width: 36px; height: 36px; object-fit: contain; flex: none; }
+  .pp-course-picked span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .pp-course-picked strong { font-size: 14px; color: var(--gray-900); }
+  .pp-course-picked small { font-size: 12px; color: var(--gray-500); }
+  .pp-change { background: none; border: none; color: var(--green-600); font-weight: 700; font-size: 12.5px; cursor: pointer; flex: none; }
+  .pp-grades { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pp-grade { border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 9px; padding: 7px 0; width: 44px; text-align: center; font-weight: 800; font-size: 13.5px; cursor: pointer; }
+  .pp-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pp-tag { border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .pp-tag.on { background: var(--green-600); border-color: var(--green-600); color: #fff; }
+  .pp-photos { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pp-photo { position: relative; width: 76px; height: 76px; border-radius: var(--radius-md); overflow: hidden; }
+  .pp-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .pp-photo-x { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; font-size: 15px; line-height: 22px; cursor: pointer; padding: 0; }
+  .pp-photo-add { width: 76px; height: 76px; border: 2px dashed var(--gray-300, var(--gray-200)); border-radius: var(--radius-md); background: var(--gray-100); color: var(--gray-500); font-size: 30px; font-weight: 300; cursor: pointer; }
+  .pp-modal-foot { display: flex; gap: 10px; padding: 0.85rem 1.1rem; border-top: 1px solid var(--gray-200); }
+  .pp-modal-foot .btn-full { flex: 1; }
+  .danger-ghost { background: none; border: 1px solid #e3b7b0; color: #c0392b; }
+  /* Detail sheet */
+  .pp-sheet-inner { padding: 1.1rem 1.15rem 1.4rem; overflow-y: auto; }
+  .pp-detail-loading { color: var(--gray-500); font-size: 13px; padding: 1rem 0; }
+  .pp-detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 1rem; }
+  .pp-detail-head .pp-x { position: absolute; top: -4px; right: -4px; }
+  .pp-detail-ring { width: 64px; height: 64px; flex: none; }
+  .pp-detail-titles { min-width: 0; }
+  .pp-detail-name { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--gray-900); line-height: 1.2; }
+  .pp-detail-loc { font-size: 12.5px; color: var(--gray-500); margin-top: 2px; }
+  .pp-detail-grade { font-size: 13px; font-weight: 800; margin-top: 3px; }
+  .pp-detail-photos { display: flex; gap: 8px; overflow-x: auto; margin: 0 -0.15rem 1rem; padding: 2px; scroll-snap-type: x mandatory; }
+  .pp-detail-photo { width: 78%; max-width: 320px; aspect-ratio: 1/1; object-fit: cover; border-radius: var(--radius-md); flex: none; scroll-snap-align: center; }
+  .pp-detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.9rem; }
+  .pp-detail-tag { background: var(--gray-100); color: var(--gray-700); border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 600; }
+  .pp-detail-review { font-size: 14px; color: var(--gray-800, var(--gray-700)); line-height: 1.6; white-space: pre-wrap; margin-bottom: 1rem; }
+  .pp-detail-actions { display: flex; gap: 10px; }
+  .pp-detail-actions .btn-full { flex: 1; }
   .verify-backdrop.open { display: flex; }
   .verify-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 540px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
   .verify-header { background: var(--green-900); padding: 1.5rem 1.5rem 1rem; text-align: center; }
@@ -4474,7 +4550,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r228</span></div>
+        <span class="auth-build" aria-hidden="true">r229</span></div>
     </div>
   </div>
 </div>
@@ -6239,6 +6315,52 @@
       <button class="btn-full ghost" data-action="crop-cancel" type="button">Cancel</button>
       <button class="btn-full green" data-action="crop-confirm" type="button">Use photo</button>
     </div>
+  </div>
+</div>
+
+<!-- COURSE PASSPORT — add/edit modal + course-detail sheet. Populated by
+     openAddPassportCourse() / openPassportCourseDetail() in the profile JS. -->
+<div class="pp-backdrop" id="ppBackdrop" aria-hidden="true" data-close-on-backdrop="passport-close">
+  <div class="pp-modal" role="dialog" aria-modal="true" aria-label="Add a course to your passport">
+    <div class="pp-modal-head">
+      <div class="pp-modal-title" id="ppModalTitle">Add a course</div>
+      <button class="pp-x" data-action="passport-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="pp-modal-body">
+      <div class="pp-field">
+        <span class="pp-label">Course</span>
+        <input type="text" class="pp-input" id="ppCourseSearch" placeholder="Search courses…" autocomplete="off" spellcheck="false" />
+        <div class="pp-course-menu" id="ppCourseMenu" hidden></div>
+        <div class="pp-course-picked" id="ppCoursePicked" hidden></div>
+      </div>
+      <div class="pp-field">
+        <span class="pp-label">Your grade</span>
+        <div class="pp-grades" id="ppGrades"></div>
+      </div>
+      <div class="pp-field">
+        <span class="pp-label">What stood out? <span class="pp-optional">(optional)</span></span>
+        <div class="pp-tags" id="ppTags"></div>
+      </div>
+      <label class="pp-field">
+        <span class="pp-label">Review <span class="pp-optional">(optional)</span></span>
+        <textarea class="pp-input pp-textarea" id="ppReview" maxlength="2000" rows="4" placeholder="How did it play? Conditions, service, the vibe…"></textarea>
+      </label>
+      <div class="pp-field" style="margin-bottom:0">
+        <span class="pp-label">Photos <span class="pp-optional">(up to 12)</span></span>
+        <div class="pp-photos" id="ppPhotos"></div>
+        <input type="file" id="ppPhotoInput" accept="image/*" hidden />
+      </div>
+    </div>
+    <div class="pp-modal-foot">
+      <button class="btn-full ghost" data-action="passport-close" type="button">Cancel</button>
+      <button class="btn-full green" data-action="passport-save" id="ppSaveBtn" type="button">Save course</button>
+    </div>
+  </div>
+</div>
+
+<div class="pp-backdrop" id="ppDetailBackdrop" aria-hidden="true" data-close-on-backdrop="passport-detail-close">
+  <div class="pp-sheet" role="dialog" aria-modal="true" aria-label="Course details">
+    <div class="pp-sheet-inner" id="ppDetailBody"></div>
   </div>
 </div>
 
@@ -19025,6 +19147,16 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     ${bagHtml}
 
     <div class="profile-section">
+      <div class="passport-head">
+        <h4 style="margin-bottom:0">Courses Played</h4>
+        <span class="passport-count" id="passportCount"></span>
+      </div>
+      <div class="passport-wall" id="passportWall" data-uid="${window.safeAttr(window.safeId(profile.id))}">
+        <div class="passport-loading">Loading passport…</div>
+      </div>
+    </div>
+
+    <div class="profile-section">
       <h4>Listings</h4>
       <div class="profile-listings">${listingsHtml}</div>
     </div>
@@ -19034,6 +19166,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     ${reviews.count ? renderProfileReviews(reviews.items) : ''}
   `;
   hydrateAvatars(document.getElementById('profileBody'));
+  try { renderPassportInto(profile.id, isMe); } catch (_e) { console.warn('passport render failed', _e); }
 }
 
 function renderProfileReviews(items) {
@@ -19562,6 +19695,392 @@ window.__cropConfirm = function() {
   }, st.mime, st.quality);
 };
 window.__cropCancel = function() { const st = __cropState; __cropState = null; __cropCleanup(st); if (st) st.resolve(null); };
+
+// ═══════════════════════════════════════════════════════════════════
+// COURSE PASSPORT — the courses you've played, graded + reviewed.
+// Data: passport/{uid}/played/{courseId} = {courseId, courseName, grade,
+// tags[], review, photos[], createdAt, updatedAt}. Photos in Storage at
+// passport/{uid}/{courseId}/*. Public read; owner-only write (see
+// firestore.rules + storage.rules). The wall on a profile shows each
+// course's logo ringed by its grade colour; tapping opens a detail sheet
+// with the photos + review. The owner also gets an "Add course" tile and
+// edit/remove. Course list = only slugs with a real logo (LOGOS_AVAILABLE).
+// ═══════════════════════════════════════════════════════════════════
+window.PASSPORT_GRADES = ['A+','A','B+','B','C+','C','D','F'];
+window.PASSPORT_TAGS = ['Caddies','Fairways','Greens','Clubhouse','Food','Practice facility','Pro shop','Views','Conditioning','Pace','Service','Value','Design','19th hole'];
+// Grade → ring/badge colour. Gold A+, greens down through neutral to red.
+window.PASSPORT_GRADE_COLOR = {
+  'A+': '#c9991e', 'A': '#3a6b47', 'B+': '#5a9268', 'B': '#6aad7c',
+  'C+': '#9a9a86', 'C': '#a8a89e', 'D': '#d98a3a', 'F': '#c0392b',
+};
+// Accolade tiers by number of courses logged.
+window.PASSPORT_TIERS = [
+  { n: 100, label: 'Legend' },
+  { n: 50,  label: 'Globetrotter' },
+  { n: 25,  label: 'Road Warrior' },
+  { n: 10,  label: 'Regular' },
+  { n: 5,   label: 'Getting Started' },
+  { n: 1,   label: 'First Tee' },
+];
+function passportTier(n) {
+  for (const t of window.PASSPORT_TIERS) if (n >= t.n) return t;
+  return null;
+}
+
+// Lazy course catalogue (only courses with a real logo, sorted by name).
+let __passportCoursesPromise = null;
+function loadPassportCourses() {
+  if (!__passportCoursesPromise) {
+    __passportCoursesPromise = (async () => {
+      const [{ COURSES, courseLogoUrl }, { LOGOS_AVAILABLE }] = await Promise.all([
+        import('./bingo-courses.js'),
+        import('./assets/logos/manifest.js'),
+      ]);
+      const list = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id))
+        .map(c => ({ id: c.id, name: c.name, shortName: c.shortName, location: c.location || '', logo: courseLogoUrl(c) }))
+        .sort((a, b) => a.shortName.localeCompare(b.shortName));
+      const byId = {};
+      list.forEach(c => { byId[c.id] = c; });
+      return { list, byId, courseLogoUrl };
+    })().catch(e => { console.warn('passport course catalogue failed', e); return { list: [], byId: {}, courseLogoUrl: (c) => `/assets/logos/${c && c.id}.png` }; });
+  }
+  return __passportCoursesPromise;
+}
+
+// Render a profile's passport wall. uid = whose passport; isOwner = viewer owns it.
+async function renderPassportInto(uid, isOwner) {
+  const wall = document.getElementById('passportWall');
+  const countEl = document.getElementById('passportCount');
+  if (!wall) return;
+  wall.dataset.owner = isOwner ? '1' : '';
+  let played = [];
+  try {
+    const { getFirestore, collection, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(collection(db, 'passport', uid, 'played'));
+    snap.forEach(d => played.push(d.data()));
+  } catch (e) { console.warn('passport read failed', e); }
+  // Newest first (createdAt may be a Firestore Timestamp or absent on old docs).
+  played.sort((a, b) => {
+    const am = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const bm = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return bm - am;
+  });
+  // On someone else's profile with an empty passport, hide the whole
+  // section — no point showing a bare "no courses" block to visitors.
+  const section = wall.closest('.profile-section');
+  if (section) section.hidden = !isOwner && played.length === 0;
+  const cat = await loadPassportCourses();
+  const n = played.length;
+  const tier = passportTier(n);
+  if (countEl) {
+    countEl.innerHTML = n
+      ? `<strong>${n}</strong> course${n === 1 ? '' : 's'}${tier ? ` · <span class="passport-tier">${window.safeText(tier.label)}</span>` : ''}`
+      : (isOwner ? '<span class="passport-empty-note">Add the courses you’ve played</span>' : '<span class="passport-empty-note">No courses yet</span>');
+  }
+  const cells = played.map(p => {
+    const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
+    const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#a8a89e';
+    return `<button type="button" class="passport-cell" data-action="passport-open" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(p.courseId)}" title="${window.safeAttr((c.shortName || '') + (p.grade ? ' — ' + p.grade : ''))}">
+      <span class="passport-ring" style="--ring:${color}">
+        <img class="passport-logo" src="${window.safeAttr(c.logo)}" alt="${window.safeAttr(c.shortName || '')}" loading="lazy" decoding="async" />
+        ${p.grade ? `<span class="passport-grade-badge" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
+      </span>
+      <span class="passport-cell-name">${window.safeText(c.shortName || p.courseName || '')}</span>
+    </button>`;
+  }).join('');
+  const addTile = isOwner
+    ? `<button type="button" class="passport-cell passport-add" data-action="passport-add" title="Add a course you've played">
+         <span class="passport-ring passport-add-ring"><span class="passport-add-plus">+</span></span>
+         <span class="passport-cell-name">Add course</span>
+       </button>`
+    : '';
+  wall.innerHTML = (cells + addTile) || '<div class="passport-empty">No courses played yet.</div>';
+}
+window.renderPassportInto = renderPassportInto;
+
+// ── Add/edit modal ───────────────────────────────────────────────────
+let __ppState = null; // { editing, courseId, courseName, grade, tags:Set, photos:[{url}|{file,previewUrl}] }
+
+async function openAddPassportCourse(existing) {
+  if (window.requireAuth && !window.requireAuth('to add a course to your passport')) return;
+  __ppState = { editing: false, courseId: '', courseName: '', grade: '', tags: new Set(), photos: [] };
+  const cat = await loadPassportCourses();
+  const back = document.getElementById('ppBackdrop');
+  const titleEl = document.getElementById('ppModalTitle');
+  const search = document.getElementById('ppCourseSearch');
+  const menu = document.getElementById('ppCourseMenu');
+  const reviewEl = document.getElementById('ppReview');
+  if (search) search.placeholder = `Search ${cat.list.length} courses…`;
+  if (existing) {
+    __ppState.editing = true;
+    __ppState.courseId = existing.courseId;
+    __ppState.courseName = existing.courseName || (cat.byId[existing.courseId] || {}).shortName || existing.courseId;
+    __ppState.grade = existing.grade || '';
+    (existing.tags || []).forEach(t => __ppState.tags.add(t));
+    __ppState.photos = (existing.photos || []).map(u => ({ url: u }));
+    if (titleEl) titleEl.textContent = 'Edit course';
+    if (reviewEl) reviewEl.value = existing.review || '';
+  } else {
+    if (titleEl) titleEl.textContent = 'Add a course';
+    if (reviewEl) reviewEl.value = '';
+  }
+  if (search) { search.value = ''; }
+  if (menu) { menu.hidden = true; }
+  ppRenderPicked();
+  ppRenderGrades();
+  ppRenderTags();
+  ppRenderPhotos();
+  if (search) {
+    search.oninput = () => ppRenderCourseMenu(search.value, cat);
+    search.onfocus = () => { if (!__ppState.courseId) ppRenderCourseMenu(search.value, cat); };
+  }
+  const btn = document.getElementById('ppSaveBtn');
+  if (btn) { btn.disabled = false; btn.textContent = __ppState.editing ? 'Save changes' : 'Save course'; }
+  back.classList.add('open'); back.setAttribute('aria-hidden', 'false');
+}
+
+function ppRenderCourseMenu(q, cat) {
+  const menu = document.getElementById('ppCourseMenu');
+  if (!menu) return;
+  const term = (q || '').trim().toLowerCase();
+  let list = cat.list;
+  if (term) list = list.filter(c =>
+    c.shortName.toLowerCase().includes(term) ||
+    c.name.toLowerCase().includes(term) ||
+    (c.location || '').toLowerCase().includes(term));
+  list = list.slice(0, 40);
+  menu.innerHTML = list.map(c =>
+    `<button type="button" class="pp-course-opt" data-action="passport-pick-course" data-course="${window.safeAttr(c.id)}">
+      <img src="${window.safeAttr(c.logo)}" alt="" loading="lazy" />
+      <span><strong>${window.safeText(c.shortName)}</strong><small>${window.safeText(c.location || '')}</small></span>
+    </button>`).join('') || '<div class="pp-course-none">No matches</div>';
+  menu.hidden = false;
+}
+
+function ppPickCourse(courseId) {
+  loadPassportCourses().then(cat => {
+    const c = cat.byId[courseId];
+    if (!c || !__ppState) return;
+    __ppState.courseId = c.id;
+    __ppState.courseName = c.shortName;
+    const menu = document.getElementById('ppCourseMenu');
+    const search = document.getElementById('ppCourseSearch');
+    if (menu) menu.hidden = true;
+    if (search) search.value = '';
+    ppRenderPicked();
+  });
+}
+
+function ppRenderPicked() {
+  const picked = document.getElementById('ppCoursePicked');
+  const search = document.getElementById('ppCourseSearch');
+  if (!picked || !__ppState) return;
+  if (!__ppState.courseId) { picked.hidden = true; if (search) search.hidden = false; return; }
+  loadPassportCourses().then(cat => {
+    const c = cat.byId[__ppState.courseId] ||
+      { shortName: __ppState.courseName, location: '', logo: `/assets/logos/${__ppState.courseId}.png` };
+    picked.innerHTML =
+      `<img src="${window.safeAttr(c.logo)}" alt="" />
+       <span><strong>${window.safeText(c.shortName)}</strong><small>${window.safeText(c.location || '')}</small></span>
+       ${__ppState.editing ? '' : '<button type="button" class="pp-change" data-action="passport-change-course">Change</button>'}`;
+    picked.hidden = false;
+    if (search) search.hidden = true;
+  });
+}
+
+function ppChangeCourse() {
+  if (!__ppState) return;
+  __ppState.courseId = ''; __ppState.courseName = '';
+  const search = document.getElementById('ppCourseSearch');
+  ppRenderPicked();
+  if (search) { search.hidden = false; search.value = ''; try { search.focus(); } catch (_e) {} }
+}
+
+function ppRenderGrades() {
+  const box = document.getElementById('ppGrades');
+  if (!box || !__ppState) return;
+  box.innerHTML = window.PASSPORT_GRADES.map(g => {
+    const on = __ppState.grade === g;
+    const color = window.PASSPORT_GRADE_COLOR[g];
+    const style = on ? `background:${color};border-color:${color};color:#fff` : '';
+    return `<button type="button" class="pp-grade${on ? ' on' : ''}" data-action="passport-grade" data-grade="${window.safeAttr(g)}" style="${style}">${window.safeText(g)}</button>`;
+  }).join('');
+}
+
+function ppRenderTags() {
+  const box = document.getElementById('ppTags');
+  if (!box || !__ppState) return;
+  box.innerHTML = window.PASSPORT_TAGS.map(t => {
+    const on = __ppState.tags.has(t);
+    return `<button type="button" class="pp-tag${on ? ' on' : ''}" data-action="passport-tag" data-tag="${window.safeAttr(t)}">${window.safeText(t)}</button>`;
+  }).join('');
+}
+
+function ppRenderPhotos() {
+  const box = document.getElementById('ppPhotos');
+  if (!box || !__ppState) return;
+  const tiles = __ppState.photos.map((p, i) => {
+    const src = p.url || p.previewUrl;
+    return `<div class="pp-photo"><img src="${window.safeAttr(src)}" alt="" /><button type="button" class="pp-photo-x" data-action="passport-photo-remove" data-idx="${i}" aria-label="Remove photo">&times;</button></div>`;
+  }).join('');
+  const addBtn = __ppState.photos.length < 12
+    ? '<button type="button" class="pp-photo-add" data-action="passport-photo-add" aria-label="Add photo">+</button>'
+    : '';
+  box.innerHTML = tiles + addBtn;
+}
+
+function ppAddPhoto() {
+  const input = document.getElementById('ppPhotoInput');
+  if (!input || !__ppState) return;
+  if (__ppState.photos.length >= 12) { showToast('Up to 12 photos per course.'); return; }
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    input.onchange = null;
+    if (!file) return;
+    if (file.size > 30 * 1024 * 1024) { showToast('That image is too large. Please pick one under 30MB.'); return; }
+    const cropped = await window.openCropper(file, { outputSize: 1080, quality: 0.85, title: 'Crop photo' });
+    if (!cropped || !__ppState) return;
+    __ppState.photos.push({ file: cropped, previewUrl: URL.createObjectURL(cropped) });
+    ppRenderPhotos();
+  };
+  input.click();
+}
+
+function ppRemovePhoto(idx) {
+  if (!__ppState) return;
+  const p = __ppState.photos[idx];
+  if (p && p.previewUrl) { try { URL.revokeObjectURL(p.previewUrl); } catch (_e) {} }
+  __ppState.photos.splice(idx, 1);
+  ppRenderPhotos();
+}
+
+function ppCloseModal() {
+  const back = document.getElementById('ppBackdrop');
+  if (back) { back.classList.remove('open'); back.setAttribute('aria-hidden', 'true'); }
+  if (__ppState) {
+    __ppState.photos.forEach(p => { if (p.previewUrl) { try { URL.revokeObjectURL(p.previewUrl); } catch (_e) {} } });
+  }
+}
+
+async function ppSave() {
+  const st = __ppState;
+  if (!st) return;
+  if (!st.courseId) { showToast('Pick a course first.'); return; }
+  if (!st.grade) { showToast('Give it a grade.'); return; }
+  const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if (!uid) { window.requireAuth && window.requireAuth('to save your passport'); return; }
+  const btn = document.getElementById('ppSaveBtn');
+  const reviewEl = document.getElementById('ppReview');
+  const review = ((reviewEl && reviewEl.value) || '').trim().slice(0, 2000);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const [{ getFirestore, doc, setDoc, serverTimestamp }, { getStorage, ref: sref, uploadBytes, getDownloadURL }] =
+      await Promise.all([
+        import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js"),
+      ]);
+    const stg = getStorage();
+    const urls = [];
+    for (let i = 0; i < st.photos.length; i++) {
+      const p = st.photos[i];
+      if (p.url) { urls.push(p.url); continue; }
+      if (!p.file) continue;
+      const r = sref(stg, `passport/${uid}/${st.courseId}/${Date.now()}_${i}.jpg`);
+      await uploadBytes(r, p.file, { contentType: 'image/jpeg' });
+      urls.push(await getDownloadURL(r));
+    }
+    const db = getFirestore();
+    const payload = {
+      courseId: st.courseId,
+      courseName: st.courseName || st.courseId,
+      grade: st.grade,
+      tags: Array.from(st.tags).slice(0, 20),
+      review,
+      photos: urls.slice(0, 12),
+      updatedAt: serverTimestamp(),
+    };
+    if (!st.editing) payload.createdAt = serverTimestamp();
+    // merge:true keeps createdAt intact when editing.
+    await setDoc(doc(db, 'passport', uid, 'played', st.courseId), payload, { merge: true });
+    ppCloseModal();
+    __ppState = null;
+    showToast(st.editing ? 'Course updated.' : 'Course added to your passport.', 'success');
+    try { await renderPassportInto(uid, true); } catch (_e) {}
+  } catch (e) {
+    console.error('passport save failed', e);
+    showToast('Could not save. Please try again.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = st.editing ? 'Save changes' : 'Save course'; }
+  }
+}
+
+// ── Course-detail sheet ──────────────────────────────────────────────
+let __ppDetailData = null;
+let __ppDetailUid = null;
+
+async function openPassportCourseDetail(uid, courseId) {
+  const back = document.getElementById('ppDetailBackdrop');
+  const body = document.getElementById('ppDetailBody');
+  if (!back || !body) return;
+  const isOwner = !!(window.CURRENT_USER && window.CURRENT_USER.uid === uid);
+  __ppDetailUid = uid;
+  body.innerHTML = '<div class="pp-detail-loading">Loading…</div>';
+  back.classList.add('open'); back.setAttribute('aria-hidden', 'false');
+  let data = null;
+  try {
+    const { getFirestore, doc, getDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDoc(doc(db, 'passport', uid, 'played', courseId));
+    if (snap.exists()) data = snap.data();
+  } catch (e) { console.warn('passport detail read failed', e); }
+  if (!data) { body.innerHTML = '<div class="pp-detail-loading">Could not load this course.</div>'; return; }
+  __ppDetailData = data;
+  const cat = await loadPassportCourses();
+  const c = cat.byId[courseId] ||
+    { shortName: data.courseName || courseId, name: data.courseName || courseId, location: '', logo: `/assets/logos/${courseId}.png` };
+  const color = window.PASSPORT_GRADE_COLOR[data.grade] || '#a8a89e';
+  const photos = (data.photos || []).map(u => `<img class="pp-detail-photo" src="${window.safeAttr(u)}" alt="" loading="lazy" />`).join('');
+  const tags = (data.tags || []).map(t => `<span class="pp-detail-tag">${window.safeText(t)}</span>`).join('');
+  body.innerHTML = `
+    <div class="pp-detail-head">
+      <button type="button" class="pp-x" data-action="passport-detail-close" aria-label="Close">&times;</button>
+      <span class="passport-ring pp-detail-ring" style="--ring:${color}"><img class="passport-logo" src="${window.safeAttr(c.logo)}" alt="" /></span>
+      <div class="pp-detail-titles">
+        <div class="pp-detail-name">${window.safeText(c.name || c.shortName)}</div>
+        ${c.location ? `<div class="pp-detail-loc">${window.safeText(c.location)}</div>` : ''}
+        <div class="pp-detail-grade" style="color:${color}">Grade ${window.safeText(data.grade || '—')}</div>
+      </div>
+    </div>
+    ${photos ? `<div class="pp-detail-photos">${photos}</div>` : ''}
+    ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
+    ${data.review ? `<p class="pp-detail-review">${window.safeText(data.review)}</p>` : ''}
+    ${isOwner ? `<div class="pp-detail-actions">
+      <button type="button" class="btn-full ghost" data-action="passport-edit" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}">Edit</button>
+      <button type="button" class="btn-full danger-ghost" data-action="passport-delete" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}">Remove</button>
+    </div>` : ''}
+  `;
+}
+
+function ppDetailClose() {
+  const back = document.getElementById('ppDetailBackdrop');
+  if (back) { back.classList.remove('open'); back.setAttribute('aria-hidden', 'true'); }
+}
+
+async function ppDelete(uid, courseId) {
+  if (!confirm('Remove this course from your passport? This cannot be undone.')) return;
+  try {
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await deleteDoc(doc(db, 'passport', uid, 'played', courseId));
+    ppDetailClose();
+    showToast('Course removed.', 'success');
+    try { await renderPassportInto(uid, true); } catch (_e) {}
+  } catch (e) { console.error('passport delete failed', e); showToast('Could not remove. Try again.', 'error'); }
+}
 
 async function onAvatarFile(ev) {
   const file = ev.target.files && ev.target.files[0];
@@ -20749,6 +21268,19 @@ A['save-profile']            = () => { if (!window.requireAuth('to save your pro
 A['avatar-pick']             = () => { if (!window.requireAuth('to update your avatar')) return; document.getElementById('avatarFileInput').click(); };
 A['crop-confirm']            = () => { window.__cropConfirm && window.__cropConfirm(); };
 A['crop-cancel']             = () => { window.__cropCancel && window.__cropCancel(); };
+A['passport-add']            = () => { openAddPassportCourse(); };
+A['passport-close']          = () => { ppCloseModal(); __ppState = null; };
+A['passport-pick-course']    = (el) => { ppPickCourse(el.dataset.course); };
+A['passport-change-course']  = () => { ppChangeCourse(); };
+A['passport-grade']          = (el) => { if (__ppState) { __ppState.grade = el.dataset.grade; ppRenderGrades(); } };
+A['passport-tag']            = (el) => { if (!__ppState) return; const t = el.dataset.tag; if (__ppState.tags.has(t)) __ppState.tags.delete(t); else __ppState.tags.add(t); ppRenderTags(); };
+A['passport-photo-add']      = () => { ppAddPhoto(); };
+A['passport-photo-remove']   = (el) => { ppRemovePhoto(Number(el.dataset.idx)); };
+A['passport-save']           = () => { ppSave(); };
+A['passport-open']           = (el) => { openPassportCourseDetail(el.dataset.uid, el.dataset.course); };
+A['passport-detail-close']   = () => { ppDetailClose(); };
+A['passport-edit']           = (el) => { ppDetailClose(); if (__ppDetailData) openAddPassportCourse(__ppDetailData); };
+A['passport-delete']         = (el) => { ppDelete(el.dataset.uid, el.dataset.course); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
 A['unpin-listing']           = (_el) => { if (!window.requireAuth('to unpin your listing')) return; pinListingToProfile(null); };
 A['payout-export-csv']       = () => { if (!window.requireAuth('to export your payouts')) return; exportPayoutsCsv(); };
