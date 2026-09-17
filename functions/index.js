@@ -8612,18 +8612,23 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
           }
         }
       }
-      // Entry diagnostics (audit 2026-09-17): log BEFORE any guard so a silent
-      // early-return is visible in Cloud Logging.
-      logger.info("optimizePassportPhoto: event", {
-        rawType, rawKeys,
-        ceType: event && event.type, ceSubject: event && event.subject, ceSource: event && event.source,
-        ceKeys: event ? Object.keys(event).slice(0, 12) : [],
-        name: obj && obj.name, contentType: obj && obj.contentType,
-        optimized: obj && obj.metadata && obj.metadata.optimized,
-        parts: obj && obj.name ? obj.name.split("/").length : 0,
-      });
-      if (!obj || !obj.name) return;
+      if (!obj || !obj.name) {
+        // Couldn't find an object path in any known shape — log so it's visible.
+        logger.warn("optimizePassportPhoto: no object name in event", {
+          rawType, rawKeys, ceType: event && event.type, ceSubject: event && event.subject,
+          ceKeys: event ? Object.keys(event).slice(0, 12) : [],
+        });
+        return;
+      }
+      // Every finalize on the bucket reaches this trigger (listings too) —
+      // bail silently on non-passport paths BEFORE logging to keep logs quiet.
       if (!obj.name.startsWith("passport/")) return;
+      // Entry diagnostics (audit 2026-09-17) for passport objects only.
+      logger.info("optimizePassportPhoto: event", {
+        rawType, name: obj.name, contentType: obj.contentType,
+        optimized: obj.metadata && obj.metadata.optimized,
+        parts: obj.name.split("/").length,
+      });
       const contentType = obj.contentType || "";
       if (!contentType.startsWith("image/")) return;
       if (obj.metadata && obj.metadata.optimized === "true") return; // our own re-save
