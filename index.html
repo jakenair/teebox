@@ -1646,12 +1646,18 @@
   .pf-user-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
   .pf-user-text strong { font-size: 14px; color: var(--gray-900); }
   .pf-user-text small { font-size: 12px; color: var(--gray-500); }
-  .pf-photo-btn { position: relative; display: block; width: 100%; border: 0; padding: 0; background: #000; cursor: pointer; }
-  .pf-photo { display: block; width: 100%; aspect-ratio: 1/1; object-fit: cover; }
+  .pf-media { position: relative; background: #000; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .pf-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .pf-carousel::-webkit-scrollbar { display: none; }
+  .pf-slide { flex: 0 0 100%; width: 100%; aspect-ratio: 1/1; object-fit: cover; scroll-snap-align: center; display: block; }
+  .pf-media .ppc-dots { position: absolute; bottom: 9px; left: 0; right: 0; }
+  .pf-media .pp-heart-burst { z-index: 3; }
   .pf-course-chip { position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.94); border-radius: 999px; padding: 5px 11px 5px 6px; font-size: 12.5px; font-weight: 700; color: var(--gray-900); box-shadow: 0 1px 4px rgba(0,0,0,0.25); max-width: 78%; }
   .pf-course-chip img { width: 22px; height: 22px; object-fit: contain; flex: none; }
   .pf-grade-seal { position: absolute; right: 10px; bottom: 10px; min-width: 30px; height: 30px; padding: 0 8px; line-height: 30px; text-align: center; border-radius: 999px; color: #fff; font-weight: 800; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .pf-review { margin: 0; padding: 10px 14px 14px; font-size: 13.5px; color: var(--gray-700); line-height: 1.5; }
+  .pf-skel-photo { width: 100%; aspect-ratio: 1/1; }
+  .pf-skel-line { display: block; height: 10px; border-radius: 5px; margin: 3px 0; }
 
   /* Passport add/edit modal + detail sheet */
   .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
@@ -1704,8 +1710,15 @@
   .pp-detail-name { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--gray-900); line-height: 1.2; }
   .pp-detail-loc { font-size: 12.5px; color: var(--gray-500); margin-top: 2px; }
   .pp-detail-grade { font-size: 13px; font-weight: 800; margin-top: 3px; }
-  .pp-detail-photos { display: flex; gap: 8px; overflow-x: auto; margin: 0 -0.15rem 1rem; padding: 2px; scroll-snap-type: x mandatory; }
-  .pp-detail-photo { width: 78%; max-width: 320px; aspect-ratio: 1/1; object-fit: cover; border-radius: var(--radius-md); flex: none; scroll-snap-align: center; }
+  .pp-detail-photos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 0 0.5rem; border-radius: var(--radius-md); background: #f0ede4; }
+  .pp-detail-photos::-webkit-scrollbar { display: none; }
+  .pp-detail-photo { flex: 0 0 100%; width: 100%; aspect-ratio: 4/5; object-fit: cover; scroll-snap-align: center; display: block; }
+  .ppc-dots { display: flex; justify-content: center; gap: 6px; }
+  .ppc-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.55); box-shadow: 0 0 2px rgba(0,0,0,0.35); transition: background .15s ease; }
+  .ppc-dot.on { background: #fff; }
+  .pp-detail-dots { margin: 0 0 0.9rem; }
+  .pp-detail-dots .ppc-dot { background: var(--gray-300, #cfc9bd); box-shadow: none; }
+  .pp-detail-dots .ppc-dot.on { background: var(--green-600); }
   .pp-detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.9rem; }
   .pp-detail-tag { background: var(--gray-100); color: var(--gray-700); border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 600; }
   .pp-detail-review { font-size: 14px; color: var(--gray-800, var(--gray-700)); line-height: 1.6; white-space: pre-wrap; margin-bottom: 1rem; }
@@ -3810,10 +3823,12 @@
       border-radius: var(--radius-lg); text-decoration: none;
     }
     body.is-native .app-teaser-bingo { order: 2; margin-top: 10px; }
-    body.is-native .app-teaser-journal { order: 3; }
-    body.is-native #trending { order: 4; }
-    body.is-native main > #drops { order: 5; }
-    body.is-native main > .trust-bar { order: 6; }
+    body.is-native .app-teaser-passport { order: 3; }
+    body.is-native .app-teaser-journal { order: 4; }
+    body.is-native #trending { order: 5; }
+    body.is-native main > #drops { order: 6; }
+    body.is-native main > .trust-bar { order: 7; }
+    .app-teaser-passport .app-teaser-ico { background: rgba(58,107,71,0.14); color: var(--green-700); }
     .app-teaser-ico {
       width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
       background: var(--green-50, #edf6ee); color: var(--green-800);
@@ -4527,6 +4542,7 @@
     heartFill: '<svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>',
     star:      '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.6 5.5 6 .9-4.4 4.2 1 6L12 16.8 6.8 19.6l1-6L3.4 9.4l6-.9z"/></svg>',
     flame:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-3 2-3 2-6 1 1 2 1 3-4z"/></svg>',
+    pin:       '<svg class="ico" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.6A2.6 2.6 0 1112 6.4a2.6 2.6 0 010 5.2z"/></svg>',
     chart:     '<svg class="ico" viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 9-9M14 7h7v7"/></svg>',
     calendar:  '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
     camera:    '<svg class="ico" viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="4"/></svg>',
@@ -4644,7 +4660,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r232</span></div>
+        <span class="auth-build" aria-hidden="true">r233</span></div>
     </div>
   </div>
 </div>
@@ -6239,6 +6255,14 @@
     </span>
     <span class="app-teaser-cta">Play &rarr;</span>
   </a>
+  <a href="#" class="app-teaser app-teaser-passport" data-action="open-passport-feed" aria-label="Open the TeeBox Passport feed">
+    <span class="app-teaser-ico" data-ico="pin" aria-hidden="true"></span>
+    <span class="app-teaser-text">
+      <span class="app-teaser-title">Passport</span>
+      <span class="app-teaser-sub">Courses played &middot; from the community</span>
+    </span>
+    <span class="app-teaser-cta">Open &rarr;</span>
+  </a>
   <a href="#" class="app-teaser app-teaser-journal" data-action="open-journal" aria-label="Read the TeeBox Journal">
     <span class="app-teaser-ico" data-ico="star" aria-hidden="true"></span>
     <span class="app-teaser-text">
@@ -6473,7 +6497,7 @@
       <div class="pp-field" style="margin-bottom:0">
         <span class="pp-label">Photos <span class="pp-optional">(up to 12)</span></span>
         <div class="pp-photos" id="ppPhotos"></div>
-        <input type="file" id="ppPhotoInput" accept="image/*" hidden />
+        <input type="file" id="ppPhotoInput" accept="image/*" multiple hidden />
       </div>
     </div>
     <div class="pp-modal-foot">
@@ -20069,16 +20093,51 @@ function ppAddPhoto() {
   if (__ppState.photos.length >= 12) { showToast('Up to 12 photos per course.'); return; }
   input.value = '';
   input.onchange = async () => {
-    const file = input.files && input.files[0];
+    const files = Array.from(input.files || []);
     input.onchange = null;
-    if (!file) return;
-    if (file.size > 30 * 1024 * 1024) { showToast('That image is too large. Please pick one under 30MB.'); return; }
-    const cropped = await window.openCropper(file, { outputSize: 1080, quality: 0.85, title: 'Crop photo' });
-    if (!cropped || !__ppState) return;
-    __ppState.photos.push({ file: cropped, previewUrl: URL.createObjectURL(cropped) });
-    ppRenderPhotos();
+    if (!files.length || !__ppState) return;
+    const room = 12 - __ppState.photos.length;
+    if (files.length === 1) {
+      // Single pick → crop/zoom it precisely.
+      const file = files[0];
+      if (file.size > 30 * 1024 * 1024) { showToast('That image is too large. Please pick one under 30MB.'); return; }
+      const cropped = await window.openCropper(file, { outputSize: 1080, quality: 0.85, title: 'Crop photo' });
+      if (!cropped || !__ppState) return;
+      __ppState.photos.push({ file: cropped, previewUrl: URL.createObjectURL(cropped) });
+      ppRenderPhotos();
+      return;
+    }
+    // Multiple picks → add them all (downscaled, no per-photo crop step) up to
+    // the 12 cap. Easier than cropping each one; the feed/detail cover-fit them.
+    let added = 0;
+    for (const f of files.slice(0, room)) {
+      if (f.size > 30 * 1024 * 1024) continue;
+      const small = await ppDownscaleImage(f, 1440, 0.85);
+      if (!__ppState) return;
+      __ppState.photos.push({ file: small, previewUrl: URL.createObjectURL(small) });
+      added++;
+      ppRenderPhotos();
+    }
+    if (files.length > room) showToast(`Added ${added} — 12 photos max per course.`);
   };
   input.click();
+}
+
+// Downscale an image to fit within `max` px (longest side), re-encoded JPEG.
+// EXIF-orientation-safe via createImageBitmap; falls back to the original.
+async function ppDownscaleImage(file, max = 1440, quality = 0.85) {
+  try {
+    const bmp = await createImageBitmap(file);
+    let w = bmp.width, h = bmp.height;
+    const scale = Math.min(1, max / Math.max(w, h));
+    w = Math.round(w * scale); h = Math.round(h * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    return blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file;
+  } catch (_e) { return file; }
 }
 
 function ppRemovePhoto(idx) {
@@ -20143,6 +20202,7 @@ async function ppSave() {
     await setDoc(doc(db, 'passport', uid, 'played', st.courseId), payload, { merge: true });
     ppCloseModal();
     __ppState = null;
+    __ppFeedHTML = ''; // new/edited round → refresh the feed on next open
     showToast(st.editing ? 'Course updated.' : 'Course added to your passport.', 'success');
     try { await renderPassportInto(uid, true); } catch (_e) {}
   } catch (e) {
@@ -20179,7 +20239,10 @@ async function openPassportCourseDetail(uid, courseId) {
     { shortName: data.courseName || courseId, name: data.courseName || courseId, location: '', logo: `/assets/logos/${courseId}.png` };
   const color = window.PASSPORT_GRADE_COLOR[data.grade] || '#a8a89e';
   const ua = window.safeAttr(uid), ca = window.safeAttr(courseId);
-  const photos = (data.photos || []).map(u => `<img class="pp-detail-photo" src="${window.safeAttr(u)}" alt="" loading="lazy" />`).join('');
+  const photoList = data.photos || [];
+  const photos = photoList.map(u => `<img class="pp-detail-photo" src="${window.safeAttr(u)}" alt="" loading="lazy" draggable="false" />`).join('');
+  const detailDots = photoList.length > 1
+    ? `<div class="pp-detail-dots ppc-dots" id="ppDetailDots">${photoList.map((_, i) => `<span class="ppc-dot${i === 0 ? ' on' : ''}"></span>`).join('')}</div>` : '';
   const tags = (data.tags || []).map(t => `<span class="pp-detail-tag">${window.safeText(t)}</span>`).join('');
   body.innerHTML = `
     <div class="pp-detail-head">
@@ -20191,7 +20254,7 @@ async function openPassportCourseDetail(uid, courseId) {
         <div class="pp-detail-grade" style="color:${color}">Grade ${window.safeText(data.grade || '—')}</div>
       </div>
     </div>
-    ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>` : ''}
+    ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>${detailDots}` : ''}
     ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
     ${data.review ? `<p class="pp-detail-review">${window.safeText(data.review)}</p>` : ''}
     <div class="pp-likebar">
@@ -20211,6 +20274,7 @@ async function openPassportCourseDetail(uid, courseId) {
   `;
   // Double-tap / double-click the photos to like (Instagram-style).
   if (photos) ppWireDoubleTapLike(uid, courseId);
+  if (photoList.length > 1) ppWireCarouselDots(document.getElementById('ppDetailPhotos'), document.getElementById('ppDetailDots'));
   ppLoadLikes(uid, courseId);
   ppLoadComments(uid, courseId);
 }
@@ -20279,9 +20343,12 @@ function ppWireDoubleTapLike(uid, courseId) {
     h.classList.remove('go'); void h.offsetWidth; h.classList.add('go');
   };
   strip.addEventListener('dblclick', () => { burst(); ppToggleLike(true); });
-  // Touch double-tap
-  let lastTap = 0;
+  // Touch double-tap — ignore swipes (the strip is now a photo carousel).
+  let lastTap = 0, sx = 0, sy = 0, moved = false;
+  strip.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; moved = false; }, { passive: true });
+  strip.addEventListener('touchmove', (e) => { const t = e.changedTouches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) moved = true; }, { passive: true });
   strip.addEventListener('touchend', () => {
+    if (moved) { lastTap = 0; return; }
     const now = Date.now();
     if (now - lastTap < 300) { burst(); ppToggleLike(true); lastTap = 0; }
     else lastTap = now;
@@ -20364,6 +20431,7 @@ async function ppDeleteComment(uid, courseId, commentId) {
 
 // ── Passport FEED (Discover) ─────────────────────────────────────────
 const __ppPosterCache = {};
+let __ppFeedHTML = ''; // last rendered feed, for instant reopen (refreshed in bg)
 
 async function openPassportFeed() {
   const screen = document.getElementById('passportFeedScreen');
@@ -20372,7 +20440,10 @@ async function openPassportFeed() {
   screen.classList.add('open'); screen.setAttribute('aria-hidden', 'false');
   (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
   body.scrollTop = 0;
-  body.innerHTML = '<div class="pf-loading">Loading recent rounds…</div>';
+  // Instant paint: reuse the last render if we have it (then refresh below);
+  // otherwise a layout-matching skeleton so the open doesn't flash.
+  if (__ppFeedHTML) { body.innerHTML = __ppFeedHTML; ppWireFeed(); }
+  else body.innerHTML = ppFeedSkeleton();
   let posts = [];
   try {
     const fs = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -20407,12 +20478,18 @@ async function openPassportFeed() {
   });
   posts = posts.slice(0, 60);
   if (!posts.length) {
+    __ppFeedHTML = '';
     body.innerHTML = '<div class="pf-empty">No rounds posted yet.<br>Add courses to your passport with a photo and they’ll show up here.</div>';
     return;
   }
   const cat = await loadPassportCourses();
   await ppResolvePosters(posts);
-  body.innerHTML = posts.map(p => ppFeedCard(p, cat)).join('');
+  const html = posts.map(p => ppFeedCard(p, cat)).join('');
+  __ppFeedHTML = html;
+  // Only repaint if the content actually changed (avoids a flash when the
+  // cached render already matches what we just fetched).
+  if (body.innerHTML !== html) { body.innerHTML = html; ppWireFeed(); }
+  else ppWireFeed();
 }
 
 async function ppResolvePosters(posts) {
@@ -20441,23 +20518,110 @@ async function ppResolvePosters(posts) {
 function ppFeedCard(p, cat) {
   const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
   const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#8a7550';
-  const photo = window.safeAttr(p.photos[0]);
+  const ua = window.safeAttr(p.uid), ca = window.safeAttr(p.courseId);
   const ava = p.ownerAvatar
     ? `<img src="${window.safeAttr(p.ownerAvatar)}" alt="" loading="lazy" />`
     : `<span class="pf-ava-fallback">${window.safeText((p.ownerName || 'G').slice(0, 1).toUpperCase())}</span>`;
+  const slides = p.photos.map(u => `<img class="pf-slide" src="${window.safeAttr(u)}" alt="${window.safeAttr(c.shortName)}" loading="lazy" draggable="false" />`).join('');
+  const dots = p.photos.length > 1
+    ? `<div class="ppc-dots">${p.photos.map((_, i) => `<span class="ppc-dot${i === 0 ? ' on' : ''}"></span>`).join('')}</div>` : '';
   const review = p.review ? (p.review.length > 140 ? p.review.slice(0, 140) + '…' : p.review) : '';
   return `<article class="pf-card">
-    <button type="button" class="pf-card-user" data-action="passport-feed-user" data-uid="${window.safeAttr(p.uid)}">
+    <button type="button" class="pf-card-user" data-action="passport-feed-user" data-uid="${ua}">
       <span class="pf-ava">${ava}</span>
       <span class="pf-user-text"><strong>${window.safeText(p.ownerName)}</strong><small>played ${window.safeText(c.shortName)}</small></span>
     </button>
-    <button type="button" class="pf-photo-btn" data-action="passport-feed-open" data-uid="${window.safeAttr(p.uid)}" data-course="${window.safeAttr(p.courseId)}">
-      <img class="pf-photo" src="${photo}" alt="${window.safeAttr(c.shortName)}" loading="lazy" />
+    <div class="pf-media" data-uid="${ua}" data-course="${ca}">
+      <div class="pf-carousel">${slides}</div>
       <span class="pf-course-chip"><img src="${window.safeAttr(c.logo)}" alt="" />${window.safeText(c.shortName)}</span>
       ${p.grade ? `<span class="pf-grade-seal" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
-    </button>
+      ${dots}
+      <div class="pp-heart-burst" aria-hidden="true">&#10084;</div>
+    </div>
     ${review ? `<p class="pf-review">${window.safeText(review)}</p>` : ''}
   </article>`;
+}
+
+// After the feed HTML is set, wire each card's carousel (dot tracking) and
+// its tap gestures (single tap → open detail, double tap → like, swipe →
+// native scroll through photos).
+function ppWireFeed() {
+  document.querySelectorAll('#passportFeedBody .pf-media').forEach(media => {
+    const car = media.querySelector('.pf-carousel');
+    const dotsEl = media.querySelector('.ppc-dots');
+    const burst = media.querySelector('.pp-heart-burst');
+    const uid = media.dataset.uid, courseId = media.dataset.course;
+    if (car && dotsEl) ppWireCarouselDots(car, dotsEl);
+    ppWireTapLikeOpen(media, {
+      burstEl: burst,
+      onOpen: () => openPassportCourseDetail(uid, courseId),
+      onLike: () => ppLikePost(uid, courseId),
+    });
+  });
+}
+
+// Update the active dot as a carousel is swiped.
+function ppWireCarouselDots(scrollEl, dotsEl) {
+  const dots = dotsEl.querySelectorAll('.ppc-dot');
+  if (dots.length < 2) return;
+  let raf = 0;
+  scrollEl.addEventListener('scroll', () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const i = Math.round(scrollEl.scrollLeft / Math.max(1, scrollEl.clientWidth));
+      dots.forEach((d, k) => d.classList.toggle('on', k === i));
+    });
+  }, { passive: true });
+}
+
+// Distinguish tap (open) vs double-tap (like) vs swipe (native scroll).
+function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl }) {
+  let sx = 0, sy = 0, moved = false, lastTap = 0, singleTimer = null, clickTimer = null, suppressClickUntil = 0;
+  const burst = () => { if (!burstEl) return; burstEl.classList.remove('go'); void burstEl.offsetWidth; burstEl.classList.add('go'); };
+  const doLike = () => { burst(); if (onLike) onLike(); };
+  el.addEventListener('dblclick', (e) => { e.preventDefault(); if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } doLike(); });
+  el.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; moved = false; }, { passive: true });
+  el.addEventListener('touchmove', (e) => { const t = e.changedTouches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) moved = true; }, { passive: true });
+  el.addEventListener('touchend', () => {
+    suppressClickUntil = Date.now() + 600; // swallow the synthetic click after a touch
+    if (moved) { lastTap = 0; return; }     // it was a swipe
+    const now = Date.now();
+    if (now - lastTap < 300) {               // double tap
+      if (singleTimer) { clearTimeout(singleTimer); singleTimer = null; }
+      lastTap = 0; doLike();
+    } else {                                 // maybe a single tap (wait for a possible 2nd)
+      lastTap = now;
+      singleTimer = setTimeout(() => { singleTimer = null; if (onOpen) onOpen(); }, 300);
+    }
+  }, { passive: true });
+  el.addEventListener('click', (e) => {
+    if (Date.now() < suppressClickUntil) return; // touch path already handled it
+    if (e.detail === 2) return;                  // part of a dblclick
+    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+    clickTimer = setTimeout(() => { clickTimer = null; if (onOpen) onOpen(); }, 260);
+  });
+}
+
+// Double-tap like from the feed (always likes; double-tap never un-likes,
+// matching Instagram). Idempotent — the doc id is the liker's uid.
+async function ppLikePost(uid, courseId) {
+  if (window.requireAuth && !window.requireAuth('to like a post')) return;
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if (!myUid) return;
+  try {
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await setDoc(doc(db, 'passport', uid, 'played', courseId, 'likes', myUid), { createdAt: serverTimestamp() });
+  } catch (e) { console.warn('passport feed like failed', e); }
+}
+
+function ppFeedSkeleton() {
+  const card = '<article class="pf-card"><div class="pf-card-user"><span class="pf-ava skeleton-shimmer"></span>' +
+    '<span class="pf-user-text"><span class="pf-skel-line" style="width:40%"></span><span class="pf-skel-line" style="width:28%"></span></span></div>' +
+    '<div class="pf-skel-photo skeleton-shimmer"></div></article>';
+  return card + card;
 }
 
 function closePassportFeed() {
@@ -20480,6 +20644,7 @@ async function ppDelete(uid, courseId) {
     const db = getFirestore();
     await deleteDoc(doc(db, 'passport', uid, 'played', courseId));
     ppDetailClose();
+    __ppFeedHTML = ''; // removed round → refresh the feed on next open
     showToast('Course removed.', 'success');
     try { await renderPassportInto(uid, true); } catch (_e) {}
   } catch (e) { console.error('passport delete failed', e); showToast('Could not remove. Try again.', 'error'); }
