@@ -645,7 +645,7 @@
   #blockedUsersBackdrop, #savedSearchesBackdrop { z-index: 360; }
   .info-backdrop.open { display: flex; }
   .info-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 720px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
-  .info-body { padding: 1.75rem 2rem 2rem; overflow-y: auto; font-size: 14px; line-height: 1.7; color: var(--gray-700); }
+  .info-body { padding: 1.75rem 2rem 2rem; overflow-y: auto; overscroll-behavior: contain; font-size: 14px; line-height: 1.7; color: var(--gray-700); }
   .info-body h3 { font-family: var(--font-display); font-size: 1.4rem; color: var(--gray-900); margin-bottom: 0.75rem; }
   .info-body h4 { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-top: 1.5rem; margin-bottom: 0.5rem; text-transform: none; letter-spacing: 0; }
   .info-body p { margin-bottom: 0.75rem; }
@@ -4677,7 +4677,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r235</span></div>
+        <span class="auth-build" aria-hidden="true">r236</span></div>
     </div>
   </div>
 </div>
@@ -21983,7 +21983,7 @@ A['open-about']              = () => openInfo('aboutBackdrop');
 A['open-guidelines']         = () => openInfo('guidelinesBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
-A['close-info']              = () => document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+A['close-info']              = () => { document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open')); (document.getElementById('app-scroll') || document.body).style.overflowY = ''; };
 A['open-journal']            = () => {
   // r151: Journal is public content — no auth gate. Close the hamburger
   // drawer if it's open so the overlay doesn't stack under it (reuses the
@@ -22099,6 +22099,9 @@ function openInfo(id) {
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
   const el = document.getElementById(id);
   if (el) el.classList.add('open');
+  // Lock the page behind the modal so a drag inside the sheet can't scroll
+  // the feed underneath (iOS scroll-chaining). Restored by close-info.
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
 }
 
 // ─── Admin moderation queue (?admin=moderation) ───────────────
@@ -23098,32 +23101,40 @@ if (uploadZone) {
     return `<span class="bingo-logo-fallback" aria-hidden="true">${initials}</span>`;
   }
   function loadBingoLogoInto(el, course) {
-    const url = courseLogoUrl(course);
-    if (!el || !url) return;
-    let attempt = 0;
-    let usedOnlineRetry = false;
+    if (!el) return;
+    // Candidate URLs in order: the puzzle's logoUrl (usually an absolute CDN
+    // URL) first, then the BUNDLED local asset. Some CDN URLs fail in-app
+    // (CSP/404) even though the app ships the PNG — falling back to the local
+    // path fixes logos that used to render blank (e.g. Old Macdonald,
+    // Pinehurst No. 2, The Alotian Club).
+    const primary = courseLogoUrl(course);
+    const local = (course && course.id) ? `/assets/logos/${course.id}.png` : '';
+    const candidates = [];
+    if (primary) candidates.push(primary);
+    if (local && local !== primary) candidates.push(local);
+    if (!candidates.length) return;
+    let ci = 0, attempt = 0, usedOnlineRetry = false;
     const tryLoad = () => {
       if (!el.isConnected) return; // container re-rendered — abandon
+      const url = candidates[ci];
       const probe = new Image();
       probe.onload = () => {
-        if (el.isConnected) {
-          el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
-        }
+        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
       };
       probe.onerror = () => {
         if (!el.isConnected) return;
         // Show the guessable fallback from the first miss on, but keep
-        // retrying underneath and swap the real logo in if one lands.
+        // trying (next candidate, then timed retries) and swap in a real
+        // logo if one lands.
         if (!el.querySelector('img')) el.innerHTML = bingoLogoFallbackHtml(course);
+        if (ci < candidates.length - 1) { ci += 1; tryLoad(); return; } // try bundled local
         if (attempt < BINGO_LOGO_RETRY_MS.length) {
-          setTimeout(tryLoad, BINGO_LOGO_RETRY_MS[attempt]);
+          setTimeout(() => { ci = 0; tryLoad(); }, BINGO_LOGO_RETRY_MS[attempt]);
           attempt += 1;
         } else if (!usedOnlineRetry) {
-          // Retries exhausted — one last shot when the browser reports
-          // connectivity back. {once:true} + isConnected guard keeps
-          // re-renders from accumulating live listeners.
+          // Retries exhausted — one last shot when connectivity returns.
           usedOnlineRetry = true;
-          window.addEventListener('online', tryLoad, {once: true});
+          window.addEventListener('online', () => { ci = 0; tryLoad(); }, {once: true});
         }
       };
       probe.src = url;
@@ -24929,33 +24940,30 @@ if (uploadZone) {
     // Headline — global percentile is the hero number.
     if (global && global.solved && Number.isInteger(global.percentile)) {
       lines.push(
-        '<div class="brp-headline">🏆 You scored higher than ' +
+        '<div class="brp-headline">You scored higher than ' +
         global.percentile + '% of players today</div>'
       );
     } else if (global && global.pending) {
       lines.push(
-        '<div class="brp-headline">🏆 Your rank is being calculated…</div>'
+        '<div class="brp-headline">Your rank is being calculated…</div>'
       );
     } else {
       lines.push(
-        '<div class="brp-headline">🏆 Your rank will be ready shortly</div>'
+        '<div class="brp-headline">Your rank will be ready shortly</div>'
       );
     }
     // Per-scope detail row
     const detail = [];
     if (global && Number.isInteger(global.percentile)) {
-      detail.push('🌎 ' + global.percentile + '% globally');
+      detail.push(global.percentile + '% globally');
     }
     if (country && country.countrySet && Number.isInteger(country.percentile)) {
-      detail.push(
-        flagEmoji(country.country) + ' ' + country.percentile +
-        '% in ' + country.country
-      );
+      detail.push(country.percentile + '% in ' + country.country);
     }
     if (friends && Number.isInteger(friends.friendsWhoSolved)
         && Number.isInteger(friends.totalFriends) && friends.totalFriends > 0) {
       detail.push(
-        '👥 Beat ' + friends.friendsWhoSolved + ' of ' +
+        'Beat ' + friends.friendsWhoSolved + ' of ' +
         friends.totalFriends + ' friends'
       );
     }
@@ -24977,7 +24985,7 @@ if (uploadZone) {
       const your = Number(streak.yourBestStreak) || 0;
       const all = streak.allTimeLongestStreak;
       const bits = [];
-      if (your > 0) bits.push('🔥 Your best streak: ' + your +
+      if (your > 0) bits.push('Your best streak: ' + your +
         ' day' + (your === 1 ? '' : 's'));
       if (all && Number(all.streak) > 0) {
         bits.push('Global record: ' + all.streak +
