@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     TeeBox Reads post — "Rodeo Dunes" (card series).
+     Copy mirrors the published TeeBox carousel graphics
+     (assets/reads/rodeo-dunes/, @teeboxmarket) — the cards are the
+     source of truth; prose adds only facts confirmed by the sources
+     cited small at the foot of the page. Static, self-contained, no
+     JS/CMS/Firestore. Served at /reads/rodeo-dunes.html
+     ============================================================ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<title>Rodeo Dunes: Colorado's Next Great Golf Destination — TeeBox Reads</title>
+<meta name="description" content="Coore & Crenshaw, 4,000 acres of Colorado sand, the Bandon Dunes family, a 140-year-old cattle ranch, and an actual rodeo between the 1st and 18th holes. Inside the most hyped new course in America." />
+<link rel="canonical" href="https://teeboxmarket.com/reads/rodeo-dunes.html" />
+
+<!-- PWA / mobile -->
+<meta name="theme-color" content="#0b1a0e" />
+<meta name="apple-mobile-web-app-title" content="TeeBox" />
+<meta name="application-name" content="TeeBox" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- Favicons (match index.html) -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="mask-icon" href="/favicon.svg" color="#0b1a0e" />
+
+<!-- Open Graph / Twitter (article) -->
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="Rodeo Dunes: Colorado's Next Great Golf Destination" />
+<meta property="og:description" content="Coore & Crenshaw, 4,000 acres of Colorado sand, the Bandon Dunes family, and an actual rodeo between the 1st and 18th holes." />
+<meta property="og:url" content="https://teeboxmarket.com/reads/rodeo-dunes.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/reads/rodeo-dunes/cover.webp" />
+<meta property="og:image:width" content="1080" />
+<meta property="og:image:height" content="1350" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-09-17T09:00:00-04:00" />
+<meta property="article:section" content="The Clubhouse" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@teeboxmarket" />
+<meta name="twitter:title" content="Rodeo Dunes: Colorado's Next Great Golf Destination" />
+<meta name="twitter:description" content="Coore & Crenshaw on 4,000 acres of Colorado sand — and an actual rodeo between the 1st and 18th holes." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/reads/rodeo-dunes/cover.webp" />
+
+<!-- Fonts (match index.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- JSON-LD Article structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rodeo Dunes: Colorado's Next Great Golf Destination",
+  "description": "Coore & Crenshaw, 4,000 acres of Colorado sand, the Bandon Dunes family, and an actual rodeo between the 1st and 18th holes.",
+  "image": "https://teeboxmarket.com/assets/reads/rodeo-dunes/cover.webp",
+  "datePublished": "2026-09-17T09:00:00-04:00",
+  "dateModified": "2026-09-17T09:00:00-04:00",
+  "articleSection": "The Clubhouse",
+  "author": { "@type": "Organization", "name": "TeeBox" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "TeeBox Market",
+    "logo": { "@type": "ImageObject", "url": "https://teeboxmarket.com/icon-512.png" }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://teeboxmarket.com/reads/rodeo-dunes.html"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --green-950: #0b1a0e; --green-900: #122016; --green-800: #1a3020;
+    --green-700: #22402b; --green-600: #2d5438; --green-500: #3a6b47;
+    --green-400: #4d8a5e; --green-300: #6aad7c; --green-200: #9fcfa9;
+    --green-100: #d0e9d4; --green-50: #edf6ee;
+    --gold-600: #a07a12; --gold-500: #c9991e; --gold-400: #e0b840; --gold-300: #f0cc6a; --gold-50: #fdf6e3;
+    --cream: #faf8f3; --white: #ffffff;
+    --gray-100: #f4f4f2; --gray-200: #e8e8e4; --gray-300: #d0d0ca;
+    --gray-400: #a8a89e; --gray-500: #7a7a72; --gray-700: #3c3c38; --gray-900: #1c1c18;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--gray-900);
+    line-height: 1.7;
+    font-size: 18px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green-600); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--gold-600); }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .site-header {
+    background: var(--green-950);
+    color: var(--white);
+    /* safe-area-inset so the header clears the status bar/notch in the iOS
+       in-app WebView (viewport-fit=cover already set). */
+    padding: calc(env(safe-area-inset-top, 0px) + 1.1rem) 1.5rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--white); }
+  .nav-shop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    transition: var(--transition);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .nav-shop:hover { background: var(--gold-400); color: var(--green-950); border-color: var(--gold-400); }
+
+  /* ── Article ────────────────────────────────────────── */
+  .article-wrap { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .back-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    transition: var(--transition);
+  }
+  .back-link:hover { color: var(--green-600); }
+
+  .article-eyebrow {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold-600);
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h1.article-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.8px;
+    color: var(--green-950);
+    margin-bottom: 1.1rem;
+  }
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .byline .by-name { color: var(--gray-900); font-weight: 600; }
+  .byline .dot { color: var(--gray-300); }
+
+  .lede {
+    font-size: 1.22rem;
+    line-height: 1.6;
+    color: var(--gray-700);
+    font-weight: 400;
+    margin-bottom: 1.9rem;
+  }
+  .article-body p { margin-bottom: 1.5rem; color: var(--gray-900); }
+  .article-body strong { color: var(--green-900); font-weight: 600; }
+
+  /* ── Images ─────────────────────────────────────────── */
+  img { max-width: 100%; height: auto; border-radius: var(--radius-lg); display: block; }
+  .hero-img {
+    width: 100%;
+    margin: 0 0 2rem;
+    box-shadow: var(--shadow-card);
+  }
+  .course-img {
+    width: 100%;
+    margin: 0 0 1.1rem;
+    box-shadow: var(--shadow-card);
+  }
+  figure { margin: 0; }
+
+  /* ── Story entries (card pattern) ───────────────────── */
+  .course {
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .course:first-of-type { border-top: 1px solid var(--gray-200); }
+  .course-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: var(--green-900);
+    margin-bottom: 0.35rem;
+  }
+  .course-name .rank { color: var(--gold-500); }
+  .course-meta {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 0.85rem;
+  }
+  .course p { margin-bottom: 0; color: var(--gray-900); }
+
+  .pullquote {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.32;
+    color: var(--green-800);
+    border-left: 4px solid var(--gold-400);
+    padding: 0.3rem 0 0.3rem 1.6rem;
+    margin: 2.5rem 0;
+  }
+  .note {
+    font-size: 0.92rem;
+    color: var(--gray-500);
+    font-style: italic;
+    margin-top: 2.25rem;
+  }
+  /* Small, out-of-the-way reporting sources. */
+  .sources {
+    margin-top: 2rem;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--gray-400);
+  }
+  .sources b { color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.66rem; }
+  .sources a { color: var(--gray-400); text-decoration: none; }
+  .sources a:hover { color: var(--green-600); text-decoration: underline; }
+
+  /* ── Closing CTA ────────────────────────────────────── */
+  .cta-block {
+    text-align: center;
+    background: linear-gradient(180deg, var(--green-900) 0%, var(--green-950) 100%);
+    border-radius: var(--radius-xl);
+    padding: 2.75rem 1.75rem;
+    margin: 3.5rem 0 1rem;
+    color: var(--white);
+  }
+  .cta-block h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1.2;
+    color: var(--white);
+    margin-bottom: 0.7rem;
+  }
+  .cta-block p { color: rgba(255,255,255,0.7); font-size: 1rem; margin-bottom: 1.6rem; }
+  .cta-pill {
+    display: inline-block;
+    background: var(--gold-400);
+    color: var(--green-950);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.85rem 1.9rem;
+    border-radius: 50px;
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .cta-pill:hover { background: var(--gold-300); color: var(--green-950); transform: translateY(-2px); }
+
+  .article-foot {
+    margin-top: 2.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+  }
+  .article-foot a { font-weight: 600; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .site-footer {
+    background: var(--green-950);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .site-footer .ft-word {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.25rem;
+    color: var(--gold-300);
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+  }
+  .site-footer .ft-word span { color: var(--white); }
+  .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; justify-content: center; margin-bottom: 1.25rem; }
+  .site-footer nav a { color: rgba(255,255,255,0.75); font-weight: 500; text-decoration: none; transition: var(--transition); }
+  .site-footer nav a:hover { color: var(--gold-400); }
+  .site-footer .ft-copy { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="nav-logo" href="/" aria-label="TeeBox home"><span>Tee</span>Box</a>
+  <a class="nav-shop" href="/">Shop the marketplace</a>
+</header>
+
+<article class="article-wrap">
+  <a class="back-link" href="/reads/index.html">&larr; All Reads</a>
+
+  <div class="article-eyebrow">The Clubhouse</div>
+  <h1 class="article-title">Rodeo Dunes: Colorado&rsquo;s Next Great Golf Destination</h1>
+  <div class="byline">
+    <span class="by-name">TeeBox</span>
+    <span class="dot">&middot;</span>
+    <span>September 17, 2026</span>
+    <span class="dot">&middot;</span>
+    <span>4 min read</span>
+  </div>
+
+  <img class="hero-img" src="/assets/reads/rodeo-dunes/cover.webp" alt="Aerial view of Rodeo Dunes golf course at sunset with the Rodeo Dunes bronco-rider logo — Colorado's next great golf destination" fetchpriority="high" width="1080" height="1350" />
+
+  <p class="lede">Every so often a piece of ground turns up that&rsquo;s so perfect for golf it feels like it was waiting the whole time. Rodeo Dunes &mdash; a Bill Coore and Ben Crenshaw design on 4,000 acres of towering sand in Roggen, Colorado &mdash; is that kind of ground. It opened to national acclaim, it&rsquo;s already spoken of in the same breath as Sand Hills and Bandon, and it comes with a twist no other course can claim: an actual rodeo. Here&rsquo;s the story, in seven pictures.</p>
+
+  <div class="article-body">
+
+    <div class="course">
+      <div class="course-name"><span class="rank">1.</span> The land came first</div>
+      <div class="course-meta">The Site &middot; 4,000 acres &middot; Roggen, Colorado</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/the-land.webp" alt="Colorado plains and sand dunes with the snow-capped Front Range behind — the Cervi family ranch, home of Rodeo Dunes" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Great courses start with great dirt, and this is some of the best in America. The property is the Cervi family ranch &mdash; cattle and rodeo country worked by the same family since 1882, more than 140 years, and never for sale until now. Under the grass sat 4,000 acres of natural sand dunes rolling to the horizon: <strong>the rarest raw material in golf, and the reason Sand Hills, Bandon, and now Rodeo Dunes exist at all.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">2.</span> Closer than it looks</div>
+      <div class="course-meta">Getting There &middot; ~45 min from Denver &middot; off I-76</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/location.webp" alt="Aerial of the rolling dunes and fairways of Rodeo Dunes with a Colorado flag — 45 minutes from Denver, off I-76" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>For all the big-sky, middle-of-nowhere feel, it&rsquo;s an easy trip. Rodeo Dunes sits in Roggen, Colorado, straight up I-76 &mdash; about 45 minutes from Denver and roughly 42 miles from Denver International Airport. <strong>Fly in, drive out onto the plains, and the dunes appear right where you&rsquo;d least expect them.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">3.</span> The Bandon Dunes family</div>
+      <div class="course-meta">The Owners &middot; Dream Golf &middot; The Keiser name</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/the-family.webp" alt="Mike Keiser with a driver over his shoulder, surrounded by the logos of the Dream Golf resorts — Bandon, Pacific Dunes, Sand Valley, Cabot, Lido and Rodeo Dunes" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>If the pedigree feels familiar, it should. Rodeo Dunes is a Dream Golf project &mdash; the company run by Michael and Chris Keiser, sons of Mike Keiser, the man who built Bandon Dunes and reshaped American golf. The family portfolio reads like a bucket list: Bandon, Sand Valley, Cabot, Lido. <strong>Rodeo Dunes is the newest name on it &mdash; and the family&rsquo;s first big statement out on the high plains.</strong></p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">4.</span> There&rsquo;s an actual rodeo</div>
+      <div class="course-meta">The Twist &middot; Cervi Championship Rodeo &middot; Duel at the Dunes</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/the-rodeo.webp" alt="A saddle bronc rider throwing his hat mid-ride at the Duel at the Dunes, in front of the Rodeo Dunes branding" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>Here&rsquo;s what puts this place in a category of one: there&rsquo;s a real rodeo. The Cervi family runs Cervi Championship Rodeo, one of the biggest PRCA stock contractors in the country, and they staged the first-ever <strong>Duel at the Dunes</strong> &mdash; 20 of the best roughstock cowboys riding saddle bronc, bareback, and bulls, in an arena set on the sand <strong>between the first and 18th holes.</strong> Golf and the American West, on the same ground.</p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">5.</span> Six courses on the board</div>
+      <div class="course-meta">What&rsquo;s Coming &middot; Up to six courses &middot; A short course, a putting green &amp; a lodge</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/the-plan.webp" alt="Aerial of a green fairway and heart-shaped bunker running through the wild dunes at Rodeo Dunes — six courses planned" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>And the Coore-Crenshaw course is only the opening act. The masterplan for these 4,000 acres runs to as many as <strong>six courses.</strong> Next up is a second 18 from longtime Coore &amp; Crenshaw associate Jim Craig, joined over time by a short course, an enormous putting green, and a lodge &mdash; the full destination-resort blueprint the Keisers wrote at Bandon and Sand Valley.</p>
+    </div>
+
+    <div class="course">
+      <div class="course-name"><span class="rank">6.</span> Founders now, the rest of us in 2027</div>
+      <div class="course-meta">How to Play &middot; Members in 2026 &middot; Public play 2027</div>
+      <figure>
+        <img class="course-img" src="/assets/reads/rodeo-dunes/access.webp" alt="Low sunlight raking across the greens and dunes of Rodeo Dunes — founders-only in 2026, public play opens 2027" loading="lazy" width="1080" height="1350" />
+      </figure>
+      <p>For now, Rodeo Dunes belongs to its founders &mdash; the members who bought in early to be first through the gates in 2026. Public play opens in 2027, and if the preview season is any sign, tee times won&rsquo;t sit around: the first ones went in days. <strong>Colorado&rsquo;s next great golf destination is here. The only question left is when you get your turn.</strong></p>
+    </div>
+
+    <div class="pullquote">Golf and the American West on the same 4,000 acres &mdash; with a real rodeo running between the first and 18th holes.</div>
+
+    <p class="note">All seven graphics in this piece are TeeBox originals (@teeboxmarket). The facts behind them &mdash; the ranch, the design team, the rodeo, the masterplan &mdash; are drawn from the reporting cited below.</p>
+
+    <div class="sources">
+      <b>Reporting &amp; sources</b><br />
+      <a href="https://www.thefriedegg.com/articles/rodeo-dunes-colorado-coore-crenshaw-preview" target="_blank" rel="noopener">The Fried Egg</a> &middot;
+      <a href="https://golf.com/travel/rodeo-dunes-coore-crenshaw-latest-design/" target="_blank" rel="noopener">GOLF.com</a> &middot;
+      <a href="https://www.golfdigest.com/story/rodeo-dunes-first-course-coore-crenshaw-review" target="_blank" rel="noopener">Golf Digest</a> &middot;
+      <a href="https://www.cbsnews.com/colorado/news/rodeo-dunes-golf-course-colorado-tee-times-roggen/" target="_blank" rel="noopener">CBS Colorado</a> &middot;
+      <a href="https://coloradoavidgolfer.com/rodeo-dunes-opens-to-national-acclaim/" target="_blank" rel="noopener">Colorado AvidGolfer</a> &middot;
+      <a href="https://www.denvergazette.com/2026/06/03/takeaways-from-playing-rodeo-dunes-colorados-next-championship-course-golf-insider/" target="_blank" rel="noopener">Denver Gazette</a> &middot;
+      <a href="https://www.thefencepost.com/news/roughstock-cowboys-end-season-with-inaugural-duel-at-the-dunes-championships/" target="_blank" rel="noopener">The Fence Post</a> &middot;
+      <a href="https://www.rodeodunes.com/land" target="_blank" rel="noopener">rodeodunes.com</a>
+    </div>
+
+  </div>
+
+  <div class="cta-block">
+    <h2>Dreaming of the dunes?<br />Kit yourself out first.</h2>
+    <p>Used drivers, irons, and putters listed by golfers &mdash; secure Stripe checkout and a flat seller fee.</p>
+    <a class="cta-pill" href="/">Shop the marketplace &rarr;</a>
+  </div>
+
+  <div class="article-foot">
+    <a href="/reads/">&larr; Back to all Reads</a>
+  </div>
+</article>
+
+<footer class="site-footer">
+  <div class="ft-word"><span>Tee</span>Box</div>
+  <nav>
+    <a href="/">Marketplace</a>
+    <a href="/reads/">Reads</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </nav>
+  <div class="ft-copy">&copy; 2026 TeeBox Market. The peer-to-peer marketplace for golfers.</div>
+</footer>
+
+</body>
+</html>
