@@ -4227,10 +4227,17 @@ exports.notifyOnWatchlistPriceDrop = onSchedule(
 // each as one of:
 //   VERY_UNLIKELY | UNLIKELY | POSSIBLE | LIKELY | VERY_LIKELY
 //
-// Policy: TeeBox is a public golf-gear marketplace. We block any
-// image that is LIKELY/VERY_LIKELY adult or racy, OR VERY_LIKELY
-// violence. We do NOT block on `medical` or `spoof` (would catch
-// too many legitimate listings — clubhouse selfies, etc.).
+// Policy: TeeBox is a public golf-gear marketplace. We block any image
+// that is LIKELY/VERY_LIKELY **adult**, VERY_LIKELY **racy**, or
+// VERY_LIKELY **violence**. We do NOT block on `medical` or `spoof` (would
+// catch too many legitimate listings — clubhouse selfies, etc.).
+//
+// RACY THRESHOLD (loosened 2026-09-17): racy blocks at VERY_LIKELY only,
+// not LIKELY. Cloud Vision's `racy` signal false-positives heavily on
+// ordinary product photos (fabric, close-ups, skin-tone colors) — it had
+// auto-hidden legit golf gear (a Scotty Cameron headcover, an Olympia
+// Fields vest) at racy=LIKELY, invisible to buyers and the seller. adult
+// stays strict (LIKELY+) — that's the real App Store / porn liability.
 //
 // COST NOTE: Cloud Vision SafeSearch billing is $1.50 per 1,000
 // calls after the first 1,000 free per month. At 100 listings/mo
@@ -4239,14 +4246,15 @@ exports.notifyOnWatchlistPriceDrop = onSchedule(
 // liability cost of leaving porn on a marketplace App Store
 // reviewers visit. See MODERATION_RUNBOOK.md for the full math.
 // ─────────────────────────────────────────────────────────────
-const SAFE_SEARCH_BLOCK_LEVEL = new Set(["LIKELY", "VERY_LIKELY"]);
+const SAFE_SEARCH_BLOCK_LEVEL = new Set(["LIKELY", "VERY_LIKELY"]); // adult
+const SAFE_SEARCH_RACY_BLOCK = new Set(["VERY_LIKELY"]); // racy (loosened — see above)
 function isSafeForMarketplace(annotation) {
   if (!annotation) return true; // Vision API failed open — log + allow.
   const adult = annotation.adult || "VERY_UNLIKELY";
   const racy = annotation.racy || "VERY_UNLIKELY";
   const violence = annotation.violence || "VERY_UNLIKELY";
   if (SAFE_SEARCH_BLOCK_LEVEL.has(adult)) return false;
-  if (SAFE_SEARCH_BLOCK_LEVEL.has(racy)) return false;
+  if (SAFE_SEARCH_RACY_BLOCK.has(racy)) return false;
   if (violence === "VERY_LIKELY") return false;
   return true;
 }
@@ -4254,7 +4262,7 @@ function describeSafeSearchTrip(annotation) {
   if (!annotation) return "unknown";
   const reasons = [];
   if (SAFE_SEARCH_BLOCK_LEVEL.has(annotation.adult)) reasons.push(`adult=${annotation.adult}`);
-  if (SAFE_SEARCH_BLOCK_LEVEL.has(annotation.racy)) reasons.push(`racy=${annotation.racy}`);
+  if (SAFE_SEARCH_RACY_BLOCK.has(annotation.racy)) reasons.push(`racy=${annotation.racy}`);
   if (annotation.violence === "VERY_LIKELY") reasons.push(`violence=${annotation.violence}`);
   return reasons.join(",") || "unknown";
 }
