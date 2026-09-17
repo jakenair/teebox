@@ -591,6 +591,33 @@ service cloud.firestore {
                 && request.resource.data.photos.size() <= 12));
 
       allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // Likes — one doc per liker (doc id IS the liker's uid, so a user can
+      // like a course post once). Public read (counts + who-liked); a signed-in
+      // user may only create/delete their OWN like doc.
+      match /likes/{likerId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && appCheckOk()
+          && request.auth.uid == likerId;
+        allow delete: if request.auth != null && request.auth.uid == likerId;
+      }
+
+      // Comments — public read; a signed-in user may post as themselves
+      // (authorUid must be their uid; text 1..500 chars). The comment's
+      // author OR the passport owner may delete it. No edits.
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && appCheckOk()
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow delete: if request.auth != null
+          && (request.auth.uid == resource.data.authorUid
+              || request.auth.uid == userId);
+      }
     }
 
     match /reviews/{reviewId} {

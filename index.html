@@ -1559,6 +1559,76 @@
   .passport-add-plus { font-size: 30px; color: var(--gray-500); font-weight: 300; line-height: 1; }
   .passport-cell:active .passport-ring { transform: scale(0.96); }
 
+  /* Passport "book" — the wall styled as an aged passport page; each course
+     is an inked rubber stamp (multiply blend onto the paper, jittered angle,
+     ruled ring + grade seal + travel date). Paper stays light in both themes
+     on purpose — it's a skeuomorphic surface. */
+  .passport-wall {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 20px 6px;
+    padding: 24px 16px 28px;
+    border-radius: 10px;
+    position: relative;
+    color: #5a4a2a;
+    background:
+      radial-gradient(130% 90% at 50% -20%, rgba(255,255,255,0.55), rgba(0,0,0,0) 60%),
+      repeating-linear-gradient(0deg, rgba(120,90,40,0.045) 0 1px, transparent 1px 27px),
+      linear-gradient(160deg, #f5eddb 0%, #efe4cb 48%, #e6d9b8 100%);
+    border: 1px solid #d9c9a3;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.45), inset 0 3px 20px rgba(120,90,40,0.16), 0 1px 4px rgba(0,0,0,0.10);
+  }
+  .passport-wall::before {
+    content: 'COURSE PASSPORT'; position: absolute; top: 8px; left: 0; right: 0;
+    text-align: center; font-family: ui-monospace, Menlo, monospace;
+    font-size: 9px; letter-spacing: 3px; color: rgba(120,90,40,0.4); pointer-events: none;
+  }
+  .passport-wall > .passport-empty, .passport-wall > .passport-loading { color: #8a7550; }
+  .pp-stamp { background: none; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; -webkit-tap-highlight-color: transparent; }
+  .pp-stamp-ink {
+    position: relative; width: 78px; height: 78px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transform: rotate(var(--rot, 0deg)); transition: transform .12s ease;
+    border: 2px solid var(--ring, #7a6b4a); color: var(--ring, #7a6b4a);
+    box-shadow: inset 0 0 0 1px var(--ring, #7a6b4a); opacity: 0.9;
+  }
+  .pp-stamp-ink::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed var(--ring, #7a6b4a); opacity: 0.5; }
+  .pp-stamp-logo { width: 60%; height: 60%; object-fit: contain; mix-blend-mode: multiply; opacity: 0.88; filter: saturate(0.65) contrast(1.05); }
+  .pp-stamp-grade {
+    position: absolute; bottom: -7px; right: -7px; min-width: 22px; height: 22px; padding: 0 5px;
+    line-height: 19px; text-align: center; border-radius: 50%; background: #f4ecd8;
+    border: 2px solid currentColor; font-weight: 800; font-size: 11px;
+    transform: rotate(calc(var(--rot, 0deg) * -1));
+  }
+  .pp-stamp:active .pp-stamp-ink { transform: rotate(var(--rot, 0deg)) scale(0.94); }
+  .pp-stamp-name { font-size: 11.5px; font-weight: 700; color: #5a4a2a; line-height: 1.2; max-width: 92px; letter-spacing: .2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .pp-stamp-date { font-family: ui-monospace, Menlo, monospace; font-size: 9px; letter-spacing: 1.2px; color: #8a7550; }
+  .pp-stamp-add-ink { border-style: dashed; opacity: 0.6; color: #a08b5f; box-shadow: none; }
+  .pp-stamp-add-ink::before { display: none; }
+  .pp-stamp-plus { font-size: 30px; font-weight: 300; color: #a08b5f; line-height: 1; }
+
+  /* Detail sheet — double-tap heart, like bar + comments */
+  .pp-detail-photowrap { position: relative; }
+  .pp-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; }
+  .pp-heart-burst.go { animation: ppHeart 0.72s ease-out; }
+  @keyframes ppHeart { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.2)} 15%{opacity:0.95;transform:translate(-50%,-50%) scale(1.05)} 40%{transform:translate(-50%,-50%) scale(0.92)} 70%{opacity:0.95;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-52%) scale(1)} }
+  .pp-likebar { display: flex; align-items: center; gap: 14px; margin: 0.35rem 0 0.9rem; }
+  .pp-like-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 700; color: var(--gray-700); padding: 4px 2px; }
+  .pp-like-btn .pp-like-ico { font-size: 20px; line-height: 1; color: var(--gray-400, var(--gray-500)); transition: transform .12s ease; }
+  .pp-like-btn.liked .pp-like-ico { color: #e0245e; }
+  .pp-like-btn:active .pp-like-ico { transform: scale(1.25); }
+  .pp-comments { border-top: 1px solid var(--gray-200); padding-top: 0.85rem; }
+  .pp-comments-title { font-size: 12.5px; font-weight: 700; color: var(--gray-900); margin-bottom: 0.6rem; }
+  .pp-comment { display: flex; gap: 8px; margin-bottom: 0.7rem; font-size: 13px; line-height: 1.45; }
+  .pp-comment-name { font-weight: 700; color: var(--gray-900); margin-right: 5px; }
+  .pp-comment-body { color: var(--gray-800, var(--gray-700)); min-width: 0; word-break: break-word; }
+  .pp-comment-del { background: none; border: none; color: var(--gray-400, var(--gray-500)); cursor: pointer; font-size: 15px; line-height: 1; flex: none; padding: 0 2px; }
+  .pp-comment-empty { font-size: 13px; color: var(--gray-500); margin-bottom: 0.7rem; }
+  .pp-comment-form { display: flex; gap: 8px; align-items: flex-end; margin-top: 0.4rem; }
+  .pp-comment-input { flex: 1; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 9px 11px; font-size: 13.5px; font-family: inherit; resize: none; color: var(--gray-900); background: var(--white); max-height: 90px; }
+  .pp-comment-send { flex: none; border: none; background: var(--green-600); color: #fff; font-weight: 700; font-size: 13px; border-radius: var(--radius-md); padding: 9px 14px; cursor: pointer; }
+  .pp-comment-send:disabled { opacity: 0.5; cursor: default; }
+  .pp-detail-photo { cursor: pointer; }
+
   /* Passport add/edit modal + detail sheet */
   .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
   .pp-backdrop.open { display: flex; }
@@ -4550,7 +4620,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r229</span></div>
+        <span class="auth-build" aria-hidden="true">r230</span></div>
     </div>
   </div>
 </div>
@@ -19781,24 +19851,42 @@ async function renderPassportInto(uid, isOwner) {
   }
   const cells = played.map(p => {
     const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
-    const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#a8a89e';
-    return `<button type="button" class="passport-cell" data-action="passport-open" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(p.courseId)}" title="${window.safeAttr((c.shortName || '') + (p.grade ? ' — ' + p.grade : ''))}">
-      <span class="passport-ring" style="--ring:${color}">
-        <img class="passport-logo" src="${window.safeAttr(c.logo)}" alt="${window.safeAttr(c.shortName || '')}" loading="lazy" decoding="async" />
-        ${p.grade ? `<span class="passport-grade-badge" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
+    const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#8a7550';
+    const rot = ppStampRotation(p.courseId);
+    const date = ppStampDate(p.createdAt);
+    return `<button type="button" class="pp-stamp" style="--ring:${color};--rot:${rot}deg" data-action="passport-open" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(p.courseId)}" title="${window.safeAttr((c.shortName || '') + (p.grade ? ' — ' + p.grade : ''))}">
+      <span class="pp-stamp-ink">
+        <img class="pp-stamp-logo" src="${window.safeAttr(c.logo)}" alt="${window.safeAttr(c.shortName || '')}" loading="lazy" decoding="async" />
+        ${p.grade ? `<span class="pp-stamp-grade">${window.safeText(p.grade)}</span>` : ''}
       </span>
-      <span class="passport-cell-name">${window.safeText(c.shortName || p.courseName || '')}</span>
+      <span class="pp-stamp-name">${window.safeText(c.shortName || p.courseName || '')}</span>
+      ${date ? `<span class="pp-stamp-date">${window.safeText(date)}</span>` : ''}
     </button>`;
   }).join('');
   const addTile = isOwner
-    ? `<button type="button" class="passport-cell passport-add" data-action="passport-add" title="Add a course you've played">
-         <span class="passport-ring passport-add-ring"><span class="passport-add-plus">+</span></span>
-         <span class="passport-cell-name">Add course</span>
+    ? `<button type="button" class="pp-stamp pp-stamp-add" data-action="passport-add" title="Add a course you've played">
+         <span class="pp-stamp-ink pp-stamp-add-ink"><span class="pp-stamp-plus">+</span></span>
+         <span class="pp-stamp-name">Add course</span>
        </button>`
     : '';
   wall.innerHTML = (cells + addTile) || '<div class="passport-empty">No courses played yet.</div>';
 }
 window.renderPassportInto = renderPassportInto;
+
+// Deterministic per-course stamp jitter (-4.5°..+4.5°) so the wall looks
+// hand-stamped, not gridded, but stays stable across re-renders.
+function ppStampRotation(id) {
+  let h = 0;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
+  return ((h % 91) / 10 - 4.5).toFixed(1);
+}
+function ppStampDate(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  if (!d) return '';
+  try { return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }).toUpperCase(); }
+  catch (_e) { return ''; }
+}
 
 // ── Add/edit modal ───────────────────────────────────────────────────
 let __ppState = null; // { editing, courseId, courseName, grade, tags:Set, photos:[{url}|{file,previewUrl}] }
@@ -20042,6 +20130,7 @@ async function openPassportCourseDetail(uid, courseId) {
   const c = cat.byId[courseId] ||
     { shortName: data.courseName || courseId, name: data.courseName || courseId, location: '', logo: `/assets/logos/${courseId}.png` };
   const color = window.PASSPORT_GRADE_COLOR[data.grade] || '#a8a89e';
+  const ua = window.safeAttr(uid), ca = window.safeAttr(courseId);
   const photos = (data.photos || []).map(u => `<img class="pp-detail-photo" src="${window.safeAttr(u)}" alt="" loading="lazy" />`).join('');
   const tags = (data.tags || []).map(t => `<span class="pp-detail-tag">${window.safeText(t)}</span>`).join('');
   body.innerHTML = `
@@ -20054,14 +20143,175 @@ async function openPassportCourseDetail(uid, courseId) {
         <div class="pp-detail-grade" style="color:${color}">Grade ${window.safeText(data.grade || '—')}</div>
       </div>
     </div>
-    ${photos ? `<div class="pp-detail-photos">${photos}</div>` : ''}
+    ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>` : ''}
     ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
     ${data.review ? `<p class="pp-detail-review">${window.safeText(data.review)}</p>` : ''}
+    <div class="pp-likebar">
+      <button type="button" class="pp-like-btn" id="ppLikeBtn" data-action="passport-like" data-uid="${ua}" data-course="${ca}">
+        <span class="pp-like-ico">&#9825;</span><span id="ppLikeCount"></span>
+      </button>
+    </div>
     ${isOwner ? `<div class="pp-detail-actions">
-      <button type="button" class="btn-full ghost" data-action="passport-edit" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}">Edit</button>
-      <button type="button" class="btn-full danger-ghost" data-action="passport-delete" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}">Remove</button>
+      <button type="button" class="btn-full ghost" data-action="passport-edit" data-uid="${ua}" data-course="${ca}">Edit</button>
+      <button type="button" class="btn-full danger-ghost" data-action="passport-delete" data-uid="${ua}" data-course="${ca}">Remove</button>
     </div>` : ''}
+    <div class="pp-comments">
+      <div class="pp-comments-title">Comments</div>
+      <div id="ppCommentList"><div class="pp-comment-empty">Loading…</div></div>
+      <div id="ppCommentFormWrap"></div>
+    </div>
   `;
+  // Double-tap / double-click the photos to like (Instagram-style).
+  if (photos) ppWireDoubleTapLike(uid, courseId);
+  ppLoadLikes(uid, courseId);
+  ppLoadComments(uid, courseId);
+}
+
+// ── Likes ────────────────────────────────────────────────────────────
+let __ppLikeState = { uid: null, courseId: null, liked: false, count: 0, busy: false };
+
+async function ppLoadLikes(uid, courseId) {
+  __ppLikeState = { uid, courseId, liked: false, count: 0, busy: false };
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  try {
+    const { getFirestore, collection, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(collection(db, 'passport', uid, 'played', courseId, 'likes'));
+    __ppLikeState.count = snap.size;
+    __ppLikeState.liked = !!(myUid && snap.docs.some(d => d.id === myUid));
+  } catch (e) { console.warn('passport likes read failed', e); }
+  ppRenderLike();
+}
+
+function ppRenderLike() {
+  const btn = document.getElementById('ppLikeBtn');
+  const cnt = document.getElementById('ppLikeCount');
+  if (!btn) return;
+  btn.classList.toggle('liked', __ppLikeState.liked);
+  const ico = btn.querySelector('.pp-like-ico');
+  if (ico) ico.innerHTML = __ppLikeState.liked ? '&#10084;' : '&#9825;';
+  if (cnt) cnt.textContent = __ppLikeState.count ? String(__ppLikeState.count) : '';
+}
+
+async function ppToggleLike(forceLike) {
+  const st = __ppLikeState;
+  if (!st.uid || st.busy) return;
+  if (window.requireAuth && !window.requireAuth('to like a course')) return;
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if (!myUid) return;
+  const wantLiked = forceLike ? true : !st.liked;
+  if (wantLiked === st.liked) { ppRenderLike(); return; } // double-tap on an already-liked post
+  st.busy = true;
+  // Optimistic
+  st.liked = wantLiked; st.count += wantLiked ? 1 : -1; if (st.count < 0) st.count = 0;
+  ppRenderLike();
+  try {
+    const { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const ref = doc(db, 'passport', st.uid, 'played', st.courseId, 'likes', myUid);
+    if (wantLiked) await setDoc(ref, { createdAt: serverTimestamp() });
+    else await deleteDoc(ref);
+  } catch (e) {
+    console.warn('passport like write failed', e);
+    // Revert
+    st.liked = !wantLiked; st.count += wantLiked ? -1 : 1; if (st.count < 0) st.count = 0;
+    ppRenderLike();
+    showToast('Could not update like. Try again.', 'error');
+  } finally { st.busy = false; }
+}
+
+function ppWireDoubleTapLike(uid, courseId) {
+  const strip = document.getElementById('ppDetailPhotos');
+  if (!strip) return;
+  const burst = () => {
+    const h = document.getElementById('ppHeartBurst');
+    if (!h) return;
+    h.classList.remove('go'); void h.offsetWidth; h.classList.add('go');
+  };
+  strip.addEventListener('dblclick', () => { burst(); ppToggleLike(true); });
+  // Touch double-tap
+  let lastTap = 0;
+  strip.addEventListener('touchend', () => {
+    const now = Date.now();
+    if (now - lastTap < 300) { burst(); ppToggleLike(true); lastTap = 0; }
+    else lastTap = now;
+  }, { passive: true });
+}
+
+// ── Comments ─────────────────────────────────────────────────────────
+async function ppLoadComments(uid, courseId) {
+  const list = document.getElementById('ppCommentList');
+  const formWrap = document.getElementById('ppCommentFormWrap');
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const isOwner = !!(myUid && myUid === uid);
+  let comments = [];
+  try {
+    const { getFirestore, collection, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const snap = await getDocs(collection(db, 'passport', uid, 'played', courseId, 'comments'));
+    snap.forEach(d => comments.push({ id: d.id, ...d.data() }));
+  } catch (e) { console.warn('passport comments read failed', e); }
+  comments.sort((a, b) => {
+    const am = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const bm = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return am - bm;
+  });
+  if (list) {
+    list.innerHTML = comments.length
+      ? comments.map(cm => {
+          const canDel = !!(myUid && (myUid === cm.authorUid || isOwner));
+          return `<div class="pp-comment">
+            <div class="pp-comment-body"><span class="pp-comment-name">${window.safeText(cm.authorName || 'Golfer')}</span>${window.safeText(cm.text || '')}</div>
+            ${canDel ? `<button type="button" class="pp-comment-del" data-action="passport-comment-del" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}" data-id="${window.safeAttr(cm.id)}" aria-label="Delete comment">&times;</button>` : ''}
+          </div>`;
+        }).join('')
+      : '<div class="pp-comment-empty">No comments yet. Be the first.</div>';
+  }
+  if (formWrap) {
+    formWrap.innerHTML = myUid
+      ? `<div class="pp-comment-form">
+           <textarea class="pp-comment-input" id="ppCommentInput" rows="1" maxlength="500" placeholder="Add a comment…"></textarea>
+           <button type="button" class="pp-comment-send" data-action="passport-comment-send" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}">Post</button>
+         </div>`
+      : `<div class="pp-comment-empty">Sign in to join the conversation.</div>`;
+  }
+}
+
+async function ppSendComment(uid, courseId) {
+  const input = document.getElementById('ppCommentInput');
+  if (!input) return;
+  const text = (input.value || '').trim().slice(0, 500);
+  if (!text) return;
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if (!myUid) { window.requireAuth && window.requireAuth('to comment'); return; }
+  const authorName = (window.CURRENT_USER && (window.CURRENT_USER.displayName || '')) || 'Golfer';
+  input.disabled = true;
+  try {
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await addDoc(collection(db, 'passport', uid, 'played', courseId, 'comments'), {
+      authorUid: myUid, authorName: authorName.slice(0, 80), text, createdAt: serverTimestamp(),
+    });
+    input.value = '';
+    await ppLoadComments(uid, courseId);
+  } catch (e) {
+    console.warn('passport comment write failed', e);
+    showToast('Could not post comment. Try again.', 'error');
+  } finally { input.disabled = false; }
+}
+
+async function ppDeleteComment(uid, courseId, commentId) {
+  try {
+    const { getFirestore, doc, deleteDoc } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await deleteDoc(doc(db, 'passport', uid, 'played', courseId, 'comments', commentId));
+    await ppLoadComments(uid, courseId);
+  } catch (e) { console.warn('passport comment delete failed', e); showToast('Could not delete. Try again.', 'error'); }
 }
 
 function ppDetailClose() {
@@ -21279,6 +21529,9 @@ A['passport-photo-remove']   = (el) => { ppRemovePhoto(Number(el.dataset.idx)); 
 A['passport-save']           = () => { ppSave(); };
 A['passport-open']           = (el) => { openPassportCourseDetail(el.dataset.uid, el.dataset.course); };
 A['passport-detail-close']   = () => { ppDetailClose(); };
+A['passport-like']           = () => { ppToggleLike(false); };
+A['passport-comment-send']   = (el) => { ppSendComment(el.dataset.uid, el.dataset.course); };
+A['passport-comment-del']    = (el) => { ppDeleteComment(el.dataset.uid, el.dataset.course, el.dataset.id); };
 A['passport-edit']           = (el) => { ppDetailClose(); if (__ppDetailData) openAddPassportCourse(__ppDetailData); };
 A['passport-delete']         = (el) => { ppDelete(el.dataset.uid, el.dataset.course); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
