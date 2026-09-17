@@ -820,6 +820,74 @@ exports.weeklyDigestScheduler = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════════════
+// autoConfirmDeliveryScheduler — daily. Orders sit in "shipped" forever
+// unless the buyer taps Confirm Delivery, which most never do — so the
+// whole review flywheel (the in-app "rate your order" prompt, the
+// reviewRequestScheduler email, and the seller's sales stats) never fires.
+// This auto-confirms delivery once an order has been shipped for
+// AUTO_CONFIRM_DAYS (well past typical domestic delivery), mirroring
+// confirmOrderDelivered's transition EXACTLY: same delivered fields, same
+// sellerStatsApplied idempotency marker, same salesCount + totalRevenue
+// increments. The 7-day dispute window then runs from this delivered
+// timestamp — MORE generous than a real delivery date, never less — and
+// "Report a problem" stays available, so nothing is cut off. The
+// onOrderShippingStatusEmail trigger fires on the status flip and sends the
+// normal delivered notifications.
+// ═══════════════════════════════════════════════════════════════════════
+const AUTO_CONFIRM_DAYS = 7;
+exports.autoConfirmDeliveryScheduler = onSchedule(
+    {schedule: "0 16 * * *", ...SCHED_FN},
+    async () => {
+      const db = admin.firestore();
+      const cutoff = new Date(Date.now() - AUTO_CONFIRM_DAYS * 24 * 60 * 60 * 1000);
+      const snap = await db
+          .collection("orders")
+          .where("fulfillmentStatus", "==", "shipped")
+          .where("shippedAt", "<", cutoff)
+          .limit(200)
+          .get()
+          .catch(() => null);
+      if (!snap) return;
+      let confirmed = 0;
+      for (const doc of snap.docs) {
+        try {
+          await db.runTransaction(async (tx) => {
+            const s = await tx.get(doc.ref);
+            if (!s.exists) return;
+            const o = s.data();
+            if (o.fulfillmentStatus !== "shipped") return; // moved since the query
+            if (o.refunded) return; // never auto-confirm a refunded order
+            const _sellerId = o.sellerId || null;
+            const _amount = Number(o.amount) || 0;
+            tx.update(doc.ref, {
+              fulfillmentStatus: "delivered",
+              shippingStatus: "delivered",
+              deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+              autoConfirmedDelivery: true,
+              sellerStatsApplied: true,
+            });
+            // Mirror confirmOrderDelivered's seller stats — guarded by the
+            // same idempotency marker so a stat can never be double-counted.
+            if (_sellerId && !o.sellerStatsApplied) {
+              tx.set(db.collection("profiles").doc(_sellerId),
+                  {salesCount: admin.firestore.FieldValue.increment(1)}, {merge: true});
+              tx.set(db.collection("users").doc(_sellerId),
+                  {totalRevenue: admin.firestore.FieldValue.increment(_amount),
+                    lastSaleAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+            }
+          });
+          confirmed++;
+        } catch (e) {
+          logger.error("autoConfirmDeliveryScheduler: failed for order", doc.id, e);
+        }
+      }
+      if (confirmed) {
+        logger.info(`autoConfirmDeliveryScheduler: auto-confirmed ${confirmed} order(s)`);
+      }
+    },
+);
+
+// ═══════════════════════════════════════════════════════════════════════
 // E. updateEmailPreferences — callable preference center
 // ═══════════════════════════════════════════════════════════════════════
 const PREF_KEYS = new Set([
