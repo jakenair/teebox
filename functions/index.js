@@ -8589,10 +8589,30 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
         logger.error("optimizePassportPhoto: could not parse event data", {rawType, err: e && e.message});
         return;
       }
+      // Fallback (audit 2026-09-17): for this trigger Eventarc delivers events
+      // whose CloudEvent `data` is absent, but `subject` still carries
+      // "objects/<name>" and `source` the bucket. Rebuild the object record
+      // from GCS metadata so the pipeline runs regardless of payload shape.
+      if (!obj || !obj.name) {
+        const subject = (event && event.subject) || "";
+        const name = subject.startsWith("objects/") ? subject.slice("objects/".length) : "";
+        const srcBucket = ((event && event.source) || "").split("/buckets/")[1] ||
+            "teebox-market.firebasestorage.app";
+        if (name) {
+          try {
+            const [meta] = await admin.storage().bucket(srcBucket).file(name).getMetadata();
+            obj = {name, bucket: srcBucket, contentType: meta.contentType, metadata: meta.metadata};
+          } catch (e) {
+            logger.warn("optimizePassportPhoto: subject fallback metadata fetch failed", {name, err: e && e.message});
+          }
+        }
+      }
       // Entry diagnostics (audit 2026-09-17): log BEFORE any guard so a silent
       // early-return is visible in Cloud Logging.
       logger.info("optimizePassportPhoto: event", {
         rawType, rawKeys,
+        ceType: event && event.type, ceSubject: event && event.subject, ceSource: event && event.source,
+        ceKeys: event ? Object.keys(event).slice(0, 12) : [],
         name: obj && obj.name, contentType: obj && obj.contentType,
         optimized: obj && obj.metadata && obj.metadata.optimized,
         parts: obj && obj.name ? obj.name.split("/").length : 0,
