@@ -1658,6 +1658,22 @@
   .pf-review { margin: 0; padding: 10px 14px 14px; font-size: 13.5px; color: var(--gray-700); line-height: 1.5; }
   .pf-skel-photo { width: 100%; aspect-ratio: 1/1; }
   .pf-skel-line { display: block; height: 10px; border-radius: 5px; margin: 3px 0; }
+  .pf-course-chip { border: 0; cursor: pointer; font-family: inherit; }
+
+  /* Course page — hero facts + the feed of rounds at that course. */
+  #coursePageScreen { display: none; position: fixed; inset: 0; z-index: 325; background: var(--cream); flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #coursePageScreen.open { display: flex; }
+  .cp-hero { display: flex; align-items: center; gap: 14px; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; }
+  .cp-hero-logo { width: 62px; height: 62px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .cp-hero-logo img { width: 100%; height: 100%; object-fit: contain; }
+  .cp-hero-text { min-width: 0; }
+  .cp-hero-name { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; color: var(--gray-900); line-height: 1.15; }
+  .cp-hero-loc { font-size: 13px; color: var(--gray-600); margin-top: 4px; }
+  .cp-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .cp-fact { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 8px 12px; }
+  .cp-fact-l { display: block; font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--gray-500); }
+  .cp-fact-v { display: block; font-size: 13.5px; font-weight: 700; color: var(--gray-900); margin-top: 1px; }
+  .cp-count { font-size: 12.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--gray-500); margin: 2px 2px 12px; }
 
   /* Passport add/edit modal + detail sheet */
   .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
@@ -1724,6 +1740,7 @@
   .pp-detail-review { font-size: 14px; color: var(--gray-800, var(--gray-700)); line-height: 1.6; white-space: pre-wrap; margin-bottom: 1rem; }
   .pp-detail-actions { display: flex; gap: 10px; }
   .pp-detail-actions .btn-full { flex: 1; }
+  .pp-detail-coursebtn { display: block; width: 100%; text-align: center; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 9px 12px; margin: 0 0 0.8rem; font-size: 13px; font-weight: 700; color: var(--green-700); cursor: pointer; }
   .verify-backdrop.open { display: flex; }
   .verify-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 540px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
   .verify-header { background: var(--green-900); padding: 1.5rem 1.5rem 1rem; text-align: center; }
@@ -4660,7 +4677,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r234</span></div>
+        <span class="auth-build" aria-hidden="true">r235</span></div>
     </div>
   </div>
 </div>
@@ -5931,6 +5948,22 @@
   </header>
   <div class="pf-body" id="passportFeedBody">
     <div class="pf-loading">Loading recent rounds…</div>
+  </div>
+</div>
+
+<!-- COURSE PAGE — one course: its facts + everyone's rounds there.
+     Opened from a feed card's course chip or the detail sheet. -->
+<div id="coursePageScreen" aria-hidden="true">
+  <header class="pf-header">
+    <button class="pf-back" data-action="close-course-page" aria-label="Back" type="button">←</button>
+    <div class="pf-titlewrap">
+      <div class="pf-title" id="coursePageTitle">Course</div>
+      <div class="pf-sub" id="coursePageSub"></div>
+    </div>
+    <span style="min-width:40px" aria-hidden="true"></span>
+  </header>
+  <div class="pf-body" id="coursePageBody">
+    <div class="pf-loading">Loading…</div>
   </div>
 </div>
 
@@ -19875,7 +19908,7 @@ function loadPassportCourses() {
         import('./assets/logos/manifest.js'),
       ]);
       const list = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id))
-        .map(c => ({ id: c.id, name: c.name, shortName: c.shortName, location: c.location || '', logo: courseLogoUrl(c) }))
+        .map(c => ({ id: c.id, name: c.name, shortName: c.shortName, location: c.location || '', architect: c.architect || '', founded: c.founded || null, logo: courseLogoUrl(c) }))
         .sort((a, b) => a.shortName.localeCompare(b.shortName));
       const byId = {};
       list.forEach(c => { byId[c.id] = c; });
@@ -20254,6 +20287,7 @@ async function openPassportCourseDetail(uid, courseId) {
         <div class="pp-detail-grade" style="color:${color}">Grade ${window.safeText(data.grade || '—')}</div>
       </div>
     </div>
+    <button type="button" class="pp-detail-coursebtn" data-action="open-course-page" data-course="${ca}">View course &amp; all rounds here &rarr;</button>
     ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>${detailDots}` : ''}
     ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
     ${data.review ? `<p class="pp-detail-review">${window.safeText(data.review)}</p>` : ''}
@@ -20533,7 +20567,7 @@ function ppFeedCard(p, cat) {
     </button>
     <div class="pf-media" data-uid="${ua}" data-course="${ca}">
       <div class="pf-carousel">${slides}</div>
-      <span class="pf-course-chip"><img src="${window.safeAttr(c.logo)}" alt="" />${window.safeText(c.shortName)}</span>
+      <button type="button" class="pf-course-chip" data-action="open-course-page" data-course="${ca}"><img src="${window.safeAttr(c.logo)}" alt="" />${window.safeText(c.shortName)}</button>
       ${p.grade ? `<span class="pf-grade-seal" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
       ${dots}
       <div class="pp-heart-burst" aria-hidden="true">&#10084;</div>
@@ -20545,8 +20579,10 @@ function ppFeedCard(p, cat) {
 // After the feed HTML is set, wire each card's carousel (dot tracking) and
 // its tap gestures (single tap → open detail, double tap → like, swipe →
 // native scroll through photos).
-function ppWireFeed() {
-  document.querySelectorAll('#passportFeedBody .pf-media').forEach(media => {
+function ppWireFeed(root) {
+  const scope = root || document.getElementById('passportFeedBody');
+  if (!scope) return;
+  scope.querySelectorAll('.pf-media').forEach(media => {
     const car = media.querySelector('.pf-carousel');
     const dotsEl = media.querySelector('.ppc-dots');
     const burst = media.querySelector('.pp-heart-burst');
@@ -20577,14 +20613,18 @@ function ppWireCarouselDots(scrollEl, dotsEl) {
 
 // Distinguish tap (open) vs double-tap (like) vs swipe (native scroll).
 function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl }) {
-  let sx = 0, sy = 0, moved = false, lastTap = 0, singleTimer = null, clickTimer = null, suppressClickUntil = 0;
+  let sx = 0, sy = 0, moved = false, lastTap = 0, singleTimer = null, clickTimer = null, suppressClickUntil = 0, startTarget = null;
+  // The course chip is a real button (opens the course page) — let its own
+  // data-action handle taps, don't also open the poster's detail.
+  const onChip = (t) => !!(t && t.closest && t.closest('.pf-course-chip'));
   const burst = () => { if (!burstEl) return; burstEl.classList.remove('go'); void burstEl.offsetWidth; burstEl.classList.add('go'); };
   const doLike = () => { burst(); if (onLike) onLike(); };
   el.addEventListener('dblclick', (e) => { e.preventDefault(); if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } doLike(); });
-  el.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; moved = false; }, { passive: true });
+  el.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; moved = false; startTarget = e.target; }, { passive: true });
   el.addEventListener('touchmove', (e) => { const t = e.changedTouches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) moved = true; }, { passive: true });
   el.addEventListener('touchend', () => {
     suppressClickUntil = Date.now() + 600; // swallow the synthetic click after a touch
+    if (onChip(startTarget)) { lastTap = 0; return; } // chip handles itself
     if (moved) { lastTap = 0; return; }     // it was a swipe
     const now = Date.now();
     if (now - lastTap < 300) {               // double tap
@@ -20596,6 +20636,7 @@ function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl }) {
     }
   }, { passive: true });
   el.addEventListener('click', (e) => {
+    if (onChip(e.target)) return;                // chip's data-action handles it
     if (Date.now() < suppressClickUntil) return; // touch path already handled it
     if (e.detail === 2) return;                  // part of a dblclick
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
@@ -20630,6 +20671,80 @@ function closePassportFeed() {
   (document.getElementById('app-scroll') || document.body).style.overflowY = '';
 }
 window.openPassportFeed = openPassportFeed;
+
+// ── Course page — one course, everyone's rounds + the course facts ───
+async function openCoursePage(courseId) {
+  const screen = document.getElementById('coursePageScreen');
+  const body = document.getElementById('coursePageBody');
+  const titleEl = document.getElementById('coursePageTitle');
+  const subEl = document.getElementById('coursePageSub');
+  if (!screen || !body) return;
+  screen.classList.add('open'); screen.setAttribute('aria-hidden', 'false');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
+  body.scrollTop = 0;
+  body.innerHTML = '<div class="pf-loading">Loading…</div>';
+  const cat = await loadPassportCourses();
+  const c = cat.byId[courseId] ||
+    { shortName: courseId, name: courseId, location: '', architect: '', founded: null, logo: `/assets/logos/${courseId}.png` };
+  if (titleEl) titleEl.textContent = c.shortName || 'Course';
+  if (subEl) subEl.textContent = c.location || '';
+  let posts = [];
+  try {
+    const { getFirestore, collectionGroup, getDocs, query, limit } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    // Client-side filter by courseId (no per-course index needed at this scale).
+    const snap = await getDocs(query(collectionGroup(db, 'played'), limit(300)));
+    snap.forEach(d => {
+      const data = d.data() || {};
+      if (data.courseId !== courseId) return;
+      const parent = d.ref.parent && d.ref.parent.parent;
+      const uid = parent ? parent.id : null;
+      if (!uid) return;
+      posts.push({
+        uid, courseId, courseName: data.courseName, grade: data.grade,
+        photos: Array.isArray(data.photos) ? data.photos : [], review: data.review || '',
+        createdAt: data.createdAt, ownerName: data.ownerName || '', ownerAvatar: data.ownerAvatar || '',
+      });
+    });
+  } catch (e) { console.warn('course page read failed', e); }
+  posts.sort((a, b) => {
+    const am = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const bm = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return bm - am;
+  });
+  await ppResolvePosters(posts);
+  const withPhotos = posts.filter(p => p.photos && p.photos.length);
+  const cards = withPhotos.length
+    ? withPhotos.map(p => ppFeedCard(p, cat)).join('')
+    : '<div class="pf-empty">No rounds with photos here yet.</div>';
+  const n = posts.length;
+  body.innerHTML = ppCourseHero(c) +
+    `<div class="cp-count">${n} round${n === 1 ? '' : 's'} logged</div>` + cards;
+  ppWireFeed(body);
+}
+
+function ppCourseHero(c) {
+  const facts = [];
+  if (c.architect) facts.push(`<div class="cp-fact"><span class="cp-fact-l">Architect</span><span class="cp-fact-v">${window.safeText(c.architect)}</span></div>`);
+  if (c.founded) facts.push(`<div class="cp-fact"><span class="cp-fact-l">Established</span><span class="cp-fact-v">${window.safeText(String(c.founded))}</span></div>`);
+  return `<div class="cp-hero">
+      <span class="cp-hero-logo"><img src="${window.safeAttr(c.logo)}" alt="${window.safeAttr(c.shortName || '')}" /></span>
+      <div class="cp-hero-text">
+        <div class="cp-hero-name">${window.safeText(c.name || c.shortName)}</div>
+        ${c.location ? `<div class="cp-hero-loc">${window.safeText(c.location)}</div>` : ''}
+      </div>
+    </div>
+    ${facts.length ? `<div class="cp-facts">${facts.join('')}</div>` : ''}`;
+}
+
+function closeCoursePage() {
+  const s = document.getElementById('coursePageScreen');
+  if (s) { s.classList.remove('open'); s.setAttribute('aria-hidden', 'true'); }
+  const feedOpen = !!(document.getElementById('passportFeedScreen') && document.getElementById('passportFeedScreen').classList.contains('open'));
+  if (!feedOpen) (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+}
+window.openCoursePage = openCoursePage;
 
 function ppDetailClose() {
   const back = document.getElementById('ppDetailBackdrop');
@@ -21854,6 +21969,8 @@ A['open-passport-feed']      = () => { openPassportFeed(); };
 A['close-passport-feed']     = () => { closePassportFeed(); };
 A['passport-feed-open']      = (el) => { openPassportCourseDetail(el.dataset.uid, el.dataset.course); };
 A['passport-feed-user']      = (el) => { closePassportFeed(); openProfile(el.dataset.uid); };
+A['open-course-page']        = (el) => { ppDetailClose(); openCoursePage(el.dataset.course); };
+A['close-course-page']       = () => { closeCoursePage(); };
 A['passport-edit']           = (el) => { ppDetailClose(); if (__ppDetailData) openAddPassportCourse(__ppDetailData); };
 A['passport-delete']         = (el) => { ppDelete(el.dataset.uid, el.dataset.course); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
