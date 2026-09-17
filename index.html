@@ -2036,13 +2036,16 @@
   .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-900) 30%, transparent); opacity: 1; }
   .cat-bar-wrap.scrolled::before { opacity: 1; }
   .cat-bar-wrap.at-end::after { opacity: 0; }
-  .cat-bar { position: relative; min-height: 48px; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .cat-bar { position: relative; min-height: 48px; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
   .cat-bar::-webkit-scrollbar { display: none; }
   /* Trailing/leading spacers so the first/last pill never bumps into the
      edge fade — gives a clean breathing margin when scrolled to either end. */
   .cat-bar::before, .cat-bar::after { content: ''; flex: 0 0 4px; }
   @media (min-width: 720px) { .cat-bar { padding: 0 1.5rem; } }
   .cat-pill {
+    /* iOS: a long-press could start a native drag / text-selection on the
+       pill and "pull it out of the frame". Kill drag, selection and callout. */
+    -webkit-user-drag: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.22);
     color: rgba(255,255,255,0.92);
@@ -4677,7 +4680,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r237</span></div>
+        <span class="auth-build" aria-hidden="true">r238</span></div>
     </div>
   </div>
 </div>
@@ -4860,12 +4863,12 @@
     </div>
     <div class="info-body">
       <div class="journal-list">
-        <a class="journal-card" href="/reads/celebrities-who-love-golf.html">
-          <img class="journal-thumb" src="/assets/reads/celebrity-golfers/cover.webp" alt="" loading="lazy" decoding="async" />
+        <a class="journal-card" href="/reads/rodeo-dunes.html">
+          <img class="journal-thumb" src="/assets/reads/rodeo-dunes/cover.webp" alt="" loading="lazy" decoding="async" />
           <div class="journal-card-body">
             <span class="journal-eyebrow">The Clubhouse</span>
-            <span class="journal-title">10 Celebrities Who Love Golf</span>
-            <span class="journal-dek">Curry's +1 to LeBron's brand-new obsession — ten famous names and the handicaps they actually play to.</span>
+            <span class="journal-title">Rodeo Dunes: Colorado's Next Great Golf Destination</span>
+            <span class="journal-dek">Coore &amp; Crenshaw, 4,000 acres of Colorado sand, the Bandon Dunes family — and an actual rodeo between the 1st and 18th.</span>
           </div>
         </a>
         <a class="journal-card" href="/reads/caddying-best-first-job.html">
