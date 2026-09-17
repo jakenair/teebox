@@ -122,3 +122,6 @@ scripts/logo-audit-report.json
 # scratch: read-only course-catalog dumps
 logo-catalog.txt
 logo-catalog-drawable.txt
+
+# local Xcode archive output (scripts/xcodebuild archive)
+build/

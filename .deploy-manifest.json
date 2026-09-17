@@ -65,13 +65,12 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
+    "at": "2026-09-17"
   },
   "dailyBingoMonitorManual": {
-    "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
+    "at": "2026-09-17"
   },
   "dailyEmailSmoke": {
     "at": "2026-09-11",
@@ -126,8 +125,8 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "at": "2026-09-13",
-    "sha": "2b1fe46b4bdc803bb8cedfe99427875eb0944631"
+    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
+    "at": "2026-09-17"
   },
   "generateListingDescription": {
     "at": "2026-08-06",
@@ -474,8 +473,8 @@
     "sha": null
   },
   "runGenerateDailyPuzzles": {
-    "at": "2026-09-13",
-    "sha": "2b1fe46b4bdc803bb8cedfe99427875eb0944631"
+    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
+    "at": "2026-09-17"
   },
   "savedSearchMatchSchedulerV2": {
     "at": "2026-09-11",
@@ -536,8 +535,8 @@
     "sha": null
   },
   "syncBingoProgress": {
-    "at": "2026-09-09",
-    "sha": "2b08fe5d81280675573ce942120a829e7d8a59f7"
+    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
+    "at": "2026-09-17"
   },
   "syncBlockedThreads": {
     "at": "2026-07-22",
