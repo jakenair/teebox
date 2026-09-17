@@ -1522,6 +1522,25 @@
 
   /* SELLER VERIFY */
   .verify-backdrop { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 1rem; }
+
+  /* ── Reusable image cropper (pan + zoom) ── launched from within other
+     modals (profile edit, sell, passport post), so it sits above them all. */
+  .crop-backdrop { display: none; position: fixed; inset: 0; z-index: 620; background: rgba(0,0,0,0.82); align-items: center; justify-content: center; padding: 1rem; }
+  .crop-backdrop.open { display: flex; }
+  .crop-modal { background: var(--white); border-radius: var(--radius-lg); padding: 1.1rem 1.1rem 1.25rem; width: min(92vw, 420px); box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+  .crop-title { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--gray-900); text-align: center; margin-bottom: 0.85rem; }
+  .crop-stage { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; border-radius: var(--radius-md); background: #111; touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; }
+  .crop-stage:active { cursor: grabbing; }
+  .crop-stage.round { border-radius: 50%; }
+  .crop-stage::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); border-radius: inherit; pointer-events: none; }
+  .crop-img { position: absolute; left: 0; top: 0; max-width: none; will-change: transform; pointer-events: none; -webkit-user-drag: none; user-drag: none; }
+  .crop-controls { display: flex; align-items: center; gap: 10px; margin: 0.9rem 0 1rem; }
+  .crop-zoom-ico { color: var(--gray-500); font-size: 1.15rem; width: 14px; text-align: center; flex: none; }
+  .crop-zoom { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 3px; background: var(--gray-200); outline: none; }
+  .crop-zoom::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--green-600); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+  .crop-zoom::-moz-range-thumb { width: 20px; height: 20px; border: none; border-radius: 50%; background: var(--green-600); cursor: pointer; }
+  .crop-actions { display: flex; gap: 10px; }
+  .crop-actions .btn-full { flex: 1; }
   .verify-backdrop.open { display: flex; }
   .verify-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 540px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
   .verify-header { background: var(--green-900); padding: 1.5rem 1.5rem 1rem; text-align: center; }
@@ -4455,7 +4474,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r227</span></div>
+        <span class="auth-build" aria-hidden="true">r228</span></div>
     </div>
   </div>
 </div>
@@ -6198,6 +6217,27 @@
         <div class="more-like-this-title">More like this</div>
         <div class="more-like-this-row" id="detailMoreLikeThisRow"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE CROPPER — reusable pan/zoom crop overlay. window.openCropper(file,
+     opts) returns a Promise<File|null>. First consumer: avatar upload
+     (round). Reused by the course-passport photo posts. -->
+<div class="crop-backdrop" id="cropBackdrop" aria-hidden="true">
+  <div class="crop-modal" role="dialog" aria-modal="true" aria-label="Crop photo">
+    <div class="crop-title" id="cropTitle">Crop photo</div>
+    <div class="crop-stage" id="cropStage">
+      <img class="crop-img" id="cropImg" alt="" draggable="false" />
+    </div>
+    <div class="crop-controls">
+      <span class="crop-zoom-ico" aria-hidden="true">&minus;</span>
+      <input type="range" class="crop-zoom" id="cropZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom" />
+      <span class="crop-zoom-ico" aria-hidden="true">+</span>
+    </div>
+    <div class="crop-actions">
+      <button class="btn-full ghost" data-action="crop-cancel" type="button">Cancel</button>
+      <button class="btn-full green" data-action="crop-confirm" type="button">Use photo</button>
     </div>
   </div>
 </div>
@@ -19424,28 +19464,123 @@ async function renderProfileEditor() {
 }
 
 let pendingAvatarFile = null;
+// ── Reusable image cropper (pan + zoom) ──────────────────────────────
+// window.openCropper(file, opts) opens the crop overlay and resolves to a
+// square cropped File (or null if cancelled). opts: { round, outputSize,
+// mime, quality, title }. Square output (1:1) only for now — covers
+// avatars and the course-passport photo grid. The stage IS the crop
+// viewport: whatever is visible is the crop, so the image always covers it.
+let __cropState = null;
+window.openCropper = function(file, opts = {}) {
+  return new Promise((resolve) => {
+    const stage = document.getElementById('cropStage');
+    const img = document.getElementById('cropImg');
+    const zoom = document.getElementById('cropZoom');
+    const back = document.getElementById('cropBackdrop');
+    const titleEl = document.getElementById('cropTitle');
+    if (!stage || !img || !zoom || !back) { resolve(file); return; } // fail-open
+    if (titleEl) titleEl.textContent = opts.title || 'Crop photo';
+    stage.classList.toggle('round', !!opts.round);
+    // Open the modal BEFORE measuring — the stage is display:none until
+    // .open is added, so measuring first gives clientWidth/Height 0 and the
+    // guard below would bail (returning the original, uncropped file).
+    img.removeAttribute('src');
+    back.classList.add('open'); back.setAttribute('aria-hidden', 'false');
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const SW = stage.clientWidth, SH = stage.clientHeight;
+      const NW = im.naturalWidth, NH = im.naturalHeight;
+      if (!SW || !SH || !NW || !NH) { URL.revokeObjectURL(url); resolve(file); return; }
+      const baseScale = Math.max(SW / NW, SH / NH); // cover the stage at z=1
+      const st = {
+        url, im, SW, SH, NW, NH, baseScale, z: 1, ox: 0, oy: 0,
+        outputSize: opts.outputSize || 512, mime: opts.mime || 'image/jpeg',
+        quality: opts.quality || 0.85, resolve, _handlers: null, _ds: baseScale,
+      };
+      __cropState = st;
+      img.src = url;
+      zoom.value = 1;
+      const render = () => {
+        const ds = st.baseScale * st.z;
+        const DW = st.NW * ds, DH = st.NH * ds;
+        st.ox = Math.min(0, Math.max(st.SW - DW, st.ox)); // keep image covering
+        st.oy = Math.min(0, Math.max(st.SH - DH, st.oy));
+        img.style.width = DW + 'px';
+        img.style.height = DH + 'px';
+        img.style.transform = `translate(${st.ox}px, ${st.oy}px)`;
+        st._ds = ds;
+      };
+      st.render = render;
+      // start centered
+      st.ox = (SW - NW * baseScale) / 2;
+      st.oy = (SH - NH * baseScale) / 2;
+      render();
+      let dragging = false, px = 0, py = 0;
+      const down = (e) => { dragging = true; px = e.clientX; py = e.clientY; try { stage.setPointerCapture(e.pointerId); } catch (_e) {} };
+      const move = (e) => { if (!dragging) return; st.ox += (e.clientX - px); st.oy += (e.clientY - py); px = e.clientX; py = e.clientY; render(); if (e.cancelable) e.preventDefault(); };
+      const up = () => { dragging = false; };
+      st._handlers = { down, move, up };
+      stage.addEventListener('pointerdown', down);
+      window.addEventListener('pointermove', move, { passive: false });
+      window.addEventListener('pointerup', up);
+      zoom.oninput = () => {
+        const oldz = st.z; st.z = Number(zoom.value) || 1;
+        // zoom toward the stage centre so it feels anchored
+        const cx = st.SW / 2, cy = st.SH / 2, r = st.z / oldz;
+        st.ox = cx - (cx - st.ox) * r; st.oy = cy - (cy - st.oy) * r;
+        render();
+      };
+      back.classList.add('open'); back.setAttribute('aria-hidden', 'false');
+    };
+    im.onerror = () => { try { URL.revokeObjectURL(url); } catch (_e) {} resolve(file); };
+    im.src = url;
+  });
+};
+function __cropCleanup(st) {
+  const stage = document.getElementById('cropStage');
+  const back = document.getElementById('cropBackdrop');
+  if (st && st._handlers && stage) {
+    stage.removeEventListener('pointerdown', st._handlers.down);
+    window.removeEventListener('pointermove', st._handlers.move);
+    window.removeEventListener('pointerup', st._handlers.up);
+  }
+  const z = document.getElementById('cropZoom'); if (z) z.oninput = null;
+  if (back) { back.classList.remove('open'); back.setAttribute('aria-hidden', 'true'); }
+  if (st && st.url) { try { URL.revokeObjectURL(st.url); } catch (_e) {} }
+}
+window.__cropConfirm = function() {
+  const st = __cropState; if (!st) return; __cropState = null;
+  const O = st.outputSize, ds = st._ds;
+  const canvas = document.createElement('canvas'); canvas.width = O; canvas.height = O;
+  const ctx = canvas.getContext('2d');
+  const sx = -st.ox / ds, sy = -st.oy / ds, sW = st.SW / ds, sH = st.SH / ds;
+  try { ctx.drawImage(st.im, sx, sy, sW, sH, 0, 0, O, O); } catch (_e) {}
+  canvas.toBlob((blob) => {
+    __cropCleanup(st);
+    st.resolve(blob ? new File([blob], 'photo.jpg', { type: st.mime }) : null);
+  }, st.mime, st.quality);
+};
+window.__cropCancel = function() { const st = __cropState; __cropState = null; __cropCleanup(st); if (st) st.resolve(null); };
+
 async function onAvatarFile(ev) {
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
-  // The OLD code hard-rejected the ORIGINAL at 2MB before any resize, so
-  // most phone photos (3–8MB) bounced with "too large" — even after the
-  // user tried to crop (Josh, 2026-09-14). downscaleAvatar (512px JPEG,
-  // ~tens of KB) always fits the 2MB storage rule, so we resize UP FRONT
-  // and only then validate. Safety bound on the original so we don't spend
-  // memory decoding an absurd file.
   if (file.size > 30 * 1024 * 1024) {
     showToast('That image is too large. Please pick one under 30MB.');
+    try { ev.target.value = ''; } catch (_e) {}
     return;
   }
-  let prepared = file;
-  try { prepared = await downscaleAvatar(file); } catch (_e) { prepared = file; }
-  // Final guard, matching the storage.rules 2MB cap. downscaleAvatar makes
-  // this virtually impossible to trip; it only fires if the resize couldn't
-  // shrink the image (e.g. an undecodable format) AND it's still over 2MB.
-  if (prepared.size > 2 * 1024 * 1024) {
-    showToast('Couldn’t process that image — try a different photo (JPEG or PNG).');
-    return;
-  }
+  // Crop/zoom to a square avatar. openCropper outputs a 512px JPEG (well
+  // under the 2MB storage cap), so the old downscale-first path is replaced.
+  // Cancel = no-op. Reset the input so re-picking the same file re-fires.
+  let cropped = null;
+  try { cropped = await window.openCropper(file, { round: true, outputSize: 512, title: 'Crop your photo' }); }
+  catch (_e) { cropped = null; }
+  try { ev.target.value = ''; } catch (_e) {}
+  if (!cropped) return;
+  let prepared = cropped;
+  if (prepared.size > 2 * 1024 * 1024) { try { prepared = await downscaleAvatar(prepared); } catch (_e) {} }
   pendingAvatarFile = prepared;
   const blobUrl = URL.createObjectURL(prepared);
   const preview = document.getElementById('editAvatarPreview');
@@ -20612,6 +20747,8 @@ A['edit-profile']            = () => { if (!window.requireAuth('to edit your pro
 A['cancel-edit-profile']     = () => openProfile(window.CURRENT_USER && window.CURRENT_USER.uid);
 A['save-profile']            = () => { if (!window.requireAuth('to save your profile')) return; saveProfileEdits(); };
 A['avatar-pick']             = () => { if (!window.requireAuth('to update your avatar')) return; document.getElementById('avatarFileInput').click(); };
+A['crop-confirm']            = () => { window.__cropConfirm && window.__cropConfirm(); };
+A['crop-cancel']             = () => { window.__cropCancel && window.__cropCancel(); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
 A['unpin-listing']           = (_el) => { if (!window.requireAuth('to unpin your listing')) return; pinListingToProfile(null); };
 A['payout-export-csv']       = () => { if (!window.requireAuth('to export your payouts')) return; exportPayoutsCsv(); };
