@@ -4680,7 +4680,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r238</span></div>
+        <span class="auth-build" aria-hidden="true">r239</span></div>
     </div>
   </div>
 </div>
@@ -19910,12 +19910,18 @@ let __passportCoursesPromise = null;
 function loadPassportCourses() {
   if (!__passportCoursesPromise) {
     __passportCoursesPromise = (async () => {
-      const [{ COURSES, courseLogoUrl }, { LOGOS_AVAILABLE }] = await Promise.all([
+      const [{ COURSES, courseLogoUrl }, manifest] = await Promise.all([
         import('./bingo-courses.js'),
         import('./assets/logos/manifest.js'),
       ]);
-      const list = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id))
-        .map(c => ({ id: c.id, name: c.name, shortName: c.shortName, location: c.location || '', architect: c.architect || '', founded: c.founded || null, logo: courseLogoUrl(c) }))
+      const { LOGOS_AVAILABLE } = manifest;
+      // Passport-only originals (wordmarks intact) live in /assets/logos/passport/.
+      // A course is Passport-selectable if it has EITHER a Bingo (wordless) logo
+      // or a passport original; the original wins for display when present.
+      const PASSPORT_LOGOS = manifest.PASSPORT_LOGOS || new Set();
+      const list = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id) || PASSPORT_LOGOS.has(c.id))
+        .map(c => ({ id: c.id, name: c.name, shortName: c.shortName, location: c.location || '', architect: c.architect || '', founded: c.founded || null,
+          logo: PASSPORT_LOGOS.has(c.id) ? `/assets/logos/passport/${c.id}.png` : courseLogoUrl(c) }))
         .sort((a, b) => a.shortName.localeCompare(b.shortName));
       const byId = {};
       list.forEach(c => { byId[c.id] = c; });

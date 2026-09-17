@@ -8,6 +8,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/pine-valley.png"
     },
     {
+      "id": "mid-pines",
+      "shortName": "Mid Pines",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/mid-pines.png"
+    },
+    {
       "id": "cypress-point",
       "shortName": "Cypress Point",
       "logoUrl": "https://teeboxmarket.com/assets/logos/cypress-point.png"
@@ -53,6 +58,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/bandon-dunes.png"
     },
     {
+      "id": "chicago-golf-club",
+      "shortName": "Chicago Golf Club",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/chicago-golf-club.png"
+    },
+    {
       "id": "winged-foot-west",
       "shortName": "Winged Foot West",
       "logoUrl": "https://teeboxmarket.com/assets/logos/winged-foot-west.png"
@@ -93,6 +103,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/baltusrol-lower.png"
     },
     {
+      "id": "bethpage-black",
+      "shortName": "Bethpage Black",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/bethpage-black.png"
+    },
+    {
       "id": "pinehurst-no-2",
       "shortName": "Pinehurst No. 2",
       "logoUrl": "https://teeboxmarket.com/assets/logos/pinehurst-no-2.png"
@@ -106,6 +121,11 @@
       "id": "erin-hills",
       "shortName": "Erin Hills",
       "logoUrl": "https://teeboxmarket.com/assets/logos/erin-hills.png"
+    },
+    {
+      "id": "kiawah-ocean",
+      "shortName": "Kiawah Ocean Course",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/kiawah-ocean.png"
     },
     {
       "id": "harbour-town",
@@ -143,6 +163,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/prairie-dunes.png"
     },
     {
+      "id": "medinah-3",
+      "shortName": "Medinah No. 3",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/medinah-3.png"
+    },
+    {
       "id": "quaker-ridge",
       "shortName": "Quaker Ridge",
       "logoUrl": "https://teeboxmarket.com/assets/logos/quaker-ridge.png"
@@ -178,9 +203,24 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/st-andrews-old.png"
     },
     {
+      "id": "royal-dornoch",
+      "shortName": "Royal Dornoch",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/royal-dornoch.png"
+    },
+    {
+      "id": "carnoustie",
+      "shortName": "Carnoustie",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/carnoustie.png"
+    },
+    {
       "id": "castle-stuart",
       "shortName": "Castle Stuart",
       "logoUrl": "https://teeboxmarket.com/assets/logos/castle-stuart.png"
+    },
+    {
+      "id": "royal-county-down",
+      "shortName": "Royal County Down",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/royal-county-down.png"
     },
     {
       "id": "cabot-links",
@@ -248,6 +288,11 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/forest-dunes.png"
     },
     {
+      "id": "arcadia-bluffs",
+      "shortName": "Arcadia Bluffs",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/arcadia-bluffs.png"
+    },
+    {
       "id": "monterey-peninsula-shore",
       "shortName": "MPCC Shore",
       "logoUrl": "https://teeboxmarket.com/assets/logos/monterey-peninsula-shore.png"
@@ -261,6 +306,11 @@
       "id": "valley-club-of-montecito",
       "shortName": "Valley Club",
       "logoUrl": "https://teeboxmarket.com/assets/logos/valley-club-of-montecito.png"
+    },
+    {
+      "id": "congressional-blue",
+      "shortName": "Congressional",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/congressional-blue.png"
     },
     {
       "id": "plainfield",
@@ -301,6 +351,11 @@
       "id": "cabot-saint-lucia",
       "shortName": "Cabot Saint Lucia",
       "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-saint-lucia.png"
+    },
+    {
+      "id": "banff-springs",
+      "shortName": "Banff Springs",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/banff-springs.png"
     },
     {
       "id": "lido",
@@ -746,6 +801,15 @@
         "pine valley gc"
       ]
     },
+    "mid-pines": {
+      "name": "Mid Pines Inn & Golf Club",
+      "shortName": "Mid Pines",
+      "aliases": [
+        "mid pines",
+        "mid-pines",
+        "mid pines inn"
+      ]
+    },
     "cypress-point": {
       "name": "Cypress Point Club",
       "shortName": "Cypress Point",
@@ -818,6 +882,14 @@
         "bandon dunes"
       ]
     },
+    "chicago-golf-club": {
+      "name": "Chicago Golf Club",
+      "shortName": "Chicago Golf Club",
+      "aliases": [
+        "chicago gc",
+        "cgc"
+      ]
+    },
     "winged-foot-west": {
       "name": "Winged Foot Golf Club (West)",
       "shortName": "Winged Foot West",
@@ -886,6 +958,15 @@
         "baltusrol lower course"
       ]
     },
+    "bethpage-black": {
+      "name": "Bethpage State Park (Black)",
+      "shortName": "Bethpage Black",
+      "aliases": [
+        "bethpage",
+        "the black",
+        "bethpage black course"
+      ]
+    },
     "pinehurst-no-2": {
       "name": "Pinehurst No. 2",
       "shortName": "Pinehurst No. 2",
@@ -910,6 +991,15 @@
       "shortName": "Erin Hills",
       "aliases": [
         "erin hills gc"
+      ]
+    },
+    "kiawah-ocean": {
+      "name": "Kiawah Island Golf Resort (Ocean)",
+      "shortName": "Kiawah Ocean Course",
+      "aliases": [
+        "kiawah",
+        "the ocean course",
+        "kiawah ocean"
       ]
     },
     "harbour-town": {
@@ -967,6 +1057,15 @@
         "prairie dunes cc"
       ]
     },
+    "medinah-3": {
+      "name": "Medinah Country Club (No. 3)",
+      "shortName": "Medinah No. 3",
+      "aliases": [
+        "medinah",
+        "medinah cc",
+        "medinah 3"
+      ]
+    },
     "quaker-ridge": {
       "name": "Quaker Ridge Golf Club",
       "shortName": "Quaker Ridge",
@@ -1022,11 +1121,37 @@
         "home of golf"
       ]
     },
+    "royal-dornoch": {
+      "name": "Royal Dornoch Golf Club (Championship)",
+      "shortName": "Royal Dornoch",
+      "aliases": [
+        "dornoch",
+        "royal dornoch gc"
+      ]
+    },
+    "carnoustie": {
+      "name": "Carnoustie Golf Links (Championship)",
+      "shortName": "Carnoustie",
+      "aliases": [
+        "carnoustie championship",
+        "car-nasty",
+        "carnoustie gl"
+      ]
+    },
     "castle-stuart": {
       "name": "Castle Stuart Golf Links",
       "shortName": "Castle Stuart",
       "aliases": [
         "castle stuart gl"
+      ]
+    },
+    "royal-county-down": {
+      "name": "Royal County Down Golf Club (Championship)",
+      "shortName": "Royal County Down",
+      "aliases": [
+        "rcd",
+        "royal county down gc",
+        "county down"
       ]
     },
     "cabot-links": {
@@ -1124,6 +1249,13 @@
         "forest dunes gc"
       ]
     },
+    "arcadia-bluffs": {
+      "name": "Arcadia Bluffs Golf Club",
+      "shortName": "Arcadia Bluffs",
+      "aliases": [
+        "arcadia bluffs gc"
+      ]
+    },
     "monterey-peninsula-shore": {
       "name": "Monterey Peninsula Country Club (Shore)",
       "shortName": "MPCC Shore",
@@ -1146,6 +1278,14 @@
         "valley club of montecito",
         "valley club montecito",
         "the valley club"
+      ]
+    },
+    "congressional-blue": {
+      "name": "Congressional Country Club (Blue)",
+      "shortName": "Congressional",
+      "aliases": [
+        "congressional cc",
+        "congressional blue"
       ]
     },
     "plainfield": {
@@ -1205,6 +1345,14 @@
         "cabot saint lucia",
         "point hardy",
         "cabot st lucia"
+      ]
+    },
+    "banff-springs": {
+      "name": "Fairmont Banff Springs Golf Course",
+      "shortName": "Banff Springs",
+      "aliases": [
+        "banff springs",
+        "fairmont banff"
       ]
     },
     "lido": {
@@ -1826,7 +1974,7 @@
       ]
     }
   },
-  "generatedAt": "2026-09-13T18:56:35.337Z",
+  "generatedAt": "2026-09-17T21:27:07.287Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

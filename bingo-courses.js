@@ -45,6 +45,30 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'mid-pines',
+    name: 'Mid Pines Inn & Golf Club',
+    shortName: 'Mid Pines',
+    aliases: ['mid pines', 'mid-pines', 'mid pines inn'],
+    location: 'Southern Pines, North Carolina',
+    architect: 'Donald Ross',
+    founded: 1921,
+    logo: '',
+    logoUrl: '',
+  },
+  {
+    // Passport-only: has a logo in /assets/logos/passport/ but no wordless
+    // top-level PNG, so it's never in the Bingo pool.
+    id: 'sea-island',
+    name: 'Sea Island Golf Club (Seaside)',
+    shortName: 'Sea Island',
+    aliases: ['sea island', 'seaside', 'sea island seaside', 'sea island golf club'],
+    location: 'St. Simons Island, Georgia',
+    architect: 'Harry Colt & Charles Alison; Tom Fazio (1999)',
+    founded: 1929,
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'cypress-point',
     name: 'Cypress Point Club',
     shortName: 'Cypress Point',
