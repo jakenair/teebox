@@ -563,6 +563,36 @@ service cloud.firestore {
     //           role; valid 1-5 rating; role is 'buyer' or 'seller'.
     //   update/delete: never (immutable record)
     // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // COURSE PASSPORT — one doc per course a golfer has played, at
+    // passport/{uid}/played/{courseId}. Public (the whole point is
+    // browsing each other's passports); owner-only write. Doc id IS the
+    // course slug, so a course appears once per golfer and edits overwrite.
+    // ─────────────────────────────────────────────
+    match /passport/{userId}/played/{courseId} {
+      allow read: if true;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && appCheckOk()
+        && request.resource.data.courseId is string
+        && request.resource.data.courseId == courseId
+        && courseId.size() > 0 && courseId.size() <= 128
+        && request.resource.data.grade is string
+        && request.resource.data.grade in ['F','D','C','C+','B','B+','A','A+']
+        && (!('review' in request.resource.data.keys())
+            || (request.resource.data.review is string
+                && request.resource.data.review.size() <= 2000))
+        && (!('tags' in request.resource.data.keys())
+            || (request.resource.data.tags is list
+                && request.resource.data.tags.size() <= 20))
+        && (!('photos' in request.resource.data.keys())
+            || (request.resource.data.photos is list
+                && request.resource.data.photos.size() <= 12));
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /reviews/{reviewId} {
       allow read: if true;
 
