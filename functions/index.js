@@ -8571,10 +8571,28 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
   .onObjectFinalized(
     {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app"},
     async (event) => {
-      const obj = event.data;
+      // Normalise the event payload. Eventarc delivers this trigger in
+      // GCS_NOTIFICATION mode; depending on the framework path the CloudEvent
+      // `data` can arrive as (a) the StorageObjectData object, (b) a Pub/Sub
+      // wrapper {message:{data:<base64 JSON>}}, or (c) a raw JSON string/
+      // Buffer. Unwrap all three so `obj.name` is always the object path.
+      let obj = event && event.data;
+      const rawType = Buffer.isBuffer(obj) ? "buffer" : typeof obj;
+      const rawKeys = (obj && typeof obj === "object" && !Buffer.isBuffer(obj)) ? Object.keys(obj).slice(0, 8) : [];
+      try {
+        if (Buffer.isBuffer(obj)) obj = JSON.parse(obj.toString("utf8"));
+        else if (typeof obj === "string") obj = JSON.parse(obj);
+        if (obj && obj.message && obj.message.data && !obj.name) {
+          obj = JSON.parse(Buffer.from(obj.message.data, "base64").toString("utf8"));
+        }
+      } catch (e) {
+        logger.error("optimizePassportPhoto: could not parse event data", {rawType, err: e && e.message});
+        return;
+      }
       // Entry diagnostics (audit 2026-09-17): log BEFORE any guard so a silent
       // early-return is visible in Cloud Logging.
       logger.info("optimizePassportPhoto: event", {
+        rawType, rawKeys,
         name: obj && obj.name, contentType: obj && obj.contentType,
         optimized: obj && obj.metadata && obj.metadata.optimized,
         parts: obj && obj.name ? obj.name.split("/").length : 0,
