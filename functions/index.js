@@ -8572,6 +8572,13 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
     {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app"},
     async (event) => {
       const obj = event.data;
+      // Entry diagnostics (audit 2026-09-17): log BEFORE any guard so a silent
+      // early-return is visible in Cloud Logging.
+      logger.info("optimizePassportPhoto: event", {
+        name: obj && obj.name, contentType: obj && obj.contentType,
+        optimized: obj && obj.metadata && obj.metadata.optimized,
+        parts: obj && obj.name ? obj.name.split("/").length : 0,
+      });
       if (!obj || !obj.name) return;
       if (!obj.name.startsWith("passport/")) return;
       const contentType = obj.contentType || "";
