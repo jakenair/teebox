@@ -209,9 +209,8 @@
     "sha": null
   },
   "moderateMessage": {
-    "at": "2026-07-22",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "2f565c0b8b9d15aa73aa4e848f3a13cbdd86be3b",
+    "at": "2026-09-18"
   },
   "moderateOfferOnCreate": {
     "at": "2026-06-25",
@@ -489,8 +488,8 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "sendMessage": {
-    "sha": "b05dd48e6b1159c97319e104134b2d9d946dc17d",
-    "at": "2026-09-17"
+    "sha": "2f565c0b8b9d15aa73aa4e848f3a13cbdd86be3b",
+    "at": "2026-09-18"
   },
   "sendSecurityEmail": {
     "at": "2026-09-11",
