@@ -962,6 +962,7 @@
     body.is-native .cat-bar-divider { display: none; }
     body.is-native .native-cat-search { display: block; flex: 0 0 100%; max-width: none; }
     body.is-native .cat-pill.cat-journal,
+    body.is-native .cat-pill.cat-passport,
     body.is-native .cat-pill.cat-bingo {
       flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
@@ -975,6 +976,7 @@
     body.web-searchfirst .cat-bar-divider { display: none; }
     body.web-searchfirst .native-cat-search { display: block; flex: 0 0 100%; max-width: none; }
     body.web-searchfirst .cat-pill.cat-journal,
+    body.web-searchfirst .cat-pill.cat-passport,
     body.web-searchfirst .cat-pill.cat-bingo {
       flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
@@ -1989,6 +1991,19 @@
     box-shadow: 0 2px 12px color-mix(in srgb, var(--gold-400) 18%, transparent);
   }
   .cat-bingo-icon { font-size: 13px; color: var(--gold-400); line-height: 1; }
+  /* Passport pill — sits between Journal and Bingo. Cream outline like Journal
+     with a faint green fill so it reads as a destination without stealing the
+     gold from the game entry. Map-pin icon = "places you've played". */
+  .cat-pill.cat-passport {
+    border-color: rgba(255,255,255,0.32);
+    background: rgba(120,200,140,0.10);
+    color: rgba(255,255,255,0.92);
+    font-weight: 600;
+    gap: 6px; display: inline-flex; align-items: center;
+  }
+  .cat-pill.cat-passport:hover { border-color: var(--gold-400); color: var(--gold-300); background: rgba(120,200,140,0.16); }
+  .cat-passport-icon { display: inline-flex; line-height: 1; opacity: 0.95; }
+  .cat-passport-icon .ico { width: 13px; height: 13px; fill: currentColor; stroke: none; }
 
   /* ── TeeBox Journal (r151) — in-app front door to the Reads articles.
      Index lives here as an overlay; tapping a card navigates to the
@@ -4687,7 +4702,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r241</span></div>
+        <span class="auth-build" aria-hidden="true">r242</span></div>
     </div>
   </div>
 </div>
@@ -6193,6 +6208,9 @@
     <span class="cat-bar-divider" aria-hidden="true"></span>
     <button class="cat-pill cat-journal" data-action="open-journal" type="button" aria-label="TeeBox Journal — course guides and gear reads">
       <span class="cat-journal-icon" aria-hidden="true">✦</span><span>Journal</span>
+    </button>
+    <button class="cat-pill cat-passport" data-action="open-passport-feed" type="button" aria-label="Course Passport — post and browse the courses golfers have played">
+      <span class="cat-passport-icon" data-ico="pin" aria-hidden="true"></span><span>Passport</span>
     </button>
     <button class="cat-pill cat-bingo" data-action="open-bingo" type="button" aria-label="Play Logo Bingo — daily golf course logo guessing game">
       <span class="cat-bingo-icon" aria-hidden="true">⚑</span><span>Logo Bingo</span>
