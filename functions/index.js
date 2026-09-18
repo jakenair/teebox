@@ -2849,6 +2849,7 @@ const MOD_OFF_PLATFORM_KEYWORDS_SOFT = [
 // extend at runtime via config.messaging.knownBadDomains (string[]).
 const MOD_KNOWN_BAD_DOMAINS = new Set([
   "form76510.shop",
+  "tr.ee", // 2026-09-18 credential-phish campaign (tr.ee/teeboxmarket)
 ]);
 
 // ── Generic external-URL detection (the durable fix) ─────────────────
@@ -2857,21 +2858,31 @@ const MOD_KNOWN_BAD_DOMAINS = new Set([
 // every external host (scheme optional, bare host.tld/path included) that
 // is not teeboxmarket.com. The TLD set is broad but bounded so prose like
 // "3.5 in." or "v1.2" doesn't read as a URL.
-const MOD_URL_TLDS =
-  "com|net|org|io|co|app|shop|store|xyz|info|link|biz|online|site|live|" +
-  "me|ru|cn|top|club|vip|fun|icu|cc|pro|gg|sh|to|page|win|click|pay|" +
-  "wallet|finance|monster|rest|cfd|sbs|lol";
+// Hostname shape only — the TLD is validated against the real IANA list
+// (moderation/tlds.js) instead of a hand-written allowlist. The old
+// allowlist omitted .ee, which is how the 2026-09-18 tr.ee phishing link
+// reached four sellers completely undetected; it also omitted .ly, making
+// bit.ly invisible. Capture groups: 1=scheme 2=host 3=tld 4=path.
 const MOD_URL_SOURCE =
-  "\\b(?:https?:\\/\\/)?((?:[a-z0-9-]+\\.)+(?:" + MOD_URL_TLDS + "))\\b" +
-  "(?:\\/[^\\s)<>\"']*)?";
+  "(?:(https?:\\/\\/)|\\b)((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+" +
+  "([a-z]{2,24}))(\\/[^\\s)<>\"']*)?";
 
 function modExtractExternalHosts(text) {
   const hosts = [];
   if (!text) return hosts;
+  const {TLD_SET} = require("./moderation/tlds");
   const re = new RegExp(MOD_URL_SOURCE, "gi");
   let m;
   while ((m = re.exec(String(text))) !== null) {
-    const host = m[1].toLowerCase().replace(/\.$/, "");
+    const scheme = m[1];
+    const host = m[2].toLowerCase().replace(/\.$/, "");
+    const tld = m[3].toLowerCase();
+    const path = m[4];
+    // Must be a real TLD, otherwise "v1.2" / "10.5 shoes" read as hosts.
+    if (!TLD_SET.has(tld)) continue;
+    // Sentence run-on guard: "Great condition.Thanks" is prose, not a host.
+    // A bare capitalised word with no scheme and no path is never a URL.
+    if (!scheme && !path && /^[A-Z]/.test(m[3])) continue;
     if (/(^|\.)teeboxmarket\.com$/.test(host)) continue; // our own domain is fine
     if (hosts.indexOf(host) === -1) hosts.push(host);
   }
