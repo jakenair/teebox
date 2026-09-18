@@ -8424,13 +8424,41 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     senderUpdate[`piiSentTo.${recipientId}`] = nowTs;
   }
 
+  // MUST be update(), not set(). Firestore's set() treats a dotted key as a
+  // LITERAL field name, so `contentHashes.<hash>` was stored as a top-level
+  // field literally called "contentHashes.<hash>" and `sender.contentHashes`
+  // read back undefined on the very next send. Every accumulator reset to
+  // empty each time, so Rules 1-5 (new-account cap, breadth cap, duplicate
+  // blast hold, PII cap, new-account-link hold) could never reach their
+  // thresholds and messageHolds stayed empty for the life of the feature.
+  // The 2026-09-18 tr.ee campaign blasted 4 identical messages past a
+  // duplicateRecipientThreshold of 3 because of this. update() interprets
+  // dotted keys as field paths, which is what every rule above assumes.
   try {
-    await senderRef.set(senderUpdate, {merge: true});
+    await senderRef.update(senderUpdate);
   } catch (e) {
-    // Counters are best-effort — the message already shipped. Log loudly
-    // so we can see if a sender starts evading rate limits because their
-    // user doc keeps failing to write.
-    logger.error("sendMessage: counter update failed", e);
+    if (e && (e.code === 5 || e.code === "not-found")) {
+      // No user doc yet — seed the nested shape so later update()s merge.
+      try {
+        await senderRef.set({
+          messagesSent24h: 1,
+          lastDecayAt: nowTs,
+          recentRecipients: {[recipientId]: nowTs},
+          contentHashes: {[hash]: {
+            recipients: updatedRecipients,
+            firstSentAt: nowTs,
+          }},
+          ...(isHardPii ? {piiSentTo: {[recipientId]: nowTs}} : {}),
+        }, {merge: true});
+      } catch (e2) {
+        logger.error("sendMessage: counter seed failed", e2);
+      }
+    } else {
+      // Counters are best-effort — the message already shipped. Log loudly
+      // so we can see if a sender starts evading rate limits because their
+      // user doc keeps failing to write.
+      logger.error("sendMessage: counter update failed", e);
+    }
   }
 
   return {ok: true, messageId: msgRef.id};
