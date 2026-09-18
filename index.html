@@ -352,6 +352,9 @@
      gold-400 was 1.96:1 — failed contrast for text-sized glyphs. */
   #reviewStars .star-pick[data-active="1"] { color: var(--gold-600); }
   #reviewStars .star-pick[data-active="0"] { color: var(--gray-300); }
+  /* Selected stars must FILL — the base .ico is an outline, so a colour-only
+     active state was nearly invisible ("it won't let me give a star"). */
+  #reviewStars .star-pick[data-active="1"] .ico { fill: currentColor; }
   .stars { display: inline-flex; gap: 1px; color: var(--gold-600); font-size: 1em; vertical-align: middle; }
   .stars .ico { width: 1em; height: 1em; }
   .review-row { padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
@@ -4680,7 +4683,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r239</span></div>
+        <span class="auth-build" aria-hidden="true">r240</span></div>
     </div>
   </div>
 </div>
@@ -5344,7 +5347,7 @@
   <div class="info-modal" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="modal-header">
       <span class="modal-title" id="reviewModalTitle">Rate your seller</span>
-      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+      <button class="modal-close" data-action="review-dismiss" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="info-body">
       <p class="info-meta" id="reviewSub">Order</p>
@@ -5358,7 +5361,7 @@
       </div>
       <textarea id="reviewComment" maxlength="2000" placeholder="Optional comment for other buyers…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;min-height:90px;font-family:var(--font-body);font-size:14px;outline:none"></textarea>
       <div class="profile-actions">
-        <button class="btn-full ghost" data-action="close-info">Skip</button>
+        <button class="btn-full ghost" data-action="review-dismiss">Skip</button>
         <button class="btn-full green" data-action="submit-review">Submit Review</button>
       </div>
     </div>
@@ -18189,6 +18192,10 @@ let pendingReviewRole = null; // 'buyer' | 'seller'
 // order is delivered. Doc id is `{orderId}_buyer` or `{orderId}_seller`.
 window.maybePromptReview = async function maybePromptReview() {
   if (!window.CURRENT_USER) return;
+  // At most ONE prompt per session — this runs on every auth resolve (i.e.
+  // every page load), and without a guard a dismissed prompt came right
+  // back on the next load ("kept popping up non stop").
+  if (window.__reviewPromptedThisSession) return;
   try {
     const { getFirestore, collection, query, where, getDocs, doc, getDoc, orderBy, limit } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -18206,6 +18213,7 @@ window.maybePromptReview = async function maybePromptReview() {
     for (const o of buyerSnap.docs) {
       const od = o.data();
       if (od.fulfillmentStatus !== 'delivered') continue;
+      if (reviewSkipped(o.id, 'buyer')) continue; // dismissed recently on this device
       const rev = await getDoc(doc(db, 'reviews', o.id + '_buyer'));
       if (!rev.exists()) {
         pendingReviewOrderId = o.id;
@@ -18226,6 +18234,7 @@ window.maybePromptReview = async function maybePromptReview() {
     for (const o of sellerSnap.docs) {
       const od = o.data();
       if (od.fulfillmentStatus !== 'delivered') continue;
+      if (reviewSkipped(o.id, 'seller')) continue; // dismissed recently on this device
       const rev = await getDoc(doc(db, 'reviews', o.id + '_seller'));
       if (!rev.exists()) {
         pendingReviewOrderId = o.id;
@@ -18257,11 +18266,35 @@ function showReviewPrompt(order) {
     if (copyEl) copyEl.textContent = 'How was your experience with this seller? Was the item as described? Did they ship promptly?';
   }
   back.classList.add('open');
+  window.__reviewPromptedThisSession = true;
   document.querySelectorAll('#reviewStars .star-pick').forEach(b => b.dataset.active = '0');
   document.getElementById('reviewStars').dataset.value = '0';
   const ta = document.getElementById('reviewComment');
   if (ta) ta.value = '';
 }
+
+// Dismissal memory. Skip / X used to just close the modal, so the same
+// order re-prompted on every page load, on every device. Now a dismissal
+// is remembered on this device for 30 days (the realistic review window);
+// submitting a review writes reviews/{orderId}_{role}, which ends the
+// prompt everywhere for good.
+const REVIEW_SKIP_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+function reviewSkipKey(orderId, role) { return 'tb_reviewSkip:' + orderId + '_' + role; }
+function reviewSkipped(orderId, role) {
+  try {
+    const t = Number(localStorage.getItem(reviewSkipKey(orderId, role)) || 0);
+    return t > 0 && (Date.now() - t) < REVIEW_SKIP_TTL_MS;
+  } catch (_e) { return false; }
+}
+function dismissReviewPrompt() {
+  if (pendingReviewOrderId && pendingReviewRole) {
+    try { localStorage.setItem(reviewSkipKey(pendingReviewOrderId, pendingReviewRole), String(Date.now())); } catch (_e) {}
+  }
+  const back = document.getElementById('reviewBackdrop');
+  if (back) back.classList.remove('open');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+}
+window.dismissReviewPrompt = dismissReviewPrompt;
 
 function setStarRating(n) {
   document.querySelectorAll('#reviewStars .star-pick').forEach((b, i) => {
@@ -22032,6 +22065,7 @@ A['open-guidelines']         = () => openInfo('guidelinesBackdrop');
 A['open-terms']              = () => openInfo('termsBackdrop');
 A['open-privacy']            = () => openInfo('privacyBackdrop');
 A['close-info']              = () => { document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open')); (document.getElementById('app-scroll') || document.body).style.overflowY = ''; };
+A['review-dismiss']          = () => { dismissReviewPrompt(); };
 A['open-journal']            = () => {
   // r151: Journal is public content — no auth gate. Close the hamburger
   // drawer if it's open so the overlay doesn't stack under it (reuses the
