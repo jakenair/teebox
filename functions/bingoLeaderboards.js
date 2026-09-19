@@ -265,12 +265,20 @@ exports.onBingoWinAggregate = onDocumentWritten(
 
       // Atomic global aggregate. Using set({merge:true}) with increments
       // means we never read-modify-write; concurrent solves can't race.
+      //
+      // The histogram/byAttempts buckets MUST be written as nested objects,
+      // not as dotted keys. set() treats "histogram.31-60s" as a LITERAL
+      // field name, so these increments landed in top-level fields with dots
+      // in their names while computePercentile (line ~127) read the nested
+      // `histogram` map and never saw them. set({merge:true}) deep-merges a
+      // nested map and honours increments inside it, so this keeps the
+      // upsert-on-first-solver behaviour that update() would break.
       const globalRef = db.doc(`bingoLeaderboard/${date}`);
       await globalRef.set({
         totalPlayers: admin.firestore.FieldValue.increment(1),
         totalSolvers: admin.firestore.FieldValue.increment(1),
-        [`histogram.${timeBucket}`]: admin.firestore.FieldValue.increment(1),
-        [`byAttempts.${attemptsBucket}`]: admin.firestore.FieldValue.increment(1),
+        histogram: {[timeBucket]: admin.firestore.FieldValue.increment(1)},
+        byAttempts: {[attemptsBucket]: admin.firestore.FieldValue.increment(1)},
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
 
@@ -281,7 +289,7 @@ exports.onBingoWinAggregate = onDocumentWritten(
         );
         await countryRef.set({
           totalSolvers: admin.firestore.FieldValue.increment(1),
-          [`histogram.${timeBucket}`]: admin.firestore.FieldValue.increment(1),
+          histogram: {[timeBucket]: admin.firestore.FieldValue.increment(1)},
         }, {merge: true});
       }
 

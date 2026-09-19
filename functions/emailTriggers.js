@@ -1090,11 +1090,23 @@ exports.handleUnsubscribe = onRequest(
           [`emailPrefs.${verified.category}`]: false,
           emailPrefsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
-        await admin
-            .firestore()
-            .collection("users")
-            .doc(verified.uid)
-            .set(updates, {merge: true});
+        // MUST be update(), not set(). set() would store a literal field named
+        // "emailPrefs.<category>" instead of writing into the nested map, so
+        // lib/email.js (`data.emailPrefs || {}`) never saw the opt-out and the
+        // one-click unsubscribe silently did nothing. Same bug class as 8b21a8e.
+        const uref = admin.firestore().collection("users").doc(verified.uid);
+        try {
+          await uref.update(updates);
+        } catch (inner) {
+          if (inner && (inner.code === 5 || inner.code === "not-found")) {
+            await uref.set({
+              emailPrefs: {[verified.category]: false},
+              emailPrefsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, {merge: true});
+          } else {
+            throw inner;
+          }
+        }
         return res.json({ok: true, uid: verified.uid, category: verified.category});
       } catch (e) {
         logger.error("handleUnsubscribe write failed", e);

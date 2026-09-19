@@ -97,6 +97,27 @@ function buildConsentUpdate({granted, source, ip, userAgent}) {
 }
 
 /**
+ * Convert a dotted field-path payload into the equivalent nested object,
+ * for the rare path where the user doc doesn't exist yet and update() would
+ * fail. Only used as a fallback — update() is the normal path.
+ */
+function dottedToNested(update) {
+  const out = {};
+  for (const [k, v] of Object.entries(update)) {
+    if (!k.includes(".")) {
+      out[k] = v;
+      continue;
+    }
+    const idx = k.indexOf(".");
+    const head = k.slice(0, idx);
+    const leaf = k.slice(idx + 1);
+    if (!out[head] || typeof out[head] !== "object") out[head] = {};
+    out[head][leaf] = v;
+  }
+  return out;
+}
+
+/**
  * Trim history if it gets too long. Called best-effort after the main
  * write so the consent change itself never depends on a history-trim
  * round-trip succeeding. 50 entries × ~6 fields each ~= 3-4 KB; well
@@ -158,7 +179,23 @@ exports.updateMarketingConsent = onCall(
       });
 
       try {
-        await admin.firestore().collection("users").doc(uid).set(update, {merge: true});
+        // MUST be update(), not set(). set() treats a dotted key as a LITERAL
+        // field name, so "marketingConsent.granted" became a top-level field
+        // with a dot in its name and every reader (lib/email.js:224,
+        // abandonedCartTrigger.js:200) saw undefined. Effect: all marketing
+        // email was blocked as "no-marketing-consent", including for the 40
+        // users who had actually granted it. Same bug class as 8b21a8e.
+        const ref = admin.firestore().collection("users").doc(uid);
+        try {
+          await ref.update(update);
+        } catch (inner) {
+          if (inner && (inner.code === 5 || inner.code === "not-found")) {
+            // No user doc yet — seed the nested shape so later update()s merge.
+            await ref.set(dottedToNested(update), {merge: true});
+          } else {
+            throw inner;
+          }
+        }
       } catch (e) {
         logger.error("updateMarketingConsent write failed", {
           uid,
