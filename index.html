@@ -575,6 +575,18 @@
   .pin-btn:hover { background: var(--gold-50, #fdf6e3); border-color: var(--gold, #d4af37); color: var(--green-900, #103820); }
   .pin-btn.pinned { background: var(--gold, #d4af37); color: var(--green-900, #103820); border-color: var(--gold, #d4af37); }
   .profile-listing.pinned-card { border-color: var(--gold, #d4af37); }
+  /* Owner-only: an expired listing still appears on your own profile so you
+     can find and renew it, but must never read as live. Muted + badged, and
+     the Pin button is withheld (see renderProfileView). Public profiles
+     never receive these cards at all. */
+  .profile-listing.is-expired { opacity: .55; filter: grayscale(.35); }
+  .profile-listing.is-expired .profile-listing-price { text-decoration: line-through; }
+  .expired-badge {
+    position: absolute; top: 4px; left: 4px; z-index: 2;
+    background: rgba(20,24,29,.82); color: #fff;
+    font-size: 10px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+  }
   .pin-indicator { position: absolute; top: 4px; right: 4px; background: var(--gold, #d4af37); color: var(--green-900, #103820); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 
   /* Recently sold (Feature #9) */
@@ -4702,7 +4714,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r242</span></div>
+        <span class="auth-build" aria-hidden="true">r243</span></div>
     </div>
   </div>
 </div>
@@ -19092,7 +19104,27 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   // Public storefront: hide moderation-held (flagged) listings from buyers, but
   // keep them visible to the owner viewing their own profile so they know a
   // listing is under review. (Owners also manage these from My Shop.)
-  const active = listings.filter(l => l.status !== 'sold' && (isMe || l.status !== 'flagged'));
+  // Visibility is an ALLOWLIST, not a blocklist. This was
+  // `status !== 'sold' && (isMe || status !== 'flagged')`, which let every
+  // other status through — so expired listings (and draft/removed/anything
+  // added later) rendered on PUBLIC profiles as if they were live. The main
+  // listings feed already filters correctly; profiles did not.
+  //
+  // Public sees strictly 'active'. The owner also sees their own expired
+  // listings, muted and badged, so they can find and renew them.
+  const isListingExpired = (l) => {
+    if (l.status === 'expired') return true;
+    const exp = l.expiresAt && l.expiresAt.toDate ? l.expiresAt.toDate() : null;
+    return !!(exp && exp < new Date() && l.status !== 'sold');
+  };
+  const active = listings.filter(l => {
+    if (l.status === 'sold') return false;
+    if (l.status === 'active' && !isListingExpired(l)) return true;
+    // Owner-only extras: expired (so they can renew) and flagged (so they
+    // know something is under review — preserving the original intent of
+    // the `isMe || status !== 'flagged'` clause this replaced).
+    return isMe && (isListingExpired(l) || l.status === 'flagged');
+  });
   const sold = listings.filter(l => l.status === 'sold');
   recentSold = recentSold || [];
   // Build a quick lookup so the recent-sold feed can hydrate listing titles/photos
@@ -19174,7 +19206,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   let featuredHtml = '';
   let pinnedListing = null;
   if (profile.pinnedListingId) {
-    pinnedListing = active.find(l => l.id === profile.pinnedListingId) || null;
+    // `active` now also carries the owner's expired listings, so re-check:
+    // a stale pin must never render an expired item as the featured card.
+    pinnedListing = active.find(l =>
+      l.id === profile.pinnedListingId && !isListingExpired(l)) || null;
   }
   if (pinnedListing) {
     const pid = window.safeId(pinnedListing.id);
@@ -19207,12 +19242,16 @@ function renderProfileView(profile, listings, reviews, recentSold) {
           ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(l.title||'')}" loading="lazy" decoding="async" />`
           : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(l.cat)}</div>`;
         const isPinned = profile.pinnedListingId === l.id;
+        const expired = isListingExpired(l);
         const pinIndicator = isPinned ? `<span class="pin-indicator" title="Featured">Featured</span>` : '';
-        const pinBtn = isMe
+        const expiredBadge = expired ? `<span class="expired-badge">Expired</span>` : '';
+        // An expired listing can't be pinned — it isn't purchasable, so
+        // featuring it on the profile would advertise a dead link.
+        const pinBtn = (isMe && !expired)
           ? `<button class="pin-btn ${isPinned ? 'pinned' : ''}" data-action="${isPinned ? 'unpin-listing' : 'pin-listing'}" data-listing-id="${id}" type="button">${isPinned ? 'Unpin' : 'Pin to profile'}</button>`
           : '';
-        return `<div class="profile-listing ${isPinned ? 'pinned-card' : ''}" data-action="open-detail" data-product-id="${id}" style="position:relative">`+
-          pinIndicator +
+        return `<div class="profile-listing ${isPinned ? 'pinned-card' : ''}${expired ? ' is-expired' : ''}" data-action="open-detail" data-product-id="${id}" style="position:relative">`+
+          pinIndicator + expiredBadge +
           `<div class="profile-listing-img">${img}</div>`+
           `<div class="profile-listing-name">${window.safeText(l.title || '')}</div>`+
           `<div class="profile-listing-price">$${Number(l.ask||0).toLocaleString()}</div>`+
