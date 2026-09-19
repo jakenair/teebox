@@ -173,8 +173,8 @@
     "sha": null
   },
   "handleUnsubscribe": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
+    "at": "2026-09-19"
   },
   "incrementListingMessage": {
     "at": "2026-07-31",
@@ -269,8 +269,8 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onBingoWinAggregate": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
+    "at": "2026-09-19"
   },
   "onDisputeOpenedEmail": {
     "at": "2026-09-11",
@@ -566,9 +566,8 @@
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "updateMarketingConsent": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
+    "at": "2026-09-19"
   },
   "updateProfile": {
     "at": "2026-07-21",
