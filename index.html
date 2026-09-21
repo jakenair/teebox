@@ -587,6 +587,15 @@
     font-size: 10px; font-weight: 600; letter-spacing: .06em;
     text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
   }
+  @keyframes favPop { 0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1);} }
+  .fav-btn.just-liked { animation: favPop .34s cubic-bezier(.34,1.56,.64,1); }
+  @media (prefers-reduced-motion: reduce) { .fav-btn.just-liked { animation: none; } }
+  /* Views / likes social-proof line on the product card. Muted by design —
+     it should reassure, not compete with the price. */
+  .product-stats { display:flex; gap:10px; align-items:center; margin-top:3px;
+                   font-size:11.5px; color:var(--gray-500); line-height:1.4; }
+  .product-stats .stat { display:inline-flex; align-items:center; gap:3px; }
+  .product-stats .stat-ico { font-size:11px; line-height:1; opacity:.85; }
   .pin-indicator { position: absolute; top: 4px; right: 4px; background: var(--gold, #d4af37); color: var(--green-900, #103820); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 
   /* Recently sold (Feature #9) */
@@ -4714,7 +4723,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r245</span></div>
+        <span class="auth-build" aria-hidden="true">r246</span></div>
     </div>
   </div>
 </div>
@@ -10930,6 +10939,22 @@ function renderProductCardHtml(p, i) {
       `${sellerRatingSlot}`+
       `<div class="product-price"><span class="product-price-val">$${Number(p.ask||0).toLocaleString()}</span></div>`+
       `${(() => {
+        // Social proof: views (sharded views_0..9 via incrementListingView) and
+        // likes (listings.watchlistCount, kept by the syncWatchlistCount
+        // trigger). Views always render — every listing has real ones. Likes
+        // render ONLY above zero: "0 likes" on every card advertises that
+        // nobody wants the item, which is worse than showing nothing.
+        const v = window.getListingViews ? window.getListingViews(p) : 0;
+        const likes = Number(p.watchlistCount || 0);
+        if (!v && !likes) return '';
+        const parts = [];
+        if (v) parts.push(`<span class="stat" title="${v.toLocaleString()} view${v===1?'':'s'}">`+
+          `<span class="stat-ico" aria-hidden="true">\u{1F441}\u{FE0F}</span>${v.toLocaleString()}</span>`);
+        if (likes) parts.push(`<span class="stat" title="${likes.toLocaleString()} like${likes===1?'':'s'}">`+
+          `<span class="stat-ico" aria-hidden="true">♥</span>${likes.toLocaleString()}</span>`);
+        return `<div class="product-stats">${parts.join('')}</div>`;
+      })()}`+
+      `${(() => {
         // r186 §3 (app-only): one muted "Brand · Condition" metadata line.
         // display:none on web — the ONLY renderer change for the audit pass.
         const cm = window.conditionBadgeMeta ? window.conditionBadgeMeta(p.condition) : null;
@@ -13747,6 +13772,8 @@ function getListingViews(listing) {
   }
   return total;
 }
+// Exposed for renderProductCard, which builds the stats line via window.*
+window.getListingViews = getListingViews;
 
 // Structure 2: order.amount includes the buyer-paid shipping that funds
 // the label — it never belongs in a SELLER's sale/revenue figures. Use the
@@ -18637,14 +18664,12 @@ async function toggleWatch(productId) {
       await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { watchlist: { [id]: deleteField() } }, { merge: true });
       fav.delete(productId);
-      showToast('Unliked.');
     } else {
       const entry = { addedAt: serverTimestamp() };
       if (askNow > 0) entry.priceWhenAdded = askNow;
       await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { watchlist: { [id]: entry } }, { merge: true });
       fav.add(productId);
-      showToast('Liked!');
       // Contextual push prompt — first item added to watchlist.
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
@@ -18658,7 +18683,17 @@ async function toggleWatch(productId) {
     try {
       const nowLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
       document.querySelectorAll('.fav-btn[data-product-id]').forEach((btn) => {
-        if (String(btn.dataset.productId) === id) btn.classList.toggle('liked', nowLiked);
+        if (String(btn.dataset.productId) !== id) return;
+        btn.classList.toggle('liked', nowLiked);
+        // Replaces the 'Liked!'/'Unliked.' toast. The heart already carries the
+        // state, so a toast for a self-evident, reversible action was noise.
+        // A short pop gives the tactile confirmation it stood in for.
+        if (nowLiked) {
+          btn.classList.remove('just-liked');
+          void btn.offsetWidth; // restart the animation
+          btn.classList.add('just-liked');
+          setTimeout(() => btn.classList.remove('just-liked'), 400);
+        }
       });
     } catch (_e) { /* non-fatal — optimistic state already applied */ }
   } catch (e) {
