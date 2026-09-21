@@ -2592,10 +2592,19 @@ exports.onReviewCreated = onDocumentCreated(
         logger.warn("onReviewCreated: empty review payload");
         return;
       }
-      const sellerId = review.sellerId;
-      if (!sellerId) {
+      // Attribute to whoever the review is ABOUT, not to the order's seller.
+      // This aggregated on review.sellerId and ignored `role`/`revieweeId`,
+      // which pre-dates seller->buyer reviews. Result: when a SELLER reviewed
+      // their BUYER (role:"seller"), sellerId was the seller, so the seller's
+      // own outbound review was counted into their own star rating — a seller
+      // could inflate their rating simply by reviewing their buyers, and the
+      // buyer never received the rating they actually earned.
+      const subjectId = review.revieweeId ||
+        (review.role === "seller" ? review.buyerId : review.sellerId);
+      if (!subjectId) {
         logger.warn(
-          `onReviewCreated: review ${event.params.orderId} has no sellerId`
+          `onReviewCreated: review ${event.params.orderId} has no revieweeId ` +
+          `(role=${review.role || "unset"}) — cannot attribute`
         );
         return;
       }
@@ -2606,16 +2615,30 @@ exports.onReviewCreated = onDocumentCreated(
       const db = admin.firestore();
       const snap = await db
         .collection("reviews")
-        .where("sellerId", "==", sellerId)
+        .where("revieweeId", "==", subjectId)
         .limit(1000)
         .get();
 
+      // Split by who WROTE the review. The star badge beside a seller's name
+      // on a listing card is a SELLER rating, so it must only count reviews
+      // left by buyers about this person as a seller (role "buyer", or absent
+      // on legacy docs written before roles existed). Reviews a seller left
+      // about a buyer (role "seller") describe them as a BUYER and are rolled
+      // up separately — never into the seller badge.
       let total = 0;
       let fiveStars = 0;
-      const reviewCount = snap.size;
+      let reviewCount = 0;
+      let buyerTotal = 0;
+      let buyerReviewCount = 0;
       snap.forEach((d) => {
         const r = d.data();
         const rating = Number(r.rating) || 0;
+        if (r.role === "seller") {
+          buyerReviewCount += 1;
+          buyerTotal += rating;
+          return;
+        }
+        reviewCount += 1;
         total += rating;
         if (rating >= 5) fiveStars += 1;
       });
@@ -2626,12 +2649,17 @@ exports.onReviewCreated = onDocumentCreated(
       const fiveStarPct = reviewCount > 0
         ? Math.round((fiveStars / reviewCount) * 100)
         : 0;
+      const buyerAvgRating = buyerReviewCount > 0
+        ? Math.round((buyerTotal / buyerReviewCount) * 10) / 10
+        : 0;
 
-      await db.doc(`profiles/${sellerId}`).set(
+      await db.doc(`profiles/${subjectId}`).set(
         {
           reviewCount,
           avgRating,
           fiveStarPct,
+          buyerReviewCount,
+          buyerAvgRating,
           // Wired later once we track seller message-response timing.
           responseRate: null,
           lastReviewAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2640,8 +2668,9 @@ exports.onReviewCreated = onDocumentCreated(
       );
 
       logger.info(
-        `onReviewCreated: profile ${sellerId} -> ${reviewCount} reviews, ` +
-          `avg ${avgRating}, 5-star ${fiveStarPct}%`
+        `onReviewCreated: profile ${subjectId} -> ${reviewCount} seller ` +
+          `reviews (avg ${avgRating}, 5-star ${fiveStarPct}%), ` +
+          `${buyerReviewCount} buyer reviews (avg ${buyerAvgRating})`
       );
     } catch (err) {
       logger.error("onReviewCreated error", err);
