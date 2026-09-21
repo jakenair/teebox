@@ -319,9 +319,8 @@
     "sha": null
   },
   "onReviewCreated": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "6c958d622f82f6e82bc1cd28a6748fb6288cf171",
+    "at": "2026-09-21"
   },
   "optimizeListingPhoto": {
     "at": "2026-09-17",
