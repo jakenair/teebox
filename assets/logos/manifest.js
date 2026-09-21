@@ -159,6 +159,7 @@ export const LOGOS_AVAILABLE = new Set([
   'whistling-straits',
   'wianno-club',
   'wicker-point-golf-club',
+  'wild-spring-dunes',
   'wilmington-country-club',
   'winged-foot-west',
   'yale',

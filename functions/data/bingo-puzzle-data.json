@@ -791,6 +791,11 @@
       "id": "colonial-country-club",
       "shortName": "Colonial",
       "logoUrl": "https://teeboxmarket.com/assets/logos/colonial-country-club.png"
+    },
+    {
+      "id": "wild-spring-dunes",
+      "shortName": "Wild Spring Dunes",
+      "logoUrl": "https://teeboxmarket.com/assets/logos/wild-spring-dunes.png"
     }
   ],
   "courseData": {
@@ -1972,9 +1977,17 @@
         "charles schwab challenge",
         "hogans alley"
       ]
+    },
+    "wild-spring-dunes": {
+      "name": "Wild Spring Dunes",
+      "shortName": "Wild Spring Dunes",
+      "aliases": [
+        "wild spring dunes golf club",
+        "wsd"
+      ]
     }
   },
-  "generatedAt": "2026-09-17T21:27:07.287Z",
+  "generatedAt": "2026-09-21T02:31:58.407Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
