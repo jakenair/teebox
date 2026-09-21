@@ -2752,7 +2752,7 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
-{
+  {
     id: 'wild-spring-dunes',
     name: 'Wild Spring Dunes',
     shortName: 'Wild Spring Dunes',
@@ -2763,3 +2763,12 @@ export const COURSES = [
     logoUrl: '',
   },
 ];
+
+// Helper used by the runtime when rendering a tile. Returns either the
+// configured logoUrl, or the conventional asset path; the caller falls back
+// to the emoji if the <img> 404s.
+export function courseLogoUrl(course) {
+  if (!course) return '';
+  if (course.logoUrl) return course.logoUrl;
+  return `/assets/logos/${course.id}.png`;
+}
