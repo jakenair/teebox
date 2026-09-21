@@ -1642,7 +1642,13 @@
   .pp-comments { border-top: 1px solid var(--gray-200); padding-top: 0.85rem; }
   .pp-comments-title { font-size: 12.5px; font-weight: 700; color: var(--gray-900); margin-bottom: 0.6rem; }
   .pp-comment { display: flex; gap: 8px; margin-bottom: 0.7rem; font-size: 13px; line-height: 1.45; }
-  .pp-comment-name { font-weight: 700; color: var(--gray-900); margin-right: 5px; }
+  .pp-comment-ava { flex: none; width: 26px; height: 26px; border-radius: 50%; overflow: hidden;
+    border: none; padding: 0; background: var(--gray-100, #f0f2f4); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .pp-comment-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pp-comment-name { color: var(--gray-900); margin-right: 5px; background: none;
+    border: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
+  .pp-comment-name:hover { text-decoration: underline; }
   .pp-comment-body { color: var(--gray-800, var(--gray-700)); min-width: 0; word-break: break-word; }
   .pp-comment-del { background: none; border: none; color: var(--gray-400, var(--gray-500)); cursor: pointer; font-size: 15px; line-height: 1; flex: none; padding: 0 2px; }
   .pp-comment-empty { font-size: 13px; color: var(--gray-500); margin-bottom: 0.7rem; }
@@ -4723,7 +4729,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r248</span></div>
+        <span class="auth-build" aria-hidden="true">r249</span></div>
     </div>
   </div>
 </div>
@@ -20586,13 +20592,21 @@ async function ppLoadComments(uid, courseId) {
   // Author identity from profiles/{authorUid}, never from the comment doc.
   const authors = comments.map(cm => ({ uid: cm.authorUid }));
   await ppResolvePosters(authors);
-  comments.forEach((cm, i) => { cm._name = authors[i].ownerName || 'Golfer'; });
+  comments.forEach((cm, i) => {
+    cm._name = authors[i].ownerName || 'Golfer';
+    cm._avatar = authors[i].ownerAvatar || '';
+  });
   if (list) {
     list.innerHTML = comments.length
       ? comments.map(cm => {
           const canDel = !!(myUid && (myUid === cm.authorUid || isOwner));
+          const ava = cm._avatar
+            ? `<img src="${window.safeAttr(cm._avatar)}" alt="" loading="lazy" />`
+            : `<span class="pf-ava-fallback">${window.safeText((cm._name || 'G').slice(0, 1).toUpperCase())}</span>`;
+          const au = window.safeAttr(window.safeId(cm.authorUid || ''));
           return `<div class="pp-comment">
-            <div class="pp-comment-body"><span class="pp-comment-name">${window.safeText(cm._name)}</span>${window.safeText(cm.text || '')}</div>
+            <button type="button" class="pp-comment-ava" data-action="passport-comment-user" data-uid="${au}" aria-label="View profile">${ava}</button>
+            <div class="pp-comment-body"><button type="button" class="pp-comment-name" data-action="passport-comment-user" data-uid="${au}">${window.safeText(cm._name)}</button>${window.safeText(cm.text || '')}</div>
             ${canDel ? `<button type="button" class="pp-comment-del" data-action="passport-comment-del" data-uid="${window.safeAttr(uid)}" data-course="${window.safeAttr(courseId)}" data-id="${window.safeAttr(cm.id)}" aria-label="Delete comment">&times;</button>` : ''}
           </div>`;
         }).join('')
@@ -22194,6 +22208,10 @@ A['close-passport-feed']     = () => { closePassportFeed(); };
 A['passport-feed-open']      = (el) => { openPassportCourseDetail(el.dataset.uid, el.dataset.course); };
 A['passport-feed-user']      = (el) => { closePassportFeed(); openProfile(el.dataset.uid); };
 A['open-course-page']        = (el) => { ppDetailClose(); openCoursePage(el.dataset.course); };
+// Tapping a commenter's avatar or name. Closes the detail sheet FIRST —
+// plain open-profile would stack the profile modal on top of the open
+// sheet, same reason open-course-page and passport-edit close first.
+A['passport-comment-user']   = (el) => { if (!el.dataset.uid) return; ppDetailClose(); openProfile(el.dataset.uid); };
 A['open-my-passport']        = () => { openMyPassport(); };
 A['passport-post']           = () => { openAddPassportCourse(); };
 A['close-course-page']       = () => { closeCoursePage(); };
