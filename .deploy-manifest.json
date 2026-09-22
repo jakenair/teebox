@@ -589,5 +589,10 @@
     "sha": "694a13becb003ade59b6122a94d7095a8989290e",
     "at": "2026-09-22",
     "note": "raw gcloud us-east1 (deploy-fn.sh hardcodes us-central1 — would create a duplicate); variants rework"
+  },
+  "getBingoLeaderboard": {
+    "sha": "d50cba0f5c232b49334172f92e3020b922e1fae6",
+    "at": "2026-09-22",
+    "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
   }
 }
