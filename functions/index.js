@@ -8751,18 +8751,27 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
         } catch (_e) { /* best-effort */ }
       }
 
-      // 1) Re-encode (strips EXIF/GPS). Keep the client's download token so the
-      //    URL already stored on the round keeps working.
+      // 1) Re-encode via the SAME convertToWebp the listings trigger uses
+      //    (founder ruling 2026-09-21: passport variants mirror listings —
+      //    1600px WebP replaces the original in place, EXIF/GPS stripped,
+      //    HEIC decoded via the shared fallback). Keep the client's download
+      //    token so the URL already stored on the round keeps working.
+      //    baseSharp is kept to derive the w400/w800 variants AFTER
+      //    SafeSearch confirms the image is safe — no variants of a photo
+      //    we're about to purge. Convert-or-fail-loud: a decode failure
+      //    purges (passport's existing behavior — stricter than listings'
+      //    flag-for-review, kept).
+      let baseSharp = null;
       try {
-        const sharp = require("sharp");
         const crypto = require("crypto");
         const [buf] = await file.download();
-        const out = await sharp(buf).rotate().jpeg({quality: 85, mozjpeg: true}).toBuffer();
+        const {baseSharp: bs, webp} = await convertToWebp(buf);
+        baseSharp = bs;
         const token = (obj.metadata && obj.metadata.firebaseStorageDownloadTokens) ||
             crypto.randomUUID();
-        await file.save(out, {
+        await file.save(webp, {
           metadata: {
-            contentType: "image/jpeg",
+            contentType: "image/webp",
             cacheControl: "public, max-age=31536000, immutable",
             metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
           },
@@ -8800,9 +8809,75 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
         scanFailed = true;
       }
       if (scanFailed || !safeSearch) { await purge("image_scan_error"); return; }
-      if (isSafeForMarketplace(safeSearch)) return; // clean
+      if (isSafeForMarketplace(safeSearch)) {
+        // 3) Clean → emit the w400/w800 WebP variants (mirrors
+        //    writeListingPhotoVariants; passport keys by the file BASENAME
+        //    ("<stamp>_<i>") instead of bare index because passport edits
+        //    re-upload whole batches with fresh stamps — bare indexes from
+        //    different batches would collide, basenames never do). The
+        //    Firestore merge waits for the round doc: ppSave uploads photos
+        //    BEFORE writing the doc, so on a cold trigger the doc may lag by
+        //    seconds; if it never appears (abandoned save), skip the write —
+        //    never create a phantom round doc.
+        try {
+          await writePassportPhotoVariants(bucket, obj.name, roundRef, baseSharp);
+        } catch (e) {
+          // Best-effort like listings: variant failure never removes the
+          // (safe, already-optimized) original.
+          logger.error("optimizePassportPhoto: variant write failed", obj.name, e && e.message);
+        }
+        return;
+      }
       const reason = describeSafeSearchTrip(safeSearch);
       logger.warn("passport moderation: NSFW photo removed",
           {path: obj.name, ownerUid, courseId, reason, signals: safeSearch});
       await purge(reason);
     });
+
+// Generate 400px + 800px WebP derivatives of a passport photo and record
+// their download URLs on the round doc under photoVariants.<basename>
+// (basename = "<stamp>_<i>", the object filename minus extension — no dots,
+// safe as a Firestore field-path segment). Mirrors writeListingPhotoVariants.
+async function writePassportPhotoVariants(bucket, objName, roundRef, baseSharp) {
+  if (!baseSharp) return;
+  const crypto = require("crypto");
+  const fileName = String(objName.split("/").pop());
+  const basename = fileName.replace(/\.[^.]+$/, "");
+  if (!basename || basename.includes(".")) {
+    logger.warn("passportVariants: unusable basename", objName);
+    return;
+  }
+  const urls = {};
+  for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
+    const buf = await baseSharp.clone()
+        .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
+        .withMetadata({})
+        .webp({quality: q})
+        .toBuffer();
+    const path = `${objName}_${key}.webp`;
+    const token = crypto.randomUUID();
+    await bucket.file(path).save(buf, {
+      metadata: {
+        contentType: "image/webp",
+        cacheControl: "public, max-age=31536000, immutable",
+        metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
+      },
+      resumable: false,
+    });
+    urls[key] = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
+      `/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+  }
+  // Wait out the upload→setDoc gap in ppSave (photos upload first, the round
+  // doc lands right after). 4 tries over ~30s; a doc that never appears is an
+  // abandoned save — leave no phantom doc behind.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const snap = await roundRef.get();
+    if (snap.exists) {
+      await roundRef.set({photoVariants: {[basename]: urls}}, {merge: true});
+      return;
+    }
+    if (attempt < 3) await new Promise((r) => setTimeout(r, (attempt + 1) * 7000));
+  }
+  logger.warn("passportVariants: round doc never appeared — variants stored, doc skipped",
+      {objName});
+}
