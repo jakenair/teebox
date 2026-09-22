@@ -665,6 +665,68 @@ exports.getBingoFriendsBoard = onCall(USER_CALLABLE, async (request) => {
 // ─── Callable: getBingoGlobalStreakRecord ───────────────────────────
 // One read: bingoGlobalStats/all. Also returns the requester's personal
 // best streak so the UI can render both numbers without a second call.
+// ── getBingoLeaderboard — PROJECTED weekly/today board ────────────────
+// A1-full (audit 2026-09-01; founder ruling 2026-09-21). Replaces the
+// client's direct world-readable gameScores query, which handed every
+// viewer raw uid + displayName + timing fields for the whole active
+// player base with zero auth. Returns ONLY
+//   {rank, displayName, correctCount, streak, isCaller}
+// — no uid ever leaves the server. Aggregation mirrors the old client
+// loop exactly (date-in query, correctCount desc, first-seen-per-uid =
+// best score, top 9). Deliberately does NOT require auth: guests could
+// always see the board and still can (founder: preserve guest
+// visibility); isCaller replaces the client's own uid comparison for the
+// "you" row highlight. The gameScores read rule locks to auth-only AFTER
+// this is confirmed live (stale signed-in clients keep working; the
+// anonymous enumeration path dies).
+exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
+  const scope = (request.data && request.data.scope) === "today" ? "today" : "week";
+  const days = scope === "today" ? 1 : 7;
+  const dates = [];
+  const now = new Date();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+    dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`);
+  }
+  const db = admin.firestore();
+  const snap = await db.collection("gameScores")
+      .where("date", "in", dates)
+      .orderBy("correctCount", "desc")
+      .limit(50)
+      .get();
+  const callerUid = (request.auth && request.auth.uid) || null;
+  const rows = [];
+  const seen = new Set();
+  snap.forEach((d) => {
+    const r = d.data() || {};
+    const uid = r.uid || r.userId || "";
+    if (!uid || seen.has(uid)) return; // one row per player: their best
+    seen.add(uid);
+    rows.push({
+      uid,
+      displayName: r.displayName ? String(r.displayName) : null,
+      correctCount: Number(r.correctCount) || 0,
+      streak: Number(r.streak) || 0,
+    });
+  });
+  const top = rows.slice(0, 9);
+  await Promise.all(top.map(async (r) => {
+    if (!r.displayName) {
+      try { r.displayName = await fetchDisplayName(db, r.uid); } catch (_e) { /* mask below */ }
+    }
+  }));
+  return {
+    scope,
+    rows: top.map((r, i) => ({
+      rank: i + 1,
+      displayName: r.displayName || ("Player " + r.uid.slice(-4).toUpperCase()),
+      correctCount: r.correctCount,
+      streak: r.streak,
+      isCaller: !!(callerUid && r.uid === callerUid),
+    })),
+  };
+});
+
 exports.getBingoGlobalStreakRecord = onCall(USER_CALLABLE, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");

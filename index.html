@@ -24407,58 +24407,29 @@ if (uploadZone) {
     });
     list.innerHTML = '<div class="bingo-lb-empty">Loading…</div>';
     try {
-      const { getFirestore, collection, query, where, orderBy, limit, getDocs } =
-        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-      const db = getFirestore();
-      // Build the date filter: today's UTC date string for "today",
-      // last 7 UTC days for "week".
-      const dates = [];
-      const today = new Date();
-      const days = currentLbTab === 'today' ? 1 : 7;
-      for (let i = 0; i < days; i++) {
-        const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
-        dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`);
-      }
-      // Firestore "in" query: max 30 values, but we cap at 7. Read all
-      // gameScores in those dates, sort client-side by score desc.
-      const snap = await getDocs(query(
-        collection(db, 'gameScores'),
-        where('date', 'in', dates),
-        orderBy('correctCount', 'desc'),
-        limit(50),
-      ));
-      const rows = [];
-      const seenUid = new Set();
-      snap.forEach(d => {
-        const r = d.data();
-        // Show each user only once per scope (their best score).
-        if (seenUid.has(r.uid)) return;
-        seenUid.add(r.uid);
-        rows.push(r);
-      });
+      // r255 (audit 2026-09-01 A1-full): the board comes from the
+      // getBingoLeaderboard PROJECTED callable — {rank, displayName,
+      // correctCount, streak, isCaller} only, no uid. This replaces the
+      // direct world-readable gameScores query AND the top-9 loadProfile
+      // over-fetch (A2). The callable serves guests too (no auth
+      // required), so signed-out visibility is unchanged; the "you"
+      // highlight now rides the server-computed isCaller flag.
+      const { getFunctions, httpsCallable } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+      const fn = httpsCallable(getFunctions(), 'getBingoLeaderboard');
+      const res = await fn({ scope: currentLbTab });
+      const rows = (res && res.data && res.data.rows) || [];
       if (!rows.length) {
         list.innerHTML = '<div class="bingo-lb-empty">No completed scores yet. Be the first.</div>';
         return;
       }
-      const me = window.CURRENT_USER && window.CURRENT_USER.uid;
-      // Resolve display names in parallel (best-effort).
-      const profilesByUid = {};
-      await Promise.all(rows.slice(0, 9).map(async r => {
-        if (!profilesByUid[r.uid]) {
-          try { profilesByUid[r.uid] = await loadProfile(r.uid); }
-          catch (_e) { profilesByUid[r.uid] = null; }
-        }
-      }));
-      list.innerHTML = rows.slice(0, 9).map((r, i) => {
-        const rank = i + 1;
-        const rankClass = rank === 1 ? 'gold' : '';
-        const youClass = (me && r.uid === me) ? 'you' : '';
-        const name = (profilesByUid[r.uid] && profilesByUid[r.uid].displayName) || ('Player ' + (r.uid || '').slice(-4).toUpperCase());
+      list.innerHTML = rows.map((r) => {
+        const rankClass = r.rank === 1 ? 'gold' : '';
+        const youClass = r.isCaller ? 'you' : '';
         const streakStr = r.streak ? `${r.streak}d` : '';
-        const rankStr = `${rank}`;
         return `<div class="bingo-lb-row ${youClass}">
-          <div class="bingo-lb-rank ${rankClass}">${rankStr}</div>
-          <div class="bingo-lb-name">${window.safeText(name)}</div>
+          <div class="bingo-lb-rank ${rankClass}">${r.rank}</div>
+          <div class="bingo-lb-name">${window.safeText(r.displayName || 'Golfer')}</div>
           <div class="bingo-lb-score">${r.correctCount || 0}/9</div>
           <div class="bingo-lb-streak">${streakStr}</div>
         </div>`;
