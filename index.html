@@ -1682,7 +1682,7 @@
   .pf-user-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
   .pf-user-text strong { font-size: 14px; color: var(--gray-900); }
   .pf-user-text small { font-size: 12px; color: var(--gray-500); }
-  .pf-media { position: relative; background: #000; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .pf-media { position: relative; background: #f0ede4; cursor: pointer; -webkit-tap-highlight-color: transparent; } /* r254: light bg — photos loading must read as loading, not as a dead black card */
   .pf-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; }
   .pf-carousel::-webkit-scrollbar { display: none; }
   .pf-slide { flex: 0 0 100%; width: 100%; aspect-ratio: 1/1; object-fit: cover; scroll-snap-align: center; display: block; }
@@ -4786,7 +4786,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r253</span></div>
+        <span class="auth-build" aria-hidden="true">r254</span></div>
     </div>
   </div>
 </div>
@@ -20617,7 +20617,7 @@ async function openPassportCourseDetail(uid, courseId) {
   const color = window.PASSPORT_GRADE_COLOR[data.grade] || '#a8a89e';
   const ua = window.safeAttr(uid), ca = window.safeAttr(courseId);
   const photoList = data.photos || [];
-  const photos = photoList.map(u => `<img class="pp-detail-photo" src="${window.safeAttr(u)}" alt="" loading="lazy" draggable="false" />`).join('');
+  const photos = photoList.map(u => `<img class="pp-detail-photo" ${ppPhotoSrcAttrs(data.photoVariants, u, true)} alt="" loading="lazy" draggable="false" />`).join('');
   const detailDots = photoList.length > 1
     ? `<div class="pp-detail-dots ppc-dots" id="ppDetailDots">${photoList.map((_, i) => `<span class="ppc-dot${i === 0 ? ' on' : ''}"></span>`).join('')}</div>` : '';
   const tags = (data.tags || []).map(t => `<span class="pp-detail-tag">${window.safeText(t)}</span>`).join('');
@@ -20889,6 +20889,7 @@ async function openPassportFeed() {
       posts.push({
         uid, courseId: data.courseId, courseName: data.courseName, grade: data.grade,
         photos: Array.isArray(data.photos) ? data.photos : [], review: data.review || '',
+        photoVariants: data.photoVariants || null,
         createdAt: data.createdAt, ownerName: data.ownerName || '', ownerAvatar: data.ownerAvatar || '',
       });
     });
@@ -20954,6 +20955,47 @@ async function ppResolvePosters(posts) {
 // the profile-resolution / course-catalog logic.
 window.ppResolvePosters = ppResolvePosters;
 window.loadPassportCourses = loadPassportCourses;
+window.ppVariantSrc = ppVariantSrc; // rail thumbs (r254)
+
+// r254: prefer the w400/w800 WebP variants the reworked
+// optimizePassportPhoto emits (keyed by file basename; backfilled for all
+// pre-existing photos). Originals stay the fallback for any round whose
+// variants don't exist (fresh upload mid-generation) — a card never points
+// at a variant that isn't there.
+function ppPhotoBasename(url) {
+  try {
+    const path = decodeURIComponent(String(url).split('/o/')[1].split('?')[0]);
+    return String(path.split('/').pop()).replace(/\.[^.]+$/, '');
+  } catch (_e) { return ''; }
+}
+function ppVariantSrc(variants, url, size) {
+  const v = variants && variants[ppPhotoBasename(url)];
+  return (v && v[size]) || '';
+}
+// src/srcset attribute string for a feed slide (w400-first) or detail photo
+// (w800-first). No variants -> plain original src.
+function ppPhotoSrcAttrs(variants, url, big) {
+  const w4 = ppVariantSrc(variants, url, 'w400');
+  const w8 = ppVariantSrc(variants, url, 'w800');
+  if (!w4 || !w8) return `src="${window.safeAttr(url)}"`;
+  const main = big ? w8 : w4;
+  const sizes = big ? '(max-width: 520px) 94vw, 480px' : '(max-width: 640px) 100vw, 600px';
+  return `src="${window.safeAttr(main)}" srcset="${window.safeAttr(w4)} 400w, ${window.safeAttr(w8)} 800w" sizes="${sizes}"`;
+}
+// One-shot retry for passport imagery: an aborted/flaky load left a slide
+// permanently broken (error state, no retry — the "black cards" report,
+// 2026-09-21). Error events don't bubble but do capture; retry each img
+// once with a cache-buster.
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!img || img.tagName !== 'IMG') return;
+  if (!img.matches('.pf-slide, .pp-detail-photo, .rr-thumb, .rt-thumb')) return;
+  if (img.dataset.retried === '1' || !img.src) return;
+  img.dataset.retried = '1';
+  const u = new URL(img.src, location.href);
+  u.searchParams.set('rt', Date.now().toString(36));
+  setTimeout(() => { img.src = u.href; }, 400);
+}, true);
 
 function ppFeedCard(p, cat, opts) {
   const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
@@ -20965,7 +21007,7 @@ function ppFeedCard(p, cat, opts) {
   // r253: above-the-fold cards eager-load their FIRST slide at high fetch
   // priority; every other photo stays lazy (carousel siblings included).
   const eager = !!(opts && opts.eager);
-  const slides = p.photos.map((u, si) => `<img class="pf-slide" src="${window.safeAttr(u)}" alt="${window.safeAttr(c.shortName)}" ${eager && si === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} draggable="false" />`).join('');
+  const slides = p.photos.map((u, si) => `<img class="pf-slide" ${ppPhotoSrcAttrs(p.photoVariants, u, false)} alt="${window.safeAttr(c.shortName)}" ${eager && si === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} draggable="false" />`).join('');
   const dots = p.photos.length > 1
     ? `<div class="ppc-dots">${p.photos.map((_, i) => `<span class="ppc-dot${i === 0 ? ' on' : ''}"></span>`).join('')}</div>` : '';
   const review = p.review ? (p.review.length > 140 ? p.review.slice(0, 140) + '…' : p.review) : '';
@@ -25635,6 +25677,7 @@ if (uploadZone) {
           return {
             uid: d.ref.parent.parent.id, courseId: data.courseId || d.id,
             photos: data.photos || [], grade: data.grade || '',
+            photoVariants: data.photoVariants || null,
             createdAt: data.createdAt,
           };
         }).filter((p) => p.photos.length);
@@ -25657,7 +25700,7 @@ if (uploadZone) {
           const color = (window.PASSPORT_GRADE_COLOR || {})[p.grade] || '#a8a89e';
           const when = rel(p.createdAt);
           return `<button type="button" class="rail-round" data-action="passport-open" data-uid="${window.safeAttr(p.uid)}" data-course="${window.safeAttr(p.courseId)}">
-            <img class="rr-thumb" src="${window.safeAttr(p.photos[0])}" alt="" loading="lazy" />
+            <img class="rr-thumb" src="${window.safeAttr((window.ppVariantSrc && window.ppVariantSrc(p.photoVariants, p.photos[0], 'w400')) || p.photos[0])}" alt="" loading="lazy" />
             <span class="rr-text"><span class="rr-name">${window.safeText(p.ownerName || 'Golfer')}</span><br /><span class="rr-course">${window.safeText(c.shortName || p.courseId)}${when ? ' · ' + when : ''}</span></span>
             ${p.grade ? `<span class="rr-grade" style="--grade:${color}">${window.safeText(p.grade)}</span>` : ''}
           </button>`;

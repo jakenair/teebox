@@ -586,7 +586,8 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "optimizePassportPhoto": {
-    "sha": "d93ffdcea33fbc2078f8ec8b29ac3c89061a5752",
-    "at": "2026-09-17"
+    "sha": "694a13becb003ade59b6122a94d7095a8989290e",
+    "at": "2026-09-22",
+    "note": "raw gcloud us-east1 (deploy-fn.sh hardcodes us-central1 — would create a duplicate); variants rework"
   }
 }
