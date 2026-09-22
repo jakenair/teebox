@@ -23385,10 +23385,17 @@ if (uploadZone) {
       if (!el.isConnected) return; // container re-rendered — abandon
       const url = candidates[ci];
       const probe = new Image();
-      probe.onload = () => {
-        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
-      };
-      probe.onerror = () => {
+      // STALL GUARD (r250): a hung request on flaky cellular fires NEITHER
+      // onload nor onerror — the probe waited forever, the retry ladder
+      // never started, and the tile showed neither logo nor initials
+      // (blank until a tap re-rendered and re-probed on a fresh
+      // connection). Treat >5s of silence as a failure: cancel the probe
+      // and fall into the normal error/retry path.
+      let settled = false;
+      const fail = () => {
+        if (settled) return;
+        settled = true;
+        try { probe.src = ''; } catch (_e) {}
         if (!el.isConnected) return;
         // Show the guessable fallback from the first miss on, but keep
         // trying (next candidate, then timed retries) and swap in a real
@@ -23404,6 +23411,14 @@ if (uploadZone) {
           window.addEventListener('online', () => { ci = 0; tryLoad(); }, {once: true});
         }
       };
+      const stallTimer = setTimeout(fail, 5000);
+      probe.onload = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(stallTimer);
+        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+      };
+      probe.onerror = () => { clearTimeout(stallTimer); fail(); };
       probe.src = url;
     };
     tryLoad();
