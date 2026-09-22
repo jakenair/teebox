@@ -1714,7 +1714,18 @@
   /* Passport add/edit modal + detail sheet */
   .pp-backdrop { display: none; position: fixed; inset: 0; z-index: 615; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 1rem; }
   .pp-backdrop.open { display: flex; }
-  .pp-modal, .pp-sheet { background: var(--white); border-radius: var(--radius-lg); width: min(94vw, 480px); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 44px rgba(0,0,0,0.35); }
+  /* Double-tap-to-like surfaces MUST disable the browser's own double-tap
+     smart-zoom (touch-action: manipulation — pan + pinch stay enabled). The
+     global rule on line ~1023 only covers buttons/[data-action]; pf-media and
+     the detail photo strip are plain divs, so a double tap was ALSO zooming
+     the whole page — fixed backdrops then render past the visual viewport
+     and the modal reads as "giant + frozen". Same bug class as the r103-era
+     listing-detail 2x zoom, gesture-triggered instead of layout-triggered. */
+  .pp-backdrop, .pp-backdrop *, .pf-media, .pf-media * { touch-action: manipulation; }
+  .pp-modal, .pp-sheet { position: relative; background: var(--white); border-radius: var(--radius-lg); width: min(94vw, 480px); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 44px rgba(0,0,0,0.35); }
+  /* Always-present close for the detail sheet — lives OUTSIDE the injected
+     body so the loading and error states are never a trap. */
+  .pp-sheet-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(0,0,0,0.35); color: #fff; font-size: 20px; line-height: 34px; text-align: center; padding: 0; cursor: pointer; }
   .pp-modal-head, .pp-detail-head { position: relative; }
   .pp-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; border-bottom: 1px solid var(--gray-200); }
   .pp-modal-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--gray-900); }
@@ -1753,7 +1764,10 @@
   .pp-modal-foot .btn-full { flex: 1; }
   .danger-ghost { background: none; border: 1px solid #e3b7b0; color: #c0392b; }
   /* Detail sheet */
-  .pp-sheet-inner { padding: 1.1rem 1.15rem 1.4rem; overflow-y: auto; }
+  /* overscroll-behavior: contain — sheet scroll must not chain to the feed
+     screen behind it (background creeping while the modal is open). */
+  .pp-sheet-inner { padding: 1.1rem 1.15rem 1.4rem; overflow-y: auto; overscroll-behavior: contain; }
+  .pp-modal-body { overscroll-behavior: contain; }
   .pp-detail-loading { color: var(--gray-500); font-size: 13px; padding: 1rem 0; }
   .pp-detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 1rem; }
   .pp-detail-head .pp-x { position: absolute; top: -4px; right: -4px; }
@@ -6604,6 +6618,9 @@
 
 <div class="pp-backdrop" id="ppDetailBackdrop" aria-hidden="true" data-close-on-backdrop="passport-detail-close">
   <div class="pp-sheet" role="dialog" aria-modal="true" aria-label="Course details">
+    <!-- Static close — must exist in EVERY state (loading / error / loaded),
+         so it lives outside the injected #ppDetailBody. -->
+    <button type="button" class="pp-sheet-x" data-action="passport-detail-close" aria-label="Close">&times;</button>
     <div class="pp-sheet-inner" id="ppDetailBody"></div>
   </div>
 </div>
@@ -20458,7 +20475,6 @@ async function openPassportCourseDetail(uid, courseId) {
   const tags = (data.tags || []).map(t => `<span class="pp-detail-tag">${window.safeText(t)}</span>`).join('');
   body.innerHTML = `
     <div class="pp-detail-head">
-      <button type="button" class="pp-x" data-action="passport-detail-close" aria-label="Close">&times;</button>
       <span class="passport-ring pp-detail-ring" style="--ring:${color}"><img class="passport-logo" src="${window.safeAttr(c.logo)}" alt="" /></span>
       <div class="pp-detail-titles">
         <div class="pp-detail-name">${window.safeText(c.name || c.shortName)}</div>
