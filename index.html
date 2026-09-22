@@ -20394,7 +20394,7 @@ async function ppSave() {
   const review = ((reviewEl && reviewEl.value) || '').trim().slice(0, 2000);
   if (btn) { btn.disabled = true; btn.textContent = st.editing ? 'Saving…' : 'Posting…'; }
   try {
-    const [{ getFirestore, doc, setDoc, serverTimestamp }, { getStorage, ref: sref, uploadBytes, getDownloadURL }] =
+    const [{ getFirestore, doc, getDoc, setDoc, serverTimestamp }, { getStorage, ref: sref, uploadBytes, getDownloadURL }] =
       await Promise.all([
         import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js"),
         import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js"),
@@ -20427,9 +20427,21 @@ async function ppSave() {
       // it was client-supplied and spoofable. The feed/course page/comments
       // resolve name+avatar from profiles/{uid} (session-cached) instead.
     };
-    if (!st.editing) payload.createdAt = serverTimestamp();
-    // merge:true keeps createdAt intact when editing.
-    await setDoc(doc(db, 'passport', uid, 'played', st.courseId), payload, { merge: true });
+    // createdAt is IMMUTABLE under the deployed rules (audit 2026-09-17:
+    // blocks pinning a post to the top of Discover by re-stamping it).
+    // The "Add a course" flow doesn't know the course may already be in
+    // the user's passport — re-adding one (grade first, photos later, the
+    // 2026-09-21 'Could not save' case) sent a fresh createdAt with
+    // merge:true and the update rule denied the whole write, every time.
+    // Point-read the doc first: only a genuinely NEW doc gets createdAt.
+    const roundRef = doc(db, 'passport', uid, 'played', st.courseId);
+    let isNewDoc = !st.editing;
+    if (isNewDoc) {
+      try { isNewDoc = !(await getDoc(roundRef)).exists(); } catch (_e) { /* offline read — assume new; create path still valid */ }
+    }
+    if (isNewDoc) payload.createdAt = serverTimestamp();
+    // merge:true keeps createdAt intact when editing/re-adding.
+    await setDoc(roundRef, payload, { merge: true });
     ppCloseModal();
     __ppState = null;
     __ppFeedHTML = ''; // new/edited round → refresh the feed on next open
