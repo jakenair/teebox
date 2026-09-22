@@ -121,11 +121,11 @@
 </header>
 <main>
   <h1>Privacy Policy</h1>
-  <p class="meta">Last updated: May 10, 2026</p>
+  <p class="meta">Last updated: September 21, 2026</p>
 
   <div class="summary">
     <h3>The short version</h3>
-    <p>We collect your email address (or phone number, if you choose phone sign-in) so you can sign in. We collect listing and transaction data so the marketplace can function. Stripe handles payments. We never see or store your card number. We do not sell your data, do not run ads, and do not track you across other sites.</p>
+    <p>We collect your email address (or phone number, if you choose phone sign-in) so you can sign in. We collect listing and transaction data so the marketplace can function. Stripe handles payments. We never see or store your card number. We do not sell your data. On the website (never in the iOS app) we use one advertising-measurement tool, the Meta Pixel — what it collects and how to opt out is in Section 7.</p>
   </div>
 
   <h2>1. Who we are</h2>
@@ -159,7 +159,7 @@
   <ul>
     <li>We do not collect your precise location.</li>
     <li>We do not collect your contacts, calendar, photos library, microphone audio, or health data.</li>
-    <li>We do not embed third-party advertising SDKs and do not track you across other apps or websites.</li>
+    <li>The iOS app contains no third-party advertising SDKs or trackers. On the website we use one advertising-measurement tool (the Meta Pixel — see Section 7); beyond that we do not track you across other apps or websites.</li>
     <li>We never see or store your full credit card number. Payments are processed entirely by Stripe.</li>
   </ul>
 
@@ -173,7 +173,7 @@
     <li>To respond to your support requests.</li>
     <li>To comply with legal obligations and enforce our Terms of Service.</li>
   </ul>
-  <p>We do not sell your personal information. We do not use your data for third-party advertising.</p>
+  <p>We do not sell your personal information. On the website we share limited browsing and purchase events with Meta Platforms for advertising measurement and audience building (never your name or email — see Section 7), and you can opt out at any time via the <a href="#do-not-share">Do Not Sell or Share</a> toggle or the Global Privacy Control signal.</p>
 
   <h2>4. Who can see what</h2>
   <ul>
@@ -193,6 +193,7 @@
     <li><strong>Google Gemini 1.5 Flash.</strong> If you use the optional AI price-suggestion or AI draft-description features, your listing title, brand, category, condition, and up to three photos are sent to Google's Gemini API (<code>generativelanguage.googleapis.com</code>) to generate the suggestion. These features are opt-in and only run when you tap the AI assist button. <a href="https://cloud.google.com/terms/data-processing-addendum" target="_blank" rel="noopener noreferrer">Google Cloud DPA</a></li>
     <li><strong>Resend.</strong> Transactional email delivery (account verification, receipts, password resets, order updates). Resend receives your email address, display name, and the body of the email being sent. <a href="https://resend.com/legal/dpa" target="_blank" rel="noopener noreferrer">Resend DPA</a></li>
     <li><strong>Plausible Analytics.</strong> Cookieless, privacy-preserving pageview analytics. Plausible receives the page URL, referrer, and a country-level location derived from a hashed IP. No cookies are set and no cross-site identifier is used. <a href="https://plausible.io/dpa" target="_blank" rel="noopener noreferrer">Plausible DPA</a></li>
+    <li><strong>Meta Platforms (Meta Pixel) — website only.</strong> Advertising measurement and audience building. The pixel sends Meta information about your visit — pages viewed, listings viewed, searches, items you like, checkouts started, and purchases (order total only; never your card details, name, or email) — together with your IP address and browser information, and sets cookies in your browser. Meta may connect this with your Meta account and use it as described in <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener noreferrer">Meta&rsquo;s Privacy Policy</a>. The pixel is not present in the iOS app, and it never loads if you use the <a href="#do-not-share">Do Not Sell or Share</a> opt-out or the Global Privacy Control signal.</li>
     <li><strong>Apple App Store / Google Play.</strong> App distribution and crash reporting (only if you've opted into device-level diagnostics in your OS settings).</li>
   </ul>
   <h3>High-sensitivity data: Stripe Identity</h3>
@@ -207,12 +208,52 @@
   <p>We keep your account information for as long as your account is active. Account deletion is processed immediately upon request. When you delete your account from inside the app (Account → Delete Account) or by emailing us, your profile, listings, messages, watchlist, saved searches, and FCM tokens are removed right away. We retain certain records (orders, tax records, payout records, and dispute records) for up to 7 years as required by law and to preserve marketplace integrity. Public listings you posted may remain visible in archived form (with the seller name removed) where another user has interacted with them, to preserve the integrity of historical orders.</p>
 
   <h2 id="cookies">7. Cookies and similar technologies</h2>
-  <p>TeeBox uses a minimal set of storage technologies. We do <em>not</em> use advertising or cross-site tracking cookies.</p>
+  <p>TeeBox uses a minimal set of storage technologies. On the website, one advertising-measurement tool (the Meta Pixel) sets cookies; everything else is essential or cookieless, and the pixel itself can be switched off below.</p>
   <ul>
     <li><strong>Essential / functional.</strong> Firebase Authentication persists your sign-in using browser <code>localStorage</code> on the web and in secure in-memory storage on iOS. Stripe sets its own cookies on <code>js.stripe.com</code> when you reach a payment screen. These are third-party cookies required to process the payment securely.</li>
     <li><strong>Analytics.</strong> Plausible Analytics is fully cookieless and does not set any identifier in your browser.</li>
-    <li><strong>No advertising or tracking cookies.</strong> We do not embed ad networks, retargeting pixels, or social media trackers.</li>
+    <li><strong>Advertising measurement (Meta Pixel) — website only, never in the iOS app.</strong> We use the Meta Pixel, a tool from Meta Platforms, Inc., to measure how well our advertising works and to build advertising audiences. The pixel sets cookies and sends Meta information about your visit: pages viewed, listings viewed, searches, items you like, checkouts started, and purchases (order total only &mdash; never card details, your email, or your name), together with your IP address and browser information. Meta may connect this with your Meta account and use it as described in <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener noreferrer">Meta&rsquo;s Privacy Policy</a>. To opt out: use the toggle below, enable <a href="https://globalprivacycontrol.org/" target="_blank" rel="noopener noreferrer">Global Privacy Control</a> or third-party-cookie blocking in your browser, adjust your <a href="https://www.facebook.com/adpreferences" target="_blank" rel="noopener noreferrer">Meta Ad Preferences</a>, or use the industry tool at <a href="https://optout.aboutads.info" target="_blank" rel="noopener noreferrer">optout.aboutads.info</a>.</li>
   </ul>
+
+  <h3 id="do-not-share">Do Not Sell or Share My Personal Information</h3>
+  <p>Setting this switch turns the Meta Pixel off in this browser: the pixel will not load or send anything on your future page views here. Your choice is stored on your own device (a <code>tb_dnsps</code> flag in localStorage and a first-party cookie) &mdash; clearing your browser data resets it. It applies per browser, so set it on each device you use.</p>
+  <p>
+    <label style="display:inline-flex;align-items:center;gap:10px;font-weight:600;cursor:pointer;">
+      <input type="checkbox" id="dnsToggle" style="width:20px;height:20px;accent-color:#1f4827;" />
+      <span id="dnsLabel">Opt out of the Meta Pixel on this browser</span>
+    </label>
+  </p>
+  <p id="dnsStatus" style="font-size:13px;color:#555;"></p>
+  <script>
+  (function () {
+    var t = document.getElementById('dnsToggle');
+    var st = document.getElementById('dnsStatus');
+    if (!t) return;
+    function isOn() {
+      try { if (localStorage.getItem('tb_dnsps') === '1') return true; } catch (e) {}
+      return /(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '');
+    }
+    function render() {
+      t.checked = isOn();
+      if (st) st.textContent = t.checked
+        ? 'Opt-out is ON — the Meta Pixel will not load in this browser.'
+        : 'Opt-out is off — the Meta Pixel loads on TeeBox web pages in this browser.';
+    }
+    t.addEventListener('change', function () {
+      try {
+        if (t.checked) {
+          try { localStorage.setItem('tb_dnsps', '1'); } catch (e) {}
+          document.cookie = 'tb_dnsps=1; max-age=63072000; path=/; SameSite=Lax';
+        } else {
+          try { localStorage.removeItem('tb_dnsps'); } catch (e) {}
+          document.cookie = 'tb_dnsps=; max-age=0; path=/; SameSite=Lax';
+        }
+      } catch (e) {}
+      render();
+    });
+    render();
+  })();
+  </script>
 
   <h2>8. Your rights</h2>
   <p>Regardless of where you live, you can:</p>
@@ -230,20 +271,20 @@
 
   <h3>Categories of personal information we collect</h3>
   <ul>
-    <li><strong>Identifiers.</strong> Name, email address, phone number (optional, only if you choose phone sign-in), Firebase UID, and IP address (server-logged). <em>Source:</em> you, and automatically from your device. <em>Purpose:</em> account creation, authentication, fraud prevention. <em>Sold/shared:</em> No.</li>
+    <li><strong>Identifiers.</strong> Name, email address, phone number (optional, only if you choose phone sign-in), Firebase UID, and IP address (server-logged). <em>Source:</em> you, and automatically from your device. <em>Purpose:</em> account creation, authentication, fraud prevention. <em>Sold:</em> No. <em>Shared:</em> your IP address and browser information accompany Meta Pixel events on the website (see Section 7); nothing else.</li>
     <li><strong>Customer records.</strong> Shipping address (collected at checkout via Stripe) and billing information (collected by Stripe). <em>Source:</em> you, via Stripe's checkout. <em>Purpose:</em> to deliver purchases and process payments. <em>Sold/shared:</em> No.</li>
-    <li><strong>Commercial information.</strong> Purchase history, watchlist, saved searches, and listing activity. <em>Source:</em> you, through your use of TeeBox. <em>Purpose:</em> operate the marketplace and personalize your experience. <em>Sold/shared:</em> No.</li>
-    <li><strong>Internet or other electronic network activity.</strong> App usage and aggregate pageview data (via Plausible, anonymous and cookieless). <em>Source:</em> automatically from your device. <em>Purpose:</em> to understand which features are used and improve the product. <em>Sold/shared:</em> No.</li>
+    <li><strong>Commercial information.</strong> Purchase history, watchlist, saved searches, and listing activity. <em>Source:</em> you, through your use of TeeBox. <em>Purpose:</em> operate the marketplace and personalize your experience. <em>Sold:</em> No. <em>Shared:</em> purchase and checkout events (order total, listing ID &mdash; never card details) with Meta Platforms for advertising measurement, website only (see Section 7).</li>
+    <li><strong>Internet or other electronic network activity.</strong> App usage and aggregate pageview data (via Plausible, anonymous and cookieless), and &mdash; on the website &mdash; browsing events sent to the Meta Pixel (pages viewed, listings viewed, searches). <em>Source:</em> automatically from your device. <em>Purpose:</em> product improvement; advertising measurement (Meta, website only). <em>Sold:</em> No. <em>Shared:</em> Yes, with Meta Platforms for cross-context behavioral advertising &mdash; opt out via the <a href="#do-not-share">Do Not Sell or Share</a> toggle or GPC.</li>
     <li><strong>Geolocation data.</strong> Country-level only, derived from your IP address. We never collect GPS or precise location. <em>Source:</em> automatically from your IP. <em>Purpose:</em> coarse analytics and fraud signals. <em>Sold/shared:</em> No.</li>
     <li><strong>Inferences.</strong> Drawn from your listing activity (for example, an AI price suggestion based on the item you are listing). <em>Source:</em> derived by us from data you provide. <em>Purpose:</em> the AI assist features you choose to use. <em>Sold/shared:</em> No.</li>
     <li><strong>Biometric and identity information (sellers only, optional).</strong> A selfie and a government-issued photo ID, collected only if you request seller identity verification. This data goes directly to Stripe Identity and is not stored on TeeBox servers. <em>Source:</em> you, via Stripe Identity. <em>Purpose:</em> identity verification for high-value seller activity. <em>Sold/shared:</em> No.</li>
   </ul>
 
-  <h3>We do not sell or share personal information</h3>
-  <p>TeeBox does not sell your personal information and does not share it for cross-context behavioral advertising, as those terms are defined under the California Consumer Privacy Act and California Privacy Rights Act (Cal. Civ. Code §1798.135). We have not done so in the past 12 months, and we do not have any plans to start.</p>
+  <h3>Selling and sharing of personal information</h3>
+  <p>TeeBox does not <em>sell</em> your personal information. As of September 21, 2026, we <em>share</em> limited website browsing and purchase events with Meta Platforms for cross-context behavioral advertising (advertising measurement and audience building), as &ldquo;share&rdquo; is defined under the California Consumer Privacy Act and California Privacy Rights Act (Cal. Civ. Code §1798.135). You can opt out at any time using the <a href="#do-not-share">Do Not Sell or Share My Personal Information</a> toggle in Section 7 or the Global Privacy Control signal. The iOS app shares nothing for advertising.</p>
 
   <h3>Global Privacy Control (GPC)</h3>
-  <p>TeeBox honors the <a href="https://globalprivacycontrol.org/" target="_blank" rel="noopener noreferrer">Global Privacy Control</a> browser signal as a valid opt-out of sale/sharing. Because we do not sell or share personal information to begin with, the GPC signal does not change how we process your data, but we publicly acknowledge the standard and will continue to honor it if our practices ever change.</p>
+  <p>TeeBox honors the <a href="https://globalprivacycontrol.org/" target="_blank" rel="noopener noreferrer">Global Privacy Control</a> browser signal as a valid opt-out of sale/sharing: when your browser sends GPC, the Meta Pixel does not load at all &mdash; no toggle needed.</p>
 
   <h3>Exercising your California rights</h3>
   <p>California residents may request to know, correct, delete, or receive a portable copy of their personal information, and may not be discriminated against for exercising these rights. To make a request, email <a href="mailto:legal@teeboxmarket.com">legal@teeboxmarket.com</a> from the address on your account. We will verify your identity through the email or in-app account you control before fulfilling the request.</p>

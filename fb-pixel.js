@@ -16,6 +16,14 @@
 // sent in event params.
 (function () {
   try {
+    // Opt-outs FIRST (CCPA/CPRA "Do Not Sell or Share", privacy.html
+    // §do-not-share): the toggle sets BOTH localStorage and a first-party
+    // cookie (tb_dnsps=1) so the choice survives either store being
+    // cleared. Honored before anything else, alongside the Global
+    // Privacy Control browser signal.
+    if (navigator.globalPrivacyControl === true) return;
+    try { if (window.localStorage && localStorage.getItem('tb_dnsps') === '1') return; } catch (_e) {}
+    if (/(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '')) return;
     if (window.Capacitor && window.Capacitor.isNativePlatform &&
         window.Capacitor.isNativePlatform()) return;
     if (!/^https?:$/.test(window.location.protocol)) return;
