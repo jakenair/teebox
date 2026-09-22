@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.facebook.com https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://connect.facebook.net https://www.facebook.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -4351,6 +4351,9 @@
     font-variant-numeric: tabular-nums lining-nums;
   }
 </style>
+<!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
+<script defer src="/fb-pixel.js"></script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=4535316483381655&ev=PageView&noscript=1" /></noscript>
 </head>
 <body class="is-anon">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="tb-verified-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.45" stop-color="#e6b93f"/><stop offset="0.72" stop-color="#c08a1e"/><stop offset="1" stop-color="#9c6f14"/></linearGradient></defs></svg>
@@ -6981,6 +6984,45 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
 // `return_url` with ?payment_intent_client_secret in the URL — we look that
 // up and surface a toast matching the PI status. If the buyer never left
 // (Apple Pay / G Pay / instant card), this is a no-op.
+(function handleStripeOnboardReturn() {
+  // Stripe Connect onboarding return (?stripe=onboarded — the account
+  // link's return_url, functions/index.js:5648; the old comment claiming
+  // a handler "already detects" this param was aspirational — none
+  // existed until now). Fires a Meta Lead only after the charges-ready
+  // flag is CONFIRMED true on users/{uid} (the return alone doesn't
+  // guarantee completed KYC), once per browser+uid. If Stripe's webhook
+  // hasn't flipped the flag yet at return time, no Lead fires — accepted
+  // miss, documented in the pixel event map.
+  try {
+    const sp = new URLSearchParams(window.location.search || '');
+    if (sp.get('stripe') !== 'onboarded') return;
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('stripe');
+      window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (_e) {}
+    let tries = 0;
+    const tick = async () => {
+      if (!window.CURRENT_USER) { if (++tries < 40) setTimeout(tick, 500); return; }
+      try {
+        const uid = window.CURRENT_USER.uid;
+        const key = 'fbq_lead_' + uid;
+        let done = null;
+        try { done = localStorage.getItem(key); } catch (_e) {}
+        if (done) return;
+        const { getFirestore, doc, getDoc } =
+          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+        const snap = await getDoc(doc(getFirestore(), 'users', uid));
+        if (snap.exists() && snap.data().stripeChargesEnabled === true) {
+          try { localStorage.setItem(key, '1'); } catch (_e) {}
+          if (window.fbq) window.fbq('track', 'Lead');
+        }
+      } catch (_e) { /* analytics never break boot */ }
+    };
+    setTimeout(tick, 400);
+  } catch (_e) {}
+})();
+
 (function handleStripeRedirectReturn() {
   try {
     if (typeof window === 'undefined') return;
@@ -7010,6 +7052,10 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
           if (!paymentIntent) return;
           const status = paymentIntent.status;
           if (status === 'succeeded') {
+            // Meta Pixel: Purchase on the redirect leg — same eventID as
+            // the on-page leg, Meta dedupes if both fire. (No listing
+            // context after a redirect, so content_ids is omitted.)
+            try { if (window.fbq) window.fbq('track', 'Purchase', { content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id }, { eventID: 'purchase_' + paymentIntent.id }); } catch (_e) {}
             // Batch-2: persistent sheet on the 3DS return too (no listing
             // context after the redirect — amount comes from the intent).
             if (window.showOrderOutcomeSheet) window.showOrderOutcomeSheet({ ok: true, amountCents: paymentIntent.amount });
@@ -7422,6 +7468,8 @@ window.openCheckout = async function(productId, qty, opts) {
       });
     }
   } catch (_e) { /* never block checkout open on analytics */ }
+  // Meta Pixel: checkout modal opened (guarded, no PII).
+  try { if (window.fbq) window.fbq('track', 'InitiateCheckout', { content_ids: [String(p.id)], content_type: 'product', value: Math.round(totalDollars * 100) / 100, currency: 'USD', num_items: requestedQty }); } catch (_e) {}
 
   // Mount the Payment Element. If it fails (network, signed-out, seller
   // hasn't connected Stripe), surface the message inline and flip the Pay
@@ -7553,6 +7601,9 @@ window.confirmPayment = async function() {
 
     // Stripe says the PI succeeded (or is processing — bank-side).
     if (paymentIntent && paymentIntent.status === 'succeeded') {
+      // Meta Pixel: Purchase (guarded). eventID = PI id so the redirect
+      // leg (and a future server CAPI event) dedupe against this one.
+      try { if (window.fbq) window.fbq('track', 'Purchase', { content_ids: [String((checkoutProduct && checkoutProduct.id) || '')], content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id }, { eventID: 'purchase_' + paymentIntent.id }); } catch (_e) {}
       // Optimistic local update: flip the listing's status in PRODUCTS so the
       // grid + card UI reflects "Sold" / decremented stock right away. The
       // webhook will fire within ~1-3s and make the change canonical, but
@@ -7937,6 +7988,9 @@ window.confirmPayment = async function() {
                 userId: user.uid,
                 method,
               });
+              // Meta Pixel: one signup event per account — this site and
+              // the email path below share the __teeboxSignupEmitted guard.
+              try { if (window.fbq) window.fbq('track', 'CompleteRegistration', { status: true }); } catch (_e) {}
             }
           } catch (_e2) { /* swallow */ }
         } else {
@@ -8576,6 +8630,9 @@ window.confirmPayment = async function() {
               method: 'email',
               marketingConsentGranted,
             });
+            // Meta Pixel: email-path signup (one-shot with the OAuth site
+            // via __teeboxSignupEmitted; no PII in params).
+            try { if (window.fbq) window.fbq('track', 'CompleteRegistration', { status: true }); } catch (_e) {}
             // One-shot guard so the onAuthStateChanged listener's OAuth
             // signup detector doesn't double-emit for this same user.
             window.__teeboxSignupEmitted = true;
@@ -11640,6 +11697,8 @@ async function openDetailModal(id) {
   }
   currentDetailId = id;
   injectListingJsonLd(p);
+  // Meta Pixel: product view (guarded — fbq is web-only; no PII).
+  try { if (window.fbq) window.fbq('track', 'ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' }); } catch (_e) {}
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -15476,6 +15535,8 @@ function filterSearchRender(query) {
         resultCount: all.length,
       });
     }
+    // Meta Pixel: Search (guarded; query capped at 80 chars like posthog).
+    try { if (window.fbq) window.fbq('track', 'Search', { search_string: String(query).slice(0, 80) }); } catch (_e) {}
   } catch (_e) { /* never block search render on analytics */ }
   if (!matches.length) {
     results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
@@ -18693,6 +18754,8 @@ async function toggleWatch(productId) {
       await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
         { watchlist: { [id]: entry } }, { merge: true });
       fav.add(productId);
+      // Meta Pixel: wishlist ADD only (removals deliberately untracked).
+      try { if (window.fbq) window.fbq('track', 'AddToWishlist', { content_ids: [id], content_type: 'product', value: askNow, currency: 'USD' }); } catch (_e) {}
       // Contextual push prompt — first item added to watchlist.
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
