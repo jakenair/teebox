@@ -2212,46 +2212,6 @@
   .feat-mv-cond { font-size: 11px; color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .section { max-width: 1240px; margin: 0 auto; padding: 2.5rem 2rem; }
-  /* ── Desktop side rails (r252) ────────────────────────────────────────
-     Fill the empty gutters flanking the 1240px column on wide screens.
-     Fixed-position (never in document flow → zero layout shift for the
-     grid), own scroll, hidden below 1560px and always on native. The
-     full-screen overlays (bingo/passport/course, z-320) simply cover
-     them. From 1560–1836px the gutters are narrower than a rail, so the
-     center column cedes width; at ≥1836px it is back to the full 1240px.
-     Style ruling 2026-09-21: no emojis, no icons — plain text; section
-     headers in the small-caps DM Sans of the cat bar; gold on active. */
-  .side-rail { display: none; }
-  @media (min-width: 1560px) {
-    body:not(.is-native) .side-rail { display: block; position: fixed; top: calc(var(--nav-h) + var(--cat-bar-h) + 20px); width: 250px; max-height: calc(100vh - var(--nav-h) - var(--cat-bar-h) - 40px); overflow-y: auto; z-index: 90; scrollbar-width: none; }
-    .side-rail::-webkit-scrollbar { display: none; }
-    #railLeft { left: max(12px, calc(50vw - 620px - 274px)); }
-    #railRight { right: max(12px, calc(50vw - 620px - 274px)); }
-    body:not(.is-native) .section { max-width: min(1240px, calc(100vw - 596px)); }
-  }
-  .rail-sec { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 14px; }
-  .rail-h { font-family: var(--font-body); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--gray-500); margin: 0 0 10px; }
-  .rail-cat { display: block; width: 100%; text-align: left; background: none; border: none; padding: 6px 0; font-family: var(--font-body); font-size: 13.5px; color: var(--gray-700); cursor: pointer; }
-  .rail-cat:hover { text-decoration: underline; }
-  .rail-cat.active { color: var(--gold-500); font-weight: 700; }
-  .rail-link { display: block; margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--green-700); text-decoration: none; }
-  .rail-link:hover { text-decoration: underline; }
-  .rail-sub { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
-  .rail-round { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 7px 0; cursor: pointer; text-align: left; }
-  .rail-round img.rr-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--gray-100); }
-  .rail-round .rr-text { min-width: 0; flex: 1; }
-  .rail-round .rr-name { font-size: 13px; font-weight: 700; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rail-round .rr-course { font-size: 12px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rail-round .rr-grade { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--grade, #a8a89e); color: var(--grade, #a8a89e); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-  .rail-bingo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .rail-bingo-grid .rb-tile { aspect-ratio: 1; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .rail-bingo-grid .rb-tile img { width: 74%; height: 74%; object-fit: contain; filter: grayscale(1) opacity(0.45); }
-  .rail-trend { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 7px 0; cursor: pointer; text-align: left; }
-  .rail-trend img.rt-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; background: var(--gray-100); }
-  .rail-trend .rt-text { min-width: 0; }
-  .rail-trend .rt-title { font-size: 13px; font-weight: 700; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rail-trend .rt-meta { font-size: 12px; color: var(--gray-500); }
-  .rail-empty { font-size: 12.5px; color: var(--gray-500); padding: 4px 0; }
   .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.5rem; }
   .section-title { font-family: var(--font-display); font-size: var(--text-display-md); font-weight: 700; color: var(--gray-900); }
   .section-link { font-size: 13px; font-weight: 600; color: var(--green-600); text-decoration: none; }
@@ -4786,7 +4746,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r255</span></div>
+        <span class="auth-build" aria-hidden="true">r256</span></div>
     </div>
   </div>
 </div>
@@ -6502,33 +6462,6 @@
     </div>
   </div>
 </main>
-
-<!-- Desktop side rails (r252): fixed in the gutters at ≥1560px, hidden on
-     native and below the breakpoint; populated by initSideRails() (bingo
-     script tail). Full-screen overlays cover them by z-index. -->
-<aside class="side-rail" id="railLeft" aria-label="Browse shortcuts">
-  <div class="rail-sec">
-    <h5 class="rail-h">Shop by category</h5>
-    <div id="railCats"></div>
-  </div>
-  <div class="rail-sec" id="railRoundsSec">
-    <h5 class="rail-h">Recent rounds</h5>
-    <div id="railRounds"><div class="rail-empty">Loading rounds…</div></div>
-    <a href="#" class="rail-link" data-action="open-passport-feed">Open Passport</a>
-  </div>
-</aside>
-<aside class="side-rail" id="railRight" aria-label="Logo Bingo and trending listings">
-  <div class="rail-sec">
-    <h5 class="rail-h">Logo Bingo — Today</h5>
-    <div class="rail-bingo-grid" id="railBingo"></div>
-    <a href="#" class="rail-link" data-action="open-bingo">Play today's board</a>
-    <div class="rail-sub" id="railBingoSub"></div>
-  </div>
-  <div class="rail-sec" id="railTrendingSec">
-    <h5 class="rail-h">Trending</h5>
-    <div id="railTrending"><div class="rail-empty">Loading…</div></div>
-  </div>
-</aside>
 
 <footer>
   <div class="footer-inner">
@@ -20950,12 +20883,6 @@ async function ppResolvePosters(posts) {
     p.ownerAvatar = p.ownerAvatar || m.avatar || '';
   });
 }
-// Exposed for the desktop side rails (r252) — the rail module lives in the
-// bingo script (separate scope) and reuses these instead of duplicating
-// the profile-resolution / course-catalog logic.
-window.ppResolvePosters = ppResolvePosters;
-window.loadPassportCourses = loadPassportCourses;
-window.ppVariantSrc = ppVariantSrc; // rail thumbs (r254)
 
 // r254: prefer the w400/w800 WebP variants the reworked
 // optimizePassportPhoto emits (keyed by file basename; backfilled for all
@@ -20989,7 +20916,7 @@ function ppPhotoSrcAttrs(variants, url, big) {
 document.addEventListener('error', (e) => {
   const img = e.target;
   if (!img || img.tagName !== 'IMG') return;
-  if (!img.matches('.pf-slide, .pp-detail-photo, .rr-thumb, .rt-thumb')) return;
+  if (!img.matches('.pf-slide, .pp-detail-photo')) return;
   if (img.dataset.retried === '1' || !img.src) return;
   img.dataset.retried = '1';
   const u = new URL(img.src, location.href);
@@ -25527,179 +25454,6 @@ if (uploadZone) {
   // Reflect today's progress on the desktop nav CTA pill.
   updateNavBingoCta();
 
-  // ── Desktop side rails (r252) ──────────────────────────────────────
-  // Summary getter for the mini-board widget — lives here because the
-  // puzzle cache, game state, and streak are module-scoped.
-  window.getBingoRailSummary = function () {
-    try {
-      const date = todayUTC();
-      const cached = readCachedPuzzle(date);
-      const courses = (cached && cached.courses) ||
-        (game && game.date === date && game.courses) || [];
-      const cells = (game && game.date === date && game.cells) || [];
-      const solved = cells.filter((c) => c && c.state === 'correct').length;
-      const played = cells.filter((c) => c && c.state !== 'pending').length;
-      const streak = (window.CURRENT_USER && Number.isFinite(window.__serverBingoStreak))
-        ? window.__serverBingoStreak : loadStreak().count;
-      return {
-        courses: courses.slice(0, 9).map((c) => ({
-          id: c.id,
-          logoUrl: c.logoUrl || ('/assets/logos/' + c.id + '.png'),
-        })),
-        solved, played, streak,
-      };
-    } catch (_e) { return null; }
-  };
-
-  // Rail renderer. Fixed-position asides in the wide-desktop gutters —
-  // display gated by CSS (≥1560px, not native); this only fills them in,
-  // and only once the breakpoint is actually hit (no Firestore reads on
-  // laptops/phones that will never show a rail). No emojis, no icons —
-  // founder style ruling 2026-09-21.
-  (function initSideRails() {
-    const leftEl = document.getElementById('railLeft');
-    if (!leftEl) return;
-    const mq = window.matchMedia('(min-width: 1560px)');
-    let booted = false;
-
-    const CATS = [
-      ['all', 'All'], ['clubs', 'Clubs'], ['apparel', 'Apparel'],
-      ['shoes', 'Shoes'], ['headcovers', 'Headcovers'], ['balls', 'Balls'],
-      ['bags', 'Bags'], ['accessories', 'Accessories'],
-    ];
-    function syncRailCats() {
-      const pill = document.querySelector('.cat-pill.active');
-      const active = (pill && pill.dataset && pill.dataset.cat) || 'all';
-      document.querySelectorAll('#railCats .rail-cat').forEach((b) => {
-        b.classList.toggle('active', b.dataset.cat === active);
-      });
-    }
-    function renderCats() {
-      const el = document.getElementById('railCats');
-      if (!el) return;
-      el.innerHTML = CATS.map(([cat, label]) =>
-        `<button type="button" class="rail-cat" data-action="filter-cat" data-cat="${cat}">${label}</button>`).join('');
-      syncRailCats();
-      // Mirror active state whenever any filter-cat control (pill, rail,
-      // footer link) is used. setTimeout lets the pill handler run first.
-      document.addEventListener('click', (e) => {
-        const t = e.target && e.target.closest && e.target.closest('[data-action="filter-cat"]');
-        if (t) setTimeout(syncRailCats, 0);
-      });
-    }
-
-    function renderBingo() {
-      const grid = document.getElementById('railBingo');
-      const sub = document.getElementById('railBingoSub');
-      const s = window.getBingoRailSummary && window.getBingoRailSummary();
-      if (!grid || !s || !s.courses || s.courses.length < 9) return false;
-      grid.innerHTML = s.courses.map((c) =>
-        `<span class="rb-tile"><img src="${window.safeAttr(c.logoUrl)}" alt="" loading="lazy" /></span>`).join('');
-      if (sub) {
-        const parts = [];
-        if (s.played > 0) parts.push(`${s.solved}/9`);
-        if (s.streak > 0) parts.push(`${s.streak}-day streak`);
-        sub.textContent = parts.length ? parts.join(' · ') : 'New board daily';
-      }
-      return true;
-    }
-
-    function renderTrending() {
-      const el = document.getElementById('railTrending');
-      const all = window.PRODUCTS || [];
-      if (!el || !all.length) return false;
-      const me = window.CURRENT_USER && window.CURRENT_USER.uid;
-      const rows = all
-        .filter((p) => p && p.status !== 'sold' && p.photos && p.photos.length &&
-          (!me || p.sellerId !== me))
-        .map((p) => {
-          const views = window.getListingViews ? window.getListingViews(p) : Number(p.viewCount || 0);
-          const likes = Number(p.watchlistCount || 0);
-          return { p, views, likes, score: views + likes * 3 };
-        })
-        .filter((r) => r.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 4);
-      if (!rows.length) { const sec = document.getElementById('railTrendingSec'); if (sec) sec.style.display = 'none'; return true; }
-      el.innerHTML = rows.map(({ p, views, likes }) => {
-        const meta = ['$' + Number(p.ask || 0).toLocaleString()];
-        if (views > 0) meta.push(views + ' view' + (views === 1 ? '' : 's'));
-        if (likes > 0) meta.push(likes + ' like' + (likes === 1 ? '' : 's'));
-        const thumb = window.variantImgUrl ? window.variantImgUrl(p, 0, 'w200') : (p.photos[0] || '');
-        return `<button type="button" class="rail-trend" data-action="open-detail" data-product-id="${window.safeAttr(String(p.id))}">
-          <img class="rt-thumb" src="${window.safeAttr(thumb)}" alt="" loading="lazy" />
-          <span class="rt-text"><span class="rt-title">${window.safeText(p.name || p.title || '')}</span><br /><span class="rt-meta">${meta.join(' · ')}</span></span>
-        </button>`;
-      }).join('');
-      return true;
-    }
-
-    async function renderRounds() {
-      const el = document.getElementById('railRounds');
-      const sec = document.getElementById('railRoundsSec');
-      if (!el) return;
-      try {
-        const fs = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-        const { getFirestore, collectionGroup, getDocs, query, where, orderBy, limit } = fs;
-        const snap = await getDocs(query(collectionGroup(getFirestore(), 'played'),
-          where('hasPhotos', '==', true), orderBy('createdAt', 'desc'), limit(3)));
-        const posts = snap.docs.map((d) => {
-          const data = d.data() || {};
-          return {
-            uid: d.ref.parent.parent.id, courseId: data.courseId || d.id,
-            photos: data.photos || [], grade: data.grade || '',
-            photoVariants: data.photoVariants || null,
-            createdAt: data.createdAt,
-          };
-        }).filter((p) => p.photos.length);
-        if (!posts.length) { if (sec) sec.style.display = 'none'; return; }
-        if (window.ppResolvePosters) await window.ppResolvePosters(posts);
-        const cat = window.loadPassportCourses ? await window.loadPassportCourses() : { byId: {} };
-        const rel = (ts) => {
-          try {
-            const ms = ts && ts.toDate ? ts.toDate().getTime() : 0;
-            if (!ms) return '';
-            const h = Math.floor((Date.now() - ms) / 3600000);
-            if (h < 1) return 'just now';
-            if (h < 24) return h + 'h ago';
-            const dd = Math.floor(h / 24);
-            return dd + 'd ago';
-          } catch (_e) { return ''; }
-        };
-        el.innerHTML = posts.map((p) => {
-          const c = cat.byId[p.courseId] || {};
-          const color = (window.PASSPORT_GRADE_COLOR || {})[p.grade] || '#a8a89e';
-          const when = rel(p.createdAt);
-          return `<button type="button" class="rail-round" data-action="passport-open" data-uid="${window.safeAttr(p.uid)}" data-course="${window.safeAttr(p.courseId)}">
-            <img class="rr-thumb" src="${window.safeAttr((window.ppVariantSrc && window.ppVariantSrc(p.photoVariants, p.photos[0], 'w400')) || p.photos[0])}" alt="" loading="lazy" />
-            <span class="rr-text"><span class="rr-name">${window.safeText(p.ownerName || 'Golfer')}</span><br /><span class="rr-course">${window.safeText(c.shortName || p.courseId)}${when ? ' · ' + when : ''}</span></span>
-            ${p.grade ? `<span class="rr-grade" style="--grade:${color}">${window.safeText(p.grade)}</span>` : ''}
-          </button>`;
-        }).join('');
-      } catch (_e) {
-        if (sec) sec.style.display = 'none';
-      }
-    }
-
-    function boot() {
-      if (booted || !mq.matches) return;
-      if (document.body.classList.contains('is-native')) return;
-      booted = true;
-      renderCats();
-      renderRounds();
-      // PRODUCTS and the puzzle cache load async — retry briefly until
-      // each widget has data (then stop; widgets are render-once).
-      let bingoDone = renderBingo(), trendDone = renderTrending(), tries = 0;
-      const tick = () => {
-        if (!bingoDone) bingoDone = renderBingo();
-        if (!trendDone) trendDone = renderTrending();
-        if ((!bingoDone || !trendDone) && ++tries < 15) setTimeout(tick, 1000);
-      };
-      if (!bingoDone || !trendDone) setTimeout(tick, 1000);
-    }
-    try { mq.addEventListener('change', boot); } catch (_e) { /* old Safari */ }
-    boot();
-  })();
 </script>
 </div><!-- /#app-scroll (r171) -->
 </body>
