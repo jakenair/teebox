@@ -19398,10 +19398,6 @@ function renderProfileView(profile, listings, reviews, recentSold) {
          <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
          <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
          ${showManagePayouts ? `<button class="btn-full ghost" data-action="manage-payouts" style="grid-column:1/-1;">Manage payouts</button>` : ''}
-         <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:12px;border-top:1px solid var(--gray-100);">
-           <button class="btn-full ghost" data-action="download-my-data" id="downloadMyDataBtn" type="button">Download my data</button>
-           <div style="font-size:12px;color:var(--gray-600);line-height:1.4;text-align:center;">Get a JSON copy of all your TeeBox data (GDPR Art. 20). Large bundles may take 5–10s.</div>
-         </div>
          <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(192,57,43,0.08);color:var(--red-500);border:1px solid rgba(192,57,43,0.3);margin-top:8px;">Delete Account</button>
        </div>`
     : `<div class="profile-mod-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -19443,6 +19439,16 @@ function renderProfileView(profile, listings, reviews, recentSold) {
            </button>
            <button class="account-hub-item" data-action="open-blocked-users" type="button">
              <span class="account-hub-label">Blocked users</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <!-- GDPR Art. 20 export (privacy.html promises it). Moved here from
+                the pre-hub actions block (r250) — Delete Account CANNOT follow
+                it down: build 18 was rejected under Apple 5.1.1(v) for exactly
+                that, so delete stays in the pre-hub Apple-accepted slot. The
+                id sits on the LABEL span: downloadMyData() swaps textContent
+                for its "Preparing export…" state and must not eat the chevron. -->
+           <button class="account-hub-item" data-action="download-my-data" type="button" title="Get a JSON copy of all your TeeBox data (GDPR Art. 20). Large bundles may take 5–10s.">
+             <span class="account-hub-label" id="downloadMyDataBtn">Download my data</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-about" type="button">
