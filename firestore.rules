@@ -1157,7 +1157,14 @@ service cloud.firestore {
     // perform the authoritative streak math server-side.
     // ─────────────────────────────────────────────
     match /gameScores/{scoreId} {
-      allow read: if true;
+      // Locked 2026-09-22 (audit 2026-09-01 A1; founder ruling): the raw
+      // docs carry uid + displayName + timing — world-read let anyone
+      // enumerate the player base with zero auth. The public board is
+      // served by the getBingoLeaderboard PROJECTED callable (no uid, no
+      // auth required — guest visibility preserved). auth-only (not
+      // false) keeps signed-in STALE clients working — the iOS bundle
+      // through r253 still reads this collection directly.
+      allow read: if request.auth != null;
 
       allow create: if request.auth != null
         && appCheckOk()
