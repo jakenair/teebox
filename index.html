@@ -4786,7 +4786,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r252</span></div>
+        <span class="auth-build" aria-hidden="true">r253</span></div>
     </div>
   </div>
 </div>
@@ -20824,6 +20824,30 @@ async function ppDeleteComment(uid, courseId, commentId) {
 // ── Passport FEED (Discover) ─────────────────────────────────────────
 const __ppPosterCache = {};
 let __ppFeedHTML = ''; // last rendered feed, for instant reopen (refreshed in bg)
+// r253: the in-memory cache dies with the tab, so every fresh session paid
+// the full skeleton wait (query + profile reads) on first open — the "lags
+// and doesn't show the photos" report. Persist the last render to
+// localStorage (our own safeText/safeAttr-built markup, same string the
+// in-memory path already replays) and paint it instantly; the fetch below
+// still runs and swaps only if content changed. VERSIONED so a build that
+// changes card markup never replays a stale shape, and TTL'd to 24h.
+const __PP_FEED_LS = 'tb_pp_feed_v1';
+function ppReadFeedCache() {
+  try {
+    const raw = localStorage.getItem(__PP_FEED_LS);
+    if (!raw) return '';
+    const o = JSON.parse(raw);
+    if (!o || typeof o.html !== 'string' || !o.at) return '';
+    if (Date.now() - o.at > 24 * 3600 * 1000) return '';
+    return o.html;
+  } catch (_e) { return ''; }
+}
+function ppWriteFeedCache(html) {
+  try {
+    if (!html || html.length > 400000) return; // respect LS quota
+    localStorage.setItem(__PP_FEED_LS, JSON.stringify({ html, at: Date.now() }));
+  } catch (_e) { /* quota/private mode — instant-open just degrades */ }
+}
 
 async function openPassportFeed() {
   const screen = document.getElementById('passportFeedScreen');
@@ -20833,7 +20857,9 @@ async function openPassportFeed() {
   (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
   body.scrollTop = 0;
   // Instant paint: reuse the last render if we have it (then refresh below);
-  // otherwise a layout-matching skeleton so the open doesn't flash.
+  // else the persisted last-session render (photos come from HTTP cache);
+  // only a true first-timer sees the layout-matching skeleton.
+  if (!__ppFeedHTML) __ppFeedHTML = ppReadFeedCache();
   if (__ppFeedHTML) { body.innerHTML = __ppFeedHTML; ppWireFeed(); }
   else body.innerHTML = ppFeedSkeleton();
   let posts = [];
@@ -20883,13 +20909,17 @@ async function openPassportFeed() {
   }
   const cat = await loadPassportCourses();
   await ppResolvePosters(posts);
-  const html = posts.map(p => ppFeedCard(p, cat)).join('');
+  // First two cards load their lead photo eagerly at high priority — with
+  // everything lazy, above-the-fold photos didn't even START downloading
+  // until after layout (the visible "photos missing" beat on open).
+  const html = posts.map((p, i) => ppFeedCard(p, cat, { eager: i < 2 })).join('');
   // Only repaint if the content actually changed (avoids a flash when the
   // cached render already matches what we just fetched). Compare against the
   // previous SOURCE string — innerHTML re-serialises entities (e.g. &#10084;)
   // so comparing to the DOM was always "different".
   const changed = html !== __ppFeedHTML;
   __ppFeedHTML = html;
+  ppWriteFeedCache(html); // survive the session (r253 instant-open)
   if (changed) { body.innerHTML = html; ppWireFeed(); }
 }
 
@@ -20925,14 +20955,17 @@ async function ppResolvePosters(posts) {
 window.ppResolvePosters = ppResolvePosters;
 window.loadPassportCourses = loadPassportCourses;
 
-function ppFeedCard(p, cat) {
+function ppFeedCard(p, cat, opts) {
   const c = cat.byId[p.courseId] || { shortName: p.courseName || p.courseId, logo: `/assets/logos/${p.courseId}.png` };
   const color = window.PASSPORT_GRADE_COLOR[p.grade] || '#8a7550';
   const ua = window.safeAttr(p.uid), ca = window.safeAttr(p.courseId);
   const ava = p.ownerAvatar
     ? `<img src="${window.safeAttr(p.ownerAvatar)}" alt="" loading="lazy" />`
     : `<span class="pf-ava-fallback">${window.safeText((p.ownerName || 'G').slice(0, 1).toUpperCase())}</span>`;
-  const slides = p.photos.map(u => `<img class="pf-slide" src="${window.safeAttr(u)}" alt="${window.safeAttr(c.shortName)}" loading="lazy" draggable="false" />`).join('');
+  // r253: above-the-fold cards eager-load their FIRST slide at high fetch
+  // priority; every other photo stays lazy (carousel siblings included).
+  const eager = !!(opts && opts.eager);
+  const slides = p.photos.map((u, si) => `<img class="pf-slide" src="${window.safeAttr(u)}" alt="${window.safeAttr(c.shortName)}" ${eager && si === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} draggable="false" />`).join('');
   const dots = p.photos.length > 1
     ? `<div class="ppc-dots">${p.photos.map((_, i) => `<span class="ppc-dot${i === 0 ? ' on' : ''}"></span>`).join('')}</div>` : '';
   const review = p.review ? (p.review.length > 140 ? p.review.slice(0, 140) + '…' : p.review) : '';
