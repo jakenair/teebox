@@ -121,7 +121,7 @@ function listingPage(l) {
   <div class="price">$${Number(l.ask).toLocaleString()}${l.condition ? `<span class="cond">${esc(l.condition)}</span>` : ""}</div>
   ${l.desc ? `<p class="desc">${esc(l.desc.slice(0, 600))}</p>` : ""}
   <a class="cta" href="/?listing=${l.id}">View &amp; buy on TeeBox &rarr;</a>
-  <div class="fine">Stripe-secured checkout &middot; buyer protection &middot; 6.5% seller fee</div>
+  <div class="fine">Stripe-secured checkout &middot; buyer protection &middot; 8.5% seller fee</div>
 </main>
 </body>
 </html>

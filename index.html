@@ -14409,19 +14409,19 @@ async function renderProTierBanner() {
       ${cta}
     </div>`;
   } else {
-    if (isNative) {
-      // Free tier on iOS: render nothing. Apple rejects in-app digital
-      // subscription CTAs that don't go through their IAP rails.
-      el.innerHTML = '';
-      return;
-    }
-    el.innerHTML = `<div class="pro-tier-banner free">
-      <div class="pro-tier-banner-info">
-        <strong>Upgrade to Pro Seller</strong>
-        <span>Cut your transaction fee from 8.5% to 3% for $14.99/month.</span>
-      </div>
-      <button class="pro-tier-banner-cta" data-action="open-pro-upgrade" type="button">Upgrade to Pro</button>
-    </div>`;
+    // Free tier: render NOTHING, on every platform (2026-09-22, founder
+    // ruling). Pro signup has been disabled server-side since 2026-08-27
+    // (createSubscriptionCheckout throws) and the tier was repriced to
+    // 8.5% — this banner was still advertising "8.5% -> 3% for
+    // $14.99/month" over a dead callable, the exact dead-button
+    // dishonesty the Pro-disable ruling was meant to end, and an App
+    // Review tester could tap it. The paid-tier status banner above is
+    // untouched (zero accounts were ever on Pro, but it stays correct
+    // for the future perks-based re-launch). The open-pro-upgrade
+    // action + proUpgradeBackdrop modal become unreachable-by-UI dead
+    // code — left in place deliberately, same convention as the r116
+    // bid/offer code, for that re-launch.
+    el.innerHTML = '';
   }
 }
 
