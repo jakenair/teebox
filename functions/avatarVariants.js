@@ -29,12 +29,16 @@
  *  - fit "inside", so nothing is cropped server-side; every avatar slot
  *    already applies `object-fit: cover` in CSS.
  *
+ * The ORIGINAL is also re-encoded in place (EXIF-free, 1024px cap, existing
+ * download token preserved so avatarUrl keeps resolving). Added 2026-09-24
+ * per founder ruling: every path's public original must be clean, not just its
+ * derivatives. Avatars were the one path that left the raw upload untouched.
+ *
  * DELIBERATELY NOT INCLUDED — avatars get no SafeSearch pass here. The
  * listings and passport triggers moderate and can purge an object; that is a
  * destructive path and was not part of this ruling. Avatars are currently
- * UNMODERATED (see OPEN_THREADS — flagged, awaiting a ruling). This function
- * is purely additive: it never deletes, never rewrites the original, and
- * never touches avatarUrl.
+ * UNMODERATED (see OPEN_THREADS — flagged, awaiting a ruling). Nothing here
+ * ever deletes an object or touches avatarUrl.
  */
 const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {logger} = require("firebase-functions");
@@ -178,8 +182,48 @@ exports.optimizeAvatar = onObjectFinalized(
 
       logger.info("optimizeAvatar: event", {name: obj.name, contentType});
       try {
+        const sharp = require("sharp");
+        const crypto = require("crypto");
         const bucket = admin.storage().bucket(obj.bucket || BUCKET);
-        const [buf] = await bucket.file(obj.name).download();
+        const file = bucket.file(obj.name);
+        const [buf] = await file.download();
+
+        // 1) Rewrite the ORIGINAL in place, stripped of metadata.
+        //
+        // This trigger used to be variants-only, leaving the raw upload
+        // untouched — which meant avatars were the one path whose public
+        // ORIGINAL could still carry EXIF. It is not theoretical: two live
+        // avatars were raw iPhone JPEGs carrying camera identity, because
+        // downscaleAvatar() returns the file UNCHANGED when it is already
+        // within 512px and so skips the canvas re-encode. Listings and
+        // passport photos have always re-encoded their original here
+        // (convertToWebp); avatars now match.
+        //
+        // The existing download token is preserved so
+        // profiles/{uid}.avatarUrl keeps resolving — no Firestore rewrite.
+        // 1024px cap: every avatar slot in the app is <= 88px and the w96/w256
+        // derivatives serve those, so the original is only a fallback.
+        const base = sharp(buf, {failOn: "none"}).rotate();
+        const cleanOriginal = await base.clone()
+            .resize({width: 1024, height: 1024, fit: "inside", withoutEnlargement: true})
+            .webp({quality: 86})
+            .toBuffer();
+        const token = (obj.metadata && obj.metadata.firebaseStorageDownloadTokens) ||
+            crypto.randomUUID();
+        await file.save(cleanOriginal, {
+          metadata: {
+            contentType: "image/webp",
+            cacheControl: "public, max-age=31536000",
+            // optimized:"true" is what stops the re-finalize this save causes
+            // from re-entering the pipeline.
+            metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
+          },
+          resumable: false,
+        });
+        logger.info("optimizeAvatar: original re-encoded",
+            {name: obj.name, from: buf.length, to: cleanOriginal.length});
+
+        // 2) Derivatives, from the same decoded instance.
         const res = await writeAvatarVariants(bucket, obj.name, buf);
         if (res) {
           logger.info("optimizeAvatar: variants written",

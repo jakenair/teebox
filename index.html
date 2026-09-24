@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r268</span></div>
+        <span class="auth-build" aria-hidden="true">r269</span></div>
     </div>
   </div>
 </div>
@@ -19834,7 +19834,13 @@ async function downscaleAvatar(file, AVATAR_MAX = 512) {
     if (!bmp) return file;
     const longest = Math.max(bmp.width, bmp.height);
     const scale = Math.min(1, AVATAR_MAX / longest);
-    if (scale >= 1) { bmp.close && bmp.close(); return file; } // already small enough
+    // r269: ALWAYS re-encode, even when the image is already under AVATAR_MAX.
+    // This used to `return file` unchanged on the small-enough path, which
+    // meant a small camera photo skipped the canvas entirely and reached
+    // Storage with its EXIF intact — that is exactly how two live avatars
+    // ended up carrying Apple camera identity. The canvas draw is what strips
+    // metadata, so it has to run unconditionally. Belt and suspenders with the
+    // server-side strip in optimizeAvatar.
     const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
@@ -19843,7 +19849,11 @@ async function downscaleAvatar(file, AVATAR_MAX = 512) {
     ctx.drawImage(bmp, 0, 0, w, h);
     bmp.close && bmp.close();
     const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
-    if (!blob || blob.size >= file.size) return file; // no real gain → keep original
+    // r269: fall back to the original ONLY if the canvas produced nothing.
+    // The old check also bailed when the re-encode wasn't smaller, which
+    // silently handed back the metadata-bearing original for the sake of a few
+    // KB. A stripped file that is marginally larger is the correct trade.
+    if (!blob) return file;
     const base = (file.name || 'avatar').replace(/\.[^.]+$/, '');
     return new File([blob], base + '.jpg', { type: 'image/jpeg' });
   } catch (_e) {
