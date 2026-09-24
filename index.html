@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r263</span></div>
+        <span class="auth-build" aria-hidden="true">r264</span></div>
     </div>
   </div>
 </div>
@@ -11683,7 +11683,10 @@ function renderMostViewedWidget() {
   if (!picks.length) return;
   const rows = picks.map(p => {
     const idAttr = window.safeAttr(window.safeId(p.id));
-    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    // r264: was rendering the FULL-SIZE original into a thumbnail slot —
+    // 305/260/486KB above the fold on the homepage. Use the w400 variant
+    // (variantImgUrl falls back to the original when a listing has none).
+    const url = window.variantImgUrl ? window.variantImgUrl(p, 0, 'w400') : window.safeImgUrl(p.photos && p.photos[0]);
     const thumb = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : window.CATEGORY_ICON(p.cat);
@@ -12584,7 +12587,8 @@ function renderMoreLikeThis(currentListing) {
     btn.type = 'button';
     btn.className = 'mlt-card';
     btn.setAttribute('data-product-id', safeAttr(String(p.id)));
-    const imgUrl = p.photos && p.photos[0] ? safeImg(p.photos[0]) : '';
+    const imgUrl = (window.variantImgUrl ? window.variantImgUrl(p, 0, 'w400') : '')
+      || (p.photos && p.photos[0] ? safeImg(p.photos[0]) : '');
     const imgHtml = imgUrl
       ? `<img src="${imgUrl}" alt="${safeAttr(p.name || '')}" loading="lazy" />`
       : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON ? window.CATEGORY_ICON(p.cat) : ''}</div>`;
@@ -13066,9 +13070,10 @@ function renderChatListingCard(listing) {
   subEl.textContent = subText;
   priceEl.textContent = ask > 0 ? ('$' + ask.toLocaleString()) : '';
   // Thumb: prefer photos[0] (real listing); else fall back to category icon.
-  const photoUrl = listing.photos && listing.photos[0]
-    ? (window.safeImgUrl ? window.safeImgUrl(listing.photos[0]) : String(listing.photos[0]))
-    : '';
+  const photoUrl = (window.variantImgUrl ? window.variantImgUrl(listing, 0, 'w400') : '')
+    || (listing.photos && listing.photos[0]
+      ? (window.safeImgUrl ? window.safeImgUrl(listing.photos[0]) : String(listing.photos[0]))
+      : '');
   if (photoUrl) {
     thumb.classList.remove('placeholder');
     thumb.innerHTML = '';
@@ -16213,7 +16218,7 @@ function filterSearchRender(query) {
   }
   results.innerHTML = matches.map((p, i) => {
     const id = window.safeId(p.id);
-    const url = window.safeImgUrl(p.photos && p.photos[0]);
+    const url = window.variantImgUrl ? window.variantImgUrl(p, 0, 'w400') : window.safeImgUrl(p.photos && p.photos[0]);
     const img = url
       ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="lazy" decoding="async" />`
       : `<span class="placeholder-art" style="width:100%;height:100%;border-radius:6px">${window.CATEGORY_ICON(p.cat)}</span>`;
