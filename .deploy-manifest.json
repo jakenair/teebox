@@ -595,7 +595,7 @@
     "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
   },
   "draftListingFromPhotos": {
-    "sha": "8cfbe4d4ade7d3389f0805017e24d9bae2d045c3",
+    "sha": "999897ade538ffbea1f649ac8b31b69475fefc3c",
     "at": "2026-09-24"
   }
 }

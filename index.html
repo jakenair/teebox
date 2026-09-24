@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r260</span></div>
+        <span class="auth-build" aria-hidden="true">r261</span></div>
     </div>
   </div>
 </div>
@@ -10189,13 +10189,16 @@ window.confirmPayment = async function() {
       } else {
         bmp = await createImageBitmap(entry);
       }
-      const scale = Math.min(1, 800 / Math.max(bmp.width, bmp.height));
+      // r261: 1400px (was 800). The 800px cap shrank a 1206px phone photo
+      // by 40% and small sole stampings stopped being legible — the
+      // "Futura X5" misread on a Studio Style Newport. Never upscales.
+      const scale = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(bmp.width * scale));
       c.height = Math.max(1, Math.round(bmp.height * scale));
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      const b64 = c.toDataURL('image/jpeg', 0.8).split(',')[1];
-      return (b64 && b64.length < 600 * 1024) ? b64 : null;
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      return (b64 && b64.length < 900 * 1024) ? b64 : null;
     } catch (_e) { return null; }
   }
   // ── Caddie: states, sequenced loading, price chips, field marks ──
@@ -10299,7 +10302,11 @@ window.confirmPayment = async function() {
       const specsNow = window.collectSpecs ? window.collectSpecs() : {};
       const schema = (window.SPEC_SCHEMA || {})[cat] || { fields: [] };
       const requiredFields = schema.fields.filter(f => f.req).map(f => f.k);
-      const res = await fn({ category: cat, images, specs: specsNow, brand: specsNow.brand || '', model: specsNow.model || '', requiredFields });
+      // r261: hand Caddie the exact dropdown values so it answers in our
+      // vocabulary ("RH", not "Right-handed") and the fill actually lands.
+      const fieldOptions = {};
+      schema.fields.forEach(f => { if (f.type === 'select' && Array.isArray(f.options)) fieldOptions[f.k] = f.options; });
+      const res = await fn({ category: cat, images, specs: specsNow, brand: specsNow.brand || '', model: specsNow.model || '', requiredFields, fieldOptions });
       const d = (res && res.data) || {};
       caddieFinishLoading();
       if (!d.ok) {
