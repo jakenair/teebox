@@ -7858,6 +7858,14 @@ window.confirmPayment = async function() {
   //   3. In firestore.rules, change `function appCheckOk()` from
   //      `return true;` to `return request.app != null;` and
   //      redeploy with `firebase deploy --only firestore:rules`.
+  //   0. ⚠ DO THIS FIRST (standing note, 2026-09-24, r263): this init is
+  //      DEFERRED — it runs via __afterFeedPaint(), after the first product
+  //      card renders, because the reCAPTCHA Enterprise bundle is 346KB and
+  //      was the single heaviest script on the page (Phase 2). The deferral
+  //      is only safe while App Check is monitor-only: with enforcement on,
+  //      anything that calls Firestore/Storage/Functions before the feed
+  //      paints would fail for want of a token. Undo or re-gate the
+  //      deferral BEFORE enabling enforcement in steps 1-3.
   // ──────────────────────────────────────────────────────────
   // CRITICAL: skip App Check entirely on native (Capacitor) builds.
   // ReCaptchaEnterpriseProvider expects a real browser top-frame origin and

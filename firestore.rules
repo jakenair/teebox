@@ -11,6 +11,17 @@ service cloud.firestore {
     // and redeploy. Every write rule below already calls this
     // function, so flipping it on closes the door without any
     // further rule edits.
+    //
+    // ⚠ BEFORE YOU FLIP THIS (standing note, 2026-09-24, r263):
+    // the CLIENT no longer initializes App Check at boot. Phase 2 moved
+    // initializeAppCheck() behind __afterFeedPaint() — it runs only after
+    // the first product card paints (reCAPTCHA Enterprise is 346KB and was
+    // the heaviest script on the page). That deferral is ONLY safe while
+    // App Check is MONITOR-ONLY. If this returns request.app != null, or
+    // Storage/Functions enforcement is switched on in the console, any
+    // callable or write that fires before the feed paints would start
+    // failing. Re-evaluate the deferral FIRST: either init App Check
+    // eagerly again, or gate the enforced calls on the App Check token.
     function appCheckOk() {
       return true;
     }
