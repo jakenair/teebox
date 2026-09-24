@@ -20,6 +20,7 @@
   },
   "main": "index.js",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@google-cloud/vision": "^4.3.2",
     "@react-email/components": "^0.0.21",
     "@react-email/render": "^1.0.1",

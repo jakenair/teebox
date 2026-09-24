@@ -174,7 +174,7 @@ service cloud.firestore {
              'sellerId','title','brand','cat','ask','condition',
              'createdAt','status','expiresAt','desc','photos','emoji',
              'badge','volume','change','quantity','quantitySold',
-             'requiresAuth','authReviewState'])
+             'requiresAuth','authReviewState','specCategory','specs'])
         && d.status == 'active'
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.brand is string && d.brand.size() > 0 && d.brand.size() <= 60
@@ -186,6 +186,8 @@ service cloud.firestore {
               d.photos is list
               && d.photos.size() <= 10
               && allPhotosInBucket(d.photos)))
+        && (!('specCategory' in d.keys()) || (d.specCategory is string && d.specCategory.size() <= 20))
+        && (!('specs' in d.keys()) || (d.specs is map && d.specs.size() <= 30))
         && (!('emoji' in d.keys()) || (d.emoji is string && d.emoji.size() <= 16))
         && (!('badge' in d.keys()) || (d.badge is string && d.badge.size() <= 16))
         && (!('volume' in d.keys()) || d.volume == 0)
@@ -1166,7 +1168,16 @@ service cloud.firestore {
       // through r253 still reads this collection directly.
       allow read: if request.auth != null;
 
-      allow create: if request.auth != null
+      // A4 (audit 2026-09-01; r257): client writes CLOSED. The score was
+      // self-reported (range-checked only — no verification against the
+      // actual solve, App Check a no-op), so the projected public board
+      // was not trustworthy. syncBingoProgress (Admin SDK, bypasses
+      // rules) is the SOLE writer: server-recomputed streak, correctCount
+      // validated against the day's board. The r257+ client no longer
+      // attempts the write; stale bundles fail permission-denied and
+      // swallow it via their own fire-and-forget .catch (verified
+      // index.html trace 2026-09-22).
+      allow create: if false
         && appCheckOk()
         && request.resource.data.userId == request.auth.uid
         && scoreId == request.resource.data.date + '_' + request.auth.uid

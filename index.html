@@ -2686,6 +2686,22 @@
   .sell-form input, .sell-form select, .sell-form textarea { width: 100%; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 14px; color: var(--gray-900); outline: none; transition: var(--transition); }
   .sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color: var(--gold-400); }
   .sell-form textarea { height: 80px; resize: vertical; }
+  /* Listing v2 spec flow */
+  .spec-cat-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .spec-cat-pill { border: 1.5px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+  .spec-cat-pill.active { background: var(--green-600); border-color: var(--green-600); color: #fff; }
+  .spec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ai-draft-bar { margin: 4px 0 14px; }
+  .ai-draft-btn { width: 100%; border: 1.5px dashed var(--gold-500); background: #fdf7e7; color: var(--green-800); border-radius: var(--radius-md); padding: 11px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; font-family: var(--font-body); }
+  .ai-draft-btn:disabled { opacity: 0.6; cursor: default; }
+  .ai-draft-status { font-size: 12px; color: var(--gray-500); margin-top: 6px; line-height: 1.45; }
+  .spec-table { margin: 10px 0 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
+  .spec-table .spec-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--gray-100); }
+  .spec-table .spec-row:last-child { border-bottom: none; }
+  .spec-table .spec-row:nth-child(odd) { background: var(--gray-50, #fafaf8); }
+  .spec-table .spec-k { color: var(--gray-500); font-weight: 600; flex: none; }
+  .spec-table .spec-v { color: var(--gray-900); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .spec-nudge { background: #fdf7e7; border: 1px solid var(--gold-300, #eddfa8); border-radius: var(--radius-md); padding: 9px 12px; font-size: 12.5px; color: var(--gray-700); margin: 8px 0 12px; }
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .price-suggest { margin-top: -6px; margin-bottom: 12px; padding: 10px 12px; background: rgba(31, 72, 39, 0.06); border-left: 3px solid var(--green-700); border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-700); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .price-suggest strong { color: var(--green-900); font-weight: 700; }
@@ -6430,6 +6446,7 @@
           <button class="condition-pill" data-cond="Like New">Like New</button>
           <button class="condition-pill" data-cond="Very Good">Very Good</button>
           <button class="condition-pill" data-cond="Good">Good</button>
+          <button class="condition-pill" data-cond="Fair">Fair</button>
         </div>
       </div>
       <button class="filter-clear" id="filterClear" type="button">Clear</button>
@@ -6662,6 +6679,21 @@
         <div class="upload-count" id="uploadCount"></div>
       </div>
 
+      <!-- Listing v2 (2026-09-24): structured spec flow. Category first,
+           then a per-category spec form (dropdowns for finite sets),
+           then the AI draft bar. specCategory drives the browse cat
+           automatically; the legacy select below is hidden except for
+           "Other". -->
+      <div class="form-row" id="sellSpecCatRow">
+        <label>What are you selling?</label>
+        <div class="spec-cat-pills" id="sellSpecCatPills"></div>
+      </div>
+      <div id="sellSpecFields"></div>
+      <div class="ai-draft-bar" id="aiDraftBar" style="display:none">
+        <button type="button" class="ai-draft-btn" id="aiDraftBtn" data-action="ai-draft-listing">Draft it for me — title, specs &amp; price from your photos</button>
+        <div class="ai-draft-status" id="aiDraftStatus"></div>
+      </div>
+
       <div class="form-row"><label for="sellTitle">Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" maxlength="120" /></div>
       <div class="form-row"><label for="sellBrand">Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" maxlength="60" />
         <datalist id="sellBrandSuggestions">
@@ -6680,7 +6712,7 @@
       <!-- r176: Category is its own full row ABOVE price (mis-tag guard);
            "Ask Price" → "Price" (dead bid/ask language, order book killed
            r135); quantity defaults to 1 and hides behind a toggle. -->
-      <div class="form-row"><label for="sellCat">Category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
+      <div class="form-row" id="sellCatRow" style="display:none"><label for="sellCat">Browse category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
       <div class="form-row-2">
         <div class="form-row"><label for="sellPrice">Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
@@ -6699,16 +6731,11 @@
       </div>
       <button type="button" class="qty-toggle-link" id="sellQtyToggle" data-action="toggle-sell-qty">I have more than one</button>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
-      <div style="margin-top:-4px;margin-bottom:10px;">
-        <!-- aiPriceBtn starts hidden; visibility is gated by the Firestore
-             feature-flag `config/features.aiPriceEnabled`. See
-             FEATURE_FLAGS.md. Flipping the flag without redeploying the
-             web bundle is the whole point. -->
-        <button type="button" id="aiPriceBtn" class="ai-price-btn" data-action="ai-suggest-price" style="display:none" title="Suggest a fair price using AI" aria-label="Suggest a fair price using AI">
-          <span class="ai-price-spark" aria-hidden="true">&#10024;</span> Suggest price
-        </button>
-        <div id="aiPriceCard" class="ai-price-card" style="display:none" aria-live="polite"></div>
-      </div>
+      <!-- Listing v2 (r257): the Gemini-era aiPriceBtn/aiPriceCard are
+           retired — draftListingFromPhotos (the AI bar above the title
+           field) covers title + specs + price in one pass. The old
+           handler JS stays as documented dead code until the next
+           cleanup pass. -->
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
         <strong>High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
@@ -9842,6 +9869,120 @@ window.confirmPayment = async function() {
       if (typeof first.focus === 'function') setTimeout(() => first.focus({ preventScroll: true }), 350);
     }
   }
+  // ── Listing v2 spec engine (2026-09-24) ────────────────────────────
+  // One schema drives the category pills, the dynamic spec form, submit
+  // validation, and the detail-page spec table. Dropdowns everywhere a
+  // finite set exists; free text only where unavoidable. brand +
+  // condition ride the existing #sellBrand/#sellCondition inputs.
+  const rng = (a, b, st, unit) => { const o = []; for (let v = a; v <= b + 1e-9; v += st) o.push(String(Math.round(v * 10) / 10) + (unit || '')); return o; };
+  const FLEXES = ['L', 'A', 'R', 'S', 'X'];
+  const DEX = ['RH', 'LH'];
+  const YN = ['Yes', 'No'];
+  const SH = [
+    { k: 'shaftBrand', label: 'Shaft brand', type: 'text' },
+    { k: 'shaftModel', label: 'Shaft model', type: 'text' },
+  ];
+  const FLEXDEX = [
+    { k: 'flex', label: 'Flex', type: 'select', options: FLEXES, req: 1 },
+    { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 },
+  ];
+  window.SPEC_SCHEMA = {
+    'driver':      { label: 'Driver', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(7, 13, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    'fairway':     { label: 'Fairway', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(13, 21, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    'hybrid':      { label: 'Hybrid', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(16, 28, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    'iron-set':    { label: 'Iron set', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'setFrom', label: 'Set from', type: 'select', options: ['2', '3', '4', '5', '6', '7'], req: 1 }, { k: 'setTo', label: 'Set to', type: 'select', options: ['9', 'PW', 'AW', 'GW', 'SW', 'LW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX, { k: 'lieLength', label: 'Lie/length', type: 'select', options: ['Standard', 'Adjusted (see description)'] }, { k: 'grip', label: 'Grip', type: 'text' } ] },
+    'single-iron': { label: 'Single iron', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'ironNumber', label: 'Iron #', type: 'select', options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'PW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX ] },
+    'wedge':       { label: 'Wedge', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(46, 64, 1, '°'), req: 1 }, { k: 'bounce', label: 'Bounce', type: 'select', options: rng(4, 14, 1, '°').concat('Other') }, { k: 'grind', label: 'Grind', type: 'text' }, ...SH, ...FLEXDEX ] },
+    'putter':      { label: 'Putter', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'length', label: 'Length', type: 'select', options: rng(32, 36, 0.5, '"'), req: 1 }, { k: 'headStyle', label: 'Head style', type: 'select', options: ['Blade', 'Mid-mallet', 'Mallet'], req: 1 }, { k: 'grip', label: 'Grip', type: 'text' }, { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 }, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    'balls':       { label: 'Balls', browse: 'balls', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'quantity', label: 'Ball count', type: 'select', options: ['12', '24', '36', '48', 'Other'], req: 1 } ] },
+    'bag':         { label: 'Bag', browse: 'bags', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'bagType', label: 'Type', type: 'select', options: ['Stand', 'Cart', 'Carry', 'Staff', 'Travel'] } ] },
+    'apparel':     { label: 'Apparel', browse: 'apparel', fields: [ { k: 'apparelType', label: 'Type', type: 'select', options: ['Polo', 'Quarter-zip', 'Outerwear', 'Pants', 'Shorts', 'Hat', 'Other'], req: 1 }, { k: 'size', label: 'Size', type: 'select', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Other'], req: 1 } ] },
+    'shoes':       { label: 'Shoes', browse: 'shoes', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'size', label: 'Size (US)', type: 'select', options: rng(7, 15, 0.5, ''), req: 1 } ] },
+    'headcover':   { label: 'Headcover', browse: 'headcovers', fields: [ { k: 'hcType', label: 'Fits', type: 'select', options: ['Driver', 'Fairway', 'Hybrid', 'Putter', 'Iron covers'] } ] },
+    'accessories': { label: 'Accessories', browse: 'accessories', fields: [ { k: 'itemType', label: 'What is it?', type: 'text', req: 1 } ] },
+    'other':       { label: 'Other', browse: '', fields: [] },
+  };
+  window.SPEC_LABELS = (() => { const m = { brand: 'Brand', condition: 'Condition' }; Object.values(window.SPEC_SCHEMA).forEach(c => c.fields.forEach(f => { m[f.k] = f.label; })); return m; })();
+  let __specCategory = '';
+  function renderSpecCatPills() {
+    const el = document.getElementById('sellSpecCatPills');
+    if (!el) return;
+    el.innerHTML = Object.entries(window.SPEC_SCHEMA).map(([k, c]) =>
+      `<button type="button" class="spec-cat-pill${k === __specCategory ? ' active' : ''}" data-action="pick-spec-cat" data-speccat="${k}">${c.label}</button>`).join('');
+  }
+  function renderSpecFields() {
+    const wrap = document.getElementById('sellSpecFields');
+    if (!wrap) return;
+    const cat = window.SPEC_SCHEMA[__specCategory];
+    if (!cat || !cat.fields.length) { wrap.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 0; i < cat.fields.length; i += 2) {
+      const pair = cat.fields.slice(i, i + 2).map(f => {
+        const id = 'spec_' + f.k;
+        const reqStar = f.req ? ' *' : '';
+        if (f.type === 'select') {
+          return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><select id="${id}"><option value="">${f.req ? 'Choose…' : '—'}</option>${f.options.map(o => `<option>${o}</option>`).join('')}</select></div>`;
+        }
+        return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><input type="text" id="${id}" maxlength="120" /></div>`;
+      }).join('');
+      html += `<div class="spec-two-col">${pair}</div>`;
+    }
+    wrap.innerHTML = html;
+  }
+  window.setSpecCategory = function (k, opts) {
+    if (!window.SPEC_SCHEMA[k]) return;
+    __specCategory = k;
+    renderSpecCatPills();
+    renderSpecFields();
+    // Auto-drive the browse category; "Other" exposes the legacy select.
+    const catRow = document.getElementById('sellCatRow');
+    const catSel = document.getElementById('sellCat');
+    if (k === 'other') { if (catRow) catRow.style.display = ''; }
+    else { if (catRow) catRow.style.display = 'none'; if (catSel) catSel.value = window.SPEC_SCHEMA[k].browse; }
+    // AI bar appears once photos + category exist.
+    const bar = document.getElementById('aiDraftBar');
+    if (bar) bar.style.display = (selectedFiles.length > 0) ? '' : 'none';
+    if (!(opts && opts.silent) && typeof renderTakeHome === 'function') { try { renderTakeHome(); } catch (_e) {} }
+  };
+  window.getSpecCategory = () => __specCategory;
+  window.collectSpecs = function () {
+    const cat = window.SPEC_SCHEMA[__specCategory];
+    const out = {};
+    if (!cat) return out;
+    const brand = (document.getElementById('sellBrand') || {}).value;
+    if (brand && brand.trim()) out.brand = brand.trim().slice(0, 60);
+    cat.fields.forEach(f => {
+      const el = document.getElementById('spec_' + f.k);
+      const v = el && String(el.value || '').trim();
+      if (v) out[f.k] = v.slice(0, 120);
+    });
+    return out;
+  };
+  window.collectSpecErrors = function () {
+    const errs = [];
+    if (!__specCategory) { errs.push(['sellSpecCatPills', 'Pick what you\'re selling first.']); return errs; }
+    const cat = window.SPEC_SCHEMA[__specCategory];
+    cat.fields.forEach(f => {
+      if (!f.req) return;
+      const el = document.getElementById('spec_' + f.k);
+      if (!el || !String(el.value || '').trim()) errs.push(['spec_' + f.k, `${f.label} is required for ${cat.label.toLowerCase()} listings.`]);
+    });
+    return errs;
+  };
+  window.resetSpecState = function () { __specCategory = ''; renderSpecCatPills(); renderSpecFields(); const b = document.getElementById('aiDraftBar'); if (b) b.style.display = 'none'; };
+  window.hydrateSpecState = function (listing) {
+    const k = listing && listing.specCategory;
+    if (k && window.SPEC_SCHEMA[k]) {
+      window.setSpecCategory(k, { silent: true });
+      const specs = listing.specs || {};
+      Object.entries(specs).forEach(([key, val]) => {
+        const el = document.getElementById('spec_' + key);
+        if (el) el.value = String(val);
+      });
+    } else { window.resetSpecState(); }
+  };
+  renderSpecCatPills();
+
   // Validates the shared sell/edit field set; returns [] when clean.
   function collectSellErrors({ title, brand, cat, price, condition, files, checkDesc }) {
     const errors = [];
@@ -9859,6 +10000,8 @@ window.confirmPayment = async function() {
         `Minimum listing price is $${floor}.`]);
     }
     if (!condition) errors.push(['sellCondition', 'Pick a condition.']);
+    // Listing v2: category + required per-category specs block submit.
+    if (window.collectSpecErrors) errors.push(...window.collectSpecErrors());
     if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
     else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
     const blocked = checkDesc != null && window.findExplicitContent && window.findExplicitContent(title + ' ' + checkDesc);
@@ -9884,7 +10027,107 @@ window.confirmPayment = async function() {
     renderPreviews();
   }
 
+  // Listing v2 AI assist: ≤4 photos downscaled client-side (photos are
+  // not in Storage yet at draft time) → draftListingFromPhotos (Haiku
+  // 4.5) → suggestions pre-filled ONLY into empty fields. One-tap undo;
+  // nothing publishes. Fails soft: the form works without it.
+  let __aiFilled = [];
+  async function __toDraftB64(entry) {
+    try {
+      let bmp;
+      if (entry && entry.__existingUrl) {
+        const r = await fetch(entry.__existingUrl);
+        bmp = await createImageBitmap(await r.blob());
+      } else {
+        bmp = await createImageBitmap(entry);
+      }
+      const scale = Math.min(1, 800 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(bmp.width * scale));
+      c.height = Math.max(1, Math.round(bmp.height * scale));
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const b64 = c.toDataURL('image/jpeg', 0.8).split(',')[1];
+      return (b64 && b64.length < 600 * 1024) ? b64 : null;
+    } catch (_e) { return null; }
+  }
+  window.aiDraftListing = async function () {
+    const cat = window.getSpecCategory && window.getSpecCategory();
+    const status = document.getElementById('aiDraftStatus');
+    const btn = document.getElementById('aiDraftBtn');
+    if (!cat || cat === 'other') { if (status) status.textContent = 'Pick a specific category first — the draft is spec-aware.'; return; }
+    if (!selectedFiles.length) { if (status) status.textContent = 'Add at least one photo first.'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Reading your photos…'; }
+    if (status) status.textContent = '';
+    try {
+      const images = [];
+      for (const f of selectedFiles.slice(0, 4)) {
+        const b64 = await __toDraftB64(f);
+        if (b64) images.push({ data: b64, mediaType: 'image/jpeg' });
+      }
+      if (!images.length) throw new Error('no-images');
+      const { getFunctions, httpsCallable } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+      const fn = httpsCallable(getFunctions(), 'draftListingFromPhotos');
+      const specsNow = window.collectSpecs ? window.collectSpecs() : {};
+      const res = await fn({ category: cat, images, specs: specsNow, brand: specsNow.brand || '', model: specsNow.model || '' });
+      const d = (res && res.data) || {};
+      if (!d.ok) {
+        const msgs = {
+          'daily-limit': 'You\'ve hit today\'s AI limit (25 drafts). The form works as usual.',
+          'budget': 'AI drafting is paused for the month. The form works as usual.',
+          'disabled': 'AI drafting is off right now. The form works as usual.',
+        };
+        if (status) status.textContent = msgs[d.reason] || 'Couldn\'t draft from these photos — fill the form manually.';
+        return;
+      }
+      __aiFilled = [];
+      const fill = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val && !String(el.value || '').trim()) { el.value = val; __aiFilled.push(id); }
+      };
+      fill('sellTitle', d.title);
+      fill('sellDesc', d.description);
+      if (d.condition) { const c = document.getElementById('sellCondition'); if (c) { c.value = d.condition; __aiFilled.push('sellCondition'); } }
+      Object.entries(d.specs || {}).forEach(([k, v]) => {
+        if (k === 'brand') { fill('sellBrand', v); return; }
+        const el = document.getElementById('spec_' + k);
+        if (!el || String(el.value || '').trim()) return;
+        if (el.tagName === 'SELECT') {
+          const hit = [...el.options].find(o => o.value.toLowerCase() === String(v).toLowerCase());
+          if (hit) { el.value = hit.value; __aiFilled.push('spec_' + k); }
+        } else { el.value = String(v); __aiFilled.push('spec_' + k); }
+      });
+      if (d.price && d.price.mid > 0) {
+        fill('sellPrice', String(d.price.mid));
+        try { if (typeof renderTakeHome === 'function') renderTakeHome(); } catch (_e) {}
+      }
+      if (status) {
+        const pr = d.price;
+        status.innerHTML = (pr && pr.mid > 0
+          ? `Suggested range <strong>$${pr.low}–$${pr.high}</strong> (listed at $${pr.mid}). ${window.safeText(pr.rationale || '')}${pr.compsUsed ? ` Based on ${pr.compsUsed} TeeBox sale${pr.compsUsed === 1 ? '' : 's'}.` : ''} `
+          : 'Draft filled in. ') +
+          'Everything is editable — nothing publishes until you tap Publish. ' +
+          '<button type="button" class="rail-link" style="display:inline;margin:0" data-action="ai-draft-undo">Undo AI fill</button>';
+      }
+    } catch (e) {
+      console.warn('aiDraftListing failed', e);
+      if (status) status.textContent = 'Couldn\'t draft from these photos — fill the form manually.';
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Draft it for me — title, specs & price from your photos'; }
+    }
+  };
+  window.aiDraftUndo = function () {
+    __aiFilled.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    __aiFilled = [];
+    const status = document.getElementById('aiDraftStatus');
+    if (status) status.textContent = 'Cleared. Fill the form manually or draft again.';
+  };
+  function __syncAiDraftBar() {
+    const bar = document.getElementById('aiDraftBar');
+    if (bar) bar.style.display = (selectedFiles.length > 0 && window.getSpecCategory && window.getSpecCategory()) ? '' : 'none';
+  }
   function renderPreviews() {
+    __syncAiDraftBar();
     const container = document.getElementById('uploadPreviews');
     const count = document.getElementById('uploadCount');
     // selectedFiles entries are either a File (newly picked) or a
@@ -10237,6 +10480,10 @@ window.confirmPayment = async function() {
       docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price,
         condition, desc, badge: 'new',
+        // Listing v2: structured spec fields (not a blob) — render as a
+        // spec table on the detail page; feed search/filters later.
+        specCategory: window.getSpecCategory ? (window.getSpecCategory() || 'other') : 'other',
+        specs: window.collectSpecs ? window.collectSpecs() : {},
         photos: [], sellerId: window.CURRENT_USER.uid,
         status: 'active', createdAt: serverTimestamp(),
         expiresAt,
@@ -10506,6 +10753,10 @@ window.confirmPayment = async function() {
     // when editing a listing that already has multi-stock.
     try { if (typeof window.__setSellQtyVisible === 'function') window.__setSellQtyVisible(Number(p.quantity || 1) > 1); } catch (_e) {}
     set('sellDesc', p.desc || '');
+    // Listing v2: restore the spec category + fields (legacy listings
+    // without specCategory reset to the picker — the "complete your
+    // specs" path).
+    if (window.hydrateSpecState) window.hydrateSpecState(p);
 
     // Load existing photos as ordered, non-uploaded markers so the
     // photo widget shows them and uploadPhotos() preserves them in
@@ -10581,6 +10832,8 @@ window.confirmPayment = async function() {
         listingId,
         title, brand, cat, ask: price, condition, desc,
         quantity, photos: photoUrls,
+        specCategory: window.getSpecCategory ? (window.getSpecCategory() || 'other') : 'other',
+        specs: window.collectSpecs ? window.collectSpecs() : {},
       });
       // Success — clear edit state, refresh the grid + any open
       // dashboard/detail so the new values show.
@@ -11765,6 +12018,29 @@ async function openDetailModal(id) {
       : 'Shipping calculated at checkout';
   }
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
+  // Listing v2: structured spec table (r257). Legacy listings without
+  // specs show the owner a complete-your-specs nudge instead.
+  try {
+    let specHost = document.getElementById('detailSpecs');
+    if (!specHost) {
+      specHost = document.createElement('div');
+      specHost.id = 'detailSpecs';
+      const descEl = document.getElementById('detailDesc');
+      descEl.parentNode.insertBefore(specHost, descEl.nextSibling);
+    }
+    const entries = Object.entries(p.specs || {}).filter(([, v]) => v != null && String(v).trim() !== '');
+    const ownerNoSpecs = window.CURRENT_USER && p.sellerId === window.CURRENT_USER.uid && !p.specCategory;
+    if (entries.length) {
+      const order = ['brand', 'model', 'loft', 'ironNumber', 'setFrom', 'setTo', 'bounce', 'grind', 'length', 'headStyle', 'shaftBrand', 'shaftModel', 'shaftType', 'flex', 'dexterity', 'lieLength', 'grip', 'headcover', 'bagType', 'apparelType', 'hcType', 'itemType', 'size', 'quantity'];
+      entries.sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+      specHost.innerHTML = '<div class="spec-table">' + entries.map(([k, v]) =>
+        `<div class="spec-row"><span class="spec-k">${window.safeText((window.SPEC_LABELS || {})[k] || k)}</span><span class="spec-v">${window.safeText(String(v))}</span></div>`).join('') + '</div>';
+    } else if (ownerNoSpecs) {
+      specHost.innerHTML = '<div class="spec-nudge">Complete your specs — buyers filter by them. Tap <strong>Edit listing</strong> above, pick a category, and fill in the details.</div>';
+    } else {
+      specHost.innerHTML = '';
+    }
+  } catch (_e) { /* spec table never blocks the modal */ }
 
   // Reflect listing status in the action buttons.
   const buyBtn  = document.getElementById('detailBuyNowBtn');
@@ -15021,6 +15297,9 @@ function openSellModal() {
   document.getElementById('uploadPreviews').innerHTML = '';
   document.getElementById('uploadCount').textContent = '';
   document.getElementById('uploadZone').style.display = 'block';
+  // Listing v2: fresh opens start with no category picked; edit mode
+  // re-hydrates right after via hydrateSpecState().
+  if (!window.__editingListingId && window.resetSpecState) window.resetSpecState();
   document.getElementById('sellModalBackdrop').classList.add('open');
   // r193: resolve the seller's tier once per modal-open so the live
   // take-home line can show the real fee. The old check read
@@ -22862,7 +23141,12 @@ A['close-sell-direct']       = () => closeSellModalDirect();
 A['close-stripe-required']   = () => closeStripeRequiredDirect();
 A['submit-listing']          = () => { if (!window.requireAuth('to publish your listing')) return; submitListing(); };
 A['toggle-sell-qty']         = () => { if (window.__setSellQtyVisible) window.__setSellQtyVisible(true); const q = document.getElementById('sellQuantity'); if (q) q.focus(); };
-A['ai-suggest-price']         = () => { if (!window.requireAuth('to suggest a price')) return; aiSuggestPrice(); };
+// 'ai-suggest-price' retired r257 (Gemini pair replaced by the Listing
+// v2 draft bar). The old aiSuggestPrice/aiGenerateDesc JS is documented
+// dead code pending a cleanup pass.
+A['pick-spec-cat']            = (el) => { if (window.setSpecCategory) window.setSpecCategory(el.dataset.speccat); };
+A['ai-draft-listing']         = () => { if (!window.requireAuth('to draft your listing')) return; window.aiDraftListing && window.aiDraftListing(); };
+A['ai-draft-undo']            = () => { window.aiDraftUndo && window.aiDraftUndo(); };
 A['apply-ai-price']           = (el) => {
   const p = Number(el.dataset.price || 0);
   const inp = document.getElementById('sellPrice');
@@ -24748,7 +25032,12 @@ if (uploadZone) {
     }, 650);
 
     // Best-effort leaderboard write
-    writeLeaderboardScore(score, s.count).catch(() => { /* swallow */ });
+    // A4 (audit 2026-09-01; r257): client no longer writes gameScores —
+    // syncBingoProgress is the sole writer (server-computed streak, score
+    // validated against the day's board). The create/update rules flip to
+    // false in the same release; stale bundles' writes fail silently by
+    // their own .catch design.
+    // writeLeaderboardScore(score, s.count) — retired.
     // Flush the local sync queue immediately on solve — no need to wait
     // for the 10s debounce when the user just hit the most engagement-
     // worthy moment of the round. If we're offline this is a no-op and

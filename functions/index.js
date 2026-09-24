@@ -6276,530 +6276,15 @@ exports.refundOrder = onCall(
 );
 
 // ─────────────────────────────────────────────────────────────
-// generateListingDescription
-//   Callable that asks Gemini 1.5 Flash to draft a marketplace
-//   listing description from {title, brand, category, condition}.
-//   - Auth required
-//   - Verified-seller required (users/{uid}.isVerifiedSeller, with a
-//     fallback to legacy `sellerVerified` field for older users)
-//   - 30 calls/user/day rate limit, tracked at users/{uid}/aiUsage/{YYYY-MM-DD}
-//   - Returns { description: <trimmed text> }
+// generateListingDescription + suggestListingPrice (Gemini) RETIRED
+// 2026-09-24 (founder ruling, Listing v2): replaced by the single
+// draftListingFromPhotos callable in ./listingAssist.js (Anthropic
+// Haiku 4.5 — title + description + condition + photo-read specs +
+// price band in one call). The deployed Gemini functions are deleted
+// from prod in the same r257 lane; geminiSecret STAYS — moderateMessage
+// still uses it. Privacy §6 swaps the processor entry in the same bump.
 // ─────────────────────────────────────────────────────────────
-exports.generateListingDescription = onCall(
-  {secrets: [geminiSecret], cors: ALLOWED_ORIGINS},
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in.");
-    }
-    if (!(await emailVerifiedLive(request))) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Please verify your email before continuing.");
-    }
-    const uid = request.auth.uid;
-    const data = request.data || {};
 
-    // ── Input validation ──
-    const requireString = (key, max) => {
-      const v = data[key];
-      if (typeof v !== "string") {
-        throw new HttpsError("invalid-argument", `${key} required`);
-      }
-      const trimmed = v.trim();
-      if (!trimmed) {
-        throw new HttpsError("invalid-argument", `${key} required`);
-      }
-      if (trimmed.length > max) {
-        throw new HttpsError("invalid-argument", `${key} too long`);
-      }
-      return trimmed;
-    };
-    const title = requireString("title", 200);
-    const brand = requireString("brand", 200);
-    const category = requireString("category", 200);
-    const condition = requireString("condition", 200);
-
-    const db = admin.firestore();
-
-    // ── Verified-seller gate ──
-    let userSnap;
-    try {
-      userSnap = await db.collection("users").doc(uid).get();
-    } catch (err) {
-      logger.error("generateListingDescription: user lookup failed", err);
-      throw new HttpsError("internal", "Could not verify seller.");
-    }
-    const userData = userSnap.exists ? userSnap.data() : {};
-    const isVerified = !!(userData.isVerifiedSeller || userData.sellerVerified);
-    if (!isVerified) {
-      // Message must carry the HOW — older shipped app bundles surface
-      // e.message directly, and "Verified sellers only." left users with
-      // no path forward (2026-08-05 incident).
-      throw new HttpsError(
-          "failed-precondition",
-          "Agree to the Seller Terms in the sell form to become a seller, " +
-          "then try again.",
-      );
-    }
-
-    // ── Rate limit (30/day per user) ──
-    // Stored at users/{uid}/aiUsage/{YYYY-MM-DD} so it's auditable and
-    // self-cleans (one tiny doc per day per user).
-    const dateKey = new Date().toISOString().slice(0, 10); // UTC day
-    const usageRef = db
-        .collection("users").doc(uid)
-        .collection("aiUsage").doc(dateKey);
-    try {
-      await db.runTransaction(async (tx) => {
-        const snap = await tx.get(usageRef);
-        const count = snap.exists ? Number(snap.data().count || 0) : 0;
-        if (count >= 30) {
-          throw new HttpsError("resource-exhausted", "Daily AI limit reached.");
-        }
-        tx.set(usageRef, {
-          count: count + 1,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, {merge: true});
-      });
-    } catch (err) {
-      if (err instanceof HttpsError) throw err;
-      logger.error("generateListingDescription: rate-limit txn failed", err);
-      throw new HttpsError("internal", "Could not record AI usage.");
-    }
-
-    // ── Build prompt + call Gemini 1.5 Flash via REST ──
-    const prompt =
-      "Write a concise (60-100 word) marketplace listing description for " +
-      "a used golf item. " +
-      `Item: ${title}. Brand: ${brand}. Category: ${category}. ` +
-      `Condition: ${condition}. ` +
-      "Tone: confident and informative, no fluff. " +
-      "Don't invent specs or features that weren't given. " +
-      "Don't use emojis. Don't use 'I'/'you' — third person. " +
-      "Don't include the price. Output the description only, no preamble.";
-
-    const apiKey = geminiSecret.value();
-    if (!apiKey) {
-      logger.error("generateListingDescription: GEMINI_API_KEY missing");
-      throw new HttpsError("internal", "AI service not configured.");
-    }
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/" +
-      "gemini-2.0-flash:generateContent?key=" + encodeURIComponent(apiKey);
-
-    let aiResp;
-    try {
-      aiResp = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          contents: [{parts: [{text: prompt}]}],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 256,
-          },
-        }),
-      });
-    } catch (err) {
-      logger.error("generateListingDescription: fetch failed", err);
-      throw new HttpsError("internal", "Could not reach AI service.");
-    }
-
-    if (!aiResp.ok) {
-      const body = await aiResp.text().catch(() => "");
-      logger.error(
-          "generateListingDescription: Gemini error",
-          aiResp.status,
-          body,
-      );
-      throw new HttpsError("internal", "AI service returned an error.");
-    }
-
-    let payload;
-    try {
-      payload = await aiResp.json();
-    } catch (err) {
-      logger.error("generateListingDescription: bad JSON", err);
-      throw new HttpsError("internal", "AI service returned invalid response.");
-    }
-
-    const text =
-      payload &&
-      payload.candidates &&
-      payload.candidates[0] &&
-      payload.candidates[0].content &&
-      payload.candidates[0].content.parts &&
-      payload.candidates[0].content.parts[0] &&
-      payload.candidates[0].content.parts[0].text;
-
-    if (typeof text !== "string" || !text.trim()) {
-      logger.error(
-          "generateListingDescription: empty candidate",
-          JSON.stringify(payload).slice(0, 500),
-      );
-      throw new HttpsError("internal", "AI service returned an empty draft.");
-    }
-
-    return {description: text.trim()};
-  },
-);
-
-// ─────────────────────────────────────────────────────────────
-// suggestListingPrice
-//   Callable that asks Gemini 1.5 Flash to suggest a fair list
-//   price (with a low/high band and reasoning) for a listing
-//   draft, grounded in recent comparable solds pulled from the
-//   `listings` collection.
-//   - Auth required
-//   - 30 calls/min/UID via the shared checkRateLimit helper
-//   - Reads up to 200 sold listings from the last 90 days
-//     (`listings` collection, status=="sold", ordered by
-//     createdAt DESC), filtered to brand or title-keyword overlap
-//     and capped at 50 comps for the prompt — read-only.
-//   - Multimodal: optional `inlineImages: [{data,mimeType}]`
-//     (base64, already client-side compressed) OR
-//     `photos: [storagePath]` (downloaded from the default bucket
-//     when paths are under listings/<uid>/...). Capped at 3 images
-//     so we don't blow the per-call token budget.
-//   - Returns { suggested, low, high, reasoning, comps[], compsCount }
-// ─────────────────────────────────────────────────────────────
-exports.suggestListingPrice = onCall(
-  {...USER_CALLABLE, secrets: [geminiSecret]},
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in.");
-    }
-    if (!(await emailVerifiedLive(request))) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Please verify your email before continuing.");
-    }
-
-    // ── Server-side kill-switch (LAUNCH_READINESS.md CRITICAL #10) ──
-    // Default OFF. Comp coverage is thin pre-launch (< 100 listings per
-    // category) so the Gemini suggestion has nothing to ground against
-    // and burns API quota for low-quality output. Flip
-    // `config/features.aiPriceEnabled = true` in Firestore once comp
-    // coverage > 100 listings per category. The client (index.html)
-    // also hides the button when the flag is false so users never even
-    // see a broken-looking action; this server check is the source of
-    // truth and prevents a stale-cached client from hammering Gemini.
-    try {
-      const featSnap = await admin.firestore()
-          .doc("config/features").get();
-      const featData = featSnap.exists ? (featSnap.data() || {}) : {};
-      if (featData.aiPriceEnabled !== true) {
-        return {enabled: false, reason: "feature-disabled"};
-      }
-    } catch (err) {
-      // Fail CLOSED on flag-read error. A Firestore hiccup that prevents
-      // us from confirming the flag should not cause us to burn Gemini
-      // quota — better to show "try later" than to suggest a bad price.
-      logger.warn("suggestListingPrice: feature-flag read failed", err.message);
-      return {enabled: false, reason: "feature-disabled"};
-    }
-
-    const uid = request.auth.uid;
-    const data = request.data || {};
-
-    // ── Input validation ──
-    const requireString = (key, max) => {
-      const v = data[key];
-      if (typeof v !== "string") {
-        throw new HttpsError("invalid-argument", `${key} required`);
-      }
-      const trimmed = v.trim();
-      if (!trimmed) {
-        throw new HttpsError("invalid-argument", `${key} required`);
-      }
-      if (trimmed.length > max) {
-        throw new HttpsError("invalid-argument", `${key} too long`);
-      }
-      return trimmed;
-    };
-    const optString = (key, max) => {
-      const v = data[key];
-      if (v == null || typeof v !== "string") return "";
-      const trimmed = v.trim();
-      return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
-    };
-
-    const title = requireString("title", 200);
-    const brand = optString("brand", 200);
-    const model = optString("model", 200);
-    const condition = optString("condition", 200);
-    const category = optString("category", 200);
-
-    // ── Rate limit (30/min/UID) ──
-    const rl = await checkRateLimit(uid, "suggestListingPrice", 30);
-    if (!rl.ok) {
-      throw new HttpsError(
-          "resource-exhausted",
-          `Too many requests. Try again in ${rl.retryAfterSec}s.`,
-      );
-    }
-
-    const db = admin.firestore();
-
-    // ── Pull recent solds (last 90 days), then score ──
-    // Uses the existing status+createdAt index. We over-fetch (200)
-    // and re-rank by brand/title overlap so brand-light queries
-    // still get useful signal. Final comps capped at 50.
-    const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
-    const cutoffTs = admin.firestore.Timestamp.fromMillis(
-        Date.now() - NINETY_DAYS_MS);
-
-    const titleLower = title.toLowerCase();
-    const modelLower = model.toLowerCase();
-    const brandLower = brand.toLowerCase();
-    const tokens = (titleLower + " " + modelLower)
-        .split(/[^a-z0-9]+/i)
-        .filter((t) => t && t.length > 2);
-
-    let rawSolds = [];
-    try {
-      const snap = await db.collection("listings")
-          .where("status", "==", "sold")
-          .where("createdAt", ">=", cutoffTs)
-          .orderBy("createdAt", "desc")
-          .limit(200)
-          .get();
-      snap.forEach((doc) => {
-        const d = doc.data() || {};
-        const ask = Number(d.ask || 0);
-        if (!ask || ask <= 0) return;
-        rawSolds.push({
-          id: doc.id,
-          title: String(d.title || ""),
-          brand: String(d.brand || ""),
-          condition: String(d.condition || ""),
-          ask,
-        });
-      });
-    } catch (err) {
-      // Fail soft on Firestore — we can still ask Gemini without comps.
-      logger.warn("suggestListingPrice: solds query failed", err);
-      rawSolds = [];
-    }
-
-    const scored = rawSolds.map((s) => {
-      const lt = (s.title || "").toLowerCase();
-      const lb = (s.brand || "").toLowerCase();
-      const overlap = tokens.filter((t) => lt.includes(t)).length;
-      const brandHit = brandLower && lb === brandLower ? 1 : 0;
-      // brand match (3) + per-token overlap (1).
-      const score = brandHit * 3 + overlap;
-      return {...s, score};
-    }).filter((s) => s.score >= 1);
-    scored.sort((a, b) => b.score - a.score);
-    const comps = scored.slice(0, 50);
-
-    // ── Build prompt ──
-    const compsLines = comps.map((c, i) =>
-      `${i + 1}. "${c.title}" — ${c.brand || "?"}, ` +
-      `${c.condition || "?"} — sold $${c.ask}`,
-    ).join("\n");
-
-    const promptText =
-      "You are a pricing expert for a peer-to-peer used golf marketplace " +
-      "(TeeBox). Suggest a fair list price in USD for a new listing, " +
-      "grounded in the comparable recent sales below. Consider brand, " +
-      "model, and condition. Be conservative — pricing too high stalls " +
-      "the listing.\n\n" +
-      "RECENT COMPARABLE SALES (last 90 days, may be empty):\n" +
-      (compsLines || "(no close comps)") + "\n\n" +
-      "NEW LISTING DRAFT:\n" +
-      `Title: ${title}\n` +
-      `Brand: ${brand || "(unspecified)"}\n` +
-      `Model: ${model || "(unspecified)"}\n` +
-      `Category: ${category || "(unspecified)"}\n` +
-      `Condition: ${condition || "(unspecified)"}\n\n` +
-      "Return ONLY a strict JSON object with this exact shape, no prose, " +
-      "no markdown fences:\n" +
-      "{\"suggested\": <number USD>, \"low\": <number USD>, " +
-      "\"high\": <number USD>, " +
-      "\"reasoning\": \"<one-sentence explanation, max 160 chars>\"}\n" +
-      "Where low <= suggested <= high. Use whole dollars or .99 endings.";
-
-    // ── Build multimodal parts (cap at 3 images) ──
-    const parts = [{text: promptText}];
-    const inlineImages = Array.isArray(data.inlineImages) ?
-      data.inlineImages.slice(0, 3) : [];
-    for (const img of inlineImages) {
-      if (!img || typeof img !== "object") continue;
-      const b64 = typeof img.data === "string" ? img.data : "";
-      const mt = typeof img.mimeType === "string" ?
-        img.mimeType : "image/jpeg";
-      // Cap base64 payload at ~2MB per image (raw ~1.5MB).
-      if (!b64 || b64.length > 2_000_000) continue;
-      if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(mt)) continue;
-      parts.push({inlineData: {data: b64, mimeType: mt}});
-    }
-
-    const photoPaths = Array.isArray(data.photos) ?
-      data.photos.slice(0, 3) : [];
-    if (parts.length === 1 && photoPaths.length > 0) {
-      // No inline images — try to download up to 3 from default bucket.
-      try {
-        const bucket = admin.storage().bucket();
-        for (const p of photoPaths) {
-          if (typeof p !== "string" || !p) continue;
-          if (p.length > 1024) continue;
-          // Defense-in-depth: only allow paths under listings/<uid>/...
-          if (!p.startsWith(`listings/${uid}/`)) continue;
-          try {
-            const [buf] = await bucket.file(p).download();
-            if (!buf || buf.length === 0) continue;
-            if (buf.length > 4 * 1024 * 1024) continue;
-            parts.push({
-              inlineData: {
-                data: buf.toString("base64"),
-                mimeType: "image/jpeg",
-              },
-            });
-          } catch (e) {
-            logger.warn("suggestListingPrice: photo download failed", p);
-          }
-        }
-      } catch (e) {
-        logger.warn("suggestListingPrice: bucket access failed", e);
-      }
-    }
-
-    // ── Call Gemini 1.5 Flash via REST ──
-    const apiKey = geminiSecret.value();
-    if (!apiKey) {
-      logger.error("suggestListingPrice: GEMINI_API_KEY missing");
-      throw new HttpsError("internal", "AI service not configured.");
-    }
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/" +
-      "gemini-2.0-flash:generateContent?key=" + encodeURIComponent(apiKey);
-
-    let aiResp;
-    try {
-      aiResp = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          contents: [{parts}],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 256,
-            responseMimeType: "application/json",
-          },
-        }),
-      });
-    } catch (err) {
-      logger.error("suggestListingPrice: fetch failed", err);
-      throw new HttpsError("internal", "Could not reach AI service.");
-    }
-
-    if (!aiResp.ok) {
-      const body = await aiResp.text().catch(() => "");
-      logger.error(
-          "suggestListingPrice: Gemini error",
-          aiResp.status,
-          body.slice(0, 500),
-      );
-      throw new HttpsError("internal", "AI service returned an error.");
-    }
-
-    let payload;
-    try {
-      payload = await aiResp.json();
-    } catch (err) {
-      logger.error("suggestListingPrice: bad JSON envelope", err);
-      throw new HttpsError("internal", "AI service returned invalid response.");
-    }
-
-    const text =
-      payload &&
-      payload.candidates &&
-      payload.candidates[0] &&
-      payload.candidates[0].content &&
-      payload.candidates[0].content.parts &&
-      payload.candidates[0].content.parts[0] &&
-      payload.candidates[0].content.parts[0].text;
-
-    // ── Parse Gemini's JSON, fall back to median of comps ──
-    const num = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
-    };
-
-    const fallbackFromComps = () => {
-      if (!comps.length) return null;
-      const asks = comps.map((c) => c.ask).sort((a, b) => a - b);
-      const median = asks[Math.floor(asks.length / 2)];
-      const low = asks[Math.floor(asks.length * 0.25)] || median;
-      const high = asks[Math.floor(asks.length * 0.75)] || median;
-      return {
-        suggested: median,
-        low,
-        high,
-        reasoning: `Median of ${asks.length} recent comparable sales.`,
-      };
-    };
-
-    let parsed = null;
-    if (typeof text === "string" && text.trim()) {
-      try {
-        // Strip code fences if Gemini ignored responseMimeType.
-        const cleaned = text.trim()
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/```\s*$/i, "");
-        parsed = JSON.parse(cleaned);
-      } catch (err) {
-        logger.warn(
-            "suggestListingPrice: bad JSON in candidate",
-            text.slice(0, 200),
-        );
-      }
-    }
-
-    let suggested = parsed && num(parsed.suggested);
-    let low = parsed && num(parsed.low);
-    let high = parsed && num(parsed.high);
-    let reasoning = parsed && typeof parsed.reasoning === "string" ?
-      parsed.reasoning.slice(0, 240) : "";
-
-    if (!suggested || !low || !high) {
-      const fb = fallbackFromComps();
-      if (!fb) {
-        throw new HttpsError(
-            "internal",
-            "Couldn't suggest a price right now.",
-        );
-      }
-      suggested = fb.suggested;
-      low = fb.low;
-      high = fb.high;
-      reasoning = reasoning || fb.reasoning;
-    }
-
-    // Clamp the band so low <= suggested <= high.
-    if (low > suggested) low = suggested;
-    if (high < suggested) high = suggested;
-
-    // Slim public comps payload — title + ask only, capped at 8 for UI.
-    const publicComps = comps.slice(0, 8).map((c) => ({
-      title: c.title,
-      brand: c.brand,
-      condition: c.condition,
-      ask: c.ask,
-    }));
-
-    return {
-      suggested,
-      low,
-      high,
-      reasoning: reasoning || "Based on recent comparable sales.",
-      comps: publicComps,
-      compsCount: comps.length,
-    };
-  },
-);
 
 // ──────────────────────────────────────────────────────────────────────
 // CONTENT MODERATION TRIGGERS
@@ -7495,6 +6980,40 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // createdAt, status, id, or server-owned counters. bid is derived
   // the same way submitListing derives it (90% of ask) so the
   // bid/ask invariant the rules enforce holds. ──
+  // Listing v2 (r257): structured specs. Validate hard — client-supplied.
+  const SPEC_CATS = ["driver", "fairway", "hybrid", "iron-set",
+    "single-iron", "wedge", "putter", "balls", "bag", "apparel", "shoes",
+    "headcover", "accessories", "other"];
+  let specCategory = null;
+  let specs = null;
+  if (data.specCategory != null) {
+    specCategory = String(data.specCategory);
+    if (!SPEC_CATS.includes(specCategory)) {
+      throw new HttpsError("invalid-argument", "Unknown spec category.");
+    }
+  }
+  if (data.specs != null) {
+    if (typeof data.specs !== "object" || Array.isArray(data.specs)) {
+      throw new HttpsError("invalid-argument", "Bad specs shape.");
+    }
+    const entries = Object.entries(data.specs);
+    if (entries.length > 30) {
+      throw new HttpsError("invalid-argument", "Too many spec fields.");
+    }
+    specs = {};
+    for (const [k, v] of entries) {
+      if (typeof k !== "string" || k.length > 40 ||
+          !/^[a-zA-Z][a-zA-Z0-9]{0,39}$/.test(k)) {
+        throw new HttpsError("invalid-argument", "Bad spec key.");
+      }
+      const val = String(v);
+      if (val.length > 120) {
+        throw new HttpsError("invalid-argument", "Spec value too long.");
+      }
+      specs[k] = val;
+    }
+  }
+
   const update = {
     title,
     brand,
@@ -7503,6 +7022,8 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     bid: Math.round(price * 0.9),
     condition,
     desc,
+    ...(specCategory != null ? {specCategory} : {}),
+    ...(specs != null ? {specs} : {}),
     photos,
     quantity,
     requiresAuth: isHighValue,
@@ -8499,6 +8020,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 // Re-exports its onDocumentCreated/Updated handlers via this require —
 // `firebase deploy --only functions` picks them up automatically.
 // ─────────────────────────────────────────────────────────────
+Object.assign(exports, require("./listingAssist"));
 Object.assign(exports, require("./pushTriggers"));
 Object.assign(exports, require("./likeNotify"));
 
