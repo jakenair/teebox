@@ -1991,6 +1991,15 @@
     color: var(--gray-700); text-decoration: underline; }
   .pp-share-unshare:hover { color: var(--gray-900); }
 
+  /* r275 — Delete account, toned down from the red block. Quiet by design:
+     Apple 5.1.1(v) cares that it is findable without scrolling, which the
+     POSITION satisfies; nothing requires it to shout. */
+  .delete-account-link { background: transparent; border: 0; color: var(--gray-500);
+    font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    text-decoration: underline; text-underline-offset: 3px; padding: 10px 0 2px;
+    cursor: pointer; transition: var(--transition); }
+  .delete-account-link:hover { color: var(--red-500); }
+
   .shop-menu-wrap { position: relative; }
   /* Left-aligned, unlike .user-menu which hangs off the right edge — Shop is
      the leftmost ribbon item, so a right-anchored menu would run off-screen. */
@@ -2201,7 +2210,8 @@
   .cat-bar-wrap::after { right: 0; background: linear-gradient(to left, var(--green-900) 30%, transparent); opacity: 1; }
   .cat-bar-wrap.scrolled::before { opacity: 1; }
   .cat-bar-wrap.at-end::after { opacity: 0; }
-  .cat-bar { position: relative; min-height: 48px; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  /* r275: touch-action pan-x — same vertical-drag fix as .app-home-chips. */
+  .cat-bar { position: relative; min-height: 48px; display: flex; align-items: center; padding: 0 1rem; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x; }
   .cat-bar::-webkit-scrollbar { display: none; }
   /* Trailing/leading spacers so the first/last pill never bumps into the
      edge fade — gives a clean breathing margin when scrolled to either end. */
@@ -4066,6 +4076,13 @@
       display: flex; order: 0;
       gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
       padding: 12px 14px 4px;
+      /* r275: the chip row could be dragged DOWN. It scrolls on x but placed
+         no constraint on y, so in WKWebView a vertical drag starting on a chip
+         rubber-banded the row and chained into the page. pan-x confines the
+         gesture to the axis this row actually scrolls; contain stops the
+         leftover from being handed to the scroller behind it. */
+      touch-action: pan-x;
+      overscroll-behavior: contain;
     }
     body.is-native .app-home-chips .cat-pill {
       flex: 0 0 auto; position: relative;
@@ -4944,7 +4961,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r274</span></div>
+        <span class="auth-build" aria-hidden="true">r275</span></div>
     </div>
   </div>
 </div>
@@ -6323,10 +6340,11 @@
         <span class="mobile-nav-link-label">Profile</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
-      <a href="#" class="mobile-nav-link" data-action="open-my-passport">
-        <span class="mobile-nav-link-label">My Passport</span>
-        <span class="mobile-nav-link-chev">›</span>
-      </a>
+      <!-- r275: the ACCOUNT > "My Passport" row is gone. The drawer listed
+           Passport twice — once under DISCOVER (the feed) and again here —
+           which read as two different features. DISCOVER > Passport is the
+           single entry now; your own rounds are reachable from your profile,
+           and the open-my-passport action is still wired for that path. -->
       <a href="#" class="mobile-nav-link" data-action="open-about">
         <span class="mobile-nav-link-label">About TeeBox</span>
         <span class="mobile-nav-link-chev">›</span>
@@ -20406,7 +20424,15 @@ function renderProfileView(profile, listings, reviews, recentSold) {
          <button class="btn-full green" data-action="edit-profile">Edit Profile</button>
          <button class="btn-full ghost" data-action="sign-out">Sign Out</button>
          ${showManagePayouts ? `<button class="btn-full ghost" data-action="manage-payouts" style="grid-column:1/-1;">Manage payouts</button>` : ''}
-         <button class="btn-full" data-action="open-delete-account" style="grid-column:1/-1;background:rgba(192,57,43,0.08);color:var(--red-500);border:1px solid rgba(192,57,43,0.3);margin-top:8px;">Delete Account</button>
+         <!-- r275: toned down from the tinted red block to a quiet text row.
+              POSITION IS DELIBERATE AND MUST NOT MOVE — see the "Approved
+              deviation" note in .internal-docs/APP_UI_AUDIT_2026-08-02.md:
+              moving Delete Account to the bottom of the profile got build 18
+              REJECTED under Apple 5.1.1(v), which wants it discoverable
+              WITHOUT SCROLLING (checked on iPad Air landscape). Restyling is
+              safe because the guideline is about findability, not emphasis;
+              relocating it is not. -->
+         <button class="btn-full delete-account-link" data-action="open-delete-account" style="grid-column:1/-1;">Delete account</button>
        </div>`
     : `<div class="profile-mod-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
          <button class="btn-full ghost" data-action="report-user" data-uid="${window.safeAttr(profile.id)}">Report seller</button>
