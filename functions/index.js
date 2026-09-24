@@ -8142,6 +8142,14 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
 
+// Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
+// never rewrites the original. See the header of avatarVariants.js.
+// Named export, NOT Object.assign: the module also exports the
+// writeAvatarVariants helper for the backfill script, and that is a plain
+// function — re-exporting it here would offer it to the deployer as if it
+// were a deployable function.
+exports.optimizeAvatar = require("./avatarVariants").optimizeAvatar;
+
 // ─────────────────────────────────────────────────────────────
 // PASSPORT PHOTO MODERATION (audit 2026-09-17, HIGH). Course-passport photos
 // are PUBLIC (profile wall, Discover feed, course pages) but used to bypass
