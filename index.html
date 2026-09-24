@@ -1921,6 +1921,30 @@
   .hq-ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .hq-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
   .hq-sub { font-size: 12px; line-height: 1.35; color: rgba(255,255,255,0.68); }
+
+  /* r272 — Logo Bingo mini board. White cells, solid (not translucent) so
+     they read as a board rather than as empty space. */
+  .hq-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+    width: 34px; margin-bottom: 4px; }
+  .hq-board i { display: block; aspect-ratio: 1; border-radius: 1.5px;
+    background: rgba(255,255,255,0.92); }
+  .hq-board i.solved { background: var(--gold-300); }
+  .hq-tile:hover .hq-board i { background: #fff; }
+
+  /* r272 — rotating Journal covers. Sit behind the label with a scrim so the
+     text keeps its contrast on any cover. */
+  .hq-tile { position: relative; overflow: hidden; }
+  .hq-tile > .hq-name, .hq-tile > .hq-sub, .hq-tile > .hq-board, .hq-tile > .hq-ico { position: relative; z-index: 2; }
+  .hq-covers { position: absolute; inset: 0; z-index: 0; }
+  .hq-covers img { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity 900ms ease; }
+  .hq-covers img.on { opacity: 0.42; }
+  .hq-journal::after { content: ''; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(to top, rgba(11,26,14,0.92) 22%, rgba(11,26,14,0.45) 70%, rgba(11,26,14,0.25)); }
+  .hq-journal:hover .hq-covers img.on { opacity: 0.55; }
+  @media (prefers-reduced-motion: reduce) {
+    .hq-covers img { transition: none; }
+  }
   /* Sell is the commercial action — gold, so it reads as the CTA the nav
      button used to be. */
   .hq-sell { background: var(--gold-400); border-color: var(--gold-400); color: var(--green-950); }
@@ -1932,7 +1956,7 @@
   /* r271 — category side panel beside Trending Now. */
   .home-split { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 28px;
     max-width: 1240px; margin: 0 auto; align-items: start; }
-  .home-split > #trending { margin-left: 0; margin-right: 0; }
+  .home-split > .section { margin-left: 0; margin-right: 0; }
   .cat-side { padding: 2rem 0 0; }
   .cat-side-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
     color: var(--gray-900); margin: 0 0 12px; }
@@ -4759,6 +4783,17 @@
     // grid (the board), Journal an open book. Line-art to match the rest of
     // this map, and no emoji anywhere per the homepage ruling.
     grid:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 4h5v5H4zM9.5 4h5v5h-5zM15 4h5v5h-5zM4 9.5h5v5H4zM9.5 9.5h5v5h-5zM15 9.5h5v5h-5zM4 15h5v5H4zM9.5 15h5v5h-5zM15 15h5v5h-5z"/></svg>',
+    // r272: real golf glyphs. The category rail previously showed a pen for
+    // clubs and a SHOPPING CART for both balls and headcovers — cart was the
+    // fallback, since neither had an icon at all.
+    // Driver: shaft down to a rounded head at the heel.
+    golfclub:  '<svg class="ico" viewBox="0 0 24 24"><path d="M16.8 2.6l-6.9 12.1"/><path d="M9.9 14.7c-2.1 1.2-3.7 2.7-3.7 4 0 1 1 1.6 2.3 1.6 2 0 4.2-1.2 5.3-2.7z"/></svg>',
+    // Ball teed up: dimpled ball on a tapered tee.
+    golfball:  '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="4.6"/><path d="M10.4 6.2h.01M13.3 6.6h.01M11.6 9.1h.01"/><path d="M9.6 12.3l1.5 7.2M14.4 12.3l-1.5 7.2M10.7 19.5h2.6"/></svg>',
+    // Golf bag: body, collar, club shafts out the top, carry strap.
+    golfbag:   '<svg class="ico" viewBox="0 0 24 24"><path d="M7.6 9h8.8v9.6a2.4 2.4 0 01-2.4 2.4h-4a2.4 2.4 0 01-2.4-2.4z"/><path d="M7.6 9a4.4 4.4 0 018.8 0"/><path d="M10.1 8.8V3.6M12.2 8.8V2.7M14.3 8.8V4.4"/><path d="M16.4 11.4c1.4.5 2 1.5 2 3.1s-.6 2.6-2 3.1"/></svg>',
+    // Headcover: pom, neck, ribbed body.
+    headcover: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="4.4" r="1.9"/><path d="M12 6.3v3"/><path d="M8 21v-7.2a4 4 0 018 0V21z"/><path d="M8 17.4h8"/></svg>',
     book:      '<svg class="ico" viewBox="0 0 24 24"><path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2zM12 6.5v13"/></svg>',
     club:      '<svg class="ico" viewBox="0 0 24 24"><path d="M14 4l-9 9.5a2 2 0 002.8 2.8L17.3 7M14 4l3.3 3.3M14 4l4-1 1 1-1 4-3.3-3.3M5 18l1 2 2 1"/></svg>',
     shoe:      '<svg class="ico" viewBox="0 0 24 24"><path d="M3 16h18a0 0 0 010 0v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2zM3 16V9a4 4 0 014-4l3 4 4-1 4 5h2a3 3 0 013 3"/></svg>',
@@ -4802,12 +4837,14 @@
   // Map listing categories to placeholder icons.
   window.CATEGORY_ICON = function(cat) {
     return ({
-      clubs: window.ICONS.club,
+      // r272: golf-accurate glyphs. `club` was a pen shape, and balls +
+      // headcovers had no icon at all so both fell through to a shopping cart.
+      clubs: window.ICONS.golfclub,
       shoes: window.ICONS.shoe,
       apparel: window.ICONS.shirt,
-      bags: window.ICONS.bag,
-      balls: window.ICONS.cart,
-      headcovers: window.ICONS.cart,
+      bags: window.ICONS.golfbag,
+      balls: window.ICONS.golfball,
+      headcovers: window.ICONS.headcover,
       accessories: window.ICONS.accessory,
     })[cat] || window.ICONS.accessory;
   };
@@ -4900,7 +4937,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r271</span></div>
+        <span class="auth-build" aria-hidden="true">r272</span></div>
     </div>
   </div>
 </div>
@@ -6518,13 +6555,31 @@
            go. The whole .hero is already display:none under body.is-native, so
            this panel is web-only for free. -->
       <div class="hero-featured hero-quad" id="heroFeatured">
-        <button class="hq-tile" data-action="open-bingo" type="button">
-          <span class="hq-ico" data-ico="grid" aria-hidden="true"></span>
+        <!-- r272: mini board preview. Nine blank white cells — deliberately
+             NOT the real logos: the logos ARE the answers, so rendering them
+             here (or their filenames) would leak the day's puzzle straight
+             into the homepage DOM. Solved cells fill in from the LOCAL saved
+             game only, which the player already has, so nothing new is
+             exposed. -->
+        <button class="hq-tile hq-bingo" data-action="open-bingo" type="button">
+          <span class="hq-board" id="hqBingoBoard" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
           <span class="hq-name">Logo Bingo</span>
-          <span class="hq-sub">Guess today's nine courses</span>
+          <span class="hq-sub" id="hqBingoSub">Guess today's nine courses</span>
         </button>
-        <button class="hq-tile" data-action="open-journal" type="button">
-          <span class="hq-ico" data-ico="book" aria-hidden="true"></span>
+        <!-- r272: rotating Journal covers behind the label. Sources are
+             400px crops (cover-sm.webp, ~10KB each) rather than the 1080px
+             originals — five of those would have put ~567KB back on the
+             homepage and undone the phase-2 image work. -->
+        <button class="hq-tile hq-journal" data-action="open-journal" type="button">
+          <span class="hq-covers" id="hqCovers" aria-hidden="true">
+            <img src="/assets/reads/rodeo-dunes/cover-sm.webp" alt="" decoding="async" class="on" />
+            <img data-src="/assets/reads/caddie-series/cover-sm.webp" alt="" decoding="async" />
+            <img data-src="/assets/reads/lowcountry-top5/cover-sm.webp" alt="" decoding="async" />
+            <img data-src="/assets/reads/aiken-sandhills/cover-sm.webp" alt="" decoding="async" />
+            <img data-src="/assets/reads/college-top10/cover-sm.webp" alt="" decoding="async" />
+          </span>
           <span class="hq-name">TeeBox Journal</span>
           <span class="hq-sub">Course guides and gear reads</span>
         </button>
@@ -6591,6 +6646,13 @@
        old header pills did. WEB-ONLY: #trending also renders in the native
        app, so the panel is hidden under body.is-native per the standing
        "every new section is web-only" ruling. -->
+  <div class="section reveal" id="trending">
+    <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
+    <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
+  </div>
+
+  <!-- r272: the category rail moved from Trending Now down to Latest
+       Listings — it filters THIS grid, so it belongs beside it. -->
   <div class="home-split">
     <aside class="cat-side" aria-label="Shop by category">
       <h2 class="cat-side-title">Categories</h2>
@@ -6605,60 +6667,55 @@
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="headcovers" type="button"><span class="cat-side-ico" data-cat-ico="headcovers" aria-hidden="true"></span>Headcovers</button>
       </div>
     </aside>
-    <div class="section reveal" id="trending">
-      <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
-      <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
-    </div>
-  </div>
+    <div class="section reveal" id="homeLatest">
+      <div class="section-header"><h2 class="section-title">Latest Listings<span id="activeBrandChipSlot"></span></h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
 
-  <div class="section reveal" id="homeLatest">
-    <div class="section-header"><h2 class="section-title">Latest Listings<span id="activeBrandChipSlot"></span></h2><a href="#" class="section-link" data-action="open-saved-searches">Saved Searches</a></div>
+      <!-- r186 §3: APP-ONLY filter toolbar + applied-filter chips. Hidden on
+           web; in-app the real #sortMode is adopted into the sort slot and
+           #filterBar is adopted into the bottom sheet (listeners survive —
+           same adoption pattern as the Activity hub). -->
+      <div class="app-filter-toolbar" id="appFilterToolbar">
+        <button class="app-filter-btn" data-action="open-filter-sheet" type="button" aria-label="Open filters">
+          <span data-ico="sliders" aria-hidden="true"></span>Filters<span class="app-filter-count" id="appFilterCount" hidden></span>
+        </button>
+        <span class="app-sort-slot" id="appSortSlot"></span>
+      </div>
+      <div class="app-filter-chips" id="appFilterChips" hidden></div>
 
-    <!-- r186 §3: APP-ONLY filter toolbar + applied-filter chips. Hidden on
-         web; in-app the real #sortMode is adopted into the sort slot and
-         #filterBar is adopted into the bottom sheet (listeners survive —
-         same adoption pattern as the Activity hub). -->
-    <div class="app-filter-toolbar" id="appFilterToolbar">
-      <button class="app-filter-btn" data-action="open-filter-sheet" type="button" aria-label="Open filters">
-        <span data-ico="sliders" aria-hidden="true"></span>Filters<span class="app-filter-count" id="appFilterCount" hidden></span>
-      </button>
-      <span class="app-sort-slot" id="appSortSlot"></span>
-    </div>
-    <div class="app-filter-chips" id="appFilterChips" hidden></div>
-
-    <div class="filter-bar" id="filterBar">
-      <div class="filter-group filter-group-sort">
-        <label>Sort</label>
-        <select id="sortMode" aria-label="Sort listings">
-          <option value="newest">Newest</option>
-          <option value="discover">Discover</option>
-          <option value="price-asc">Price ↑</option>
-          <option value="price-desc">Price ↓</option>
-          <option value="brand">Brand A–Z</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="filterMin">Min $</label>
-        <input type="number" id="filterMin" min="0" placeholder="0" aria-label="Minimum price in dollars" />
-      </div>
-      <div class="filter-group">
-        <label for="filterMax">Max $</label>
-        <input type="number" id="filterMax" min="0" placeholder="any" aria-label="Maximum price in dollars" />
-      </div>
-      <div class="filter-group condition-group" id="filterConditionGroup">
-        <label>Condition</label>
-        <div class="condition-pills" id="filterCondition">
-          <button class="condition-pill" data-cond="New with Tags">New</button>
-          <button class="condition-pill" data-cond="Like New">Like New</button>
-          <button class="condition-pill" data-cond="Very Good">Very Good</button>
-          <button class="condition-pill" data-cond="Good">Good</button>
-          <button class="condition-pill" data-cond="Fair">Fair</button>
+      <div class="filter-bar" id="filterBar">
+        <div class="filter-group filter-group-sort">
+          <label>Sort</label>
+          <select id="sortMode" aria-label="Sort listings">
+            <option value="newest">Newest</option>
+            <option value="discover">Discover</option>
+            <option value="price-asc">Price ↑</option>
+            <option value="price-desc">Price ↓</option>
+            <option value="brand">Brand A–Z</option>
+          </select>
         </div>
+        <div class="filter-group">
+          <label for="filterMin">Min $</label>
+          <input type="number" id="filterMin" min="0" placeholder="0" aria-label="Minimum price in dollars" />
+        </div>
+        <div class="filter-group">
+          <label for="filterMax">Max $</label>
+          <input type="number" id="filterMax" min="0" placeholder="any" aria-label="Maximum price in dollars" />
+        </div>
+        <div class="filter-group condition-group" id="filterConditionGroup">
+          <label>Condition</label>
+          <div class="condition-pills" id="filterCondition">
+            <button class="condition-pill" data-cond="New with Tags">New</button>
+            <button class="condition-pill" data-cond="Like New">Like New</button>
+            <button class="condition-pill" data-cond="Very Good">Very Good</button>
+            <button class="condition-pill" data-cond="Good">Good</button>
+            <button class="condition-pill" data-cond="Fair">Fair</button>
+          </div>
+        </div>
+        <button class="filter-clear" id="filterClear" type="button">Clear</button>
+        <button class="filter-clear" id="filterSave" type="button" data-action="save-current-search">Save Search</button>
       </div>
-      <button class="filter-clear" id="filterClear" type="button">Clear</button>
-      <button class="filter-clear" id="filterSave" type="button" data-action="save-current-search">Save Search</button>
+      <div class="product-grid" id="productGrid"></div>
     </div>
-    <div class="product-grid" id="productGrid"></div>
   </div>
 
   <div class="section reveal" id="drops">
@@ -23880,6 +23937,68 @@ document.querySelectorAll('[data-ico]').forEach((el) => {
   const svg = window.ICONS && window.ICONS[name];
   if (svg) el.innerHTML = svg;
 });
+
+// r272: hero quick-action tiles — bingo mini board + rotating Journal covers.
+(function () {
+  // Mini board reflects the LOCAL saved game only (same key the bingo screen
+  // writes). No network, no puzzle data, nothing that isn't already on this
+  // device — so the preview cannot leak the day's answers.
+  try {
+    const board = document.getElementById('hqBingoBoard');
+    if (board) {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date());
+      const g = (t) => parts.find((x) => x.type === t).value;
+      const today = `${g('year')}-${g('month')}-${g('day')}`;
+      const raw = localStorage.getItem('teebox.bingo.' + today);
+      const cells = raw ? (JSON.parse(raw) || {}).cells : null;
+      if (Array.isArray(cells)) {
+        const boxes = board.querySelectorAll('i');
+        let solved = 0;
+        cells.slice(0, 9).forEach((c, i) => {
+          if (c && c.state === 'correct') { boxes[i].classList.add('solved'); solved++; }
+        });
+        const sub = document.getElementById('hqBingoSub');
+        if (sub && solved > 0) {
+          sub.textContent = solved === 9
+            ? 'All nine solved today'
+            : `${solved} of 9 solved today`;
+        }
+      }
+    }
+  } catch (_e) { /* preview is decoration — never block the tile */ }
+
+  // Cover rotation. The first cover ships with a real src; the rest are
+  // deferred behind the phase-2 feed-paint gate so they never compete with
+  // the product grid for bandwidth on a cold load.
+  try {
+    const wrap = document.getElementById('hqCovers');
+    if (!wrap) return;
+    const imgs = [...wrap.querySelectorAll('img')];
+    if (imgs.length < 2) return;
+    const reduced = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return; // first cover stays, no rotation
+    const start = () => {
+      imgs.forEach((im) => { if (im.dataset.src && !im.src) im.src = im.dataset.src; });
+      let i = 0; let paused = false;
+      const tile = wrap.closest('.hq-tile');
+      if (tile) {
+        tile.addEventListener('pointerenter', () => { paused = true; });
+        tile.addEventListener('pointerleave', () => { paused = false; });
+      }
+      setInterval(() => {
+        if (paused || document.hidden) return;
+        imgs[i].classList.remove('on');
+        i = (i + 1) % imgs.length;
+        imgs[i].classList.add('on');
+      }, 6000); // 6s per the approved slideshow ruling
+    };
+    if (window.__afterFeedPaint) window.__afterFeedPaint(start, 7000);
+    else setTimeout(start, 2500);
+  } catch (_e) { /* rotation is decoration */ }
+})();
 
 // r271: fill the category side-panel rows with the existing per-category
 // SVGs. CATEGORY_ICON is the same source the cards and search chips use, so
