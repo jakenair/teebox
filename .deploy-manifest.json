@@ -143,9 +143,8 @@
     "sha": null
   },
   "getBingoFriendsBoard": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "1784439a6d1e142b962e3a821f2c3df1e5832d20",
+    "at": "2026-09-24"
   },
   "getBingoGlobalStreakRecord": {
     "at": "2026-05-15",
