@@ -2675,7 +2675,9 @@
   .sell-modal-backdrop.open { display: flex; }
   .sell-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 580px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); margin: auto; }
   .sell-form { padding: 1.5rem; }
-  .sell-form .form-row { margin-bottom: 1rem; }
+  .sell-form .form-row { margin-bottom: 0.8rem; }
+  .sell-form .form-row-2 { margin-bottom: 0.8rem; }
+  .sell-form textarea#sellDesc { height: auto; min-height: 66px; }
   /* r176: sentence-case labels — the all-caps 0.8px-tracked treatment read
      as bureaucratic form chrome. */
   .sell-form label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-500); margin-bottom: 6px; }
@@ -2690,17 +2692,62 @@
   .spec-cat-pills { display: flex; flex-wrap: wrap; gap: 7px; }
   /* r258 stepped flow: photos → category → specs → price → publish.
      Gating is class-driven on .sell-form; edit mode lands fully open. */
-  .sell-form:not(.has-photos) #sellSpecCatRow .spec-cat-pills { opacity: 0.45; pointer-events: none; }
+  .sell-form:not(.has-photos) #stepCat .spec-cat-pills { opacity: 0.45; pointer-events: none; }
   .sell-form:not(.cat-picked) .sell-gated { display: none !important; }
   .sell-draft-banner { background: #fdf7e7; border: 1px solid var(--gold-300, #eddfa8); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12.5px; color: var(--gray-700); margin-bottom: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
   .sell-draft-banner button { background: none; border: none; color: var(--green-700); font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: underline; padding: 0; }
   .spec-cat-pill { border: 1.5px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
   .spec-cat-pill.active { background: var(--green-600); border-color: var(--green-600); color: #fff; }
   .spec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .ai-draft-bar { margin: 4px 0 14px; }
-  .ai-draft-btn { width: 100%; border: 1.5px dashed var(--gold-500); background: #fdf7e7; color: var(--green-800); border-radius: var(--radius-md); padding: 11px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; font-family: var(--font-body); }
-  .ai-draft-btn:disabled { opacity: 0.6; cursor: default; }
-  .ai-draft-status { font-size: 12px; color: var(--gray-500); margin-top: 6px; line-height: 1.45; }
+  /* ── r259 Caddie card — white, subtle green outline, no gradients ── */
+  .caddie-card { background: var(--white); border: 1px solid #cfe0d4; border-radius: var(--radius-lg); padding: 14px 16px; margin: 0 0 14px; }
+  .caddie-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--green-700); color: var(--white); border: none; border-radius: var(--radius-md); padding: 11px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .caddie-btn:hover { background: var(--green-600); }
+  .caddie-btn:disabled { opacity: 0.55; cursor: default; }
+  .caddie-sub { font-size: 12.5px; color: var(--gray-500); line-height: 1.5; margin-top: 9px; }
+  .caddie-prog { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--gray-400); padding: 5px 0; transition: color .2s ease; }
+  .caddie-prog .caddie-tick { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--gray-300); flex: none; position: relative; }
+  .caddie-prog.active { color: var(--gray-900); font-weight: 600; }
+  .caddie-prog.active .caddie-tick { border-color: var(--green-600); }
+  .caddie-prog.done { color: var(--gray-700); }
+  .caddie-prog.done .caddie-tick { border-color: var(--green-600); background: var(--green-600); }
+  .caddie-prog.done .caddie-tick::after { content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .caddie-result-head { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 9px; }
+  .caddie-chips { display: flex; gap: 8px; }
+  .caddie-chip { flex: 1; background: var(--white); border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 9px 6px; cursor: pointer; text-align: center; font-family: var(--font-body); }
+  .caddie-chip .cc-k { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gray-500); font-weight: 700; }
+  .caddie-chip .cc-v { display: block; font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--gray-900); margin-top: 3px; }
+  .caddie-chip.active { border-color: var(--green-600); background: var(--green-50); }
+  .caddie-chip.active .cc-k { color: var(--green-700); }
+  .caddie-rationale { font-size: 12.5px; color: var(--gray-500); line-height: 1.5; margin-top: 9px; }
+  .caddie-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  .caddie-comps { font-size: 11.5px; color: var(--gray-400); }
+  .caddie-undo { background: none; border: none; padding: 0; color: var(--green-700); font-family: var(--font-body); font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  .caddie-tag { float: right; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--gray-500); background: var(--gray-100); border-radius: 4px; padding: 2px 6px; }
+  .caddie-miss { font-size: 12px; color: #8a6d1f; background: #fdf7e7; border: 1px solid #eddfa8; border-radius: var(--radius-md); padding: 7px 10px; margin-top: 6px; line-height: 1.45; }
+  /* ── Photo grid: main tile 2x, rest small beside it, + Add at the end ── */
+  .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .photo-grid:empty { display: none; }
+  .photo-tile { position: relative; aspect-ratio: 1; border-radius: var(--radius-md); overflow: hidden; border: 1.5px solid var(--gray-200); background: var(--gray-100); cursor: pointer; }
+  .photo-tile.main { grid-column: span 2; grid-row: span 2; }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-tile .pt-main { position: absolute; left: 6px; bottom: 6px; background: var(--green-700); color: var(--white); font-size: 9px; font-weight: 800; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px; }
+  .photo-tile .pt-x { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(0,0,0,0.55); color: var(--white); font-size: 10px; line-height: 1; padding: 0; cursor: pointer; opacity: 0; transition: opacity .15s ease; display: flex; align-items: center; justify-content: center; }
+  .photo-tile:hover .pt-x, .photo-tile:focus-within .pt-x { opacity: 1; }
+  .photo-tile.dragging { opacity: 0.35; }
+  @media (hover: none) { .photo-tile .pt-x { opacity: 0.8; } }
+  .photo-add { aspect-ratio: 1; border: 1.5px dashed var(--gray-300); border-radius: var(--radius-md); background: var(--gray-100); color: var(--gray-500); font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font-body); }
+  .photo-add:hover { border-color: var(--green-500); color: var(--green-700); }
+  /* ── Stepped sections: 4 short blocks, completed ones collapse ── */
+  .sell-step { margin-bottom: 16px; }
+  .sell-step-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .sell-step-label { font-size: 13px; font-weight: 700; color: var(--gray-900); letter-spacing: 0.2px; }
+  .sell-step-count { font-weight: 500; color: var(--gray-500); }
+  .sell-step-edit { display: none; background: none; border: none; padding: 0; color: var(--green-700); font-family: var(--font-body); font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  .sell-step.collapsed .sell-step-body { display: none; }
+  .sell-step.collapsed .sell-step-edit { display: inline; }
+  .sell-step-hint { font-size: 12px; color: var(--gray-500); margin-top: 8px; }
+  #submitListingBtn:disabled { opacity: 0.4; cursor: default; }
   .spec-table { margin: 10px 0 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
   .spec-table .spec-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--gray-100); }
   .spec-table .spec-row:last-child { border-bottom: none; }
@@ -4768,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r258</span></div>
+        <span class="auth-build" aria-hidden="true">r259</span></div>
     </div>
   </div>
 </div>
@@ -6672,33 +6719,69 @@
 
       <!-- IMAGE UPLOAD -->
       <div id="sellDraftPrompt" style="display:none"></div>
-      <div class="form-row">
-        <label>1 · Photos (up to 10). First photo is your main listing image</label>
-        <div class="upload-previews" id="uploadPreviews"></div>
-        <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
-        <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
-          <span class="upload-zone-icon" data-ico="camera" aria-hidden="true"></span>
-          <!-- r176: touch devices get camera-first copy; desktop keeps drag & drop. -->
-          <div class="upload-zone-text"><span class="uz-fine">Click to upload or drag &amp; drop</span><span class="uz-coarse">📷 Add photos — take one or pick from your library</span></div>
-          <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
+      <!-- r259: STEP 1 · PHOTOS. The drop zone owns the step until the
+           first photo lands, then collapses out and the grid takes over
+           (main tile 2x, "+ Add" at the end). Count lives in the label. -->
+      <section class="sell-step" id="stepPhotos">
+        <div class="sell-step-head">
+          <span class="sell-step-label" id="photosLabel">1 · Photos</span>
+          <button type="button" class="sell-step-edit" data-action="sell-step-expand" data-step="photos">Edit</button>
         </div>
-        <input type="file" id="photoInput" accept="image/*" multiple style="display:none" />
-        <div class="upload-count" id="uploadCount"></div>
-      </div>
+        <div class="sell-step-body">
+          <div class="photo-grid" id="uploadPreviews"></div>
+          <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
+          <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
+            <span class="upload-zone-icon" data-ico="camera" aria-hidden="true"></span>
+            <!-- r176: touch devices get camera-first copy; desktop keeps drag & drop. -->
+            <div class="upload-zone-text"><span class="uz-fine">Click to upload or drag &amp; drop</span><span class="uz-coarse">Add photos — take one or pick from your library</span></div>
+            <div class="upload-zone-sub">JPG, PNG, WEBP · Max 5MB each · Up to 10 photos</div>
+          </div>
+          <input type="file" id="photoInput" accept="image/*" multiple style="display:none" />
+        </div>
+      </section>
 
       <!-- Listing v2 (2026-09-24): structured spec flow. Category first,
            then a per-category spec form (dropdowns for finite sets),
            then the AI draft bar. specCategory drives the browse cat
            automatically; the legacy select below is hidden except for
            "Other". -->
-      <div class="form-row" id="sellSpecCatRow">
-        <label>2 · What are you selling?</label>
-        <div class="spec-cat-pills" id="sellSpecCatPills"></div>
-        <div id="sellSpecCatHint" style="display:none;font-size:12px;color:var(--gray-500);margin-top:6px;">Add a photo first — the AI draft reads your photos.</div>
-      </div>
-      <div class="ai-draft-bar" id="aiDraftBar" style="display:none">
-        <button type="button" class="ai-draft-btn" id="aiDraftBtn" data-action="ai-draft-listing">Draft it for me — title, specs &amp; price from your photos</button>
-        <div class="ai-draft-status" id="aiDraftStatus"></div>
+      <!-- STEP 2 · CATEGORY. Collapses to "2 · Putter — Edit" once picked. -->
+      <section class="sell-step" id="stepCat">
+        <div class="sell-step-head">
+          <span class="sell-step-label" id="catLabel">2 · What are you selling?</span>
+          <button type="button" class="sell-step-edit" data-action="sell-step-expand" data-step="cat">Edit</button>
+        </div>
+        <div class="sell-step-body">
+          <div class="spec-cat-pills" id="sellSpecCatPills"></div>
+          <div id="sellSpecCatHint" class="sell-step-hint" style="display:none">Add a photo first — Caddie reads your photos.</div>
+        </div>
+      </section>
+
+      <!-- STEP 3 · DETAILS — Caddie card, then the spec form it fills. -->
+      <div class="sell-step-head sell-gated"><span class="sell-step-label">3 · Details</span></div>
+      <div class="caddie-card sell-gated" id="caddieCard">
+        <div class="caddie-state" id="caddieIdle">
+          <button type="button" class="caddie-btn" id="caddieBtn" data-action="ai-draft-listing">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V3"/><path d="M6 4h11l-2.6 3.5L17 11H6"/></svg>
+            Let Caddie list it
+          </button>
+          <p class="caddie-sub">Reads your photos, fills the specs, and prices it against real TeeBox sales.</p>
+          <p class="caddie-miss" id="caddieErrorMsg" hidden></p>
+        </div>
+        <div class="caddie-state" id="caddieLoading" hidden>
+          <div class="caddie-prog"><span class="caddie-tick"></span>Reading your photos</div>
+          <div class="caddie-prog"><span class="caddie-tick"></span>Checking recent sales</div>
+          <div class="caddie-prog"><span class="caddie-tick"></span>Pricing it</div>
+        </div>
+        <div class="caddie-state" id="caddieResult" hidden>
+          <div class="caddie-result-head">Caddie&rsquo;s price</div>
+          <div class="caddie-chips" id="caddieChips"></div>
+          <p class="caddie-rationale" id="caddieRationale"></p>
+          <div class="caddie-foot">
+            <span class="caddie-comps" id="caddieComps"></span>
+            <button type="button" class="caddie-undo" data-action="ai-draft-undo">Undo</button>
+          </div>
+        </div>
       </div>
       <div id="sellSpecFields"></div>
 
@@ -6720,7 +6803,18 @@
       <!-- r176: Category is its own full row ABOVE price (mis-tag guard);
            "Ask Price" → "Price" (dead bid/ask language, order book killed
            r135); quantity defaults to 1 and hides behind a toggle. -->
+      <div class="form-row">
+        <!-- AI "Write description for me" button removed 2026-05-17 per
+             founder decision: Gemini free-tier was exhausted and billing
+             setup not worth the friction for v1. Cloud Function
+             generateListingDescription stays deployed but unreachable
+             from UI. Re-enable by restoring the button markup + activating
+             billing on the Gemini key. -->
+        <label for="sellDesc">Description</label><!-- parent row gated via JS (legacy markup: no clean anchor on the wrapper) -->
+        <textarea id="sellDesc" rows="3" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
+      </div>
       <div class="form-row" id="sellCatRow" style="display:none"><label for="sellCat">Browse category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
+      <div class="sell-step-head sell-gated"><span class="sell-step-label">4 · Price</span></div>
       <div class="form-row-2 sell-gated">
         <div class="form-row"><label for="sellPrice">Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
@@ -6747,16 +6841,6 @@
       <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
         <strong>High-value verification</strong>
         <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
-      </div>
-      <div class="form-row">
-        <!-- AI "Write description for me" button removed 2026-05-17 per
-             founder decision: Gemini free-tier was exhausted and billing
-             setup not worth the friction for v1. Cloud Function
-             generateListingDescription stays deployed but unreachable
-             from UI. Re-enable by restoring the button markup + activating
-             billing on the Gemini key. -->
-        <label for="sellDesc">Description</label><!-- parent row gated via JS (legacy markup: no clean anchor on the wrapper) -->
-        <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
       <!-- First-time seller: inline Seller-Terms acceptance (merged from the
            old separate verify screen). Shown only when not yet a verified
@@ -9912,6 +9996,11 @@ window.confirmPayment = async function() {
   };
   window.SPEC_LABELS = (() => { const m = { brand: 'Brand', condition: 'Condition' }; Object.values(window.SPEC_SCHEMA).forEach(c => c.fields.forEach(f => { m[f.k] = f.label; })); return m; })();
   let __specCategory = '';
+  let __stepOpen = {photos: false, cat: false}; // Edit-pinned steps (r259)
+  window.expandSellStep = function (step) {
+    if (step in __stepOpen) __stepOpen[step] = true;
+    window.updateSellSteps && window.updateSellSteps();
+  };
   function renderSpecCatPills() {
     const el = document.getElementById('sellSpecCatPills');
     if (!el) return;
@@ -9947,9 +10036,9 @@ window.confirmPayment = async function() {
     const catSel = document.getElementById('sellCat');
     if (k === 'other') { if (catRow) catRow.style.display = ''; }
     else { if (catRow) catRow.style.display = 'none'; if (catSel) catSel.value = window.SPEC_SCHEMA[k].browse; }
-    // AI bar appears once photos + category exist.
-    const bar = document.getElementById('aiDraftBar');
-    if (bar) bar.style.display = (selectedFiles.length > 0) ? '' : 'none';
+    // The Caddie card is CSS-gated on .cat-picked; a category change
+    // starts it fresh (its last result described a different club).
+    if (window.caddieReset) window.caddieReset();
     if (window.updateSellSteps) window.updateSellSteps();
     if (!(opts && opts.silent) && typeof renderTakeHome === 'function') { try { renderTakeHome(); } catch (_e) {} }
   };
@@ -9978,18 +10067,48 @@ window.confirmPayment = async function() {
     });
     return errs;
   };
-  window.resetSpecState = function () { __specCategory = ''; renderSpecCatPills(); renderSpecFields(); const b = document.getElementById('aiDraftBar'); if (b) b.style.display = 'none'; window.updateSellSteps && window.updateSellSteps(); };
+  window.resetSpecState = function () {
+    __specCategory = '';
+    __stepOpen = {photos: false, cat: false};
+    renderSpecCatPills(); renderSpecFields();
+    if (window.caddieReset) window.caddieReset();
+    window.updateSellSteps && window.updateSellSteps();
+  };
   // r258: the stepped flow's single source of truth. Photos gate the
   // category pills; category gates everything below (CSS classes).
   window.updateSellSteps = function () {
     const form = document.querySelector('#sellModalBackdrop .sell-form');
     if (!form) return;
-    const hasPhotos = (typeof selectedFiles !== 'undefined') && selectedFiles.length > 0;
-    const hasCat = !!(window.getSpecCategory && window.getSpecCategory());
+    const n = (typeof selectedFiles !== 'undefined') ? selectedFiles.length : 0;
+    const hasPhotos = n > 0;
+    const catKey = (window.getSpecCategory && window.getSpecCategory()) || '';
+    const hasCat = !!catKey;
     form.classList.toggle('has-photos', hasPhotos);
     form.classList.toggle('cat-picked', hasCat);
     const hint = document.getElementById('sellSpecCatHint');
     if (hint) hint.style.display = hasPhotos ? 'none' : '';
+    // r259: completed steps collapse to a one-line summary + Edit link so
+    // the seller's eye stays on the current step. Edit pins a step open
+    // (__stepOpen) until the modal resets.
+    const editing = !!window.__editingListingId;
+    const collapseP = hasPhotos && hasCat && !__stepOpen.photos && !editing;
+    const collapseC = hasCat && !__stepOpen.cat && !editing;
+    const sp = document.getElementById('stepPhotos');
+    const sc = document.getElementById('stepCat');
+    if (sp) sp.classList.toggle('collapsed', collapseP);
+    if (sc) sc.classList.toggle('collapsed', collapseC);
+    const pl = document.getElementById('photosLabel');
+    if (pl) {
+      pl.innerHTML = collapseP
+        ? `1 · ${n} photo${n === 1 ? '' : 's'}`
+        : `1 · Photos${n ? ` <span class="sell-step-count">${n} of 10</span>` : ''}`;
+    }
+    const cl = document.getElementById('catLabel');
+    if (cl) {
+      cl.textContent = collapseC
+        ? `2 · ${((window.SPEC_SCHEMA || {})[catKey] || {}).label || ''}`
+        : '2 · What are you selling?';
+    }
     // Legacy markup: the Description form-row has no static class anchor —
     // gate it (and the terms row) at runtime alongside the tagged rows.
     const descRow = document.getElementById('sellDesc');
@@ -10079,14 +10198,94 @@ window.confirmPayment = async function() {
       return (b64 && b64.length < 600 * 1024) ? b64 : null;
     } catch (_e) { return null; }
   }
+  // ── Caddie: states, sequenced loading, price chips, field marks ──
+  function caddieShow(state) {
+    ['caddieIdle', 'caddieLoading', 'caddieResult'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = (id !== state);
+    });
+  }
+  function caddieError(msg) {
+    caddieShow('caddieIdle');
+    const e = document.getElementById('caddieErrorMsg');
+    if (e) { e.textContent = msg || ''; e.hidden = !msg; }
+  }
+  let __caddieTimers = [];
+  function caddieStartLoading() {
+    const e = document.getElementById('caddieErrorMsg');
+    if (e) { e.hidden = true; e.textContent = ''; }
+    caddieShow('caddieLoading');
+    const steps = [...document.querySelectorAll('#caddieLoading .caddie-prog')];
+    steps.forEach(x => x.classList.remove('done', 'active'));
+    if (steps[0]) steps[0].classList.add('active');
+    __caddieTimers.forEach(clearTimeout);
+    __caddieTimers = [
+      setTimeout(() => { if (steps[0]) { steps[0].classList.replace('active', 'done'); } if (steps[1]) steps[1].classList.add('active'); }, 1100),
+      setTimeout(() => { if (steps[1]) { steps[1].classList.replace('active', 'done'); } if (steps[2]) steps[2].classList.add('active'); }, 2400),
+    ];
+  }
+  function caddieFinishLoading() {
+    __caddieTimers.forEach(clearTimeout); __caddieTimers = [];
+    document.querySelectorAll('#caddieLoading .caddie-prog').forEach(x => {
+      x.classList.remove('active'); x.classList.add('done');
+    });
+  }
+  function caddieTagField(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    const row = el.closest('.form-row');
+    const label = document.querySelector(`label[for="${inputId}"]`) || (row && row.querySelector('label'));
+    if (!label || label.querySelector('.caddie-tag')) return;
+    const tag = document.createElement('span');
+    tag.className = 'caddie-tag';
+    tag.textContent = 'Caddie';
+    label.appendChild(tag);
+  }
+  function caddieNote(specKey, text) {
+    const el = document.getElementById('spec_' + specKey) || document.getElementById(specKey);
+    const row = el && el.closest('.form-row');
+    if (!row || row.querySelector('.caddie-miss')) return;
+    const d = document.createElement('div');
+    d.className = 'caddie-miss';
+    d.textContent = text;
+    row.appendChild(d);
+  }
+  function caddieClearMarks() {
+    document.querySelectorAll('#sellModalBackdrop .caddie-tag').forEach(t => t.remove());
+    document.querySelectorAll('#sellSpecFields .caddie-miss, .sell-form .form-row .caddie-miss').forEach(t => t.remove());
+  }
+  function caddieRenderResult(d) {
+    const pr = d.price;
+    const chips = document.getElementById('caddieChips');
+    if (chips) {
+      chips.innerHTML = (pr && pr.mid > 0)
+        ? [['Low', pr.low], ['Suggested', pr.mid], ['High', pr.high]].map(([k, v]) =>
+            `<button type="button" class="caddie-chip${k === 'Suggested' ? ' active' : ''}" data-action="caddie-price" data-price="${Number(v) || 0}"><span class="cc-k">${k}</span><span class="cc-v">$${(Number(v) || 0).toLocaleString()}</span></button>`).join('')
+        : '';
+    }
+    const rat = document.getElementById('caddieRationale');
+    if (rat) rat.textContent = (pr && pr.rationale) || 'Filled from your photos — every field is editable.';
+    const comps = document.getElementById('caddieComps');
+    if (comps) comps.textContent = (pr && pr.compsUsed > 0)
+      ? `based on ${pr.compsUsed} TeeBox sale${pr.compsUsed === 1 ? '' : 's'}`
+      : 'based on market data';
+    caddieShow('caddieResult');
+  }
+  window.caddieSetPrice = function (price, el) {
+    const p = document.getElementById('sellPrice');
+    if (p) { p.value = String(price); try { renderTakeHome(); } catch (_e) {} }
+    caddieTagField('sellPrice');
+    document.querySelectorAll('#caddieChips .caddie-chip').forEach(c => c.classList.toggle('active', c === el));
+  };
+  const __specNorm = (x) => String(x).toLowerCase().replace(/[^a-z0-9.]/g, '');
   window.aiDraftListing = async function () {
     const cat = window.getSpecCategory && window.getSpecCategory();
-    const status = document.getElementById('aiDraftStatus');
-    const btn = document.getElementById('aiDraftBtn');
-    if (!cat || cat === 'other') { if (status) status.textContent = 'Pick a specific category first — the draft is spec-aware.'; return; }
-    if (!selectedFiles.length) { if (status) status.textContent = 'Add at least one photo first.'; return; }
-    if (btn) { btn.disabled = true; btn.textContent = 'Reading your photos…'; }
-    if (status) status.textContent = '';
+    const btn = document.getElementById('caddieBtn');
+    if (!cat || cat === 'other') { caddieError('Pick a specific category first — Caddie reads specs per category.'); return; }
+    if (!selectedFiles.length) { caddieError('Add at least one photo first.'); return; }
+    caddieClearMarks();
+    caddieStartLoading();
+    if (btn) btn.disabled = true;
     try {
       const images = [];
       for (const f of selectedFiles.slice(0, 4)) {
@@ -10098,84 +10297,129 @@ window.confirmPayment = async function() {
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
       const fn = httpsCallable(getFunctions(), 'draftListingFromPhotos');
       const specsNow = window.collectSpecs ? window.collectSpecs() : {};
-      const res = await fn({ category: cat, images, specs: specsNow, brand: specsNow.brand || '', model: specsNow.model || '' });
+      const schema = (window.SPEC_SCHEMA || {})[cat] || { fields: [] };
+      const requiredFields = schema.fields.filter(f => f.req).map(f => f.k);
+      const res = await fn({ category: cat, images, specs: specsNow, brand: specsNow.brand || '', model: specsNow.model || '', requiredFields });
       const d = (res && res.data) || {};
+      caddieFinishLoading();
       if (!d.ok) {
         const msgs = {
-          'daily-limit': 'You\'ve hit today\'s AI limit (25 drafts). The form works as usual.',
-          'budget': 'AI drafting is paused for the month. The form works as usual.',
-          'disabled': 'AI drafting is off right now. The form works as usual.',
+          'daily-limit': "You've hit today's Caddie limit (25 drafts). Fill the form manually — everything still works.",
+          'budget': 'Caddie is paused for the month. Fill the form manually — everything still works.',
+          'disabled': 'Caddie is off right now. Fill the form manually — everything still works.',
         };
-        if (status) status.textContent = msgs[d.reason] || 'Couldn\'t draft from these photos — fill the form manually.';
+        caddieError(msgs[d.reason] || "Caddie couldn't read these photos — fill the form manually.");
         return;
       }
       __aiFilled = [];
       const fill = (id, val) => {
         const el = document.getElementById(id);
-        if (el && val && !String(el.value || '').trim()) { el.value = val; __aiFilled.push(id); }
+        if (el && val && !String(el.value || '').trim()) { el.value = val; __aiFilled.push(id); caddieTagField(id); }
       };
       fill('sellTitle', d.title);
       fill('sellDesc', d.description);
-      if (d.condition) { const c = document.getElementById('sellCondition'); if (c) { c.value = d.condition; __aiFilled.push('sellCondition'); } }
+      if (d.condition) {
+        const c = document.getElementById('sellCondition');
+        if (c) { c.value = d.condition; __aiFilled.push('sellCondition'); caddieTagField('sellCondition'); }
+      }
       Object.entries(d.specs || {}).forEach(([k, v]) => {
         if (k === 'brand') { fill('sellBrand', v); return; }
         const el = document.getElementById('spec_' + k);
         if (!el || String(el.value || '').trim()) return;
         if (el.tagName === 'SELECT') {
-          const hit = [...el.options].find(o => o.value.toLowerCase() === String(v).toLowerCase());
-          if (hit) { el.value = hit.value; __aiFilled.push('spec_' + k); }
-        } else { el.value = String(v); __aiFilled.push('spec_' + k); }
+          const hit = [...el.options].find(o => o.value && __specNorm(o.value) === __specNorm(v));
+          if (hit) { el.value = hit.value; __aiFilled.push('spec_' + k); caddieTagField('spec_' + k); }
+          else caddieNote(k, `Caddie read “${String(v).slice(0, 24)}” — pick the closest option.`);
+        } else { el.value = String(v); __aiFilled.push('spec_' + k); caddieTagField('spec_' + k); }
       });
-      if (d.price && d.price.mid > 0) {
-        fill('sellPrice', String(d.price.mid));
-        try { if (typeof renderTakeHome === 'function') renderTakeHome(); } catch (_e) {}
-      }
-      if (status) {
-        const pr = d.price;
-        status.innerHTML = (pr && pr.mid > 0
-          ? `Suggested range <strong>$${pr.low}–$${pr.high}</strong> (listed at $${pr.mid}). ${window.safeText(pr.rationale || '')}${pr.compsUsed ? ` Based on ${pr.compsUsed} TeeBox sale${pr.compsUsed === 1 ? '' : 's'}.` : ''} `
-          : 'Draft filled in. ') +
-          'Everything is editable — nothing publishes until you tap Publish. ' +
-          '<button type="button" class="rail-link" style="display:inline;margin:0" data-action="ai-draft-undo">Undo AI fill</button>';
-      }
+      // Fields Caddie explicitly could not read → soft amber note.
+      Object.entries(d.unreadable || {}).forEach(([k, hint]) => {
+        const label = String((window.SPEC_LABELS || {})[k] || k).toLowerCase();
+        caddieNote(k, `Caddie couldn't read the ${label}${hint ? ' — ' + hint : ''}.`);
+      });
+      if (d.price && d.price.mid > 0) fill('sellPrice', String(d.price.mid));
+      try { renderTakeHome(); } catch (_e) {}
+      caddieRenderResult(d);
     } catch (e) {
-      console.warn('aiDraftListing failed', e);
-      if (status) status.textContent = 'Couldn\'t draft from these photos — fill the form manually.';
+      console.warn('caddie draft failed', e);
+      caddieFinishLoading();
+      caddieError("Caddie couldn't read these photos — fill the form manually.");
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Draft it for me — title, specs & price from your photos'; }
+      if (btn) btn.disabled = false;
     }
   };
   window.aiDraftUndo = function () {
     __aiFilled.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     __aiFilled = [];
-    const status = document.getElementById('aiDraftStatus');
-    if (status) status.textContent = 'Cleared. Fill the form manually or draft again.';
+    caddieClearMarks();
+    try { renderTakeHome(); } catch (_e) {}
+    caddieShow('caddieIdle');
+    const e = document.getElementById('caddieErrorMsg');
+    if (e) { e.hidden = false; e.textContent = 'Cleared. Fill the form yourself, or let Caddie try again.'; }
   };
-  function __syncAiDraftBar() {
-    const bar = document.getElementById('aiDraftBar');
-    if (bar) bar.style.display = (selectedFiles.length > 0 && window.getSpecCategory && window.getSpecCategory()) ? '' : 'none';
-  }
+  window.caddieReset = function () {
+    __aiFilled = [];
+    caddieClearMarks();
+    caddieShow('caddieIdle');
+    const e = document.getElementById('caddieErrorMsg');
+    if (e) { e.hidden = true; e.textContent = ''; }
+  };
+  // r259: photo grid — main tile renders 2x at the left, the rest small
+  // beside it, "+ Add" closes the grid. The dashed drop zone only exists
+  // while there are zero photos. Tap a tile to promote it to main; drag
+  // to reorder (desktop); tiny x removes.
   function renderPreviews() {
-    __syncAiDraftBar();
     if (window.updateSellSteps) window.updateSellSteps();
     const container = document.getElementById('uploadPreviews');
-    const count = document.getElementById('uploadCount');
+    const zone = document.getElementById('uploadZone');
+    const n = selectedFiles.length;
     // selectedFiles entries are either a File (newly picked) or a
     // {__existingUrl} marker (a photo already on the listing — edit
     // mode). Both render identically; only Files are re-uploaded.
-    container.innerHTML = selectedFiles.map((f,i) => {
+    const tiles = selectedFiles.map((f, i) => {
       const url = (f && f.__existingUrl)
         ? (window.safeImgUrl ? window.safeImgUrl(f.__existingUrl) : f.__existingUrl)
         : URL.createObjectURL(f);
-      return `<div class="upload-preview">
-        <img src="${url}" alt="Listing photo ${i+1} preview" />
-        ${i===0?'<div class="upload-main-badge">MAIN</div>':''}
-        <button class="upload-preview-remove" data-action="remove-photo" data-idx="${i}" aria-label="Remove">${window.ICONS.close}</button>
+      return `<div class="photo-tile${i === 0 ? ' main' : ''}" draggable="true" data-idx="${i}"${i === 0 ? '' : ' data-action="photo-make-main"'} title="${i === 0 ? 'Main listing photo' : 'Tap to make this the main photo'}">
+        <img src="${url}" alt="Listing photo ${i + 1} preview" draggable="false" />
+        ${i === 0 ? '<span class="pt-main">MAIN</span>' : ''}
+        <button type="button" class="pt-x" data-action="remove-photo" data-idx="${i}" aria-label="Remove photo ${i + 1}">${window.ICONS.close}</button>
       </div>`;
     }).join('');
-    count.textContent = selectedFiles.length > 0 ? `${selectedFiles.length}/10 photos selected` : '';
-    document.getElementById('uploadZone').style.display = selectedFiles.length >= 10 ? 'none' : 'block';
+    container.innerHTML = tiles + ((n > 0 && n < 10)
+      ? '<button type="button" class="photo-add" data-action="open-photo-input" aria-label="Add more photos">+ Add</button>' : '');
+    if (zone) zone.style.display = n === 0 ? 'block' : 'none';
+    wirePhotoDrag();
   }
+  let __photoDragFrom = null;
+  function wirePhotoDrag() {
+    document.querySelectorAll('#uploadPreviews .photo-tile').forEach((t) => {
+      t.addEventListener('dragstart', (e) => {
+        __photoDragFrom = Number(t.dataset.idx);
+        t.classList.add('dragging');
+        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(__photoDragFrom)); } catch (_e) {}
+      });
+      t.addEventListener('dragend', () => { t.classList.remove('dragging'); __photoDragFrom = null; });
+      t.addEventListener('dragover', (e) => { e.preventDefault(); });
+      t.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const to = Number(t.dataset.idx);
+        let from = __photoDragFrom;
+        if (!Number.isInteger(from)) { try { from = Number(e.dataTransfer.getData('text/plain')); } catch (_e) { return; } }
+        if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return;
+        const [moved] = selectedFiles.splice(from, 1);
+        selectedFiles.splice(to, 0, moved);
+        renderPreviews();
+      });
+    });
+  }
+  window.photoMakeMain = function (i) {
+    i = Number(i);
+    if (!Number.isInteger(i) || i <= 0 || i >= selectedFiles.length) return;
+    const [moved] = selectedFiles.splice(i, 1);
+    selectedFiles.unshift(moved);
+    renderPreviews();
+  };
 
   window.removePhoto = function(i) {
     selectedFiles.splice(i,1);
@@ -23209,6 +23453,9 @@ A['toggle-sell-qty']         = () => { if (window.__setSellQtyVisible) window.__
 A['pick-spec-cat']            = (el) => { if (window.setSpecCategory) window.setSpecCategory(el.dataset.speccat); };
 A['ai-draft-listing']         = () => { if (!window.requireAuth('to draft your listing')) return; window.aiDraftListing && window.aiDraftListing(); };
 A['ai-draft-undo']            = () => { window.aiDraftUndo && window.aiDraftUndo(); };
+A['photo-make-main']          = (el) => { window.photoMakeMain && window.photoMakeMain(el.dataset.idx); };
+A['sell-step-expand']         = (el) => { window.expandSellStep && window.expandSellStep(el.dataset.step); };
+A['caddie-price']             = (el) => { window.caddieSetPrice && window.caddieSetPrice(Number(el.dataset.price) || 0, el); };
 A['sell-draft-resume']        = () => { window.resumeSellDraft && window.resumeSellDraft(); };
 A['sell-draft-discard']       = () => { window.discardSellDraft && window.discardSellDraft(); };
 A['apply-ai-price']           = (el) => {

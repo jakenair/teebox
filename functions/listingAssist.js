@@ -93,6 +93,12 @@ exports.draftListingFromPhotos = onCall(
       }
       const partialSpecs = (data.specs && typeof data.specs === "object") ?
         data.specs : {};
+      // r259: the client sends the category's REQUIRED spec keys so Caddie
+      // can REPORT what it could not read instead of leaving a required
+      // dropdown silently empty (founder bug: putter "length" came back
+      // blank with no explanation).
+      const requiredFields = Array.isArray(data.requiredFields) ?
+        data.requiredFields.slice(0, 20).map((k) => String(k).slice(0, 40)) : [];
 
       const db = admin.firestore();
 
@@ -158,9 +164,24 @@ exports.draftListingFromPhotos = onCall(
         "loft, flex, shaftBrand, shaftModel, shaftType, dexterity, " +
         "setComposition, bounce, grind, length, headStyle, grip, size, " +
         "type, quantity — omit anything uncertain, never guess " +
-        "stampings), \"price\": {\"low\": int USD, \"mid\": int, " +
+        "stampings), \"unreadable\": object (see below), " +
+        "\"price\": {\"low\": int USD, \"mid\": int, " +
         "\"high\": int, \"rationale\": string (one line), \"compsUsed\": " +
-        "int}. Price from the model's used-market value given condition. " +
+        "int}. " +
+        "CRITICAL — brand and model are SEPARATE fields. \"brand\" is the " +
+        "manufacturer alone (Scotty Cameron, Titleist, TaylorMade, Ping); " +
+        "\"model\" is ONLY the product name and NEVER the manufacturer. " +
+        "For a Scotty Cameron Studio Style Newport 2: brand is " +
+        "\"Scotty Cameron\", model is \"Studio Style Newport 2\". Never put " +
+        "the brand in model, never repeat the brand inside model. " +
+        "REQUIRED_FIELDS lists the spec keys this listing must have. For " +
+        "every required key you cannot determine confidently, OMIT it from " +
+        "specs and add it to \"unreadable\" as key -> a short hint " +
+        "(<=8 words) telling the seller where that detail is normally " +
+        "found, e.g. {\"length\": \"check the shaft band\", \"loft\": " +
+        "\"stamped on the sole\"}. Use {} when you read everything. Never " +
+        "invent a value to avoid reporting it unreadable. " +
+        "Price from the model's used-market value given condition. " +
         "When OUR_SOLD_COMPS is present, weight those real sold prices " +
         "ABOVE general knowledge and set compsUsed to their count; " +
         "otherwise compsUsed is 0. If dexterity is visible (face angle in " +
@@ -179,6 +200,7 @@ exports.draftListingFromPhotos = onCall(
         type: "text",
         text: JSON.stringify({
           specCategory: category,
+          REQUIRED_FIELDS: requiredFields,
           sellerEnteredSpecs: partialSpecs,
           OUR_SOLD_COMPS: comps,
         }),
@@ -229,6 +251,8 @@ exports.draftListingFromPhotos = onCall(
           partialSpecs,
           compsUsed: comps ? comps.count : 0,
           draft: draft || null,
+          unreadableKeys: (draft && draft.unreadable) ?
+            Object.keys(draft.unreadable).slice(0, 12) : [],
           parseFailed: !draft,
           inputTokens: inTok, outputTokens: outTok,
           costUsd: Math.round(costUsd * 1e6) / 1e6,
@@ -248,6 +272,11 @@ exports.draftListingFromPhotos = onCall(
         description: String(draft.description || "").slice(0, 2000),
         condition: ["New with Tags", "Like New", "Very Good", "Good", "Fair"]
             .includes(draft.condition) ? draft.condition : null,
+        unreadable: (draft.unreadable && typeof draft.unreadable === "object" &&
+          !Array.isArray(draft.unreadable)) ?
+          Object.fromEntries(Object.entries(draft.unreadable).slice(0, 12)
+              .map(([k, v]) => [String(k).slice(0, 40),
+                String(v).slice(0, 80)])) : {},
         specs: (draft.specs && typeof draft.specs === "object") ?
           Object.fromEntries(Object.entries(draft.specs).slice(0, 30)
               .map(([k, v]) => [String(k).slice(0, 40),
