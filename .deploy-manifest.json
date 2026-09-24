@@ -129,9 +129,9 @@
     "at": "2026-09-21"
   },
   "generateListingDescription": {
-    "at": "2026-08-06",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": null,
+    "at": "2026-09-24",
+    "note": "DELETED 2026-09-24 — Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)"
   },
   "generateReferralCode": {
     "at": "2026-07-31",
@@ -522,9 +522,9 @@
     "sha": "28e1bcfa9172ca9d9c106764481a221b8251831c"
   },
   "suggestListingPrice": {
-    "at": "2026-08-06",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": null,
+    "at": "2026-09-24",
+    "note": "DELETED 2026-09-24 — Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)"
   },
   "suspendUser": {
     "at": "2026-05-17",
