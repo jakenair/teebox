@@ -2813,6 +2813,61 @@
   .spec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   /* ── r259 Caddie card — white, subtle green outline, no gradients ── */
   .caddie-card { background: var(--white); border: 1px solid #cfe0d4; border-radius: var(--radius-lg); padding: 14px 16px; margin: 0 0 14px; }
+  /* ── r276: the Caddie character ─────────────────────────────────────
+     A stick caddie in a numbered bib, standing next to a bag. Three moods,
+     driven by a class on .caddie-card that caddieShow() sets:
+       (idle)        slow breathing bob
+       .cd-thinking  head tilts, carry arm works, bag sways — while the AI runs
+       .cd-done      one settling nod, then still
+     Pure SVG + CSS keyframes: no library, no request, no JS per frame. Every
+     animation is switched off under prefers-reduced-motion, where the figure
+     simply stands there — it is decoration, so losing the motion loses
+     nothing. */
+  .caddie-card { position: relative; padding-right: 86px; }
+  .caddie-figure { position: absolute; top: 12px; right: 14px; width: 62px; height: 68px;
+    color: var(--green-700); pointer-events: none; }
+  .caddie-figure svg { width: 100%; height: 100%; overflow: visible; }
+  .caddie-figure .cd-bib { fill: var(--green-700); stroke: var(--green-700); }
+  .caddie-figure .cd-bagbody { fill: rgba(34,64,43,0.08); }
+  .caddie-figure .cd-clubhead { stroke-width: 2.6; }
+  .caddie-figure .cd-cap { stroke-width: 2.4; }
+
+  /* Transform origins matter more than the keyframes here — a head that
+     rotates about its own neck reads as thinking; about the svg origin it
+     reads as broken. */
+  .caddie-figure .cd-head, .caddie-figure .cd-cap, .caddie-figure .cd-cap-brim { transform-origin: 26px 23px; }
+  .caddie-figure .cd-arm { transform-origin: 34px 30px; }
+  .caddie-figure .cd-bag { transform-origin: 61px 66px; }
+  .caddie-figure .cd-body { transform-origin: 26px 64px; }
+
+  @keyframes cd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+  @keyframes cd-tilt { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(-9deg); } 65% { transform: rotate(7deg); } }
+  @keyframes cd-work { 0%, 100% { transform: rotate(0deg); } 40% { transform: rotate(-22deg); } 70% { transform: rotate(6deg); } }
+  @keyframes cd-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(3.5deg); } }
+  @keyframes cd-nod { 0% { transform: rotate(0deg); } 35% { transform: rotate(11deg); } 100% { transform: rotate(0deg); } }
+
+  .caddie-figure .cd-body { animation: cd-bob 3.6s ease-in-out infinite; }
+
+  .caddie-card.cd-thinking .caddie-figure .cd-head,
+  .caddie-card.cd-thinking .caddie-figure .cd-cap,
+  .caddie-card.cd-thinking .caddie-figure .cd-cap-brim { animation: cd-tilt 1.9s ease-in-out infinite; }
+  .caddie-card.cd-thinking .caddie-figure .cd-arm { animation: cd-work 1.5s ease-in-out infinite; }
+  .caddie-card.cd-thinking .caddie-figure .cd-bag { animation: cd-sway 2.6s ease-in-out infinite; }
+  .caddie-card.cd-thinking .caddie-figure .cd-body { animation: cd-bob 1.5s ease-in-out infinite; }
+
+  .caddie-card.cd-done .caddie-figure .cd-head,
+  .caddie-card.cd-done .caddie-figure .cd-cap,
+  .caddie-card.cd-done .caddie-figure .cd-cap-brim { animation: cd-nod 0.7s ease-out 1; }
+
+  @media (max-width: 520px) {
+    .caddie-card { padding-right: 70px; }
+    .caddie-figure { width: 52px; height: 58px; top: 10px; right: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .caddie-figure .cd-body, .caddie-figure .cd-head, .caddie-figure .cd-cap,
+    .caddie-figure .cd-cap-brim, .caddie-figure .cd-arm, .caddie-figure .cd-bag { animation: none !important; }
+  }
+
   .caddie-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--green-700); color: var(--white); border: none; border-radius: var(--radius-md); padding: 11px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 700; cursor: pointer; }
   .caddie-btn:hover { background: var(--green-600); }
   .caddie-btn:disabled { opacity: 0.55; cursor: default; }
@@ -4961,7 +5016,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r275</span></div>
+        <span class="auth-build" aria-hidden="true">r276</span></div>
     </div>
   </div>
 </div>
@@ -6998,12 +7053,42 @@
       <!-- STEP 3 · DETAILS — Caddie card, then the spec form it fills. -->
       <div class="sell-step-head sell-gated"><span class="sell-step-label">3 · Details</span></div>
       <div class="caddie-card sell-gated" id="caddieCard">
+        <!-- r276: the caddie. Absolutely positioned in the card corner so it
+             rides along all three states (idle / thinking / done) without
+             touching the existing layout. Line-art to match the rest of the
+             iconography, inline so it costs no request, and aria-hidden
+             because it says nothing the copy doesn't. -->
+        <span class="caddie-figure" id="caddieFigure" aria-hidden="true">
+          <svg viewBox="0 0 76 84" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <g class="cd-bag">
+              <path class="cd-club" d="M56 30V16M61 30V13M66 30V18"/>
+              <path class="cd-clubhead" d="M54.5 16.5h3M59.5 13.5h3M64.5 18.5h3"/>
+              <rect x="52" y="30" width="18" height="36" rx="8" class="cd-bagbody"/>
+              <path d="M52 42h18"/>
+            </g>
+            <g class="cd-body">
+              <circle class="cd-head" cx="26" cy="15" r="8"/>
+              <path class="cd-cap" d="M18.5 12a7.5 7.5 0 0115 0"/>
+              <path class="cd-cap-brim" d="M33 12h6"/>
+              <path class="cd-bib" d="M18 27h16l2.5 21h-21z" />
+              <path class="cd-arm-back" d="M18.5 30L10 41"/>
+              <path class="cd-arm" d="M34 30l10 9"/>
+              <path d="M22 48v16M31 48v16"/>
+              <path d="M18 64h6M28 64h6"/>
+            </g>
+          </svg>
+        </span>
         <div class="caddie-state" id="caddieIdle">
           <button type="button" class="caddie-btn" id="caddieBtn" data-action="ai-draft-listing">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V3"/><path d="M6 4h11l-2.6 3.5L17 11H6"/></svg>
             Let Caddie list it
           </button>
-          <p class="caddie-sub">Reads your photos, fills the specs, and prices it against real TeeBox sales.</p>
+          <!-- r276: "Our AI" is load-bearing, not filler. Putting a person
+               beside the price makes it easy to read the suggestion as a human
+               valuation; the character is personality, and the copy is what
+               keeps it honest. Do not drop it when reworking this line. -->
+          <p class="caddie-sub">Our AI reads your photos, fills the specs, and prices it against real TeeBox sales.</p>
           <p class="caddie-miss" id="caddieErrorMsg" hidden></p>
         </div>
         <div class="caddie-state" id="caddieLoading" hidden>
@@ -10503,6 +10588,19 @@ window.confirmPayment = async function() {
       const el = document.getElementById(id);
       if (el) el.hidden = (id !== state);
     });
+    // r276: the caddie's mood follows the state. One class on the card drives
+    // every animation, so there is exactly one place this can go out of sync.
+    const card = document.getElementById('caddieCard');
+    if (!card) return;
+    card.classList.toggle('cd-thinking', state === 'caddieLoading');
+    if (state === 'caddieResult') {
+      // Retrigger the nod each time a result lands: removing and re-adding in
+      // the next frame restarts a finite animation that has already played.
+      card.classList.remove('cd-done');
+      requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('cd-done')));
+    } else {
+      card.classList.remove('cd-done');
+    }
   }
   function caddieError(msg) {
     caddieShow('caddieIdle');
