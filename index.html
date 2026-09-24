@@ -1981,6 +1981,16 @@
     .cat-side .cat-side-item { width: auto; flex-shrink: 0; border: 1px solid var(--gray-200); border-radius: 50px; padding: 7px 14px; }
   }
 
+  /* r274 — Passport share row (owner only). */
+  .pp-share-row { margin-top: 10px; }
+  .pp-share-note { margin-top: 8px; font-size: 13px; color: var(--gray-500);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pp-share-live { color: var(--green-700); font-weight: 600; }
+  .pp-share-unshare { background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    color: var(--gray-700); text-decoration: underline; }
+  .pp-share-unshare:hover { color: var(--gray-900); }
+
   .shop-menu-wrap { position: relative; }
   /* Left-aligned, unlike .user-menu which hangs off the right edge — Shop is
      the leftmost ribbon item, so a right-anchored menu would run off-screen. */
@@ -4934,7 +4944,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r273</span></div>
+        <span class="auth-build" aria-hidden="true">r274</span></div>
     </div>
   </div>
 </div>
@@ -21507,7 +21517,11 @@ async function openPassportCourseDetail(uid, courseId) {
         <span class="pp-like-ico">&#9825;</span><span id="ppLikeCount"></span>
       </button>
     </div>
-    ${isOwner ? `<div class="pp-detail-actions">
+    ${isOwner ? `<div class="pp-share-row" id="ppShareRow" data-course="${ca}">
+      <button type="button" class="btn-full ghost" data-action="passport-share" data-course="${ca}" id="ppShareBtn">Share this round</button>
+      <div class="pp-share-note" id="ppShareNote" hidden></div>
+    </div>
+    <div class="pp-detail-actions">
       <button type="button" class="btn-full ghost" data-action="passport-edit" data-uid="${ua}" data-course="${ca}">Edit</button>
       <button type="button" class="btn-full danger-ghost" data-action="passport-delete" data-uid="${ua}" data-course="${ca}">Remove</button>
     </div>` : ''}
@@ -23371,6 +23385,60 @@ A['passport-comment-user']   = (el) => { if (!el.dataset.uid) return; ppDetailCl
 A['open-my-passport']        = () => { openMyPassport(); };
 A['passport-post']           = () => { openAddPassportCourse(); };
 A['close-course-page']       = () => { closeCoursePage(); };
+// r274 — Passport round sharing. Opt-in: nothing about this round is public
+// until the owner taps here. The callable mints an opaque token and copies the
+// w400/w800 derivatives to sharedRounds/{token}/, so the link and the images it
+// serves both contain a token rather than the owner's uid.
+A['passport-share']          = async (el) => {
+  const courseId = el.dataset.course;
+  if (!courseId || !window.CURRENT_USER) return;
+  const btn = document.getElementById('ppShareBtn');
+  const note = document.getElementById('ppShareNote');
+  const setBusy = (t) => { if (btn) { btn.disabled = true; btn.textContent = t; } };
+  setBusy('Preparing link…');
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const res = (await httpsCallable(getFunctions(), 'sharePassportRound')({ courseId })).data;
+    if (!res || !res.url) throw new Error('no-url');
+    if (btn) { btn.disabled = false; btn.textContent = 'Share this round'; }
+    if (note) {
+      note.hidden = false;
+      note.innerHTML = '<span class="pp-share-live">This round is public by link.</span> ' +
+        '<button type="button" class="pp-share-unshare" data-action="passport-unshare" ' +
+        'data-course="' + window.safeAttr(courseId) + '">Make private</button>';
+    }
+    // Reuse the one share helper — never a second implementation.
+    const out = window.shareOrFallback
+      ? await window.shareOrFallback({
+        title: 'A round on TeeBox',
+        text: 'A course I played, on my TeeBox Passport',
+        url: res.url })
+      : 'failed';
+    if (out === 'copied' && window.showToast) showToast('Link copied — send it anywhere.');
+    else if (out === 'failed' && window.showToast) showToast('Could not open the share sheet.', 'error');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Share this round'; }
+    if (window.showToast) showToast('Could not create a share link. Try again.', 'error');
+    console.warn('passport share failed', e && e.message);
+  }
+};
+A['passport-unshare']        = async (el) => {
+  const courseId = el.dataset.course;
+  if (!courseId) return;
+  el.disabled = true; el.textContent = 'Removing…';
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    await httpsCallable(getFunctions(), 'unsharePassportRound')({ courseId });
+    const note = document.getElementById('ppShareNote');
+    if (note) { note.hidden = true; note.innerHTML = ''; }
+    if (window.showToast) showToast('That link no longer works.');
+  } catch (e) {
+    el.disabled = false; el.textContent = 'Make private';
+    if (window.showToast) showToast('Could not make it private. Try again.', 'error');
+  }
+};
 A['passport-edit']           = (el) => { ppDetailClose(); if (__ppDetailData) openAddPassportCourse(__ppDetailData); };
 A['passport-delete']         = (el) => { ppDelete(el.dataset.uid, el.dataset.course); };
 A['pin-listing']             = (el) => { if (!window.requireAuth('to pin a listing to your profile')) return; pinListingToProfile(el.dataset.listingId); };
