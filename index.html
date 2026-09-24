@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r259</span></div>
+        <span class="auth-build" aria-hidden="true">r260</span></div>
     </div>
   </div>
 </div>
@@ -15596,9 +15596,15 @@ async function applyAiPriceFlagVisibility() {
 }
 
 function openSellModal() {
-  document.getElementById('uploadPreviews').innerHTML = '';
-  document.getElementById('uploadCount').textContent = '';
-  document.getElementById('uploadZone').style.display = 'block';
+  // r260 HOTFIX: #uploadCount was removed in r259 (the count moved into
+  // the step label, rendered by updateSellSteps) but this line still set
+  // .textContent on it — openSellModal threw before opening and the Sell
+  // button did nothing on web. Every lookup here is null-guarded now so a
+  // markup change can never again take the whole modal down.
+  const _prev = document.getElementById('uploadPreviews');
+  if (_prev) _prev.innerHTML = '';
+  const _zone = document.getElementById('uploadZone');
+  if (_zone) _zone.style.display = 'block';
   // Listing v2: fresh opens start with no category picked; edit mode
   // re-hydrates right after via hydrateSpecState().
   if (!window.__editingListingId && window.resetSpecState) window.resetSpecState();
