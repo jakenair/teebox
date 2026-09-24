@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r265</span></div>
+        <span class="auth-build" aria-hidden="true">r266</span></div>
     </div>
   </div>
 </div>
@@ -8438,7 +8438,14 @@ window.confirmPayment = async function() {
   async function preloadOwnAvatar(uid) {
     try {
       const snap = await getDoc(doc(db, 'profiles', uid));
-      const url = snap.exists() && snap.data().avatarUrl;
+      const prof = snap.exists() ? snap.data() : null;
+      // r266: warm the w256 derivative, not the original. Every consumer of
+      // CURRENT_PROFILE_AVATAR draws at 88px or smaller (profile header, nav
+      // drawer identity, own-profile skeleton), and the heaviest live avatar
+      // is a 1677KB original — which this preload was fetching on every
+      // sign-in. avatarVariantUrl falls back to the original on its own.
+      const url = prof && (window.avatarVariantUrl
+        ? window.avatarVariantUrl(prof, 'w256') : prof.avatarUrl);
       if (url) {
         window.CURRENT_PROFILE_AVATAR = url;
         const im = new Image();
@@ -19746,9 +19753,35 @@ function profileInitial(p) {
   return s ? s[0].toUpperCase() : '?';
 }
 
-function avatarHtml(p) {
+// r266: resolve an avatar to the w96/w256 WebP derivative written by the
+// optimizeAvatar Storage trigger. Keyed by BASENAME (the {Date.now()}
+// filename minus its extension), which is how the trigger writes it, so a
+// re-upload can never be served the previous avatar's derivative. Falls back
+// to the original for avatars uploaded before the trigger existed, for
+// external Auth photoURLs, and for anything the backfill skipped.
+window.avatarVariantUrl = function (p, size) {
+  const orig = p && p.avatarUrl;
+  if (!orig || typeof orig !== 'string') return window.safeImgUrl(orig);
+  const v = p.avatarVariants;
+  if (v) {
+    const m = orig.match(/\/o\/([^?]+)/);
+    if (m) {
+      try {
+        const base = decodeURIComponent(m[1]).split('/').pop().replace(/\.[^.]+$/, '');
+        const hit = v[base] && v[base][size];
+        if (hit) { const u = window.safeImgUrl(hit); if (u) return u; }
+      } catch (_e) { /* malformed URL → fall through to the original */ }
+    }
+  }
+  return window.safeImgUrl(orig);
+};
+
+// `size` defaults to w96, which covers every slot rendered at <= 48 CSS px
+// (card 20px, msg 28px, chat header 40px, seller id 40px) through 2x. The
+// 88px .profile-avatar passes 'w256'.
+function avatarHtml(p, size) {
   const initial = window.safeText(profileInitial(p));
-  const u = window.safeImgUrl(p && p.avatarUrl);
+  const u = window.avatarVariantUrl(p, size || 'w96');
   if (u) {
     // The initial renders instantly as the placeholder; the photo loads EAGERLY
     // (was loading="lazy", which deferred the fetch and caused the late pop) and
@@ -20214,7 +20247,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   document.getElementById('profileBody').innerHTML = `
     ${payoutNudgeHtml}
     <div class="profile-header">
-      <div class="profile-avatar">${avatarHtml(profile)}</div>
+      <div class="profile-avatar">${avatarHtml(profile, 'w256')}</div>
       <div style="min-width:0">
         <div class="profile-name-row">
           <div class="profile-name">${window.safeText(profile.displayName || 'Anonymous Seller')}</div>
@@ -20646,7 +20679,7 @@ async function renderProfileEditor() {
   document.getElementById('profileBody').innerHTML = `
     ${_photoNudge}
     <div class="profile-header">
-      <div class="profile-avatar" id="editAvatarPreview">${avatarHtml(profile)}</div>
+      <div class="profile-avatar" id="editAvatarPreview">${avatarHtml(profile, 'w256')}</div>
       <div>
         <div class="profile-meta">JPG, PNG, WEBP, or HEIC. Max 2MB.</div>
         <div class="avatar-upload-row">
@@ -26058,16 +26091,11 @@ if (uploadZone) {
     panel.innerHTML =
       '<div class="brp-loading">Will calculate when you reconnect.</div>';
   }
-  function flagEmoji(cc) {
-    // ISO-3166 alpha-2 → regional indicator emoji. Falls back to a globe.
-    if (!cc || typeof cc !== 'string' || cc.length !== 2) return '🌎';
-    const code = cc.toUpperCase();
-    if (!/^[A-Z]{2}$/.test(code)) return '🌎';
-    return String.fromCodePoint(
-      0x1F1E6 + (code.charCodeAt(0) - 65),
-      0x1F1E6 + (code.charCodeAt(1) - 65),
-    );
-  }
+  // r266: flagEmoji() removed. It converted an ISO-3166 code to regional
+  // indicator emoji (globe fallback) but had ZERO call sites — the country
+  // bullet below has always rendered as plain text ("78% in United States").
+  // Deleted rather than swapped for inline SVG: there was no emoji on screen
+  // to replace, only dead code carrying one.
   function renderResultsPanel(panel, results) {
     const { global, country, friends, streak } = results;
     const lines = [];

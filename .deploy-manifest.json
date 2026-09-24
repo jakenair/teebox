@@ -99,6 +99,10 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "draftListingFromPhotos": {
+    "sha": "999897ade538ffbea1f649ac8b31b69475fefc3c",
+    "at": "2026-09-24"
+  },
   "exchangeIdTokenForCustomToken": {
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
@@ -150,6 +154,11 @@
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "getBingoLeaderboard": {
+    "sha": "d50cba0f5c232b49334172f92e3020b922e1fae6",
+    "at": "2026-09-22",
+    "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
   },
   "getBingoPercentile": {
     "at": "2026-05-15",
@@ -321,10 +330,19 @@
     "sha": "6c958d622f82f6e82bc1cd28a6748fb6288cf171",
     "at": "2026-09-21"
   },
+  "optimizeAvatar": {
+    "sha": "6822162018dabfc16b2e46dd72c3de1c5627baf1",
+    "at": "2026-09-24"
+  },
   "optimizeListingPhoto": {
     "at": "2026-09-17",
     "note": "racy=VERY_LIKELY threshold; deployed via raw gcloud to us-east1 (storage trigger region — deploy-fn.sh us-central1 lane cannot reach it)",
     "sha": "ffc64b2a00a5f440132882a03bc573273c18f939"
+  },
+  "optimizePassportPhoto": {
+    "sha": "694a13becb003ade59b6122a94d7095a8989290e",
+    "at": "2026-09-22",
+    "note": "raw gcloud us-east1 (deploy-fn.sh hardcodes us-central1 — would create a duplicate); variants rework"
   },
   "proCanceledEmail": {
     "at": "2026-05-29",
@@ -583,19 +601,5 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
-  },
-  "optimizePassportPhoto": {
-    "sha": "694a13becb003ade59b6122a94d7095a8989290e",
-    "at": "2026-09-22",
-    "note": "raw gcloud us-east1 (deploy-fn.sh hardcodes us-central1 — would create a duplicate); variants rework"
-  },
-  "getBingoLeaderboard": {
-    "sha": "d50cba0f5c232b49334172f92e3020b922e1fae6",
-    "at": "2026-09-22",
-    "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
-  },
-  "draftListingFromPhotos": {
-    "sha": "999897ade538ffbea1f649ac8b31b69475fefc3c",
-    "at": "2026-09-24"
   }
 }
