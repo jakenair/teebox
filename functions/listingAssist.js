@@ -109,6 +109,18 @@ exports.draftListingFromPhotos = onCall(
       // blank with no explanation).
       const requiredFields = Array.isArray(data.requiredFields) ?
         data.requiredFields.slice(0, 20).map((k) => String(k).slice(0, 40)) : [];
+      // r261: the client also sends the exact allowed values for enum spec
+      // fields so Caddie returns "RH", not "Right-handed" (which matched no
+      // dropdown option and silently fell through to an amber note).
+      const fieldOptions = {};
+      if (data.fieldOptions && typeof data.fieldOptions === "object") {
+        for (const [k, v] of Object.entries(data.fieldOptions).slice(0, 20)) {
+          if (Array.isArray(v)) {
+            fieldOptions[String(k).slice(0, 40)] =
+              v.slice(0, 40).map((x) => String(x).slice(0, 40));
+          }
+        }
+      }
 
       const db = admin.firestore();
 
@@ -200,6 +212,13 @@ exports.draftListingFromPhotos = onCall(
         "actually read - a putter stamped Newport is a blade, not a " +
         "mallet. If two readings conflict, report the one you can see and " +
         "put the other in unreadable. " +
+        "OPTIONS RULE: FIELD_OPTIONS gives the exact allowed values for " +
+        "those spec keys. Return one listed value VERBATIM or omit the " +
+        "key entirely - never a synonym (write \"RH\", not " +
+        "\"Right-handed\"). " +
+        "DESCRIPTION RULE: describe the item only. Never comment on the " +
+        "photos themselves - their framing, background, or whether they " +
+        "look like stock images. " +
         "PRICE RULE: round low/mid/high to the nearest $5 and keep the " +
         "band near mid +/-15%. " +
         "Price from the model's used-market value given condition. " +
@@ -222,6 +241,7 @@ exports.draftListingFromPhotos = onCall(
         text: JSON.stringify({
           specCategory: category,
           REQUIRED_FIELDS: requiredFields,
+          FIELD_OPTIONS: fieldOptions,
           sellerEnteredSpecs: partialSpecs,
           OUR_SOLD_COMPS: comps,
         }),
