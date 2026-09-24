@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r266</span></div>
+        <span class="auth-build" aria-hidden="true">r267</span></div>
     </div>
   </div>
 </div>
@@ -6598,7 +6598,15 @@
           <!-- r175: protection reassurance is one muted line UNDER the buy
                button — the tinted box above it is gone. -->
           <div class="detail-trust-strip" aria-label="Dispute window">
-            <span title="Open a dispute within 7 days of delivery; TeeBox reviews and can refund through Stripe">7-day dispute window</span><span aria-hidden="true">&middot;</span><span title="Stripe secure checkout">Stripe secure checkout</span>
+            <span title="Open a dispute within 7 days of delivery; TeeBox reviews and can refund through Stripe">7-day dispute window</span><span aria-hidden="true">&middot;</span><span title="Stripe secure checkout" style="display:inline-flex;align-items:center;gap:4px;"><!--
+              r267: the real Stripe mark, same inlined SVG and brand colour
+              (#635BFF) as the "SECURED BY STRIPE" badge in the checkout modal.
+              aria-hidden because the adjacent text already says "Stripe" —
+              a screen reader should not hear it twice.
+              --><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+                   style="width:11px;height:11px;flex-shrink:0;fill:#635BFF;display:inline-block;">
+                <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
+              </svg>Stripe secure checkout</span>
           </div>
           <!-- Shown by openDetailModal when the seller hasn't finished Stripe
                payout setup (profiles.chargesReady !== true): listing is visible
