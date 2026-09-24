@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r264</span></div>
+        <span class="auth-build" aria-hidden="true">r265</span></div>
     </div>
   </div>
 </div>
@@ -24811,8 +24811,12 @@ if (uploadZone) {
       const body = document.querySelector('.bingo-body');
       const gridEl = document.getElementById('bingoGrid');
       if (body && gridEl) {
-        const bannerStreak = (window.CURRENT_USER && Number.isFinite(window.__serverBingoStreak))
-          ? window.__serverBingoStreak : loadStreak().count;
+        // Post-bump local count, never __serverBingoStreak: at live
+        // completion the server value is exactly today's play behind (the
+        // sync POST hasn't landed yet), so the banner would celebrate
+        // yesterday's streak. The header pill above still prefers the
+        // server value, which is correct for a persistent cross-device label.
+        const bannerStreak = applyCompletionStreak().count;
         const banner = document.createElement('div');
         banner.id = 'bingoResultBanner';
         banner.className = 'bingo-result-banner';
@@ -25403,26 +25407,31 @@ if (uploadZone) {
     setTimeout(() => burst.remove(), 2400);
   }
 
+  // Streak: only counts if at least 1 correct AND user hadn't already
+  // logged today. Gap > 1 day → reset to 1; gap == 1 day → +1; same day
+  // is a no-op (replay is impossible because state is locked anyway).
+  // Idempotent on purpose: submitGuess() calls render() before
+  // maybeFinish(), and render() builds the completion banner, so the banner
+  // path has to be able to apply the bump itself or it prints yesterday's
+  // number (a first-ever finisher saw "Streak 0").
+  function applyCompletionStreak() {
+    const s = loadStreak();
+    if (s.lastPlayedDate === TODAY) return s;
+    const score = scoreCount();
+    if (score > 0) {
+      s.count = (s.lastPlayedDate === yesterday(TODAY)) ? (s.count || 0) + 1 : 1;
+    } else {
+      s.count = 0;
+    }
+    s.lastPlayedDate = TODAY;
+    saveStreak(s);
+    return s;
+  }
+
   function maybeFinish() {
     if (!isComplete()) return;
     const score = scoreCount();
-    // Streak: only counts if at least 1 correct AND user hadn't already
-    // logged today. Gap > 1 day → reset to 1; gap == 1 day → +1; same day
-    // is a no-op (replay is impossible because state is locked anyway).
-    const s = loadStreak();
-    if (s.lastPlayedDate !== TODAY) {
-      if (score > 0) {
-        if (s.lastPlayedDate === yesterday(TODAY)) {
-          s.count = (s.count || 0) + 1;
-        } else {
-          s.count = 1;
-        }
-      } else {
-        s.count = 0;
-      }
-      s.lastPlayedDate = TODAY;
-      saveStreak(s);
-    }
+    const s = applyCompletionStreak();
     render();
 
     // Animated celebration: cascading cell bounce + confetti + banner.
