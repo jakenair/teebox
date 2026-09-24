@@ -2688,6 +2688,12 @@
   .sell-form textarea { height: 80px; resize: vertical; }
   /* Listing v2 spec flow */
   .spec-cat-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  /* r258 stepped flow: photos → category → specs → price → publish.
+     Gating is class-driven on .sell-form; edit mode lands fully open. */
+  .sell-form:not(.has-photos) #sellSpecCatRow .spec-cat-pills { opacity: 0.45; pointer-events: none; }
+  .sell-form:not(.cat-picked) .sell-gated { display: none !important; }
+  .sell-draft-banner { background: #fdf7e7; border: 1px solid var(--gold-300, #eddfa8); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12.5px; color: var(--gray-700); margin-bottom: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .sell-draft-banner button { background: none; border: none; color: var(--green-700); font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: underline; padding: 0; }
   .spec-cat-pill { border: 1.5px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
   .spec-cat-pill.active { background: var(--green-600); border-color: var(--green-600); color: #fff; }
   .spec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -4762,7 +4768,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r257</span></div>
+        <span class="auth-build" aria-hidden="true">r258</span></div>
     </div>
   </div>
 </div>
@@ -6665,8 +6671,9 @@
       </div>
 
       <!-- IMAGE UPLOAD -->
+      <div id="sellDraftPrompt" style="display:none"></div>
       <div class="form-row">
-        <label>Photos (up to 10). First photo is your main listing image</label>
+        <label>1 · Photos (up to 10). First photo is your main listing image</label>
         <div class="upload-previews" id="uploadPreviews"></div>
         <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
         <div class="upload-zone" id="uploadZone" data-action="open-photo-input">
@@ -6685,17 +6692,18 @@
            automatically; the legacy select below is hidden except for
            "Other". -->
       <div class="form-row" id="sellSpecCatRow">
-        <label>What are you selling?</label>
+        <label>2 · What are you selling?</label>
         <div class="spec-cat-pills" id="sellSpecCatPills"></div>
+        <div id="sellSpecCatHint" style="display:none;font-size:12px;color:var(--gray-500);margin-top:6px;">Add a photo first — the AI draft reads your photos.</div>
       </div>
-      <div id="sellSpecFields"></div>
       <div class="ai-draft-bar" id="aiDraftBar" style="display:none">
         <button type="button" class="ai-draft-btn" id="aiDraftBtn" data-action="ai-draft-listing">Draft it for me — title, specs &amp; price from your photos</button>
         <div class="ai-draft-status" id="aiDraftStatus"></div>
       </div>
+      <div id="sellSpecFields"></div>
 
-      <div class="form-row"><label for="sellTitle">Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" maxlength="120" /></div>
-      <div class="form-row"><label for="sellBrand">Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" maxlength="60" />
+      <div class="form-row sell-gated"><label for="sellTitle">Item Title</label><input type="text" id="sellTitle" placeholder="e.g. TaylorMade Qi10 Max Driver" maxlength="120" /></div>
+      <div class="form-row sell-gated"><label for="sellBrand">Brand</label><input type="text" id="sellBrand" list="sellBrandSuggestions" autocomplete="off" placeholder="e.g. TaylorMade" maxlength="60" />
         <datalist id="sellBrandSuggestions">
           <!-- Clubs -->
           <option value="TaylorMade"></option><option value="Callaway"></option><option value="Titleist"></option><option value="Ping"></option><option value="Cobra"></option><option value="Mizuno"></option><option value="Cleveland"></option><option value="PXG"></option><option value="Srixon"></option><option value="Wilson"></option><option value="Honma"></option><option value="Scotty Cameron"></option><option value="Bettinardi"></option><option value="Odyssey"></option><option value="L.A.B."></option>
@@ -6713,7 +6721,7 @@
            "Ask Price" → "Price" (dead bid/ask language, order book killed
            r135); quantity defaults to 1 and hides behind a toggle. -->
       <div class="form-row" id="sellCatRow" style="display:none"><label for="sellCat">Browse category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
-      <div class="form-row-2">
+      <div class="form-row-2 sell-gated">
         <div class="form-row"><label for="sellPrice">Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="form-row"><label for="sellCondition">Condition</label><select id="sellCondition"><option>New with Tags</option><option selected>Like New</option><option>Very Good</option><option>Good</option><option>Fair</option></select></div>
       </div>
@@ -6729,7 +6737,7 @@
       <div class="form-row" id="sellQtyRow" style="display:none">
         <label for="sellQuantity">Quantity</label><input type="number" id="sellQuantity" inputmode="numeric" placeholder="1" min="1" max="99" value="1" />
       </div>
-      <button type="button" class="qty-toggle-link" id="sellQtyToggle" data-action="toggle-sell-qty">I have more than one</button>
+      <button type="button" class="qty-toggle-link sell-gated" id="sellQtyToggle" data-action="toggle-sell-qty">I have more than one</button>
       <div id="priceSuggest" class="price-suggest" style="display:none"></div>
       <!-- Listing v2 (r257): the Gemini-era aiPriceBtn/aiPriceCard are
            retired — draftListingFromPhotos (the AI bar above the title
@@ -6747,7 +6755,7 @@
              generateListingDescription stays deployed but unreachable
              from UI. Re-enable by restoring the button markup + activating
              billing on the Gemini key. -->
-        <label for="sellDesc">Description</label>
+        <label for="sellDesc">Description</label><!-- parent row gated via JS (legacy markup: no clean anchor on the wrapper) -->
         <textarea id="sellDesc" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
       <!-- First-time seller: inline Seller-Terms acceptance (merged from the
@@ -9942,6 +9950,7 @@ window.confirmPayment = async function() {
     // AI bar appears once photos + category exist.
     const bar = document.getElementById('aiDraftBar');
     if (bar) bar.style.display = (selectedFiles.length > 0) ? '' : 'none';
+    if (window.updateSellSteps) window.updateSellSteps();
     if (!(opts && opts.silent) && typeof renderTakeHome === 'function') { try { renderTakeHome(); } catch (_e) {} }
   };
   window.getSpecCategory = () => __specCategory;
@@ -9969,7 +9978,27 @@ window.confirmPayment = async function() {
     });
     return errs;
   };
-  window.resetSpecState = function () { __specCategory = ''; renderSpecCatPills(); renderSpecFields(); const b = document.getElementById('aiDraftBar'); if (b) b.style.display = 'none'; };
+  window.resetSpecState = function () { __specCategory = ''; renderSpecCatPills(); renderSpecFields(); const b = document.getElementById('aiDraftBar'); if (b) b.style.display = 'none'; window.updateSellSteps && window.updateSellSteps(); };
+  // r258: the stepped flow's single source of truth. Photos gate the
+  // category pills; category gates everything below (CSS classes).
+  window.updateSellSteps = function () {
+    const form = document.querySelector('#sellModalBackdrop .sell-form');
+    if (!form) return;
+    const hasPhotos = (typeof selectedFiles !== 'undefined') && selectedFiles.length > 0;
+    const hasCat = !!(window.getSpecCategory && window.getSpecCategory());
+    form.classList.toggle('has-photos', hasPhotos);
+    form.classList.toggle('cat-picked', hasCat);
+    const hint = document.getElementById('sellSpecCatHint');
+    if (hint) hint.style.display = hasPhotos ? 'none' : '';
+    // Legacy markup: the Description form-row has no static class anchor —
+    // gate it (and the terms row) at runtime alongside the tagged rows.
+    const descRow = document.getElementById('sellDesc');
+    if (descRow && descRow.parentElement) descRow.parentElement.classList.add('sell-gated');
+    const terms = document.getElementById('sellTermsRow');
+    if (terms) terms.classList.add('sell-gated');
+    const submitBtn = document.getElementById('submitListingBtn');
+    if (submitBtn) submitBtn.disabled = !hasCat && !window.__editingListingId;
+  };
   window.hydrateSpecState = function (listing) {
     const k = listing && listing.specCategory;
     if (k && window.SPEC_SCHEMA[k]) {
@@ -10128,6 +10157,7 @@ window.confirmPayment = async function() {
   }
   function renderPreviews() {
     __syncAiDraftBar();
+    if (window.updateSellSteps) window.updateSellSteps();
     const container = document.getElementById('uploadPreviews');
     const count = document.getElementById('uploadCount');
     // selectedFiles entries are either a File (newly picked) or a
@@ -11282,7 +11312,7 @@ function renderProductCardHtml(p, i) {
         if (!v && !likes) return '';
         const parts = [];
         if (v) parts.push(`<span class="stat" title="${v.toLocaleString()} view${v===1?'':'s'}">`+
-          `<span class="stat-ico" aria-hidden="true">\u{1F441}\u{FE0F}</span>${v.toLocaleString()}</span>`);
+          `<span class="stat-ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;opacity:.75"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>${v.toLocaleString()}</span>`);
         if (likes) parts.push(`<span class="stat" title="${likes.toLocaleString()} like${likes===1?'':'s'}">`+
           `<span class="stat-ico" aria-hidden="true">♥</span>${likes.toLocaleString()}</span>`);
         return `<div class="product-stats">${parts.join('')}</div>`;
@@ -15214,6 +15244,33 @@ function clearSellDraft() {
   try { localStorage.removeItem(SELL_DRAFT_KEY); }
   catch (e) { console.warn('Sell-draft clear failed:', e); }
 }
+function maybeOfferSellDraft() {
+  const host = document.getElementById('sellDraftPrompt');
+  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
+  if (window.__editingListingId) return; // edit mode never touches drafts
+  const d = readSellDraft();
+  const hasContent = ['sellTitle', 'sellBrand', 'sellPrice', 'sellDesc']
+    .some(k => d[k] != null && String(d[k]).trim() !== '');
+  if (!hasContent) return;
+  const age = Date.now() - (Number(d.__at) || 0);
+  if (!d.__at || age > 7 * 24 * 3600 * 1000) { clearSellDraft(); return; }
+  if (!host) return;
+  const when = new Date(Number(d.__at)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const label = (d.sellTitle && String(d.sellTitle).trim()) || 'your unfinished listing';
+  host.innerHTML = `<div class="sell-draft-banner"><span>Unfinished draft from ${when}: <strong>${window.safeText(String(label).slice(0, 60))}</strong></span><span><button type="button" data-action="sell-draft-resume">Resume</button> &nbsp;·&nbsp; <button type="button" data-action="sell-draft-discard">Discard</button></span></div>`;
+  host.style.display = '';
+}
+window.resumeSellDraft = function () {
+  applySellDraft();
+  const host = document.getElementById('sellDraftPrompt');
+  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
+  if (window.updateSellSteps) window.updateSellSteps();
+};
+window.discardSellDraft = function () {
+  clearSellDraft();
+  const host = document.getElementById('sellDraftPrompt');
+  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
+};
 function applySellDraft() {
   const d = readSellDraft();
   SELL_FIELDS.forEach(id => {
@@ -15227,6 +15284,7 @@ function captureSellDraft() {
     const el = document.getElementById(id);
     if (el) d[id] = el.value;
   });
+  d.__at = Date.now(); // r258: drafts expire after 7 days (see maybeOfferSellDraft)
   writeSellDraft(d);
   // Analytics: priority event #2 — `listing_created` with state:'draft'.
   // The autosave path is invoked on EVERY keystroke; we only want to
@@ -15357,7 +15415,11 @@ function openSellModal() {
       && typeof window.exitSellEditMode === 'function') {
     window.exitSellEditMode();
   }
-  applySellDraft();
+  // r258 (founder ruling): NEVER silently prefill a fresh open — the
+  // silent restore was surfacing weeks-old drafts ("Bulova"). Offer an
+  // explicit Resume/Discard for drafts <7 days old; anything older (or
+  // timestamp-less, i.e. pre-r258) is discarded.
+  maybeOfferSellDraft();
   // Gate the AI suggest-price button on the Firestore feature flag.
   // Off by default until comp coverage > 100 listings per category.
   applyAiPriceFlagVisibility();
@@ -23147,6 +23209,8 @@ A['toggle-sell-qty']         = () => { if (window.__setSellQtyVisible) window.__
 A['pick-spec-cat']            = (el) => { if (window.setSpecCategory) window.setSpecCategory(el.dataset.speccat); };
 A['ai-draft-listing']         = () => { if (!window.requireAuth('to draft your listing')) return; window.aiDraftListing && window.aiDraftListing(); };
 A['ai-draft-undo']            = () => { window.aiDraftUndo && window.aiDraftUndo(); };
+A['sell-draft-resume']        = () => { window.resumeSellDraft && window.resumeSellDraft(); };
+A['sell-draft-discard']       = () => { window.discardSellDraft && window.discardSellDraft(); };
 A['apply-ai-price']           = (el) => {
   const p = Number(el.dataset.price || 0);
   const inp = document.getElementById('sellPrice');
