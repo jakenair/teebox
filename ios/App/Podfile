@@ -69,10 +69,30 @@ post_install do |installer|
   # CocoaPods regenerated Pods.xcodeproj under Xcode 26.3. NOT caused by the
   # "update to recommended settings" pass — reverting that left the build
   # failing identically, which is how it was traced here.
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
+  # Exhaustive on purpose. An earlier version of this hook only walked
+  # installer.pods_project.targets and left 62 of 84 build configurations still
+  # set to YES — CocoaPods writes the setting in more places than that one list
+  # reaches, and the archive failed on nanopb even though `pod install` had run.
+  # So: project level, every target, every aggregate target, and finally a
+  # literal sweep of the generated xcconfigs, which are the base layer the
+  # pbxproj inherits from.
+  projects = [installer.pods_project] + installer.generated_projects rescue [installer.pods_project]
+  projects.compact.uniq.each do |proj|
+    proj.build_configurations.each do |config|
       config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+    end
+    proj.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+        config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      end
+    end
+  end
+  installer.aggregate_targets.each do |agg|
+    agg.xcconfigs.each do |_name, cfg|
+      cfg.attributes['ENABLE_MODULE_VERIFIER'] = 'NO'
+      cfg.attributes['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
     end
   end
 end
