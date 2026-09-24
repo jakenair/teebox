@@ -1906,6 +1906,60 @@
   body:not(.is-native) .cat-bar .cat-pill[data-action="filter-cat"],
   body:not(.is-native) .cat-bar .cat-bar-divider { display: none; }
 
+  /* r271 — hero 2x2 quick-action panel. .hero-featured is already a two-column
+     grid, so four tiles fall into 2x2 with no new layout. Stays 2x2 on phones
+     (the stacking override below is scoped to :not(.hero-quad)). */
+  .hero-quad { gap: 12px; }
+  .hq-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    min-height: 116px; padding: 16px; text-align: left; cursor: pointer;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: var(--radius-lg); color: var(--white);
+    font-family: var(--font-body); transition: var(--transition); }
+  .hq-tile:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+  .hq-tile:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+  .hq-ico { display: block; width: 22px; height: 22px; margin-bottom: 2px; color: var(--gold-300); }
+  .hq-ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .hq-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+  .hq-sub { font-size: 12px; line-height: 1.35; color: rgba(255,255,255,0.68); }
+  /* Sell is the commercial action — gold, so it reads as the CTA the nav
+     button used to be. */
+  .hq-sell { background: var(--gold-400); border-color: var(--gold-400); color: var(--green-950); }
+  .hq-sell:hover { background: var(--gold-300); border-color: var(--gold-300); }
+  .hq-sell .hq-ico { color: var(--green-900); }
+  .hq-sell .hq-sub { color: rgba(11,26,14,0.72); }
+  @media (prefers-reduced-motion: reduce) { .hq-tile:hover { transform: none; } }
+
+  /* r271 — category side panel beside Trending Now. */
+  .home-split { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 28px;
+    max-width: 1240px; margin: 0 auto; align-items: start; }
+  .home-split > #trending { margin-left: 0; margin-right: 0; }
+  .cat-side { padding: 2rem 0 0; }
+  .cat-side-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
+    color: var(--gray-900); margin: 0 0 12px; }
+  .cat-side-list { display: flex; flex-direction: column; gap: 2px; }
+  /* Overrides the .cat-pill chip look — these are rows, not chips. The class
+     stays so filterCat()'s active sweep finds them. */
+  .cat-side .cat-side-item { display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 12px; border: 0; border-radius: var(--radius-md); background: transparent;
+    font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--gray-700);
+    text-align: left; cursor: pointer; transition: var(--transition); white-space: nowrap; }
+  .cat-side .cat-side-item:hover { background: var(--gray-100); color: var(--gray-900); }
+  .cat-side .cat-side-item.active { background: var(--green-700); color: var(--white); font-weight: 600; }
+  .cat-side .cat-side-ico { display: inline-flex; width: 18px; height: 18px; flex-shrink: 0; }
+  .cat-side .cat-side-ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  /* Web-only: #trending renders in the app too, and no new section ships native. */
+  body.is-native .cat-side { display: none; }
+  body.is-native .home-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  @media (max-width: 900px) {
+    /* Stack: categories become a horizontal scroll row above Trending. */
+    .home-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .cat-side { padding: 1.5rem 1.25rem 0; }
+    .cat-side-list { flex-direction: row; overflow-x: auto; gap: 8px; padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .cat-side-list::-webkit-scrollbar { display: none; }
+    .cat-side .cat-side-item { width: auto; flex-shrink: 0; border: 1px solid var(--gray-200); border-radius: 50px; padding: 7px 14px; }
+  }
+
   .shop-menu-wrap { position: relative; }
   /* Left-aligned, unlike .user-menu which hangs off the right edge — Shop is
      the leftmost ribbon item, so a right-anchored menu would run off-screen. */
@@ -2932,6 +2986,8 @@
     /* Hero: when only ONE feat-card-big in heroFeatured, sit cleanly in the right column */
     #heroFeatured.hero-featured { grid-template-columns: 1fr; }
     #heroFeatured.hero-featured > .feat-card-big:only-child { max-width: 460px; justify-self: end; align-self: center; width: 100%; }
+    /* r271: keep the quick-action panel 2x2 at this breakpoint too. */
+    #heroFeatured.hero-quad { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     /* Modals: more breathing room on desktop */
     .detail-modal { max-width: min(960px, 92vw); }
     .sell-modal { max-width: min(820px, 92vw); }
@@ -2980,6 +3036,13 @@
     .hero-fee-proof { margin-top: 8px; font-size: 11.5px; }
     .hero-title { font-size: clamp(1.7rem, 6vw, 2.4rem); }
     .hero-featured { grid-template-columns: 1fr; }
+    /* r271: the quick-action panel stays 2x2 on phones — four stacked
+       full-width tiles would push the whole feed below the fold. Declared
+       after the stacking rules above so it wins on source order. */
+    #heroFeatured.hero-quad { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+    .hq-tile { min-height: 96px; padding: 12px; }
+    .hq-name { font-size: 13.5px; }
+    .hq-sub { font-size: 11px; }
     .feat-card-big { padding: 1rem; }
     .section { padding: 1.5rem 1rem; }
     .section-title { font-size: 1.2rem !important; }
@@ -4692,6 +4755,11 @@
   // gradient defined once after <body> (avoids duplicate-id gradient defs).
   window.VERIFIED_BADGE = '<span class="verified-badge" role="img" aria-label="Verified seller" title="Verified seller"><svg viewBox="0 0 24 24"><path d="M 12 0.6 L 14.41 3.02 L 17.7 2.13 L 18.58 5.42 L 21.87 6.3 L 20.98 9.59 L 23.4 12 L 20.98 14.41 L 21.87 17.7 L 18.58 18.58 L 17.7 21.87 L 14.41 20.98 L 12 23.4 L 9.59 20.98 L 6.3 21.87 L 5.42 18.58 L 2.13 17.7 L 3.02 14.41 L 0.6 12 L 3.02 9.59 L 2.13 6.3 L 5.42 5.42 L 6.3 2.13 L 9.59 3.02 L 12 0.6 Z" fill="url(#tb-verified-gold)" stroke="#8a6110" stroke-width="0.4" stroke-linejoin="round"/><path d="M8.2 12.2 l2.4 2.4 l5-5.2" fill="none" stroke="#fffdf5" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
   window.ICONS = {
+    // r271: line icons for the hero quick-action panel. Bingo gets a 3x3
+    // grid (the board), Journal an open book. Line-art to match the rest of
+    // this map, and no emoji anywhere per the homepage ruling.
+    grid:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 4h5v5H4zM9.5 4h5v5h-5zM15 4h5v5h-5zM4 9.5h5v5H4zM9.5 9.5h5v5h-5zM15 9.5h5v5h-5zM4 15h5v5H4zM9.5 15h5v5h-5zM15 15h5v5h-5z"/></svg>',
+    book:      '<svg class="ico" viewBox="0 0 24 24"><path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2zM12 6.5v13"/></svg>',
     club:      '<svg class="ico" viewBox="0 0 24 24"><path d="M14 4l-9 9.5a2 2 0 002.8 2.8L17.3 7M14 4l3.3 3.3M14 4l4-1 1 1-1 4-3.3-3.3M5 18l1 2 2 1"/></svg>',
     shoe:      '<svg class="ico" viewBox="0 0 24 24"><path d="M3 16h18a0 0 0 010 0v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2zM3 16V9a4 4 0 014-4l3 4 4-1 4 5h2a3 3 0 013 3"/></svg>',
     shirt:     '<svg class="ico" viewBox="0 0 24 24"><path d="M9 4l3 3 3-3 5 2-2 5h-3v9H8v-9H5L3 6z"/></svg>',
@@ -4832,7 +4900,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r270</span></div>
+        <span class="auth-build" aria-hidden="true">r271</span></div>
     </div>
   </div>
 </div>
@@ -6322,13 +6390,12 @@
     </div>
     <!-- GUEST cluster -->
     <button id="navSignInBtn" class="nav-signin-btn ribbon-anon" data-action="show-auth" type="button" aria-label="Sign in or create account">Sign In</button>
-    <!-- Terminal CTA — both states. Copy swaps via body class. -->
-    <button class="btn-sell-nav" data-action="handle-sell" aria-label="Sell">
-      <!-- r177: one word for the sell CTA in both auth states — was
-           "Start Selling"/"Sell Now", two labels for one action. -->
-      <span class="sell-copy-anon">Sell</span>
-      <span class="sell-copy-auth">Sell</span>
-    </button>
+    <!-- r271: the top-right Sell button is GONE. Selling now lives in the
+         hero's 2x2 quick-action panel ("Sell Now"), which is what the founder
+         asked for once that panel existed. Four other entry points remain, so
+         no surface loses the ability to sell: the mobile bottom-nav Sell tab,
+         the hero "Sell your gear" link, the footer Marketplace > Sell link,
+         and the empty-state "List an Item" CTA. -->
   </div>
 </nav>
 
@@ -6442,18 +6509,35 @@
         </div>
         <p class="hero-fee-proof">Keep more of your sale: flat 8.5% fee. eBay takes ~13%.</p>
       </div>
-      <div class="hero-featured" id="heroFeatured">
-        <!-- "Most Viewed This Week" widget — top 3 listings by viewCount,
-             populated by renderMostViewedWidget() after PRODUCTS loads.
-             Falls back to newest listings, then to the value-prop copy
-             when the marketplace is genuinely empty. Single .feat-card-big
-             child so the desktop :only-child positioning rule still
-             applies. -->
-        <div class="feat-card feat-card-big feat-most-viewed" id="heroMostViewed" style="min-height:240px;padding:20px;">
-          <div class="feat-label" style="margin-bottom:6px;">Brand New Marketplace</div>
-          <div class="feat-name" style="font-size:18px;line-height:1.3;margin-bottom:8px;">Be one of the first to list on TeeBox.</div>
-          <div style="color:rgba(255,255,255,0.7);font-size:13px;line-height:1.5;max-width:300px;margin:0 auto;text-align:center;">Real peer-to-peer prices and secured payouts. A flat 8.5% seller fee. eBay takes ~13%.</div>
-        </div>
+      <!-- r271 (homepage restructure, bump 2): the hero's right panel is now a
+           2x2 quick-action grid — the three things TeeBox does beyond buying,
+           plus Sell. This REPLACES the Most Viewed / "Brand New Marketplace"
+           widget; renderMostViewedWidget() no-ops safely because #heroMostViewed
+           is gone and it guards on the element.
+           Sell lives here now, which is what let the top-right nav Sell button
+           go. The whole .hero is already display:none under body.is-native, so
+           this panel is web-only for free. -->
+      <div class="hero-featured hero-quad" id="heroFeatured">
+        <button class="hq-tile" data-action="open-bingo" type="button">
+          <span class="hq-ico" data-ico="grid" aria-hidden="true"></span>
+          <span class="hq-name">Logo Bingo</span>
+          <span class="hq-sub">Guess today's nine courses</span>
+        </button>
+        <button class="hq-tile" data-action="open-journal" type="button">
+          <span class="hq-ico" data-ico="book" aria-hidden="true"></span>
+          <span class="hq-name">TeeBox Journal</span>
+          <span class="hq-sub">Course guides and gear reads</span>
+        </button>
+        <button class="hq-tile" data-action="open-passport-feed" type="button">
+          <span class="hq-ico" data-ico="pin" aria-hidden="true"></span>
+          <span class="hq-name">Passport</span>
+          <span class="hq-sub">Stamp the courses you've played</span>
+        </button>
+        <button class="hq-tile hq-sell" data-action="handle-sell" type="button">
+          <span class="hq-ico" data-ico="plus" aria-hidden="true"></span>
+          <span class="hq-name">Sell Now</span>
+          <span class="hq-sub">List a club in a couple of minutes</span>
+        </button>
       </div>
     </div>
   </section>
@@ -6499,9 +6583,32 @@
     <span class="app-teaser-cta">Read &rarr;</span>
   </a>
 
-  <div class="section reveal" id="trending">
-    <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
-    <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
+  <!-- r271 (bump 2): categories move out of the header and become a side
+       panel alongside Trending Now, directly under the ticker. Each button
+       carries .cat-pill so filterCat()'s existing
+       `.cat-pill[data-cat="X"] → .active` sweep lights the right row without
+       any new active-state code, and clicking filters the grid exactly as the
+       old header pills did. WEB-ONLY: #trending also renders in the native
+       app, so the panel is hidden under body.is-native per the standing
+       "every new section is web-only" ruling. -->
+  <div class="home-split">
+    <aside class="cat-side" aria-label="Shop by category">
+      <h2 class="cat-side-title">Categories</h2>
+      <div class="cat-side-list">
+        <button class="cat-pill cat-side-item active" data-action="filter-cat" data-cat="all" type="button"><span class="cat-side-ico" data-cat-ico="all" aria-hidden="true"></span>All</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="clubs" type="button"><span class="cat-side-ico" data-cat-ico="clubs" aria-hidden="true"></span>Clubs</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="shoes" type="button"><span class="cat-side-ico" data-cat-ico="shoes" aria-hidden="true"></span>Shoes</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="apparel" type="button"><span class="cat-side-ico" data-cat-ico="apparel" aria-hidden="true"></span>Apparel</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="accessories" type="button"><span class="cat-side-ico" data-cat-ico="accessories" aria-hidden="true"></span>Accessories</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="bags" type="button"><span class="cat-side-ico" data-cat-ico="bags" aria-hidden="true"></span>Bags</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="balls" type="button"><span class="cat-side-ico" data-cat-ico="balls" aria-hidden="true"></span>Balls</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="headcovers" type="button"><span class="cat-side-ico" data-cat-ico="headcovers" aria-hidden="true"></span>Headcovers</button>
+      </div>
+    </aside>
+    <div class="section reveal" id="trending">
+      <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
+      <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
+    </div>
   </div>
 
   <div class="section reveal" id="homeLatest">
@@ -23772,6 +23879,19 @@ document.querySelectorAll('[data-ico]').forEach((el) => {
   const name = el.dataset.ico;
   const svg = window.ICONS && window.ICONS[name];
   if (svg) el.innerHTML = svg;
+});
+
+// r271: fill the category side-panel rows with the existing per-category
+// SVGs. CATEGORY_ICON is the same source the cards and search chips use, so
+// the panel can never drift from them. "all" has no dedicated glyph — it gets
+// the sliders mark, matching the Shop dropdown's trigger.
+document.querySelectorAll('.cat-side-ico[data-cat-ico]').forEach((el) => {
+  const cat = el.dataset.catIco;
+  try {
+    el.innerHTML = cat === 'all'
+      ? (window.ICONS && window.ICONS.sliders) || ''
+      : (window.CATEGORY_ICON ? window.CATEGORY_ICON(cat) : '');
+  } catch (_e) { /* an icon is decoration — never block the row */ }
 });
 
 // Hero featured cards + checkout/modal product slots use the
