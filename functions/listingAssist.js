@@ -36,14 +36,24 @@ const admin = require("firebase-admin");
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
-const MODEL = "claude-haiku-4-5";
-// $ per 1M tokens (claude-haiku-4-5, cached 2026-06 pricing table).
-const IN_PER_M = 1.0;
-const OUT_PER_M = 5.0;
+// r261: flipped Haiku 4.5 -> Sonnet 5 (founder standing ruling: "if it
+// misreads stampings on Scotty/Bettinardi putters, flip to Sonnet").
+// The measured failure was VARIANCE, not a fixed misread: 5 runs on the
+// same Studio Style Newport photos read the model right every time but
+// returned a wrong head style once and a $320-$425 price swing. Sonnet 5
+// REJECTS the temperature parameter (400), so stability is bought with a
+// stronger model + full-resolution images + tighter prompt rules.
+const MODEL = "claude-sonnet-5";
+// $ per 1M tokens (claude-sonnet-5, cached 2026-06 pricing table).
+const IN_PER_M = 2.0;
+const OUT_PER_M = 10.0;
 const MONTHLY_CAP_USD = 50;
 const DAILY_LIMIT = 25;
 const MAX_IMAGES = 4;
-const MAX_IMAGE_B64 = 600 * 1024; // ~450KB binary per image after downscale
+// r261: the client now sends up to 1400px (was 800px - a 40% cut that
+// shredded small sole stampings). ~230KB base64 typical; headroom for
+// larger phone photos without false rejections.
+const MAX_IMAGE_B64 = 900 * 1024;
 
 const SPEC_CATEGORIES = [
   "driver", "fairway", "hybrid", "iron-set", "single-iron", "wedge",
@@ -159,8 +169,9 @@ exports.draftListingFromPhotos = onCall(
         "no hype words), \"description\": string (2-4 plain sentences, " +
         "factual, mention visible wear honestly, no hype), \"condition\": " +
         "one of [\"New with Tags\",\"Like New\",\"Very Good\",\"Good\"," +
-        "\"Fair\"], \"specs\": object (ONLY keys you can actually read " +
-        "from the photos or infer with high confidence: brand, model, " +
+        "\"Fair\"], \"specs\": object (ONLY keys you can literally READ " +
+        "from a photo - never inferred from head shape, silhouette, or " +
+        "which models are popular: brand, model, " +
         "loft, flex, shaftBrand, shaftModel, shaftType, dexterity, " +
         "setComposition, bounce, grind, length, headStyle, grip, size, " +
         "type, quantity — omit anything uncertain, never guess " +
@@ -181,6 +192,16 @@ exports.draftListingFromPhotos = onCall(
         "found, e.g. {\"length\": \"check the shaft band\", \"loft\": " +
         "\"stamped on the sole\"}. Use {} when you read everything. Never " +
         "invent a value to avoid reporting it unreadable. " +
+        "MODEL NAME RULE: report \"model\" ONLY when you can literally " +
+        "read the model name in a photo. Do NOT infer it from head shape " +
+        "or from which models are common for that brand - a confident " +
+        "guess is worse than reporting it unreadable. " +
+        "CONSISTENCY RULE: every spec you report must agree with what you " +
+        "actually read - a putter stamped Newport is a blade, not a " +
+        "mallet. If two readings conflict, report the one you can see and " +
+        "put the other in unreadable. " +
+        "PRICE RULE: round low/mid/high to the nearest $5 and keep the " +
+        "band near mid +/-15%. " +
         "Price from the model's used-market value given condition. " +
         "When OUR_SOLD_COMPS is present, weight those real sold prices " +
         "ABOVE general knowledge and set compsUsed to their count; " +
@@ -212,7 +233,12 @@ exports.draftListingFromPhotos = onCall(
         const client = new Anthropic({apiKey: ANTHROPIC_API_KEY.value()});
         resp = await client.messages.create({
           model: MODEL,
-          max_tokens: 1200,
+          // Sonnet 5 runs adaptive thinking and those tokens count toward
+          // max_tokens - leave headroom or the JSON truncates.
+          max_tokens: 4000,
+          // Extraction, not deep reasoning: low effort keeps latency and
+          // spend predictable per listing.
+          output_config: {effort: "low"},
           system,
           messages: [{role: "user", content: userContent}],
         });
