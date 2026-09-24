@@ -51,4 +51,28 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Xcode 16+/26 runs the CLANG MODULE VERIFIER over every Pod framework and
+  # treats a double-quoted include inside a framework header as an ERROR, not a
+  # warning. Three vendored pods use them — nanopb (pb.h, pb_common.h,
+  # pb_decode.h, pb_encode.h), RecaptchaInterop (RCA*.h) and GTMSessionFetcher —
+  # so the build fails on third-party source we neither own nor can patch:
+  #
+  #   error: double-quoted include "pb.h" in framework header,
+  #          expected angle-bracketed instead
+  #
+  # Verification is a BUILD-TIME CHECK ONLY; it does not participate in codegen,
+  # so turning it off changes nothing about the shipped binary. Scoped to
+  # installer.pods_project, so the App target keeps its own warnings intact.
+  #
+  # Surfaced 2026-09-24 when a Release build was run for the first time since
+  # CocoaPods regenerated Pods.xcodeproj under Xcode 26.3. NOT caused by the
+  # "update to recommended settings" pass — reverting that left the build
+  # failing identically, which is how it was traced here.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+    end
+  end
 end
