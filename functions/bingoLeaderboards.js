@@ -647,10 +647,12 @@ exports.getBingoFriendsBoard = onCall(USER_CALLABLE, async (request) => {
   if (youIdx >= 10) top.push(rows[youIdx]);
 
   return {
+    // A3 (audit 2026-09-01; founder go 2026-09-24): uid + photoUrl
+    // dropped from the wire — the client renders only the counts
+    // (friendsWhoSolved / totalFriends), so per-entry identifiers were
+    // pure over-send. displayName stays for a future real friends list.
     entries: top.map((r) => ({
-      uid: r.uid,
       displayName: r.displayName,
-      photoUrl: r.photoUrl,
       timeSec: r.timeSec,
       attempts: r.attempts,
       solved: r.solved,
