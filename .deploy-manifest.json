@@ -595,8 +595,7 @@
     "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
   },
   "draftListingFromPhotos": {
-    "sha": "c4753c8e70574681f2fad86f8b6c02c221e37387",
-    "at": "2026-09-24",
-    "note": "created via raw gcloud (new fn); Anthropic Haiku 4.5 listing assist; ANTHROPIC_API_KEY secret"
+    "sha": "8cfbe4d4ade7d3389f0805017e24d9bae2d045c3",
+    "at": "2026-09-24"
   }
 }
