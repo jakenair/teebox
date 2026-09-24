@@ -2823,6 +2823,19 @@
      animation is switched off under prefers-reduced-motion, where the figure
      simply stands there — it is decoration, so losing the motion loses
      nothing. */
+  /* r277 — a photo tile whose image the browser cannot decode (HEIC outside
+     Safari). The file uploads and converts fine server-side, so this says
+     "can't preview", never "failed". The tile keeps its MAIN badge, its remove
+     button and its drag handle — everything except the picture. */
+  .photo-tile.no-preview img { display: none; }
+  .photo-tile.no-preview { display: flex; align-items: center; justify-content: center;
+    background: var(--gray-100); border: 1px dashed var(--gray-300); }
+  .photo-tile.no-preview::before {
+    content: 'Preview not supported \A HEIC uploads fine';
+    white-space: pre-wrap; text-align: center; padding: 0 10px;
+    font-family: var(--font-body); font-size: 11px; line-height: 1.45;
+    color: var(--gray-500); }
+
   .caddie-card { position: relative; padding-right: 86px; }
   .caddie-figure { position: absolute; top: 12px; right: 14px; width: 62px; height: 68px;
     color: var(--green-700); pointer-events: none; }
@@ -2830,6 +2843,11 @@
   .caddie-figure .cd-bib { fill: var(--green-700); stroke: var(--green-700); }
   .caddie-figure .cd-bagbody { fill: rgba(34,64,43,0.08); }
   .caddie-figure .cd-clubhead { stroke-width: 2.6; }
+  /* r277 — Evans Scholars mark. The bib is a filled green shape, so the mark
+     has to be knocked out in white to read at all; stroke weights are tuned
+     for ~50-62px, below which it collapses into a blob. */
+  .caddie-figure .cd-es-ring { fill: none; stroke: var(--white); stroke-width: 1.5; }
+  .caddie-figure .cd-es-e, .caddie-figure .cd-es-s { stroke: var(--white); stroke-width: 1.4; fill: none; }
   .caddie-figure .cd-cap { stroke-width: 2.4; }
 
   /* Transform origins matter more than the keyframes here — a head that
@@ -5016,7 +5034,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r276</span></div>
+        <span class="auth-build" aria-hidden="true">r277</span></div>
     </div>
   </div>
 </div>
@@ -7072,6 +7090,15 @@
               <path class="cd-cap" d="M18.5 12a7.5 7.5 0 0115 0"/>
               <path class="cd-cap-brim" d="M33 12h6"/>
               <path class="cd-bib" d="M18 27h16l2.5 21h-21z" />
+              <!-- r277: Evans Scholars roundel on the bib. Fitting rather than
+                   decorative — Evans Scholars ARE caddies, and TeeBox already
+                   has /evans-scholars.html. Drawn as a mark, not the trademark
+                   artwork: a ring with an E and S, legible down to ~50px. -->
+              <g class="cd-es">
+                <circle cx="26" cy="36" r="6.2" class="cd-es-ring"/>
+                <path class="cd-es-e" d="M25.6 32.4h-2.4v7.2h2.4M23.2 36h1.9"/>
+                <path class="cd-es-s" d="M29.9 32.6a2 2 0 00-2 2c0 1.1.9 1.4 2 1.4s2 .3 2 1.4a2 2 0 01-2 2"/>
+              </g>
               <path class="cd-arm-back" d="M18.5 30L10 41"/>
               <path class="cd-arm" d="M34 30l10 9"/>
               <path d="M22 48v16M31 48v16"/>
@@ -10789,6 +10816,26 @@ window.confirmPayment = async function() {
     }).join('');
     container.innerHTML = tiles + ((n > 0 && n < 10)
       ? '<button type="button" class="photo-add" data-action="open-photo-input" aria-label="Add more photos">+ Add</button>' : '');
+    // r277: HEIC previews render as broken images. iPhone photos are HEIC by
+    // default and Chrome/Firefox cannot decode that codec in an <img> (Safari
+    // can), so URL.createObjectURL on the raw file gives a blob the browser
+    // renders at 0x0. The UPLOAD was always fine — optimizeListingPhoto
+    // converts HEIC server-side via heic-convert — so this was purely a
+    // "my photos look broken" problem, which is more than enough to stop
+    // someone listing.
+    // Wired here rather than an inline onerror because the CSP sets
+    // script-src-attr 'none'.
+    container.querySelectorAll('.photo-tile img').forEach((img) => {
+      const mark = () => {
+        const tile = img.closest('.photo-tile');
+        if (tile) tile.classList.add('no-preview');
+      };
+      if (img.complete && img.naturalWidth === 0) mark();
+      img.addEventListener('error', mark, { once: true });
+      img.addEventListener('load', () => {
+        if (img.naturalWidth === 0) mark();
+      }, { once: true });
+    });
     if (zone) zone.style.display = n === 0 ? 'block' : 'none';
     wirePhotoDrag();
   }
