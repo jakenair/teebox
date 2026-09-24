@@ -331,18 +331,19 @@
     "at": "2026-09-21"
   },
   "optimizeAvatar": {
-    "sha": "6822162018dabfc16b2e46dd72c3de1c5627baf1",
-    "at": "2026-09-24"
+    "sha": "7934f8244e51aa1a0914f0b0133b4efd4026528d",
+    "at": "2026-09-24",
+    "region": "us-east1"
   },
   "optimizeListingPhoto": {
-    "at": "2026-09-17",
-    "note": "racy=VERY_LIKELY threshold; deployed via raw gcloud to us-east1 (storage trigger region — deploy-fn.sh us-central1 lane cannot reach it)",
-    "sha": "ffc64b2a00a5f440132882a03bc573273c18f939"
+    "sha": "7934f8244e51aa1a0914f0b0133b4efd4026528d",
+    "at": "2026-09-24",
+    "region": "us-east1"
   },
   "optimizePassportPhoto": {
-    "sha": "694a13becb003ade59b6122a94d7095a8989290e",
-    "at": "2026-09-22",
-    "note": "raw gcloud us-east1 (deploy-fn.sh hardcodes us-central1 — would create a duplicate); variants rework"
+    "sha": "7934f8244e51aa1a0914f0b0133b4efd4026528d",
+    "at": "2026-09-24",
+    "region": "us-east1"
   },
   "proCanceledEmail": {
     "at": "2026-05-29",
