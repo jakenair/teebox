@@ -1366,6 +1366,22 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // SHARED PASSPORT ROUNDS — sharedRounds/{token}
+    // Maps an opaque share token to { uid, courseId, photos[], revokedAt }.
+    //
+    // NO CLIENT ACCESS AT ALL, deliberately. The doc CONTAINS the uid, so a
+    // public read here would hand back exactly what the opaque-token design
+    // exists to withhold — the share link would leak the owner's uid to anyone
+    // who opened it. The public page reads through the getSharedRound callable,
+    // which returns a projection with no uid (same pattern as
+    // getBingoLeaderboard). Writes are Admin-SDK only, from
+    // sharePassportRound / unsharePassportRound.
+    // ─────────────────────────────────────────────
+    match /sharedRounds/{token} {
+      allow read, create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
     // DEFAULT DENY
     // ─────────────────────────────────────────────
     match /{document=**} {

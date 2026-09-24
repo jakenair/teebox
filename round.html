@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1a0e" />
+<title>A round on TeeBox</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="description" content="A course a golfer has played, shared from their TeeBox Passport." />
+
+<!--
+  GENERIC OG stub for Passport share links (founder ruling 2026-09-24).
+
+  Scrapers read this <head> before any JavaScript runs, so the preview is the
+  same for every shared round: "A round on TeeBox" with the default card. That
+  is deliberate for now — per-round unfurl needs per-request HTML and GitHub
+  Pages is static.
+
+  The URL shape /round.html?t=<token> was chosen so this is upgradable without
+  breaking links already sent: after the Firebase Hosting migration a rewrite
+  can point /round.html at a function that renders per-round OG tags, and every
+  token minted before that keeps working (see HANDOFF_PARKED_THREADS §6).
+
+  NOINDEX: these are personal rounds shared by link. They should not turn up in
+  search results.
+-->
+<meta name="robots" content="noindex, nofollow" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="TeeBox" />
+<meta property="og:title" content="A round on TeeBox" />
+<meta property="og:description" content="A course a golfer has played, shared from their TeeBox Passport." />
+<meta property="og:url" content="https://teeboxmarket.com/round.html" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
+<meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-default.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="A round on TeeBox" />
+<meta name="twitter:description" content="A course a golfer has played, shared from their TeeBox Passport." />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
+
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+<style>
+  :root { --green-950:#0b1a0e; --green-900:#12201a; --green-700:#22402b; --gold-400:#e0b840;
+    --gray-100:#f2f1ec; --gray-200:#e2e0d8; --gray-500:#86857c; --gray-900:#1c1c18; --white:#fff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background: var(--gray-100); color: var(--gray-900);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.5; }
+  header { background: var(--green-950); padding: 14px 20px; }
+  .logo { font-family: Georgia, serif; font-size: 22px; font-weight: 700; color: var(--white); text-decoration: none; }
+  .logo span { color: var(--gold-400); }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+  .card { background: var(--white); border:1px solid var(--gray-200); border-radius:14px; overflow:hidden; }
+  .card-head { padding: 20px; }
+  h1 { font-family: Georgia, serif; font-size: 1.7rem; margin:0 0 6px; }
+  .meta { color: var(--gray-500); font-size: 14px; }
+  .grade { display:inline-block; background: var(--green-700); color:#fff; font-weight:700;
+    border-radius:8px; padding:2px 10px; margin-left:8px; font-size:14px; }
+  .tags { margin-top:10px; display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { background: var(--gray-100); border:1px solid var(--gray-200); border-radius:999px;
+    padding:3px 10px; font-size:12px; color:#4a4a44; }
+  .review { margin: 14px 20px 0; white-space: pre-wrap; }
+  .photos { display:grid; grid-template-columns: 1fr; gap:2px; margin-top:16px; }
+  .photos img { width:100%; height:auto; display:block; background: var(--gray-200); }
+  .cta { margin-top:22px; text-align:center; }
+  .btn { display:inline-block; background: var(--green-700); color:#fff; text-decoration:none;
+    font-weight:700; border-radius:999px; padding:12px 26px; }
+  .state { text-align:center; padding:60px 20px; color: var(--gray-500); }
+  footer { text-align:center; padding: 10px 20px 40px; color: var(--gray-500); font-size:12px; }
+  @media (min-width: 560px) { .photos { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header><a class="logo" href="/"><span>Tee</span>Box</a></header>
+<main>
+  <div id="state" class="state">Loading this round…</div>
+  <div id="card" class="card" hidden>
+    <div class="card-head">
+      <h1 id="course"></h1>
+      <div class="meta"><span id="byline"></span><span id="grade"></span></div>
+      <div class="tags" id="tags"></div>
+    </div>
+    <div class="review" id="review"></div>
+    <div class="photos" id="photos"></div>
+  </div>
+  <div class="cta" id="cta" hidden>
+    <a class="btn" href="/">Start your own Passport</a>
+  </div>
+</main>
+<footer>Shared from a TeeBox Passport.</footer>
+
+<script type="module">
+  // The page is unauthenticated on purpose: a share link has to open for
+  // anyone. It reads through the getSharedRound CALLABLE rather than touching
+  // Firestore directly, because the sharedRounds doc holds the owner's uid and
+  // is closed to every client — the callable hands back a projection with no
+  // uid in it. Nothing here ever learns who posted the round beyond the display
+  // name they already show publicly.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
+    authDomain: "teebox-market.firebaseapp.com",
+    projectId: "teebox-market",
+    storageBucket: "teebox-market.firebasestorage.app",
+    messagingSenderId: "982122063122",
+    appId: "1:982122063122:web:416617dcacf912c907bfcb"
+  });
+
+  const esc = (s) => String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const el = (id) => document.getElementById(id);
+  const gone = (msg) => { el("state").textContent = msg; el("state").hidden = false; el("cta").hidden = false; };
+
+  const token = new URLSearchParams(location.search).get("t") || "";
+
+  (async () => {
+    // Shape-check before spending a call. Tokens are 32 hex chars.
+    if (!/^[a-f0-9]{32}$/.test(token)) { gone("This link isn't valid."); return; }
+    let res;
+    try {
+      const fns = getFunctions(app);
+      res = (await httpsCallable(fns, "getSharedRound")({ token })).data;
+    } catch (_e) {
+      gone("Couldn't load this round. Try again in a moment.");
+      return;
+    }
+    // Revoked, deleted, or never existed — all land here, by design, so the
+    // page says the same calm thing rather than leaking which one it was.
+    if (!res || res.notFound) { gone("This round is no longer shared."); return; }
+
+    el("course").textContent = res.courseName || "A round";
+    const when = res.playedAt
+      ? new Date(res.playedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+      : "";
+    const who = res.displayName ? `${res.displayName} played here` : "Played here";
+    el("byline").textContent = when ? `${who} · ${when}` : who;
+    if (res.grade) el("grade").innerHTML = `<span class="grade">${esc(res.grade)}</span>`;
+
+    if (Array.isArray(res.tags) && res.tags.length) {
+      el("tags").innerHTML = res.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("");
+    }
+    if (res.review) el("review").textContent = res.review;
+
+    // Photos are the sharedRounds/ copies — never a passport/ URL, which would
+    // put the owner's uid in the markup.
+    const photos = Array.isArray(res.photos) ? res.photos : [];
+    if (photos.length) {
+      el("photos").innerHTML = photos.map((p) => {
+        const src = p.w800 || p.w400;
+        if (!src || !/^https:\/\/firebasestorage\.googleapis\.com\//.test(src)) return "";
+        return `<img src="${esc(src)}" alt="" loading="lazy" decoding="async" />`;
+      }).join("");
+    }
+
+    el("state").hidden = true;
+    el("card").hidden = false;
+    el("cta").hidden = false;
+    document.title = `${res.courseName || "A round"} · TeeBox`;
+  })();
+</script>
+</body>
+</html>

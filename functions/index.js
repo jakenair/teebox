@@ -8152,6 +8152,12 @@ Object.assign(exports, require("./shippoIntegration"));
 // were a deployable function.
 exports.optimizeAvatar = require("./avatarVariants").optimizeAvatar;
 
+// Passport round sharing (opt-in, opaque token, projected public read).
+// Named exports — the module also exports helpers that are not deployable.
+exports.sharePassportRound = require("./passportShare").sharePassportRound;
+exports.unsharePassportRound = require("./passportShare").unsharePassportRound;
+exports.getSharedRound = require("./passportShare").getSharedRound;
+
 // ─────────────────────────────────────────────────────────────
 // PASSPORT PHOTO MODERATION (audit 2026-09-17, HIGH). Course-passport photos
 // are PUBLIC (profile wall, Discover feed, course pages) but used to bypass

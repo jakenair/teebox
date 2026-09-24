@@ -78,6 +78,19 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Shared Passport rounds — the public copies made by sharePassportRound.
+    //   read:   public (the share page is unauthenticated by design)
+    //   write:  NOBODY. The callable writes these with the Admin SDK, which
+    //           bypasses rules; no client may create, overwrite or delete one.
+    //           unsharePassportRound is the only delete path.
+    // These are w400/w800 WebP derivatives copied out of passport/, re-encoded
+    // without metadata. The originals are never copied here, and the path
+    // contains an opaque token rather than a uid — that is the whole point.
+    match /sharedRounds/{token}/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;
