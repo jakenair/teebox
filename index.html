@@ -1894,6 +1894,23 @@
   @media (prefers-reduced-motion: reduce) { .nav-bingo-cta.unplayed::after { animation: none; } }
   .user-badge { background: var(--gold-400); color: var(--green-900); border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; font-family: var(--font-body); display: none; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-items: center; gap: 4px; }
   .user-badge::after { content: '▾'; font-size: 10px; opacity: 0.7; }
+  /* r270 (homepage restructure, bump 1) — the category pills leave the web
+     header; the Shop dropdown above replaces them.
+     Scoped to :not(.is-native) on purpose: the native header IS the cat-bar,
+     so hiding these in-app would leave the app with no category row at all.
+     The markup stays in the DOM either way — deleting it breaks native.
+     Only the 8 filter pills and their divider go. Journal / Passport / Logo
+     Bingo stay visible on web: bump 2 gives them real homepage sections, and
+     until then this row is their only entry point. --cat-bar-h needs no
+     change — syncBarHeight() re-measures the (now shorter) bar itself. */
+  body:not(.is-native) .cat-bar .cat-pill[data-action="filter-cat"],
+  body:not(.is-native) .cat-bar .cat-bar-divider { display: none; }
+
+  .shop-menu-wrap { position: relative; }
+  /* Left-aligned, unlike .user-menu which hangs off the right edge — Shop is
+     the leftmost ribbon item, so a right-anchored menu would run off-screen. */
+  .shop-menu { right: auto; left: 0; min-width: 168px; }
+
   .user-menu-wrap { position: relative; }
   .user-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 200px; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: 6px; display: none; z-index: 120; }
   .user-menu.open { display: block; }
@@ -4815,7 +4832,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r269</span></div>
+        <span class="auth-build" aria-hidden="true">r270</span></div>
     </div>
   </div>
 </div>
@@ -6241,6 +6258,31 @@
     <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
   </div>
   <div class="nav-ribbon" role="group" aria-label="Account and selling">
+    <!-- r270 (homepage restructure, bump 1): SHOP dropdown.
+         This replaces the category pill row as the always-visible shopping
+         affordance. Deliberately tagged with NEITHER .ribbon-signed-in nor
+         .ribbon-anon, so it renders in both auth states — categories are for
+         everyone, unlike the rest of this ribbon.
+         The pill markup itself is NOT deleted (native depends on .cat-bar
+         existing); the 8 category pills are CSS-hidden on web only. -->
+    <div class="ribbon-item shop-menu-wrap" id="shopMenuWrap">
+      <button id="shopMenuBtn" class="ribbon-trigger" data-action="toggle-shop-menu" type="button"
+              title="Shop by category" aria-label="Shop by category"
+              aria-haspopup="menu" aria-expanded="false" aria-controls="shopMenu">
+        <span class="ribbon-icon" data-ico="sliders" aria-hidden="true"></span>
+        <span class="ribbon-label">Shop</span>
+      </button>
+      <div class="user-menu shop-menu" id="shopMenu" role="menu" aria-label="Shop by category">
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="all">All</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="clubs">Clubs</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="shoes">Shoes</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="apparel">Apparel</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="accessories">Accessories</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="bags">Bags</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="balls">Balls</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="headcovers">Headcovers</a>
+      </div>
+    </div>
     <!-- SIGNED-IN cluster -->
     <a href="#" class="ribbon-item ribbon-signed-in" data-action="open-shop-dashboard" data-nav="dashboard" title="Seller Dashboard" aria-label="Seller Dashboard">
       <span class="ribbon-icon" data-ico="chart" aria-hidden="true"></span>
@@ -6384,7 +6426,11 @@
   <section class="hero">
     <div class="hero-inner">
       <div>
-        <h1 class="hero-title">The Premier<br/><em>Golf Marketplace</em></h1>
+        <!-- r270 (homepage restructure, bump 1): "pro shop" is two words,
+             lowercase, in the gold serif <em>. H1 ONLY per the ruling — the
+             SEO title, meta description and JSON-LD are deliberately
+             untouched. -->
+        <h1 class="hero-title">Run your own<br/><em>pro shop</em></h1>
         <p class="hero-sub">The golfer-to-golfer marketplace for clubs, apparel, and accessories. Secured payments and a flat 8.5% seller fee.</p>
         <div class="hero-ctas">
           <!-- r177: one dominant CTA. The old symmetric filled/ghost pill
@@ -22869,6 +22915,30 @@ A['chat-open-listing']       = () => {
 };
 A['open-search']             = () => openSearch();
 A['close-search']            = () => document.getElementById('searchOverlay').classList.remove('open');
+// r270: Shop dropdown (homepage restructure bump 1). Mirrors the user-menu
+// pattern rather than inventing a second one.
+A['toggle-shop-menu']        = () => {
+  const menu = document.getElementById('shopMenu');
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('open');
+  menu.classList.toggle('open');
+  const btn = document.getElementById('shopMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+};
+window.__closeShopMenu = () => {
+  const menu = document.getElementById('shopMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  menu.classList.remove('open');
+  const btn = document.getElementById('shopMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+};
+// Picking a category reuses the EXACT filter-cat path the pills use, so
+// filtering, active state and the grid scroll all behave identically — then
+// closes the menu, which a bare filter-cat would not do.
+A['shop-pick']               = (el, ev) => {
+  A['filter-cat'](el, ev);
+  window.__closeShopMenu();
+};
 A['toggle-user-menu']        = () => {
   const menu = document.getElementById('userMenu');
   if (!menu) return;
@@ -23748,6 +23818,23 @@ document.querySelectorAll('#reviewStars .star-pick').forEach((btn, i) => {
   cont.addEventListener('pointerup', end);
   cont.addEventListener('pointercancel', end);
 })();
+
+// r270: close the Shop dropdown on outside click / Escape, matching the
+// user menu's behaviour.
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('shopMenu');
+  const wrap = document.getElementById('shopMenuWrap');
+  if (!menu || !wrap || !menu.classList.contains('open')) return;
+  if (!wrap.contains(ev.target)) window.__closeShopMenu();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Escape') return;
+  const menu = document.getElementById('shopMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  window.__closeShopMenu();
+  const btn = document.getElementById('shopMenuBtn');
+  if (btn) btn.focus();
+});
 
 // Close the user menu when clicking outside it.
 document.addEventListener('click', (ev) => {
