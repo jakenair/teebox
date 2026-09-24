@@ -119,7 +119,10 @@ async function main() {
       for (const [key, px, q] of [['w400', 400, 78], ['w800', 800, 82]]) {
         const vbuf = await baseSharp.clone()
           .resize({ width: px, height: px, fit: 'inside', withoutEnlargement: true })
-          .withMetadata({})
+          // No .withMetadata() — kept identical to the live trigger, which
+          // dropped it 2026-09-24 because withMetadata RETAINS EXIF. If this
+          // line and the trigger ever disagree, the backfill writes objects
+          // with different privacy properties than live uploads.
           .webp({ quality: q })
           .toBuffer();
         const path = `${t.file.name}_${key}.webp`;

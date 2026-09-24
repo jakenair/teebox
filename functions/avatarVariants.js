@@ -122,7 +122,9 @@ async function writeAvatarVariants(bucket, objName, buf) {
     const out = await base.clone()
         .resize({width: px, height: px, fit: "cover", position: "centre",
           withoutEnlargement: true})
-        .withMetadata({})
+        // No .withMetadata() — it RETAINS EXIF rather than stripping it. See
+        // the note in lib/imageConvert.js. base was produced with .rotate(),
+        // so orientation is already in the pixels.
         .webp({quality: q})
         .toBuffer();
     const path = `${objName}_${key}.webp`;

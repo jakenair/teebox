@@ -4333,7 +4333,9 @@ async function writeListingPhotoVariants(bucket, objName, listingId, baseSharp) 
   for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
     const buf = await baseSharp.clone()
       .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
-      .withMetadata({})
+      // No .withMetadata() — it RETAINS EXIF rather than stripping it. See the
+      // note in lib/imageConvert.js; orientation is already baked in by the
+      // .rotate() that produced baseSharp.
       .webp({quality: q})
       .toBuffer();
     const path = `${objName}_${key}.webp`;
@@ -8381,7 +8383,9 @@ async function writePassportPhotoVariants(bucket, objName, roundRef, baseSharp) 
   for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
     const buf = await baseSharp.clone()
         .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
-        .withMetadata({})
+        // No .withMetadata() — it RETAINS EXIF rather than stripping it. See
+        // the note in lib/imageConvert.js. Passport photos are PUBLIC, so a
+        // camera-roll GPS tag reaching here would be served at a public URL.
         .webp({quality: q})
         .toBuffer();
     const path = `${objName}_${key}.webp`;

@@ -22,7 +22,16 @@ async function convertToWebp(inputBuf) {
     const baseSharp = sharp(raster).rotate(); // honor EXIF orientation
     const webp = await baseSharp.clone()
       .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
-      .withMetadata({}) // match existing EXIF handling
+      // NO .withMetadata() — sharp strips metadata by default, and
+      // withMetadata() RETAINS it (the opposite of what the old comment here,
+      // "match existing EXIF handling", implied). Verified 2026-09-24: a JPEG
+      // carrying Make/Model came back out of this pipeline with those tags
+      // intact. Uploads were only ever clean because the CLIENT canvas
+      // re-encode drops EXIF first — a protection the server must not rely on,
+      // since these objects are served at public URLs.
+      // Orientation is safe: .rotate() above already baked it into the pixels,
+      // so there is no orientation tag left to preserve — and re-attaching the
+      // original EXIF would re-attach a tag that no longer applies.
       .webp({quality: 82})
       .toBuffer();
     return {baseSharp, webp};
