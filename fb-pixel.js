@@ -46,8 +46,23 @@
   window.fbq('init', '4535316483381655');
   window.fbq('track', 'PageView');
   };
+  // r262b: idle alone fired at ~4.8s on a throttled phone — mid-feed-load —
+  // and competed with the product render. On the marketplace page, wait for
+  // the grid to paint (cap 7s); on content pages (no grid) go at idle.
   try {
-    (window.requestIdleCallback || function (f) { setTimeout(f, 1800); })(
-        boot, {timeout: 4000});
-  } catch (_e) { setTimeout(boot, 1800); }
+    const idle = (f, t) => {
+      try { (window.requestIdleCallback || function (g) { setTimeout(g, t); })(f, {timeout: t + 2000}); }
+      catch (_e) { setTimeout(f, t); }
+    };
+    if (!document.getElementById('productGrid')) { idle(boot, 1200); }
+    else {
+      const t0 = Date.now();
+      const tick = function () {
+        const grid = document.getElementById('productGrid');
+        if ((grid && grid.querySelector('.product-card')) || Date.now() - t0 > 7000) return idle(boot, 300);
+        setTimeout(tick, 200);
+      };
+      setTimeout(tick, 200);
+    }
+  } catch (_e) { setTimeout(boot, 2500); }
 })();

@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r262</span></div>
+        <span class="auth-build" aria-hidden="true">r263</span></div>
     </div>
   </div>
 </div>
@@ -7231,7 +7231,8 @@ async function ensureStripeLoaded() {
 // Guests never pay, so only warm for signed-in users; never on native boot.
 try {
   const __warm = () => { try { if (window.CURRENT_USER) loadStripeJs().catch(() => {}); } catch (_e) {} };
-  (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(__warm, {timeout: 6000});
+  if (window.__afterFeedPaint) window.__afterFeedPaint(__warm, 8000);
+  else (window.requestIdleCallback || ((f) => setTimeout(f, 3000)))(__warm, {timeout: 8000});
 } catch (_e) {}
 
 // Translate a Stripe error into a buyer-friendly sentence. We map the
@@ -7899,8 +7900,9 @@ window.confirmPayment = async function() {
       console.warn('App Check init failed:', e && e.message);
     }
     };
-    (window.requestIdleCallback || ((f) => setTimeout(f, 2000)))(
-        __initAppCheck, {timeout: 5000});
+    if (window.__afterFeedPaint) window.__afterFeedPaint(__initAppCheck, 7000);
+    else (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(
+        __initAppCheck, {timeout: 6000});
   }
 
   // CRITICAL: on Capacitor (iOS WKWebView), Firebase Auth's default
@@ -22685,6 +22687,32 @@ A['manage-subscription']     = async () => {
 // doesn't, force-mint a fresh token. getIdTokenResult() reads the cached
 // token (no network), so the refresh round-trip only happens on the rare
 // stale path. Never throws — the server has its own live-record fallback.
+// r262b (Phase 2): requestIdleCallback alone was the wrong trigger. On a
+// throttled phone the main thread goes "idle" at ~4.8s — while the feed is
+// still waiting on Firestore — so deferred work (reCAPTCHA, pixel) started
+// exactly when it would compete with the product render, and products
+// painted LATER than before the change (10.5s -> 12.8s, measured). Gate
+// background work on the feed actually having painted, with a hard cap so a
+// page without a grid (or an empty marketplace) still runs it.
+window.__afterFeedPaint = function (fn, capMs) {
+  let fired = false;
+  const run = () => {
+    if (fired) return;
+    fired = true;
+    try { (window.requestIdleCallback || ((f) => setTimeout(f, 200)))(fn, {timeout: 2000}); }
+    catch (_e) { setTimeout(fn, 200); }
+  };
+  const t0 = Date.now();
+  const cap = capMs || 7000;
+  const tick = () => {
+    if (fired) return;
+    const grid = document.getElementById('productGrid');
+    if ((grid && grid.querySelector('.product-card')) || (Date.now() - t0) > cap) return run();
+    setTimeout(tick, 200);
+  };
+  setTimeout(tick, 200);
+};
+
 window.__ensureVerifiedClaimFresh = async function() {
   const u = window.CURRENT_USER;
   if (!u || !u.emailVerified) return;
