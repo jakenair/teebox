@@ -29,6 +29,12 @@
     if (!/^https?:$/.test(window.location.protocol)) return;
   } catch (_e) { /* guard errors → fail closed (no pixel) */ return; }
 
+  // r262 (Phase 2): the loader body runs at idle. fbevents.js + the signals
+  // config are ~244KB and were competing with the feed for bandwidth and
+  // main thread during boot; on a throttled phone products did not paint
+  // until 10.5s. PageView still fires exactly once, a beat later — which is
+  // how Meta's async snippet is designed to behave anyway.
+  const boot = function () {
   /* eslint-disable */
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
@@ -39,4 +45,9 @@
 
   window.fbq('init', '4535316483381655');
   window.fbq('track', 'PageView');
+  };
+  try {
+    (window.requestIdleCallback || function (f) { setTimeout(f, 1800); })(
+        boot, {timeout: 4000});
+  } catch (_e) { setTimeout(boot, 1800); }
 })();

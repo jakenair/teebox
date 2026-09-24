@@ -4815,7 +4815,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r261</span></div>
+        <span class="auth-build" aria-hidden="true">r262</span></div>
     </div>
   </div>
 </div>
@@ -7048,12 +7048,14 @@
   </div>
 </div>
 
-<!-- STRIPE + CHART.JS — defer so they don't block first paint.
-     Stripe is only needed at checkout; Chart.js only on the seller dashboard. -->
-<script defer src="https://js.stripe.com/v3/"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
-        integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"
-        crossorigin="anonymous"></script>
+<!-- STRIPE + CHART.JS — r262 (Phase 2): both were `defer` script tags, so
+     they still downloaded during boot (260KB + 69KB) on a page that needs
+     neither to render. Measured on a throttled phone: products did not
+     paint until 10.5s. Both are now injected on demand — Stripe by
+     loadStripeJs() when checkout opens (plus an idle warm after the feed
+     paints, so the common path is already loaded), Chart.js by
+     loadChartJs() inside renderRevenueChart on the seller dashboard.
+     Integrity + crossorigin are preserved on the injected Chart tag. -->
 <script>
 // ──────────────────────────────────────────────────────────────────────
 // Stripe Payment Element — single component that auto-renders Apple Pay,
@@ -7157,7 +7159,10 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
       window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
     } catch (_e) {}
     if (!clientSecret) return;
-    // Stripe.js may not be loaded yet — give it a short retry window.
+    // r262: Stripe.js is no longer on the page at boot, so this leg loads
+    // it explicitly before retrieving the intent (the retry window stays as
+    // a belt-and-braces guard).
+    try { loadStripeJs().catch(() => {}); } catch (_e) {}
     const tryRetrieve = (attemptsLeft) => {
       if (typeof Stripe !== 'function') {
         if (attemptsLeft > 0) {
@@ -7196,12 +7201,38 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
   } catch (_e) {}
 })();
 
-function ensureStripeLoaded() {
+// r262: Stripe.js is injected on demand instead of at boot. One in-flight
+// promise is shared, a failed load clears it so the next attempt retries,
+// and every caller awaits. Checkout's existing "Payment is still loading"
+// branch remains the fallback if a caller ever races it.
+let __stripeJsPromise = null;
+function loadStripeJs() {
+  if (typeof Stripe === 'function') return Promise.resolve();
+  if (__stripeJsPromise) return __stripeJsPromise;
+  __stripeJsPromise = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = 'https://js.stripe.com/v3/';
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => { __stripeJsPromise = null; reject(new Error('stripe-js-load-failed')); };
+    document.head.appendChild(el);
+  });
+  return __stripeJsPromise;
+}
+async function ensureStripeLoaded() {
+  if (stripeInstance) return stripeInstance;
+  try { await loadStripeJs(); } catch (_e) { return null; }
   if (!stripeInstance && typeof Stripe === 'function') {
     stripeInstance = Stripe(STRIPE_PK);
   }
   return stripeInstance;
 }
+// Warm it once the page is idle so the first Buy Now click is instant.
+// Guests never pay, so only warm for signed-in users; never on native boot.
+try {
+  const __warm = () => { try { if (window.CURRENT_USER) loadStripeJs().catch(() => {}); } catch (_e) {} };
+  (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(__warm, {timeout: 6000});
+} catch (_e) {}
 
 // Translate a Stripe error into a buyer-friendly sentence. We map the
 // common decline_codes + a handful of error.code values; everything else
@@ -7261,7 +7292,7 @@ async function mountPaymentElement(product) {
   if (paymentElementLoading) return;
   paymentElementLoading = true;
   try {
-    ensureStripeLoaded();
+    await ensureStripeLoaded();
     if (!stripeInstance) throw new Error('Stripe failed to load.');
     if (!window.CURRENT_USER) throw new Error('Please sign in to purchase.');
 
@@ -7850,6 +7881,13 @@ window.confirmPayment = async function() {
     // propagated, etc.) doesn't break app boot on day 1 of Phase 1 rollout.
     // Phase 2 will turn on enforcement at the dashboard once the monitor
     // metrics confirm >95% of legit traffic carries valid tokens.
+    // r262 (Phase 2): defer init to idle. The reCAPTCHA Enterprise bundle
+    // is 346KB — the single heaviest script on the page — and it was being
+    // fetched during boot on a page that cannot use it yet. App Check is
+    // MONITOR-ONLY here (appCheckOk() returns true server-side, see the
+    // comment above), so nothing is rejected while it is pending; we only
+    // delay telemetry by a couple of seconds.
+    const __initAppCheck = () => {
     try {
       initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider("6LdczNMsAAAAAIe7ed3zsqW0p_KzkBKSOIMdX1ac"),
@@ -7860,6 +7898,9 @@ window.confirmPayment = async function() {
       // requests still go through (Phase 1 is monitor-only).
       console.warn('App Check init failed:', e && e.message);
     }
+    };
+    (window.requestIdleCallback || ((f) => setTimeout(f, 2000)))(
+        __initAppCheck, {timeout: 5000});
   }
 
   // CRITICAL: on Capacitor (iOS WKWebView), Firebase Auth's default
@@ -12230,6 +12271,11 @@ async function openDetailModal(id) {
     if (!window.PRODUCTS.some(x => String(x.id) === String(p.id))) window.PRODUCTS.push(p);
   }
   currentDetailId = id;
+  // r262: a seller looking at a listing is one tap from Buy Now — warm
+  // Stripe.js here so the lazy load never costs the buyer a wait. Idle warm
+  // above can no-op (auth may not have resolved yet); this is the reliable
+  // signal. Fire-and-forget: checkout awaits the same promise anyway.
+  try { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {}
   injectListingJsonLd(p);
   // Meta Pixel: product view (guarded — fbq is web-only; no PII).
   try { if (window.fbq) window.fbq('track', 'ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' }); } catch (_e) {}
@@ -15375,9 +15421,32 @@ function dismissSellerTour(opts) {
 
 let revenueChartInstance = null;
 
+// r262: Chart.js (69KB) is dashboard-only and now loads on first use.
+let __chartJsPromise = null;
+function loadChartJs() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (__chartJsPromise) return __chartJsPromise;
+  __chartJsPromise = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+    el.integrity = 'sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4';
+    el.crossOrigin = 'anonymous';
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => { __chartJsPromise = null; reject(new Error('chartjs-load-failed')); };
+    document.head.appendChild(el);
+  });
+  return __chartJsPromise;
+}
 function renderRevenueChart(rangeDays) {
   const canvas = document.getElementById('revenueChart');
-  if (!canvas || typeof Chart === 'undefined') return;
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    // Load once, then re-enter. A failed load leaves the dashboard intact
+    // minus the chart — never a broken screen.
+    loadChartJs().then(() => renderRevenueChart(rangeDays)).catch(() => {});
+    return;
+  }
 
   const { orders } = window.SHOP_DATA;
   const now = new Date();
