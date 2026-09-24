@@ -560,8 +560,8 @@
     "sha": null
   },
   "updateListing": {
-    "at": "2026-08-27",
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
+    "sha": "c4753c8e70574681f2fad86f8b6c02c221e37387",
+    "at": "2026-09-24"
   },
   "updateMarketingConsent": {
     "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
@@ -593,5 +593,10 @@
     "sha": "d50cba0f5c232b49334172f92e3020b922e1fae6",
     "at": "2026-09-22",
     "note": "created via raw gcloud (new fn); config matched to getBingoPercentile; allow-unauthenticated BY DESIGN (guest board visibility)"
+  },
+  "draftListingFromPhotos": {
+    "sha": "c4753c8e70574681f2fad86f8b6c02c221e37387",
+    "at": "2026-09-24",
+    "note": "created via raw gcloud (new fn); Anthropic Haiku 4.5 listing assist; ANTHROPIC_API_KEY secret"
   }
 }
