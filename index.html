@@ -5034,7 +5034,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r277</span></div>
+        <span class="auth-build" aria-hidden="true">r278</span></div>
     </div>
   </div>
 </div>
@@ -7486,7 +7486,13 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
         const snap = await getDoc(doc(getFirestore(), 'users', uid));
         if (snap.exists() && snap.data().stripeChargesEnabled === true) {
           try { localStorage.setItem(key, '1'); } catch (_e) {}
-          if (window.fbq) window.fbq('track', 'Lead');
+          window.fbTrack && window.fbTrack('Lead');
+          // r278 item 4: SellerRegistered. Seller onboarding IS a distinct
+          // step here — Stripe KYC, days after signup — which is the condition
+          // Dylan put on adding this event. Fires at the same one-shot gate as
+          // Lead above (localStorage `key`), so it lands exactly once per
+          // seller, the moment they actually become able to take money.
+          window.fbTrack && window.fbTrack('SellerRegistered', { account_type: 'seller' }, { custom: true });
         }
       } catch (_e) { /* analytics never break boot */ }
     };
@@ -7529,7 +7535,12 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
             // Meta Pixel: Purchase on the redirect leg — same eventID as
             // the on-page leg, Meta dedupes if both fire. (No listing
             // context after a redirect, so content_ids is omitted.)
-            try { if (window.fbq) window.fbq('track', 'Purchase', { content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id }, { eventID: 'purchase_' + paymentIntent.id }); } catch (_e) {}
+            // r278 item 1: `once` keyed on the PI id — a refresh of the
+            // return URL can no longer re-fire Purchase and inflate ROAS.
+            // Value is paymentIntent.amount, which under Structure 2 is
+            // item + buyer-paid shipping, i.e. the real order total.
+            window.fbTrack('Purchase', { content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id },
+              { eventID: 'purchase_' + paymentIntent.id, once: 'purchase_' + paymentIntent.id });
             // Batch-2: persistent sheet on the 3DS return too (no listing
             // context after the redirect — amount comes from the intent).
             if (window.showOrderOutcomeSheet) window.showOrderOutcomeSheet({ ok: true, amountCents: paymentIntent.amount });
@@ -7818,8 +7829,65 @@ async function onCheckoutAddressChange(ev) {
   }
 }
 
+// ── r278: Meta Pixel event helper (CAPI phase 2, browser half) ─────────
+// fb-pixel.js has always documented a fbTrack() that never actually existed;
+// every call site hand-rolled `if (window.fbq)`. This is that function, so the
+// window guard, the eventID plumbing and the once-only logic live in ONE place
+// instead of nine.
+//
+// PII RULE (founder ruling, unchanged): no email, name or phone in any event.
+// Nothing here reads a user field. Server-side advanced matching — including
+// whether hashed email is ever sent — is a separate, still-unruled decision.
+//
+// `once` keys the event so a page refresh cannot re-fire a terminal event like
+// Purchase. Keys persist in localStorage; the ledger is capped so it cannot
+// grow without bound.
+const FB_ONCE_KEY = 'tb_fb_fired_v1';
+function fbAlreadyFired(key) {
+  if (!key) return false;
+  try {
+    const fired = JSON.parse(localStorage.getItem(FB_ONCE_KEY) || '[]');
+    return Array.isArray(fired) && fired.includes(key);
+  } catch (_e) { return false; }
+}
+function fbMarkFired(key) {
+  if (!key) return;
+  try {
+    let fired = JSON.parse(localStorage.getItem(FB_ONCE_KEY) || '[]');
+    if (!Array.isArray(fired)) fired = [];
+    fired.push(key);
+    // Keep the last 200 — enough to cover any realistic refresh window.
+    if (fired.length > 200) fired = fired.slice(-200);
+    localStorage.setItem(FB_ONCE_KEY, JSON.stringify(fired));
+  } catch (_e) { /* private mode — degrade to no idempotency, never throw */ }
+}
+window.fbTrack = function (name, params, opts) {
+  try {
+    const o = opts || {};
+    if (o.once && fbAlreadyFired(o.once)) return false;
+    if (!window.fbq) { if (o.once) fbMarkFired(o.once); return false; }
+    const custom = o.custom === true;
+    const send = custom ? 'trackCustom' : 'track';
+    if (o.eventID) window.fbq(send, name, params || {}, { eventID: o.eventID });
+    else window.fbq(send, name, params || {});
+    if (o.once) fbMarkFired(o.once);
+    return true;
+  } catch (_e) { return false; }
+};
+
 window.openCheckout = async function(productId, qty, opts) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
+  // r278 item 2: AddToCart on the Buy Now tap. TeeBox has no cart, so this
+  // marks purchase INTENT — a genuinely earlier moment than InitiateCheckout,
+  // which fires further down once the checkout modal and Payment Element are
+  // up. Firing both at the same instant would just be noise; these are a real
+  // step apart, which is what makes the funnel meaningful.
+  if (p) {
+    window.fbTrack('AddToCart', {
+      content_ids: [String(p.id)], content_type: 'product',
+      value: Number(p.ask || 0), currency: 'USD',
+    });
+  }
   if (!p) {
     // No silent Buy Now failures. If the listing isn't in the feed (removed or
     // sold between detail-open and tap), tell the buyer instead of dead-ending.
@@ -7970,7 +8038,12 @@ window.openCheckout = async function(productId, qty, opts) {
     }
   } catch (_e) { /* never block checkout open on analytics */ }
   // Meta Pixel: checkout modal opened (guarded, no PII).
-  try { if (window.fbq) window.fbq('track', 'InitiateCheckout', { content_ids: [String(p.id)], content_type: 'product', value: Math.round(totalDollars * 100) / 100, currency: 'USD', num_items: requestedQty }); } catch (_e) {}
+  // r278 item 2: carries an eventID so the future server leg dedupes against
+  // it, the same way Purchase already does. Minted per checkout-open and
+  // stashed on window so the server call can reuse the identical id.
+  window.__tbCheckoutEventId = 'ic_' + String(p.id) + '_' + Date.now().toString(36);
+  window.fbTrack('InitiateCheckout', { content_ids: [String(p.id)], content_type: 'product', value: Math.round(totalDollars * 100) / 100, currency: 'USD', num_items: requestedQty },
+    { eventID: window.__tbCheckoutEventId });
 
   // Mount the Payment Element. If it fails (network, signed-out, seller
   // hasn't connected Stripe), surface the message inline and flip the Pay
@@ -8104,7 +8177,11 @@ window.confirmPayment = async function() {
     if (paymentIntent && paymentIntent.status === 'succeeded') {
       // Meta Pixel: Purchase (guarded). eventID = PI id so the redirect
       // leg (and a future server CAPI event) dedupe against this one.
-      try { if (window.fbq) window.fbq('track', 'Purchase', { content_ids: [String((checkoutProduct && checkoutProduct.id) || '')], content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id }, { eventID: 'purchase_' + paymentIntent.id }); } catch (_e) {}
+      // r278 item 1: same PI-keyed idempotency as the redirect leg above —
+      // the two legs share the key, so whichever lands first wins and the
+      // other is a no-op instead of a duplicate.
+      window.fbTrack('Purchase', { content_ids: [String((checkoutProduct && checkoutProduct.id) || '')], content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id },
+        { eventID: 'purchase_' + paymentIntent.id, once: 'purchase_' + paymentIntent.id });
       // Optimistic local update: flip the listing's status in PRODUCTS so the
       // grid + card UI reflects "Sold" / decremented stock right away. The
       // webhook will fire within ~1-3s and make the change canonical, but
@@ -8510,7 +8587,12 @@ window.confirmPayment = async function() {
               });
               // Meta Pixel: one signup event per account — this site and
               // the email path below share the __teeboxSignupEmitted guard.
-              try { if (window.fbq) window.fbq('track', 'CompleteRegistration', { status: true }); } catch (_e) {}
+              // r278 item 4: account_type is 'unknown' at signup on purpose —
+              // every TeeBox account starts identical and only becomes a
+              // seller later, at Stripe onboarding. Claiming 'buyer' here
+              // would be a guess. The SellerRegistered event below is what
+              // marks the real transition.
+              window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' });
             }
           } catch (_e2) { /* swallow */ }
         } else {
@@ -9159,7 +9241,9 @@ window.confirmPayment = async function() {
             });
             // Meta Pixel: email-path signup (one-shot with the OAuth site
             // via __teeboxSignupEmitted; no PII in params).
-            try { if (window.fbq) window.fbq('track', 'CompleteRegistration', { status: true }); } catch (_e) {}
+            // r278 item 4: see the note at the OAuth site — 'unknown' until
+            // Stripe onboarding makes them a seller.
+            window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' });
             // One-shot guard so the onAuthStateChanged listener's OAuth
             // signup detector doesn't double-emit for this same user.
             window.__teeboxSignupEmitted = true;
@@ -11241,6 +11325,21 @@ window.confirmPayment = async function() {
       // generic event hook. If we add reliability concerns later
       // (e.g. user closes tab between addDoc and the capture call),
       // mirror inside `onListingLive` server-side.
+      // r278 item 5: ListingCreated — the quality-listings north star and the
+      // future optimization event for seller campaigns. Listing id, category
+      // and value only. Deliberately NO seller external id: Dylan asked for
+      // one, but an identifier tied to a person belongs in the server payload
+      // alongside the still-unruled advanced-matching decision, not sprayed
+      // into a browser event today.
+      try {
+        window.fbTrack && window.fbTrack('ListingCreated', {
+          content_ids: [String(docRef.id)],
+          content_type: 'product',
+          content_category: cat,
+          value: Math.round(price * 100) / 100,
+          currency: 'USD',
+        }, { custom: true, once: 'listing_' + docRef.id });
+      } catch (_e) {}
       try {
         if (window.posthog) {
           window.posthog.capture('listing_created', {
@@ -12681,7 +12780,7 @@ async function openDetailModal(id) {
   try { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {}
   injectListingJsonLd(p);
   // Meta Pixel: product view (guarded — fbq is web-only; no PII).
-  try { if (window.fbq) window.fbq('track', 'ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' }); } catch (_e) {}
+  window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' });
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -16077,6 +16176,14 @@ async function applyAiPriceFlagVisibility() {
 }
 
 function openSellModal() {
+  // r278 item 5: ListingStarted — top of the seller funnel, paired with
+  // ListingCreated at publish. Custom events (trackCustom), since neither is
+  // a Meta standard event. No PII: a category at most, never who.
+  try {
+    if (!window.__editingListingId) {
+      window.fbTrack && window.fbTrack('ListingStarted', {}, { custom: true });
+    }
+  } catch (_e) {}
   // r260 HOTFIX: #uploadCount was removed in r259 (the count moved into
   // the step label, rendered by updateSellSteps) but this line still set
   // .textContent on it — openSellModal threw before opening and the Sell
@@ -16608,7 +16715,7 @@ function filterSearchRender(query) {
       });
     }
     // Meta Pixel: Search (guarded; query capped at 80 chars like posthog).
-    try { if (window.fbq) window.fbq('track', 'Search', { search_string: String(query).slice(0, 80) }); } catch (_e) {}
+    window.fbTrack && window.fbTrack('Search', { search_string: String(query).slice(0, 80) });
   } catch (_e) { /* never block search render on analytics */ }
   if (!matches.length) {
     results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
@@ -19827,7 +19934,7 @@ async function toggleWatch(productId) {
         { watchlist: { [id]: entry } }, { merge: true });
       fav.add(productId);
       // Meta Pixel: wishlist ADD only (removals deliberately untracked).
-      try { if (window.fbq) window.fbq('track', 'AddToWishlist', { content_ids: [id], content_type: 'product', value: askNow, currency: 'USD' }); } catch (_e) {}
+      window.fbTrack && window.fbTrack('AddToWishlist', { content_ids: [id], content_type: 'product', value: askNow, currency: 'USD' });
       // Contextual push prompt — first item added to watchlist.
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
@@ -24009,6 +24116,23 @@ window.__pushOverlay = function(name, url) {
   try {
     __ovStack.push(name);
     history.pushState({ tb: name }, '', url || null);
+    // r278 item 3: SPA PageView. Hooked HERE rather than on every modal open
+    // because this is the only place the app actually changes the URL — a
+    // real navigation a browser would have counted. Firing on every overlay
+    // would inflate counts, which is worse than undercounting.
+    // Guarded two ways: only when the URL genuinely changed, and only once
+    // per URL per page load, so back/forward and re-opens do not re-fire.
+    try {
+      const here = location.pathname + location.search;
+      if (here !== window.__tbLastPvUrl) {
+        window.__tbLastPvUrl = here;
+        window.__tbSeenPv = window.__tbSeenPv || {};
+        if (!window.__tbSeenPv[here]) {
+          window.__tbSeenPv[here] = true;
+          window.fbTrack && window.fbTrack('PageView');
+        }
+      }
+    } catch (_e2) { /* analytics must never break navigation */ }
   } catch (_e) {}
 };
 window.addEventListener('popstate', () => {
