@@ -5034,7 +5034,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r278</span></div>
+        <span class="auth-build" aria-hidden="true">r279</span></div>
     </div>
   </div>
 </div>
@@ -14994,7 +14994,7 @@ function renderShipItBanner(orders) {
         '<div class="sib-sub">' + (n === 1 ? 'A buyer paid and is waiting.' : 'Buyers paid and are waiting.') +
           ' Ship within 3 business days with tracking.</div>' +
       '</div>' +
-      '<button class="sib-cta" data-action="switch-dash-tab" data-tab="sold">View ' + (n === 1 ? 'order' : 'orders') + '</button>' +
+      '<button class="sib-cta" data-action="switch-dash-tab-scroll" data-tab="sold">View ' + (n === 1 ? 'order' : 'orders') + '</button>' +
     '</div>';
 }
 
@@ -16040,7 +16040,7 @@ function wireRevenueRangeButtons() {
     });
   });
 }
-function switchDashTab(tab) {
+function switchDashTab(tab, opts) {
   document.querySelectorAll('.dash-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('dashTabActive').style.display = tab === 'active' ? 'block' : 'none';
   document.getElementById('dashTabSold').style.display = tab === 'sold' ? 'block' : 'none';
@@ -16049,6 +16049,21 @@ function switchDashTab(tab) {
   const offersEl = document.getElementById('dashTabOffers');
   if (offersEl) offersEl.style.display = tab === 'offers' ? 'block' : 'none';
   if (tab === 'offers') renderSellerOffers();
+  // The tab strip sits BELOW all six stat cards, so a caller near the top of
+  // My Shop (the "You have a sale — ship it" banner) switched a tab several
+  // screens down: the seller tapped "View order" and nothing visibly happened.
+  // Bring the strip into view when it isn't already on screen.
+  if (opts && opts.scroll) {
+    try {
+      const strip = document.querySelector('.dash-tabs');
+      if (strip) {
+        const r = strip.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > (window.innerHeight || 0)) {
+          strip.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+      }
+    } catch (_e) { /* scrolling is a nicety — never break the tab switch */ }
+  }
 }
 // ─────────────────────────────────────────────────────────────
 // SELL FORM DRAFT — keeps the long sell form alive across reloads.
@@ -23132,6 +23147,9 @@ A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };
 A['close-shop-dashboard']    = () => closeShopDashboard();
 A['switch-dash-tab']         = (el) => switchDashTab(el.dataset.tab);
+// Same switch, but scrolls the tab strip into view — used by the ship-it
+// banner at the top of My Shop, which sits far above the tabs.
+A['switch-dash-tab-scroll']  = (el) => switchDashTab(el.dataset.tab, {scroll: true});
 A['accept-email-fix']        = (el) => {
   const inp = document.getElementById('emailInput');
   if (inp && el && el.dataset.fix) {

@@ -95,11 +95,13 @@ async function sendPush(uid, payload, category, opts) {
   } catch (e) { /* fall through with defaults */ }
 
   if (prefs[category] === false) {
+    logger.info(`sendPush: SKIP category-off ${category} uid=${uid}`);
     return {sent: 0, skipped: `category-off:${category}`};
   }
   if (!opts.urgent && isInQuietHours(prefs.quietHours)) {
     // Non-urgent → silently swallow until morning. We still write the
     // in-app notification doc upstream, so the user sees a badge.
+    logger.info(`sendPush: SKIP quiet-hours ${category} uid=${uid}`);
     return {sent: 0, skipped: "quiet-hours"};
   }
 
@@ -114,7 +116,10 @@ async function sendPush(uid, payload, category, opts) {
     logger.error("sendPush: token fetch failed", uid, e);
     return {sent: 0, skipped: "token-fetch-error"};
   }
-  if (!tokens.length) return {sent: 0, skipped: "no-tokens"};
+  if (!tokens.length) {
+    logger.info(`sendPush: SKIP no-tokens ${category} uid=${uid}`);
+    return {sent: 0, skipped: "no-tokens"};
+  }
 
   // 3. Build the multicast message. Mirror all flags into both apns and
   // android blocks so platform-specific behavior works.
@@ -145,6 +150,13 @@ async function sendPush(uid, payload, category, opts) {
     logger.info(`sendPush: pruned ${dead.length} dead tokens for ${uid}`);
   }
 
+  // Log the outcome. Every path out of this function used to be silent, so a
+  // seller reporting "I got no push" left nothing in the logs to check — the
+  // 2026-09-25 sale looked identical whether it sent, was gated, or had no
+  // tokens. Cheap line, and it makes the next report answerable.
+  logger.info(
+    `sendPush: ${category} uid=${uid} sent=${resp.successCount} ` +
+    `failed=${resp.failureCount} tokens=${tokens.length}`);
   return {sent: resp.successCount, failed: resp.failureCount};
 }
 
