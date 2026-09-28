@@ -48,8 +48,9 @@
     "sha": "28e1bcfa9172ca9d9c106764481a221b8251831c"
   },
   "createShippingLabel": {
-    "at": "2026-09-09",
-    "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
+    "sha": "491ade33eed364e40d8b80560db3122a74461006",
+    "at": "2026-09-28",
+    "region": "us-central1"
   },
   "createStripeLoginLink": {
     "at": "2026-05-15",
