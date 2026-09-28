@@ -192,28 +192,35 @@ async function shippoFetch(apiKey, path, body) {
 }
 
 // ─── Rate picker ──────────────────────────────────────────────────────
-// Pick the cheapest rate matching our carrier preference rule:
-//   parcel weight < HEAVY_LB lb → cheapest USPS rate of any service level
-//   parcel weight >= HEAVY_LB   → cheapest UPS Ground (servicelevel.token
-//                                  contains "ups_ground")
-// Falls back to the absolute cheapest rate if no rate matches the rule.
-// Returns null if there are no rates at all.
-function pickRate(rates, parcelWeightLb) {
-  if (!Array.isArray(rates) || rates.length === 0) return null;
+// Build the ordered list of rates we are willing to buy, cheapest-first
+// and at most one service level per carrier:
+//   parcel weight <  HEAVY_LB → cheapest rate across carriers leads
+//   parcel weight >= HEAVY_LB → cheapest UPS Ground leads
+//                               (servicelevel.token contains "ups_ground"),
+//                               remaining carriers stay behind it
+// The caller walks this list, so a carrier that quotes but cannot sell
+// (see isCarrierSetupError) costs one retry instead of the whole print.
+// Returns [] if there are no usable rates at all.
+function pickRateCandidates(rates, parcelWeightLb) {
+  if (!Array.isArray(rates) || rates.length === 0) return [];
   const sortable = rates
       .filter((r) => r && r.amount && r.object_id)
       .map((r) => ({...r, _amt: Number(r.amount)}))
       .sort((a, b) => a._amt - b._amt);
-  if (sortable.length === 0) return null;
+  if (sortable.length === 0) return [];
 
-  const heavy = Number(parcelWeightLb) >= HEAVY_LB;
-  if (heavy) {
-    const upsGround = sortable.find((r) => {
-      const tok = (r.servicelevel && r.servicelevel.token) || "";
-      return /ups.*ground/i.test(tok);
-    });
-    if (upsGround) return upsGround;
+  // One candidate per carrier — the cheapest service level from each.
+  // Trying a second service level from a carrier that just refused to sell
+  // us a label is wasted latency; a different carrier is the useful retry.
+  const byProvider = [];
+  const seen = new Set();
+  for (const r of sortable) {
+    const key = String(r.provider || "").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    byProvider.push(r);
   }
+
   // Cheapest usable rate across carriers (founder ruling 2026-08-25).
   // The old sub-70lb branch preferred the cheapest USPS rate regardless of
   // price — fine for small parcels where USPS wins anyway, but USPS
@@ -221,7 +228,69 @@ function pickRate(rates, parcelWeightLb) {
   // a 38x14x12 stand bag where UPS quotes $42–58, and a $17–23 label for
   // the 48" club tube where UPS quotes $13–15. Under seller-funded labels
   // that difference lands on the seller for a choice they didn't make.
-  return sortable[0];
+  //
+  // Heavy parcels still lead with UPS Ground (USPS Priority caps at 70lb
+  // and gets expensive past 50lb), but it is now the FIRST candidate rather
+  // than the only one, so an unregistered UPS account degrades to the next
+  // carrier instead of failing the print outright.
+  const heavy = Number(parcelWeightLb) >= HEAVY_LB;
+  if (heavy) {
+    const idx = byProvider.findIndex((r) => {
+      const tok = (r.servicelevel && r.servicelevel.token) || "";
+      return /ups.*ground/i.test(tok);
+    });
+    if (idx > 0) {
+      const [upsGround] = byProvider.splice(idx, 1);
+      byProvider.unshift(upsGround);
+    } else if (idx === -1) {
+      // No UPS Ground candidate: the cheapest UPS service level we do have
+      // is still the better heavy-parcel bet than dimensional-priced USPS.
+      const upsIdx = byProvider.findIndex(
+          (r) => /ups/i.test(String(r.provider || "")));
+      if (upsIdx > 0) {
+        const [ups] = byProvider.splice(upsIdx, 1);
+        byProvider.unshift(ups);
+      }
+    }
+  }
+  return byProvider;
+}
+
+// Back-compat single pick — the checkout quote path only needs a price,
+// not a purchasable carrier, so it keeps taking the best candidate.
+function pickRate(rates, parcelWeightLb) {
+  return pickRateCandidates(rates, parcelWeightLb)[0] || null;
+}
+
+const CARRIER_SETUP_CODE_RE =
+  /registration|carrier_?account|not_?enabled|unauthorized/i;
+const CARRIER_SETUP_TEXT_RE = new RegExp([
+  "not yet registered",
+  "not registered",
+  "registration",
+  "activate account",
+  "carrier account",
+  "account is not",
+  "not enabled",
+  "no account",
+  "invalid credentials",
+  "out of service area",
+].join("|"), "i");
+
+// Did Shippo refuse because OUR account can't sell this carrier (rather
+// than anything wrong with the shipment)? Shippo quotes carriers from its
+// master accounts but rejects the transaction unless the carrier has been
+// activated in the dashboard — the 2026-09-28 ups_registration_error.
+// These are our-side configuration failures: retrying the same carrier
+// never helps, a different carrier usually does.
+function isCarrierSetupError(messages) {
+  const arr = Array.isArray(messages) ? messages : [];
+  return arr.some((m) => {
+    const code = String((m && m.code) || "");
+    const text = String((m && m.text) || "");
+    const flat = text.replace(/\s+/g, " ");
+    return CARRIER_SETUP_CODE_RE.test(code) || CARRIER_SETUP_TEXT_RE.test(flat);
+  });
 }
 
 // ─── Address normalizer ──────────────────────────────────────────────
@@ -474,12 +543,22 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Step 2: Pick a rate ──────────────────────────────────────
+      // ─── Step 2: Pick candidate rates (cheapest-first, one per carrier)
+      // r280: buying only the single cheapest rate was a single point of
+      // failure. Shippo happily QUOTES carriers whose account isn't
+      // registered on ours and rejects only at purchase time. 2026-09-28,
+      // order pi_3UJgPjACdHwBgjjd00MBEQel: UPS Ground Saver $6.73 undercut
+      // USPS Ground Advantage $6.80 by seven cents, got picked, and the
+      // transaction came back ups_registration_error — the seller saw
+      // "check your Shippo balance" and never got a label, with a working
+      // USPS rate sitting one slot down the list. So we now walk an ordered
+      // candidate list and fall through to the next CARRIER whenever a
+      // purchase fails for a carrier-setup reason.
       const parcelWeightLb = Number(parcel.weight || 0);
-      const rate = pickRate(rates, parcelWeightLb);
-      if (!rate || !rate.object_id) {
+      const candidates = pickRateCandidates(rates, parcelWeightLb);
+      if (!candidates.length) {
         logger.warn(
-            "createShippingLabel: pickRate returned nothing",
+            "createShippingLabel: pickRateCandidates returned nothing",
             {orderId, rateCount: rates.length});
         return {
           ok: false,
@@ -490,29 +569,34 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Step 2.5: Structure 2 guard (founder ruling 2026-09-04) ───
-      // Buyer-paid shipping: the label is prepaid by the shipping the
-      // buyer paid at checkout (retained by the platform via
-      // application_fee_amount) — nothing is deducted from the seller's
-      // payout, no quote→confirm round-trip. Structure 1's confirmDeduct
-      // flow, proceeds guard, and transfer-reversal recovery are retired
-      // (an old client still sending confirmDeduct:true is harmlessly
-      // ignored). Guard: a live-rate order collected the EXACT carrier
-      // rate at checkout — if today's rate exceeds what was collected
-      // (carrier repriced between purchase and print), refuse and alert
-      // instead of silently eating the difference. Flat-tier overage is
-      // absorbed by design (tiers priced above worst-case lanes), and a
-      // legacy order with no shippingCents buys unguarded: deducting
-      // nothing from the seller is the safe failure.
-      const rateUsd = Number(rate.amount || 0);
-      const labelCents = Math.round(rateUsd * 100);
+      // Structure 2 guard (founder ruling 2026-09-04) — buyer-paid
+      // shipping: the label is prepaid by the shipping the buyer paid at
+      // checkout (retained by the platform via application_fee_amount) —
+      // nothing is deducted from the seller's payout, no quote→confirm
+      // round-trip. Structure 1's confirmDeduct flow, proceeds guard, and
+      // transfer-reversal recovery are retired (an old client still sending
+      // confirmDeduct:true is harmlessly ignored). Guard: a live-rate order
+      // collected the EXACT carrier rate at checkout — if today's rate
+      // exceeds what was collected (carrier repriced between purchase and
+      // print), refuse and alert instead of silently eating the difference.
+      // Flat-tier overage is absorbed by design (tiers priced above
+      // worst-case lanes), and a legacy order with no shippingCents buys
+      // unguarded: deducting nothing from the seller is the safe failure.
       const collectedShippingCents = Number(order.shippingCents);
-      if (order.shippingMethod === "live" &&
-          Number.isFinite(collectedShippingCents) &&
-          labelCents > collectedShippingCents) {
+      const guardApplies = order.shippingMethod === "live" &&
+          Number.isFinite(collectedShippingCents);
+      const affordable = guardApplies ?
+          candidates.filter(
+              (r) => Math.round(Number(r.amount || 0) * 100) <=
+                  collectedShippingCents) :
+          candidates;
+      if (!affordable.length) {
+        // Candidates are cheapest-first, so if none fits, the cheapest
+        // available rate is the honest number to report and alert on.
+        const cheapestUsd = Number(candidates[0].amount || 0);
         const {opsAlert} = require("./opsAlert");
         await opsAlert("error",
-            `Label $${rateUsd.toFixed(2)} exceeds buyer-paid shipping ` +
+            `Label $${cheapestUsd.toFixed(2)} exceeds buyer-paid shipping ` +
             `$${(collectedShippingCents / 100).toFixed(2)} on order ` +
             `${orderId} — purchase refused; needs a founder decision.`);
         return {
@@ -521,59 +605,138 @@ exports.createShippingLabel = onCall(
           message: "Today's carrier rate came back higher than the " +
             "shipping collected for this order, so we didn't buy the " +
             "label. Contact support and we'll sort it out together.",
-          rateAmount: rateUsd,
+          rateAmount: cheapestUsd,
           collectedShipping: Math.round(collectedShippingCents) / 100,
         };
       }
 
-      // ─── Step 3: Buy label ────────────────────────────────────────
-      const txnBody = {
-        rate: rate.object_id,
-        label_file_type: "PDF",
-        async: false,
-      };
-      const txnRes = await shippoFetch(apiKey, "/transactions/", txnBody);
+      // ─── Step 3: Buy label (fall through carriers on setup errors) ─
+      // Bounded so a broadly misconfigured Shippo account can't turn one
+      // click into ten upstream calls. A failed transaction buys nothing,
+      // so retrying a different carrier costs only latency.
+      const MAX_LABEL_ATTEMPTS = 4;
+      const attempts = affordable.slice(0, MAX_LABEL_ATTEMPTS);
+      let rate = null;
+      let txn = null;
+      const setupFailures = [];
+      let lastFailure = null;
 
-      if (txnRes.networkErr) {
-        logger.error(
-            "createShippingLabel: txn network error",
-            {orderId, err: txnRes.networkErr});
-        return {
-          ok: false,
-          reason: "shippo-down",
-          message: "Shipping label purchase failed — please retry in a few minutes.",
-        };
-      }
-      if (!txnRes.ok || !txnRes.body) {
-        const transient = txnRes.status >= 500;
-        logger.warn(
-            `createShippingLabel: Shippo /transactions ${txnRes.status}`,
-            {orderId, body: txnRes.body});
-        return {
-          ok: false,
-          reason: transient ? "shippo-down" : "label-purchase-failed",
-          message: transient ?
-            "Shipping label purchase failed — please retry in a few minutes." :
-            "Shipping label purchase failed. " +
-              "Check your Shippo account funding and try again.",
-          details: txnRes.body || null,
-        };
+      for (const candidate of attempts) {
+        const txnRes = await shippoFetch(apiKey, "/transactions/", {
+          rate: candidate.object_id,
+          label_file_type: "PDF",
+          async: false,
+        });
+
+        if (txnRes.networkErr) {
+          logger.error(
+              "createShippingLabel: txn network error",
+              {orderId, provider: candidate.provider,
+                err: txnRes.networkErr});
+          return {
+            ok: false,
+            reason: "shippo-down",
+            message: "Shipping label purchase failed — " +
+                "please retry in a few minutes.",
+          };
+        }
+
+        const body = txnRes.body || null;
+        const bodyMsgs = (body && body.messages) || [];
+
+        if (!txnRes.ok || !body) {
+          // 4xx → permanent for THIS rate; 5xx → transient for the whole
+          // request, so stop rather than burn the other carriers.
+          logger.warn(
+              `createShippingLabel: Shippo /transactions ${txnRes.status}`,
+              {orderId, provider: candidate.provider, body});
+          if (txnRes.status >= 500) {
+            return {
+              ok: false,
+              reason: "shippo-down",
+              message: "Shipping label purchase failed — " +
+                  "please retry in a few minutes.",
+            };
+          }
+          if (isCarrierSetupError(bodyMsgs)) {
+            setupFailures.push({
+              provider: candidate.provider || "unknown",
+              text: (bodyMsgs[0] && bodyMsgs[0].text) || "",
+            });
+            continue;
+          }
+          return {
+            ok: false,
+            reason: "label-purchase-failed",
+            message: (bodyMsgs[0] && bodyMsgs[0].text) ||
+                "Shipping label purchase failed. " +
+                "Check your Shippo account funding and try again.",
+            details: body,
+          };
+        }
+
+        // Shippo returns status: "SUCCESS" | "ERROR" | "QUEUED". With
+        // async:false we should get SUCCESS or ERROR.
+        if (body.status === "ERROR" || !body.label_url) {
+          const firstText = (bodyMsgs[0] && bodyMsgs[0].text) || "";
+          if (isCarrierSetupError(bodyMsgs)) {
+            // The carrier quoted us but our account can't buy from it.
+            logger.warn(
+                "createShippingLabel: carrier not purchasable — " +
+                "trying next carrier",
+                {orderId, provider: candidate.provider,
+                  messages: bodyMsgs});
+            setupFailures.push({
+              provider: candidate.provider || "unknown",
+              text: firstText,
+            });
+            continue;
+          }
+          logger.warn(
+              "createShippingLabel: txn ERROR",
+              {orderId, provider: candidate.provider, messages: bodyMsgs});
+          lastFailure = {
+            ok: false,
+            reason: "label-purchase-failed",
+            message: firstText || "Label purchase failed.",
+            details: bodyMsgs || null,
+          };
+          break;
+        }
+
+        rate = candidate;
+        txn = body;
+        break;
       }
 
-      const txn = txnRes.body;
-      // Shippo returns status: "SUCCESS" | "ERROR" | "QUEUED". With
-      // async:false we should get SUCCESS or ERROR.
-      if (txn.status === "ERROR" || !txn.label_url) {
-        logger.warn(
-            "createShippingLabel: txn ERROR",
-            {orderId, messages: txn.messages});
-        const firstMsg = (txn.messages && txn.messages[0] &&
-            txn.messages[0].text) || "Label purchase failed.";
-        return {
+      if (!txn || !rate) {
+        if (setupFailures.length) {
+          // Every carrier we tried quoted us but refuses to sell. This is
+          // OUR configuration, not the seller's problem and not something
+          // a retry fixes — page ops and say so plainly.
+          const list = setupFailures
+              .map((f) => f.provider)
+              .join(", ");
+          const {opsAlert} = require("./opsAlert");
+          await opsAlert("error",
+              `Shippo carrier not registered (${list}) — label purchase ` +
+              `failed on order ${orderId}. Activate the carrier at ` +
+              `https://apps.goshippo.com/settings/carriers. ` +
+              `First message: ${setupFailures[0].text || "(none)"}`);
+          return {
+            ok: false,
+            reason: "carrier-not-registered",
+            message: "Label printing is temporarily unavailable on our " +
+                "side — we've been alerted and are fixing it. Buy postage " +
+                "from any carrier and mark the order shipped; you won't be " +
+                "charged twice.",
+            details: setupFailures,
+          };
+        }
+        return lastFailure || {
           ok: false,
           reason: "label-purchase-failed",
-          message: firstMsg,
-          details: txn.messages || null,
+          message: "Shipping label purchase failed. Please try again.",
         };
       }
 
@@ -837,6 +1000,8 @@ exports.getShippingFeatureFlag = onCall(
 // `exports.foo = onCall(...)` so they do not register as Cloud Functions.
 module.exports._internal = {
   pickRate,
+  pickRateCandidates,
+  isCarrierSetupError,
   normalizeAddress,
   addressIsComplete,
   DEFAULT_PARCEL,

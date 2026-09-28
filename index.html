@@ -5034,7 +5034,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r279</span></div>
+        <span class="auth-build" aria-hidden="true">r280</span></div>
     </div>
   </div>
 </div>
@@ -17376,7 +17376,12 @@ async function printShippingLabel(orderId) {
         'missing-from-address': 'Add your ship-from address in Account → Shipping first.',
         'missing-to-address': 'This order is missing a shipping address. Message the buyer to confirm before shipping.',
         'no-rates': 'We couldn\'t find any shipping rates for this address. Double-check the buyer\'s address and try again.',
-        'label-purchase-failed': 'Label purchase failed. Check your Shippo balance and try again.',
+        // r280: deliberately NOT in this map. The callable now returns
+        // the carrier's own message here (an unregistered carrier is
+        // reported separately as carrier-not-registered), and the old
+        // blanket 'check your Shippo balance' actively misled — the
+        // 2026-09-28 failure was an inactive UPS account, not funding.
+        'carrier-not-registered': 'Label printing is temporarily unavailable on our side \u2014 we\'ve been alerted. Buy postage from any carrier and mark the order shipped.',
         'shippo-down': 'Shipping rates are temporarily unavailable. Please retry in a few minutes.',
         'test-key-in-prod': 'Shipping labels are temporarily unavailable. Please retry shortly.',
         'label-exceeds-collected': 'Today\'s carrier rate came back higher than the shipping your buyer paid. Contact support and we\'ll sort out the label together.',
