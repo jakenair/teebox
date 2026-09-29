@@ -2610,6 +2610,23 @@
      - Photo count badge top-right
      - Tap on any slide opens the existing lightbox */
   .ig-swiper { position: relative; width: 100%; }
+  /* r283 — double-tap-to-like burst over the listing photo. Mirrors
+     .pp-heart-burst; the unliking variant goes grey and shrinks away so an
+     un-like never reads as a like. */
+  .ig-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; z-index: 3; }
+  .ig-heart-burst.go { animation: ppHeart 0.72s ease-out; }
+  .ig-heart-burst.unliking { color: rgba(255,255,255,0.72); }
+  .ig-heart-burst.unliking.go { animation: igHeartOff 0.5s ease-out; }
+  @keyframes igHeartOff { 0%{opacity:0;transform:translate(-50%,-50%) scale(1)} 25%{opacity:0.9;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.55)} }
+  /* Double-tap surfaces must not let the browser zoom on the second tap. */
+  .ig-swiper, .ig-slide, .ig-slide img { touch-action: pan-x pan-y; }
+  .detail-likes { display: flex; align-items: center; gap: 7px; margin: 8px 0 2px; font-size: 13px; color: var(--gray-600); }
+  .detail-likes .detail-like-ico { font-size: 15px; line-height: 1; color: var(--gray-400); }
+  .detail-likes.liked .detail-like-ico { color: var(--heart-red, #e74c3c); }
+  .detail-likes .detail-like-count { font-weight: 700; color: var(--gray-800); }
+  .detail-likes .detail-like-hint { color: var(--gray-500); font-size: 12px; }
+  .detail-likes.liked .detail-like-count { color: var(--heart-red, #e74c3c); }
+  @media (prefers-reduced-motion: reduce) { .ig-heart-burst.go, .ig-heart-burst.unliking.go { animation: none; } }
   .ig-swiper-track {
     display: flex;
     overflow-x: auto;
@@ -5035,7 +5052,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r282</span></div>
+        <span class="auth-build" aria-hidden="true">r283</span></div>
     </div>
   </div>
 </div>
@@ -6862,6 +6879,11 @@
     </div>
     <div class="detail-body">
       <div class="detail-gallery" id="detailGallery"></div>
+      <!-- r283: like STATE + count, display only. The card heart is gone and
+           liking is a double-tap on the photo, so this is the only thing
+           telling you whether you've already liked it. Deliberately not a
+           button — the gesture is the control. -->
+      <div class="detail-likes" id="detailLikes"></div>
       <div class="detail-info">
         <div class="detail-brand" id="detailBrand"></div>
         <div class="detail-name" id="detailName"></div>
@@ -12084,7 +12106,10 @@ function renderProductCardHtml(p, i) {
       `${mainImg}`+
       `${badge}`+
       `${stockBadge}`+
-      `<button class="fav-btn${fav.has(p.id)?' liked':''}" data-action="toggle-watch" data-product-id="${idAttr}" aria-label="Save">${fav.has(p.id)?window.ICONS.heartFill:window.ICONS.heart}</button>`+
+      // r283: the heart overlay is gone from the card. Liking now happens by
+      // double-tapping the photo inside the listing detail, the same gesture
+      // Passport already uses. The like COUNT still renders below, in
+      // .product-stats — the social proof stays, the button doesn't.
       `${photoCount}`+
     `</div>`+
     `<div class="product-body">`+
@@ -13032,6 +13057,11 @@ async function openDetailModal(id) {
     .filter(Boolean);
   const galleryEl = document.getElementById('detailGallery');
   galleryEl.textContent = '';
+  // r283: the double-tap handler inside buildIgSwiper reads the listing id
+  // off the container, and the like row needs its pre-toggle baseline.
+  galleryEl.dataset.listingId = String(p.id);
+  snapshotDetailLikes(p);
+  renderDetailLikes(p.id);
   if (photos.length === 0) {
     // 0 photos → existing fallback (placeholder icon, square)
     const empty = document.createElement('div');
@@ -13147,13 +13177,10 @@ window.buildIgSwiper = function(container, urls, alt) {
     img.loading = i === 0 ? 'eager' : 'lazy';
     img.draggable = false;
     slide.appendChild(img);
-    slide.addEventListener('click', () => {
-      // Open the existing lightbox at this slide's index. Read current
-      // index from data-idx so it stays correct even if scroll-tracking
-      // races the click.
-      const idx = Number(slide.getAttribute('data-idx')) || 0;
-      window.openLightbox(urls, idx);
-    });
+    // r283: the slide no longer opens the lightbox on its own click. A
+    // double-tap fires two clicks, which would have opened the lightbox
+    // on top of the like. ppWireTapLikeOpen (below) owns the decision and
+    // calls openLightbox itself once it knows the tap was a single.
     track.appendChild(slide);
   });
 
@@ -13244,8 +13271,90 @@ window.buildIgSwiper = function(container, urls, alt) {
   swiper._igCount = urls.length;
   container._igSwiper = swiper;
 
+  // r283 — double-tap the photo to like. The card's heart overlay is gone,
+  // so this gesture (and the Likes list) is how a listing gets liked now.
+  //
+  // Unlike Passport's feed, this TOGGLES. Instagram can make double-tap
+  // like-only because it still shows a heart button to undo it; we removed
+  // ours, and the Likes list has no remove control either, so like-only
+  // would leave a listing liked forever with no way back.
+  const burst = document.createElement('div');
+  burst.className = 'ig-heart-burst';
+  burst.setAttribute('aria-hidden', 'true');
+  burst.innerHTML = '&#10084;';
+  swiper.appendChild(burst);
+
+  // Which slide the gesture started on — the helper resolves tap vs
+  // double-tap after the fact, by which time the event target is gone.
+  let tapIdx = 0;
+  swiper.addEventListener('pointerdown', (e) => {
+    const sl = e.target && e.target.closest && e.target.closest('.ig-slide');
+    if (sl) tapIdx = Number(sl.getAttribute('data-idx')) || 0;
+  }, { passive: true });
+
+  // NOTE: burstEl is deliberately NOT passed. The helper fires its burst
+  // before calling onLike, and a signed-out double-tap must reach the
+  // sign-in prompt WITHOUT a heart animation first — otherwise a guest sees
+  // a "liked" state that no refresh will honour. Same rule the old card
+  // heart followed. So we own the burst and fire it after the auth gate.
+  ppWireTapLikeOpen(swiper, {
+    ignore: '.ig-arrow, .ig-thumbs, .ig-dot',
+    onOpen: () => { if (window.openLightbox) window.openLightbox(urls, tapIdx); },
+    onLike: () => {
+      const id = container.dataset.listingId;
+      if (!id) return;
+      if (typeof window.requireAuth === 'function' &&
+          !window.requireAuth('to like and save listings')) return;
+      if (typeof toggleWatch !== 'function') return;
+      // Paint the burst for the direction we're about to go, before the
+      // await — an unlike showing a big red heart would read as a like.
+      const wasLiked = fav.has(id) || fav.has(Number(id));
+      burst.classList.toggle('unliking', wasLiked);
+      burst.classList.remove('go');
+      void burst.offsetWidth; // restart the animation
+      burst.classList.add('go');
+      Promise.resolve(toggleWatch(id)).then(() => {
+        if (typeof window.renderDetailLikes === 'function') {
+          window.renderDetailLikes(id);
+        }
+      }).catch(() => {});
+    },
+  });
+
   setIdx(0);
 };
+
+
+// r283 — the listing detail's like row. Reads listings.watchlistCount (kept
+// by the syncWatchlistCount trigger), which is authoritative but lags a
+// local toggle by a round trip, so we snapshot the value and my own liked
+// state when the sheet opens and apply my delta on top. That way the number
+// moves the instant I double-tap instead of sitting stale until a refresh.
+const detailLikeBase = Object.create(null);
+function snapshotDetailLikes(p) {
+  if (!p) return;
+  const id = String(p.id);
+  detailLikeBase[id] = {
+    count: Number(p.watchlistCount || 0),
+    likedAtOpen: fav.has(p.id) || fav.has(id) || fav.has(Number(id)),
+  };
+}
+function renderDetailLikes(id) {
+  const el = document.getElementById('detailLikes');
+  if (!el) return;
+  const key = String(id);
+  const snap = detailLikeBase[key] || { count: 0, likedAtOpen: false };
+  const liked = fav.has(id) || fav.has(key) || fav.has(Number(id));
+  let n = snap.count + (liked ? (snap.likedAtOpen ? 0 : 1) : (snap.likedAtOpen ? -1 : 0));
+  if (n < 0) n = 0;
+  const countLabel = n ? `${n.toLocaleString()} like${n === 1 ? '' : 's'}` : '';
+  el.classList.toggle('liked', !!liked);
+  el.innerHTML =
+    `<span class="detail-like-ico" aria-hidden="true">${liked ? '&#10084;' : '&#9825;'}</span>` +
+    `<span class="detail-like-count">${countLabel}</span>` +
+    `<span class="detail-like-hint">${liked ? 'Double-tap the photo to unlike' : 'Double-tap the photo to like'}</span>`;
+}
+window.renderDetailLikes = renderDetailLikes;
 
 window.openDetailModal = openDetailModal;
 
@@ -19968,12 +20077,17 @@ async function toggleWatch(productId) {
     // the same product in sync.
     try {
       const nowLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
+      // r283: the card heart is gone, so the only surviving like indicator
+      // is the detail sheet's like row — repaint it whenever the open
+      // listing is the one that changed. The querySelectorAll below is kept
+      // for any fav-btn a future surface renders; today it matches nothing.
+      if (currentDetailId != null && String(currentDetailId) === id &&
+          typeof window.renderDetailLikes === 'function') {
+        window.renderDetailLikes(id);
+      }
       document.querySelectorAll('.fav-btn[data-product-id]').forEach((btn) => {
         if (String(btn.dataset.productId) !== id) return;
         btn.classList.toggle('liked', nowLiked);
-        // Replaces the 'Liked!'/'Unliked.' toast. The heart already carries the
-        // state, so a toast for a self-evident, reversible action was noise.
-        // A short pop gives the tactile confirmation it stood in for.
         if (nowLiked) {
           btn.classList.remove('just-liked');
           void btn.offsetWidth; // restart the animation
@@ -20019,7 +20133,7 @@ async function renderWatchlistInto(results, ctaAction) {
       '<div class="empty-state">' +
         '<div class="empty-state-icon">' + (window.ICONS && window.ICONS.heart || '') + '</div>' +
         '<h3 class="empty-state-title">No saved items yet</h3>' +
-        '<p class="empty-state-sub">Tap the <strong>heart</strong> on any listing to save it here for later.</p>' +
+        '<p class="empty-state-sub">Open any listing and <strong>double-tap the photo</strong> to save it here for later.</p>' +
         '<button class="empty-state-cta" data-action="' + (ctaAction || 'close-watchlist-browse') + '" type="button">Browse listings</button>' +
       '</div>';
     return;
@@ -22238,11 +22352,14 @@ function ppWireCarouselDots(scrollEl, dotsEl) {
 }
 
 // Distinguish tap (open) vs double-tap (like) vs swipe (native scroll).
-function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl }) {
+function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl, ignore }) {
   let sx = 0, sy = 0, moved = false, lastTap = 0, singleTimer = null, clickTimer = null, suppressClickUntil = 0, startTarget = null;
-  // The course chip is a real button (opens the course page) — let its own
-  // data-action handle taps, don't also open the poster's detail.
-  const onChip = (t) => !!(t && t.closest && t.closest('.pf-course-chip'));
+  // Real controls inside the tap surface handle their own taps — we must not
+  // also open or like. Passport's course chip was the original case; r283
+  // reuses this helper for the listing gallery, whose arrows and thumbnails
+  // need the same exemption, so the selector is now the caller's to name.
+  const IGNORE_SEL = ignore || '.pf-course-chip';
+  const onChip = (t) => !!(t && t.closest && t.closest(IGNORE_SEL));
   const burst = () => { if (!burstEl) return; burstEl.classList.remove('go'); void burstEl.offsetWidth; burstEl.classList.add('go'); };
   const doLike = () => { burst(); if (onLike) onLike(); };
   el.addEventListener('dblclick', (e) => { e.preventDefault(); if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } doLike(); });
