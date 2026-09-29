@@ -111,8 +111,8 @@ async function quoteShippingCents(apiKey, category, fromAddress, toAddress) {
   }
   const parcel = parcelForCategory(cat) || DEFAULT_PARCEL;
   const shipmentRes = await shippoFetch(apiKey, "/shipments/", {
-    address_from: fromAddress,
-    address_to: toAddress,
+    address_from: shippoAddress(fromAddress),
+    address_to: shippoAddress(toAddress),
     parcels: [parcel],
     async: false,
   });
@@ -298,6 +298,22 @@ function isCarrierSetupError(messages) {
 // email?}. Our internal shape (from Stripe AddressElement) is
 // {name, address: {line1, line2, city, state, postal_code, country}}.
 // We accept either shape.
+// Shippo validates some optional address attributes as "present but empty"
+// rather than ignoring them: USPS rejected a transaction on 2026-09-29 with
+// `Attribute "address_from.email" must not be empty` because normalizeAddress
+// emits email:"" when the stored address has no email. Rates still came back,
+// so the shipment call never surfaced it — only the purchase did. Strip the
+// blank optionals on the way out instead of teaching every caller about it.
+const OPTIONAL_ADDRESS_KEYS = ["email", "phone", "street2", "company"];
+function shippoAddress(addr) {
+  if (!addr || typeof addr !== "object") return addr;
+  const out = {...addr};
+  for (const k of OPTIONAL_ADDRESS_KEYS) {
+    if (typeof out[k] === "string" && out[k].trim() === "") delete out[k];
+  }
+  return out;
+}
+
 function normalizeAddress(addr) {
   if (!addr || typeof addr !== "object") return null;
   // Already-Shippo shape
@@ -454,6 +470,31 @@ exports.createShippingLabel = onCall(
         };
       }
 
+      // The carrier uses address_from.email to reach the SHIPPER about the
+      // parcel, and USPS refuses to sell a label without one. Fill it from
+      // the seller's own account so the notifications reach the person who
+      // actually has the package; support@ is only a last resort so a label
+      // is never blocked on a profile gap.
+      if (!fromAddress.email) {
+        let sellerEmail = "";
+        try {
+          const sSnap = await db.collection("users").doc(uid).get();
+          sellerEmail = (sSnap.exists && sSnap.data().email) || "";
+        } catch (e) {
+          logger.warn("createShippingLabel: seller email lookup failed",
+              {orderId, err: e.message});
+        }
+        if (!sellerEmail) {
+          try {
+            sellerEmail = (await admin.auth().getUser(uid)).email || "";
+          } catch (e) {
+            logger.warn("createShippingLabel: auth email lookup failed",
+                {orderId, err: e.message});
+          }
+        }
+        fromAddress.email = sellerEmail || "support@teeboxmarket.com";
+      }
+
       // ─── Resolve to-address ────────────────────────────────────────
       let toAddress = normalizeAddress(overrides.toAddress);
       if (!toAddress) {
@@ -487,8 +528,8 @@ exports.createShippingLabel = onCall(
 
       // ─── Step 1: Create shipment + get rates ───────────────────────
       const shipmentBody = {
-        address_from: fromAddress,
-        address_to: toAddress,
+        address_from: shippoAddress(fromAddress),
+        address_to: shippoAddress(toAddress),
         parcels: [parcel],
         async: false,
       };
@@ -710,6 +751,11 @@ exports.createShippingLabel = onCall(
       }
 
       if (!txn || !rate) {
+        // A concrete carrier error (bad field, funding, address) is more
+        // actionable than "no carrier is registered", so it wins even when
+        // an earlier candidate failed on setup. Getting this backwards on
+        // 2026-09-29 hid USPS's real complaint behind the UPS message.
+        if (lastFailure) return lastFailure;
         if (setupFailures.length) {
           // Every carrier we tried quoted us but refuses to sell. This is
           // OUR configuration, not the seller's problem and not something
@@ -1001,6 +1047,7 @@ exports.getShippingFeatureFlag = onCall(
 module.exports._internal = {
   pickRate,
   pickRateCandidates,
+  shippoAddress,
   isCarrierSetupError,
   normalizeAddress,
   addressIsComplete,
