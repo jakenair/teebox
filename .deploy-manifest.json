@@ -8,9 +8,9 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "aggregateEmailMetrics": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "aggregateSellerStats": {
     "at": "2026-07-31",
@@ -26,9 +26,9 @@
     "sha": null
   },
   "checkEmailUsage": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "confirmOrderDelivered": {
     "at": "2026-08-27",
@@ -74,16 +74,18 @@
     "at": "2026-09-17"
   },
   "dailyEmailSmoke": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "dailyEmailSmokeManual": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "dailyFounderBriefing": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "dailyFounderBriefingManual": {
     "at": "2026-06-26",
@@ -96,9 +98,9 @@
     "sha": null
   },
   "dismissMarketingBanner": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "draftListingFromPhotos": {
     "sha": "999897ade538ffbea1f649ac8b31b69475fefc3c",
@@ -182,8 +184,9 @@
     "sha": null
   },
   "handleUnsubscribe": {
-    "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
-    "at": "2026-09-19"
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "incrementListingMessage": {
     "at": "2026-07-31",
@@ -290,9 +293,9 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onListingPriceUpdate": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "onMessageHoldCreated": {
     "at": "2026-07-31",
@@ -367,9 +370,9 @@
     "sha": null
   },
   "proRenewalReminderScheduled": {
-    "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "proWelcomeEmail": {
     "at": "2026-05-29",
@@ -478,8 +481,9 @@
     "sha": "1a55fe6ea53cc0f99341d65371988d9796a94811"
   },
   "resendWebhook": {
-    "at": "2026-08-27",
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "reviewRequestScheduler": {
     "at": "2026-09-11",
@@ -520,9 +524,9 @@
     "sha": null
   },
   "setMarketingPause": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "smokeProUpgrade": {
     "at": "2026-07-31",
@@ -534,9 +538,9 @@
     "sha": null
   },
   "stripeConnectWebhook": {
-    "at": "2026-06-18",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "stripeWebhook": {
     "at": "2026-09-11",
@@ -576,17 +580,18 @@
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
   },
   "updateEmailPreferences": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "updateListing": {
     "sha": "c4753c8e70574681f2fad86f8b6c02c221e37387",
     "at": "2026-09-24"
   },
   "updateMarketingConsent": {
-    "sha": "791653fe3229911d0ca20657a07e2adea866b2a6",
-    "at": "2026-09-19"
+    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "updateProfile": {
     "at": "2026-07-21",
