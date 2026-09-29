@@ -3491,6 +3491,30 @@
      the right (row-reverse). Bubble/timestamp layout inside .msg-wrap is
      untouched; the row only adds the avatar gutter. The bottom margin drops
      the avatar level with the bubble's bottom edge (skipping the timestamp). */
+  /* r284 — swipe-left-to-delete shell around each message row.
+     touch-action:pan-y hands us horizontal gestures while the browser keeps
+     vertical scrolling, so the thread still scrolls normally and we never
+     have to preventDefault a scroll. */
+  .msg-swipe { position: relative; overflow: hidden; touch-action: pan-y; }
+  .msg-swipe-body { transition: transform .22s cubic-bezier(.22,.61,.36,1); will-change: transform; background: var(--cream, #faf8f3); position: relative; z-index: 1; }
+  .msg-del-btn { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: 0; margin: 0;
+    background: #d93025; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; z-index: 0; }
+  .msg-swipe.will-delete .msg-del-btn { background: #b3261e; }
+  /* Touch: the button is revealed by the swipe, never shown unprompted. */
+  @media (hover: none) { .msg-del-btn { opacity: 0; pointer-events: none; }
+    .msg-swipe.swiped .msg-del-btn, .msg-swipe.will-delete .msg-del-btn { opacity: 1; pointer-events: auto; } }
+  /* Desktop has no swipe — reveal a compact control on hover/focus instead. */
+  @media (hover: hover) {
+    .msg-del-btn { width: auto; top: 50%; right: 6px; bottom: auto; transform: translateY(-50%);
+      padding: 3px 9px; border-radius: 999px; font-size: 11px; opacity: 0;
+      transition: opacity .15s ease; z-index: 2; }
+    .msg-swipe:hover .msg-del-btn, .msg-del-btn:focus-visible { opacity: 1; }
+  }
+  .toast-undo { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+  .toast-undo-btn { background: none; border: 0; color: #ffd66b; font-weight: 800; font-size: 13px;
+    cursor: pointer; padding: 2px 4px; text-transform: uppercase; letter-spacing: .04em; }
+  @media (prefers-reduced-motion: reduce) { .msg-swipe-body { transition: none; } }
   .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
   .msg-row-mine { flex-direction: row-reverse; }
   .msg-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--green-300), var(--green-600)); color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; margin-bottom: 20px; }
@@ -5052,7 +5076,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r283</span></div>
+        <span class="auth-build" aria-hidden="true">r284</span></div>
     </div>
   </div>
 </div>
@@ -13763,13 +13787,221 @@ async function loadMessages() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// r284 — swipe-left-to-delete on a single message (iOS Mail style)
+//
+// "Delete for me" only: we add the viewer's uid to the message's
+// deletedFor array and filter it at render. The doc is never removed and
+// the text is never edited, because a buyer/seller thread is the evidence
+// if an order is disputed — neither side gets to erase it for the other.
+// Firestore rules enforce that you can only add/remove your OWN uid.
+// ─────────────────────────────────────────────────────────────
+const MSG_SWIPE_OPEN = 88;   // px of Delete revealed on a partial swipe
+const MSG_SWIPE_FULL = 200;  // past this, let go and it deletes outright
+
+function closeOpenMessageSwipe(except) {
+  document.querySelectorAll('.msg-swipe.swiped').forEach((el) => {
+    if (el === except) return;
+    el.classList.remove('swiped');
+    const b = el.querySelector('.msg-swipe-body');
+    if (b) b.style.transform = '';
+  });
+}
+window.closeOpenMessageSwipe = closeOpenMessageSwipe;
+
+function wireMessageSwipe(root) {
+  if (!root || root.__swipeWired) return;
+  root.__swipeWired = true; // delegated once per #chatBody, survives re-renders
+
+  let el = null, body = null, sx = 0, sy = 0, dx = 0, axis = '', active = false;
+
+  const bodyOf = (t) => (t && t.closest ? t.closest('.msg-swipe') : null);
+
+  root.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { active = false; return; }
+    const t = e.changedTouches[0];
+    // iOS interactive-pop lives in the left ~24px. Starting a gesture there
+    // is the system back-swipe, not ours.
+    if (t.clientX <= 24) { active = false; return; }
+    el = bodyOf(e.target);
+    body = el && el.querySelector('.msg-swipe-body');
+    if (!el || !body) { active = false; return; }
+    closeOpenMessageSwipe(el);
+    sx = t.clientX; sy = t.clientY; dx = 0; axis = ''; active = true;
+  }, { passive: true });
+
+  root.addEventListener('touchmove', (e) => {
+    if (!active || !body) return;
+    const t = e.changedTouches[0];
+    const ddx = t.clientX - sx, ddy = t.clientY - sy;
+    if (!axis) {
+      // Decide once, with a dead zone, so a vertical scroll is never stolen.
+      if (Math.abs(ddx) < 8 && Math.abs(ddy) < 8) return;
+      axis = Math.abs(ddx) > Math.abs(ddy) + 4 ? 'x' : 'y';
+      if (axis === 'y') { active = false; return; }
+    }
+    if (ddx > 0 && !el.classList.contains('swiped')) { dx = 0; body.style.transform = ''; return; }
+    // Rubber-band past the full-swipe point so it never feels unbounded.
+    dx = ddx < -MSG_SWIPE_FULL
+      ? -MSG_SWIPE_FULL - (Math.abs(ddx) - MSG_SWIPE_FULL) * 0.25
+      : ddx;
+    if (dx > 0) dx = 0;
+    body.style.transition = 'none';
+    body.style.transform = `translateX(${dx}px)`;
+    el.classList.toggle('will-delete', dx <= -MSG_SWIPE_FULL);
+  }, { passive: true });
+
+  const settle = () => {
+    if (!active || !body || axis !== 'x') { active = false; return; }
+    const target = el, moved = dx;
+    body.style.transition = '';
+    el.classList.remove('will-delete');
+    active = false;
+    if (moved <= -MSG_SWIPE_FULL) {
+      body.style.transform = 'translateX(-100%)';
+      const mid = target.dataset.mid;
+      setTimeout(() => { deleteMessageForMe(mid); }, 140);
+      return;
+    }
+    if (moved <= -MSG_SWIPE_OPEN / 2) {
+      target.classList.add('swiped');
+      body.style.transform = `translateX(-${MSG_SWIPE_OPEN}px)`;
+    } else {
+      target.classList.remove('swiped');
+      body.style.transform = '';
+    }
+  };
+  root.addEventListener('touchend', settle, { passive: true });
+  root.addEventListener('touchcancel', () => {
+    if (body) { body.style.transition = ''; body.style.transform = ''; }
+    if (el) el.classList.remove('will-delete');
+    active = false;
+  }, { passive: true });
+}
+
+// Toast with a single action. showToast is text-only and 3.25s; an undo
+// needs longer and something to press.
+function showUndoToast(msg, onUndo, ms) {
+  const life = ms || 5000;
+  const t = document.createElement('div');
+  t.className = 'toast toast-undo';
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
+  const label = document.createElement('span');
+  label.textContent = msg;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'toast-undo-btn';
+  btn.textContent = 'Undo';
+  let done = false;
+  const close = () => {
+    if (done) return;
+    done = true;
+    t.classList.add('toast-out');
+    setTimeout(() => t.remove(), 300);
+  };
+  btn.addEventListener('click', () => { close(); try { onUndo && onUndo(); } catch (_e) {} });
+  t.appendChild(label); t.appendChild(btn);
+  document.body.appendChild(t);
+  setTimeout(close, life);
+  return t;
+}
+window.showUndoToast = showUndoToast;
+
+async function deleteMessageForMe(mid) {
+  if (!mid || !window.CURRENT_USER || !currentChat.conversationId) return;
+  const uid = window.CURRENT_USER.uid;
+  const convId = currentChat.conversationId;
+  try {
+    const { getFirestore, doc, updateDoc, arrayUnion } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await updateDoc(doc(db, 'conversations', convId, 'messages', mid),
+      { deletedFor: arrayUnion(uid) });
+    // The snapshot listener repaints the thread; the inbox snippet is a
+    // separate doc and has to be told.
+    await syncInboxPreviewOverride(convId, mid, true);
+    showUndoToast('Message deleted', () => undoDeleteMessageForMe(convId, mid));
+  } catch (e) {
+    console.warn('deleteMessageForMe failed', e);
+    showToast('Could not delete that message.', 'error');
+    closeOpenMessageSwipe(null);
+    if (typeof renderMessages === 'function') renderMessages(__chatRawMessages);
+  }
+}
+window.deleteMessageForMe = deleteMessageForMe;
+
+async function undoDeleteMessageForMe(convId, mid) {
+  if (!mid || !window.CURRENT_USER) return;
+  const uid = window.CURRENT_USER.uid;
+  try {
+    const { getFirestore, doc, updateDoc, arrayRemove } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    await updateDoc(doc(db, 'conversations', convId, 'messages', mid),
+      { deletedFor: arrayRemove(uid) });
+    await syncInboxPreviewOverride(convId, mid, false);
+  } catch (e) {
+    console.warn('undoDeleteMessageForMe failed', e);
+    showToast('Could not restore that message.', 'error');
+  }
+}
+
+// The inbox snippet comes from conversations.lastMessageText, which the
+// sendMessage callable owns and both parties share — so a per-user delete
+// can't rewrite it. previewHidden.{uid} is a per-user override the inbox
+// applies only while it still points at the conversation's newest message;
+// once either party sends again, lastMessageAt moves on and the override
+// falls away on its own.
+async function syncInboxPreviewOverride(convId, mid, deleting) {
+  if (!window.CURRENT_USER) return;
+  const uid = window.CURRENT_USER.uid;
+  const raw = __chatRawMessages || [];
+  const newest = raw[raw.length - 1];
+  if (!newest) return;
+  const isNewest = String(newest.id) === String(mid);
+  const at = newest.createdAt && newest.createdAt.toMillis ? newest.createdAt.toMillis() : 0;
+  try {
+    const { getFirestore, doc, updateDoc, deleteField } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const ref = doc(db, 'conversations', convId);
+    if (deleting && isNewest) {
+      // Fall back to the newest message still visible to me.
+      const prev = raw.slice(0, -1).reverse().find((m) =>
+        !(Array.isArray(m.deletedFor) && m.deletedFor.indexOf(uid) !== -1));
+      await updateDoc(ref, {
+        [`previewHidden.${uid}`]: { at, text: prev ? String(prev.text || '').slice(0, 200) : '' },
+      });
+    } else if (!deleting && isNewest) {
+      await updateDoc(ref, { [`previewHidden.${uid}`]: deleteField() });
+    }
+  } catch (e) {
+    // Non-fatal: the message is still hidden in the thread, only the inbox
+    // one-liner lags. Never surface this as a failed delete.
+    console.warn('syncInboxPreviewOverride failed', e);
+  }
+}
+
+let __chatRawMessages = [];
 function renderMessages(messages) {
   const body = document.getElementById('chatBody');
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  // r284 "delete for me": the message doc is never removed — these threads
+  // are the record if an order is disputed — so a message the viewer deleted
+  // is filtered out here and stays visible to the other party. Keep the RAW
+  // list around: the delete flow needs it to work out what the inbox snippet
+  // should fall back to.
+  __chatRawMessages = Array.isArray(messages) ? messages : [];
+  const hiddenForMe = (m) => !!(myUid && Array.isArray(m.deletedFor) &&
+    m.deletedFor.indexOf(myUid) !== -1);
+  messages = __chatRawMessages.filter((m) => !hiddenForMe(m));
   if (messages.length === 0) {
-    body.innerHTML = '<div class="chat-empty">No messages yet. Say hi!</div>';
+    body.innerHTML = __chatRawMessages.length
+      ? '<div class="chat-empty">No messages here anymore.</div>'
+      : '<div class="chat-empty">No messages yet. Say hi!</div>';
     return;
   }
-  const myUid = window.CURRENT_USER.uid;
   const attrEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const fmtMsgTime = (ts) => {
@@ -13823,9 +14055,19 @@ function renderMessages(messages) {
     // avatarHtml helper as the thread header).
     const rowCls = mine ? 'msg-row msg-row-mine' : 'msg-row msg-row-theirs';
     const avatar = `<span class="msg-avatar" data-avatar-uid="${sidAttr}" aria-hidden="true">?</span>`;
-    return divider + `<div class="${rowCls}">${avatar}<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div>${timeHtml}</div></div>`;
+    // The .msg-wrap attributes below are load-bearing for other delegated
+    // handlers (report flow) — the swipe shell wraps AROUND the row rather
+    // than changing it.
+    const row = `<div class="${rowCls}">${avatar}<div class="${wrapCls}" data-msg-id="${midAttr}" data-sender-id="${sidAttr}">${interstitial}<div class="${cls}">${safe}</div>${timeHtml}</div></div>`;
+    return divider +
+      `<div class="msg-swipe" data-mid="${midAttr}">` +
+        `<button type="button" class="msg-del-btn" data-action="delete-message" ` +
+          `data-mid="${midAttr}" aria-label="Delete this message for me">Delete</button>` +
+        `<div class="msg-swipe-body">${row}</div>` +
+      `</div>`;
   }).join('');
   hydrateMsgAvatars(body);
+  wireMessageSwipe(body);
   body.scrollTop = body.scrollHeight;
 }
 
@@ -14222,7 +14464,7 @@ function renderInbox(convs) {
       <div class="inbox-item-emoji placeholder-art" data-inbox-thumb data-listing-id="${window.safeAttr(window.safeId(lid))}" data-listing-cat="${window.safeAttr(cat)}" style="width:44px;height:44px;border-radius:8px;background-size:cover;background-position:center">${window.CATEGORY_ICON(cat)}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title" data-inbox-title data-listing-id="${window.safeAttr(window.safeId(lid))}">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
-        <div class="inbox-item-preview">${escapeInboxText(c.lastMessageText || 'No messages yet')}</div>
+        <div class="inbox-item-preview">${escapeInboxText(inboxPreviewText(c))}</div>
       </div>
       <div class="inbox-item-dot"></div>
       <div class="inbox-item-time">${formatRelativeTime(c.lastMessageAt)}</div>
@@ -14361,6 +14603,23 @@ async function hydrateInboxThumbs(convs) {
       }
     });
   }
+}
+
+// r284: the inbox one-liner, with this viewer's soft-delete applied.
+// previewHidden.{uid}.at pins the override to the lastMessageAt it was
+// written for, so a newer message from either side retires it automatically
+// and nobody's snippet gets stuck. Unread counts are computed from
+// lastMessageAt vs lastRead and are deliberately untouched by any of this —
+// hiding a message for yourself must not mark a thread read.
+function inboxPreviewText(c) {
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const fallback = c.lastMessageText || 'No messages yet';
+  if (!myUid) return fallback;
+  const ph = c.previewHidden && c.previewHidden[myUid];
+  if (!ph) return fallback;
+  const lastMs = c.lastMessageAt && c.lastMessageAt.toMillis ? c.lastMessageAt.toMillis() : 0;
+  if (!lastMs || Number(ph.at) !== lastMs) return fallback; // stale → ignore
+  return ph.text || 'No messages yet';
 }
 
 function isConvUnread(conv, myUid) {
@@ -23705,6 +23964,14 @@ A['dismiss-photo-nudge']     = () => {
   if (b) b.remove();
 };
 A['open-orders']             = () => { if (!window.requireAuth('to view your orders', () => openOrders())) return; openOrders(); };
+A['delete-message']          = (el, ev) => {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  const mid = el.dataset.mid;
+  const shell = el.closest('.msg-swipe');
+  if (shell) shell.classList.remove('swiped');
+  if (typeof deleteMessageForMe === 'function') deleteMessageForMe(mid);
+};
+
 A['toggle-watch']            = (el, ev) => {
   ev.stopPropagation();
   const id = el.dataset.productId;

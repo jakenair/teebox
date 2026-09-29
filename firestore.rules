@@ -932,7 +932,7 @@ service cloud.firestore {
       allow update: if request.auth != null
         && appCheckOk()
         && request.auth.uid in resource.data.participants
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastRead','hidden'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastRead','hidden','previewHidden'])
         && request.resource.data.participants == resource.data.participants
         && request.resource.data.get('listingId', '') == resource.data.get('listingId', '')
         && request.resource.data.get('buyerId', '') == resource.data.get('buyerId', '')
@@ -942,6 +942,13 @@ service cloud.firestore {
                  .affectedKeys().hasOnly([request.auth.uid]))
         && (request.resource.data.get('hidden', {}) == resource.data.get('hidden', {})
             || request.resource.data.get('hidden', {}).diff(resource.data.get('hidden', {}))
+                 .affectedKeys().hasOnly([request.auth.uid]))
+        // r284: previewHidden.{uid} overrides the inbox snippet for ONE user
+        // when they've hidden the thread's newest message. Same shape as
+        // lastRead/hidden — you may only touch your own key, never the other
+        // party's view of the thread.
+        && (request.resource.data.get('previewHidden', {}) == resource.data.get('previewHidden', {})
+            || request.resource.data.get('previewHidden', {}).diff(resource.data.get('previewHidden', {}))
                  .affectedKeys().hasOnly([request.auth.uid]));
 
       allow delete: if false;
@@ -978,7 +985,26 @@ service cloud.firestore {
         // callable. The old senderId/schema/blocked validations moved with
         // it: the callable enforces all of them and more.
         allow create: if false;
-        allow update, delete: if false;
+        // r284: "delete for me". A participant may add or remove ONLY their
+        // own uid in deletedFor, and may change nothing else. The document
+        // is never removed and the text is never edited: these threads are
+        // the record if an order is disputed or refunded, so neither side
+        // can erase what was said out from under the other. The client
+        // filters deletedFor out at render time.
+        function onlyMyDeletedFor() {
+          let before = resource.data.get('deletedFor', []).toSet();
+          let after = request.resource.data.get('deletedFor', []).toSet();
+          return after.difference(before).hasOnly([request.auth.uid])
+              && before.difference(after).hasOnly([request.auth.uid]);
+        }
+        allow update: if request.auth != null
+          && appCheckOk()
+          && request.auth.uid in conv().participants
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor'])
+          && request.resource.data.get('deletedFor', []) is list
+          && request.resource.data.get('deletedFor', []).size() <= 2
+          && onlyMyDeletedFor();
+        allow delete: if false;
       }
 
       // ─────────────────────────────────────────────
