@@ -380,9 +380,9 @@
     "sha": null
   },
   "pushBingoDailyReminder": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "f9f122628c73fc1cc1c8e510cd7f1e3f23537690",
+    "at": "2026-09-29",
+    "region": "us-central1"
   },
   "pushBingoStreakSaver": {
     "at": "2026-05-15",
