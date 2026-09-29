@@ -136,17 +136,34 @@ exports.pushBingoDailyReminder = onSchedule(
       let dispatched = 0;
       let scanned = 0;
       try {
-        const users = await db.collection("users")
-            .where("bingoPushPrefs.dailyReminder", "==", true)
-            .get();
+        // r286: this used to query
+        //     .where("bingoPushPrefs.dailyReminder", "==", true)
+        // which is opt-IN, and bingoPushPrefs is only ever written when a
+        // user opens the notification settings screen and saves. Nobody ever
+        // had — 0 of 332 user docs carried the field — so every hourly run
+        // since launch logged scanned=0 dispatched=0 and the daily reminder
+        // had never sent a single push. The category's own default is ON
+        // ("opt-out, not opt-in", lib/push.js VALID_CATEGORIES), so the
+        // trigger now matches that contract: everyone is included unless
+        // they explicitly turned it off.
+        //
+        // Cost: a full user scan each hour (the local-hour test needs each
+        // user's tz, so it can't be pushed into the query). ~330 reads/hour
+        // today. Past ~10k users, stamp a `pushEnabled` flag when an FCM
+        // token registers and filter on that instead — sendPush already
+        // no-ops for tokenless users, so they are pure scan cost.
+        const users = await db.collection("users").get();
         scanned = users.size;
 
         for (const u of users.docs) {
           try {
             const data = u.data() || {};
             const bpp = data.bingoPushPrefs || {};
-            // Default hour is 8 (8am local). The query above guarantees
-            // dailyReminder is on, so we don't re-check it here.
+            // Explicit opt-out only — a missing field means ON, matching the
+            // category default. (The old query guaranteed this was true; the
+            // opt-out scan has to check it here instead.)
+            if (bpp.dailyReminder === false) continue;
+            // Default hour is 8 (8am local).
             const reminderHour = Number.isFinite(Number(bpp.reminderHour))
                 ? Number(bpp.reminderHour) : 8;
             const tz = (data.pushPrefs && data.pushPrefs.quietHours && data.pushPrefs.quietHours.tz)
