@@ -1762,6 +1762,40 @@
   .pp-photo-x { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; font-size: 15px; line-height: 22px; cursor: pointer; padding: 0; }
   .pp-photo-add { width: 76px; height: 76px; border: 2px dashed var(--gray-300, var(--gray-200)); border-radius: var(--radius-md); background: var(--gray-100); color: var(--gray-500); font-size: 30px; font-weight: 300; cursor: pointer; }
   .pp-modal-foot { display: flex; gap: 10px; padding: 0.85rem 1.1rem; border-top: 1px solid var(--gray-200); }
+  /* r285 — "Add a course" fills the phone screen instead of floating.
+     As a centered min(94vw,480px) card it sat on a dimmed backdrop with the
+     app showing through above and below, and the form STILL outgrew 90vh so
+     "Photos" was clipped behind the sticky footer. Full-bleed gives the form
+     the whole screen and reads as a page, not a cramped popup.
+
+     The header stays brand green rather than going white: theme-color is
+     #0b1a0e and iOS styles the status bar for a dark app, so a white strip
+     behind the clock would render white-on-white. This matches the
+     full-screen pattern Messages already uses. Desktop keeps the card. */
+  @media (max-width: 640px) {
+    #ppBackdrop { padding: 0; align-items: stretch; justify-content: stretch; }
+    #ppBackdrop .pp-modal {
+      width: 100%; max-width: none; height: 100%; max-height: none;
+      border-radius: 0; box-shadow: none;
+    }
+    #ppBackdrop .pp-modal-head {
+      background: var(--green-900);
+      border-bottom: none;
+      padding: calc(env(safe-area-inset-top, 0px) + 14px) 1.1rem 14px;
+    }
+    #ppBackdrop .pp-modal-title { color: var(--white); }
+    #ppBackdrop .pp-x { color: rgba(255,255,255,0.88); }
+    #ppBackdrop .pp-modal-body { flex: 1; padding-bottom: 1.25rem; }
+    #ppBackdrop .pp-modal-foot {
+      padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+      background: var(--white);
+    }
+  }
+  /* An empty bordered rectangle was drawing under the course search field:
+     .pp-course-picked sets display:flex, which beats the UA [hidden] rule,
+     so the element painted its border while "hidden". Guard the whole
+     passport surface so the next one can't reintroduce it. */
+  .pp-backdrop [hidden] { display: none !important; }
   .pp-modal-foot .btn-full { flex: 1; }
   .danger-ghost { background: none; border: 1px solid #e3b7b0; color: #c0392b; }
   /* Detail sheet */
@@ -5076,7 +5110,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r284</span></div>
+        <span class="auth-build" aria-hidden="true">r285</span></div>
     </div>
   </div>
 </div>
