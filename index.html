@@ -1104,9 +1104,13 @@
     }
     /* The dark head owns the status-bar inset — theme-color is #0b1a0e, so
        iOS draws light status text and a white strip would be unreadable. */
+    /* r292: this block used to name #profileBackdrop .info-header — a class
+       that appears ZERO times in this file — so the profile header never got
+       the inset and its title and back arrow stayed under the notch. The
+       element is .modal-header. Verified by count, not by eye. */
     #inboxBackdrop .inbox-header,
     #chatBackdrop .chat-header,
-    #profileBackdrop .info-header,
+    #profileBackdrop .modal-header,
     #sellModalBackdrop .modal-header {
       padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
     }
@@ -3366,28 +3370,34 @@
      now a card with captioned fields; the table survives unchanged on
      desktop, where six columns are fine. */
   @media (max-width: 600px) {
-    .dash-table.sold-table,
-    .dash-table.sold-table tbody,
-    .dash-table.sold-table tr,
-    .dash-table.sold-table td { display: block; width: 100%; }
-    .dash-table.sold-table thead { display: none; }
-    .dash-table.sold-table tr {
+    .dash-table.sold-table, .dash-table.payouts-table,
+    .dash-table.sold-table tbody, .dash-table.payouts-table tbody,
+    .dash-table.sold-table tr, .dash-table.payouts-table tr,
+    .dash-table.sold-table td, .dash-table.payouts-table td { display: block; width: 100%; }
+    .dash-table.sold-table thead, .dash-table.payouts-table thead { display: none; }
+    .dash-table.sold-table tr, .dash-table.payouts-table tr {
       border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
       padding: 12px 14px; margin: 0 0 12px; background: var(--white);
     }
-    .dash-table.sold-table td {
+    .dash-table.sold-table td, .dash-table.payouts-table td {
       border: none !important; padding: 5px 0 !important;
       display: flex; gap: 10px; align-items: baseline;
       font-size: 13.5px; white-space: normal;
     }
     /* Caption every field except the item cell (which carries the thumbnail
        and title) and the action row. */
-    .dash-table.sold-table td[data-label]::before {
+    .dash-table.sold-table td[data-label]::before, .dash-table.payouts-table td[data-label]::before {
       content: attr(data-label);
       flex: 0 0 82px; font-size: 11px; font-weight: 700; letter-spacing: .4px;
       text-transform: uppercase; color: var(--gray-500);
     }
     .dash-table.sold-table td:first-child {
+      padding-bottom: 10px !important; margin-bottom: 4px;
+      border-bottom: 1px solid var(--gray-100) !important;
+    }
+    /* Payouts leads with a Date column, so the bordered "title" treatment
+       belongs on its item cell (the one with no caption), not the first. */
+    .dash-table.payouts-table td:not([data-label]) {
       padding-bottom: 10px !important; margin-bottom: 4px;
       border-bottom: 1px solid var(--gray-100) !important;
     }
@@ -5260,7 +5270,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r291</span></div>
+        <span class="auth-build" aria-hidden="true">r292</span></div>
     </div>
   </div>
 </div>
@@ -16256,14 +16266,14 @@ async function renderPayouts() {
     const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
     const dateLbl = d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     return `<tr>
-      <td style="color:var(--gray-500);font-size:12px;white-space:nowrap">${escapeHtml(dateLbl)}</td>
+      <td data-label="Date" style="color:var(--gray-500);font-size:12px;white-space:nowrap">${escapeHtml(dateLbl)}</td>
       <td>
         <div style="font-weight:600">${escapeHtml(title)}</div>
         <div style="font-size:12px;color:var(--gray-500)">${escapeHtml(listing.brand || '')}</div>
       </td>
-      <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
-      <td style="font-weight:600">${escapeHtml(fmt$(orderItemDollars(o)))}</td>
-      <td><span class="payout-status ${statusCls}">${statusTxt}</span></td>
+      <td data-label="Buyer" style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
+      <td data-label="Amount" style="font-weight:600">${escapeHtml(fmt$(orderItemDollars(o)))}</td>
+      <td data-label="Status"><span class="payout-status ${statusCls}">${statusTxt}</span></td>
     </tr>`;
   }).join('');
 
@@ -16291,7 +16301,7 @@ async function renderPayouts() {
     <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem">
       <button class="payout-csv-btn" data-action="payout-export-csv" type="button">Export CSV</button>
     </div>
-    <table class="dash-table">
+    <table class="dash-table payouts-table">
       <thead><tr><th>Date</th><th>Item</th><th>Buyer</th><th>Amount</th><th>Status</th></tr></thead>
       <tbody>${tableRows}</tbody>
     </table>
