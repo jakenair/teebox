@@ -218,11 +218,6 @@
       "logoUrl": "https://teeboxmarket.com/assets/logos/castle-stuart.png"
     },
     {
-      "id": "royal-county-down",
-      "shortName": "Royal County Down",
-      "logoUrl": "https://teeboxmarket.com/assets/logos/royal-county-down.png"
-    },
-    {
       "id": "cabot-links",
       "shortName": "Cabot Links",
       "logoUrl": "https://teeboxmarket.com/assets/logos/cabot-links.png"
@@ -1150,15 +1145,6 @@
         "castle stuart gl"
       ]
     },
-    "royal-county-down": {
-      "name": "Royal County Down Golf Club (Championship)",
-      "shortName": "Royal County Down",
-      "aliases": [
-        "rcd",
-        "royal county down gc",
-        "county down"
-      ]
-    },
     "cabot-links": {
       "name": "Cabot Links",
       "shortName": "Cabot Links",
@@ -1987,7 +1973,7 @@
       ]
     }
   },
-  "generatedAt": "2026-09-21T02:31:58.407Z",
+  "generatedAt": "2026-09-30T20:27:51.229Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

@@ -122,7 +122,6 @@ export const LOGOS_AVAILABLE = new Set([
   'rich-harvest-farms',
   'riviera',
   'rodeo-dunes',
-  'royal-county-down',
   'royal-dornoch',
   'san-francisco-gc',
   'sand-hills',

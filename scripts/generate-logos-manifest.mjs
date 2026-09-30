@@ -12,9 +12,26 @@ const ROOT = REPO_ROOT;
 const LOGOS_DIR = path.join(ROOT, 'assets/logos');
 const OUT = path.join(LOGOS_DIR, 'manifest.js');
 
+// Retired from the BINGO pool but still served. A logo cannot simply be
+// deleted: dailyPuzzles docs are immutable for any date <= today (see
+// writePuzzleForDate) and they embed the absolute logoUrl, so removing the
+// file 404s a tile on a board people already played. Retiring keeps the file
+// at its URL — old boards stay intact — while dropping it from
+// LOGOS_AVAILABLE so no FUTURE board can draw it.
+//
+// royal-county-down (2026-09-30, founder call): the source art is clipped —
+// the crest runs off the canvas and its side elements are cut mid-shape, and
+// they are structurally attached to the crest so they cannot be cropped away.
+// Re-padding in r293 improved the framing as far as that file allows. It
+// stays in PASSPORT_LOGOS, where it renders larger and reads fine.
+const RETIRED_FROM_BINGO = new Set([
+  'royal-county-down',
+]);
+
 const slugs = fs
   .readdirSync(LOGOS_DIR)
   .filter(f => f.endsWith('.png'))
+  .filter(f => !RETIRED_FROM_BINGO.has(f.replace(/\.png$/, '')))
   .map(f => f.replace(/\.png$/, ''))
   .sort();
 
