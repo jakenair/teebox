@@ -596,7 +596,7 @@
   .product-stats { display:flex; gap:10px; align-items:center; margin-top:3px;
                    font-size:11.5px; color:var(--gray-500); line-height:1.4; }
   .product-stats .stat { display:inline-flex; align-items:center; gap:3px; }
-  .product-stats .stat-ico { font-size:11px; line-height:1; opacity:.85; }
+  .product-stats .stat-ico { font-size:12px; line-height:1; opacity:.85; display:inline-flex; align-items:center; }
   .pin-indicator { position: absolute; top: 4px; right: 4px; background: var(--gold, #d4af37); color: var(--green-900, #103820); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 
   /* Recently sold (Feature #9) */
@@ -1076,6 +1076,40 @@
   .lightbox.open .lightbox-img { animation: zoomIn 0.18s ease; }
   @keyframes zoomIn { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+  /* r288 — Messages, a thread, and Your Profile go FULL SCREEN on a phone.
+     They were 92vh sheets, so the TeeBox header and the marketplace search
+     bar stayed visible above them: the overlay read as a half-finished popup
+     sitting on top of the app rather than a screen you navigated to. Same
+     treatment the passport composer got in r285. Everything else keeps the
+     sheet, because a sheet is right for something you dismiss and wrong for
+     somewhere you go. */
+  @media (max-width: 600px) {
+    #inboxBackdrop, #chatBackdrop, #profileBackdrop {
+      align-items: stretch !important;
+      justify-content: stretch !important;
+      padding: 0 !important;
+      background: var(--white) !important;
+    }
+    #inboxBackdrop .inbox-modal,
+    #chatBackdrop .chat-modal,
+    #profileBackdrop .info-modal {
+      width: 100% !important;
+      max-width: none !important;
+      height: 100% !important;
+      max-height: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
+    /* The dark head owns the status-bar inset — theme-color is #0b1a0e, so
+       iOS draws light status text and a white strip would be unreadable. */
+    #inboxBackdrop .inbox-header,
+    #chatBackdrop .chat-header,
+    #profileBackdrop .info-header {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+    }
+  }
+
   /* iOS sheet-style modals on mobile — slide up from bottom edge for a native feel */
   @media (max-width: 600px) {
     .modal-backdrop, .verify-backdrop, .sell-modal-backdrop, .detail-backdrop, #shopDashboard, #inboxBackdrop, #chatBackdrop {
@@ -1252,8 +1286,12 @@
   .lightbox { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 1rem; }
   .lightbox.open { display: flex; }
   .lightbox-img { max-width: 95vw; max-height: 90vh; border-radius: 4px; user-select: none; }
-  .lightbox-close { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.1); border: none; color: var(--white); width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); font-size: 1.4rem; }
-  .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+  /* r288: was top:16px/right:20px, which put the button under the notch and
+     the rounded corner on a phone — it read as clipped. Inset by the safe
+     area, and give it a solid scrim so it stays visible over a light photo
+     (0.1 alpha vanished against the Bettinardi shot). */
+  .lightbox-close { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: calc(env(safe-area-inset-right, 0px) + 14px); background: rgba(0,0,0,0.55); border: none; color: var(--white); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); font-size: 1.35rem; line-height: 1; z-index: 3; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .lightbox-close:hover { background: rgba(0,0,0,0.72); }
   .lightbox-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: var(--white); width: 56px; height: 56px; border-radius: 50%; cursor: pointer; font-size: 2rem; line-height: 1; transition: var(--transition); }
   .lightbox-arrow:hover { background: rgba(255,255,255,0.2); }
   .lightbox-prev { left: 20px; }
@@ -1632,7 +1670,7 @@
 
   /* Detail sheet — double-tap heart, like bar + comments */
   .pp-detail-photowrap { position: relative; }
-  .pp-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; }
+  .pp-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.45)); opacity: 0; pointer-events: none; }
   .pp-heart-burst.go { animation: ppHeart 0.72s ease-out; }
   @keyframes ppHeart { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.2)} 15%{opacity:0.95;transform:translate(-50%,-50%) scale(1.05)} 40%{transform:translate(-50%,-50%) scale(0.92)} 70%{opacity:0.95;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-52%) scale(1)} }
   .pp-likebar { display: flex; align-items: center; gap: 14px; margin: 0.35rem 0 0.9rem; }
@@ -2192,6 +2230,16 @@
   .cat-passport-icon { display: inline-flex; line-height: 1; opacity: 0.95; }
   .cat-passport-icon .ico { width: 13px; height: 13px; fill: currentColor; stroke: none; }
 
+  /* r288 — founder call: the Journal ships on WEB ONLY. Every in-app door
+     to it is hidden in the native shell (the cat-pill was already hidden;
+     the nav link, home tile and teaser were not), and open-journal is made
+     inert on native so a deep link can't reach it either. Nothing is
+     deleted — teeboxmarket.com still serves the whole Journal. */
+  body.is-native .mobile-nav-link[data-action="open-journal"],
+  body.is-native .hq-tile.hq-journal,
+  body.is-native .app-teaser-journal,
+  body.is-native .cat-pill.cat-journal { display: none !important; }
+
   /* ── TeeBox Journal (r151) — in-app front door to the Reads articles.
      Index lives here as an overlay; tapping a card navigates to the
      existing static post view (/reads/*.html) — same article system,
@@ -2647,7 +2695,7 @@
   /* r283 — double-tap-to-like burst over the listing photo. Mirrors
      .pp-heart-burst; the unliking variant goes grey and shrinks away so an
      un-like never reads as a like. */
-  .ig-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; z-index: 3; }
+  .ig-heart-burst { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.2); font-size: 84px; color: #fff; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.45)); opacity: 0; pointer-events: none; z-index: 3; }
   .ig-heart-burst.go { animation: ppHeart 0.72s ease-out; }
   .ig-heart-burst.unliking { color: rgba(255,255,255,0.72); }
   .ig-heart-burst.unliking.go { animation: igHeartOff 0.5s ease-out; }
@@ -2655,7 +2703,7 @@
   /* Double-tap surfaces must not let the browser zoom on the second tap. */
   .ig-swiper, .ig-slide, .ig-slide img { touch-action: pan-x pan-y; }
   .detail-likes { display: flex; align-items: center; gap: 7px; margin: 8px 0 2px; font-size: 13px; color: var(--gray-600); }
-  .detail-likes .detail-like-ico { font-size: 15px; line-height: 1; color: var(--gray-400); }
+  .detail-likes .detail-like-ico { font-size: 16px; line-height: 1; color: var(--gray-400); display: inline-flex; align-items: center; }
   .detail-likes.liked .detail-like-ico { color: var(--heart-red, #e74c3c); }
   .detail-likes .detail-like-count { font-weight: 700; color: var(--gray-800); }
   .detail-likes .detail-like-hint { color: var(--gray-500); font-size: 12px; }
@@ -3300,7 +3348,7 @@
   .dash-header h1 { font-family: var(--font-display); font-size: var(--text-display-lg); font-weight: 700; letter-spacing: -0.01em; }
   .dash-header p { font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 4px; }
   /* Ship-it banner — action-needed alert for unshipped Paid orders. */
-  .ship-it-banner { display: flex; align-items: center; gap: 14px; margin: 1.25rem 1.25rem 0; padding: 14px 16px; background: var(--gold-50, #fff8dc); border: 1px solid var(--gold-500, #d6a900); border-left: 4px solid var(--gold-600, #b88a00); border-radius: var(--radius-md); }
+  .ship-it-banner { display: flex; align-items: center; gap: 14px; margin: 1.25rem 1.25rem 1rem; padding: 14px 16px; background: var(--gold-50, #fff8dc); border: 1px solid var(--gold-500, #d6a900); border-left: 4px solid var(--gold-600, #b88a00); border-radius: var(--radius-md); }
   .ship-it-banner .sib-icon { font-size: 22px; line-height: 1; flex: none; }
   .ship-it-banner .sib-body { flex: 1; min-width: 0; }
   .ship-it-banner .sib-title { font-weight: 700; font-size: 15px; color: var(--gray-900, #1c1c18); }
@@ -3316,6 +3364,23 @@
   .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--green-700), var(--green-400)); opacity: 0; transition: opacity var(--transition); }
   .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11,26,14,0.08); border-color: var(--gray-300); }
   .stat-card:hover::before { opacity: 1; }
+  /* r288 — iOS keeps :hover on the last element you tapped, so every hover
+     "lift" in this file stuck after a tap. Tapping the ITEMS SOLD card left
+     it translated -2px, overlapping the ship-it banner above it, and lit its
+     ::before gradient — which reads as a layout bug, not a stuck state.
+     Touch devices get no hover affordance at all; a finger has no hover. */
+  @media (hover: none) {
+    .btn-pro-upgrade:hover, .hq-tile:hover, .journal-card:hover, .btn-primary:hover,
+    .feat-card:hover, .product-card:hover, .verified-card:hover, .drop-card:hover,
+    .how-card:hover, .mlt-card:hover, .dash-close:hover, .stat-card:hover,
+    .analytics-card:hover, .mobile-nav-link:hover .mobile-nav-link-chev {
+      transform: none !important;
+    }
+    .stat-card:hover::before, .mobile-nav-link:hover::before { opacity: 0 !important; transform: none !important; }
+    .product-card:hover .product-img-wrap img { transform: none !important; }
+    .stat-card:hover, .product-card:hover, .analytics-card:hover, .drop-card:hover,
+    .mlt-card:hover, .journal-card:hover { box-shadow: 0 1px 2px rgba(11,26,14,0.04) !important; }
+  }
   .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
   .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-top: 0.25rem; font-variant-numeric: tabular-nums; }
   .stat-sub { font-size: 12px; color: var(--gray-500); margin-top: 0.25rem; }
@@ -4383,7 +4448,14 @@
     body.is-native .product-price { order: 2; border-top: 0; padding-top: 0; margin-top: 2px; }
     body.is-native .product-price-val { font-size: 18px; font-weight: 700; }
     body.is-native .card-meta-app { display: block; order: 3; font-size: 11.5px; color: var(--gray-700); margin-top: 2px; }
-    body.is-native .card-seller { order: 4; margin-top: 8px; }
+    /* r288: the seller row used to sit directly under the metadata line, so
+       its height followed however many lines "Brand · Condition" wrapped to —
+       "Bettinardi · Like New" is one line, "Scotty Cameron · Very Good" is
+       two, and the two Mike Gibbons rows in the same grid row landed at
+       different heights. margin-top:auto pushes it to the bottom of the card
+       body instead, so every seller row in a row of cards lines up. */
+    body.is-native .card-seller { order: 4; margin-top: auto; padding-top: 8px; }
+    body.is-native .card-meta-app { min-height: 2.6em; }
   }
   /* ══════════════════════════════════════════════════════════════════
      r186 §4: TRENDING LIST ROWS + THEME SEAM (UI-audit section 4).
@@ -5110,7 +5182,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r287</span></div>
+        <span class="auth-build" aria-hidden="true">r288</span></div>
     </div>
   </div>
 </div>
@@ -12189,7 +12261,7 @@ function renderProductCardHtml(p, i) {
         if (v) parts.push(`<span class="stat" title="${v.toLocaleString()} view${v===1?'':'s'}">`+
           `<span class="stat-ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;opacity:.75"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>${v.toLocaleString()}</span>`);
         if (likes) parts.push(`<span class="stat" title="${likes.toLocaleString()} like${likes===1?'':'s'}">`+
-          `<span class="stat-ico" aria-hidden="true">♥</span>${likes.toLocaleString()}</span>`);
+          `<span class="stat-ico" aria-hidden="true">${window.ICONS.heartFill}</span>${likes.toLocaleString()}</span>`);
         return `<div class="product-stats">${parts.join('')}</div>`;
       })()}`+
       `${(() => {
@@ -13339,7 +13411,7 @@ window.buildIgSwiper = function(container, urls, alt) {
   const burst = document.createElement('div');
   burst.className = 'ig-heart-burst';
   burst.setAttribute('aria-hidden', 'true');
-  burst.innerHTML = '&#10084;';
+  burst.innerHTML = window.ICONS.heartFill;
   swiper.appendChild(burst);
 
   // Which slide the gesture started on — the helper resolves tap vs
@@ -13408,7 +13480,8 @@ function renderDetailLikes(id) {
   const countLabel = n ? `${n.toLocaleString()} like${n === 1 ? '' : 's'}` : '';
   el.classList.toggle('liked', !!liked);
   el.innerHTML =
-    `<span class="detail-like-ico" aria-hidden="true">${liked ? '&#10084;' : '&#9825;'}</span>` +
+    `<span class="detail-like-ico" aria-hidden="true">` +
+      `${liked ? window.ICONS.heartFill : window.ICONS.heart}</span>` +
     `<span class="detail-like-count">${countLabel}</span>` +
     `<span class="detail-like-hint">${liked ? 'Double-tap the photo to unlike' : 'Double-tap the photo to like'}</span>`;
 }
@@ -13783,6 +13856,14 @@ function closeChat() {
   const card = document.getElementById('chatListingCard');
   if (card) card.classList.remove('show');
   currentChat = { conversationId: null, listing: null, otherUserId: null };
+  // r288: back out to Messages if that's where this thread was opened from.
+  if (window.__chatCameFromInbox) {
+    window.__chatCameFromInbox = false;
+    const ib = document.getElementById('inboxBackdrop');
+    if (ib && !ib.classList.contains('open') && typeof openInbox === 'function') {
+      try { openInbox(); } catch (_e) {}
+    }
+  }
 }
 async function loadMessages() {
   if (!currentChat.conversationId) return;
@@ -14357,6 +14438,7 @@ async function attachUnreadListener() {
         // ≈now (> lastMessageAt) so the count clears immediately and stays cleared.
         const data = { id: d.id, ...d.data({ serverTimestamps: 'estimate' }) };
         if (isConvHidden(data, myUid)) return; // archived → exclude from badge + list
+        if (isConvEmpty(data)) return;         // never written in → not a thread yet
         if (isConvUnread(data, myUid)) count++;
         convs.push(data);
       });
@@ -14467,7 +14549,7 @@ function renderInbox(convs) {
   // Defensive: exclude conversations I've archived (covers the cold-open
   // getDocs fallback path; the live listener already filters these out).
   const _meUid = window.CURRENT_USER && window.CURRENT_USER.uid;
-  if (_meUid) convs = (convs || []).filter(c => !isConvHidden(c, _meUid));
+  if (_meUid) convs = (convs || []).filter(c => !isConvHidden(c, _meUid) && !isConvEmpty(c));
   if (convs.length === 0) {
     // Polished empty state (#3 audit follow-up). Icon + display
     // headline + body + green pill CTA that closes the inbox and
@@ -14669,6 +14751,18 @@ function isConvUnread(conv, myUid) {
 // archived it AND no newer message has arrived since. hidden[myUid] is the
 // archive timestamp; a new message (lastMessageAt > archive time) re-
 // surfaces the thread so transaction-relevant replies aren't missed.
+// r288: a conversation with no message has never been talked in. Both the
+// "open a chat" path and order placement create the doc up front, so an
+// inbox showed rows that read as unread messages from the buyer — Jake had
+// three, including a SECOND "Masters Head Cover" beside the real thread and
+// a "Brooks Koepka" nobody had written in. lastMessageSenderId is written
+// only by the sendMessage callable, so its absence is the reliable tell.
+// The doc is left alone: the thread springs into the list the moment
+// someone actually sends something.
+function isConvEmpty(conv) {
+  return !(conv && conv.lastMessageSenderId);
+}
+
 function isConvHidden(conv, myUid) {
   // r173: a blocked pair hides the thread on BOTH sides. blockedBy is
   // server-stamped (syncBlockedThreads trigger, not client-writable), so
@@ -14731,7 +14825,7 @@ async function openChatFromConversation(conversationId) {
         if (_c) {
           _c.lastRead = Object.assign({}, _c.lastRead, { [_me]: { toMillis: () => Date.now() } });
           let _n = 0;
-          (__unreadLastConvs || []).forEach(c => { if (!isConvHidden(c, _me) && isConvUnread(c, _me)) _n++; });
+          (__unreadLastConvs || []).forEach(c => { if (!isConvHidden(c, _me) && !isConvEmpty(c) && isConvUnread(c, _me)) _n++; });
           updateUnreadBadge(_n);
         }
       } catch (_e) { /* optimistic only */ }
@@ -22228,12 +22322,12 @@ async function openPassportCourseDetail(uid, courseId) {
       </div>
     </div>
     <button type="button" class="pp-detail-coursebtn" data-action="open-course-page" data-course="${ca}">View course &amp; all rounds here &rarr;</button>
-    ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">&#10084;</div></div>${detailDots}` : ''}
+    ${photos ? `<div class="pp-detail-photowrap"><div class="pp-detail-photos" id="ppDetailPhotos">${photos}</div><div class="pp-heart-burst" id="ppHeartBurst" aria-hidden="true">${window.ICONS.heartFill}</div></div>${detailDots}` : ''}
     ${tags ? `<div class="pp-detail-tags">${tags}</div>` : ''}
     ${data.review ? `<p class="pp-detail-review">${window.safeText(String(data.review).replace(/\n{3,}/g, '\n\n'))}</p>` : ''}
     <div class="pp-likebar">
       <button type="button" class="pp-like-btn" id="ppLikeBtn" data-action="passport-like" data-uid="${ua}" data-course="${ca}">
-        <span class="pp-like-ico">&#9825;</span><span id="ppLikeCount"></span>
+        <span class="pp-like-ico">${window.ICONS.heart}</span><span id="ppLikeCount"></span>
       </button>
     </div>
     ${isOwner ? `<div class="pp-share-row" id="ppShareRow" data-course="${ca}">
@@ -22286,7 +22380,7 @@ function ppRenderLike() {
   if (!btn) return;
   btn.classList.toggle('liked', __ppLikeState.liked);
   const ico = btn.querySelector('.pp-like-ico');
-  if (ico) ico.innerHTML = __ppLikeState.liked ? '&#10084;' : '&#9825;';
+  if (ico) ico.innerHTML = __ppLikeState.liked ? window.ICONS.heartFill : window.ICONS.heart;
   if (cnt) cnt.textContent = __ppLikeState.count ? String(__ppLikeState.count) : '';
 }
 
@@ -22616,7 +22710,7 @@ function ppFeedCard(p, cat, opts) {
       <button type="button" class="pf-course-chip" data-action="open-course-page" data-course="${ca}"><img src="${window.safeAttr(c.logo)}" alt="" />${window.safeText(c.shortName)}</button>
       ${p.grade ? `<span class="pf-grade-seal" style="background:${color}">${window.safeText(p.grade)}</span>` : ''}
       ${dots}
-      <div class="pp-heart-burst" aria-hidden="true">&#10084;</div>
+      <div class="pp-heart-burst" aria-hidden="true">${window.ICONS.heartFill}</div>
     </div>
     ${review ? `<p class="pf-review">${window.safeText(review)}</p>` : ''}
   </article>`;
@@ -24065,7 +24159,7 @@ function spawnHeartBurst(btn) {
   drifts.forEach((dx, i) => {
     const p = document.createElement('span');
     p.className = 'heart-burst-particle';
-    p.textContent = '♥';
+    p.innerHTML = window.ICONS.heartFill;  // r288: svg, not an emoji glyph
     p.style.setProperty('--hx', dx + 'px');
     p.style.animationDelay = (i * 30) + 'ms';
     wrap.appendChild(p);
@@ -24187,6 +24281,10 @@ A['open-privacy']            = () => openInfo('privacyBackdrop');
 A['close-info']              = () => { document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open')); (document.getElementById('app-scroll') || document.body).style.overflowY = ''; };
 A['review-dismiss']          = () => { dismissReviewPrompt(); };
 A['open-journal']            = () => {
+  // r288: web only. Hidden in the native shell by CSS; this makes a deep
+  // link or a stale cached bundle inert too rather than opening a surface
+  // that is not supposed to exist in the app.
+  if (document.body.classList.contains('is-native')) return;
   // r151: Journal is public content — no auth gate. Close the hamburger
   // drawer if it's open so the overlay doesn't stack under it (reuses the
   // close-mobile-nav semantics incl. aria-expanded reset).
@@ -24699,7 +24797,15 @@ A['retry-checkout']          = () => {
 };
 A['open-photo-input']        = () => document.getElementById('photoInput').click();
 A['remove-photo']            = (el) => removePhoto(Number(el.dataset.idx));
-A['open-conv']               = (el) => { if (!window.requireAuth('to open this conversation')) return; openChatFromConversation(el.dataset.convId); };
+A['open-conv']               = (el) => {
+  if (!window.requireAuth('to open this conversation')) return;
+  // r288: closing a thread used to drop you on the marketplace, because
+  // closeChat only hides the chat and the inbox had already closed beneath
+  // it. Remember the way in so the back arrow walks back one step instead
+  // of all the way out.
+  window.__chatCameFromInbox = true;
+  openChatFromConversation(el.dataset.convId);
+};
 // Tap the thread-header partner name (or the avatar, when it's showing the
 // partner-monogram fallback for a photo-less listing) → open that
 // participant's public profile. Works for any uid (buyer or seller);
