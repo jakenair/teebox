@@ -3386,7 +3386,7 @@
     .dash-table.sold-table .dash-cell-actions > * { flex: 1 1 calc(50% - 4px); }
   }
   .ship-it-banner { display: flex; align-items: center; gap: 14px; margin: 1.25rem 1.25rem 1rem; padding: 14px 16px; background: var(--gold-50, #fff8dc); border: 1px solid var(--gold-500, #d6a900); border-left: 4px solid var(--gold-600, #b88a00); border-radius: var(--radius-md); }
-  .ship-it-banner .sib-icon { font-size: 22px; line-height: 1; flex: none; }
+  .ship-it-banner .sib-icon { font-size: 24px; line-height: 1; flex: none; display: flex; align-items: center; color: var(--gold-700, #8a6a00); }
   .ship-it-banner .sib-body { flex: 1; min-width: 0; }
   .ship-it-banner .sib-title { font-weight: 700; font-size: 15px; color: var(--gray-900, #1c1c18); }
   .ship-it-banner .sib-sub { font-size: 12.5px; color: var(--gray-700); margin-top: 2px; line-height: 1.35; }
@@ -5119,6 +5119,10 @@
     lock:      '<svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>',
     shield:    '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>',
     truck:     '<svg class="ico" viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>',
+    // r290: a real shipping carton — the ship-it banner used a box emoji,
+    // which is a different picture on every OS and reads as clip-art next to
+    // a stroked icon set.
+    box:       '<svg class="ico" viewBox="0 0 24 24"><path d="M20.5 8.2v7.3a1.5 1.5 0 0 1-.8 1.33l-6.98 3.72a1.5 1.5 0 0 1-1.41 0L4.3 16.83a1.5 1.5 0 0 1-.8-1.33V8.2"/><path d="M3.6 7.5l7.7-4.1a1.5 1.5 0 0 1 1.4 0l7.7 4.1L12 11.7z"/><path d="M12 11.7V20.7"/></svg>',
     refresh:   '<svg class="ico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0115-6.7L21 7M21 5v4h-4M21 12a9 9 0 01-15 6.7L3 17M3 19v-4h4"/></svg>',
     heart:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>',
     heartFill: '<svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>',
@@ -5244,7 +5248,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r289</span></div>
+        <span class="auth-build" aria-hidden="true">r290</span></div>
     </div>
   </div>
 </div>
@@ -15648,7 +15652,7 @@ function renderShipItBanner(orders) {
   } catch (_e) { /* non-fatal */ }
   el.innerHTML =
     '<div class="ship-it-banner" role="status" aria-live="polite">' +
-      '<div class="sib-icon" aria-hidden="true">📦</div>' +
+      '<div class="sib-icon" aria-hidden="true">' + window.ICONS.box + '</div>' +
       '<div class="sib-body">' +
         '<div class="sib-title">' + (n === 1 ? 'You have a sale — ship it' : n + ' sales waiting to ship') + '</div>' +
         '<div class="sib-sub">' + (n === 1 ? 'A buyer paid and is waiting.' : 'Buyers paid and are waiting.') +
@@ -21142,11 +21146,27 @@ async function openProfile(uid) {
   document.getElementById('profileModalTitle').textContent =
     (window.CURRENT_USER && window.CURRENT_USER.uid === uid) ? 'Your Profile' : 'Profile';
 
-  const [profile, listings, reviews, recentSold] = await Promise.all([
+  // r290 — the fresh self-read below used to run AFTER this Promise.all
+  // resolved, so opening YOUR OWN profile cost two sequential round trips
+  // before anything past the skeleton painted. That is the lag: it only ever
+  // affected your own profile, which is exactly where it was reported. It is
+  // still a fresh read (never the cache), just started at the same time as
+  // the other four instead of queued behind them.
+  const _selfFresh = (window.CURRENT_USER && window.CURRENT_USER.uid === uid)
+    ? (async () => {
+        try {
+          const { getFirestore, doc, getDoc } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          return await getDoc(doc(getFirestore(), 'users', uid));
+        } catch (_e) { return null; }
+      })()
+    : Promise.resolve(null);
+  const [profile, listings, reviews, recentSold, _usSnap] = await Promise.all([
     loadProfile(uid),
     loadProfileListings(uid),
     loadSellerReviews(uid),
     loadRecentSoldOrders(uid),
+    _selfFresh,
   ]);
   // r193: self-view renders owner-only state (payout nag, Manage payouts,
   // own badges) — re-read it FRESH here, same read-fresh rule as the sell
@@ -21155,10 +21175,8 @@ async function openProfile(uid) {
   // in place also heals the cached entry.
   if (window.CURRENT_USER && window.CURRENT_USER.uid === uid && profile) {
     try {
-      const { getFirestore, doc, getDoc } =
-        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-      const us = await getDoc(doc(getFirestore(), 'users', uid));
-      if (us.exists()) {
+      const us = _usSnap;
+      if (us && us.exists()) {
         const u = us.data() || {};
         profile.stripeChargesEnabled = u.stripeChargesEnabled === true;
         profile._user = {
@@ -21259,13 +21277,19 @@ function renderProfileView(profile, listings, reviews, recentSold) {
   // blocks listing, it just makes the unfinished-setup state impossible to miss.
   const _ownChargesReady = (profile.stripeChargesEnabled === true);
   const _isSellerSelf = isMe && (u.sellerVerified || active.length > 0 || sold.length > 0);
+  // r290 — this nudge used to talk only about getting paid and never named
+  // the badge, so a seller had no way to learn that "Verified Seller" IS
+  // this step: it means Stripe KYC complete and nothing else. 14 of 333
+  // members have accepted seller terms; the badge is what buyers scan for,
+  // so naming the reward is the point. Gating is unchanged — we still only
+  // nudge people who actually sell, never every browsing member.
   const payoutNudgeHtml = (_isSellerSelf && !_ownChargesReady)
     ? `<div class="stripe-connect-banner warn" style="margin-bottom:16px;" role="status">`+
         `<div>`+
-          `<strong>Finish payout setup so buyers can pay you</strong>`+
-          `<span>Your listings are visible, but buyers can't complete a purchase until you connect Stripe. It takes about 2 minutes — it's the only thing between you and getting paid.</span>`+
+          `<strong>Finish payout setup to become a Verified Seller</strong>`+
+          `<span>Your listings are visible, but buyers can't complete a purchase until you connect Stripe — and the gold <strong>Verified Seller</strong> badge buyers look for on a listing is exactly this step, nothing more. About 2 minutes.</span>`+
         `</div>`+
-        `<button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish payout setup</button>`+
+        `<button class="btn-stripe-connect" data-action="stripe-connect" type="button">Get verified</button>`+
       `</div>`
     : '';
 
