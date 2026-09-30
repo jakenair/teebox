@@ -38,6 +38,15 @@ function walk(dir) {
     // facebook (bot-detection regexes, the moderation wordlist, policy
     // links to Meta's own privacy pages, code comments) are content, not
     // trackers, and stay.
+    //
+    // BUT the four tokens below are checked as plain strings, deliberately:
+    // this is the guarantee we make to Apple about the native bundle, and a
+    // regex that tried to tell a <script src> from a comment would be the
+    // weak link. Cost: a COMMENT that spells one of them out fails the build
+    // too. r278 did exactly that ("fb-pixel.js has always documented…") and
+    // froze the iOS bundle at r277 for five days, because build:web is the
+    // only thing that writes dist/ and it dies here. If this trips, reword
+    // the comment — do not loosen the check.
     if (/fb-pixel\.js|fbevents\.js|facebook\.com\/tr\b|connect\.facebook\.net/i.test(s)) {
       leftovers.push(p.replace(DIST + '/', ''));
     }

@@ -5110,7 +5110,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r286</span></div>
+        <span class="auth-build" aria-hidden="true">r287</span></div>
     </div>
   </div>
 </div>
@@ -7911,7 +7911,7 @@ async function onCheckoutAddressChange(ev) {
 }
 
 // ── r278: Meta Pixel event helper (CAPI phase 2, browser half) ─────────
-// fb-pixel.js has always documented a fbTrack() that never actually existed;
+// The pixel loader has always documented a fbTrack() that never existed;
 // every call site hand-rolled `if (window.fbq)`. This is that function, so the
 // window guard, the eventID plumbing and the once-only logic live in ONE place
 // instead of nine.
