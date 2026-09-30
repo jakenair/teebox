@@ -1084,7 +1084,7 @@
      sheet, because a sheet is right for something you dismiss and wrong for
      somewhere you go. */
   @media (max-width: 600px) {
-    #inboxBackdrop, #chatBackdrop, #profileBackdrop {
+    #inboxBackdrop, #chatBackdrop, #profileBackdrop, #sellModalBackdrop {
       align-items: stretch !important;
       justify-content: stretch !important;
       padding: 0 !important;
@@ -1092,7 +1092,8 @@
     }
     #inboxBackdrop .inbox-modal,
     #chatBackdrop .chat-modal,
-    #profileBackdrop .info-modal {
+    #profileBackdrop .info-modal,
+    #sellModalBackdrop .sell-modal {
       width: 100% !important;
       max-width: none !important;
       height: 100% !important;
@@ -1105,7 +1106,8 @@
        iOS draws light status text and a white strip would be unreadable. */
     #inboxBackdrop .inbox-header,
     #chatBackdrop .chat-header,
-    #profileBackdrop .info-header {
+    #profileBackdrop .info-header,
+    #sellModalBackdrop .modal-header {
       padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
     }
   }
@@ -2235,10 +2237,14 @@
      the nav link, home tile and teaser were not), and open-journal is made
      inert on native so a deep link can't reach it either. Nothing is
      deleted — teeboxmarket.com still serves the whole Journal. */
-  body.is-native .mobile-nav-link[data-action="open-journal"],
-  body.is-native .hq-tile.hq-journal,
-  body.is-native .app-teaser-journal,
-  body.is-native .cat-pill.cat-journal { display: none !important; }
+  /* r291 — founder call: the Journal is reached through the footer "Reads"
+     link and nowhere else. The extra doors (nav link, home tile, teaser,
+     category pill) are gone on WEB as well as in the app; the articles
+     themselves are untouched and /reads/ still serves all of them. */
+  .mobile-nav-link[data-action="open-journal"],
+  .hq-tile.hq-journal,
+  .app-teaser-journal,
+  .cat-pill.cat-journal { display: none !important; }
 
   /* ── TeeBox Journal (r151) — in-app front door to the Reads articles.
      Index lives here as an overlay; tapping a card navigates to the
@@ -3161,7 +3167,13 @@
      (contrast + color-lock miss). Match the muted footer link treatment. */
   .footer-bottom a { color: var(--gray-400); text-decoration: underline; text-underline-offset: 2px; }
   .footer-bottom a:hover { color: var(--gold-300); }
-  .footer-social { display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.6); text-decoration: none; font-size: 12px; transition: var(--transition); }
+    /* r291 — Instagram and TikTok were separate flex children of
+     .footer-bottom, so on a phone Instagram wrapped up beside "Privacy ·
+     Terms" and TikTok dropped to its own line, sitting lower and further
+     left. Grouping them keeps the pair on one baseline at every width. */
+  .footer-socials { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .footer-socials .footer-social { min-height: 20px; }
+.footer-social { display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.6); text-decoration: none; font-size: 12px; transition: var(--transition); }
   .footer-social:hover { color: var(--gold-300); }
   .footer-social .ico { width: 18px; height: 18px; stroke-width: 1.6; }
   .footer-social-handle { font-weight: 500; }
@@ -5248,7 +5260,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r290</span></div>
+        <span class="auth-build" aria-hidden="true">r291</span></div>
     </div>
   </div>
 </div>
@@ -7053,14 +7065,16 @@
     <div><div class="footer-logo"><span>Tee</span>Box</div><p class="footer-desc">The peer-to-peer marketplace for golfers. Clubs, apparel, accessories. Direct between members, with secured payments and a flat 8.5% seller fee.</p></div>
     <div class="footer-col"><h4>Marketplace</h4><a href="#" data-action="open-modal-buy">Buy</a><a href="#" data-action="handle-sell">Sell</a><a href="#trending">Trending</a></div>
     <div class="footer-col"><h4>Categories</h4><a href="#" data-action="filter-cat" data-cat="clubs">Clubs</a><a href="#" data-action="filter-cat" data-cat="shoes">Shoes</a><a href="#" data-action="filter-cat" data-cat="apparel">Apparel</a><a href="#" data-action="filter-cat" data-cat="accessories">Accessories</a><a href="#" data-action="filter-cat" data-cat="bags">Bags</a></div>
-    <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/index.html">Reads</a><a href="/evans-scholars.html">Evans Scholars</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="/privacy.html#do-not-share">Do Not Sell or Share My Personal Information</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
+    <div class="footer-col"><h4>Company</h4><a href="/about.html">About</a><a href="/reads/index.html">Reads</a><a href="/evans-scholars.html">Evans Scholars</a><a href="#" data-action="open-terms">Terms of Service</a><a href="#" data-action="open-privacy">Privacy Policy</a><a href="mailto:hello@teeboxmarket.com">Contact</a></div>
     <div class="footer-col"><h4>Top Brands</h4><a href="/brand/smathers-branson.html">Smathers &amp; Branson</a><a href="/brand/peter-millar.html">Peter Millar</a><a href="/brand/holderness-bourne.html">Holderness &amp; Bourne</a><a href="/brand/scotty-cameron.html">Scotty Cameron</a><a href="/brand/titleist.html">Titleist</a><a href="/brand/taylormade.html">TaylorMade</a></div>
   </div>
   <div class="footer-bottom">
     <p>© 2026 TeeBox Market LLC. All rights reserved.</p>
     <p><a href="#" data-action="open-privacy">Privacy</a> · <a href="#" data-action="open-terms">Terms</a></p>
+    <div class="footer-socials">
     <a class="footer-social" href="https://instagram.com/teeboxmarket" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on Instagram"><span data-ico="instagram"></span><span class="footer-social-handle">@teeboxmarket</span></a>
     <a class="footer-social" href="https://www.tiktok.com/@TeeBoxMarketplace" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on TikTok"><span data-ico="tiktok"></span><span class="footer-social-handle">@TeeBoxMarketplace</span></a>
+    </div>
   </div>
 </footer>
 
@@ -24529,7 +24543,7 @@ A['open-journal']            = () => {
   // r288: web only. Hidden in the native shell by CSS; this makes a deep
   // link or a stale cached bundle inert too rather than opening a surface
   // that is not supposed to exist in the app.
-  if (document.body.classList.contains('is-native')) return;
+  return;  // r291: reachable via the footer "Reads" link (/reads/) only.
   // r151: Journal is public content — no auth gate. Close the hamburger
   // drawer if it's open so the overlay doesn't stack under it (reuses the
   // close-mobile-nav semantics incl. aria-expanded reset).

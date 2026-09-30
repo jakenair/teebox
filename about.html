@@ -37,8 +37,8 @@
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
 
   /* Top bar */
-  .topbar { background: var(--green-950); padding: 18px 0; position: sticky; top: 0; z-index: 10; }
-  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .topbar { background: var(--green-950); padding: calc(env(safe-area-inset-top, 0px) + 18px) 0 18px; position: sticky; top: 0; z-index: 10; }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .wordmark { font-family: var(--font-display); font-weight: 900; font-size: 1.5rem; color: var(--white); text-decoration: none; letter-spacing: .3px; }
   .wordmark span { color: var(--gold-400); }
   .topbar-cta { font-size: 14px; font-weight: 600; color: var(--gold-300); text-decoration: none; }
