@@ -3348,6 +3348,43 @@
   .dash-header h1 { font-family: var(--font-display); font-size: var(--text-display-lg); font-weight: 700; letter-spacing: -0.01em; }
   .dash-header p { font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 4px; }
   /* Ship-it banner — action-needed alert for unshipped Paid orders. */
+  /* r289 — Sold Items stacks into cards on a phone. As a 6-column table at
+     414px it needed horizontal scrolling AND squeezed the item name to one
+     word per line ("Peter / Millar / Crown / Crafted / Polo"). Each row is
+     now a card with captioned fields; the table survives unchanged on
+     desktop, where six columns are fine. */
+  @media (max-width: 600px) {
+    .dash-table.sold-table,
+    .dash-table.sold-table tbody,
+    .dash-table.sold-table tr,
+    .dash-table.sold-table td { display: block; width: 100%; }
+    .dash-table.sold-table thead { display: none; }
+    .dash-table.sold-table tr {
+      border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
+      padding: 12px 14px; margin: 0 0 12px; background: var(--white);
+    }
+    .dash-table.sold-table td {
+      border: none !important; padding: 5px 0 !important;
+      display: flex; gap: 10px; align-items: baseline;
+      font-size: 13.5px; white-space: normal;
+    }
+    /* Caption every field except the item cell (which carries the thumbnail
+       and title) and the action row. */
+    .dash-table.sold-table td[data-label]::before {
+      content: attr(data-label);
+      flex: 0 0 82px; font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; color: var(--gray-500);
+    }
+    .dash-table.sold-table td:first-child {
+      padding-bottom: 10px !important; margin-bottom: 4px;
+      border-bottom: 1px solid var(--gray-100) !important;
+    }
+    .dash-table.sold-table .sold-actions-cell { padding-top: 10px !important; }
+    .dash-table.sold-table .dash-cell-actions {
+      display: flex; flex-wrap: wrap; gap: 8px; width: 100%;
+    }
+    .dash-table.sold-table .dash-cell-actions > * { flex: 1 1 calc(50% - 4px); }
+  }
   .ship-it-banner { display: flex; align-items: center; gap: 14px; margin: 1.25rem 1.25rem 1rem; padding: 14px 16px; background: var(--gold-50, #fff8dc); border: 1px solid var(--gold-500, #d6a900); border-left: 4px solid var(--gold-600, #b88a00); border-radius: var(--radius-md); }
   .ship-it-banner .sib-icon { font-size: 22px; line-height: 1; flex: none; }
   .ship-it-banner .sib-body { flex: 1; min-width: 0; }
@@ -3693,6 +3730,31 @@
   }
   .empty-state-cta:hover { background: var(--gold-300); }
   .empty-state-cta:active { transform: scale(0.97); }
+  /* r289 — swipe a conversation row to archive. Same gesture, direction and
+     feel as the per-message delete (r284): swipe LEFT, partial reveals the
+     action, a full swipe commits, and an Undo toast follows. Archive is
+     per-user and the thread returns by itself if the other person replies,
+     so this destroys nothing. */
+  /* r289 — default avatar: a caddie on a per-member colour. */
+  .avatar-caddie-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: inherit; overflow: hidden; }
+  .avatar-caddie { width: 78%; height: 78%; fill: rgba(255,255,255,0.92); stroke: none; display: block; }
+  .avatar-caddie .avatar-caddie-bib { fill: rgba(255,255,255,0.45); }
+  .inbox-swipe { position: relative; overflow: hidden; touch-action: pan-y; }
+  .inbox-swipe-body { transition: transform .22s cubic-bezier(.22,.61,.36,1); will-change: transform; background: var(--white); position: relative; z-index: 1; }
+  .inbox-archive-btn { position: absolute; top: 0; right: 0; bottom: 0; width: 96px; border: 0; margin: 0;
+    background: var(--gray-600, #5a5a5a); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; z-index: 0; }
+  .inbox-swipe.will-archive .inbox-archive-btn { background: #b3261e; }
+  @media (hover: none) {
+    .inbox-archive-btn { opacity: 0; pointer-events: none; }
+    .inbox-swipe.swiped .inbox-archive-btn,
+    .inbox-swipe.will-archive .inbox-archive-btn { opacity: 1; pointer-events: auto; }
+  }
+  @media (hover: hover) {
+    .inbox-archive-btn { width: auto; top: 50%; right: 8px; bottom: auto; transform: translateY(-50%);
+      padding: 4px 10px; border-radius: 999px; font-size: 11px; opacity: 0; transition: opacity .15s ease; z-index: 2; }
+    .inbox-swipe:hover .inbox-archive-btn, .inbox-archive-btn:focus-visible { opacity: 1; }
+  }
   .inbox-item { display: flex; align-items: center; gap: 14px; padding: 14px 1.25rem; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: var(--transition); }
   .inbox-item:hover { background: var(--gray-50); }
   .inbox-item-emoji { font-size: 2rem; flex-shrink: 0; }
@@ -5182,7 +5244,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r288</span></div>
+        <span class="auth-build" aria-hidden="true">r289</span></div>
     </div>
   </div>
 </div>
@@ -13763,8 +13825,10 @@ window.markConversationRead = markConversationRead;
 // Writes hidden.{uid} = serverTimestamp(); the inbox listener filters it
 // out until a newer message arrives (isConvHidden). Never deletes the
 // shared thread (rules keep conversations delete:if false).
-async function archiveConversation() {
-  const cid = currentChat && currentChat.conversationId;
+async function archiveConversation(explicitId) {
+  // r289: takes an id so the inbox can archive a row by swipe, not just the
+  // thread that happens to be open.
+  const cid = explicitId || (currentChat && currentChat.conversationId);
   if (!cid || !window.CURRENT_USER) { showToast('No conversation open.'); return; }
   try {
     const { getFirestore, doc, updateDoc, serverTimestamp } =
@@ -13772,14 +13836,85 @@ async function archiveConversation() {
     await updateDoc(doc(getFirestore(), 'conversations', cid), {
       [`hidden.${window.CURRENT_USER.uid}`]: serverTimestamp(),
     });
-    showToast('Conversation archived. It returns if they reply.');
-    closeChat();
+    if (explicitId) {
+      // Swiped from the list — undo restores it, same shape as the
+      // per-message delete in r284.
+      showUndoToast('Conversation archived', () => unarchiveConversation(cid));
+    } else {
+      showToast('Conversation archived. It returns if they reply.');
+      closeChat();
+    }
   } catch (e) {
     console.error('archiveConversation failed', e);
     showToast('Could not archive conversation.');
   }
 }
 window.archiveConversation = archiveConversation;
+
+async function unarchiveConversation(cid) {
+  if (!cid || !window.CURRENT_USER) return;
+  try {
+    const { getFirestore, doc, updateDoc, deleteField } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    await updateDoc(doc(getFirestore(), 'conversations', cid), {
+      [`hidden.${window.CURRENT_USER.uid}`]: deleteField(),
+    });
+  } catch (e) { console.warn('unarchive failed', e); }
+}
+
+// r289 — swipe a conversation row to archive it. Reuses the gesture helper
+// the per-message delete already uses, so the direction and the feel match:
+// swipe LEFT, partial reveals Archive, full swipe archives outright. Archive
+// is per-user (hidden.{uid}) and reversible, and the thread comes back on
+// its own if the other person replies — so nothing is destroyed.
+function wireInboxSwipe(root) {
+  if (!root || root.__inboxSwipeWired) return;
+  root.__inboxSwipeWired = true;
+  let el = null, body = null, sx = 0, sy = 0, dx = 0, axis = '', active = false;
+  const OPEN = 96, FULL = 200;
+  root.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { active = false; return; }
+    const t = e.changedTouches[0];
+    if (t.clientX <= 24) { active = false; return; }   // iOS back-swipe zone
+    el = e.target.closest ? e.target.closest('.inbox-swipe') : null;
+    body = el && el.querySelector('.inbox-swipe-body');
+    if (!el || !body) { active = false; return; }
+    document.querySelectorAll('.inbox-swipe.swiped').forEach((o) => {
+      if (o !== el) { o.classList.remove('swiped');
+        const b = o.querySelector('.inbox-swipe-body'); if (b) b.style.transform = ''; }
+    });
+    sx = t.clientX; sy = t.clientY; dx = 0; axis = ''; active = true;
+  }, { passive: true });
+  root.addEventListener('touchmove', (e) => {
+    if (!active || !body) return;
+    const t = e.changedTouches[0];
+    const ddx = t.clientX - sx, ddy = t.clientY - sy;
+    if (!axis) {
+      if (Math.abs(ddx) < 8 && Math.abs(ddy) < 8) return;
+      axis = Math.abs(ddx) > Math.abs(ddy) + 4 ? 'x' : 'y';
+      if (axis === 'y') { active = false; return; }
+    }
+    if (ddx > 0 && !el.classList.contains('swiped')) { dx = 0; body.style.transform = ''; return; }
+    dx = ddx < -FULL ? -FULL - (Math.abs(ddx) - FULL) * 0.25 : ddx;
+    if (dx > 0) dx = 0;
+    body.style.transition = 'none';
+    body.style.transform = `translateX(${dx}px)`;
+    el.classList.toggle('will-archive', dx <= -FULL);
+  }, { passive: true });
+  root.addEventListener('touchend', () => {
+    if (!active || !body || axis !== 'x') { active = false; return; }
+    const target = el, moved = dx;
+    body.style.transition = ''; el.classList.remove('will-archive'); active = false;
+    if (moved <= -FULL) {
+      body.style.transform = 'translateX(-100%)';
+      const cid = target.dataset.convId;
+      setTimeout(() => archiveConversation(cid), 140);
+      return;
+    }
+    if (moved <= -OPEN / 2) { target.classList.add('swiped'); body.style.transform = `translateX(-${OPEN}px)`; }
+    else { target.classList.remove('swiped'); body.style.transform = ''; }
+  }, { passive: true });
+}
 
 // Render the listing context card in the chat header. Safe to call with a
 // partial listing object (we only require id+title+cat to render something
@@ -14575,8 +14710,12 @@ function renderInbox(convs) {
     // instantly; hydrateInboxThumbs() below swaps in the real listing
     // photo once the listing doc resolves (same data the chat-detail
     // header uses — see renderChatListingCard / openChatFromConversation).
+    const cidAttr = window.safeAttr(window.safeId(c.id));
     return `
-    <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${window.safeAttr(window.safeId(c.id))}">
+    <div class="inbox-swipe" data-conv-id="${cidAttr}">
+      <button type="button" class="inbox-archive-btn" data-action="archive-conv-row" data-conv-id="${cidAttr}" aria-label="Archive this conversation">Archive</button>
+      <div class="inbox-swipe-body">
+    <div class="inbox-item ${isUnread ? 'unread' : ''}" data-action="open-conv" data-conv-id="${cidAttr}">
       <div class="inbox-item-emoji placeholder-art" data-inbox-thumb data-listing-id="${window.safeAttr(window.safeId(lid))}" data-listing-cat="${window.safeAttr(cat)}" style="width:44px;height:44px;border-radius:8px;background-size:cover;background-position:center">${window.CATEGORY_ICON(cat)}</div>
       <div class="inbox-item-content">
         <div class="inbox-item-title" data-inbox-title data-listing-id="${window.safeAttr(window.safeId(lid))}">${escapeInboxText(c.listingTitle || 'Conversation')}</div>
@@ -14584,8 +14723,11 @@ function renderInbox(convs) {
       </div>
       <div class="inbox-item-dot"></div>
       <div class="inbox-item-time">${formatRelativeTime(c.lastMessageAt)}</div>
+    </div>
+      </div>
     </div>`;
   }).join('');
+  wireInboxSwipe(body);
   updateUnreadBadge(unreadCount);
   // Fire-and-forget: replace category-icon placeholders with the real
   // listing photo. Bounded + cached so the realtime listener repainting
@@ -15483,6 +15625,27 @@ function renderShipItBanner(orders) {
   const n = toShip.length;
   if (!n) { el.innerHTML = ''; el.style.display = 'none'; return; }
   el.style.display = 'block';
+  // r289 — confetti the FIRST time the seller sees a given sale. Selling
+  // something is the best thing that happens on TeeBox and it arrived with
+  // no acknowledgement at all. Keyed by order id in localStorage so it fires
+  // once per sale, not on every dashboard open; per-viewer and per-device by
+  // nature, and wrapped because a celebration must never break the banner.
+  try {
+    const uid = (window.CURRENT_USER && window.CURRENT_USER.uid) || '_';
+    const key = 'tb_seen_sales_' + uid;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_e) { seen = []; }
+    const fresh = toShip.map(o => String(o.id)).filter(id => seen.indexOf(id) === -1);
+    if (fresh.length && seen.length !== 0) {
+      // seen.length === 0 means we have never recorded anything for this
+      // seller — that is a first load, not a new sale, so don't celebrate
+      // history on the first open after an update.
+      if (typeof window.teeboxConfetti === 'function') window.teeboxConfetti(22);
+    }
+    if (fresh.length) {
+      try { localStorage.setItem(key, JSON.stringify(seen.concat(fresh).slice(-100))); } catch (_e) {}
+    }
+  } catch (_e) { /* non-fatal */ }
   el.innerHTML =
     '<div class="ship-it-banner" role="status" aria-live="polite">' +
       '<div class="sib-icon" aria-hidden="true">📦</div>' +
@@ -15814,7 +15977,7 @@ function renderShopTables() {
     soldEl.innerHTML = '<div class="dash-empty"><div style="font-weight:600;color:var(--gray-700);margin-bottom:6px">No sales yet</div>Once a buyer pays, the order shows up here with the buyer ID, sale price, and date. Payouts go to your linked bank on Stripe\'s standard schedule after the sale.</div>';
   } else {
     soldEl.innerHTML = `
-      <table class="dash-table">
+      <table class="dash-table sold-table">
         <thead>
           <tr><th>Item</th><th>Buyer</th><th>Ship To</th><th>Sale Price</th><th>Status</th><th></th></tr>
         </thead>
@@ -15891,11 +16054,11 @@ function renderShopTables() {
                     </div>
                   </div>
                 </td>
-                <td style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
-                <td>${shipCell}</td>
-                <td style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
-                <td class="dash-status">${stageLabel}</td>
-                <td><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div></td>
+                <td data-label="Buyer" style="color:var(--gray-500)">•••• ${maskBuyerId(o.buyerId)}</td>
+                <td data-label="Ship to">${shipCell}</td>
+                <td data-label="Sale price" style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
+                <td data-label="Status" class="dash-status">${stageLabel}</td>
+                <td class="sold-actions-cell"><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -20804,6 +20967,55 @@ window.avatarVariantUrl = function (p, size) {
 // `size` defaults to w96, which covers every slot rendered at <= 48 CSS px
 // (card 20px, msg 28px, chat header 40px, seller id 40px) through 2x. The
 // 88px .profile-avatar passes 'w256'.
+// r289 — the confetti Logo Bingo fires on a solve, reusable. A sale is the
+// single best thing that happens on this platform and it landed with no
+// acknowledgement at all; now it gets the same burst.
+window.teeboxConfetti = function teeboxConfetti(n) {
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const burst = document.createElement('div');
+    burst.className = 'bingo-confetti';
+    const colors = ['#2d5438', '#c9991e', '#3a6b47', '#e0b840', '#22402b'];
+    const N = n || 14;
+    let html = '';
+    for (let i = 0; i < N; i++) {
+      const left = Math.round(Math.random() * 100);
+      const color = colors[i % colors.length];
+      const delay = (Math.random() * 0.4).toFixed(2);
+      const dur = (1.6 + Math.random() * 0.6).toFixed(2);
+      html += `<span style="left:${left}vw;background:${color};animation-duration:${dur}s;animation-delay:${delay}s;"></span>`;
+    }
+    burst.innerHTML = html;
+    document.body.appendChild(burst);
+    setTimeout(() => burst.remove(), 2400);
+  } catch (_e) { /* a celebration must never break a sale */ }
+};
+
+// r289 — nobody-has-a-photo used to mean a grey letter. Only 7 of 333 members
+// have uploaded an avatar, so the grey letter IS the product for almost
+// everyone. Each member now gets a little caddie on a colour picked
+// deterministically from their uid, so the same person is the same colour
+// everywhere and two members in a thread never collide by accident.
+const CADDIE_COLORS = [
+  '#2d5438', '#1f4d5c', '#4a3d6b', '#7a4a2e', '#8a6d1f',
+  '#3a6b47', '#2b5a7a', '#5c3a52', '#6b5330', '#40584a',
+];
+function caddieColorFor(id) {
+  const str = String(id || '');
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return CADDIE_COLORS[Math.abs(h) % CADDIE_COLORS.length];
+}
+// A stick caddie in a bib, reduced to what still reads at 28px: head,
+// shoulders, bib. The full .caddie-figure is 76x84 with a golf bag and turns
+// to mush at avatar size.
+const CADDIE_MARK =
+  '<svg class="avatar-caddie" viewBox="0 0 32 32" aria-hidden="true">' +
+    '<circle cx="16" cy="11" r="4.6"/>' +
+    '<path d="M6.5 27.5c0-5.3 4.3-8.8 9.5-8.8s9.5 3.5 9.5 8.8z"/>' +
+    '<rect class="avatar-caddie-bib" x="12.7" y="19.9" width="6.6" height="7.6" rx="1.4"/>' +
+  '</svg>';
+
 function avatarHtml(p, size) {
   const initial = window.safeText(profileInitial(p));
   const u = window.avatarVariantUrl(p, size || 'w96');
@@ -20816,7 +21028,9 @@ function avatarHtml(p, size) {
     return `<span class="avatar-initial" aria-hidden="true">${initial}</span>` +
       `<img src="${window.safeAttr(u)}" alt="" loading="eager" fetchpriority="high" decoding="async" class="avatar-img" />`;
   }
-  return initial;
+  // No photo → the caddie, on this member's own colour.
+  return `<span class="avatar-caddie-wrap" style="background:${caddieColorFor(p && p.id)}" ` +
+    `title="${initial}">${CADDIE_MARK}</span>`;
 }
 
 // Perf: reveal avatar images with a fade once they actually load. Inline
@@ -24069,6 +24283,13 @@ A['submit-dispute']          = () => { if (!window.requireAuth('to submit your d
 A['block-conv']              = () => { if (!window.requireAuth('to manage this conversation')) return; blockConversation(); };
 A['report-conv']             = () => { if (!window.requireAuth('to report this conversation')) return; reportConversation(); };
 A['archive-conv']            = () => { if (!window.requireAuth('to archive this conversation')) return; archiveConversation(); };
+A['archive-conv-row']        = (el, ev) => {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  if (!window.requireAuth('to archive this conversation')) return;
+  const shell = el.closest('.inbox-swipe');
+  if (shell) shell.classList.remove('swiped');
+  archiveConversation(el.dataset.convId);
+};
 A['toggle-chat-menu']        = (el) => {
   const m = document.getElementById('chatMoreMenu');
   if (!m) return;
@@ -26656,22 +26877,9 @@ if (uploadZone) {
         setTimeout(() => el.classList.remove('bingo-cell-bounce'), 250);
       }, i * 80);
     });
-    // Confetti burst
-    const burst = document.createElement('div');
-    burst.className = 'bingo-confetti';
-    const colors = ['#2d5438', '#c9991e', '#3a6b47', '#e0b840', '#22402b'];
-    const N = 14;
-    let html = '';
-    for (let i = 0; i < N; i++) {
-      const left = Math.round(Math.random() * 100);
-      const color = colors[i % colors.length];
-      const delay = (Math.random() * 0.4).toFixed(2);
-      const dur = (1.6 + Math.random() * 0.6).toFixed(2);
-      html += `<span style="left:${left}vw;background:${color};animation-duration:${dur}s;animation-delay:${delay}s;"></span>`;
-    }
-    burst.innerHTML = html;
-    document.body.appendChild(burst);
-    setTimeout(() => burst.remove(), 2400);
+    // Confetti burst (r289: extracted to window.teeboxConfetti so a sale can
+    // use the same celebration Bingo already had).
+    window.teeboxConfetti();
   }
 
   // Streak: only counts if at least 1 correct AND user hadn't already

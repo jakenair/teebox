@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import Capacitor
 import FirebaseCore
 import FirebaseAuth
@@ -53,7 +54,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillResignActive(_ application: UIApplication) {}
     func applicationDidEnterBackground(_ application: UIApplication) {}
     func applicationWillEnterForeground(_ application: UIApplication) {}
-    func applicationDidBecomeActive(_ application: UIApplication) {}
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // r289: clear the app icon badge whenever the app comes to the front.
+        // Nothing else in the stack ever cleared it — the server sets no
+        // `badge` key, there is no badge plugin, and AppDelegate did nothing —
+        // so once iOS put a number there it stayed forever. The founder had a
+        // stuck "1" with no way to discover what it referred to. TeeBox does
+        // not maintain a running count, so opening the app IS the acknowledgement.
+        // Also drop delivered notifications so Notification Center matches.
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0)
+        } else {
+            application.applicationIconBadgeNumber = 0
+        }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    }
     func applicationWillTerminate(_ application: UIApplication) {}
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
