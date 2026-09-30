@@ -132,8 +132,9 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "sha": "a91995bf4eb38c874e94ef22ba81c3bab3859633",
-    "at": "2026-09-21"
+    "sha": "0dcc801d95d9efd2889c71be81caa1e11dd4b296",
+    "at": "2026-09-30",
+    "region": "us-central1"
   },
   "generateListingDescription": {
     "sha": null,
