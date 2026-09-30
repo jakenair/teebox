@@ -372,6 +372,17 @@ exports.createPaymentIntent = onRequest(
     // charge stays item-only — charging more than the buyer's UI shows is
     // never acceptable — and we alert for visibility on the stale tail.
     const {listingId, quantity, shippingAware, offerId} = req.body || {};
+    // r294 — Meta Conversions API match keys. _fbp/_fbc are cookies Meta's
+    // own pixel set in the buyer's browser, forwarded by the client. They
+    // are NOT user fields, so they sit inside the r278 PII ruling. Stored on
+    // the PaymentIntent so the webhook can put them on the order, where the
+    // CAPI trigger reads them. Length-capped: metadata values max 500 chars
+    // and these are attacker-influencable strings.
+    const capiFbp = String((req.body || {}).fbp || "").slice(0, 200);
+    const capiFbc = String((req.body || {}).fbc || "").slice(0, 200);
+    const capiIp = String(
+        req.headers["x-forwarded-for"] || "").split(",")[0].trim().slice(0, 64);
+    const capiUa = String(req.headers["user-agent"] || "").slice(0, 300);
     if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
       return res.status(400).json({error: "Missing or invalid listingId"});
     }
@@ -730,6 +741,11 @@ exports.createPaymentIntent = onRequest(
               // Offer-priced checkout: carry the offer id so the webhook
               // can stamp it fulfilled and block a second use.
               ...(validatedOfferId ? {offerId: validatedOfferId} : {}),
+              // r294: Meta CAPI match keys (see above).
+              ...(capiFbp ? {capiFbp} : {}),
+              ...(capiFbc ? {capiFbc} : {}),
+              ...(capiIp ? {capiIp} : {}),
+              ...(capiUa ? {capiUa} : {}),
             },
           },
           {idempotencyKey}
@@ -1679,6 +1695,14 @@ async function handlePaymentSucceeded(pi) {
       receiptEmail: pi.receipt_email || null,
       status: "paid",
       fulfillmentStatus: "awaiting_seller_shipment",
+      // r294 — Meta CAPI match keys, carried from checkout via PI metadata.
+      // capiPurchaseOnOrderCreated reads these; without at least one of them
+      // it skips rather than send an unmatchable event. Nulls, not undefined,
+      // so the field shape is stable for the trigger.
+      fbp: (pi.metadata && pi.metadata.capiFbp) || null,
+      fbc: (pi.metadata && pi.metadata.capiFbc) || null,
+      checkoutIp: (pi.metadata && pi.metadata.capiIp) || null,
+      checkoutUa: (pi.metadata && pi.metadata.capiUa) || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -8143,6 +8167,7 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
+Object.assign(exports, require("./metaCapi"));
 
 // Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
 // never rewrites the original. See the header of avatarVariants.js.

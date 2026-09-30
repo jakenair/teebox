@@ -5270,7 +5270,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r293</span></div>
+        <span class="auth-build" aria-hidden="true">r294</span></div>
     </div>
   </div>
 </div>
@@ -7918,6 +7918,13 @@ async function mountPaymentElement(product) {
         // Offer-priced checkout: when present the server prices the item
         // from the frozen offer (never listing.ask) and forces qty 1.
         ...(product.__offerId ? { offerId: String(product.__offerId) } : {}),
+        // r294 — Meta Conversions API. _fbp/_fbc are cookies META's own pixel
+        // set in this browser; forwarding them lets the server-side Purchase
+        // be matched to the same person without sending any user field. This
+        // respects the r278 PII ruling: no email, name or phone. A Firestore
+        // trigger has no request context, so the identifiers have to be
+        // captured here, at checkout, and carried through the PaymentIntent.
+        ...(window.metaMatchIds ? window.metaMatchIds() : {}),
       }),
     });
     if (!res.ok) {
@@ -8104,6 +8111,31 @@ function fbMarkFired(key) {
     localStorage.setItem(FB_ONCE_KEY, JSON.stringify(fired));
   } catch (_e) { /* private mode — degrade to no idempotency, never throw */ }
 }
+// r294 — Meta's own browser identifiers for the Conversions API.
+// _fbp is the pixel's browser id; _fbc is derived from an fbclid on an ad
+// click and is the single strongest signal that a visit came from an ad.
+// Neither is a user field, so neither touches the PII ruling above.
+window.metaMatchIds = function metaMatchIds() {
+  const out = {};
+  try {
+    const read = (n) => {
+      const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : '';
+    };
+    const fbp = read('_fbp');
+    let fbc = read('_fbc');
+    // If the click just happened, _fbc may not be written yet — synthesise it
+    // from the URL exactly as Meta specifies (fb.1.<ms>.<fbclid>).
+    if (!fbc) {
+      const cid = new URLSearchParams(location.search).get('fbclid');
+      if (cid) fbc = 'fb.1.' + Date.now() + '.' + cid;
+    }
+    if (fbp) out.fbp = fbp;
+    if (fbc) out.fbc = fbc;
+  } catch (_e) { /* measurement must never break checkout */ }
+  return out;
+};
+
 window.fbTrack = function (name, params, opts) {
   try {
     const o = opts || {};
