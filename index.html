@@ -5270,7 +5270,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r295</span></div>
+        <span class="auth-build" aria-hidden="true">r296</span></div>
     </div>
   </div>
 </div>
@@ -15981,6 +15981,42 @@ function renderShopTables() {
           ${active.map(l => {
             const exp = l.expiresAt && l.expiresAt.toDate ? l.expiresAt.toDate() : null;
             const isExpired = l.status === 'expired' || (exp && exp < new Date());
+            // r296 — the status cell used to be a two-way ternary (Expired/Active),
+            // so EVERY other status rendered a green "Active". On 2026-10-01 a
+            // seller's six listings were set to `flagged` by a false-positive
+            // image scan: invisible to buyers (filtered at the feed and the
+            // detail page) while his dashboard told him they were live. He had
+            // no way to know. `removed` and `pending` had the same lie.
+            // Tell the truth for every state the table can hold — it filters out
+            // `sold` upstream, so: active | expired | flagged | removed | pending.
+            const shopStatus = (() => {
+              if (isExpired) {
+                return {label: 'Expired', color: 'var(--red-500)', title: ''};
+              }
+              if (l.status === 'flagged') {
+                return {
+                  label: 'Under review',
+                  color: 'var(--gold-600)',
+                  title: 'We’re double-checking a photo on this listing, so ' +
+                    'buyers can’t see it yet. This usually clears on its own.',
+                };
+              }
+              if (l.status === 'removed') {
+                return {
+                  label: 'Removed',
+                  color: 'var(--gray-500)',
+                  title: 'This listing was taken down and isn’t visible to buyers.',
+                };
+              }
+              if (l.status === 'pending') {
+                return {
+                  label: 'Sale pending',
+                  color: 'var(--gold-600)',
+                  title: 'A buyer is checking out. It’ll free up shortly if they don’t complete.',
+                };
+              }
+              return {label: 'Active', color: 'var(--up-green)', title: ''};
+            })();
             const expireLabel = exp ? exp.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '—';
             const renew = isExpired ? `<button class="renew-btn" data-action="renew-listing" data-listing-id="${escapeHtml(String(l.id))}">Renew</button>` : '';
             // Edit button — opens the sell modal in edit mode. Shown
@@ -16018,7 +16054,7 @@ function renderShopTables() {
                 </div>
               </td>
               <td style="text-transform:capitalize">${escapeHtml(l.cat || '—')}</td>
-              <td><span style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:${isExpired ? 'var(--red-500)' : 'var(--up-green)'}">${isExpired ? 'Expired' : 'Active'}</span></td>
+              <td><span style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:${shopStatus.color}"${shopStatus.title ? ` title="${escapeHtml(shopStatus.title)}"` : ''}>${escapeHtml(shopStatus.label)}</span></td>
               <td style="font-weight:600">$${(l.ask || 0).toLocaleString()}</td>
               <td class="col-analytic" title="Views"><span class="lbl">${views}</span></td>
               <td class="col-analytic" title="Watchers"><span class="lbl">${watchers}</span></td>
