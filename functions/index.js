@@ -4331,6 +4331,12 @@ function describeSafeSearchTrip(annotation) {
   return reasons.join(",") || "unknown";
 }
 
+// SafeSearch lives in lib/safeSearch.js so there is exactly one copy of the
+// retry logic (both optimizeListingPhoto and optimizePassportPhoto use it)
+// and so it can be unit-tested with no network. See that file for the
+// 2026-10-01 incident write-up.
+const {runSafeSearchWithRetry} = require("./lib/safeSearch");
+
 // Hardcoded admin UID list. Email gate (jakenair23@gmail.com) is
 // resolved on first flagged-listing notification — see
 // notifyAdminOfFlaggedListing below — so we don't need to hardcode
@@ -4420,6 +4426,9 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       // SafeSearch confirms the image is safe — no variants of an NSFW image
       // we're about to delete.
       let baseSharp = null;
+      // Hoisted so SafeSearch can scan these bytes directly instead of making
+      // Vision re-fetch the object from GCS (incident 2026-10-01).
+      let optimizedBytes = null;
       let convertFailed = false;
       let convertErr = null;
       try {
@@ -4427,6 +4436,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
         const [buf] = await file.download();
         const {baseSharp: bs, webp} = await convertToWebp(buf);
         baseSharp = bs;
+        optimizedBytes = webp;
         // Preserve the client's download token if the finalize event carried
         // one, so URLs captured at upload time keep working; otherwise mint one.
         // (The previous in-place save omitted the token entirely — unlike the
@@ -4531,27 +4541,12 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       let safeSearch = null;
       let scanFailed = false;
       try {
-        // Lazy-require so the function still cold-starts if the dep
-        // isn't installed yet (e.g. before a deploy).
-        const vision = require("@google-cloud/vision");
-        const client = new vision.ImageAnnotatorClient();
-        const gcsUri = `gs://${obj.bucket}/${obj.name}`;
-        // Retry transient Vision errors (quota/network blips) before deciding
-        // we can't verify the image — avoids flagging a legit listing over a
-        // momentary hiccup.
-        let lastErr = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const [result] = await client.safeSearchDetection(gcsUri);
-            safeSearch = result && result.safeSearchAnnotation;
-            lastErr = null;
-            break;
-          } catch (e) {
-            lastErr = e;
-            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-          }
-        }
-        if (lastErr) throw lastErr;
+        const {annotation, error} = await runSafeSearchWithRetry(
+            optimizedBytes,
+            `gs://${obj.bucket}/${obj.name}`,
+            "optimizeListingPhoto");
+        if (error) throw error;
+        safeSearch = annotation;
       } catch (err) {
         logger.error(
             "SafeSearch failed after retries — failing closed (flag for review)",
@@ -8325,11 +8320,15 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
       //    purges (passport's existing behavior — stricter than listings'
       //    flag-for-review, kept).
       let baseSharp = null;
+      // Hoisted so SafeSearch scans these bytes directly rather than making
+      // Vision re-fetch from GCS (incident 2026-10-01).
+      let optimizedBytes = null;
       try {
         const crypto = require("crypto");
         const [buf] = await file.download();
         const {baseSharp: bs, webp} = await convertToWebp(buf);
         baseSharp = bs;
+        optimizedBytes = webp;
         const token = (obj.metadata && obj.metadata.firebaseStorageDownloadTokens) ||
             crypto.randomUUID();
         await file.save(webp, {
@@ -8350,22 +8349,12 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
       let safeSearch = null;
       let scanFailed = false;
       try {
-        const vision = require("@google-cloud/vision");
-        const client = new vision.ImageAnnotatorClient();
-        const gcsUri = `gs://${obj.bucket}/${obj.name}`;
-        let lastErr = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const [result] = await client.safeSearchDetection(gcsUri);
-            safeSearch = result && result.safeSearchAnnotation;
-            lastErr = null;
-            break;
-          } catch (e) {
-            lastErr = e;
-            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-          }
-        }
-        if (lastErr) throw lastErr;
+        const {annotation, error} = await runSafeSearchWithRetry(
+            optimizedBytes,
+            `gs://${obj.bucket}/${obj.name}`,
+            "optimizePassportPhoto");
+        if (error) throw error;
+        safeSearch = annotation;
       } catch (err) {
         logger.error("optimizePassportPhoto: SafeSearch failed after retries (fail-closed)",
             obj.name, err && err.message);

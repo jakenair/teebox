@@ -311,6 +311,59 @@ async function collectMetrics(windowStart, windowEnd) {
     logger.warn("[BRIEFING] flaggedListings query failed", {err: e.message || e});
   }
 
+  // ── STUCK listings backstop (added 2026-10-01) ────────────
+  // The count above is windowed, so a listing flagged days ago and still
+  // stuck never shows up. On 2026-10-01 a false-positive image scan put six
+  // of one seller's listings into `flagged`: invisible to buyers, labelled
+  // "Active" on his dashboard, the seller notification written to a
+  // collection nothing reads, and the opsAlert undeliverable. Nobody found
+  // out until the seller said something, ~5 hours later.
+  //
+  // This is the last line of defence: whatever flags a listing, and whether
+  // or not anyone saw the real-time alert, a listing sitting invisible is
+  // surfaced here. Queried on CURRENT state, not a time window.
+  //
+  // opsAlert writes its `[OPS_ALERT][...]` log line before it ever touches
+  // the webhook, and the Cloud Monitoring policy alerts on that log line —
+  // so this reaches the founder even while SMOKE_ALERT_WEBHOOK is unset.
+  const STUCK_FLAGGED_HOURS = 6;
+  try {
+    const snap = await db.collection("listings")
+      .where("status", "==", "flagged")
+      .get();
+    m.stuckFlaggedCount = snap.size;
+    if (snap.size > 0) {
+      const nowMs = Date.now();
+      let oldestHours = 0;
+      const sellers = new Set();
+      const titles = [];
+      for (const doc of snap.docs) {
+        const d = doc.data() || {};
+        const flaggedAt = d.moderationFlags && d.moderationFlags.flaggedAt;
+        const ms = flaggedAt && flaggedAt.toMillis ?
+            flaggedAt.toMillis() :
+            (d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : null);
+        if (ms) oldestHours = Math.max(oldestHours, (nowMs - ms) / 3600000);
+        if (d.sellerId) sellers.add(d.sellerId);
+        if (titles.length < 5 && d.title) titles.push(d.title);
+      }
+      m.stuckFlaggedOldestHours = Math.round(oldestHours);
+      if (oldestHours >= STUCK_FLAGGED_HOURS || !oldestHours) {
+        const {opsAlert} = require("./opsAlert");
+        await opsAlert("warn",
+            `${snap.size} listing(s) stuck invisible in "flagged" across ` +
+            `${sellers.size} seller(s) — oldest ${Math.round(oldestHours)}h. ` +
+            "Buyers cannot see these and the seller's dashboard may not say so. " +
+            "Re-scan or clear them.",
+            {count: snap.size, sellers: sellers.size,
+              oldestHours: Math.round(oldestHours), examples: titles.join(" | ")});
+      }
+    }
+  } catch (e) {
+    m.notes.push(`stuck-flagged check failed: ${e.message || e}`);
+    logger.warn("[BRIEFING] stuck-flagged check failed", {err: e.message || e});
+  }
+
   // ── Orders / GMV ──────────────────────────────────────────
   // Orders are created by the Stripe webhook with `status: "paid"`. We
   // count "completed transactions" as any order with createdAt in the
