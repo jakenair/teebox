@@ -83,8 +83,8 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "dailyFounderBriefing": {
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
-    "at": "2026-09-29",
+    "sha": "a42e11c47177ceb07f8b2f740cc369f943a62167",
+    "at": "2026-10-01",
     "region": "us-central1"
   },
   "dailyFounderBriefingManual": {
@@ -341,13 +341,13 @@
     "region": "us-east1"
   },
   "optimizeListingPhoto": {
-    "sha": "7934f8244e51aa1a0914f0b0133b4efd4026528d",
-    "at": "2026-09-24",
+    "sha": "a42e11c47177ceb07f8b2f740cc369f943a62167",
+    "at": "2026-10-01",
     "region": "us-east1"
   },
   "optimizePassportPhoto": {
-    "sha": "7934f8244e51aa1a0914f0b0133b4efd4026528d",
-    "at": "2026-09-24",
+    "sha": "a42e11c47177ceb07f8b2f740cc369f943a62167",
+    "at": "2026-10-01",
     "region": "us-east1"
   },
   "proCanceledEmail": {
