@@ -91,6 +91,30 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Course logos — the Logo Bingo / Passport artwork, served as a CDN.
+    //   read:   public (unauthenticated; the puzzle doc hands these URLs to
+    //           every client, signed in or not)
+    //   write:  NOBODY from a client. These are uploaded by
+    //           scripts/upload-logos-to-storage.mjs with admin credentials,
+    //           which bypasses rules. Nothing a user does should ever be able
+    //           to replace a course logo.
+    //
+    // WHY STORAGE AND NOT teeboxmarket.com (2026-10-02): the puzzle doc has
+    // always carried absolute logo URLs so a stale app still renders current
+    // artwork. That never worked in the app, because index.html's CSP did not
+    // list https://teeboxmarket.com and in the WebView 'self' is
+    // capacitor://localhost — so every tile failed and fell back to the PNG
+    // bundled in the IPA, which is two revisions behind. r297 added
+    // teeboxmarket.com to img-src, but a CSP ships inside the bundle, so that
+    // only helps from the NEXT build onward.
+    // firebasestorage.googleapis.com is ALREADY in the CSP of every installed
+    // build. Serving logos from here fixes logo drift on phones people
+    // already have, with no rebuild.
+    match /course-logos/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;

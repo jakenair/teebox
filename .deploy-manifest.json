@@ -66,8 +66,9 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",
-    "at": "2026-09-17"
+    "sha": "4d677c08cb77d41961b5379351a00d3089dfad7b",
+    "at": "2026-10-02",
+    "region": "us-central1"
   },
   "dailyBingoMonitorManual": {
     "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560",

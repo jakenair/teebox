@@ -28,11 +28,39 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, "..", "..");
 const OUT_PATH = resolve(__dirname, "..", "data", "bingo-puzzle-data.json");
 
-// Public CDN origin where the same logo bytes are served from. We pin
-// the URL here so the Cloud Function writes canonical URLs into the
-// daily puzzle doc — even iOS clients whose bundled copies have drifted
-// will then render from the live origin.
-const CDN_ORIGIN = process.env.LOGO_CDN_ORIGIN || "https://teeboxmarket.com";
+// Where the puzzle doc points its absolute logo URLs.
+//
+// These are absolute ON PURPOSE: an iOS build carries its own copy of every
+// PNG, and those drift the moment a logo is re-framed or retired. An absolute
+// URL lets a stale app render the CURRENT artwork. Do not make these relative
+// — a relative path resolves against the app's own bundle, which is exactly
+// the stale copy this exists to bypass.
+//
+// 2026-10-02: moved from https://teeboxmarket.com to Firebase Storage. The
+// teeboxmarket.com URLs had NEVER worked in the app: index.html's CSP did not
+// list that origin, and inside the WebView 'self' is capacitor://localhost, so
+// every tile failed its probe and silently fell back to the bundled PNG. That
+// is why Logo Bingo looked different on web and iOS. r297 added
+// teeboxmarket.com to img-src, but a CSP ships inside the bundle, so it only
+// helps from the next build onward — whereas firebasestorage.googleapis.com is
+// already in the CSP of every build ever shipped. Serving from Storage fixes
+// logo drift on phones people already have, with no rebuild.
+//
+// Bytes are published by scripts/upload-logos-to-storage.mjs; public read is
+// granted by the course-logos/ block in storage.rules, and no client can write
+// there. Objects are immutable with a one-year max-age.
+const LOGO_BUCKET = process.env.LOGO_BUCKET || "teebox-market.firebasestorage.app";
+const LOGO_PREFIX = process.env.LOGO_PREFIX || "course-logos";
+
+// Set LOGO_CDN_ORIGIN to fall back to the old {origin}/assets/logos/{id}.png
+// shape (e.g. for a local build with no Storage access).
+const CDN_ORIGIN = process.env.LOGO_CDN_ORIGIN || "";
+
+function logoUrlFor(id) {
+  if (CDN_ORIGIN) return `${CDN_ORIGIN}/assets/logos/${id}.png`;
+  const encoded = encodeURIComponent(`${LOGO_PREFIX}/${id}.png`);
+  return `https://firebasestorage.googleapis.com/v0/b/${LOGO_BUCKET}/o/${encoded}?alt=media`;
+}
 
 async function main() {
   const coursesMod = await import(
@@ -66,7 +94,7 @@ async function main() {
     eligible.push({
       id: c.id,
       shortName: c.shortName || c.name || c.id,
-      logoUrl: `${CDN_ORIGIN}/assets/logos/${c.id}.png`,
+      logoUrl: logoUrlFor(c.id),
     });
     courseData[c.id] = {
       name: c.name || c.shortName || c.id,
@@ -93,7 +121,7 @@ async function main() {
     courseData,
     generatedAt: new Date().toISOString(),
     sourceFiles: ["bingo-courses.js", "assets/logos/manifest.js"],
-    cdnOrigin: CDN_ORIGIN,
+    cdnOrigin: CDN_ORIGIN || `gs://${LOGO_BUCKET}/${LOGO_PREFIX}`,
   };
 
   writeFileSync(OUT_PATH, JSON.stringify(payload, null, 2) + "\n", "utf8");
