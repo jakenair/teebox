@@ -4261,6 +4261,10 @@
      main bug, logged in the investigation notes). */
   .drawer-signin { display: none; }
   body.is-native.is-anon .drawer-signin { display: flex; }
+  /* r298: My Shop is a seller dashboard — never offer it to a guest. Gated on
+     is-anon alone (not is-native.is-anon) so it hides on web too; the Sign Out
+     rule above is app-only for historical reasons, this one should not be. */
+  body.is-anon .drawer-my-shop { display: none; }
   body.is-native.is-anon .mobile-nav-link[data-action="sign-out"] { display: none; }
 
   .drawer-identity { display: none; }
@@ -5270,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r297</span></div>
+        <span class="auth-build" aria-hidden="true">r298</span></div>
     </div>
   </div>
 </div>
@@ -6643,6 +6647,16 @@
            drawer keeps its pre-existing behavior (see investigation notes). -->
       <a href="#" class="mobile-nav-link drawer-signin" data-action="show-auth">
         <span class="mobile-nav-link-label">Sign In</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
+      <!-- r298: My Shop was reachable only from the mobile account hub, which
+           is not where a seller looks for it. It is the seller's whole
+           dashboard — listings, payouts, sold items — so it leads the signed-in
+           ACCOUNT rows. Hidden for guests (body.is-anon): the action calls
+           requireAuth anyway, but offering a dashboard to someone with no
+           account is a dead end, not an invitation. -->
+      <a href="#" class="mobile-nav-link drawer-my-shop" data-action="open-shop-dashboard">
+        <span class="mobile-nav-link-label">My Shop</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
       <a href="#" class="mobile-nav-link" data-action="open-profile-self">
@@ -24927,7 +24941,10 @@ try {
     }, 200);
   }
 } catch (_e) {}
-A['open-shop-dashboard']     = () => { if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
+// r298: close the drawer first — My Shop is now a drawer row, and nothing
+// closes the drawer on link tap (open-about gets away with it because the info
+// backdrop sits above it; the dashboard does not).
+A['open-shop-dashboard']     = () => { A['close-mobile-nav'](); if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
 A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
