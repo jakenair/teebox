@@ -4322,6 +4322,15 @@ function isSafeForMarketplace(annotation) {
   if (violence === "VERY_LIKELY") return false;
   return true;
 }
+// Self-healing for listings hidden by an automated image check lives in
+// lib/autoClearFlag.js — pure enough to unit-test without booting
+// firebase-admin, and the safety rules (only ever clear an AUTOMATED flag,
+// only on a re-scan that passed the same thresholds) are documented there.
+const {
+  clearAutoFlagIfClean,
+  AUTO_FLAG_SOURCE,
+} = require("./lib/autoClearFlag");
+
 function describeSafeSearchTrip(annotation) {
   if (!annotation) return "unknown";
   const reasons = [];
@@ -4482,6 +4491,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
               status: "flagged",
               moderationFlags: {
                 reason,
+                source: AUTO_FLAG_SOURCE,
                 flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
                 offendingPath: obj.name,
               },
@@ -4572,6 +4582,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
               status: "flagged",
               moderationFlags: {
                 reason,
+                source: AUTO_FLAG_SOURCE,
                 flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
                 offendingPath: obj.name,
               },
@@ -4627,6 +4638,14 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
             logger.error("photoVariants write failed", obj.name, e && e.message);
           }
         }
+        // Self-heal: if an automated check previously hid this listing, a
+        // clean re-scan releases it. Without this a seller had no way out —
+        // firestore.rules blocks the status transition and updateListing
+        // never touches status, so re-uploading a good photo changed nothing
+        // and the listing stayed invisible until an admin intervened.
+        await clearAutoFlagIfClean(
+            {db: admin.firestore(), FieldValue: admin.firestore.FieldValue, logger},
+            {listingId, sellerId, objPath: obj.name, annotation: safeSearch});
         return;
       }
 
@@ -4664,6 +4683,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           status: "flagged",
           moderationFlags: {
             reason,
+            source: AUTO_FLAG_SOURCE,
             signals: safeSearch || {},
             flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
             offendingPath: obj.name,

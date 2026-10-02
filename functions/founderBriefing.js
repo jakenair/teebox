@@ -364,6 +364,34 @@ async function collectMetrics(windowStart, windowEnd) {
     logger.warn("[BRIEFING] stuck-flagged check failed", {err: e.message || e});
   }
 
+  // ── Auto-cleared flags (added 2026-10-01) ─────────────────
+  // How many listings the self-heal released in this window. A healthy
+  // number is 0; a non-zero number means the automated image check is
+  // producing false positives again and is worth looking at even though
+  // sellers are no longer stuck behind them.
+  try {
+    const snap = await db.collection("moderationLog")
+      .where("action", "==", "auto_flag_cleared")
+      .where("createdAt", ">=", windowStart)
+      .where("createdAt", "<", windowEnd)
+      .get();
+    m.autoClearedFlagsCount = snap.size;
+    if (snap.size > 0) {
+      const reasons = {};
+      for (const doc of snap.docs) {
+        const r = (doc.data() || {}).previousReason || "(unknown)";
+        reasons[r] = (reasons[r] || 0) + 1;
+      }
+      m.autoClearedFlagReasons = reasons;
+      m.notes.push(
+          `${snap.size} listing(s) auto-cleared after a clean re-scan ` +
+          `(${Object.entries(reasons).map(([k, v]) => `${k}:${v}`).join(", ")})`);
+    }
+  } catch (e) {
+    m.notes.push(`auto-cleared-flags check failed: ${e.message || e}`);
+    logger.warn("[BRIEFING] auto-cleared-flags check failed", {err: e.message || e});
+  }
+
   // ── Orders / GMV ──────────────────────────────────────────
   // Orders are created by the Stripe webhook with `status: "paid"`. We
   // count "completed transactions" as any order with createdAt in the
