@@ -5274,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r299</span></div>
+        <span class="auth-build" aria-hidden="true">r300</span></div>
     </div>
   </div>
 </div>
@@ -12468,13 +12468,26 @@ function renderMostViewedWidget() {
     return bt - at;
   };
   const viewsOf = (p) => (window.getListingViews ? Number(window.getListingViews(p) || 0) : 0);
-  const viewed = all
-    .filter(p => viewsOf(p) > 0)
-    .sort((a, b) => viewsOf(b) - viewsOf(a));
+  const ranked = all
+    .filter(p => window.popularityRaw(p) >= window.POPULARITY_MIN_SIGNAL)
+    .sort((a, b) => window.popularityScore(b) - window.popularityScore(a));
+  // One listing per seller in the top 3. A no-op at today's spread (the
+  // uncapped top 3 is already three different sellers) but it stops the
+  // front page concentrating on whoever happens to post the most — one
+  // seller already holds 7 of 25 active listings.
+  const capped = [];
+  const sellersSeen = new Set();
+  for (const p of ranked) {
+    if (capped.length === 3) break;
+    const sid = p.sellerId || p.seller || '';
+    if (sid && sellersSeen.has(sid)) continue;
+    if (sid) sellersSeen.add(sid);
+    capped.push(p);
+  }
   let picks, heading;
-  if (viewed.length) {
-    heading = 'Most Viewed';
-    picks = viewed.slice(0, 3);
+  if (capped.length) {
+    heading = 'Trending';
+    picks = capped;
     if (picks.length < 3) {
       // Top up with newest listings not already shown.
       const seen = new Set(picks.map(p => p.id));
@@ -12482,7 +12495,7 @@ function renderMostViewedWidget() {
       picks = picks.concat(filler.slice(0, 3 - picks.length));
     }
   } else {
-    // Zero views anywhere — newest 3, relabelled.
+    // Nothing has cleared the engagement floor yet — newest 3, relabelled.
     heading = 'New Listings';
     picks = all.slice().sort(byNewest).slice(0, 3);
   }
@@ -15693,6 +15706,63 @@ function getListingViews(listing) {
 }
 // Exposed for renderProductCard, which builds the stats line via window.*
 window.getListingViews = getListingViews;
+
+// ── Popularity scoring (r300) ────────────────────────────────────────────
+// Ranks a listing by engagement, decayed by age, for the Trending widget.
+//
+//   raw   = views + 3*watchers + 5*messages
+//   score = raw / (ageInDays + 7) ^ 0.7
+//
+// Weights: a watcher and a message are far stronger intent than a view, and
+// far rarer — today's marketplace holds 351 views, 3 watchers, 10 messages.
+//
+// Gravity was picked from live data, not taste. The obvious Hacker-News
+// shape — hours, gravity 1.4 — is badly wrong here: it assumes new items
+// gather points in hours, whereas a new TeeBox listing gets 1-2 views a day.
+// At 1.4 the top six were all 1-day-old listings with ONE view, ranking
+// above a listing with seventeen. Days-based decay at 0.7 with a 7-day
+// offset keeps the genuinely popular items visible while giving a new
+// listing with real traction a path to the top: measured against live data
+// the top four span 144d, 7d, 19d and 1d old.
+//
+// POPULARITY_MIN_SIGNAL is the floor. Without it, a brand-new listing nobody
+// has opened outranks everything, because the denominator dominates. 18 of
+// 25 active listings clear it today; the widget falls back to "New Listings"
+// if none do.
+//
+// All-time, not windowed — there is no time-bucketed view data. If that is
+// ever added, revisit the decay here and the heading in the widget.
+const POPULARITY_W_VIEW = 1;
+const POPULARITY_W_WATCH = 3;
+const POPULARITY_W_MESSAGE = 5;
+const POPULARITY_GRAVITY = 0.7;
+const POPULARITY_OFFSET_DAYS = 7;
+window.POPULARITY_MIN_SIGNAL = 5;
+
+function popularityRaw(listing) {
+  if (!listing) return 0;
+  const views = getListingViews(listing);
+  const watch = Number(listing.watchlistCount || 0);
+  const msgs = Number(listing.messageCount || 0);
+  return views * POPULARITY_W_VIEW +
+    watch * POPULARITY_W_WATCH +
+    msgs * POPULARITY_W_MESSAGE;
+}
+window.popularityRaw = popularityRaw;
+
+function popularityScore(listing, nowMs) {
+  if (!listing) return 0;
+  const raw = popularityRaw(listing);
+  if (raw <= 0) return 0;
+  const created = listing.createdAt && listing.createdAt.toDate ?
+    listing.createdAt.toDate().getTime() : 0;
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  // A missing createdAt would otherwise read as 1970 and decay to nothing;
+  // treat it as brand new so a data gap can't silently bury a listing.
+  const ageDays = created ? Math.max(0, (now - created) / 86400000) : 0;
+  return raw / Math.pow(ageDays + POPULARITY_OFFSET_DAYS, POPULARITY_GRAVITY);
+}
+window.popularityScore = popularityScore;
 
 // Structure 2: order.amount includes the buyer-paid shipping that funds
 // the label — it never belongs in a SELLER's sale/revenue figures. Use the
