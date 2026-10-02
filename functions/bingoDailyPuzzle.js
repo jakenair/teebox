@@ -65,6 +65,13 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const path = require("path");
+// Generated CommonJS build of /bingo-select.mjs — see scripts/sync-bingo-select.mjs.
+const bingoSelect = require("./lib/bingoSelect");
+
+// How many days of puzzles the nightly job keeps generated ahead of today.
+// Founder requirement 2026-10-01: at least 14. See the comment in
+// generateDailyBingoPuzzle for why runway matters.
+const PUZZLE_RUNWAY_DAYS = 21;
 
 const SCHEDULED_BATCH = {
   region: "us-central1",
@@ -123,64 +130,39 @@ function mulberry32(seed) {
 // Same windowed-walk algorithm as the web client. Given a YYYY-MM-DD
 // string, returns 9 courses from CANON.courses in the canonical order.
 //
-// IMPORTANT: any change here MUST be mirrored in index.html dailySeed()
-// AND increment GENERATOR_VERSION above. The cross-platform regression
-// test (scripts/test-bingo-cross-platform.mjs) will fail otherwise.
-// Per-cycle reshuffle of the FULL pool. The seed combines the canon seed
-// with the cycle index, so each full pass through the pool is a fresh
-// permutation — that is what stops the same windowCount-day board sequence
-// from repeating verbatim. Returns a fresh array. MUST match index.html
-// dailySeed() byte-for-byte.
-function cycleShuffle(cycle) {
-  const rngOrder = mulberry32(hashStr(`${CANON.seed}:cycle:${cycle}`));
-  const pool = CANON.courses.slice();
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(rngOrder() * (i + 1));
-    const tmp = pool[i];
-    pool[i] = pool[j];
-    pool[j] = tmp;
-  }
-  return pool;
-}
+// cycleShuffle() used to live here. It moved into /bingo-select.mjs with the
+// rest of the legacy algorithm on 2026-10-01 and was deleted from this file
+// rather than left orphaned: a stray copy of the old selection logic sitting
+// in the server module is precisely the kind of thing that gets rewired by
+// accident. hashStr/mulberry32 stay because __test still exports them.
 
+// The algorithm itself lives in /bingo-select.mjs — the single authored copy
+// the web client and the iOS bundle import directly. functions/lib/
+// bingoSelect.js is the mechanically generated CommonJS build of that exact
+// file (scripts/sync-bingo-select.mjs), so the server cannot drift from the
+// client. Do not reimplement selection here; that duplication is what let the
+// 2026-10-01 divergence go unnoticed.
+//
+// Dates before bingoSelect.CUTOVER_DATE still use the original algorithm,
+// preserved verbatim inside that module, so every historical board stays
+// reproducible and already-scored games keep matching.
 function selectDailyCourses(dateStr) {
   const today = new Date(dateStr + "T00:00:00Z");
   const epoch = new Date(CANON.epoch);
   const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
   const poolSize = CANON.courses.length;
+  const courses = bingoSelect.selectBoard(dateStr, CANON.courses);
+
+  // `windowStart` and `cycle` describe the legacy rotation and have no
+  // meaning under the stable algorithm. Kept in the doc for schema
+  // compatibility with already-written puzzles; null signals "not legacy".
+  const legacy = dateStr < bingoSelect.CUTOVER_DATE;
   const windowCount = Math.max(1, Math.floor(poolSize / 9));
-  const cycle = Math.floor(daysSince / windowCount);
-  const windowIndex = daysSince % windowCount;
-  const arr = cycleShuffle(cycle);
-  // Cycle-boundary de-dup: a logo on the LAST day of the previous cycle (its
-  // last window) must NOT reappear on day 0 of this cycle. Pull any such logo
-  // out of window 0 into windows 1..(windowCount-2) — never the last window,
-  // so the previous cycle's last day stays its plain shuffle (keeps this O(1),
-  // no recursion, and avoids a degenerate fixed point). Result: zero
-  // consecutive-day repeats across every cycle boundary.
-  if (cycle > 0) {
-    const prev = cycleShuffle(cycle - 1);
-    const forbidden = new Set(
-        prev.slice((windowCount - 1) * 9, windowCount * 9).map((c) => c.id));
-    for (let i = 0; i < 9; i++) {
-      if (forbidden.has(arr[i].id)) {
-        for (let j = poolSize - 10; j >= 9; j--) {
-          if (!forbidden.has(arr[j].id)) {
-            const tmp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = tmp;
-            break;
-          }
-        }
-      }
-    }
-  }
-  const start = windowIndex * 9;
   return {
-    courses: arr.slice(start, start + 9),
+    courses,
     daysSinceEpoch: daysSince,
-    windowStart: windowIndex,
-    cycle,
+    windowStart: legacy ? daysSince % windowCount : null,
+    cycle: legacy ? Math.floor(daysSince / windowCount) : null,
     poolSize,
   };
 }
@@ -265,7 +247,16 @@ exports.generateDailyBingoPuzzle = onSchedule(
       const db = admin.firestore();
       const today = todayUtcDateKey();
       const dates = [];
-      for (let i = 0; i < 7; i++) dates.push(addDaysUtc(today, i));
+      // Widened from 7 to 21 on 2026-10-01 (founder ruling: keep at least 14
+      // days generated ahead). The client falls back to computing a board
+      // locally when /dailyPuzzles/{date} is missing, and an installed app
+      // running an older bundle computes it from ITS pool — which is how web
+      // and iOS showed different boards. Deep runway means a missing doc is
+      // never the reason the fallback fires. Writes are idempotent:
+      // writePuzzleForDate preserves anything dated <= today and no-ops when
+      // the board and generator version already match, so the extra dates
+      // cost a read each, not a write.
+      for (let i = 0; i < PUZZLE_RUNWAY_DAYS; i++) dates.push(addDaysUtc(today, i));
 
       const results = [];
       for (const date of dates) {

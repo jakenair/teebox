@@ -25484,6 +25484,10 @@ if (uploadZone) {
 <script type="module">
   import { COURSES, courseLogoUrl } from './bingo-courses.js';
   import { LOGOS_AVAILABLE } from './assets/logos/manifest.js';
+  // THE board algorithm — the one authored copy, shared verbatim with the
+  // Cloud Function (via its generated CommonJS build) and the iOS bundle.
+  // Never reimplement selection here; see bingo-select.mjs for why.
+  import { selectBoard, hashStr } from './bingo-select.mjs';
 
   // ── Date helpers ───────────────────────────────────────────────────────
   // Daily puzzle flips at midnight US Eastern so US users get a fresh
@@ -25515,68 +25519,25 @@ if (uploadZone) {
     return `${yy}-${mm}-${dd}`;
   }
 
-  // ── Deterministic PRNG (mulberry32) seeded by a date hash. Same date →
-  //    same sequence → same 9 courses for every user worldwide. ────────────
-  function hashStr(s) {
-    let h = 2166136261 >>> 0;            // FNV-1a 32-bit
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return h >>> 0;
-  }
-  function mulberry32(seed) {
-    let a = seed >>> 0;
-    return function() {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  // Pick 9 deterministic courses for the given date string. Same 9 worldwide
-  // on the same date. Uses a canonical pre-shuffled ordering and walks it 9
-  // tiles at a time so no course repeats within one cycle.
+  // The PRNG and hash used to live here. They moved into bingo-select.mjs
+  // on 2026-10-01 so the client, the server and the iOS bundle cannot drift.
+  // hashStr is imported above — it is still used for the board fingerprint.
+  // Pick the 9 courses for a date. OFFLINE FALLBACK ONLY — the canonical
+  // board comes from /dailyPuzzles/{date} (see loadTodaysBingoPuzzle).
   //
-  // IMPORTANT: pool is filtered to courses with a real PNG logo (LOGOS_AVAILABLE)
-  // — Bingo is a *Logo* game, emoji fallbacks defeat the point.
+  // The algorithm is NOT implemented here. It lives in bingo-select.mjs, the
+  // single authored copy shared by this client, the iOS bundle and the Cloud
+  // Function, so the three cannot drift. Before 2026-10-01 each had its own
+  // copy and the iOS one silently fell a pool-change behind, computing a
+  // board that shared 3 of 9 tiles with the server.
+  //
+  // pool is filtered to courses with a real PNG logo (LOGOS_AVAILABLE) —
+  // Bingo is a *Logo* game, emoji fallbacks defeat the point. The server
+  // filters the identical way when it builds the canon, so both sides pass
+  // selectBoard the same pool.
   function dailySeed(dateStr) {
-    // Local fallback — MUST stay byte-identical to the server's
-    // selectDailyCourses (functions/bingoDailyPuzzle.js): per-cycle reshuffle
-    // + cycle-boundary de-dup, so boards never repeat verbatim and no logo
-    // lands on consecutive days across a cycle change.
     const pool0 = COURSES.filter(c => LOGOS_AVAILABLE.has(c.id));
-    const today = new Date(dateStr + 'T00:00:00Z');
-    const epoch = new Date('2026-01-01T00:00:00Z');
-    const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
-    const poolSize = pool0.length;
-    const windowCount = Math.max(1, Math.floor(poolSize / 9));
-    const cycle = Math.floor(daysSince / windowCount);
-    const windowIndex = daysSince % windowCount;
-    const cycleShuffle = (cyc) => {
-      const rng = mulberry32(hashStr('teebox-bingo-canon-v3:cycle:' + cyc));
-      const p = pool0.slice();
-      for (let i = p.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        const t = p[i]; p[i] = p[j]; p[j] = t;
-      }
-      return p;
-    };
-    const arr = cycleShuffle(cycle);
-    if (cycle > 0) {
-      const prev = cycleShuffle(cycle - 1);
-      const forbidden = new Set(prev.slice((windowCount - 1) * 9, windowCount * 9).map(c => c.id));
-      for (let i = 0; i < 9; i++) {
-        if (forbidden.has(arr[i].id)) {
-          for (let j = poolSize - 10; j >= 9; j--) {
-            if (!forbidden.has(arr[j].id)) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break; }
-          }
-        }
-      }
-    }
-    const start = windowIndex * 9;
-    return arr.slice(start, start + 9);
+    return selectBoard(dateStr, pool0);
   }
 
   // ── Fuzzy match: normalize, then check `name`, `shortName`, `aliases` ──

@@ -2,215 +2,182 @@
 /**
  * scripts/test-bingo-cross-platform.mjs
  *
- * Regression test for LOGO_BINGO_DIAGNOSIS.md: asserts that for any
- * given date, the WEB CLIENT's dailySeed() function and the CLOUD
- * FUNCTION's selectDailyCourses() produce IDENTICAL 9-course arrays
- * in the same order.
+ * Asserts that every surface that can produce a Logo Bingo board produces the
+ * SAME board: the Cloud Function, the web client, and the bundle that ships
+ * inside the iOS app.
  *
- * The two implementations live in different files (index.html ESM
- * block vs functions/bingoDailyPuzzle.js CommonJS module) but they
- * MUST stay in lockstep. This test loads both, replays them across a
- * year of dates, and fails loudly if the outputs ever disagree.
+ * WHY THIS WAS REWRITTEN (2026-10-01)
+ * The previous version loaded the server's selectDailyCourses and compared it
+ * against a THIRD re-implementation of the algorithm written inside this file,
+ * with both sides reading the repo's current manifest. It passed 366/366 dates
+ * on the day Logo Bingo was visibly different on web and iOS, because:
+ *   - it never loaded the shipped iOS bundle, so it could not see that the
+ *     bundle's logo manifest still contained a course the web had retired
+ *     (pool 159 vs 158 — boards sharing 3 of 9 tiles); and
+ *   - comparing an implementation against a copy of itself proves nothing
+ *     about the code that actually runs.
+ * It now imports the one real module and diffs the real artifacts.
  *
- * Run via `npm run test:bingo-cross-platform` from the repo root.
+ * Checks:
+ *   1. functions/lib/bingoSelect.js is the current generated build of
+ *      /bingo-select.mjs (hash stamp matches).
+ *   2. The iOS bundle's bingo-select.mjs and logo manifest are byte-identical
+ *      to the web ones — this is the drift that caused the incident.
+ *   3. Server selectDailyCourses == client dailySeed path, every date for the
+ *      next 60 days (and across the cutover seam).
+ *   4. Boards are 9 unique courses, and no course repeats inside the lookback
+ *      window.
+ *   5. Pre-cutover dates still reproduce the legacy algorithm exactly.
  *
- * Exit codes:
- *   0  all dates match
- *   1  any date diverges (CI should fail the build)
- *   2  test harness failure (file missing, parse error, etc.)
+ * Run: npm run test:bingo-cross-platform
+ * Exit: 0 all good · 1 divergence · 2 harness failure
  */
 
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import {readFileSync, existsSync} from "node:fs";
+import {dirname, resolve} from "node:path";
+import {fileURLToPath} from "node:url";
+import {createRequire} from "node:module";
+import {createHash} from "node:crypto";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const REPO_ROOT = resolve(__dirname, "..");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 
-// ── Load the web client's dailySeed() ──────────────────────────────────────
-// dailySeed() is embedded in index.html (inside a <script type="module">).
-// Rather than parse the whole HTML, we extract the algorithm by importing
-// the canonical inputs (bingo-courses.js + manifest.js) and re-implementing
-// the SAME shuffle here — using byte-identical PRNG + seed string + epoch.
-//
-// Drift guard: if anyone changes dailySeed() in index.html, they must
-// also change this helper (or the bingoDailyPuzzle.js algorithm). All
-// three are reviewed together — see LOGO_BINGO_DIAGNOSIS.md.
-function hashStr(s) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
+const DAYS_AHEAD = 60;
+let failures = 0;
+const fail = (msg) => {
+  failures++;
+  console.error(`[FAIL] ${msg}`);
+};
+const ok = (msg) => console.log(`[OK] ${msg}`);
+
+function shiftDate(dateStr, n) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function() {
-    a = (a + 0x6D2B79F5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+const sha = (s) => createHash("sha256").update(s, "utf8").digest("hex").slice(0, 16);
 
-async function loadWebPool() {
-  const coursesMod = await import(resolve(REPO_ROOT, "bingo-courses.js"));
-  const manifestMod = await import(
-      resolve(REPO_ROOT, "assets", "logos", "manifest.js"));
-  return coursesMod.COURSES
-      .filter((c) => manifestMod.LOGOS_AVAILABLE.has(c.id))
-      .map((c) => ({id: c.id, shortName: c.shortName || c.name || c.id}));
-}
-
-function webDailySeed(dateStr, pool) {
-  // EXACT copy of dailySeed() from index.html — keep these aligned.
-  // Per-cycle reshuffle + cycle-boundary de-dup (was a stale single-shuffle
-  // reimplementation; re-synced 2026-09-04 to match index.html + the server's
-  // selectDailyCourses, both of which moved to cycleShuffle).
-  const pool0 = pool;
-  const today = new Date(dateStr + "T00:00:00Z");
-  const epoch = new Date("2026-01-01T00:00:00Z");
-  const daysSince = Math.max(0, Math.floor((today - epoch) / 86400000));
-  const poolSize = pool0.length;
-  const windowCount = Math.max(1, Math.floor(poolSize / 9));
-  const cycle = Math.floor(daysSince / windowCount);
-  const windowIndex = daysSince % windowCount;
-  const cycleShuffle = (cyc) => {
-    const rng = mulberry32(hashStr("teebox-bingo-canon-v3:cycle:" + cyc));
-    const p = pool0.slice();
-    for (let i = p.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      const t = p[i]; p[i] = p[j]; p[j] = t;
-    }
-    return p;
-  };
-  const arr = cycleShuffle(cycle);
-  if (cycle > 0) {
-    const prev = cycleShuffle(cycle - 1);
-    const forbidden = new Set(
-        prev.slice((windowCount - 1) * 9, windowCount * 9).map((c) => c.id));
-    for (let i = 0; i < 9; i++) {
-      if (forbidden.has(arr[i].id)) {
-        for (let j = poolSize - 10; j >= 9; j--) {
-          if (!forbidden.has(arr[j].id)) {
-            const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break;
-          }
-        }
-      }
-    }
-  }
-  const start = windowIndex * 9;
-  return arr.slice(start, start + 9);
-}
-
-// ── Load the Cloud Function's selectDailyCourses() ─────────────────────────
-function loadServerSelector() {
-  const mod = require(resolve(REPO_ROOT, "functions", "bingoDailyPuzzle.js"));
-  if (!mod || !mod.__test || typeof mod.__test.selectDailyCourses !== "function") {
-    throw new Error(
-        "functions/bingoDailyPuzzle.js doesn't export __test.selectDailyCourses");
-  }
-  return mod.__test;
-}
-
-// ── Date iteration helpers ─────────────────────────────────────────────────
-function addDays(yyyymmdd, days) {
-  const [y, m, d] = yyyymmdd.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  const yy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-// ── Main ───────────────────────────────────────────────────────────────────
-async function main() {
-  let serverSelector;
-  try {
-    serverSelector = loadServerSelector();
-  } catch (err) {
-    console.error("[FATAL] could not load server selector:", err.message);
-    process.exit(2);
-  }
-  let webPool;
-  try {
-    webPool = await loadWebPool();
-  } catch (err) {
-    console.error("[FATAL] could not load web pool:", err.message);
-    process.exit(2);
-  }
-
-  // Sanity: pool sizes match (the function's canon JSON should be a
-  // byte-equal subset of what the web client filters down to).
-  if (webPool.length !== serverSelector.CANON.courses.length) {
-    console.error(
-        `[FAIL] pool size mismatch: web=${webPool.length} ` +
-        `server=${serverSelector.CANON.courses.length}`);
-    process.exit(1);
-  }
-  for (let i = 0; i < webPool.length; i++) {
-    if (webPool[i].id !== serverSelector.CANON.courses[i].id) {
-      console.error(
-          `[FAIL] pool order mismatch at index ${i}: ` +
-          `web=${webPool[i].id} server=${serverSelector.CANON.courses[i].id}`);
-      process.exit(1);
-    }
-  }
-
-  // Walk a year of dates starting from the epoch.
-  let mismatches = 0;
-  let start = "2026-01-01";
-  const DAYS_TO_CHECK = 366;
-  for (let i = 0; i < DAYS_TO_CHECK; i++) {
-    const date = addDays(start, i);
-    const webOut = webDailySeed(date, webPool);
-    const serverOut = serverSelector.selectDailyCourses(date).courses;
-    const webIds = webOut.map((c) => c.id).join(",");
-    const serverIds = serverOut.map((c) => c.id).join(",");
-    if (webIds !== serverIds) {
-      console.error(`[MISMATCH] ${date}`);
-      console.error(`  web:    ${webIds}`);
-      console.error(`  server: ${serverIds}`);
-      mismatches += 1;
-      if (mismatches > 5) {
-        console.error("(...stopping after 5 mismatches)");
-        break;
-      }
-    }
-  }
-
-  if (mismatches > 0) {
-    console.error(
-        `\n[FAIL] ${mismatches} dates produced different puzzles. ` +
-        `Either dailySeed() in index.html OR selectDailyCourses() in ` +
-        `functions/bingoDailyPuzzle.js has drifted.`);
-    process.exit(1);
-  }
-
-  // Also assert the server's logoUrls are absolute CDN URLs.
-  const sample = serverSelector.selectDailyCourses("2026-05-15").courses;
-  for (const c of sample) {
-    if (typeof c.logoUrl !== "string" || !c.logoUrl.startsWith("https://")) {
-      console.error(
-          `[FAIL] server course ${c.id} logoUrl is not an absolute https URL: ${c.logoUrl}`);
-      process.exit(1);
-    }
-  }
-
-  console.log(
-      `[OK] web dailySeed() and server selectDailyCourses() ` +
-      `produced identical puzzles for ${DAYS_TO_CHECK} consecutive dates.`);
-  console.log(
-      `[OK] all logoUrls in sample are absolute https CDN URLs.`);
-}
-
-main().catch((err) => {
-  console.error("[FATAL]", err);
+// ── 1. generated CommonJS build is current ──────────────────────────────────
+const SRC = resolve(ROOT, "bingo-select.mjs");
+const GEN = resolve(ROOT, "functions/lib/bingoSelect.js");
+if (!existsSync(SRC)) {
+  console.error("[HARNESS] missing bingo-select.mjs");
   process.exit(2);
-});
+}
+if (!existsSync(GEN)) {
+  fail("functions/lib/bingoSelect.js missing — run: node scripts/sync-bingo-select.mjs");
+} else {
+  const stamp = (readFileSync(GEN, "utf8").match(/source-sha256: ([0-9a-f]+)/) || [])[1];
+  const want = sha(readFileSync(SRC, "utf8"));
+  if (stamp !== want) {
+    fail(`functions/lib/bingoSelect.js is stale (stamp ${stamp}, source ${want}) ` +
+      `— run: node scripts/sync-bingo-select.mjs`);
+  } else {
+    ok(`functions/lib/bingoSelect.js is the current build of bingo-select.mjs (${want})`);
+  }
+}
+
+// ── 2. the iOS bundle matches the web ───────────────────────────────────────
+const IOS = resolve(ROOT, "ios/App/App/public");
+if (!existsSync(IOS)) {
+  console.warn("[SKIP] no ios/App/App/public — run `npm run build:web` to populate it");
+} else {
+  for (const rel of ["bingo-select.mjs", "bingo-courses.js", "assets/logos/manifest.js"]) {
+    const w = resolve(ROOT, rel);
+    const i = resolve(IOS, rel);
+    if (!existsSync(i)) {
+      fail(`iOS bundle is missing ${rel} — run \`npm run build:web\``);
+      continue;
+    }
+    const a = sha(readFileSync(w, "utf8"));
+    const b = sha(readFileSync(i, "utf8"));
+    if (a !== b) {
+      fail(`iOS bundle ${rel} differs from web (${b} vs ${a}). ` +
+        `The shipped app would compute different boards. Run \`npm run build:web\` ` +
+        `(NOT a bare \`npx cap sync\`, which copies a stale dist/).`);
+    } else {
+      ok(`iOS bundle ${rel} is identical to web`);
+    }
+  }
+}
+
+// ── 3. server vs client, every date ─────────────────────────────────────────
+const serverMod = require(resolve(ROOT, "functions/bingoDailyPuzzle.js"));
+if (!serverMod || !serverMod.__test || typeof serverMod.__test.selectDailyCourses !== "function") {
+  console.error("[HARNESS] functions/bingoDailyPuzzle.js doesn't export __test.selectDailyCourses");
+  process.exit(2);
+}
+const serverSelect = serverMod.__test.selectDailyCourses;
+
+const {COURSES} = await import(resolve(ROOT, "bingo-courses.js"));
+const {LOGOS_AVAILABLE} = await import(resolve(ROOT, "assets/logos/manifest.js"));
+const sel = await import(SRC);
+// Exactly what index.html's dailySeed() does.
+const clientPool = COURSES.filter((c) => LOGOS_AVAILABLE.has(c.id));
+const clientBoard = (d) => sel.selectBoardIds(d, clientPool);
+
+const today = new Date().toISOString().slice(0, 10);
+// Start before the cutover so the seam itself is covered.
+const start = shiftDate(sel.CUTOVER_DATE, -5);
+const dates = [];
+for (let i = 0; i < DAYS_AHEAD + 10; i++) dates.push(shiftDate(start, i));
+for (let i = 1; i <= DAYS_AHEAD; i++) {
+  const d = shiftDate(today, i);
+  if (!dates.includes(d)) dates.push(d);
+}
+
+let diverged = 0;
+for (const d of dates) {
+  const s = serverSelect(d).courses.map((c) => c.id);
+  const c = clientBoard(d);
+  if (s.join("|") !== c.join("|")) {
+    diverged++;
+    if (diverged <= 3) {
+      fail(`${d} server != client\n      server: ${s.join(", ")}\n      client: ${c.join(", ")}`);
+    }
+  }
+}
+if (diverged) {
+  fail(`${diverged} of ${dates.length} dates diverged between server and client`);
+} else {
+  ok(`server and client agree on all ${dates.length} dates ` +
+    `(${dates[0]} .. ${dates[dates.length - 1]}, spanning the ${sel.CUTOVER_DATE} cutover)`);
+}
+
+// ── 4. board shape + lookback ───────────────────────────────────────────────
+let shapeBad = 0;
+let repeats = 0;
+for (const d of dates) {
+  const b = clientBoard(d);
+  if (b.length !== 9 || new Set(b).size !== 9) shapeBad++;
+  if (d >= sel.CUTOVER_DATE) {
+    const prev = new Set();
+    for (let i = 1; i <= sel.LOOKBACK_DAYS; i++) {
+      clientBoard(shiftDate(d, -i)).forEach((x) => prev.add(x));
+    }
+    repeats += b.filter((x) => prev.has(x)).length;
+  }
+}
+if (shapeBad) fail(`${shapeBad} dates did not produce 9 unique courses`);
+else ok("every board is exactly 9 unique courses");
+if (repeats) fail(`${repeats} course(s) repeated inside the ${sel.LOOKBACK_DAYS}-day lookback window`);
+else ok(`no course repeats inside the ${sel.LOOKBACK_DAYS}-day lookback window`);
+
+// ── 5. legacy dates unchanged ───────────────────────────────────────────────
+// Anything before the cutover must still come from the frozen algorithm, so
+// already-played boards and their scores stay valid.
+const legacyProbe = ["2026-05-15", "2026-09-01", "2026-10-02", "2026-10-04"];
+let legacyBad = 0;
+for (const d of legacyProbe) {
+  const s = serverSelect(d).courses.map((c) => c.id);
+  const c = clientBoard(d);
+  if (s.join("|") !== c.join("|")) {
+    legacyBad++;
+    fail(`legacy date ${d} diverged`);
+  }
+}
+if (!legacyBad) ok(`legacy dates still reproduce identically (${legacyProbe.join(", ")})`);
+
+console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll cross-platform checks passed.");
+process.exit(failures ? 1 : 0);
