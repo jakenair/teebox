@@ -33,6 +33,21 @@
 // even if a stale IPA carries an older bingo-courses.js, the rendered
 // <img src> from this doc still points at the live PNGs.
 //
+// DO NOT "FIX" THESE TO RELATIVE PATHS. (2026-10-01) A relative
+// /assets/logos/{id}.png resolves against the app's own bundle on iOS,
+// which is exactly the stale artwork this absolute URL exists to bypass.
+// Making them relative looks tidier and permanently freezes every iOS
+// user on whatever logos shipped with their build.
+//
+// The absolute URL was silently failing in-app anyway: index.html's CSP
+// `img-src` did not list https://teeboxmarket.com, and in the WebView
+// 'self' is capacitor://localhost, not the web origin. So every tile
+// failed its first probe and fell back to the stale bundled PNG — the
+// fallback masked it, which is why nobody noticed until a 2026-10-01
+// board drew bethpage-black, one of 12 logos re-framed in r293.
+// teeboxmarket.com was added to img-src in r297. That CSP lives in the
+// bundled index.html, so it only takes effect for iOS on the NEXT build.
+//
 // Schedule: every UTC midnight. The doc id is the UTC date string, and
 // the manual `runGenerateDailyPuzzles` callable lets the founder pre-
 // generate the next N days for backfill.
