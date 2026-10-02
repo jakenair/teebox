@@ -5274,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r298</span></div>
+        <span class="auth-build" aria-hidden="true">r299</span></div>
     </div>
   </div>
 </div>
@@ -11452,10 +11452,20 @@ window.confirmPayment = async function() {
     buildProducts(); buildTrending(); buildTicker(); updateLiveStats();
   }
 
+  // r299: this read p.viewCount, a field NOTHING has ever written. Views are
+  // recorded by incrementListingView into SHARDED counters (views_0..views_9,
+  // sharded to avoid write contention on a hot listing), and getListingViews()
+  // sums them — which is why My Shop shows real view counts while this badge
+  // silently never appeared. 351 views across 24 active listings existed the
+  // whole time; the badge was reading a field that is always undefined.
+  // getListingViews lives in the sibling classic <script>, hence window.*.
+  function viewsOf(p) {
+    return window.getListingViews ? Number(window.getListingViews(p) || 0) : 0;
+  }
   function deriveHotBadges(products) {
     if (!Array.isArray(products) || !products.length) return;
     const counts = products
-      .map(p => Number(p.viewCount || 0))
+      .map(viewsOf)
       .filter(n => n > 0)
       .sort((a, b) => b - a);
     if (!counts.length) return;
@@ -11463,7 +11473,7 @@ window.confirmPayment = async function() {
     products.forEach(p => {
       // Don't downgrade an existing 'new' badge — newness is more time-sensitive.
       if (p.badge === 'new') return;
-      const v = Number(p.viewCount || 0);
+      const v = viewsOf(p);
       if (v >= cutoff && v >= 5) p.badge = 'hot';
     });
   }
@@ -12429,17 +12439,23 @@ window.CATEGORY_LABEL = function(cat) {
 };
 
 // "Most Viewed" sidebar widget (replaces the static hero card).
-// Shows the top 3 listings by p.viewCount. Fallback chain:
-//   - fewer than 3 listings have viewCount>0 → fill the rest with newest
+// Shows the top 3 listings by actual views (getListingViews). Fallback chain:
+//   - fewer than 3 listings have any views → fill the rest with newest
 //   - ZERO listings have any views → show newest 3 under "New Listings"
 //   - no listings at all → leave the static value-prop copy untouched
 // Reads window.PRODUCTS directly (NOT the filtered list) so the widget is
 // stable across category / price / condition filtering. Re-runs on every
 // buildProducts() call, so it repopulates whenever PRODUCTS reloads.
-// NOTE: viewCount is all-time, not week-scoped — no week-bucketed view
-// data exists client-side. Heading reads "Most Viewed" (no time scope)
-// so the wording matches what the data actually is. If week-scoped view
-// data is added later, update the heading + the viewed sort to match.
+// NOTE: views are all-time, not week-scoped — no week-bucketed view data
+// exists client-side. Heading reads "Most Viewed" (no time scope) so the
+// wording matches what the data actually is. If week-scoped view data is
+// added later, update the heading + the viewed sort to match.
+//
+// r299: this read p.viewCount, which NOTHING writes. Views live in sharded
+// counters (views_0..views_9) summed by getListingViews(). The filter below
+// therefore always matched zero listings, and this widget has silently shown
+// "New Listings" — the fallback — every single time it rendered. 351 views
+// across 24 active listings were there to rank on the whole time.
 function renderMostViewedWidget() {
   const host = document.getElementById('heroMostViewed');
   if (!host) return;
@@ -12451,9 +12467,10 @@ function renderMostViewedWidget() {
     const bt = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
     return bt - at;
   };
+  const viewsOf = (p) => (window.getListingViews ? Number(window.getListingViews(p) || 0) : 0);
   const viewed = all
-    .filter(p => Number(p.viewCount || 0) > 0)
-    .sort((a, b) => Number(b.viewCount || 0) - Number(a.viewCount || 0));
+    .filter(p => viewsOf(p) > 0)
+    .sort((a, b) => viewsOf(b) - viewsOf(a));
   let picks, heading;
   if (viewed.length) {
     heading = 'Most Viewed';
