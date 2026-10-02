@@ -195,9 +195,11 @@ function addDaysUtc(dateStr, days) {
 
 // ── Core writer ─────────────────────────────────────────────────────────────
 // Generates the puzzle for a single date and writes it to Firestore. Idempotent:
-// if the doc already exists with the same generatorVersion AND the same
-// course IDs in the same order, we leave it untouched (no write). This
-// keeps repeated invocations from chewing through Firestore writes.
+// if the doc already exists with the same generatorVersion AND an identical
+// course payload (id + shortName + logoUrl, in order), we leave it untouched
+// (no write). This keeps repeated invocations from chewing through Firestore
+// writes without making the check so narrow that a real change slips past —
+// see the fingerprint comment below.
 async function writePuzzleForDate(db, dateStr) {
   if (!isValidDateString(dateStr)) {
     throw new Error(`invalid date: ${dateStr}`);
@@ -216,10 +218,16 @@ async function writePuzzleForDate(db, dateStr) {
   if (existing.exists) {
     const prev = existing.data() || {};
     const sameVersion = Number(prev.generatorVersion) === GENERATOR_VERSION;
-    const prevIds = Array.isArray(prev.courses) ?
-      prev.courses.map((c) => c && c.id).join(",") : "";
-    const newIds = courses.map((c) => c.id).join(",");
-    if (sameVersion && prevIds === newIds) {
+    // Compare the FULL course payload, not just the ids. The ids-only check
+    // silently skipped the 2026-10-02 logo-CDN migration: the boards were
+    // identical, so every future doc kept its old teeboxmarket.com logoUrl and
+    // the migration looked like it had worked while changing nothing. Anything
+    // we would write differently must count as changed.
+    const fingerprint = (list) => JSON.stringify(
+        (Array.isArray(list) ? list : []).map((c) => [
+          c && c.id, c && c.shortName, c && c.logoUrl,
+        ]));
+    if (sameVersion && fingerprint(prev.courses) === fingerprint(courses)) {
       return {status: "unchanged", date: dateStr, courses};
     }
   }
