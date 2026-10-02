@@ -392,6 +392,53 @@ async function collectMetrics(windowStart, windowEnd) {
     logger.warn("[BRIEFING] auto-cleared-flags check failed", {err: e.message || e});
   }
 
+  // ── Logo Bingo local-fallback plays (added 2026-10-02) ────
+  // The client reports which board it actually played: "server" (the
+  // canonical /dailyPuzzles/{date} doc) or "local" (it recomputed the board
+  // itself because the doc was unreachable). A local play is the risky one —
+  // an installed app computes from the pool bundled in ITS build, and a
+  // stale bundle produces a different board. That is exactly what made Logo
+  // Bingo look different on web and iOS: pool 159 vs 158, sharing 3 of 9
+  // tiles. A locally-played board can also score 0, because resolveAnswerIds
+  // scores positionally against the STORED board.
+  //
+  // Measured baseline on 2026-10-02: 199 server / 2 local over 24 days
+  // (1.0%), both locals on 2026-09-21 and 09-22, none in the 10 days since.
+  // The nightly runway was widened 7 -> 21 days, which should remove the
+  // most likely cause (a missing doc), so this should now be ~0. It was
+  // recorded all along and nobody looked — this makes the next one visible
+  // instead of archaeological.
+  try {
+    const snap = await db.collectionGroup("bingoGames")
+      .where("puzzleSource", "==", "local")
+      .where("syncedAt", ">=", windowStart)
+      .where("syncedAt", "<", windowEnd)
+      .get();
+    m.bingoLocalFallbackCount = snap.size;
+    if (snap.size > 0) {
+      const dates = {};
+      for (const doc of snap.docs) {
+        const d = (doc.data() || {}).date || doc.id;
+        dates[d] = (dates[d] || 0) + 1;
+      }
+      m.bingoLocalFallbackDates = dates;
+      m.notes.push(
+          `${snap.size} Logo Bingo play(s) used the LOCAL board, not the ` +
+          `server doc (${Object.entries(dates).map(([k, v]) => `${k}:${v}`).join(", ")})`);
+      const {opsAlert} = require("./opsAlert");
+      await opsAlert("warn",
+          `${snap.size} Logo Bingo play(s) fell back to a locally computed ` +
+          "board. An app whose bundled course pool is stale computes a " +
+          "DIFFERENT board than the server, and scores positionally against " +
+          "the stored one — so these plays may also have scored wrong. " +
+          "Check that /dailyPuzzles docs exist well ahead of today.",
+          {count: snap.size, dates: JSON.stringify(dates)});
+    }
+  } catch (e) {
+    m.notes.push(`bingo local-fallback check failed: ${e.message || e}`);
+    logger.warn("[BRIEFING] bingo local-fallback check failed", {err: e.message || e});
+  }
+
   // ── Orders / GMV ──────────────────────────────────────────
   // Orders are created by the Stripe webhook with `status: "paid"`. We
   // count "completed transactions" as any order with createdAt in the
