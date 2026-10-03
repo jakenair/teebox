@@ -5274,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r300</span></div>
+        <span class="auth-build" aria-hidden="true">r302</span></div>
     </div>
   </div>
 </div>
@@ -7744,12 +7744,17 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
         if (snap.exists() && snap.data().stripeChargesEnabled === true) {
           try { localStorage.setItem(key, '1'); } catch (_e) {}
           window.fbTrack && window.fbTrack('Lead');
-          // r278 item 4: SellerRegistered. Seller onboarding IS a distinct
-          // step here — Stripe KYC, days after signup — which is the condition
-          // Dylan put on adding this event. Fires at the same one-shot gate as
-          // Lead above (localStorage `key`), so it lands exactly once per
-          // seller, the moment they actually become able to take money.
-          window.fbTrack && window.fbTrack('SellerRegistered', { account_type: 'seller' }, { custom: true });
+          // r302: SellerRegistered REMOVED. Per the 2026-09-24 decision,
+          // restated 2026-10-02, there is no separate seller-registration
+          // event — the registration signal is CompleteRegistration with
+          // account_type, and a second registration-shaped event must never
+          // feed reporting or optimization. The Lead event above still marks
+          // this Stripe-KYC milestone, so the funnel loses nothing.
+          //
+          // NOTE: the comment this replaced said Dylan ASKED for this event.
+          // Both records cannot be right; the 2026-10-02 instruction is the
+          // later one and is what we follow. Do not re-add without a written
+          // ruling that supersedes it.
         }
       } catch (_e) { /* analytics never break boot */ }
     };
@@ -8879,8 +8884,10 @@ window.confirmPayment = async function() {
               // r278 item 4: account_type is 'unknown' at signup on purpose —
               // every TeeBox account starts identical and only becomes a
               // seller later, at Stripe onboarding. Claiming 'buyer' here
-              // would be a guess. The SellerRegistered event below is what
-              // marks the real transition.
+              // would be a guess. (r302: the SellerRegistered event this used
+              // to point at is gone — CompleteRegistration with account_type
+              // IS the registration signal. The Stripe-KYC transition is
+              // marked by Lead.)
               window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' });
             }
           } catch (_e2) { /* swallow */ }
@@ -11625,19 +11632,28 @@ window.confirmPayment = async function() {
       // (e.g. user closes tab between addDoc and the capture call),
       // mirror inside `onListingLive` server-side.
       // r278 item 5: ListingCreated — the quality-listings north star and the
-      // future optimization event for seller campaigns. Listing id, category
-      // and value only. Deliberately NO seller external id: Dylan asked for
-      // one, but an identifier tied to a person belongs in the server payload
-      // alongside the still-unruled advanced-matching decision, not sprayed
-      // into a browser event today.
+      // future optimization event for seller campaigns.
+      //
+      // r302: the seller external_id is now included. It was held back
+      // deliberately while advanced matching was unruled; the founder ruling
+      // of 2026-09-28 approved opaque/hashed identifiers for matching, and
+      // privacy.html now discloses it. external_id is our own uid — an opaque
+      // key, meaningless without our database, and NOT an email, name or
+      // phone. It is what lets Meta join this browser event to the matching
+      // server event for the same seller.
       try {
-        window.fbTrack && window.fbTrack('ListingCreated', {
+        const sellerExtId = (window.CURRENT_USER && window.CURRENT_USER.uid) ?
+          String(window.CURRENT_USER.uid) : '';
+        const lcParams = {
           content_ids: [String(docRef.id)],
           content_type: 'product',
           content_category: cat,
           value: Math.round(price * 100) / 100,
           currency: 'USD',
-        }, { custom: true, once: 'listing_' + docRef.id });
+        };
+        if (sellerExtId) lcParams.external_id = sellerExtId;
+        window.fbTrack && window.fbTrack('ListingCreated', lcParams,
+          { custom: true, once: 'listing_' + docRef.id });
       } catch (_e) {}
       try {
         if (window.posthog) {

@@ -28,6 +28,7 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
+const crypto = require("crypto");
 const https = require("https");
 
 // Created by the founder in Secret Manager. Until it exists this module is
@@ -83,11 +84,37 @@ function postEvents(token, events) {
 }
 
 /**
- * Identifiers Meta can match on, with NO personal data. _fbp and _fbc are
- * cookies Meta's own pixel set in the buyer's browser; the client forwards
- * them through the PaymentIntent so they survive to the webhook. IP and user
- * agent are captured at checkout for the same reason — a Firestore trigger
- * has no request context of its own.
+ * Normalise an email the way Meta requires before hashing: trim, lowercase.
+ * Meta rejects a hash computed over anything else, silently — the event is
+ * accepted and simply never matches, so a formatting slip is invisible.
+ * @param {string} raw Email address.
+ * @return {string} SHA-256 hex digest, or "" when there is nothing to hash.
+ */
+function hashEmail(raw) {
+  const email = String(raw || "").trim().toLowerCase();
+  if (!email || email.indexOf("@") < 1) return "";
+  return crypto.createHash("sha256").update(email, "utf8").digest("hex");
+}
+
+/**
+ * Identifiers Meta can match on. _fbp and _fbc are cookies Meta's own pixel
+ * set in the buyer's browser; the client forwards them through the
+ * PaymentIntent so they survive to the webhook. IP and user agent are
+ * captured at checkout for the same reason — a Firestore trigger has no
+ * request context of its own.
+ *
+ * `em` is a SHA-256 hash of the buyer's email, approved for purchase
+ * matching by the founder ruling of 2026-09-28 and disclosed in
+ * privacy.html. It is one-way; Meta cannot recover the address from it.
+ *
+ * STILL BANNED, and this is the only place that could leak them: plaintext
+ * email, name, phone. Do not add ph, fn, ln or an unhashed em here. If a
+ * future ruling permits more, add it in THIS function and nowhere else, so
+ * there is exactly one place to audit what leaves for Meta.
+ *
+ * `external_id` is the buyer's uid — our own stable identifier, meaningless
+ * to anyone without our database, and the thing that lets Meta join a
+ * browser event to a server event for the same person.
  * @param {object} order The order document.
  * @return {object} CAPI user_data.
  */
@@ -97,6 +124,14 @@ function buildUserData(order) {
   if (order.fbc) ud.fbc = String(order.fbc);
   if (order.checkoutIp) ud.client_ip_address = String(order.checkoutIp);
   if (order.checkoutUa) ud.client_user_agent = String(order.checkoutUa);
+  if (order.buyerId) ud.external_id = String(order.buyerId);
+  // The buyer's address lives on the order as `receiptEmail` — the value
+  // Stripe was given at checkout. There is NO buyerEmail/email field; reading
+  // one would hash undefined and silently never match, which is exactly how
+  // this class of bug hides (the event is accepted by Meta either way).
+  // Verified against a live order doc on 2026-10-02.
+  const em = hashEmail(order.receiptEmail || order.buyerEmail || order.email);
+  if (em) ud.em = em;
   return ud;
 }
 
