@@ -1424,9 +1424,30 @@
      tall) so the IMAGE center lands at exactly centerY−46 like the storyboard
      constraint. Spinner is web-only, absolutely positioned below the group so
      it can't shift the wordmark. (Supersedes the r172 Georgia text wordmark.) */
-  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; position: relative; transform: translateY(-34px); }
+  /* r307: anchor on the WORDMARK, mirroring LaunchScreen.storyboard's
+     constraint `wordmarkImage.centerY = rootView.centerY - 46`, so the
+     native→web handoff is stable BY CONSTRUCTION.
+       top:50% + translateY(-73px)  ->  inner top   = H/2 - 73
+                                    ->  wordmark top = H/2 - 73
+                                    ->  wordmark centre = H/2 - 73 + 27 = H/2 - 46  ✓
+     (-73 = -46 storyboard offset − 54/2 wordmark half-height.)
+
+     The previous rule flex-centred the WHOLE group (wordmark + tagline) and
+     offset it -34px. That landed within 0.2px of the native position — but
+     only by arithmetic coincidence, because the group happened to be 78px
+     tall. The required offset was really `innerHeight/2 - 73`, so ANY change
+     to the tagline's height silently dragged the wordmark out of alignment,
+     and the tagline inherited its line-height (1.6) from `body`. A body
+     line-height edit anywhere in the file would have shifted the splash:
+     1.5 -> +0.5px, 1.2 -> +2.6px, normal -> +4px. Anchoring on the wordmark
+     removes that coupling entirely; the tagline can now be any height.
+     Line-height is pinned below for the same reason. */
+  .auth-splash-inner { display: flex; flex-direction: column; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -73px); }
   .auth-splash-logo-img { width: 167px; height: 54px; display: block; }
-  .auth-splash-tag { margin-top: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); }
+  /* line-height pinned, not inherited: the storyboard label is a fixed 22pt
+     box, and an inherited value would make the web tagline a different height
+     from the native one at the handoff. */
+  .auth-splash-tag { margin-top: 2px; line-height: 22px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); }
   .auth-splash-spinner { position: absolute; left: 50%; top: calc(100% + 36px); margin-left: -13px; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--gold-400); animation: authSplashSpin 0.7s linear infinite; }
   @keyframes authSplashSpin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .auth-splash-spinner { animation: none; } }
@@ -5274,7 +5295,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r306</span></div>
+        <span class="auth-build" aria-hidden="true">r307</span></div>
     </div>
   </div>
 </div>
