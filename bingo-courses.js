@@ -1977,6 +1977,11 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
+  // augusta-national: DO NOT ADD (founder ruling 2026-10-02, restating the
+  // 2026-08-16 bench). The PNG is in assets/logos and in Storage, so it is
+  // visible to anyone auditing the pool and looks like an oversight — it is
+  // not. There is deliberately no catalogue row, which is what keeps it out
+  // of the draw. Do not "fix" this by adding one.
   // philadelphia-cricket BENCHED (founder ruling 2026-08-16, like
   // augusta-national): the Native-head mark is one the club itself has been
   // retiring under public pressure since 2020, and our copy was a sheared
