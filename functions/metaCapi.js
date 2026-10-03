@@ -26,6 +26,7 @@
 // log and return. A measurement call must never affect an order.
 
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const crypto = require("crypto");
@@ -206,6 +207,118 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
             `capiPurchase: Meta rejected ${res.status}`,
             {orderId, body: res.body});
       }
+    },
+);
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// capiRelay — the server leg for events that have no server-side moment.
+//
+// Purchase is emitted from the order document, because the order is the
+// authoritative record that money moved. The other funnel events have no
+// equivalent: "tapped Buy Now" exists only in the browser. So the browser
+// hands us the event plus the event_id it already sent to the pixel, and we
+// re-send it from the server with the SAME id. Meta collapses the pair.
+//
+// Why bother, when the pixel already sent it: the pixel is blocked for a
+// large share of users. The server copy is the one that always arrives, and
+// the shared event_id is what stops the two being counted twice.
+//
+// SECURITY — this endpoint writes into ad reporting, so it is deliberately
+// narrow:
+//   - auth required. That also means we derive external_id and the hashed
+//     email from the VERIFIED token, never from the request body.
+//   - Purchase is REJECTED. It is server-authoritative from the order doc;
+//     accepting it here would let any signed-in user fabricate conversions
+//     and corrupt every ROAS number downstream.
+//   - event names are allowlisted, value is bounded, currency is pinned.
+// ─────────────────────────────────────────────────────────────────────────
+const CAPI_RELAY_EVENTS = new Set([
+  "AddToCart",
+  "InitiateCheckout",
+  "CompleteRegistration",
+  "ListingCreated",
+]);
+const CAPI_MAX_VALUE = 100000; // $100k — far above any real listing
+
+exports.capiRelay = onCall(
+    {...LIGHT, secrets: [META_CAPI_TOKEN]},
+    async (request) => {
+      const auth = request.auth;
+      if (!auth) {
+        throw new HttpsError("unauthenticated", "Sign-in required.");
+      }
+      let token = "";
+      try {
+        token = META_CAPI_TOKEN.value() || "";
+      } catch (_e) {
+        token = "";
+      }
+      // Fail quiet, not loud: tracking must never break a user action.
+      if (!token) return {ok: false, skipped: "no-token"};
+
+      const d = request.data || {};
+      const eventName = String(d.eventName || "");
+      if (!CAPI_RELAY_EVENTS.has(eventName)) {
+        // Purchase lands here too, by design.
+        throw new HttpsError("invalid-argument", "Unsupported event.");
+      }
+      const eventId = String(d.eventId || "").slice(0, 200);
+      if (!eventId) {
+        throw new HttpsError("invalid-argument", "eventId required for dedup.");
+      }
+
+      // Identity comes from the verified token, never the body.
+      const ud = {external_id: String(auth.uid)};
+      const em = hashEmail(auth.token && auth.token.email);
+      if (em) ud.em = em;
+      if (d.fbp) ud.fbp = String(d.fbp).slice(0, 200);
+      if (d.fbc) ud.fbc = String(d.fbc).slice(0, 200);
+      const ip = request.rawRequest &&
+        (request.rawRequest.ip ||
+         (request.rawRequest.headers || {})["x-forwarded-for"]);
+      if (ip) ud.client_ip_address = String(ip).split(",").pop().trim();
+      const ua = request.rawRequest &&
+        (request.rawRequest.headers || {})["user-agent"];
+      if (ua) ud.client_user_agent = String(ua).slice(0, 300);
+
+      const p = d.params || {};
+      const custom = {};
+      if (Array.isArray(p.content_ids)) {
+        custom.content_ids = p.content_ids.slice(0, 20).map((x) => String(x).slice(0, 128));
+      }
+      if (p.content_type) custom.content_type = String(p.content_type).slice(0, 40);
+      if (p.content_category) custom.content_category = String(p.content_category).slice(0, 60);
+      const val = Number(p.value);
+      if (Number.isFinite(val) && val >= 0 && val <= CAPI_MAX_VALUE) {
+        custom.value = Math.round(val * 100) / 100;
+        custom.currency = "USD";
+      }
+      const numItems = Number(p.num_items);
+      if (Number.isFinite(numItems) && numItems > 0 && numItems < 1000) {
+        custom.num_items = Math.floor(numItems);
+      }
+
+      const evt = {
+        event_name: eventName,
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: eventId,
+        action_source: "website",
+        user_data: ud,
+        custom_data: custom,
+      };
+      if (d.sourceUrl) evt.event_source_url = String(d.sourceUrl).slice(0, 500);
+      if (d.testEventCode) evt.test_event_code = String(d.testEventCode).slice(0, 60);
+
+      const res = await postEvents(token, [evt]);
+      if (!res.ok) {
+        logger.error("capiRelay: Meta rejected the event", {
+          eventName, eventId, status: res.status, body: res.body,
+        });
+        return {ok: false, status: res.status};
+      }
+      logger.info("capiRelay: sent", {eventName, eventId});
+      return {ok: true};
     },
 );
 

@@ -5274,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r303</span></div>
+        <span class="auth-build" aria-hidden="true">r304</span></div>
     </div>
   </div>
 </div>
@@ -8156,10 +8156,49 @@ window.metaMatchIds = function metaMatchIds() {
   return out;
 };
 
+// r304: the server leg for the Conversions API. Fire-and-forget — tracking
+// must never delay or break a user action, so every failure is swallowed.
+//
+// Purchase is deliberately NOT relayed: it is emitted server-side from the
+// order document, the authoritative record that money actually moved.
+// capiRelay rejects it for the same reason — a client-fabricated Purchase
+// would corrupt every ROAS number downstream.
+//
+// Uses the dynamic-import pattern already established at the
+// updateCheckoutShipping call site: `fns` lives in the module block and this
+// is a classic one, so the SDK is imported on demand rather than mirrored
+// onto window.
+const FB_RELAY_EVENTS = new Set([
+  'AddToCart', 'InitiateCheckout', 'CompleteRegistration', 'ListingCreated',
+]);
+async function fbRelayToServer(name, eventId, params) {
+  try {
+    if (!FB_RELAY_EVENTS.has(name)) return;
+    if (!window.CURRENT_USER) return;           // capiRelay requires auth
+    const ids = (window.metaMatchIds && window.metaMatchIds()) || {};
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    await httpsCallable(getFunctions(), 'capiRelay')({
+      eventName: name,
+      eventId: String(eventId),
+      params: params || {},
+      fbp: ids.fbp || '',
+      fbc: ids.fbc || '',
+      sourceUrl: (window.location && window.location.href) || '',
+    });
+  } catch (_e) { /* never break the caller */ }
+}
+
 window.fbTrack = function (name, params, opts) {
   try {
     const o = opts || {};
     if (o.once && fbAlreadyFired(o.once)) return false;
+    // The server leg runs even when the pixel does not — that is the whole
+    // point of CAPI, since the pixel is blocked for a large share of users.
+    // Mirroring here, inside fbTrack, is deliberate: it is the only way the
+    // two legs cannot drift, because every caller that fires the pixel fires
+    // the server automatically with the identical event_id.
+    if (o.eventID) fbRelayToServer(name, o.eventID, params);
     if (!window.fbq) { if (o.once) fbMarkFired(o.once); return false; }
     const custom = o.custom === true;
     const send = custom ? 'trackCustom' : 'track';
@@ -8178,10 +8217,12 @@ window.openCheckout = async function(productId, qty, opts) {
   // up. Firing both at the same instant would just be noise; these are a real
   // step apart, which is what makes the funnel meaningful.
   if (p) {
+    // r304: carries an eventID so the server leg (fbRelayToServer, inside
+    // fbTrack) dedupes against it. Per-tap id, same shape as the ic_ one.
     window.fbTrack('AddToCart', {
       content_ids: [String(p.id)], content_type: 'product',
       value: Number(p.ask || 0), currency: 'USD',
-    });
+    }, { eventID: 'atc_' + String(p.id) + '_' + Date.now().toString(36) });
   }
   if (!p) {
     // No silent Buy Now failures. If the listing isn't in the feed (removed or
@@ -8889,7 +8930,8 @@ window.confirmPayment = async function() {
               // to point at is gone — CompleteRegistration with account_type
               // IS the registration signal. The Stripe-KYC transition is
               // marked by Lead.)
-              window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' });
+              window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' },
+                { eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || '') });
             }
           } catch (_e2) { /* swallow */ }
         } else {
@@ -9540,7 +9582,8 @@ window.confirmPayment = async function() {
             // via __teeboxSignupEmitted; no PII in params).
             // r278 item 4: see the note at the OAuth site — 'unknown' until
             // Stripe onboarding makes them a seller.
-            window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' });
+            window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' },
+                { eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || '') });
             // One-shot guard so the onAuthStateChanged listener's OAuth
             // signup detector doesn't double-emit for this same user.
             window.__teeboxSignupEmitted = true;
@@ -11654,7 +11697,8 @@ window.confirmPayment = async function() {
         };
         if (sellerExtId) lcParams.external_id = sellerExtId;
         window.fbTrack && window.fbTrack('ListingCreated', lcParams,
-          { custom: true, once: 'listing_' + docRef.id });
+          { custom: true, once: 'listing_' + docRef.id,
+            eventID: 'lc_' + String(docRef.id) });
       } catch (_e) {}
       try {
         if (window.posthog) {
