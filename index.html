@@ -5274,7 +5274,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r302</span></div>
+        <span class="auth-build" aria-hidden="true">r303</span></div>
     </div>
   </div>
 </div>
@@ -7751,10 +7751,11 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
           // feed reporting or optimization. The Lead event above still marks
           // this Stripe-KYC milestone, so the funnel loses nothing.
           //
-          // NOTE: the comment this replaced said Dylan ASKED for this event.
-          // Both records cannot be right; the 2026-10-02 instruction is the
-          // later one and is what we follow. Do not re-add without a written
-          // ruling that supersedes it.
+          // The comment this replaced said Dylan ASKED for this event (r278).
+          // That record was stale. Jake confirmed the removal directly with
+          // Dylan on 2026-10-02, so this is settled: CompleteRegistration with
+          // account_type is the registration signal, and nothing else may be
+          // registration-shaped. Do not re-add.
         }
       } catch (_e) { /* analytics never break boot */ }
     };
