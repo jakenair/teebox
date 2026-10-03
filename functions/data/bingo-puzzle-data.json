@@ -213,9 +213,49 @@
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcarnoustie.png?alt=media"
     },
     {
+      "id": "landmand",
+      "shortName": "Landmand",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Flandmand.png?alt=media"
+    },
+    {
+      "id": "wallasey",
+      "shortName": "Wallasey",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fwallasey.png?alt=media"
+    },
+    {
+      "id": "belvedere",
+      "shortName": "Belvedere",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbelvedere.png?alt=media"
+    },
+    {
+      "id": "barassie",
+      "shortName": "Barassie",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbarassie.png?alt=media"
+    },
+    {
+      "id": "shooting-star",
+      "shortName": "Shooting Star",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fshooting-star.png?alt=media"
+    },
+    {
       "id": "castle-stuart",
       "shortName": "Castle Stuart",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcastle-stuart.png?alt=media"
+    },
+    {
+      "id": "royal-troon",
+      "shortName": "Royal Troon",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-troon.png?alt=media"
+    },
+    {
+      "id": "cape-wickham",
+      "shortName": "Cape Wickham",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcape-wickham.png?alt=media"
+    },
+    {
+      "id": "tara-iti",
+      "shortName": "Tara Iti",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Ftara-iti.png?alt=media"
     },
     {
       "id": "cabot-links",
@@ -1138,11 +1178,74 @@
         "carnoustie gl"
       ]
     },
+    "landmand": {
+      "name": "Landmand Golf Club",
+      "shortName": "Landmand",
+      "aliases": [
+        "landmand gc",
+        "land man"
+      ]
+    },
+    "wallasey": {
+      "name": "Wallasey Golf Club",
+      "shortName": "Wallasey",
+      "aliases": [
+        "wallasey gc"
+      ]
+    },
+    "belvedere": {
+      "name": "Belvedere Golf Club",
+      "shortName": "Belvedere",
+      "aliases": [
+        "belvedere gc",
+        "belvedere charlevoix"
+      ]
+    },
+    "barassie": {
+      "name": "Kilmarnock (Barassie) Golf Club",
+      "shortName": "Barassie",
+      "aliases": [
+        "kilmarnock barassie",
+        "barassie links",
+        "kilmarnock"
+      ]
+    },
+    "shooting-star": {
+      "name": "Shooting Star",
+      "shortName": "Shooting Star",
+      "aliases": [
+        "shooting star jackson hole",
+        "shooting star club"
+      ]
+    },
     "castle-stuart": {
       "name": "Castle Stuart Golf Links",
       "shortName": "Castle Stuart",
       "aliases": [
         "castle stuart gl"
+      ]
+    },
+    "royal-troon": {
+      "name": "Royal Troon Golf Club (Old)",
+      "shortName": "Royal Troon",
+      "aliases": [
+        "troon",
+        "royal troon gc",
+        "royal troon old"
+      ]
+    },
+    "cape-wickham": {
+      "name": "Cape Wickham Links",
+      "shortName": "Cape Wickham",
+      "aliases": [
+        "cape wickham links"
+      ]
+    },
+    "tara-iti": {
+      "name": "Tara Iti Golf Club",
+      "shortName": "Tara Iti",
+      "aliases": [
+        "tara iti gc"
       ]
     },
     "cabot-links": {
@@ -1973,7 +2076,7 @@
       ]
     }
   },
-  "generatedAt": "2026-10-02T15:38:11.447Z",
+  "generatedAt": "2026-10-03T01:46:08.160Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
