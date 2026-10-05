@@ -4140,6 +4140,30 @@
     display: flex; align-items: center; gap: 8px; color: var(--gray-700);
     font-size: 13px; padding: 2px 0;
   }
+  /* r315 — lifetime stats, opened from the result banner. */
+  .bingo-stats-link { margin-top: 10px; background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.45); color: #fff;
+    font-family: var(--font-body); font-weight: 600; font-size: 13px;
+    padding: 5px 12px; border-radius: 8px; cursor: pointer; }
+  .bingo-stats-link:hover { background: rgba(255,255,255,0.26); }
+  .bingo-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px; margin-bottom: 1.1rem; }
+  .bingo-stat { text-align: center; min-width: 0; }
+  .bingo-stat-n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 800;
+    color: var(--green-800); line-height: 1.1; }
+  .bingo-stat-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--gray-500); margin-top: 2px; }
+  .bingo-dist-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--gray-500); font-weight: 700; margin-bottom: 8px; }
+  .bingo-dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .bingo-dist-k { width: 26px; text-align: right; flex: none; font-size: 12.5px;
+    font-weight: 700; color: var(--gray-600); }
+  .bingo-dist-bar { height: 20px; border-radius: 4px; background: var(--gray-200);
+    min-width: 22px; display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 7px; box-sizing: border-box; color: var(--gray-700);
+    font-weight: 700; font-size: 11px; }
+  .bingo-dist-row.is-today .bingo-dist-bar { background: var(--green-600); color: #fff; }
+  .bingo-stats-empty { color: var(--gray-500); font-size: 13px; line-height: 1.5; }
   .bingo-results-panel .brp-streak {
     margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--gray-200);
     color: var(--gold-700, #8a6f2e); font-weight: 600;
@@ -5364,7 +5388,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r314</span></div>
+        <span class="auth-build" aria-hidden="true">r315</span></div>
     </div>
   </div>
 </div>
@@ -5539,6 +5563,19 @@
 <!-- TEEBOX JOURNAL (r151) — in-app index of the Reads articles. Cards
      navigate to the existing static post pages; the only new machinery is
      this overlay. Static markup: the article list changes when reads/ does. -->
+<!-- r315 — Logo Bingo lifetime stats. Opened from the result banner; the
+     numbers come from users/{uid}.bingoStats, which onBingoWinAggregate
+     maintains once per completed board. -->
+<div class="modal-backdrop info-backdrop" id="bingoStatsBackdrop" data-close-on-backdrop="close-info">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="bingoStatsTitle" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="bingoStatsTitle">Your Logo Bingo stats</span>
+      <button class="modal-close" data-action="close-info" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="info-body" id="bingoStatsBody"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop info-backdrop" id="journalBackdrop" data-close-on-backdrop="close-info">
   <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="journalTitle" style="max-width:600px">
     <div class="modal-header">
@@ -26798,6 +26835,7 @@ if (uploadZone) {
             <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${bannerStreak}
           </div>
           ${guestNudge}
+          <div><button type="button" class="bingo-stats-link" data-action="open-bingo-stats">View your stats &rarr;</button></div>
           ${sellNudge}
         `;
         body.insertBefore(banner, gridEl);
@@ -27427,6 +27465,7 @@ if (uploadZone) {
             <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}
           </div>
           ${guestNudge}
+          <div><button type="button" class="bingo-stats-link" data-action="open-bingo-stats">View your stats &rarr;</button></div>
           ${sellNudge}
         `;
         body.insertBefore(banner, grid);
@@ -27536,6 +27575,78 @@ if (uploadZone) {
       setTimeout(() => { try { window.maybePromptForPush('bingo-first-board'); } catch (_e) {} }, 1600);
     } catch (_e) {}
   }
+
+  // r315 — lifetime stats sheet. Reads users/{uid}.bingoStats, the counters
+  // onBingoWinAggregate maintains once per completed board (and that the
+  // backfill script seeded from bingoGames for everyone who played before
+  // the trigger existed). Current/best streak already live on the user doc.
+  //
+  // "Perfect" rather than "win %": every board resolves in single-shot mode,
+  // so a solved-rate would read 100% and tell the player nothing.
+  async function openBingoStats() {
+    const back = document.getElementById('bingoStatsBackdrop');
+    const body = document.getElementById('bingoStatsBody');
+    if (!back || !body) return;
+    body.innerHTML = '<div class="bingo-stats-empty">Loading&hellip;</div>';
+    back.classList.add('open');
+    const esc = (v) => (window.safeText ? window.safeText(String(v)) : String(v));
+    const stat = (n, l) => `<div class="bingo-stat"><div class="bingo-stat-n">${esc(n)}</div><div class="bingo-stat-l">${esc(l)}</div></div>`;
+    try {
+      const u = window.CURRENT_USER;
+      if (!u || !u.uid) {
+        // Guests have no server record. The local board counter is the only
+        // honest number we hold, so show that and say plainly why it is alone.
+        let n = 0;
+        try { n = Number(localStorage.getItem('tb_bingo_boards_done_v1') || 0) || 0; } catch (_e) {}
+        body.innerHTML =
+          `<div class="bingo-stats-grid">${stat(n, 'Played')}</div>` +
+          '<div class="bingo-stats-empty">Sign in to keep the full record &mdash; perfect rounds, streaks and your score ' +
+          'distribution, saved across devices.<br>' +
+          '<button type="button" data-action="show-auth" class="bingo-stats-link" ' +
+          'style="margin-top:10px;background:var(--green-700);border-color:var(--green-700)">Sign in</button></div>';
+        return;
+      }
+      const { getFirestore, doc, getDoc } =
+        await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js');
+      const snap = await getDoc(doc(getFirestore(), 'users', u.uid));
+      const d = (snap.exists() && snap.data()) || {};
+      const st = d.bingoStats || {};
+      const played = Number(st.played) || 0;
+      const perfect = Number(st.perfect) || 0;
+      const cur = Number(d.bingoCurrentStreak) || 0;
+      const best = Number(d.bingoBestStreak) || 0;
+      if (!played) {
+        body.innerHTML = '<div class="bingo-stats-empty">No completed boards yet. Finish today&rsquo;s nine and your record starts here.</div>';
+        return;
+      }
+      const dist = st.distribution || {};
+      let max = 0;
+      for (let i = 0; i <= 9; i++) max = Math.max(max, Number(dist[String(i)]) || 0);
+      const todayScore = (typeof scoreCount === 'function') ? scoreCount() : -1;
+      const todayDone = (game && game.cells || []).every((c) => c && c.state !== 'pending');
+      let rows = '';
+      for (let i = 9; i >= 0; i--) {
+        const n = Number(dist[String(i)]) || 0;
+        const pct = max ? Math.max(6, Math.round(n * 100 / max)) : 6;
+        const isToday = todayDone && i === todayScore;
+        rows += `<div class="bingo-dist-row${isToday ? ' is-today' : ''}">` +
+          `<span class="bingo-dist-k">${i}/9</span>` +
+          `<span class="bingo-dist-bar" style="width:${pct}%">${n}</span></div>`;
+      }
+      body.innerHTML =
+        '<div class="bingo-stats-grid">' +
+          stat(played, 'Played') +
+          stat(Math.round(perfect * 100 / played) + '%', 'Perfect') +
+          stat(cur, 'Streak') +
+          stat(best, 'Best') +
+        '</div>' +
+        '<div class="bingo-dist-h">Score distribution</div>' + rows;
+    } catch (err) {
+      console.warn('bingo stats failed', err);
+      body.innerHTML = '<div class="bingo-stats-empty">Couldn&rsquo;t load your stats just now. Try again in a moment.</div>';
+    }
+  }
+  window.openBingoStats = openBingoStats;
 
   // r313: boards are numbered from the first ever puzzle, 2026-05-15 (the
   // earliest /dailyPuzzles doc in production). Wordle-style numbering gives
@@ -28053,6 +28164,7 @@ if (uploadZone) {
   window.__actions = window.__actions || {};
   const A = window.__actions;
   A['open-bingo']           = () => openBingo();
+  A['open-bingo-stats']     = () => { openBingoStats(); };
   // Expose for the deep-link / guest-mode hand-off in the auth flow.
   window.openBingo = openBingo;
   // Exposed so the onAuthStateChanged sign-in branch can reconcile guest play
