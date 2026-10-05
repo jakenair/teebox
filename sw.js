@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-10-05-r311';
+const CACHE_VERSION = 'teebox-v1-2026-10-05-r312';
 // Bingo logos are pinned in their OWN cache namespace so we can cache them
 // aggressively (cache-first) without colliding with the broader logos-bypass
 // policy. The page sends a CACHE_BINGO_LOGOS message on bingo-tab open with
@@ -196,10 +196,22 @@ self.addEventListener('message', (event) => {
   if (data.type === 'CACHE_BINGO_LOGOS' && Array.isArray(data.urls)) {
     // Filter to same-origin /assets/logos/* URLs only — never let the page
     // direct us to cache an arbitrary origin via this channel.
+    // r312 ROOT CAUSE: this filter was same-origin-only, written when the
+    // puzzle doc pointed at /assets/logos/*. Since the logo CDN moved to
+    // Firebase Storage every logoUrl is an absolute firebasestorage URL, so
+    // the filter silently dropped all 9 — the pre-cache has been a complete
+    // no-op, reporting success the whole time. That is why the share card
+    // rendered flat tiles: nothing was warm, so all 9 were fetched cold in
+    // parallel and the slowest lost a 4s race.
+    // Still a tight allowlist, not a wildcard: same-origin /assets/logos/*,
+    // or the course-logos prefix of our own Storage bucket.
+    const STORAGE_HOST = 'firebasestorage.googleapis.com';
+    const STORAGE_LOGO_PREFIX = '/v0/b/teebox-market.firebasestorage.app/o/course-logos';
     const urls = data.urls.filter((u) => {
       try {
         const x = new URL(u, self.location.origin);
-        return x.origin === self.location.origin && x.pathname.startsWith('/assets/logos/');
+        if (x.origin === self.location.origin) return x.pathname.startsWith('/assets/logos/');
+        return x.hostname === STORAGE_HOST && x.pathname.startsWith(STORAGE_LOGO_PREFIX);
       } catch { return false; }
     });
     event.waitUntil((async () => {

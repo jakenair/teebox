@@ -5364,7 +5364,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r311</span></div>
+        <span class="auth-build" aria-hidden="true">r312</span></div>
     </div>
   </div>
 </div>
@@ -27578,7 +27578,7 @@ if (uploadZone) {
     W: 1080, H: 1920,
     green: '#133624', gold: '#E3BB45', cream: '#F3ECDB',   // brand — exact carousel values
     bgTop: '#17452D', bgBot: '#0B1F14',
-    tileGreen: '#2E9E5B', tileDark: '#0C2015',
+    tileGreen: '#2E9E5B', tileDark: '#0C2015', red: '#C74A36',
     tileBorder: 'rgba(243,236,219,0.14)',
   };
   // Tile semantics (single-shot game): correct = green; revealed with
@@ -27634,41 +27634,92 @@ if (uploadZone) {
     } catch (_e) {}
     return c;
   }
-  // Load one logo for the story render: CORS-clean, white knocked out,
-  // cached per URL, and never slower than ~4s/attempt — null means "use
-  // the flat fallback tile", so a dead fetch can't block the share sheet.
-  // teeboxmarket.com URLs are tried as SAME-ORIGIN relative paths first:
-  // the CSP img-src has no teeboxmarket.com entry (it doesn't need one on
-  // the web, where 'self' covers it), so inside the Capacitor app
-  // (origin capacitor://localhost) the absolute URL is CSP-blocked — but
-  // the same logos ship in the app bundle at the same /assets/logos path.
+  // ── Logo loading for the story card ────────────────────────────────────
+  // r312: the old loader raced ONE attempt against a 4s timeout, and only
+  // teeboxmarket.com URLs had a second candidate. Combined with the dead SW
+  // pre-cache (see sw.js) every logo was a cold Storage fetch — 9 in
+  // parallel — and the slowest simply lost. That is how an 8/9 board shipped
+  // with 7 logos and two flat squares.
+  // Now: two candidates for EVERY course (the puzzle's absolute URL, then
+  // the copy bundled at /assets/logos/{id}.png, which exists both on web and
+  // inside the app), two attempts each with backoff, a longer budget, and
+  // decode() before the bitmap is allowed anywhere near drawImage.
   const __storyLogoCache = new Map();
+  const STORY_LOAD_TIMEOUT = 8000;
   function storyLoadLogoOnce(src) {
-    return Promise.race([
-      new Promise((res) => {
-        const im = new Image();
-        im.crossOrigin = 'anonymous';
-        im.onload = () => res(im);
-        im.onerror = () => res(null);
-        im.src = src;
-      }),
-      new Promise((res) => setTimeout(() => res(null), 4000)),
-    ]);
+    return new Promise((res) => {
+      let settled = false;
+      const done = (v) => { if (!settled) { settled = true; res(v); } };
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      const t = setTimeout(() => done(null), STORY_LOAD_TIMEOUT);
+      im.onload = async () => {
+        // onload can fire on iOS while the bitmap is still undecodable;
+        // drawImage then paints NOTHING and reports no error. decode()
+        // turns that silent failure into a value we can branch on.
+        try { if (im.decode) await im.decode(); } catch (_e) {}
+        clearTimeout(t);
+        done((im.naturalWidth > 0 && im.naturalHeight > 0) ? im : null);
+      };
+      im.onerror = () => { clearTimeout(t); done(null); };
+      im.src = src;
+    });
   }
-  async function storyLoadLogo(url) {
-    if (!url) return null;
-    if (__storyLogoCache.has(url)) return __storyLogoCache.get(url);
-    const m = url.match(/^https:\/\/(?:www\.)?teeboxmarket\.com(\/.+)$/);
-    const candidates = m ? [m[1], url] : [url];
-    for (const src of candidates) {
-      const im = await storyLoadLogoOnce(src);
-      if (im) {
-        const c = storyKnockoutWhite(im);
-        __storyLogoCache.set(url, c);
-        return c;
+  async function storyLoadLogo(url, course) {
+    const key = url || (course && course.id) || '';
+    if (!key) return null;
+    if (__storyLogoCache.has(key)) return __storyLogoCache.get(key);
+    const cands = [];
+    if (url) {
+      // Inside Capacitor the origin is capacitor://localhost, so a
+      // teeboxmarket.com absolute is cross-origin — try it as a same-origin
+      // relative path first, which the app bundle also satisfies.
+      const m = url.match(/^https:\/\/(?:www\.)?teeboxmarket\.com(\/.+)$/);
+      if (m) cands.push(m[1]);
+      cands.push(url);
+    }
+    if (course && course.id) {
+      const local = '/assets/logos/' + course.id + '.png';
+      if (cands.indexOf(local) === -1) cands.push(local);
+    }
+    for (const src of cands) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 400));
+        const im = await storyLoadLogoOnce(src);
+        if (im) {
+          const c = storyKnockoutWhite(im);
+          __storyLogoCache.set(key, c);
+          return c;
+        }
       }
     }
-    return null;
+    return null;  // deliberately NOT cached — a later share should retry
+  }
+  // The app icon for the card header. No white-knockout: it is our own art
+  // on a dark ground, and the knockout would eat the gold ball's highlight.
+  function storyLoadAppIcon() { return storyLoadLogoOnce('/icon-512.png'); }
+  // Montserrat is not in the app's font load (Playfair + DM Sans only), so
+  // it is fetched ON DEMAND at render time and falls back to DM Sans. No
+  // cost on any normal page load for a face only the canvas uses.
+  async function ensureStoryMontserrat() {
+    try {
+      if (document.fonts.check('500 34px Montserrat')) return true;
+      if (!document.getElementById('story-montserrat')) {
+        const l = document.createElement('link');
+        l.id = 'story-montserrat';
+        l.rel = 'stylesheet';
+        l.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap';
+        document.head.appendChild(l);
+      }
+      await Promise.race([
+        Promise.all([
+          document.fonts.load('500 36px Montserrat'),
+          document.fonts.load('600 36px Montserrat'),
+        ]),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
+      return document.fonts.check('500 34px Montserrat');
+    } catch (_e) { return false; }
   }
   async function renderStoryImage(overrides) {
     const o = overrides || {};
@@ -27676,84 +27727,136 @@ if (uploadZone) {
     const score = (o.score != null) ? o.score : scoreCount();
     const pts = (o.points != null) ? o.points : totalPoints();
     const streakCount = (o.streak != null) ? o.streak : ((loadStreak() || {}).count || 0);
+    // "Monday, October 5" — plain sentence case, no year, no upper-casing.
     const dateLabel = o.dateLabel || new Date(TODAY + 'T12:00:00Z')
-      .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-      .toUpperCase();
+      .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
     const fontsOk = await ensureStoryFonts();
+    const monoOk = await ensureStoryMontserrat();
     const serif = fontsOk ? '"Playfair Display", Georgia, serif' : 'Georgia, serif';
-    const sans = fontsOk ? '"DM Sans", system-ui, sans-serif' : 'system-ui, sans-serif';
-    // r164: the day's logos (same shared board for everyone; names hidden).
-    // r165: courseLogoUrl fallback — dailySeed's local-catalog courses carry
-    // logoUrl:'' by design (the /assets/logos/{id}.png convention), so
-    // pre-server-sync boards rendered 9 empty URLs → all flat tiles.
+    const sans = monoOk ? 'Montserrat, "DM Sans", system-ui, sans-serif'
+               : (fontsOk ? '"DM Sans", system-ui, sans-serif' : 'system-ui, sans-serif');
     const courses = o.courses || game.courses || [];
-    const logos = await Promise.all(
-      Array.from({ length: 9 }, (_, i) => {
+    // QA hook: indices whose logo load is skipped, so the fallback tile can
+    // be reviewed without having to break the network.
+    const forceFail = Array.isArray(o.forceFail) ? o.forceFail : [];
+    const [logos, appIcon] = await Promise.all([
+      Promise.all(Array.from({ length: 9 }, (_, i) => {
+        if (forceFail.indexOf(i) !== -1) return Promise.resolve(null);
         const c = courses[i];
-        return storyLoadLogo(c && (c.logoUrl || courseLogoUrl(c)));
-      })
-    );
+        return storyLoadLogo(c && (c.logoUrl || courseLogoUrl(c)), c);
+      })),
+      storyLoadAppIcon(),
+    ]);
 
     const cv = document.createElement('canvas');
     cv.width = STORY.W; cv.height = STORY.H;
     const x = cv.getContext('2d');
 
-    // Background: brand green vertical gradient + faint gold glow up top.
+    // Background: brand green vertical gradient + the gold radial glow.
     const g = x.createLinearGradient(0, 0, 0, STORY.H);
     g.addColorStop(0, STORY.bgTop); g.addColorStop(0.55, STORY.green); g.addColorStop(1, STORY.bgBot);
     x.fillStyle = g; x.fillRect(0, 0, STORY.W, STORY.H);
-    const rg = x.createRadialGradient(540, 480, 40, 540, 480, 540);
-    rg.addColorStop(0, 'rgba(227,187,69,0.10)'); rg.addColorStop(1, 'rgba(227,187,69,0)');
-    x.fillStyle = rg; x.fillRect(0, 0, STORY.W, 1050);
+    const rg = x.createRadialGradient(540, 760, 40, 540, 760, 820);
+    rg.addColorStop(0, 'rgba(227,187,69,0.11)'); rg.addColorStop(1, 'rgba(227,187,69,0)');
+    x.fillStyle = rg; x.fillRect(0, 0, STORY.W, STORY.H);
 
-    x.textAlign = 'center'; x.textBaseline = 'middle';
+    // ── Measured vertical stack ──────────────────────────────────────────
+    // Every block's height is MEASURED and every gap is explicit. Nothing is
+    // placed at a hand-tuned y, which is exactly what let the date collide
+    // with "Logo Bingo"'s descenders and the stats line collide with "8/9".
+    x.textAlign = 'center';
+    x.textBaseline = 'alphabetic';
+    const F = {
+      word:  '900 62px ' + serif,
+      title: '900 118px ' + serif,
+      date:  '500 34px ' + sans,
+      score: '800 150px ' + serif,
+      stat:  '500 36px ' + sans,
+      foot:  '500 28px ' + sans,
+      foot2: '600 26px ' + sans,
+    };
+    const ink = (font, text) => {
+      x.font = font;
+      const m = x.measureText(text);
+      const asc = m.actualBoundingBoxAscent || 0;
+      const desc = m.actualBoundingBoxDescent || 0;
+      return { asc, desc, w: m.width, h: asc + desc };
+    };
+    const statsText = (() => {
+      const bits = [Number(pts).toLocaleString() + ' pts'];
+      if (streakCount > 0) bits.push(streakCount + '-day streak');
+      return bits.join('  ·  ');
+    })();
+    const FOOT1 = 'Play daily at teeboxmarket.com';
+    const FOOT2 = '@teeboxmarketplace';
+    const scoreText = score + '/9';
 
-    // Eyebrow with the carousel-style side rules.
-    if ('letterSpacing' in x) x.letterSpacing = '9px';
-    x.fillStyle = STORY.gold; x.font = `600 30px ${sans}`;
-    const eyebrow = 'TEEBOX PRESENTS';
-    x.fillText(eyebrow, 540, 340);
-    const ew = x.measureText(eyebrow).width;
-    if ('letterSpacing' in x) x.letterSpacing = '0px';
-    x.strokeStyle = 'rgba(227,187,69,0.55)'; x.lineWidth = 2;
-    x.beginPath(); x.moveTo(540 - ew / 2 - 74, 340); x.lineTo(540 - ew / 2 - 26, 340); x.stroke();
-    x.beginPath(); x.moveTo(540 + ew / 2 + 26, 340); x.lineTo(540 + ew / 2 + 74, 340); x.stroke();
+    const ICON = 96;
+    const T = 200, GAP = 22;
+    const GRID_H = 3 * T + 2 * GAP;
 
-    // Flag mark (VS15 forces text presentation → colorable glyph, not emoji).
-    x.fillStyle = STORY.gold; x.font = `56px ${sans}`;
-    x.fillText('⚑︎', 540, 428);
+    const m = {
+      word: ink(F.word, 'TeeBox'),
+      title: ink(F.title, 'Logo Bingo'),
+      date: ink(F.date, dateLabel),
+      score: ink(F.score, scoreText),
+      stats: ink(F.stat, statsText),
+      foot1: ink(F.foot, FOOT1),
+      foot2: ink(F.foot2, FOOT2),
+    };
+    // Gaps are the compressible part of the stack; block heights are not.
+    let gaps = [20, 32, 24, 54, 60, 26, 52, 12];
+    const blocks = [ICON, m.word.h, m.title.h, m.date.h, GRID_H, m.score.h, m.stats.h, m.foot1.h, m.foot2.h];
+    const blockSum = blocks.reduce((a, b) => a + b, 0);
+    const SAFE_TOP = 250, SAFE_BOT = 1670, BAND = SAFE_BOT - SAFE_TOP;
+    const gapSum = gaps.reduce((a, b) => a + b, 0);
+    if (blockSum + gapSum > BAND) {
+      // Squeeze the gaps proportionally rather than letting the stack run
+      // into the story UI. Floors at 0.55 so it can never collapse to mush.
+      const k = Math.max(0.55, (BAND - blockSum) / gapSum);
+      gaps = gaps.map((v) => Math.round(v * k));
+    }
+    const total = blockSum + gaps.reduce((a, b) => a + b, 0);
+    let y = SAFE_TOP + Math.max(0, (BAND - total) / 2);
 
-    // Title + date.
-    x.fillStyle = STORY.cream; x.font = `900 122px ${serif}`;
-    x.fillText('Logo Bingo', 540, 528);
-    if ('letterSpacing' in x) x.letterSpacing = '6px';
-    x.fillStyle = 'rgba(243,236,219,0.55)'; x.font = `600 30px ${sans}`;
-    x.fillText(dateLabel, 540, 612);
-    if ('letterSpacing' in x) x.letterSpacing = '0px';
+    // App icon.
+    if (appIcon) {
+      x.save();
+      storyRoundRect(x, 540 - ICON / 2, y, ICON, ICON, 22);
+      x.clip();
+      x.drawImage(appIcon, 540 - ICON / 2, y, ICON, ICON);
+      x.restore();
+    }
+    y += ICON + gaps[0];
 
-    // 3x3 result grid — 216px tiles, 24px gap, centered; y 680..1376.
-    // r164: logo tiles (near-white, matching the game board's cell gradient)
-    // with a result ring + corner badge. Flat colored tile = fallback when
-    // a logo didn't load.
-    const T = 216, GAP = 24, X0 = (STORY.W - (3 * T + 2 * GAP)) / 2, Y0 = 680;
+    // "TeeBox" wordmark — Tee cream, Box gold, centred as one unit.
+    x.font = F.word;
+    const wTee = x.measureText('Tee').width, wBox = x.measureText('Box').width;
+    const wStart = 540 - (wTee + wBox) / 2;
+    x.textAlign = 'left';
+    x.fillStyle = STORY.cream; x.fillText('Tee', wStart, y + m.word.asc);
+    x.fillStyle = STORY.gold;  x.fillText('Box', wStart + wTee, y + m.word.asc);
+    x.textAlign = 'center';
+    y += m.word.h + gaps[1];
+
+    // Title, then the date placed off the title's MEASURED bottom.
+    x.font = F.title; x.fillStyle = STORY.cream;
+    x.fillText('Logo Bingo', 540, y + m.title.asc);
+    y += m.title.h + gaps[2];
+    x.font = F.date; x.fillStyle = 'rgba(243,236,219,0.62)';
+    x.fillText(dateLabel, 540, y + m.date.asc);
+    y += m.date.h + gaps[3];
+
+    // ── 3x3 grid ─────────────────────────────────────────────────────────
+    const X0 = (STORY.W - (3 * T + 2 * GAP)) / 2, Y0 = y;
     const tiles = [];
     for (let i = 0; i < 9; i++) {
-      const kind = storyTileFor(cells[i]);
-      tiles.push(kind);
+      const got = cells[i] && cells[i].state === 'correct';
+      tiles.push(got ? 'green' : 'missed');
       const tx = X0 + (i % 3) * (T + GAP), ty = Y0 + Math.floor(i / 3) * (T + GAP);
       const logo = logos[i];
-      if (!logo) {
-        // Pre-r164 flat tile — logo unavailable.
-        x.fillStyle = kind === 'green' ? STORY.tileGreen : kind === 'gold' ? STORY.gold : STORY.tileDark;
-        storyRoundRect(x, tx, ty, T, T, 26); x.fill();
-        const hg = x.createLinearGradient(0, ty, 0, ty + T * 0.45);
-        hg.addColorStop(0, 'rgba(255,255,255,0.16)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
-        x.fillStyle = hg; storyRoundRect(x, tx, ty, T, T, 26); x.fill();
-        x.strokeStyle = kind === 'dark' ? STORY.tileBorder : 'rgba(0,0,0,0.18)';
-        x.lineWidth = 2; storyRoundRect(x, tx + 1, ty + 1, T - 2, T - 2, 25); x.stroke();
-        continue;
-      }
-      // Near-white tile matching .bingo-cell (#ffffff -> #fbf7ee).
+      // The tile itself is always drawn — there is no such thing as a blank
+      // cell any more, with or without artwork.
       x.save();
       x.shadowColor = 'rgba(0,0,0,0.28)'; x.shadowBlur = 18; x.shadowOffsetY = 6;
       const tg = x.createLinearGradient(tx, ty, tx + T, ty + T);
@@ -27761,73 +27864,74 @@ if (uploadZone) {
       x.fillStyle = tg;
       storyRoundRect(x, tx, ty, T, T, 26); x.fill();
       x.restore();
-      // Logo centered, aspect preserved, 26px inset. Names never drawn.
-      const box = T - 52;
-      const s = Math.min(box / logo.width, box / logo.height);
-      const dw = logo.width * s, dh = logo.height * s;
-      x.drawImage(logo, tx + (T - dw) / 2, ty + (T - dh) / 2, dw, dh);
-      // Result ring: green = got it, gold = guessed & missed, faint = skipped.
-      const ringColor = kind === 'green' ? STORY.tileGreen
-                      : kind === 'gold'  ? STORY.gold
-                      : 'rgba(12,32,21,0.22)';
-      x.strokeStyle = ringColor; x.lineWidth = kind === 'dark' ? 3 : 5;
-      storyRoundRect(x, tx + 2.5, ty + 2.5, T - 5, T - 5, 24); x.stroke();
-      // Corner badge (top-right): white check / gold dash / hollow dot —
-      // result texture with zero answer leakage.
-      const dx = tx + T - 26, dy = ty + 26;
-      if (kind === 'green' || kind === 'gold') {
-        x.fillStyle = ringColor;
-        x.beginPath(); x.arc(dx, dy, 15, 0, Math.PI * 2); x.fill();
-        x.strokeStyle = 'rgba(255,255,255,0.85)'; x.lineWidth = 3.5;
-        if (kind === 'green') {
-          x.beginPath(); x.moveTo(dx - 6.5, dy + 0.5); x.lineTo(dx - 2, dy + 5.5); x.lineTo(dx + 7, dy - 5); x.stroke();
-        } else {
-          x.beginPath(); x.moveTo(dx - 6, dy); x.lineTo(dx + 6, dy); x.stroke();
-        }
+
+      if (logo) {
+        const box = T - 50;
+        const s = Math.min(box / logo.width, box / logo.height);
+        const dw = logo.width * s, dh = logo.height * s;
+        x.save();
+        // Missed tiles keep the artwork but drop back, so the eye reads the
+        // row of greens first without the board turning into holes.
+        if (!got) x.globalAlpha = 0.4;
+        x.drawImage(logo, tx + (T - dw) / 2, ty + (T - dh) / 2, dw, dh);
+        x.restore();
       } else {
-        x.strokeStyle = 'rgba(12,32,21,0.35)'; x.lineWidth = 3;
-        x.beginPath(); x.arc(dx, dy, 13, 0, Math.PI * 2); x.stroke();
+        // Artwork genuinely unavailable after the full candidate ladder.
+        // Neutral mark, never the course's identity — see the note in the
+        // r312 commit about why this is not initials.
+        x.save();
+        x.globalAlpha = got ? 0.55 : 0.3;
+        x.strokeStyle = '#9aa79c'; x.lineWidth = 4;
+        x.setLineDash([10, 9]);
+        x.beginPath(); x.arc(tx + T / 2, ty + T / 2, T * 0.26, 0, Math.PI * 2); x.stroke();
+        x.setLineDash([]);
+        x.fillStyle = '#6f7d72';
+        x.font = '700 64px ' + sans;
+        x.textBaseline = 'middle';
+        x.fillText('?', tx + T / 2, ty + T / 2 + 2);
+        x.textBaseline = 'alphabetic';
+        x.restore();
       }
-    }
 
-    // Score. The perfect-round variant runs a slightly smaller numeral so its
-    // three-line type stack keeps the same breathing room as the two-line one.
-    x.fillStyle = STORY.cream;
-    x.font = score === 9 ? `800 128px ${serif}` : `800 150px ${serif}`;
-    x.fillText(`${score}/9`, 540, score === 9 ? 1438 : 1468);
-    // Sub-lines. Middle-dot rationed to max ONE per line (design law) —
-    // a perfect round gets its own callout line instead of a 3-part strip.
-    const statBits = [`${Number(pts).toLocaleString()} PTS`];
-    if (streakCount > 0) statBits.push(`${streakCount}-DAY STREAK`);
-    if ('letterSpacing' in x) x.letterSpacing = '4px';
-    x.fillStyle = STORY.gold; x.font = `700 34px ${sans}`;
-    if (score === 9) {
-      x.fillText('PERFECT ROUND', 540, 1538);
-      x.fillStyle = 'rgba(227,187,69,0.82)'; x.font = `600 30px ${sans}`;
-      x.fillText(statBits.join('  ·  '), 540, 1594);
-    } else {
-      x.fillText(statBits.join('  ·  '), 540, 1560);
-    }
-    if ('letterSpacing' in x) x.letterSpacing = '0px';
+      // Result ring.
+      x.strokeStyle = got ? STORY.tileGreen : 'rgba(199,74,54,0.55)';
+      x.lineWidth = got ? 5 : 3;
+      storyRoundRect(x, tx + 2.5, ty + 2.5, T - 5, T - 5, 24); x.stroke();
 
-    // Divider + footer (kept inside the bottom safe zone). The divider yields
-    // to the second stat line in the perfect-round layout.
-    if (score !== 9) {
-      x.strokeStyle = 'rgba(227,187,69,0.55)'; x.lineWidth = 3;
-      x.beginPath(); x.moveTo(495, 1604); x.lineTo(585, 1604); x.stroke();
+      // Corner badge: green check, or small red cross.
+      const dx = tx + T - 26, dy = ty + 26;
+      x.fillStyle = got ? STORY.tileGreen : STORY.red;
+      x.beginPath(); x.arc(dx, dy, got ? 16 : 14, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = '#ffffff'; x.lineWidth = 3.5;
+      x.lineCap = 'round';
+      if (got) {
+        x.beginPath(); x.moveTo(dx - 7, dy + 0.5); x.lineTo(dx - 2, dy + 5.5); x.lineTo(dx + 7.5, dy - 5.5); x.stroke();
+      } else {
+        x.beginPath(); x.moveTo(dx - 5, dy - 5); x.lineTo(dx + 5, dy + 5); x.stroke();
+        x.beginPath(); x.moveTo(dx + 5, dy - 5); x.lineTo(dx - 5, dy + 5); x.stroke();
+      }
+      x.lineCap = 'butt';
     }
-    x.font = `600 34px ${sans}`;
-    const seg1 = 'teeboxmarket.com', seg2 = '  ·  ', seg3 = '@teeboxmarketplace';
-    const w1 = x.measureText(seg1).width, w2 = x.measureText(seg2).width, w3 = x.measureText(seg3).width;
-    let fx = 540 - (w1 + w2 + w3) / 2;
-    x.textAlign = 'left';
-    x.fillStyle = STORY.cream; x.fillText(seg1, fx, 1652); fx += w1;
-    x.fillStyle = 'rgba(243,236,219,0.45)'; x.fillText(seg2, fx, 1652); fx += w2;
-    x.fillStyle = STORY.gold; x.fillText(seg3, fx, 1652);
-    x.textAlign = 'center';
+    y = Y0 + GRID_H + gaps[4];
+
+    // Score, then the stats line off the score's MEASURED bottom.
+    x.font = F.score; x.fillStyle = STORY.cream;
+    x.fillText(scoreText, 540, y + m.score.asc);
+    y += m.score.h + gaps[5];
+    x.font = F.stat; x.fillStyle = 'rgba(243,236,219,0.88)';
+    x.fillText(statsText, 540, y + m.stats.asc);
+    y += m.stats.h + gaps[6];
+
+    // Footer.
+    x.font = F.foot; x.fillStyle = 'rgba(243,236,219,0.80)';
+    x.fillText(FOOT1, 540, y + m.foot1.asc);
+    y += m.foot1.h + gaps[7];
+    x.font = F.foot2; x.fillStyle = 'rgba(227,187,69,0.90)';
+    x.fillText(FOOT2, 540, y + m.foot2.asc);
 
     const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
-    return { blob, dataUrl: cv.toDataURL('image/png'), tiles, fontsOk };
+    return { blob, dataUrl: cv.toDataURL('image/png'), tiles, fontsOk, monoOk,
+             missing: logos.reduce((n, l, i) => l ? n : n.concat(i), []) };
   }
   // Exposed for the QA harness now and the share wiring once approved.
   window.__bingoRenderShareImage = renderStoryImage;
