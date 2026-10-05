@@ -120,6 +120,7 @@ export const LOGOS_AVAILABLE = new Set([
   'pinehurst-no-2',
   'piping-rock',
   'plainfield',
+  'point-o-woods',
   'prairie-dunes',
   'quail-hollow',
   'quaker-ridge',

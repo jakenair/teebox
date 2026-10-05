@@ -228,6 +228,11 @@
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbelvedere.png?alt=media"
     },
     {
+      "id": "point-o-woods",
+      "shortName": "Point O'Woods",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fpoint-o-woods.png?alt=media"
+    },
+    {
       "id": "barassie",
       "shortName": "Barassie",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbarassie.png?alt=media"
@@ -1201,6 +1206,17 @@
         "belvedere charlevoix"
       ]
     },
+    "point-o-woods": {
+      "name": "Point O'Woods Golf & Country Club",
+      "shortName": "Point O'Woods",
+      "aliases": [
+        "point o woods",
+        "point owoods",
+        "point o' woods",
+        "point of woods",
+        "pow"
+      ]
+    },
     "barassie": {
       "name": "Kilmarnock (Barassie) Golf Club",
       "shortName": "Barassie",
@@ -2076,7 +2092,7 @@
       ]
     }
   },
-  "generatedAt": "2026-10-03T01:46:08.160Z",
+  "generatedAt": "2026-10-05T19:58:35.003Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

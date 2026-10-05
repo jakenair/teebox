@@ -602,6 +602,16 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'point-o-woods',
+    name: "Point O'Woods Golf & Country Club",
+    shortName: "Point O'Woods",
+    aliases: ['point o woods', 'point owoods', "point o' woods", 'point of woods', 'pow'],
+    location: 'Benton Harbor, Michigan',
+    architect: 'Robert Trent Jones Sr.',
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'barassie',
     name: 'Kilmarnock (Barassie) Golf Club',
     shortName: 'Barassie',
