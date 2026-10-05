@@ -5364,7 +5364,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r312</span></div>
+        <span class="auth-build" aria-hidden="true">r313</span></div>
     </div>
   </div>
 </div>
@@ -10086,7 +10086,7 @@ window.confirmPayment = async function() {
   // No-op on the web — Capacitor.isNativePlatform() returns false there
   // and we fall through to the existing maybeRegisterPush web flow.
   // ──────────────────────────────────────────────────────────
-  window.maybeRegisterPushNative = async function() {
+  window.maybeRegisterPushNative = async function(opts) {
     try {
       const Cap = window.Capacitor;
       if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return;
@@ -10098,9 +10098,17 @@ window.confirmPayment = async function() {
       if (window.__pushNativeWired) return;
       window.__pushNativeWired = true;
 
-      // Permission. iOS shows the system sheet here.
+      // r313: the iOS system sheet is NEVER raised unless the CALLER asked
+      // for it. This used to fire 4.2s after sign-in on every launch, so a
+      // user met the OS permission dialog before they had any idea what it
+      // was for — the worst possible moment to ask, and a permanent "no"
+      // from most people. Boot now only re-wires an ALREADY-GRANTED
+      // permission; the ask itself only ever follows a soft prompt the user
+      // has already said yes to.
+      const mayRequest = !!(opts && opts.request);
       let perm = await Push.checkPermissions();
       if (perm.receive !== 'granted') {
+        if (!mayRequest) { window.__pushNativeWired = false; return; }
         perm = await Push.requestPermissions();
       }
       if (perm.receive !== 'granted') {
@@ -10210,6 +10218,18 @@ window.confirmPayment = async function() {
       title: 'Hear back fast',
       body: "Get notified the moment the seller responds to your offer.",
     },
+    // r313: gated by BOARDS COMPLETED rather than elapsed time (the bingo
+    // module owns that counter), so it opts out of the 30-day cooldown and
+    // caps itself at two showings — the first completed board, then once
+    // more three boards later. After that, never.
+    'bingo-first-board': {
+      title: 'Want a nudge when tomorrow\u2019s board drops?',
+      body: "A single daily reminder when the new Logo Bingo board goes live. Nothing else.",
+      yesLabel: 'Remind me',
+      noLabel: 'Not now',
+      cooldownMs: 0,
+      maxShows: 2,
+    },
   };
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -10245,17 +10265,30 @@ window.confirmPayment = async function() {
       const uRef = doc(db, 'users', window.CURRENT_USER.uid);
       const uSnap = await getDoc(uRef);
       const history = (uSnap.exists() && uSnap.data().pushPromptHistory) || [];
-      const lastForContext = history.filter(h => h.context === context).pop();
-      if (lastForContext) {
+      const forContext = history.filter(h => h.context === context);
+      // A context may set its own cadence (see 'bingo-first-board').
+      const maxShows = (copy.maxShows != null) ? copy.maxShows : Infinity;
+      if (forContext.length >= maxShows) return;
+      const cooldownMs = (copy.cooldownMs != null) ? copy.cooldownMs : PUSH_PROMPT_COOLDOWN_MS;
+      const lastForContext = forContext[forContext.length - 1];
+      if (lastForContext && cooldownMs > 0) {
         const lastMs = lastForContext.shownAt && lastForContext.shownAt.toMillis
           ? lastForContext.shownAt.toMillis()
           : new Date(lastForContext.shownAt || 0).getTime();
-        if (Date.now() - lastMs < PUSH_PROMPT_COOLDOWN_MS) return;
+        if (Date.now() - lastMs < cooldownMs) return;
       }
       if (history.some(h => h.answered === 'yes')) return;
 
       document.getElementById('pushPrePromptTitle').textContent = copy.title;
       document.getElementById('pushPrePromptBody').textContent = copy.body;
+      // r313: contexts may override the button wording. Selected by the
+      // data-action the delegated handler already keys on — no new ids, and
+      // nothing to keep in sync if the markup moves.
+      const back0 = document.getElementById('pushPrePromptBackdrop');
+      const yesBtn = back0 && back0.querySelector('[data-action="push-prompt-accept"]');
+      const noBtn = back0 && back0.querySelector('[data-action="push-prompt-decline"]');
+      if (yesBtn) yesBtn.textContent = copy.yesLabel || 'Turn on';
+      if (noBtn) noBtn.textContent = copy.noLabel || 'Not now';
       const back = document.getElementById('pushPrePromptBackdrop');
       back.dataset.pushContext = context;
       back.classList.add('open');
@@ -10294,11 +10327,24 @@ window.confirmPayment = async function() {
       }
       if (answer !== 'yes') return;
 
+      // r313: a yes on the bingo ask also switches the daily reminder ON at
+      // the default hour, so "Remind me" actually yields a reminder instead
+      // of just a permission grant. Mirrors BINGO_PUSH_PREF_DEFAULTS.
+      if (context === 'bingo-first-board' && window.CURRENT_USER) {
+        try {
+          const { setDoc, doc } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
+            { bingoPushPrefs: { dailyReminder: true, reminderHour: 8, streakSaver: true } },
+            { merge: true });
+        } catch (e) { console.warn('bingo reminder pref write failed', e); }
+      }
+
       const Cap = window.Capacitor;
       if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
-        // Defer to the existing native wiring — it will request perms +
-        // register if not already wired.
-        if (window.maybeRegisterPushNative) window.maybeRegisterPushNative();
+        // request:true — the ONLY path allowed to raise the iOS sheet, and
+        // it is reached only after the user tapped yes on the soft ask.
+        if (window.maybeRegisterPushNative) window.maybeRegisterPushNative({ request: true });
         return;
       }
       if (window.maybeRegisterPush) window.maybeRegisterPush();
@@ -27164,6 +27210,7 @@ if (uploadZone) {
       showCourseRevealCard(course, true, cell.points);
       closeGuessModal();
       render();
+      bingoHaptic('correct');
       playCorrectFx(idx, course);
       maybeFinish();
       return;
@@ -27177,6 +27224,7 @@ if (uploadZone) {
     showCourseRevealCard(course, false, 0);
     closeGuessModal();
     render();
+    bingoHaptic('wrong');
     playRevealFx(idx);
     maybeFinish();
   }
@@ -27195,6 +27243,7 @@ if (uploadZone) {
     showCourseRevealCard(course, false, 0);
     closeGuessModal();
     render();
+    bingoHaptic('wrong');
     playRevealFx(idx);
     maybeFinish();
   }
@@ -27405,6 +27454,7 @@ if (uploadZone) {
     // worthy moment of the round. If we're offline this is a no-op and
     // the next `online` event will drain the queue.
     try { enqueueBingoSync(TODAY); flushBingoSync(); } catch {}
+    try { maybeAskBingoReminder(TODAY); } catch (_e) {}
   }
 
   async function writeLeaderboardScore(correctCount, streak) {
@@ -27439,6 +27489,63 @@ if (uploadZone) {
   }
 
   // ── Share ──────────────────────────────────────────────────────────────
+  // r313: @capacitor/haptics. A no-op everywhere the plugin isn't present —
+  // web, a stale bundle, Android without it — so no call site needs its own
+  // platform check. Styles are the plugin's string enums, which avoids
+  // importing ImpactStyle/NotificationType just for two constants.
+  function bingoHaptic(kind) {
+    try {
+      const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+      if (!H) return;
+      if (kind === 'correct') { if (H.impact) H.impact({ style: 'LIGHT' }); }
+      else if (H.notification) H.notification({ type: 'ERROR' });
+    } catch (_e) {}
+  }
+
+  // r313: the ONLY place the notification ask can begin. Gated on boards
+  // COMPLETED, not elapsed time — the first finished board asks once; a
+  // "Not now" waits three more finished boards and asks once more; after
+  // that, never. The prompt is in-app; the iOS system sheet appears only if
+  // the user taps "Remind me" (see maybeRegisterPushNative's request flag).
+  const BINGO_ASK_KEY = 'tb_bingo_push_ask_v1';
+  const BINGO_DONE_KEY = 'tb_bingo_boards_done_v1';
+  function bingoBoardsCompleted() {
+    try { return Number(localStorage.getItem(BINGO_DONE_KEY) || 0) || 0; } catch (_e) { return 0; }
+  }
+  function bumpBingoBoardsCompleted(date) {
+    try {
+      // Idempotent per board — re-entering a finished day must not re-count.
+      const seen = BINGO_DONE_KEY + '.' + date;
+      if (localStorage.getItem(seen)) return bingoBoardsCompleted();
+      localStorage.setItem(seen, '1');
+      const n = bingoBoardsCompleted() + 1;
+      localStorage.setItem(BINGO_DONE_KEY, String(n));
+      return n;
+    } catch (_e) { return 0; }
+  }
+  function maybeAskBingoReminder(date) {
+    try {
+      const n = bumpBingoBoardsCompleted(date);   // counts for guests too
+      if (!window.CURRENT_USER || !window.maybePromptForPush) return;
+      let st = { asks: 0, at: 0 };
+      try { st = JSON.parse(localStorage.getItem(BINGO_ASK_KEY) || 'null') || st; } catch (_e) {}
+      if (st.asks >= 2) return;
+      if (st.asks === 0 ? n < 1 : n < st.at + 3) return;
+      try { localStorage.setItem(BINGO_ASK_KEY, JSON.stringify({ asks: st.asks + 1, at: n })); } catch (_e) {}
+      // Let the result banner land before anything else appears.
+      setTimeout(() => { try { window.maybePromptForPush('bingo-first-board'); } catch (_e) {} }, 1600);
+    } catch (_e) {}
+  }
+
+  // r313: boards are numbered from the first ever puzzle, 2026-05-15 (the
+  // earliest /dailyPuzzles doc in production). Wordle-style numbering gives
+  // the share a running identity and makes two people's cards comparable.
+  const BINGO_FIRST_BOARD = '2026-05-15';
+  function bingoBoardNumber(dateStr) {
+    const d = Date.UTC(...dateStr.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+    const e = Date.UTC(...BINGO_FIRST_BOARD.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+    return Math.max(1, Math.floor((d - e) / 86400000) + 1);
+  }
   function buildShareText() {
     const score = scoreCount();
     const rows = [];
@@ -27457,7 +27564,7 @@ if (uploadZone) {
     // streak. Then a one-line link for the recipient. Format is intentionally
     // recognizable so it stands out in iMessage / Twitter.
     const lines = [
-      `TeeBox Logo Bingo · ${TODAY}`,
+      `TeeBox Logo Bingo #${bingoBoardNumber(TODAY)} · ${TODAY}`,
       '',
       ...rows,
       '',
@@ -27783,7 +27890,11 @@ if (uploadZone) {
       return { asc, desc, w: m.width, h: asc + desc };
     };
     const statsText = (() => {
-      const bits = [Number(pts).toLocaleString() + ' pts'];
+      // r313: the perfect round rides the SAME cream line rather than its own
+      // callout — one line, no extra block to balance.
+      const bits = [];
+      if (score === 9) bits.push('Perfect round');
+      bits.push(Number(pts).toLocaleString() + ' pts');
       if (streakCount > 0) bits.push(streakCount + '-day streak');
       return bits.join('  ·  ');
     })();
@@ -27872,7 +27983,7 @@ if (uploadZone) {
         x.save();
         // Missed tiles keep the artwork but drop back, so the eye reads the
         // row of greens first without the board turning into holes.
-        if (!got) x.globalAlpha = 0.4;
+        if (!got) x.globalAlpha = 0.5;  // r313: 0.4 lost pale line-art logos entirely
         x.drawImage(logo, tx + (T - dw) / 2, ty + (T - dh) / 2, dw, dh);
         x.restore();
       } else {
