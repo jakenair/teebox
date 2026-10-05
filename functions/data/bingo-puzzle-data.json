@@ -233,6 +233,36 @@
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fpoint-o-woods.png?alt=media"
     },
     {
+      "id": "peachtree",
+      "shortName": "Peachtree",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fpeachtree.png?alt=media"
+    },
+    {
+      "id": "brook-hollow",
+      "shortName": "Brook Hollow",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbrook-hollow.png?alt=media"
+    },
+    {
+      "id": "saucon-valley",
+      "shortName": "Saucon Valley",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsaucon-valley.png?alt=media"
+    },
+    {
+      "id": "sahalee",
+      "shortName": "Sahalee",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsahalee.png?alt=media"
+    },
+    {
+      "id": "laurel-valley",
+      "shortName": "Laurel Valley",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Flaurel-valley.png?alt=media"
+    },
+    {
+      "id": "hazeltine-national",
+      "shortName": "Hazeltine National",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fhazeltine-national.png?alt=media"
+    },
+    {
       "id": "barassie",
       "shortName": "Barassie",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbarassie.png?alt=media"
@@ -301,6 +331,11 @@
       "id": "detroit-golf-club",
       "shortName": "Detroit Golf Club",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fdetroit-golf-club.png?alt=media"
+    },
+    {
+      "id": "colonial",
+      "shortName": "Colonial",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcolonial.png?alt=media"
     },
     {
       "id": "muirfield-village",
@@ -1217,6 +1252,55 @@
         "pow"
       ]
     },
+    "peachtree": {
+      "name": "Peachtree Golf Club",
+      "shortName": "Peachtree",
+      "aliases": [
+        "peachtree gc",
+        "peachtree atlanta"
+      ]
+    },
+    "brook-hollow": {
+      "name": "Brook Hollow Golf Club",
+      "shortName": "Brook Hollow",
+      "aliases": [
+        "brook hollow gc",
+        "brookhollow"
+      ]
+    },
+    "saucon-valley": {
+      "name": "Saucon Valley Country Club (Old Course)",
+      "shortName": "Saucon Valley",
+      "aliases": [
+        "saucon valley cc",
+        "saucon valley old",
+        "saucon"
+      ]
+    },
+    "sahalee": {
+      "name": "Sahalee Country Club",
+      "shortName": "Sahalee",
+      "aliases": [
+        "sahalee cc",
+        "sahalee sammamish"
+      ]
+    },
+    "laurel-valley": {
+      "name": "Laurel Valley Golf Club",
+      "shortName": "Laurel Valley",
+      "aliases": [
+        "laurel valley gc",
+        "laurel valley ligonier"
+      ]
+    },
+    "hazeltine-national": {
+      "name": "Hazeltine National Golf Club",
+      "shortName": "Hazeltine National",
+      "aliases": [
+        "hazeltine",
+        "hazeltine national gc"
+      ]
+    },
     "barassie": {
       "name": "Kilmarnock (Barassie) Golf Club",
       "shortName": "Barassie",
@@ -1321,6 +1405,14 @@
       "aliases": [
         "detroit gc",
         "rocket mortgage classic"
+      ]
+    },
+    "colonial": {
+      "name": "Colonial Country Club",
+      "shortName": "Colonial",
+      "aliases": [
+        "colonial cc",
+        "charles schwab challenge"
       ]
     },
     "muirfield-village": {
@@ -2092,7 +2184,7 @@
       ]
     }
   },
-  "generatedAt": "2026-10-05T19:58:35.003Z",
+  "generatedAt": "2026-10-05T22:32:04.250Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

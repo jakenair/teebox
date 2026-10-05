@@ -282,6 +282,33 @@ exports.onBingoWinAggregate = onDocumentWritten(
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
 
+      // ── Per-user lifetime stats (r314) ────────────────────────────
+      // Lives HERE, not in syncBingoProgress, because this handler already
+      // has exactly-once-per-(uid,date) semantics: it runs only on the write
+      // where solvedAt first becomes non-null, and re-syncs from the offline
+      // queue return above. Putting a played-counter in syncBingoProgress
+      // would increment again on every re-sync.
+      //
+      // `distribution` is a NESTED MAP, not dotted keys — same trap the
+      // histogram comment above documents: set() would treat "distribution.9"
+      // as a literal field name containing a dot.
+      //
+      // A "win" is a PERFECT 9/9. Every board resolves in single-shot mode,
+      // so "solved" would mean 100% and carry no information; the UI labels
+      // this "perfect rounds", not "win %", so the number can't be misread.
+      const correctCount = Math.max(0, Math.min(9, Number(after.correctCount) || 0));
+      await db.doc(`users/${uid}`).set({
+        bingoStats: {
+          played: admin.firestore.FieldValue.increment(1),
+          perfect: admin.firestore.FieldValue.increment(correctCount === 9 ? 1 : 0),
+          correctTotal: admin.firestore.FieldValue.increment(correctCount),
+          distribution: {
+            [String(correctCount)]: admin.firestore.FieldValue.increment(1),
+          },
+          lastPlayedDate: date,
+        },
+      }, {merge: true});
+
       // Country-scoped aggregate (only if user has a country set).
       if (country && typeof country === "string" && country.length <= 8) {
         const countryRef = db.doc(

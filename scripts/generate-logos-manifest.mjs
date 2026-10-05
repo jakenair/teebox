@@ -24,8 +24,17 @@ const OUT = path.join(LOGOS_DIR, 'manifest.js');
 // they are structurally attached to the crest so they cannot be cropped away.
 // Re-padding in r293 improved the framing as far as that file allows. It
 // stays in PASSPORT_LOGOS, where it renders larger and reads fine.
+// the-golf-club (2026-10-05, founder call): the mark is a stag, crossed clubs
+// and a ribbon that READS "The Golf Club" — the tile would spell its own
+// answer. Connected-component analysis says there is nothing to crop to:
+// stag, clubs, ribbon and lettering are a single blob, 95.2% of all ink, so
+// unlike Hazeltine (whose golfer is a separate component and was extracted)
+// the text cannot be removed without destroying the mark. Standing rule:
+// never ship a Bingo tile that spells its own answer. Still served, so
+// Passport keeps it.
 const RETIRED_FROM_BINGO = new Set([
   'royal-county-down',
+  'the-golf-club',
 ]);
 
 const slugs = fs
