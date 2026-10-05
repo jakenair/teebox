@@ -3821,6 +3821,41 @@
   .bingo-share-btn { background: var(--gold-500); color: var(--green-950); border: none; border-radius: 50px; padding: 8px 14px; font-family: var(--font-body); font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; }
   .bingo-share-btn:hover { background: var(--gold-400); }
   .bingo-share-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* r308 — sell nudge on a finished board. Deliberately quiet: it sits inside
+     the result banner, so it must read as a footnote to the celebration, not
+     compete with it. Translucent on the banner's own colour rather than a new
+     accent, no shadow, no animation. */
+  .bingo-sell-nudge {
+    margin-top: 12px; padding: 10px 12px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; text-align: left;
+  }
+  .bingo-sell-nudge-copy { font-size: 13px; line-height: 1.35; min-width: 0; }
+  .bingo-sell-nudge-copy strong { display: block; font-weight: 700; }
+  .bingo-sell-nudge-copy span { display: block; opacity: 0.85; margin-top: 1px; }
+  .bingo-sell-nudge-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .bingo-sell-nudge-cta {
+    background: var(--gold-500); color: var(--green-950);
+    border: none; border-radius: 8px; padding: 6px 12px;
+    font-family: var(--font-body); font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+  }
+  .bingo-sell-nudge-cta:hover { background: var(--gold-400); }
+  .bingo-sell-nudge-x {
+    background: none; border: none; color: inherit; opacity: 0.7;
+    font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    cursor: pointer; padding: 6px 2px; white-space: nowrap;
+  }
+  .bingo-sell-nudge-x:hover { opacity: 1; }
+  /* Narrow phones: stack so the CTA never gets squeezed to two lines. */
+  @media (max-width: 380px) {
+    .bingo-sell-nudge { flex-direction: column; align-items: stretch; }
+    .bingo-sell-nudge-actions { justify-content: space-between; }
+  }
   /* Tiny pill that surfaces offline / pending-sync status in the bingo
      header. Hidden by default — JS reveals it via [data-mode] when the
      connection drops or the local queue has unsynced games. */
@@ -5295,7 +5330,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r307</span></div>
+        <span class="auth-build" aria-hidden="true">r308</span></div>
     </div>
   </div>
 </div>
@@ -26481,6 +26516,51 @@ if (uploadZone) {
     const s = sec % 60;
     return m ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
   }
+  // ── Sell nudge gating (r308) ────────────────────────────────────────────
+  // Shown on a finished board to signed-in players who do not already sell.
+  // Rules, in order of how much they matter:
+  //   1. signed-in only — a guest already gets the sign-in ask above, and two
+  //      stacked asks reads as nagging rather than an invitation;
+  //   2. never to an existing seller — they have already done the thing;
+  //   3. at most once every 7 days; dismissing pushes it out to 30;
+  //   4. localStorage only, wrapped in try/catch, because a private window or
+  //      blocked site data throws on access and must never break the board.
+  const SELL_NUDGE_KEY = 'tb_bingo_sell_nudge_v1';
+  const SELL_NUDGE_COOLDOWN_DAYS = 7;
+  const SELL_NUDGE_DISMISS_DAYS = 30;
+  function alreadySells() {
+    try {
+      const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+      if (!uid) return false;
+      // PRODUCTS may not be loaded inside the Bingo view. An empty list means
+      // "unknown", not "no listings" — showing the nudge once to someone who
+      // already sells is a far smaller cost than never showing it at all.
+      return (window.PRODUCTS || []).some(p => p && p.sellerId === uid);
+    } catch (_e) { return false; }
+  }
+  function shouldShowSellNudge() {
+    try {
+      if (!window.CURRENT_USER) return false;
+      if (alreadySells()) return false;
+      const raw = localStorage.getItem(SELL_NUDGE_KEY);
+      if (raw) {
+        const o = JSON.parse(raw);
+        const days = (Date.now() - Number(o.at || 0)) / 86400000;
+        const wait = o.dismissed ? SELL_NUDGE_DISMISS_DAYS : SELL_NUDGE_COOLDOWN_DAYS;
+        if (days < wait) return false;
+      }
+      return true;
+    } catch (_e) { return false; }
+  }
+  function markSellNudgeSeen(dismissed) {
+    try {
+      localStorage.setItem(SELL_NUDGE_KEY,
+        JSON.stringify({at: Date.now(), dismissed: !!dismissed}));
+    } catch (_e) {}
+  }
+  // Mirrored for the action handlers, which live in a sibling <script>.
+  window.__bingoSellNudge = {markSellNudgeSeen};
+
   function isComplete() {
     return game.cells.every(c => c.state === 'correct' || c.state === 'revealed');
   }
@@ -26582,12 +26662,28 @@ if (uploadZone) {
               Sign in</button>
             <span style="display:block;margin-top:2px;opacity:0.85">to save your streak going forward + join the leaderboard.</span>
           </div>` : '';
+        // r308: sell nudge — see shouldShowSellNudge(). Built in BOTH banner
+        // paths (live completion and reload-of-completed) because they are
+        // separate code; adding it to only one would make the prompt appear
+        // or vanish depending on how the player got here.
+        const sellNudge = shouldShowSellNudge() ? `
+          <div class="bingo-sell-nudge">
+            <div class="bingo-sell-nudge-copy">
+              <strong>Sitting on gear you don&rsquo;t use?</strong>
+              <span>List it on TeeBox &mdash; golfers here are already looking.</span>
+            </div>
+            <div class="bingo-sell-nudge-actions">
+              <button type="button" class="bingo-sell-nudge-cta" data-action="bingo-sell-start">Start selling</button>
+              <button type="button" class="bingo-sell-nudge-x" data-action="bingo-sell-dismiss">Not now</button>
+            </div>
+          </div>` : '';
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
             <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${bannerStreak}
           </div>
           ${guestNudge}
+          ${sellNudge}
         `;
         body.insertBefore(banner, gridEl);
       }
@@ -27192,12 +27288,28 @@ if (uploadZone) {
               Sign in</button>
             <span style="display:block;margin-top:2px;opacity:0.85">to save your streak going forward + join the leaderboard.</span>
           </div>` : '';
+        // r308: sell nudge — see shouldShowSellNudge(). Built in BOTH banner
+        // paths (live completion and reload-of-completed) because they are
+        // separate code; adding it to only one would make the prompt appear
+        // or vanish depending on how the player got here.
+        const sellNudge = shouldShowSellNudge() ? `
+          <div class="bingo-sell-nudge">
+            <div class="bingo-sell-nudge-copy">
+              <strong>Sitting on gear you don&rsquo;t use?</strong>
+              <span>List it on TeeBox &mdash; golfers here are already looking.</span>
+            </div>
+            <div class="bingo-sell-nudge-actions">
+              <button type="button" class="bingo-sell-nudge-cta" data-action="bingo-sell-start">Start selling</button>
+              <button type="button" class="bingo-sell-nudge-x" data-action="bingo-sell-dismiss">Not now</button>
+            </div>
+          </div>` : '';
         banner.innerHTML = `
           <div style="font-weight:700;font-size:16px">You got ${score}/9 today!</div>
           <div style="margin-top:4px;font-size:14px;opacity:0.95">
             <strong>${pts.toLocaleString()}</strong> pts · ${formatDuration(elapsed)} · Streak ${s.count}
           </div>
           ${guestNudge}
+          ${sellNudge}
         `;
         body.insertBefore(banner, grid);
       }
@@ -27727,6 +27839,22 @@ if (uploadZone) {
   A['bingo-skip-guess']     = () => skipGuess();
   A['bingo-cancel-guess']   = () => closeGuessModal();
   A['bingo-share']          = () => shareResult();
+  // r308 sell nudge. Record BEFORE navigating: handle-sell can open the auth
+  // or Stripe-onboarding path and never return here, and a nudge that reopens
+  // every single day because the user actually acted on it is the worst
+  // possible outcome.
+  A['bingo-sell-start']     = () => {
+    try { window.__bingoSellNudge && window.__bingoSellNudge.markSellNudgeSeen(false); } catch (_e) {}
+    const n = document.querySelector('.bingo-sell-nudge');
+    if (n) n.remove();
+    try { A['close-bingo'] && A['close-bingo'](); } catch (_e) {}
+    handleSellClick();
+  };
+  A['bingo-sell-dismiss']   = () => {
+    try { window.__bingoSellNudge && window.__bingoSellNudge.markSellNudgeSeen(true); } catch (_e) {}
+    const n = document.querySelector('.bingo-sell-nudge');
+    if (n) n.remove();
+  };
 
   // Wire input listeners (autocomplete + Enter-to-submit). We attach once
   // and just feed today's pool every time.
