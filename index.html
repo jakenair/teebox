@@ -1890,6 +1890,26 @@
   .pp-detail-review { font-size: 14px; color: var(--gray-800, var(--gray-700)); line-height: 1.6; white-space: pre-wrap; margin-bottom: 1rem; }
   .pp-detail-actions { display: flex; gap: 10px; }
   .pp-detail-actions .btn-full { flex: 1; }
+  /* r309 — a passport post is photo-first, and a 480px card floating in a
+     dimmed backdrop spent most of a phone screen on the overlay instead of
+     the round. On phones the detail sheet goes edge to edge. Desktop keeps
+     the centred dialog: full-bleed on a 27" monitor would blow a 4:5 photo
+     up to absurd size. Scoped to #ppDetailBackdrop so .pp-modal (the add-a-
+     round sheet, which shares .pp-sheet's sizing rule) is untouched. */
+  @media (max-width: 640px) {
+    #ppDetailBackdrop { padding: 0; }
+    #ppDetailBackdrop .pp-sheet {
+      width: 100vw; max-width: none; border-radius: 0;
+      height: 100vh; height: 100dvh; max-height: none;
+    }
+    #ppDetailBackdrop .pp-sheet-inner {
+      flex: 1;
+      padding-top: calc(1.1rem + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(1.4rem + env(safe-area-inset-bottom, 0px));
+    }
+    /* Clear the notch / Dynamic Island now that the sheet starts at y=0. */
+    #ppDetailBackdrop .pp-sheet-x { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  }
   .pp-detail-coursebtn { display: block; width: 100%; text-align: center; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 9px 12px; margin: 0 0 0.8rem; font-size: 13px; font-weight: 700; color: var(--green-700); cursor: pointer; }
   .verify-backdrop.open { display: flex; }
   .verify-modal { background: var(--white); border-radius: var(--radius-xl); max-width: 540px; width: 100%; overflow: hidden; animation: slideUp 0.28s cubic-bezier(.4,0,.2,1); }
@@ -2031,6 +2051,16 @@
   .hq-ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .hq-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
   .hq-sub { font-size: 12px; line-height: 1.35; color: var(--gray-500); }
+  /* r309 — the Journal tile is an <a>, so it needs the underline killed that
+     .hq-tile (written for <button>) never had to think about. */
+  a.hq-tile { text-decoration: none; }
+  /* r309 — the Journal subtitle carries a live article headline of any length.
+     One line, ellipsised, so a long title can't make this tile taller than the
+     other three. align-self:stretch is load-bearing: .hq-tile is a column
+     flexbox with align-items:flex-start, so without it the span is
+     shrink-to-fit and text-overflow has no box to clip against. */
+  .hq-journal .hq-sub { align-self: stretch; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
 
   /* r272/r273 — Logo Bingo mini board. Cells are dark green now that the tile
      is white; they were white when the tile was translucent green. Still
@@ -2266,8 +2296,11 @@
      link and nowhere else. The extra doors (nav link, home tile, teaser,
      category pill) are gone on WEB as well as in the app; the articles
      themselves are untouched and /reads/ still serves all of them. */
+  /* r309 — founder call: the hero's Journal tile comes BACK, now carrying the
+     latest article's headline. The other three doors stay shut, so r291's "one
+     front door" still holds — the hero tile becomes that door rather than
+     adding a fourth alongside the footer link. */
   .mobile-nav-link[data-action="open-journal"],
-  .hq-tile.hq-journal,
   .app-teaser-journal,
   .cat-pill.cat-journal { display: none !important; }
 
@@ -5330,7 +5363,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r308</span></div>
+        <span class="auth-build" aria-hidden="true">r309</span></div>
     </div>
   </div>
 </div>
@@ -6972,14 +7005,6 @@
           <span class="hq-name">Logo Bingo</span>
           <span class="hq-sub" id="hqBingoSub">Guess today's nine courses</span>
         </button>
-        <!-- r273: the rotating cover slideshow was dropped when the tiles went
-             solid white — artwork behind white cards fought the text instead of
-             supporting it. Back to the line icon. -->
-        <button class="hq-tile hq-journal" data-action="open-journal" type="button">
-          <span class="hq-ico" data-ico="book" aria-hidden="true"></span>
-          <span class="hq-name">TeeBox Journal</span>
-          <span class="hq-sub">Course guides and gear reads</span>
-        </button>
         <button class="hq-tile" data-action="open-passport-feed" type="button">
           <span class="hq-ico" data-ico="pin" aria-hidden="true"></span>
           <span class="hq-name">Passport</span>
@@ -6990,6 +7015,17 @@
           <span class="hq-name">Sell Now</span>
           <span class="hq-sub">List a club in a couple of minutes</span>
         </button>
+        <!-- r309 — Journal is slot 4 and is an <a>, not a button: it is plain
+             navigation to a static page, so middle-click, open-in-new-tab and
+             crawlers all work. Deliberately NO data-action — the delegated
+             handler (and r291's inert open-journal stub, which just returns)
+             must never see it. The subtitle below is replaced at runtime with
+             the newest article's headline; this copy is the fallback. -->
+        <a class="hq-tile hq-journal" href="/reads/">
+          <span class="hq-ico" data-ico="book" aria-hidden="true"></span>
+          <span class="hq-name">Journal</span>
+          <span class="hq-sub" id="hqJournalSub">Course guides &amp; golf reads</span>
+        </a>
       </div>
     </div>
   </section>
@@ -22691,7 +22727,12 @@ function ppAddPhoto() {
       // Single pick → crop/zoom it precisely.
       const file = files[0];
       if (file.size > 30 * 1024 * 1024) { showToast('That image is too large. Please pick one under 30MB.'); return; }
-      const cropped = await window.openCropper(file, { outputSize: 1080, quality: 0.85, title: 'Crop photo' });
+      // r309: 1600, matching listing photos. 1080 was BELOW what a modern
+      // phone displays: a 4:5 card on a 390pt-wide screen at 3x is ~1170px
+      // across, so every passport photo was being upscaled on the device it
+      // was shot on. Uploads go straight to Storage (uploadBytes), not through
+      // a callable, so there is no 1MB payload ceiling to respect here.
+      const cropped = await window.openCropper(file, { outputSize: 1600, quality: 0.85, title: 'Crop photo' });
       if (!cropped || !__ppState) return;
       __ppState.photos.push({ file: cropped, previewUrl: URL.createObjectURL(cropped) });
       ppRenderPhotos();
@@ -22702,7 +22743,7 @@ function ppAddPhoto() {
     let added = 0;
     for (const f of files.slice(0, room)) {
       if (f.size > 30 * 1024 * 1024) continue;
-      const small = await ppDownscaleImage(f, 1080, 0.85); // match single-pick size
+      const small = await ppDownscaleImage(f, 1600, 0.85); // match single-pick size
       if (!__ppState) return;
       __ppState.photos.push({ file: small, previewUrl: URL.createObjectURL(small) });
       added++;
@@ -22715,7 +22756,7 @@ function ppAddPhoto() {
 
 // Downscale an image to fit within `max` px (longest side), re-encoded JPEG.
 // EXIF-orientation-safe via createImageBitmap; falls back to the original.
-async function ppDownscaleImage(file, max = 1080, quality = 0.85) {
+async function ppDownscaleImage(file, max = 1600, quality = 0.85) {
   try {
     // Decode + scale off the main thread via createImageBitmap resize options
     // (a 12MP photo is ~48MB RGBA if decoded at full size first). Probe the
@@ -25444,6 +25485,20 @@ document.querySelectorAll('[data-ico]').forEach((el) => {
   // r273: the Journal cover rotation lived here and is gone with the
   // slideshow — the tiles are solid white now, so there is nothing to rotate
   // behind the label. cover-sm.webp assets deleted in the same commit.
+
+  // r309: the Journal tile shows the newest article's headline. The source of
+  // truth is the in-page Journal index (#journalBackdrop .journal-list) — the
+  // one place article titles are already maintained, kept newest-first in
+  // lockstep with /reads/index.html. Reading it here means publishing an
+  // article updates this tile for free: no second list to forget, and no
+  // network call on the homepage critical path. If the index is ever empty or
+  // missing, the tile keeps the static fallback copy already in the DOM.
+  try {
+    const jsub = document.getElementById('hqJournalSub');
+    const latest = document.querySelector('#journalBackdrop .journal-card .journal-title');
+    const jtitle = latest && latest.textContent.trim();
+    if (jsub && jtitle) jsub.textContent = 'Latest: ' + jtitle;
+  } catch (_e) { /* fallback copy is already rendered */ }
 })();
 
 // r271: fill the category side-panel rows with the existing per-category
