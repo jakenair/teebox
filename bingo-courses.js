@@ -666,6 +666,17 @@ export const COURSES = [
     logoUrl: '',
   },
   {
+    id: 'sahalee',
+    name: 'Sahalee Country Club',
+    shortName: 'Sahalee',
+    aliases: ['sahalee cc', 'sahalee sammamish'],
+    location: 'Sammamish, Washington',
+    architect: 'Ted Robinson',
+    founded: 1969,
+    logo: '',
+    logoUrl: '',
+  },
+  {
     id: 'laurel-valley',
     name: 'Laurel Valley Golf Club',
     shortName: 'Laurel Valley',

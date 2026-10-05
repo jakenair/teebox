@@ -134,6 +134,7 @@ export const LOGOS_AVAILABLE = new Set([
   'rodeo-dunes',
   'royal-dornoch',
   'royal-troon',
+  'sahalee',
   'san-francisco-gc',
   'sand-hills',
   'sand-ridge',
