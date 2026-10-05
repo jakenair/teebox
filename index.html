@@ -3974,9 +3974,10 @@
   .bingo-cell-num { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: var(--white); background: var(--green-700); padding: 2px 7px; border-radius: 50px; letter-spacing: 0.4px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
   .bingo-cell-logo { font-size: 2.6rem; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; box-sizing: border-box; overflow: hidden; }
   .bingo-cell-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-  /* Guessable fallback when a logo can't be fetched (cold cache + bad
-     signal). Initials, not the shortName — keeps the tile playable without
-     giving the answer away. Shared by board tiles and the guess modal. */
+  /* Placeholder when a logo can't be fetched (cold cache + bad signal).
+     r311: deliberately identifies NOTHING — see bingoLogoFallbackHtml. The
+     earlier initials version leaked the answer. Shared by board tiles and
+     the guess modal. */
   .bingo-logo-fallback { display: flex; align-items: center; justify-content: center; width: 74%; height: 74%; border-radius: 50%; border: 2px dashed var(--gray-400); color: var(--green-700); font-size: 1.6rem; font-weight: 800; letter-spacing: 1px; }
   .bingo-cell-name { font-size: 11.5px; font-weight: 600; color: var(--gray-700); line-height: 1.2; margin-top: 4px; word-break: break-word; }
   .bingo-cell-mark { position: absolute; top: 6px; right: 8px; font-size: 14px; font-weight: 700; }
@@ -5363,7 +5364,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r310</span></div>
+        <span class="auth-build" aria-hidden="true">r311</span></div>
     </div>
   </div>
 </div>
@@ -26077,11 +26078,16 @@ if (uploadZone) {
   // fallback in the meantime. A late success swaps the real logo in.
   // Scoring is untouched — matchesCourse() never reads the logo.
   const BINGO_LOGO_RETRY_MS = [1200, 3500];
-  function bingoLogoFallbackHtml(course) {
-    const name = (course && (course.shortName || course.name || '')) || '';
-    const initials = name.split(/\s+/).map((w) => w.charAt(0)).join('')
-        .replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || '?';
-    return `<span class="bingo-logo-fallback" aria-hidden="true">${initials}</span>`;
+  // r311: this used to print the course's INITIALS. The intent was a tile you
+  // could still play without signal, but it did the opposite — "CW" against a
+  // 167-course pool is most of the answer, and a player who never saw the logo
+  // got the solve (and the streak) for free. A logo that cannot load is not a
+  // playable tile; it is a tile that is not ready yet, and it should say so
+  // rather than hand over the answer. The retry ladder below is unchanged, so
+  // the real logo still swaps in the moment one lands.
+  // `course` is intentionally unused — reading it is exactly the bug.
+  function bingoLogoFallbackHtml(_course) {
+    return '<span class="bingo-logo-fallback" role="img" aria-label="Logo still loading">?</span>';
   }
   function loadBingoLogoInto(el, course) {
     if (!el) return;
