@@ -5388,7 +5388,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r315</span></div>
+        <span class="auth-build" aria-hidden="true">r316</span></div>
     </div>
   </div>
 </div>
@@ -9364,6 +9364,45 @@ window.confirmPayment = async function() {
     } catch (_e) { /* best-effort — never block sign-in on a preload */ }
   }
 
+  // ── Creator referrals (seller-bounty pilot, 2026-10) ──────────────────
+  // A creator shares teeboxmarket.com?r=THEIRCODE. We capture the code on
+  // landing and keep it until the account is created, which is usually a
+  // different session — someone browses, leaves, comes back and signs up
+  // days later. FIRST touch wins and is never overwritten: if two creators
+  // both reach the same person, the one who introduced them gets the credit,
+  // which is the behaviour the contract promises.
+  const REFERRAL_KEY = 'tb_referral_v1';
+  function captureReferralCode() {
+    try {
+      const code = new URLSearchParams(window.location.search).get('r');
+      if (!code) return;
+      const clean = String(code).trim().toUpperCase().slice(0, 32);
+      if (!/^[A-Z0-9_-]+$/.test(clean)) return;   // ignore junk, never store it
+      if (localStorage.getItem(REFERRAL_KEY)) return;          // first touch wins
+      localStorage.setItem(REFERRAL_KEY, JSON.stringify({ code: clean, landedAt: Date.now() }));
+    } catch (_e) { /* private mode — the pilot survives without attribution */ }
+  }
+  captureReferralCode();
+
+  // Written ONCE, at the moment the account is bootstrapped, into its own
+  // doc. users/{uid} has an exact hasOnly() allow-list and widening it would
+  // widen the rule guarding sellerVerified/tier/frozen — see firestore.rules.
+  // Rules make the doc create-only, so a failure here is final and silent by
+  // design: attribution is nice to have, signing up is not negotiable.
+  async function claimReferralIfAny(uid) {
+    try {
+      const raw = localStorage.getItem(REFERRAL_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) || {};
+      if (!parsed.code) return;
+      await setDoc(doc(db, 'referralClaims', uid), {
+        code: String(parsed.code).slice(0, 32),
+        landedAt: Number(parsed.landedAt) || Date.now(),
+        claimedAt: serverTimestamp(),
+      });
+    } catch (e) { console.warn('referral claim skipped:', e && e.code || e); }
+  }
+
   async function checkSellerStatus(uid) {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
@@ -9380,6 +9419,11 @@ window.confirmPayment = async function() {
         try {
           await setDoc(doc(db, 'users', uid), { displayName: '' }, { merge: true });
         } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
+        // Brand-new account — the only moment a first-touch referral is true.
+        // This branch is the single bootstrap point for EVERY provider
+        // (email, Google, Apple), so attribution lands once here rather than
+        // being patched into each sign-up path separately.
+        claimReferralIfAny(uid);
       }
       // GDPR re-opt-in banner. Show once if (a) no marketingConsent
       // doc OR consent.granted === false AND (b) the user hasn't

@@ -1408,6 +1408,39 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // CREATOR REFERRALS — seller-bounty pilot, 2026-10
+    //
+    // referralClaims/{userId} is first-touch attribution: which creator's
+    // code was on the link when this account was created.
+    //
+    // Why a sibling collection and not a field on users/{uid}: that doc is
+    // guarded by an exact hasOnly() allow-list, and widening it to admit a
+    // referral field would widen the same rule that protects sellerVerified,
+    // tier and frozen. A separate doc leaves that surface untouched.
+    //
+    // Create-once, never updatable or deletable. A referral is a historical
+    // fact, and immutability is the whole reason the payout ledger can be
+    // trusted — a creator cannot be swapped in after a seller turns out to be
+    // productive.
+    //
+    // The code is deliberately NOT validated here. Creator codes are public by
+    // nature (creators publish them), so there is nothing to protect, and an
+    // allow-list in rules would mean a rules deploy per creator. An unknown
+    // code simply matches no creator at report time and pays nobody.
+    // ─────────────────────────────────────────────
+    match /referralClaims/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && appCheckOk()
+        && request.resource.data.keys().hasOnly(['code','claimedAt','landedAt'])
+        && request.resource.data.code is string
+        && request.resource.data.code.size() > 0
+        && request.resource.data.code.size() <= 32;
+      allow update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
     // DEFAULT DENY
     // ─────────────────────────────────────────────
     match /{document=**} {
