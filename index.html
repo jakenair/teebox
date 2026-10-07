@@ -2634,11 +2634,12 @@
      buildTrending(): it used to display:none the whole section when PRODUCTS
      was still empty, then un-hide it at full height once Firestore resolved.
      That collapse-then-expand was 96% of the home page's layout shift. */
-  /* r321: height MEASURED from the real rendered rows at 390px — they come
-     out 134-178px (avg 159) because .trend-info-name wraps to two lines and
-     the cell is taller than the 44px thumb. The first skeleton used 82px
-     rows, which under-reserved by ~540px across seven rows and made COLD
-     load CLS worse than before the fix (0.446 -> 0.710) even while warm
+  /* r321 measured the real rendered rows at 390px: 134-178px each, because
+     .trend-info-name wraps to two lines and the cell is taller than the 44px
+     thumb. A skeleton built on 82px rows under-reserved by ~540px across the
+     seven and made COLD CLS worse (0.446 -> 0.710) while improving warm. That
+     skeleton was reverted in r323. Keep the numbers; they are the reason any
+     future skeleton here must be measured against a real row, not estimated. */
   .trending-table thead tr { background: var(--gray-100); }
   .trending-table th { padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; color: var(--gray-500); text-align: left; }
   .trending-table tbody tr { border-top: 1px solid var(--gray-100); cursor: pointer; transition: var(--transition); }
@@ -5425,7 +5426,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r327</span></div>
+        <span class="auth-build" aria-hidden="true">r328</span></div>
     </div>
   </div>
 </div>
