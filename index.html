@@ -2640,10 +2640,16 @@
      buildTrending(): it used to display:none the whole section when PRODUCTS
      was still empty, then un-hide it at full height once Firestore resolved.
      That collapse-then-expand was 96% of the home page's layout shift. */
-  .trend-skel td { padding: 13px 16px; }
+  /* r321: height MEASURED from the real rendered rows at 390px — they come
+     out 134-178px (avg 159) because .trend-info-name wraps to two lines and
+     the cell is taller than the 44px thumb. The first skeleton used 82px
+     rows, which under-reserved by ~540px across seven rows and made COLD
+     load CLS worse than before the fix (0.446 -> 0.710) even while warm
+     load improved. Reserve what actually arrives, not what looks right. */
+  .trend-skel td { padding: 13px 16px; height: 159px; box-sizing: border-box; }
   .trend-skel .sk { background: var(--gray-200); border-radius: 6px; height: 13px;
     animation: trendSkel 1.4s ease-in-out infinite; }
-  .trend-skel .sk-thumb { width: 56px; height: 56px; border-radius: var(--radius-md); }
+  .trend-skel .sk-thumb { width: 44px; height: 44px; border-radius: var(--radius-sm); }
   @keyframes trendSkel { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
   @media (prefers-reduced-motion: reduce) { .trend-skel .sk { animation: none; } }
   .trending-table thead tr { background: var(--gray-100); }
@@ -5426,7 +5432,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r320</span></div>
+        <span class="auth-build" aria-hidden="true">r321</span></div>
     </div>
   </div>
 </div>
@@ -12561,7 +12567,9 @@ function buildTrending() {
           sk += '<tr class="trend-skel">' +
             '<td><div class="sk" style="width:14px"></div></td>' +
             '<td><div style="display:flex;align-items:center;gap:12px">' +
-              '<div class="sk sk-thumb"></div><div class="sk" style="width:58%"></div></div></td>' +
+              '<div class="sk sk-thumb"></div>' +
+              '<div style="flex:1"><div class="sk" style="width:82%"></div>' +
+              '<div class="sk" style="width:54%;height:11px;margin-top:7px"></div></div></div></td>' +
             '<td><div class="sk" style="width:46px"></div></td>' +
             '<td><div class="sk" style="width:52px"></div></td></tr>';
         }
