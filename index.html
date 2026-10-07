@@ -169,6 +169,12 @@
       // matches events.md — autocapture would pollute it with
       // generic "$rageclick" / "$pageleave" style noise.
       autocapture: false,
+      // r325: session replay OFF. posthog-recorder.js was 1,523ms of the
+      // 4,264ms of JS self-time on a cold mobile boot — the heaviest script
+      // on the page, and 7x everything TeeBox itself ships. Nobody was
+      // watching the replays. If we want them back, turn them on AFTER load
+      // at idle and sample (e.g. 10% of sessions), never on every view.
+      disable_session_recording: true,
     });
     // Attach the standard property bag ONCE — every subsequent
     // posthog.capture() inherits these without per-call duplication.
@@ -5413,7 +5419,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r324</span></div>
+        <span class="auth-build" aria-hidden="true">r325</span></div>
     </div>
   </div>
 </div>
@@ -8839,9 +8845,22 @@ window.confirmPayment = async function() {
       console.warn('App Check init failed:', e && e.message);
     }
     };
-    if (window.__afterFeedPaint) window.__afterFeedPaint(__initAppCheck, 7000);
-    else (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(
-        __initAppCheck, {timeout: 6000});
+    // r325: feed-paint alone was not late enough. The feed paints at ~4.5s on
+    // a throttled phone, so the reCAPTCHA Enterprise bundle's ~973ms of main
+    // thread landed right as the gate became interactive. App Check here is
+    // MONITOR-ONLY (appCheckOk() returns true server-side), so the token has
+    // no deadline at all — hold it until the page has been quiet for a while.
+    // Auth requests made before this lands simply carry no App Check token,
+    // which is exactly what happens today on every native build.
+    const APPCHECK_FLOOR_MS = 10000;
+    const __deferAppCheck = () => {
+      (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(
+          __initAppCheck, {timeout: 4000});
+    };
+    setTimeout(() => {
+      if (window.__afterFeedPaint) window.__afterFeedPaint(__deferAppCheck, 4000);
+      else __deferAppCheck();
+    }, APPCHECK_FLOOR_MS);
   }
 
   // CRITICAL: on Capacitor (iOS WKWebView), Firebase Auth's default
