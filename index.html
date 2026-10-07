@@ -5419,7 +5419,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r325</span></div>
+        <span class="auth-build" aria-hidden="true">r326</span></div>
     </div>
   </div>
 </div>
@@ -13039,8 +13039,8 @@ async function hydrateSellerProPills(rootEl) {
 // Walk a container, find all .seller-rating-slot[data-seller-id] elements,
 // dedupe by sellerId, and inject a ★ avg (count) row pulled from the
 // profile aggregate (avgRating + reviewCount fields, written by the
-// `onReviewWrite` Cloud Function). Falls back to loadUserReviews when
-// the aggregate hasn't been computed yet. Slots stay empty for sellers
+// `onReviewWrite` Cloud Function). No aggregate = no rating; there is
+// deliberately no per-seller query fallback. Slots stay empty for sellers
 // with 0 reviews — the `:empty` CSS rule hides them so cards don't get
 // a stray gap. Best-effort, never throws.
 async function hydrateSellerRatings(rootEl) {
@@ -13057,19 +13057,15 @@ async function hydrateSellerRatings(rootEl) {
   const tasks = Array.from(bySeller.keys()).map(async sid => {
     try {
       const prof = await loadProfile(sid);
-      let count = (prof && typeof prof.reviewCount === 'number') ? prof.reviewCount : null;
-      let avg = (prof && typeof prof.avgRating === 'number') ? prof.avgRating : null;
-      // Fall back to a per-seller review aggregate when the profile doc
-      // doesn't carry the precomputed fields yet (older sellers, pre-CF).
-      if (count == null || avg == null) {
-        if (typeof window.loadUserReviews === 'function') {
-          const agg = await window.loadUserReviews(sid);
-          count = agg ? agg.count : 0;
-          avg = agg ? agg.avg : 0;
-        } else {
-          count = 0; avg = 0;
-        }
-      }
+      const count = (prof && typeof prof.reviewCount === 'number') ? prof.reviewCount : 0;
+      const avg = (prof && typeof prof.avgRating === 'number') ? prof.avgRating : 0;
+      // r325: NO per-seller reviews query. The fallback that used to run here
+      // fired for essentially every seller — 444 of 446 profile docs carry
+      // neither reviewCount nor avgRating — and then rendered nothing anyway,
+      // because the whole reviews collection holds one document. That was ten
+      // of the twenty-four Firestore reads on a cold home load, all discarded.
+      // No aggregate on the profile = no rating to show. When reviews exist,
+      // onReviewWrite is what must put the aggregate on profiles/{uid}.
       if (!count || count <= 0) return;
       const html = `<span class="pr-star">★</span> ${Number(avg).toFixed(1)} <span class="pr-count">(${Number(count)})</span>`;
       bySeller.get(sid).forEach(slot => { slot.innerHTML = html; });
@@ -21437,6 +21433,13 @@ const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 // even though they don't share lexical scope.
 window.PROFILE_CACHE = PROFILE_CACHE;
 
+// r325: four hydrators (verified pill, Pro pill, ratings, identity) each call
+// loadProfile for every seller on the grid, in the same tick. Without this the
+// cache can't help them — it is only written after a fetch resolves — so they
+// relied on the Firestore SDK happening to coalesce identical targets. Share
+// the in-flight promise explicitly instead.
+const PROFILE_INFLIGHT = new Map();
+
 async function loadProfile(uid) {
   if (!uid) return null;
   // M2: TTL check. Entries are stored as { data, fetchedAt }; legacy
@@ -21444,17 +21447,28 @@ async function loadProfile(uid) {
   const cached = PROFILE_CACHE.get(uid);
   if (cached && cached.fetchedAt &&
       (Date.now() - cached.fetchedAt) < PROFILE_CACHE_TTL_MS) {
-    return cached.data;
+    // A entry cached before auth resolved carries no users/{uid} data. If it
+    // turns out to be the signed-in user's own profile, refetch so their own
+    // payout state and verification flags aren't served from the public view.
+    const stalePartial = cached.data && cached.data._partial &&
+      window.CURRENT_USER && window.CURRENT_USER.uid === uid;
+    if (!stalePartial) return cached.data;
   }
+  const inflight = PROFILE_INFLIGHT.get(uid);
+  if (inflight) return inflight;
+  const run = (async () => {
   try {
     const { getFirestore, doc, getDoc } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    // Load profile + user doc in parallel; user doc reveals verification flags
-    // (sellerVerified, phone, email) used to render badges on the public profile.
+    // r325: users/{uid} is `allow read: if request.auth.uid == userId` —
+    // STRICTLY self-only (firestore.rules). Reading it for a seller who isn't
+    // you is a guaranteed permission-denied round trip, and the home grid was
+    // doing six of them on every cold load. Only ask for your own.
+    const isSelf = !!(window.CURRENT_USER && window.CURRENT_USER.uid === uid);
     const [pSnap, uSnap] = await Promise.all([
       getDoc(doc(db, 'profiles', uid)),
-      getDoc(doc(db, 'users', uid)).catch(() => null),
+      isSelf ? getDoc(doc(db, 'users', uid)).catch(() => null) : Promise.resolve(null),
     ]);
     const data = pSnap.exists() ? { id: pSnap.id, ...pSnap.data() } : { id: uid };
     // `isPro` is mirrored onto profiles/{uid} by the subscription webhook,
@@ -21478,15 +21492,16 @@ async function loadProfile(uid) {
     } else {
       data._user = { sellerVerified: false, phone: false, email: false, isPro };
       data.stripeChargesEnabled = false;
-      // r193: a failed users-doc read is EXPECTED for other people's profiles
-      // (rules: self-only) — but when it fails for the SIGNED-IN user, or
-      // before auth has resolved (when ANY uid might turn out to be the
-      // signed-in user — the feed warms this cache pre-auth on cold loads),
-      // caching the negative poisons self-views for 5 minutes: false
-      // "Finish payout setup" nag, hidden Manage-payouts button, dropped
-      // own badges. Return UNCACHED so the next call refetches with auth.
-      if (!window.CURRENT_USER || window.CURRENT_USER.uid === uid) {
-        return data;
+      // r193/r325: no users-doc data here, either because we deliberately
+      // skipped the read (not your uid — rules forbid it) or because the read
+      // for your own doc failed. Mark the entry PARTIAL so it can still be
+      // cached and shared: the TTL check above refetches it the moment auth
+      // resolves and the uid turns out to be yours. Caching an unmarked
+      // negative used to poison self-views for 5 minutes — false "Finish
+      // payout setup" nag, hidden Manage-payouts button, dropped own badges.
+      data._partial = true;
+      if (window.CURRENT_USER && window.CURRENT_USER.uid === uid) {
+        return data;  // own doc, read genuinely failed — never cache that
       }
     }
     PROFILE_CACHE.set(uid, { data, fetchedAt: Date.now() });
@@ -21495,6 +21510,9 @@ async function loadProfile(uid) {
     console.error('loadProfile failed:', e);
     return { id: uid, _user: { sellerVerified: false, phone: false, email: false, isPro: false } };
   }
+  })();
+  PROFILE_INFLIGHT.set(uid, run);
+  try { return await run; } finally { PROFILE_INFLIGHT.delete(uid); }
 }
 
 // Compact, buyer-safe seller meta line for the listing-detail identity row.
