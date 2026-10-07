@@ -18111,12 +18111,16 @@ window.saveCurrentSearch = saveCurrentSearch;
 async function openSavedSearches() {
   if (!window.CURRENT_USER) { showToast('Sign in to view saved searches.'); return; }
   try {
-    const { getFirestore, collection, getDocs, orderBy, query, deleteDoc, doc } =
+    const { getFirestore, collection, getDocs, orderBy, query, limit, deleteDoc, doc } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
+    // r321: capped. Unbounded before — a user's own list, so small in
+    // practice, but nothing stopped it growing and the screen only ever
+    // renders what fits.
     const snap = await getDocs(query(
       collection(db, 'users', window.CURRENT_USER.uid, 'savedSearches'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(50)
     ));
     const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     const back = document.getElementById('aboutBackdrop');
@@ -25296,12 +25300,15 @@ async function openModerationQueue() {
   body.innerHTML = '<div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>';
   bd.classList.add('open');
   try {
-    const { getFirestore, collection, query, orderBy, getDocs } =
+    const { getFirestore, collection, query, orderBy, limit, getDocs } =
       await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js');
     const db = getFirestore();
     // Read from the dedicated flaggedListings collection (Cloud
     // Functions write into it; firestore.rules grants admin read).
-    const q = query(collection(db, 'flaggedListings'), orderBy('flaggedAt', 'desc'));
+    // r321: capped at 100. This is the moderation queue — it grows with
+    // every flag and nothing trimmed it, so a busy week would have pulled
+    // the whole collection into an admin screen that shows a list.
+    const q = query(collection(db, 'flaggedListings'), orderBy('flaggedAt', 'desc'), limit(100));
     const snap = await getDocs(q);
     if (snap.empty) {
       body.innerHTML = '<div class="mod-empty">Nothing in the queue. Nice.</div>';
