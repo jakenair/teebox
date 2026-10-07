@@ -287,19 +287,7 @@
 <link rel="dns-prefetch" href="https://api.stripe.com" />
 <link rel="dns-prefetch" href="https://js.stripe.com" />
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-<!-- r322: the font stylesheet was the ONLY render-blocking external resource
-     on the page. It now loads as a preload and is promoted to a real
-     stylesheet on its own load event, so first paint no longer waits on a
-     third-party round trip. display=swap was already set, so text has always
-     painted in the fallback first — this changes WHEN the CSS arrives, not
-     what the user sees during the swap.
-     The usual media="print" onload="..." trick is unavailable here: our CSP
-     sets script-src-attr 'none', which blocks inline handler attributes. Hence
-     the listener in a real script block, plus a guard for the case where a
-     cached preload finishes before the listener attaches. -->
-<link id="gfonts" rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" />
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" /></noscript>
-<script>(function(){var l=document.getElementById("gfonts");if(!l)return;l.addEventListener("load",function(){this.rel="stylesheet";},{once:true});if(l.sheet||(l.relList&&!l.relList.supports("preload"))){l.rel="stylesheet";}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   /* Prevent iOS Safari from auto-zooming when a form field is focused.
@@ -5425,7 +5413,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r322</span></div>
+        <span class="auth-build" aria-hidden="true">r323</span></div>
     </div>
   </div>
 </div>
