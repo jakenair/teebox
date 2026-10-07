@@ -5071,6 +5071,12 @@
   // the load path throws. 6s per Jake — invisible on a normal load (content
   // dismisses it first); only the broken-load case ever waits this long.
   setTimeout(function () { try { window.__dismissAuthSplash(); } catch (e) {} }, 6000);
+  // r327: when the gate is already up there is nothing left for the splash to
+  // cover, so it must never outlive the first screen. 800ms is the cap Jake
+  // set; the optimistic path normally clears it well inside that.
+  setTimeout(function () {
+    try { if (window.__gateOpenedOptimistically) window.__dismissAuthSplash(); } catch (e) {}
+  }, 800);
 </script>
 
 <!-- BOTTOM TAB NAV (mobile only) -->
@@ -5419,10 +5425,45 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r326</span></div>
+        <span class="auth-build" aria-hidden="true">r327</span></div>
     </div>
   </div>
 </div>
+<script>
+  // ── r327: FIRST PAINT MUST NOT WAIT ON FIREBASE AUTH ──────────────────
+  // The splash used to hold until onAuthStateChanged fired (it is the ONLY
+  // writer of __splashAuthKnown), with a 6s hard fallback. Firebase Auth has
+  // to download from gstatic, initialise, and read persistence out of
+  // IndexedDB before it answers, so a first-time visitor on a throttled
+  // phone sat on a spinner for ~4s and saw nothing else — measured at
+  // perf/results/frames/t1s..t3s.png.
+  //
+  // Auth is only needed to know WHICH first screen to show. We can predict
+  // that without it: a device that has ever completed a sign-in carries
+  // tb_had_session. No flag means almost certainly logged out, so open the
+  // gate immediately and drop the splash. If the prediction is wrong, the
+  // signed-in branch of onAuthStateChanged closes the gate exactly as it
+  // already does for ?signin=1 — a gate that closes is far less jarring
+  // than a marketplace the gate slams over.
+  (function () {
+    try {
+      if (new URLSearchParams(location.search).get('preview') === 'signedin') return;
+      var hadSession = false;
+      try { hadSession = localStorage.getItem('tb_had_session') === '1'; } catch (_e) {}
+      if (hadSession) return;  // returning user: keep the splash, auth is coming
+      var gate = document.getElementById('authScreen');
+      if (!gate) return;
+      gate.classList.remove('hidden');
+      gate.classList.add('open');
+      window.__gateOpenedOptimistically = true;
+      // The splash exists to hide the is-anon flash. With the gate already up
+      // there is no flash left to hide, so stop waiting for auth.
+      window.__splashAuthKnown = true;
+      if (window.__maybeDismissSplash) window.__maybeDismissSplash();
+    } catch (_e) { /* never block boot on a prediction */ }
+  })();
+</script>
+
 
 <!-- GUEST GATE: friendly "Sign in to continue" prompt. Shown when a guest
      attempts an action that needs identity (buy, sell, like, message,
@@ -9132,6 +9173,10 @@ window.confirmPayment = async function() {
     } catch (_e) { /* never block auth on analytics */ }
     if (user) {
       window.GUEST_MODE = false;
+      // r327: boot hint for the next load — see the optimistic-gate script.
+      // Written here (not at sign-in) so existing signed-in users self-heal
+      // on their first load after this ships.
+      try { localStorage.setItem('tb_had_session', '1'); } catch (_e) {}
       // Mark the auth gate as resolved for THIS process — if the user
       // later signs out in the same session we don't want the boot-time
       // auto-open logic to re-fire mid-session. We use an in-memory
@@ -9975,6 +10020,7 @@ window.confirmPayment = async function() {
     // same tick (badges, sell-gate checks) sees a clean signed-out state
     // even before onAuthStateChanged fires. We flip into GUEST_MODE so
     // the user lands back on the marketplace rather than the auth wall.
+    try { localStorage.removeItem('tb_had_session'); } catch (_e) {}  // r327
     window.GUEST_MODE = true;
     window.CURRENT_USER = null;
     window.IS_VERIFIED_SELLER = false;
