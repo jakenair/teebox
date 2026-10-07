@@ -379,6 +379,13 @@
      restore that one rule. */
   .btn-make-offer { background: var(--white); color: var(--gold-600, #b88a00); border: 1.5px solid var(--gold-500, #d6a900); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); width: 100%; }
   .btn-make-offer:hover { background: var(--gold-50, #fff8dc); }
+  /* r318 — offer modal. */
+  .offer-ship-note { margin: 7px 0 0; font-size: 12.5px; color: var(--gray-500); line-height: 1.45; }
+  .offer-ship-note strong { color: var(--gray-700); font-weight: 600; }
+  .offer-commit { display: flex; align-items: flex-start; gap: 10px; margin: 1rem 0 0.1rem;
+    font-size: 13.5px; color: var(--gray-700); line-height: 1.4; cursor: pointer; }
+  .offer-commit input { width: 18px; height: 18px; margin: 1px 0 0; flex: none;
+    accent-color: var(--green-600); cursor: pointer; }
   .btn-make-offer:disabled { background: var(--gray-400); color: var(--white); border-color: var(--gray-400); cursor: not-allowed; }
   .offer-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
   .offer-row:last-child { border-bottom: none; }
@@ -5397,7 +5404,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r317</span></div>
+        <span class="auth-build" aria-hidden="true">r318</span></div>
     </div>
   </div>
 </div>
@@ -5716,12 +5723,17 @@
       <div class="ss-name-form">
         <label for="makeOfferAmount">Your offer ($)</label>
         <input id="makeOfferAmount" type="number" min="1" step="1" inputmode="decimal" placeholder="0" />
+        <p class="offer-ship-note" id="makeOfferShipNote"></p>
         <label for="makeOfferMessage" style="margin-top:0.75rem">Message (optional)</label>
         <textarea id="makeOfferMessage" maxlength="500" placeholder="Add a quick note for the seller…" style="width:100%;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:10px 14px;min-height:90px;font-family:var(--font-body);font-size:14px;outline:none"></textarea>
       </div>
+      <label class="offer-commit" for="makeOfferCommit">
+        <input type="checkbox" id="makeOfferCommit" />
+        <span>I agree to pay if my offer is accepted.</span>
+      </label>
       <div class="profile-actions">
         <button class="btn-full ghost" data-action="close-info">Cancel</button>
-        <button class="btn-full green" data-action="submit-offer">Send Offer</button>
+        <button class="btn-full green" data-action="submit-offer" id="makeOfferSubmit" disabled>Send Offer</button>
       </div>
     </div>
   </div>
@@ -18797,6 +18809,34 @@ window.__actions['delete-saved-search'] = (el) => deleteSavedSearchV2(el.dataset
 //   - Counter writes counterAmount + status='countered'.
 //   - Decline writes status='declined' (with confirm).
 let __pendingOfferListing = null;
+// r318 — keep the offer modal honest and the message warm.
+//
+// Shipping is NOT a field on the listing: it is quoted live at checkout from
+// the buyer's address and the item's parcel class (shippoIntegration.js). So
+// there is no number to show here, and inventing one would be worse than
+// saying nothing. We say the same thing the detail page and the accepted-offer
+// row already say — shipping is added at checkout — so a buyer offering $300
+// is not surprised by $320 the moment a seller accepts.
+let __offerMsgTouched = false;
+function syncOfferModal() {
+  const p = __pendingOfferListing;
+  const amtEl = document.getElementById('makeOfferAmount');
+  const note = document.getElementById('makeOfferShipNote');
+  const msg = document.getElementById('makeOfferMessage');
+  const amt = Number(amtEl && amtEl.value);
+  const valid = Number.isFinite(amt) && amt > 0;
+  if (note) {
+    note.innerHTML = valid
+      ? `You&rsquo;re offering <strong>$${amt.toLocaleString()}</strong> for the item. Shipping is calculated at checkout and paid on top.`
+      : 'Shipping is calculated at checkout and paid on top of your offer.';
+  }
+  // Pre-filled so the seller gets a human note instead of a bare number —
+  // but only until the buyer types something of their own.
+  if (msg && !__offerMsgTouched) {
+    msg.value = valid ? `Hope you'll take $${amt.toLocaleString()}. Thanks!` : '';
+  }
+  void p;
+}
 function openMakeOfferModal() {
   if (typeof window.requireAuth === 'function') {
     if (!window.requireAuth('to make an offer', () => openMakeOfferModal())) return;
@@ -18821,6 +18861,29 @@ function openMakeOfferModal() {
   if (amt) amt.value = ask > 0 ? Math.round(ask * 0.85) : '';
   const msg = document.getElementById('makeOfferMessage');
   if (msg) msg.value = '';
+  // r318: fresh state every open — a stale tick would let the next offer
+  // through without the buyer ever seeing the commitment.
+  __offerMsgTouched = false;
+  const commit = document.getElementById('makeOfferCommit');
+  const send = document.getElementById('makeOfferSubmit');
+  if (commit) commit.checked = false;
+  if (send) send.disabled = true;
+  if (amt && !amt.__offerWired) {
+    amt.__offerWired = true;
+    amt.addEventListener('input', syncOfferModal);
+  }
+  if (msg && !msg.__offerWired) {
+    msg.__offerWired = true;
+    msg.addEventListener('input', () => { __offerMsgTouched = true; });
+  }
+  if (commit && !commit.__offerWired) {
+    commit.__offerWired = true;
+    commit.addEventListener('change', () => {
+      const b = document.getElementById('makeOfferSubmit');
+      if (b) b.disabled = !commit.checked;
+    });
+  }
+  syncOfferModal();
   closeDetailModalDirect();
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
   document.getElementById('makeOfferBackdrop').classList.add('open');
@@ -18833,6 +18896,13 @@ async function submitOffer() {
   const amt = Number(document.getElementById('makeOfferAmount').value);
   const msg = (document.getElementById('makeOfferMessage').value || '').trim().slice(0, 500);
   if (!Number.isFinite(amt) || amt <= 0) { showToast('Enter a valid offer amount.'); return; }
+  // r318: the button is disabled until this is ticked, but check anyway —
+  // the action is reachable from the delegated handler.
+  const commitEl = document.getElementById('makeOfferCommit');
+  if (!commitEl || !commitEl.checked) {
+    showToast('Please confirm you\u2019ll pay if your offer is accepted.');
+    return;
+  }
   if (ask > 0 && amt >= ask) {
     showToast('Offer is at or above ask. Use Buy Now instead.');
     return;
@@ -18848,6 +18918,9 @@ async function submitOffer() {
       listingId: String(p.id),
       amount: amt,
       message: msg || '',
+      // r318: audit trail for the commitment. The offers create rule uses
+      // hasAll(), not hasOnly(), so an extra field needs no rules change.
+      agreedToPay: true,
       status: 'pending',
       expiresAt: Timestamp.fromDate(expiresAt),
       createdAt: serverTimestamp(),

@@ -125,3 +125,4 @@ logo-catalog-drawable.txt
 
 # local Xcode archive output (scripts/xcodebuild archive)
 build/
+reel-blind-ranking/
