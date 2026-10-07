@@ -2645,13 +2645,6 @@
      the cell is taller than the 44px thumb. The first skeleton used 82px
      rows, which under-reserved by ~540px across seven rows and made COLD
      load CLS worse than before the fix (0.446 -> 0.710) even while warm
-     load improved. Reserve what actually arrives, not what looks right. */
-  .trend-skel td { padding: 13px 16px; height: 159px; box-sizing: border-box; }
-  .trend-skel .sk { background: var(--gray-200); border-radius: 6px; height: 13px;
-    animation: trendSkel 1.4s ease-in-out infinite; }
-  .trend-skel .sk-thumb { width: 44px; height: 44px; border-radius: var(--radius-sm); }
-  @keyframes trendSkel { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
-  @media (prefers-reduced-motion: reduce) { .trend-skel .sk { animation: none; } }
   .trending-table thead tr { background: var(--gray-100); }
   .trending-table th { padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; color: var(--gray-500); text-align: left; }
   .trending-table tbody tr { border-top: 1px solid var(--gray-100); cursor: pointer; transition: var(--transition); }
@@ -5432,7 +5425,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r321</span></div>
+        <span class="auth-build" aria-hidden="true">r322</span></div>
     </div>
   </div>
 </div>
@@ -12550,38 +12543,10 @@ function buildTrending() {
   const tableEl = document.getElementById('trendingTable');
   const sectionEl = tableEl && tableEl.closest('.section');
   if (!real.length) {
-    // r320: "no listings yet" and "still loading" are different states and
-    // were being treated the same. Hiding the section mid-load collapsed it
-    // from 103px to 0, moved everything below UP, then dropped it back down
-    // at 1258px once the table filled — measured at 0.288 CLS on its own,
-    // 96% of the page total. window.__listingsLoaded already distinguishes
-    // the two (buildProducts has keyed off it since r148); this just uses it.
-    if (!window.__listingsLoaded) {
-      if (sectionEl) sectionEl.style.display = '';
-      if (tableEl && !tableEl.dataset.skel) {
-        tableEl.dataset.skel = '1';
-        let sk = '<thead><tr><th>#</th><th>Item</th><th>Price</th><th>Status</th></tr></thead><tbody>';
-        // Seven rows because that is exactly what buildTrending renders
-        // (.slice(0, 7)), so the reserved height matches the real one.
-        for (let i = 0; i < 7; i++) {
-          sk += '<tr class="trend-skel">' +
-            '<td><div class="sk" style="width:14px"></div></td>' +
-            '<td><div style="display:flex;align-items:center;gap:12px">' +
-              '<div class="sk sk-thumb"></div>' +
-              '<div style="flex:1"><div class="sk" style="width:82%"></div>' +
-              '<div class="sk" style="width:54%;height:11px;margin-top:7px"></div></div></div></td>' +
-            '<td><div class="sk" style="width:46px"></div></td>' +
-            '<td><div class="sk" style="width:52px"></div></td></tr>';
-        }
-        tableEl.innerHTML = sk + '</tbody>';
-      }
-      return;
-    }
-    if (sectionEl) sectionEl.style.display = 'none';   // genuinely empty
+    if (sectionEl) sectionEl.style.display = 'none';
     return;
   }
   if (sectionEl) sectionEl.style.display = '';
-  if (tableEl) delete tableEl.dataset.skel;
 
   const sorted = [...real]
     .sort((a, b) => {
