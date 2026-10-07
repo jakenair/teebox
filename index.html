@@ -4141,6 +4141,15 @@
     font-size: 13px; padding: 2px 0;
   }
   /* r315 — lifetime stats, opened from the result banner. */
+  /* r317 — the stats sheet carries BOTH .modal-backdrop (z-index 300, line
+     ~2689) and .info-backdrop (z-index 350, line ~658). Equal specificity, so
+     source order wins and it resolved to 300 — UNDER #bingoScreen at 320. The
+     sheet was opening, display:flex and all, completely hidden behind the
+     game. It is the only info-backdrop launched from inside the bingo screen,
+     which is why nothing else ever hit this. An id beats both classes. 370
+     clears the guess modal (360) and sits under the confetti layer (380,
+     pointer-events:none). */
+  #bingoStatsBackdrop { z-index: 370; }
   .bingo-stats-link { margin-top: 10px; background: rgba(255,255,255,0.16);
     border: 1px solid rgba(255,255,255,0.45); color: #fff;
     font-family: var(--font-body); font-weight: 600; font-size: 13px;
@@ -5388,7 +5397,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r316</span></div>
+        <span class="auth-build" aria-hidden="true">r317</span></div>
     </div>
   </div>
 </div>
@@ -26542,6 +26551,15 @@ if (uploadZone) {
             loadBingoResults(TODAY);
           }, 1500);
         }
+        // r317: refresh the board too. It was loaded ONCE when the bingo
+        // screen opened and never again, so the player who had just finished
+        // could not see their own score — the list still showed the state
+        // from before they played. Same 1.5s wait: gameScores is written by
+        // the fanout, not by the client, so an instant refresh would miss it.
+        if (typeof loadLeaderboard === 'function'
+            && document.getElementById('bingoLbList')) {
+          setTimeout(() => loadLeaderboard(currentLbTab), 1600);
+        }
       }
     }
   }
@@ -27098,6 +27116,14 @@ if (uploadZone) {
     document.querySelectorAll('.bingo-lb-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === currentLbTab);
     });
+    // r317: the heading was static markup, so it read "This week's top
+    // players" even on the Today tab.
+    const lbTitle = document.querySelector('.bingo-lb-title');
+    if (lbTitle) {
+      lbTitle.textContent = currentLbTab === 'today'
+        ? "Today's top players"
+        : "This week's top players";
+    }
     list.innerHTML = '<div class="bingo-lb-empty">Loading…</div>';
     try {
       // r255 (audit 2026-09-01 A1-full): the board comes from the
@@ -27113,7 +27139,12 @@ if (uploadZone) {
       const res = await fn({ scope: currentLbTab });
       const rows = (res && res.data && res.data.rows) || [];
       if (!rows.length) {
-        list.innerHTML = '<div class="bingo-lb-empty">No completed scores yet. Be the first.</div>';
+        // r317: scope-aware. The old copy said "no completed scores yet" on
+        // both tabs, which reads as "nobody has played today" even when the
+        // week tab is simply empty — and vice versa.
+        list.innerHTML = currentLbTab === 'today'
+          ? '<div class="bingo-lb-empty">Nobody has finished today\u2019s board yet. Be the first.</div>'
+          : '<div class="bingo-lb-empty">No finished boards this week yet.</div>';
         return;
       }
       list.innerHTML = rows.map((r) => {
