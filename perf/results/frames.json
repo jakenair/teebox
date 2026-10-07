@@ -1,0 +1,34 @@
+{
+  "shots": [
+    {
+      "at": 4000,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t4.0s.png"
+    },
+    {
+      "at": 5000,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t5.0s.png"
+    },
+    {
+      "at": 6500,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t6.5s.png"
+    }
+  ],
+  "lcp": {
+    "time": 5312,
+    "tag": "IMG",
+    "id": "",
+    "cls": "",
+    "text": "",
+    "url": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2F7oQ3N4iXXmYoL6L3jnrI55Xvgdl2%2FeDWc8rmcsNpO4Y0LV6u5%2F1791078039733_0_IMG_4286.jpg_w400.webp?alt=media&token=befdc124-6594-46cb-ba86-2cde329ae55a"
+  },
+  "visible": {
+    "gateOpen": true,
+    "splash": true,
+    "bodyClass": "is-anon web-searchfirst has-bottom-nav",
+    "headline": [
+      "Run your ownpro shop",
+      "Trending Now"
+    ],
+    "cards": 26
+  }
+}

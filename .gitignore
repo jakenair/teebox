@@ -126,3 +126,8 @@ logo-catalog-drawable.txt
 # local Xcode archive output (scripts/xcodebuild archive)
 build/
 reel-blind-ranking/
+
+# perf harness: raw CPU profile + Firestore debug dump are regenerable and large.
+# Baselines (perf/results/*.json) and frames ARE kept — they are the evidence.
+perf/results/boot-profile.json
+perf/results/fs-debug.log

@@ -26,11 +26,15 @@
     "//deploy:hosting": "POST-MIGRATION default deploy path: builds dist/ and pushes to Firebase Hosting (replaces 'git push' GitHub Pages flow once teeboxmarket.com DNS points at Firebase)",
     "deploy:hosting": "npm run build:web && npx --yes firebase-tools deploy --only hosting --project teebox-market",
     "logos:publish": "node scripts/generate-logos-manifest.mjs && node scripts/upload-logos-to-storage.mjs",
-    "logos:verify": "node scripts/upload-logos-to-storage.mjs --dry-run"
+    "logos:verify": "node scripts/upload-logos-to-storage.mjs --dry-run",
+    "perf": "node perf/measure.mjs --url https://teeboxmarket.com/ --runs 5",
+    "perf:investigate": "node perf/investigate.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^7.4.4"
+    "@capacitor/cli": "^7.4.4",
+    "chrome-launcher": "^1.2.2",
+    "lighthouse": "^13.5.0"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^7.5.0",

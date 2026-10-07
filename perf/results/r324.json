@@ -1,0 +1,202 @@
+{
+  "url": "https://teeboxmarket.com/",
+  "at": "2026-10-07T22:32:34.391Z",
+  "results": [
+    {
+      "state": "logged-out-cold",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 3868,
+          "min": 3787,
+          "max": 8515
+        },
+        "LCP": {
+          "median": 10551,
+          "min": 10312,
+          "max": 11150
+        },
+        "CLS": {
+          "median": 0.366,
+          "min": 0.295,
+          "max": 0.405
+        },
+        "TBT": {
+          "median": 1244,
+          "min": 1083,
+          "max": 1619
+        },
+        "SI": {
+          "median": 4116,
+          "min": 3822,
+          "max": 8515
+        },
+        "score": {
+          "median": 23,
+          "min": 19,
+          "max": 24
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 3879,
+          "LCP": 10551,
+          "CLS": 0.366,
+          "TBT": 1619,
+          "SI": 4116,
+          "score": 21
+        },
+        {
+          "ok": true,
+          "FCP": 8515,
+          "LCP": 10461,
+          "CLS": 0.295,
+          "TBT": 1083,
+          "SI": 8515,
+          "score": 19
+        },
+        {
+          "ok": true,
+          "FCP": 3846,
+          "LCP": 10312,
+          "CLS": 0.366,
+          "TBT": 1237,
+          "SI": 4185,
+          "score": 23
+        },
+        {
+          "ok": true,
+          "FCP": 3868,
+          "LCP": 11150,
+          "CLS": 0.405,
+          "TBT": 1244,
+          "SI": 4038,
+          "score": 23
+        },
+        {
+          "ok": true,
+          "FCP": 3787,
+          "LCP": 10641,
+          "CLS": 0.355,
+          "TBT": 1403,
+          "SI": 3822,
+          "score": 24
+        }
+      ],
+      "spread": {
+        "LCP": 0.07942375130319401,
+        "FCP": 1.2223371251292658,
+        "TBT": 0.43086816720257237,
+        "CLS": 0.11
+      },
+      "lcpSpread": 0.07942375130319401,
+      "unstableBecause": [
+        "FCP 122%",
+        "TBT 43%",
+        "CLS ±0.11"
+      ],
+      "stable": false
+    },
+    {
+      "state": "logged-out-warm",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 123,
+          "min": 114,
+          "max": 855
+        },
+        "LCP": {
+          "median": 377,
+          "min": 216,
+          "max": 1160
+        },
+        "CLS": {
+          "median": 0.355,
+          "min": 0.355,
+          "max": 0.356
+        },
+        "TBT": {
+          "median": 1667,
+          "min": 1573,
+          "max": 2268
+        },
+        "SI": {
+          "median": 1835,
+          "min": 1768,
+          "max": 2269
+        },
+        "score": {
+          "median": 56,
+          "min": 55,
+          "max": 57
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 855,
+          "LCP": 1160,
+          "CLS": 0.355,
+          "TBT": 1667,
+          "SI": 2269,
+          "score": 56
+        },
+        {
+          "ok": true,
+          "FCP": 123,
+          "LCP": 404,
+          "CLS": 0.355,
+          "TBT": 2268,
+          "SI": 1835,
+          "score": 55
+        },
+        {
+          "ok": true,
+          "FCP": 124,
+          "LCP": 216,
+          "CLS": 0.355,
+          "TBT": 1858,
+          "SI": 1962,
+          "score": 55
+        },
+        {
+          "ok": true,
+          "FCP": 119,
+          "LCP": 222,
+          "CLS": 0.356,
+          "TBT": 1573,
+          "SI": 1791,
+          "score": 57
+        },
+        {
+          "ok": true,
+          "FCP": 114,
+          "LCP": 377,
+          "CLS": 0.356,
+          "TBT": 1630,
+          "SI": 1768,
+          "score": 56
+        }
+      ],
+      "spread": {
+        "LCP": 2.503978779840849,
+        "FCP": 6.024390243902439,
+        "TBT": 0.4169166166766647,
+        "CLS": 0.001
+      },
+      "lcpSpread": 2.503978779840849,
+      "unstableBecause": [
+        "LCP 250%",
+        "FCP 602%",
+        "TBT 42%"
+      ],
+      "stable": false
+    }
+  ]
+}
