@@ -1,18 +1,27 @@
 {
-  "generatedAt": "2026-09-10T01:55:14.228Z",
+  "generatedAt": "2026-10-08T16:58:17.364Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 148,
-    "pass": 148,
+    "total": 182,
+    "pass": 182,
     "fail": 0
   },
   "entries": [
     {
       "id": "pine-valley",
       "shortName": "Pine Valley",
-      "localHash": "7eaefe9adeb2f855b5754ff35951f59372982fb9482e40020f681fd5d40e9fd3",
-      "localBytes": 38061,
+      "localHash": "e88ff1603dbbf28be0f50d9f77e9784cb57cb2fd6ee6e703255d8bd503e7310a",
+      "localBytes": 14368,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "mid-pines",
+      "shortName": "Mid Pines",
+      "localHash": "cc1c97b42cdb20bbe9f36cb7ad06420390d9accfaba5812d55338654ce106c56",
+      "localBytes": 10919,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -20,8 +29,8 @@
     {
       "id": "cypress-point",
       "shortName": "Cypress Point",
-      "localHash": "048f1da629a7e01aa77b2ab2b58e66b09c593550e1a505ee8d5dec6acda4f3cb",
-      "localBytes": 33663,
+      "localHash": "84ae7368b6dfdc79607c1de91d4343458a9cb57c4fecdfe0a45267f94560e64c",
+      "localBytes": 9385,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -47,8 +56,8 @@
     {
       "id": "oakmont",
       "shortName": "Oakmont",
-      "localHash": "426f092e569fdf3971a2da6e47a8570ed0dbefcae57ba2839e112426fb89ee12",
-      "localBytes": 44121,
+      "localHash": "0cacc9bd19772f83019e6dbc93fe30ee66e927628c100242a30fbd9762b9c742",
+      "localBytes": 15432,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -65,8 +74,8 @@
     {
       "id": "national-golf-links",
       "shortName": "National Golf Links",
-      "localHash": "6528ed216941b01c8bb0f089770dcc25d0f0333524a4143e4e07f510cfbaec84",
-      "localBytes": 38236,
+      "localHash": "99d3f404bf007891fafac60f90bfb973d649242ba0116a34f86bbcc949371b99",
+      "localBytes": 13310,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -94,6 +103,15 @@
       "shortName": "Bandon Dunes",
       "localHash": "0e26dfbafddfb3265e82e2c8ac628824bc86c60c34d791c37ccb5e1b5c06cf14",
       "localBytes": 11831,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "chicago-golf-club",
+      "shortName": "Chicago Golf Club",
+      "localHash": "09a102553f97cd02d49006d5630bf644ffc6f828130b53a39ee877cc628716fe",
+      "localBytes": 8162,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -155,8 +173,8 @@
     {
       "id": "san-francisco-gc",
       "shortName": "San Francisco GC",
-      "localHash": "b3f5b05074f268fce41b25cb80d4c6bd0c3b73ad489f709763ad42be2b04af47",
-      "localBytes": 97577,
+      "localHash": "25c7452e395d38125441d9e4bb522b6943db309f83e2df13255894b048c8ffb5",
+      "localBytes": 37304,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -171,10 +189,19 @@
       "problems": []
     },
     {
+      "id": "bethpage-black",
+      "shortName": "Bethpage Black",
+      "localHash": "0a09be3ebf164774cf261c211b7d1b9816b9892a06b13f04a5f79c3c4a441287",
+      "localBytes": 45331,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "pinehurst-no-2",
       "shortName": "Pinehurst No. 2",
-      "localHash": "ec318f722fe8e48830344e04f5a2c6b4ada4fdabdefbf4f5435a561f2286a7a3",
-      "localBytes": 27894,
+      "localHash": "35c0dad3ecc53509fc649aeaeb9b8f3fa4c60b32ecf41d2f509abd219be546e6",
+      "localBytes": 8422,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -182,8 +209,8 @@
     {
       "id": "whistling-straits",
       "shortName": "Whistling Straits",
-      "localHash": "80fa640e47d5000bdd9e5b799aaf4265dc975f6efc03fc53c0e168fe746583a0",
-      "localBytes": 67966,
+      "localHash": "5ffd2f6ebde6edcdfe1b7e175df90186a1ed28165f388405e830fd0037f947c5",
+      "localBytes": 17622,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -191,8 +218,17 @@
     {
       "id": "erin-hills",
       "shortName": "Erin Hills",
-      "localHash": "f2bdcab2a801657b8865037accd8f8bda43ba5fe968d558ce4d01d46675da9ab",
-      "localBytes": 61707,
+      "localHash": "a9fbab4208b7d7a7a8cfe54f4270005aff22bdeab1fc52e15d028335ee57c092",
+      "localBytes": 21405,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "kiawah-ocean",
+      "shortName": "Kiawah Ocean Course",
+      "localHash": "453f7c5276de1960b72bb3b3131236b6fe1111be755547e12d951ccc6b6b18b0",
+      "localBytes": 10668,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -209,8 +245,8 @@
     {
       "id": "tobacco-road",
       "shortName": "Tobacco Road",
-      "localHash": "a447e068f73fb68af7b1d6a7a3b8e919c1de9c0c5bad29532a27e6b2fa46837a",
-      "localBytes": 22417,
+      "localHash": "0f9dec9316d345737416d7d0172a31d700ba3c328e37b770a6e8036647e12c0f",
+      "localBytes": 6581,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -218,8 +254,8 @@
     {
       "id": "streamsong-blue",
       "shortName": "Streamsong",
-      "localHash": "a5dfc342a3019a669ba9abb4753513e614b302c364bf3571772bdb3a1454a435",
-      "localBytes": 24231,
+      "localHash": "d27f8207e50c95a6e881267300b8b4c1eacf6434c322920c22157de2e05b41ea",
+      "localBytes": 8897,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -236,8 +272,8 @@
     {
       "id": "inverness",
       "shortName": "Inverness",
-      "localHash": "66d1a7514b44dfbb1aa0389942ad66e8d455b79366540649e30ec9f6505cf735",
-      "localBytes": 224698,
+      "localHash": "20d586dd88cedbb972a54dc79231454581a50716402a3f1203c13b07b9bc071b",
+      "localBytes": 67654,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -254,8 +290,17 @@
     {
       "id": "prairie-dunes",
       "shortName": "Prairie Dunes",
-      "localHash": "96b6065b9b391f6e4bc5b6029e466b3a09b8b2ec5bf551209e601a66e7640e7b",
-      "localBytes": 92178,
+      "localHash": "644362aae699d282be29e635e4e5570570899fa61b8cc26112f73af3ea857b1b",
+      "localBytes": 21639,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "medinah-3",
+      "shortName": "Medinah No. 3",
+      "localHash": "fd8d5e1e45a412b99ce1c7d7847b9999f9edc4becb4922c9a123976bcd4929b0",
+      "localBytes": 73759,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -263,8 +308,8 @@
     {
       "id": "quaker-ridge",
       "shortName": "Quaker Ridge",
-      "localHash": "bd6436bad90bff3f5381960f1fd08e0be22d2d8b230a0abad51ff334ea829dc4",
-      "localBytes": 140400,
+      "localHash": "0f06e7f89ee52d950e74a672c7a139f3933073e63e95475963de05a2d033b1c1",
+      "localBytes": 59457,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -272,8 +317,8 @@
     {
       "id": "east-lake",
       "shortName": "East Lake",
-      "localHash": "eb348b35eadb1f6d98252284d2636cd5f45d644c65b63bf2dacefe6b288e8316",
-      "localBytes": 79422,
+      "localHash": "908a349d9064faa998cfabe1556e9a04176a1b2b541041de42a0a3fe078e0464",
+      "localBytes": 16094,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -317,8 +362,134 @@
     {
       "id": "st-andrews-old",
       "shortName": "St Andrews (Old)",
-      "localHash": "b5547fc05a9f65c08c3f072237688aa25c6359d631047dc316330b42cb2f8f8d",
-      "localBytes": 25369,
+      "localHash": "192219f261ef9c702f90302f3b4cd4741113ec0911b7964331809ad039d92ad0",
+      "localBytes": 8727,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "royal-dornoch",
+      "shortName": "Royal Dornoch",
+      "localHash": "04f45b407ba8ba7712347e23f332654624274fe5fd0326e6a43b401876194397",
+      "localBytes": 53693,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "carnoustie",
+      "shortName": "Carnoustie",
+      "localHash": "37e9e71232ec43693b2105b63cfa5ed2e475cc391359bc8b452c31461a775f16",
+      "localBytes": 25205,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "landmand",
+      "shortName": "Landmand",
+      "localHash": "cce48e3e31ccf2f04153b9ca17a23a12cf1db508ad4e7080da228738730e4400",
+      "localBytes": 69759,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "wallasey",
+      "shortName": "Wallasey",
+      "localHash": "22505e48139c55aec2d3afde073cc4a75bae82241787a36942f444a5914b72e1",
+      "localBytes": 75625,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "belvedere",
+      "shortName": "Belvedere",
+      "localHash": "89c8ba00f53a5fb8eb00a50a8260bba99f778eea497ff4ec75205ce2b3b0f7e5",
+      "localBytes": 9663,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "point-o-woods",
+      "shortName": "Point O'Woods",
+      "localHash": "f2de8825670c02cd7d6de7b475d49c2cb82d54274bd101abe07405290764305d",
+      "localBytes": 8083,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "peachtree",
+      "shortName": "Peachtree",
+      "localHash": "8a620ebc200efca65665d18c52a9b91a4422fd6239da341ca734aa1bca4c43ef",
+      "localBytes": 20200,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "brook-hollow",
+      "shortName": "Brook Hollow",
+      "localHash": "92e95b0d5cf503da6f6a3e4b8a9d311d5258e196e14ba6a9bf978f394207228b",
+      "localBytes": 27802,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "saucon-valley",
+      "shortName": "Saucon Valley",
+      "localHash": "0944874d650f6ded1cc05d0c97742847931eff6d16101d189308388232429446",
+      "localBytes": 20105,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "sahalee",
+      "shortName": "Sahalee",
+      "localHash": "671864cf970aa6161f21957be605edf0093b27e510405a7e025d19214998f80f",
+      "localBytes": 11723,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "laurel-valley",
+      "shortName": "Laurel Valley",
+      "localHash": "5c60d113cda01d4501621644931712b7623a29293cba2c06788e9aaf73312995",
+      "localBytes": 71904,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "hazeltine-national",
+      "shortName": "Hazeltine National",
+      "localHash": "ec8d49b41c8e5d600da80e186f661954066e0ac160b028fd741d448e0b06862b",
+      "localBytes": 9935,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "barassie",
+      "shortName": "Barassie",
+      "localHash": "38cef37c2400ac935e8c79f57fd7cc8fe75dcd58e296fa0e3a92201f6f4a06f0",
+      "localBytes": 18198,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "shooting-star",
+      "shortName": "Shooting Star",
+      "localHash": "6e546b890c4a8faf3044a93a02e5ef1a4e93b0591cdea51afa5fc2c9bc5ad8d8",
+      "localBytes": 10909,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -328,6 +499,69 @@
       "shortName": "Castle Stuart",
       "localHash": "d262e0e8cdb67a54c63525a8505fa2e554405b746413eadb3e7d776cff13bae0",
       "localBytes": 7554,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "royal-troon",
+      "shortName": "Royal Troon",
+      "localHash": "e692d39796ddf5f6eedc03630d65176028d86998e686a86ab4963c536460c2e5",
+      "localBytes": 53221,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "royal-portrush-dunluce",
+      "shortName": "Royal Portrush",
+      "localHash": "2e3f99d9fd4c3e54c96b0808e8fcf3be881464ea2d6ce2e177a5b975c7eea38f",
+      "localBytes": 22218,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "royal-birkdale",
+      "shortName": "Royal Birkdale",
+      "localHash": "1fa6c8caddaf8a7d061735586abed92c3334bc0b4a6fe4edb8e107945ec14828",
+      "localBytes": 45071,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "les-bordes",
+      "shortName": "Les Bordes",
+      "localHash": "d41cac91f0e8bfcc149a4b206081917b9ca1f745f0a556aeb1f8690f3cd5c662",
+      "localBytes": 13350,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "cape-wickham",
+      "shortName": "Cape Wickham",
+      "localHash": "d78f932d3705c3f3d22a6512c9dfb5abf2aca4e2c1c5f9a6a94a75e91237a758",
+      "localBytes": 19662,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "tara-iti",
+      "shortName": "Tara Iti",
+      "localHash": "1ebe11615537e4aaeb5950f4c38c45bec5e89bff55ddc779cddbfbcf1fce2c9b",
+      "localBytes": 8302,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "cabot-cliffs",
+      "shortName": "Cabot Cliffs",
+      "localHash": "fe09d5661e130e7b2e680b486706f3b4f137ec4ad47f6400826115066986e71d",
+      "localBytes": 19429,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -344,8 +578,8 @@
     {
       "id": "old-sandwich",
       "shortName": "Old Sandwich",
-      "localHash": "d061ad65653080a47a17a44bbdc8a7a9df1dfc22ec45d6889bf3d0277ecf2bba",
-      "localBytes": 48532,
+      "localHash": "5faa801363aef27b9394a0881cfbcca1793e5973ca07e5ee0aa5afff02258212",
+      "localBytes": 17641,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -362,8 +596,8 @@
     {
       "id": "yeamans-hall",
       "shortName": "Yeamans Hall",
-      "localHash": "ea8ecf4359298224368a3a744e5988518dae9477203d325f775ef58c673ff4c0",
-      "localBytes": 115796,
+      "localHash": "25547232565b45a4bb36ca8b7c368ad0f64dea890955a276fe1741fbbacb3178",
+      "localBytes": 43130,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -371,8 +605,8 @@
     {
       "id": "camargo-club",
       "shortName": "Camargo",
-      "localHash": "84db8abb4e9c24d3f2c2cfb08b06dc728c76917ff87c79d914e1ae7b19e92a50",
-      "localBytes": 137756,
+      "localHash": "86163f22f1c7847603de620d9cdb09d6cd927aadaf5ac9a726f304e180c79d88",
+      "localBytes": 46276,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -380,8 +614,8 @@
     {
       "id": "sleepy-hollow",
       "shortName": "Sleepy Hollow",
-      "localHash": "e890a4fa8d81c89dbbdfc035173b3fc93fa115946da77749d5a130c657e51e14",
-      "localBytes": 40245,
+      "localHash": "ab10dcb252ad71d9e39bafe75ebc013cb133370634715dda2277d3847f343e41",
+      "localBytes": 13808,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -398,8 +632,17 @@
     {
       "id": "detroit-golf-club",
       "shortName": "Detroit Golf Club",
-      "localHash": "7c06e143c5572ca90adc888fcffc63b9c1e8fc15beb6bee35207c236e8761585",
-      "localBytes": 195228,
+      "localHash": "c60f106634b8dfe60f9b6d3ff1b809631f1b5ef2f1060c46219f2901692947a3",
+      "localBytes": 64307,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "colonial",
+      "shortName": "Colonial",
+      "localHash": "11ae5ad28e64e9f7c042b2fcb12d3751ecc04c83f393a04d6ced7880fe627307",
+      "localBytes": 27110,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -407,8 +650,8 @@
     {
       "id": "muirfield-village",
       "shortName": "Muirfield Village",
-      "localHash": "271c99d265f2825ad94494448ff84877f853f39887cf01c2a1acafcf4c6a51ba",
-      "localBytes": 168672,
+      "localHash": "e2a03ce72200efd7524fdeaefde76b9d04df293e913c021c4bc5b5bb949deff0",
+      "localBytes": 61476,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -443,8 +686,17 @@
     {
       "id": "forest-dunes",
       "shortName": "Forest Dunes",
-      "localHash": "0cd9b24e06eb154456175f6ceeefccadd7c44253d0343f0ee8642fee19d170dd",
-      "localBytes": 22084,
+      "localHash": "f2eec436700919e571c1841a9f986e2a031f30e0967eee75693c2266fa76f546",
+      "localBytes": 7309,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "arcadia-bluffs",
+      "shortName": "Arcadia Bluffs",
+      "localHash": "7a940a1ee43e77a91227023912ba502fede4db49e71a86a1229c3e2b83899497",
+      "localBytes": 8639,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -452,8 +704,8 @@
     {
       "id": "monterey-peninsula-shore",
       "shortName": "MPCC Shore",
-      "localHash": "eeac6187b5f7a6720ad424a7c22a560a9f3d62715aa2d9ea57c8d1191ffd9aef",
-      "localBytes": 28912,
+      "localHash": "2ccc1c0097ee6c335584b8d19f819b1c91992b82ecaacb46ef80427af5e90759",
+      "localBytes": 8172,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -461,8 +713,8 @@
     {
       "id": "pasatiempo",
       "shortName": "Pasatiempo",
-      "localHash": "856e5e92e3040b74052c77ba8bfd67ae74cd1b0c492395f9b46f50f1f24f1aa9",
-      "localBytes": 39092,
+      "localHash": "449c100942c4c8c8e66c1caf9ff6f4f6817048d618c971a6c0d393751df826d4",
+      "localBytes": 13700,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -470,8 +722,17 @@
     {
       "id": "valley-club-of-montecito",
       "shortName": "Valley Club",
-      "localHash": "f7b38ace357836fba77b76a322b92645c66cb53fe36302b95bb56e93d452c2be",
-      "localBytes": 53878,
+      "localHash": "f62e996529da38f20827aeda8c979de1f79c37b3d50354dc23bb15915f4f3d21",
+      "localBytes": 13994,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "congressional-blue",
+      "shortName": "Congressional",
+      "localHash": "727bf431f0465b01cefcf69ec4e66369a7e94e6cbee05e0fac247a2b53cd04b3",
+      "localBytes": 15376,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -479,8 +740,8 @@
     {
       "id": "plainfield",
       "shortName": "Plainfield",
-      "localHash": "30cfbef97da68000c304ee4ff0812e3f27be549c441d27a642cbeb1a177d60dd",
-      "localBytes": 44503,
+      "localHash": "ab8312505b6bca49597ab4bacf6a800f21c440933db824465badc0f344666d93",
+      "localBytes": 16299,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -488,8 +749,8 @@
     {
       "id": "aronimink",
       "shortName": "Aronimink",
-      "localHash": "4e538c8858b53ff0bcefad054f1c6c5f240e0c43d327d90067d133f33a547947",
-      "localBytes": 29465,
+      "localHash": "cb4b52643604c4174a6aff3a6181ae62871ff2b0603a1ebb8687fda83df86102",
+      "localBytes": 8450,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -499,6 +760,15 @@
       "shortName": "Cherry Hills",
       "localHash": "eb16aa665112cee307bd6343df6407bc0c3ca2643c195839d0cb8505f807f3b4",
       "localBytes": 14471,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "southern-hills",
+      "shortName": "Southern Hills",
+      "localHash": "e6ff59339ce659663bb9eb68408ead723ffd7c3b74e30946b160f49f3fce05d9",
+      "localBytes": 27544,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -515,8 +785,8 @@
     {
       "id": "ohoopee-match",
       "shortName": "Ohoopee",
-      "localHash": "2aba7fcbbfbe7dd056fe471561912416c21a46fbfd89e9f3aa03af0f8c0870c7",
-      "localBytes": 26930,
+      "localHash": "32142b2d1b7bae8329b3a30b04fb6aa9193cbdbdb0a8a41352500fdb0d58355d",
+      "localBytes": 6996,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -540,10 +810,46 @@
       "problems": []
     },
     {
+      "id": "royal-porthcawl",
+      "shortName": "Royal Porthcawl",
+      "localHash": "86feb0273efacd63cbacccb00049e9887a9f0bf84cd4ada80f11553c3481bea3",
+      "localBytes": 27304,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "gleneagles-pga-centenary",
+      "shortName": "PGA Centenary",
+      "localHash": "77030a9e533fb97a57f6aee7b7011914ee9d7248c5461ee4ebbd6f36b2384e46",
+      "localBytes": 16513,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "emirates-majlis",
+      "shortName": "Emirates Majlis",
+      "localHash": "45e7a0b0a5a2ea59bd45397b04afa614c6ee9dd8c742ed75216c9db67d4ffa3e",
+      "localBytes": 19435,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
       "id": "cabot-saint-lucia",
       "shortName": "Cabot Saint Lucia",
-      "localHash": "c74b776ea0f3056003619174bc615c2332c21c0578b0e270f2d114d1e3efadfe",
-      "localBytes": 39803,
+      "localHash": "dc483f254ca4b38cd707c5fc134a7fef04f8d6c2c12d59f17e82194f9376ba55",
+      "localBytes": 12956,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "banff-springs",
+      "shortName": "Banff Springs",
+      "localHash": "b5471b3dee34df40ce052bbb222e27f1faec92ce181c6c0ca724951f6f295297",
+      "localBytes": 21900,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -560,8 +866,8 @@
     {
       "id": "old-barnwell",
       "shortName": "Old Barnwell",
-      "localHash": "5e255e595f4315c30645509ee8db4d899bfdaad12eaa0d73fd9db7f7fd0b4eca",
-      "localBytes": 33639,
+      "localHash": "529669af4ccac5981234ed9bbaabb6ca5c5b70fa0bc056478df1b5ebbff70a58",
+      "localBytes": 11193,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -578,8 +884,8 @@
     {
       "id": "metedeconk-national",
       "shortName": "Metedeconk",
-      "localHash": "3d9c7a9a09335a09941ec524647104c9dd3fc78c2f02c8cf04f85e66d298d4a3",
-      "localBytes": 132299,
+      "localHash": "2e55a8442165724d009a48fcc27774cc24ff70930aaaec721ac4757d5023778a",
+      "localBytes": 49734,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -596,8 +902,8 @@
     {
       "id": "stanwich",
       "shortName": "Stanwich",
-      "localHash": "21316532363e3e6b303a28ef03da41061651396ba9274356b2dff9b98dbf8423",
-      "localBytes": 32779,
+      "localHash": "6cebc0daaac383dec553e0779a5e3eda4ec58b6728e727c5cb10c5d84e2459a0",
+      "localBytes": 11258,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -605,8 +911,8 @@
     {
       "id": "crooked-stick",
       "shortName": "Crooked Stick",
-      "localHash": "fdd4e148d99eb21fb7b8d6bb4da73fe69d8936bc28f9c171b6fa8cdb898950af",
-      "localBytes": 22564,
+      "localHash": "32f531b9202a3b38745f5595681942138d924374999032fd49c30ebbe1b6433d",
+      "localBytes": 6041,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -623,8 +929,8 @@
     {
       "id": "yale",
       "shortName": "Yale",
-      "localHash": "d292381e35bf075eab6f9dda93f8aeb39302206231690363059d6f1b5c72b40e",
-      "localBytes": 41080,
+      "localHash": "13ea7a2557616dc3cca77005844d924d0b1b091aa2dbdc107a8ffef31b0bea9a",
+      "localBytes": 12615,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -641,8 +947,8 @@
     {
       "id": "berkeley-hall",
       "shortName": "Berkeley Hall",
-      "localHash": "9f76bd91d59ceb2ef5fbdae894e1b9812acd43659b17a7d986c5f1135ee49b04",
-      "localBytes": 30577,
+      "localHash": "0772cbca79d85232c9338867e5124b42c2844d16d2bd061c1d2d5ac5f8b261c1",
+      "localBytes": 7717,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -677,8 +983,8 @@
     {
       "id": "burning-tree",
       "shortName": "Burning Tree",
-      "localHash": "9d81b4d3c0459b8c7a750bc433f890c92a2b34f7b08aceb7a5c4ee0335fbf2c3",
-      "localBytes": 34276,
+      "localHash": "ae6f8d3e44fdb2d741e5bcda06a9645050d0d58ccaba298909cd6e2a81e23659",
+      "localBytes": 13304,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -686,8 +992,8 @@
     {
       "id": "calusa-pines",
       "shortName": "Calusa Pines",
-      "localHash": "7439dfd21040143378fbff72bff1120d0070710563bc3ca9ecd82726d4d1d55f",
-      "localBytes": 31563,
+      "localHash": "c81ec865f67b8a5ffbc542d3d07ceebec8149a316dd5661abea6ddcc91995630",
+      "localBytes": 12143,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -695,8 +1001,8 @@
     {
       "id": "dooks",
       "shortName": "Dooks",
-      "localHash": "14997981314519bf84f997aab620c2976989151dab27b87d452866e0dca53b9b",
-      "localBytes": 56706,
+      "localHash": "adb729ad5e19cc81a274361dd6f8468d71fd7918754e231f0ae2a883f10a2197",
+      "localBytes": 19699,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -704,8 +1010,8 @@
     {
       "id": "essex-county",
       "shortName": "Essex County",
-      "localHash": "d70b186574e7bbbb0f73422fb4aba5b611d53abc93c9d00c68d8b9018fb958b4",
-      "localBytes": 50809,
+      "localHash": "c6313849633ab43fc0cb988633fae72459f6e46af98562688673ffa4b3d5d33f",
+      "localBytes": 15492,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -713,8 +1019,8 @@
     {
       "id": "flossmoor",
       "shortName": "Flossmoor Country Club",
-      "localHash": "452eac1d114fe31bac28c6eb6830ed971c146280be9ffaf0c1b61627d53f31ac",
-      "localBytes": 66768,
+      "localHash": "1258b11e7ce139f72929afdcd49694ff2db443dda34c99b7b153b1ca326cf651",
+      "localBytes": 22446,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -740,8 +1046,8 @@
     {
       "id": "kittansett",
       "shortName": "Kittansett",
-      "localHash": "2a275128efb87bd5a332d161c9b2f63d6845599104a89abd67c23ef28ca6d33a",
-      "localBytes": 70912,
+      "localHash": "334e3d67024899c27d3e6062fca34c7e359bf8acd51dc19c28935c972b21ee07",
+      "localBytes": 24328,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -758,8 +1064,8 @@
     {
       "id": "myopia-hunt",
       "shortName": "Myopia Hunt",
-      "localHash": "0f87bce7055f3f3ecd209f5bb1def32a61e15d4cb08d0e56830be047e3f45c96",
-      "localBytes": 29800,
+      "localHash": "8b5a923d72255c3f747b6ab53180d0507fcfbae8e05a3f86ec335308adfd3e5e",
+      "localBytes": 12387,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -767,8 +1073,8 @@
     {
       "id": "naples-national",
       "shortName": "Naples National",
-      "localHash": "a12807bbd3a6ea3904d29a8ee555cb176085a3a28894809c2d049f8a3dd8e15f",
-      "localBytes": 49133,
+      "localHash": "19b886e8673d3ebc7024ad08a31e6a1113394787cdf22370e1f8a7aa173ac9fc",
+      "localBytes": 20217,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -776,8 +1082,8 @@
     {
       "id": "old-elm",
       "shortName": "Old Elm",
-      "localHash": "674c7f17a5fb8eca26cb9f63534be1d685ab0e474d71d6a07d56b6cec075f969",
-      "localBytes": 39835,
+      "localHash": "badb26ebbdaa11e4325bc454f6d05a24cad75fca5f7708b300fa6ee1c8e375ad",
+      "localBytes": 12284,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -794,8 +1100,8 @@
     {
       "id": "bandon-trails",
       "shortName": "Bandon Trails",
-      "localHash": "ecb9051e9c9171f36d8b9609ad9d1734cbb670690c44d96d45d4faff59fe7d03",
-      "localBytes": 20765,
+      "localHash": "e021a31e51419e52e894c60d0ad13022c5f7d6987c6aee5fe4cfee512f0d127a",
+      "localBytes": 7671,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -803,8 +1109,8 @@
     {
       "id": "old-macdonald",
       "shortName": "Old Macdonald",
-      "localHash": "643261d3d1a90d048c7619122d408d6d0a12549a5edefb4e1dd19ee0ad9ef53c",
-      "localBytes": 24333,
+      "localHash": "c35a44bcce7fc26c14f1a3feba59dab2ad83bd495914d94932ae9af3bd9d25ee",
+      "localBytes": 9481,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -812,8 +1118,8 @@
     {
       "id": "sheep-ranch",
       "shortName": "Sheep Ranch",
-      "localHash": "a1e45e4a37d46d362479762204310491ba929eb78631fe68452d1e9dbcf6b953",
-      "localBytes": 70279,
+      "localHash": "61517ed478278f1695baf4e5ba6a3424d6c4c45fff9917ff94b1ce04595e0663",
+      "localBytes": 19115,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -830,8 +1136,8 @@
     {
       "id": "piping-rock",
       "shortName": "Piping Rock",
-      "localHash": "c4630b5fa1fa0362302d9a12ca49491a44c0794779a2549e6154dc4719b59bfc",
-      "localBytes": 36966,
+      "localHash": "fef9e87503cd8e46099aae86eb6ec2815bbbec6674c7e6101fd101d780ee77e8",
+      "localBytes": 11846,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -848,8 +1154,8 @@
     {
       "id": "scioto",
       "shortName": "Scioto",
-      "localHash": "85b84f1706b4cf95a1e09748125b72a79f4dc84394124ccb7da74c7e0c1c76cd",
-      "localBytes": 39553,
+      "localHash": "95da443cb0ea6bbf38a54182e226607330d5eeab589e76f1b013750f6cb4f303",
+      "localBytes": 10951,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -866,8 +1172,8 @@
     {
       "id": "shoreacres",
       "shortName": "Shoreacres",
-      "localHash": "983ac34f02d48312c8440a1fd245a9525797e1fa8a1925029ae9e06c1f07d3e8",
-      "localBytes": 31336,
+      "localHash": "b68cbbf8fc71e7bd043df21f7b3ecbcde5d831fc6dae0ea2ee951941f0ee67cd",
+      "localBytes": 8972,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -884,8 +1190,8 @@
     {
       "id": "st-louis-cc",
       "shortName": "St. Louis CC",
-      "localHash": "efb5a8f71015fa35d5d0b76c6912b56a3b898e071e964adb21705ab037e46753",
-      "localBytes": 26165,
+      "localHash": "16e5047343a0e4cc0ddead049301b24239511e5f6e1fc48fa1e23bde4663181d",
+      "localBytes": 7016,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -893,8 +1199,8 @@
     {
       "id": "stonewall-orchard",
       "shortName": "Stonewall Links",
-      "localHash": "31ba7894ff047acf8cb6e1bda971728743e090893634746341aec498b2ae25ad",
-      "localBytes": 20739,
+      "localHash": "56020a6d6aea07225e9e30e2f6602b9a6bcfd7700c1f683d63edb53d994bb1fe",
+      "localBytes": 5412,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -911,8 +1217,8 @@
     {
       "id": "the-country-club",
       "shortName": "Brookline",
-      "localHash": "6ec8bff3ec2719ae2a3581025c7f4b145de8b095119fa2c04665f222768c890b",
-      "localBytes": 45083,
+      "localHash": "2f551f2342747cc409201369250f85b190a1396d30750bdb824a2d2ff3dd71dc",
+      "localBytes": 13081,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -938,8 +1244,8 @@
     {
       "id": "loxahatchee",
       "shortName": "Loxahatchee",
-      "localHash": "772b42b9fad84471bd786f5bb85555ab11b776df6caac4186ac7f1cbf5449efb",
-      "localBytes": 27505,
+      "localHash": "092890401054e89ecaf28861702a6753d5b31401a6dd83331a2ac58e1094acdb",
+      "localBytes": 11532,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -965,8 +1271,8 @@
     {
       "id": "atlanta-athletic-club",
       "shortName": "Atlanta Athletic",
-      "localHash": "5e775dde7a2356375ff2ce9027671aad4671722337d562418342169a60dba98b",
-      "localBytes": 144156,
+      "localHash": "4c3c72988c1a615e862ad9b343a2cf821dfc55f403694bf0bd7ffa21954344d6",
+      "localBytes": 54719,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -974,8 +1280,8 @@
     {
       "id": "beverly-country-club",
       "shortName": "Beverly",
-      "localHash": "ac3cf8fc98668de0beb19104892f08850abe64f3f551ea92829dc6117fd83355",
-      "localBytes": 176872,
+      "localHash": "4ef9bc8e166bbc437fee5b7ee67988b56df717e2e40715711566ed51e8241fb5",
+      "localBytes": 74660,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -983,8 +1289,8 @@
     {
       "id": "biltmore-forest-country-club",
       "shortName": "Biltmore Forest",
-      "localHash": "7d415438e74d17b5dc654e59f98c86b54b3c860fe9a05ef2a590e176520cbf9d",
-      "localBytes": 115801,
+      "localHash": "b66517589b5f4096014ebd5a2008a52777f082f1b9e8db71b3cad3cba5d4faf0",
+      "localBytes": 43099,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -992,8 +1298,8 @@
     {
       "id": "bluejack-national",
       "shortName": "Bluejack National",
-      "localHash": "30bb692338bedafb651b73d4a97b623da130ebcddcf3aa5c3806a46c627ab6b3",
-      "localBytes": 85158,
+      "localHash": "b2f3c0c15e4ba17db1ef2bf8b65c6dde1747d4833cde9e71f7a30f8324c76021",
+      "localBytes": 29087,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1001,8 +1307,8 @@
     {
       "id": "california-golf-club",
       "shortName": "California Golf Club of San Francisco",
-      "localHash": "738a6855a5e6f648285bcbf1c16a1f5e09d66a11915187b51dda9adaa91d47b0",
-      "localBytes": 161008,
+      "localHash": "603afa2ace1137f1f2f9e0708548d068ca3e0d34ffe74fab96ac3bfa5d714674",
+      "localBytes": 66552,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1010,8 +1316,8 @@
     {
       "id": "caves-valley-golf-club",
       "shortName": "Caves Valley",
-      "localHash": "86635d2d1878073e4c2b854ab611850e51ff07759c81d8d4087b131b2d81180f",
-      "localBytes": 53798,
+      "localHash": "47fea9b5e3650369c450fa23631229b931ab19bdecfd72de4017933beef97eec",
+      "localBytes": 18590,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1019,8 +1325,8 @@
     {
       "id": "charlotte-country-club",
       "shortName": "Charlotte",
-      "localHash": "9363b8bd5395f0f57956dada402d6659882eb738656567f5291a5a3aaae4c1a7",
-      "localBytes": 30221,
+      "localHash": "c867ed7dc26d0e2822d8f132d84488e8aeeb0fac1e501de81bd98a1bdceb5279",
+      "localBytes": 9577,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1028,8 +1334,8 @@
     {
       "id": "cherry-valley-club",
       "shortName": "Cherry Valley",
-      "localHash": "6f5544d54fb678fee18cfb6e88684c3cffd76d69832650f2d62f6160950616f0",
-      "localBytes": 140556,
+      "localHash": "7d33f040f4a640ac5d46928fde3f667f660d6e82e205aa901f19a398dbc4a268",
+      "localBytes": 58803,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1037,8 +1343,8 @@
     {
       "id": "childress-hall",
       "shortName": "Childress Hall",
-      "localHash": "5020f8ff92a72109806560de362ce0ddb4025277604228bf30704a2e9237342e",
-      "localBytes": 26270,
+      "localHash": "111ddcaaca18becb9ecfa0e7249377eca2dbef078e6f6d1409b6fb0f41b07ce7",
+      "localBytes": 13085,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1046,8 +1352,8 @@
     {
       "id": "colorado-golf-club",
       "shortName": "Colorado",
-      "localHash": "0e6790f5432c1930f9ee95731e56fdef3077fbafbfb70b829263cdbbe2d4e066",
-      "localBytes": 94640,
+      "localHash": "dd22723766c926a451e2a5b014848ea2adf295f8f66c62e407264b2e49d7fd0a",
+      "localBytes": 39227,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1055,8 +1361,8 @@
     {
       "id": "country-club-of-charleston",
       "shortName": "Country Club of Charleston",
-      "localHash": "4e0a8cee56db59f7eaeb1888ed28a98c072af41820ee2e4a0b46b9931fa07b0c",
-      "localBytes": 48882,
+      "localHash": "6869e97609fd546cd91e9d76b1872b45abb8a39bfeea03cd83f581df93d3ec17",
+      "localBytes": 15002,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1064,8 +1370,8 @@
     {
       "id": "dedham-country-and-polo-club",
       "shortName": "Dedham Country and Polo",
-      "localHash": "234e7da721de4ebce35a0da10e95977b515925cbb932b90570f265f928b95388",
-      "localBytes": 141335,
+      "localHash": "23fab6d1ac56ac77c2b8f7689c47f9c908f5171f007fd59e3f62c4ca69ec24cc",
+      "localBytes": 45228,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1073,8 +1379,8 @@
     {
       "id": "east-potomac-golf-links",
       "shortName": "East Potomac",
-      "localHash": "fe2a13227052da971a323f184fcf30f647333ddfe7d77ba73e28ac74162851eb",
-      "localBytes": 66069,
+      "localHash": "bfad8d5447becbf0118d14fe4f0d8570f61cde5a26e877ae2d8f94a1bba2bea5",
+      "localBytes": 23000,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1082,8 +1388,8 @@
     {
       "id": "eastward-ho-country-club",
       "shortName": "Eastward Ho!",
-      "localHash": "335bdfb7661f08758b6182351de3172b055c2031f380aaac8b0fa85b6932dda1",
-      "localBytes": 102331,
+      "localHash": "06a323e1134b4e44dc44c4e24f731a9f745a692a9de46fbb05464d1feff9b79a",
+      "localBytes": 45066,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1091,8 +1397,8 @@
     {
       "id": "floridian-national-golf-club",
       "shortName": "Floridian National",
-      "localHash": "6918210cbc41d845731da0c51fa01cc42802b7bdda202d895da90e33c244b92d",
-      "localBytes": 44723,
+      "localHash": "9fb30224aac26069fadb6baf56b294f2bc7cc8bab23c6a6333ef2e2908998fd1",
+      "localBytes": 19753,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1100,8 +1406,8 @@
     {
       "id": "frederica-golf-club",
       "shortName": "Frederica",
-      "localHash": "035e30b1bb84fc770a2a689e6b0ff7ecf172fc150308c697fb80b86790dd39db",
-      "localBytes": 101544,
+      "localHash": "249bbd73704778bf686840018deb984cc64a43899b459ec998a792e727a8a539",
+      "localBytes": 32868,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1109,8 +1415,8 @@
     {
       "id": "gasparilla-golf-club",
       "shortName": "Gasparilla",
-      "localHash": "01f4a215d7569b1963d3982b9afd79065acad4daeff8d3845a067520fb204b3d",
-      "localBytes": 131625,
+      "localHash": "da1d45b6cb9f64a29cbdf62b1d045318d5bc9590f8f1de34fc2c2c413ef136bd",
+      "localBytes": 56565,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1118,8 +1424,8 @@
     {
       "id": "huntingdon-valley-country-club",
       "shortName": "Huntingdon Valley",
-      "localHash": "0c135e8df998410dac26bcc069f52a14c3815f3676dfb4d4740adb94edc96ba9",
-      "localBytes": 74019,
+      "localHash": "bad08efa9cb8b2e25012a6dcd2148980e4ef490179c1c11fb90d9165fc99696e",
+      "localBytes": 21306,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1127,8 +1433,8 @@
     {
       "id": "jupiter-hills-club",
       "shortName": "Jupiter Hills",
-      "localHash": "e9460058c07202e75316533e7ffbc5da51ce2593d19e502cd071cf22eeae5501",
-      "localBytes": 126966,
+      "localHash": "779c424125af3b7b4371671e77def505c42180dc640062fc696d955b074129f3",
+      "localBytes": 52091,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1136,8 +1442,8 @@
     {
       "id": "kapalua",
       "shortName": "Kapalua",
-      "localHash": "a08345238ebab51e1645e27740d2ef3cee5e42b0c1506ee7e1f9cf5df1cf9ae5",
-      "localBytes": 51897,
+      "localHash": "4b17cc9dcf646ed8c01d70c75582dd7e5e5c86e9b323a39810ed5d6a210ce581",
+      "localBytes": 15087,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1145,8 +1451,8 @@
     {
       "id": "lake-merced-golf-club",
       "shortName": "Lake Merced",
-      "localHash": "3b208f24f68cd38ffc67e96a1f0493d0254441441f0e1b2b5b6f63aba14f4f71",
-      "localBytes": 103482,
+      "localHash": "7762aeb622fc7a3908a49ecfcc622935eb1a9f9923ce8de463ef31ef600dff24",
+      "localBytes": 27232,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1154,8 +1460,8 @@
     {
       "id": "meadow-club",
       "shortName": "Meadow",
-      "localHash": "8eea6fc0b5d72b2bcc1131a3f68be9c8fb4637639a713404908ad6b6275c8852",
-      "localBytes": 49916,
+      "localHash": "a7e8db485306813526561bd7d3cfd88b470c025dfe76846419c80b9c1506c97a",
+      "localBytes": 15002,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1172,8 +1478,8 @@
     {
       "id": "north-berwick-golf-club",
       "shortName": "North Berwick Golf Club",
-      "localHash": "601b99e169e384af6b1490d201e3a362523943ebf7755da09509ccc4eb1c7237",
-      "localBytes": 115516,
+      "localHash": "9f823bf016b1c793e6c8947b19d868cdbeb0b8f91816139ba2ecd16f654d28a8",
+      "localBytes": 40647,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1181,8 +1487,8 @@
     {
       "id": "old-memorial-golf-club",
       "shortName": "Old Memorial",
-      "localHash": "889e5bfbefb3808f4493be6c77fca3961e2b3bdb9cb3bfdb4cc74c77df2b983e",
-      "localBytes": 58786,
+      "localHash": "a3cc15ea648f61de0fbc5a4a56d1a718f9ed6782a4d8c9e23108678937e9a679",
+      "localBytes": 17819,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1190,8 +1496,8 @@
     {
       "id": "pine-tree-golf-club",
       "shortName": "Pine Tree",
-      "localHash": "f22b9c0599e0054bd88d112f9a6ee0bc4b783fd8ccbe6331bc3ceff7d35f0710",
-      "localBytes": 67195,
+      "localHash": "b2eea6ccfc34cce9023b9a31b63171c4cc05f87ab568cad1427fa53c7df75679",
+      "localBytes": 20862,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1199,8 +1505,8 @@
     {
       "id": "the-country-club-of-darien",
       "shortName": "Country Club of Darien",
-      "localHash": "e36aef830aa111b7a7ed54ecb4fc06a9649eb90e09e7d1c565c612bb117e4b5b",
-      "localBytes": 32473,
+      "localHash": "d800a1a790de1c58134d6bd2967d57b28ccc2d9ee4df1a61a2d93998d5bc712f",
+      "localBytes": 9135,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1208,8 +1514,8 @@
     {
       "id": "the-park",
       "shortName": "Park West Palm",
-      "localHash": "1726aa98215b3abb19947dcb3fc1d38f8bb1cb2f3cb497ee4173446b06b5bfe2",
-      "localBytes": 117576,
+      "localHash": "3bd72b4dac6b10e3c68da216f2d4add962f99660922feffd244592d32634aba6",
+      "localBytes": 47528,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1217,8 +1523,8 @@
     {
       "id": "the-tuxedo-club",
       "shortName": "The Tuxedo",
-      "localHash": "c0a05b90b42f6d400352848c12984b7521db09873a88a41e1b3659ec63f166bb",
-      "localBytes": 60621,
+      "localHash": "cdae4cf47b9b67ad30b62dbe7829d9d6573fddc2ba189af5b836d46b11853344",
+      "localBytes": 19685,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1226,8 +1532,8 @@
     {
       "id": "tiburon-golf-club",
       "shortName": "Tiburón",
-      "localHash": "39f6ee8eb12ed9c2d42f05da460dc29e34054bc2e8acf31637ecf73519c49d60",
-      "localBytes": 48463,
+      "localHash": "79b5a59883dea39d1a8e767f89f64ba5ff833e102d4b626a7c99e6147ba58d13",
+      "localBytes": 16997,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1235,8 +1541,8 @@
     {
       "id": "timuquana-country-club",
       "shortName": "Timuquana",
-      "localHash": "7195bb74e8fa3c1ab80ba4a4a7f4368d41c6432a0ace0456ab8d41ccda0ddd58",
-      "localBytes": 198946,
+      "localHash": "29a9ccc73662d023e676cb945b64de818028b7da46ffd30f1e64991d64e7d17b",
+      "localBytes": 66249,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1244,8 +1550,8 @@
     {
       "id": "union-league-national",
       "shortName": "Union League National",
-      "localHash": "66b57fd2958c24688860c304011c64d137605b7dad87c93e4ec68e6badd91c64",
-      "localBytes": 70325,
+      "localHash": "ea3399db38001397263c984c545aeaf2dbbacf780cd35e02dd0a1685dac0fefc",
+      "localBytes": 20779,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1253,8 +1559,8 @@
     {
       "id": "watersound-club",
       "shortName": "Watersound",
-      "localHash": "287d787f56b3c0860aaedfd2add2110c9c0eeac39d43cac426b5884af7bfe55c",
-      "localBytes": 22888,
+      "localHash": "add0f97fe27c5781621b47bc53e48ab6bb730bd572209cb724045754b37b4069",
+      "localBytes": 9935,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1262,8 +1568,8 @@
     {
       "id": "wianno-club",
       "shortName": "Wianno",
-      "localHash": "20ba27e93e59d56111db5bcb9278f268c193365da717762967a87d2c4e5930be",
-      "localBytes": 61364,
+      "localHash": "c2fb0880594e3c6ec9b370daf18b2d3b80607a2099fe65c30077c4b99bc330a8",
+      "localBytes": 23880,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1280,8 +1586,8 @@
     {
       "id": "wilmington-country-club",
       "shortName": "Wilmington Country Club",
-      "localHash": "081cbc5c9fdc53b3148e78c55522f9149d184322b2f7046fbcd3fa7a7fd5eecf",
-      "localBytes": 143585,
+      "localHash": "106a036d355ab05021bbcb6350130761c85318971556b5b6e2fcd0d2da19f28b",
+      "localBytes": 40746,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1289,8 +1595,8 @@
     {
       "id": "sand-ridge",
       "shortName": "Sand Ridge",
-      "localHash": "90897e93076a73eae05807d9770ddb2d1e8ca8f9a388fcb8720ab469c7cc3e56",
-      "localBytes": 119174,
+      "localHash": "76721154c608fe36d73f8606172d52c2193809a9c5c75f6ec35c137293ad89d3",
+      "localBytes": 40559,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1298,8 +1604,8 @@
     {
       "id": "cherokee-country-club",
       "shortName": "Cherokee",
-      "localHash": "e2530c4df78d5df593db20bf1c5689c7c4c0826f215afa3cec5be94ad3ad5528",
-      "localBytes": 144099,
+      "localHash": "c07b689ed7b25d699d12a5dacdc0524d9a4a455e82d3865525cb0928a64fff10",
+      "localBytes": 154825,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1307,8 +1613,8 @@
     {
       "id": "canterbury",
       "shortName": "Canterbury",
-      "localHash": "0821ccee96884c6d50e178f5dc19e70f2f718d8bb576c36c122547bcaf1054a7",
-      "localBytes": 117772,
+      "localHash": "66cb301ee83fb7f7f12a1e147a317ec2790ff5805bd049bc56798d96675d9c71",
+      "localBytes": 32509,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1316,17 +1622,8 @@
     {
       "id": "rodeo-dunes",
       "shortName": "Rodeo Dunes",
-      "localHash": "7fa0419b00f062d91087156edb11d73f1e303d98554608ca781d9f4aa79ba26d",
-      "localBytes": 120084,
-      "remoteHash": null,
-      "remoteStatus": null,
-      "problems": []
-    },
-    {
-      "id": "the-golf-club",
-      "shortName": "The Golf Club",
-      "localHash": "40ff7df992aef2186778756cdbe66edceffe4048400e60105bcf16ef49e27e69",
-      "localBytes": 136817,
+      "localHash": "a64af96b42387bcf7236a50e7d9604b833699581fdd640db2c6184acc4340bd6",
+      "localBytes": 43140,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -1334,8 +1631,17 @@
     {
       "id": "colonial-country-club",
       "shortName": "Colonial",
-      "localHash": "011f412e6b97c15ff629a99bde6f4dbd655a59749cc7f3e2a7fd07b58445ed6f",
-      "localBytes": 224053,
+      "localHash": "384e2cd8efe49928cb2eff5d7c6f66ccb055561490b7fad44e2b2d24a3338c34",
+      "localBytes": 70689,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "wild-spring-dunes",
+      "shortName": "Wild Spring Dunes",
+      "localHash": "736c44d219fadc4c28b5127eb2315b3332ee254f2fa4dc505abde75b481a73e7",
+      "localBytes": 4507,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
