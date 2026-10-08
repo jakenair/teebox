@@ -3355,6 +3355,9 @@
   .search-results-list { padding: 8px; }
   .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); }
   .search-result-item:hover { background: var(--gray-100); }
+  /* r335: the "See all N results" row at the foot of the typeahead. */
+  .search-see-all { justify-content: center; color: var(--green-700); font-weight: 700; font-size: 14px; border-top: 1px solid var(--gray-100); margin-top: 4px; border-radius: 0; }
+  .search-see-all:hover, .search-see-all:focus { background: var(--green-50, #eef6f0); outline: none; }
   .search-res-img { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; overflow: hidden; flex-shrink: 0; }
   .search-res-img img { width: 100%; height: 100%; object-fit: cover; }
   .search-res-name { font-size: 14px; font-weight: 600; color: var(--gray-900); }
@@ -5501,7 +5504,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r334</span></div>
+        <span class="auth-build" aria-hidden="true">r335</span></div>
     </div>
   </div>
 </div>
@@ -7805,7 +7808,7 @@
 <!-- SEARCH -->
 <div class="search-overlay" id="searchOverlay" data-close-on-backdrop="close-search">
   <div class="search-box">
-    <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" placeholder="Search clubs, apparel, accessories…" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
+    <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" enterkeyhint="search" placeholder="Search clubs, apparel, accessories…" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
     <!-- r163: NATIVE APP ONLY (body.is-native) — the header's category pills
          live here in the app. Tap = filter the feed + dismiss the overlay. -->
     <div class="search-cat-row" aria-label="Browse by category">
@@ -12719,7 +12722,7 @@ function buildTrending() {
 }
 
 // Active filter state. Updated by filter-bar inputs; persisted across renders.
-window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set(), brand: null };
+window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set(), brand: null, q: null };
 
 function applyFilters(list) {
   const f = window.__filter;
@@ -12731,6 +12734,11 @@ function applyFilters(list) {
     out = out.filter(p => !p.sellerId || !blocked.has(p.sellerId));
   }
   if (f.cat && f.cat !== 'all') out = out.filter(p => p.cat === f.cat);
+  // r335: free-text search applied to the grid (Enter / "See all").
+  if (f.q) {
+    const ql = String(f.q).toLowerCase();
+    out = out.filter(p => searchHaystack(p).includes(ql));
+  }
   if (f.brand) {
     const wanted = String(f.brand).trim().toLowerCase();
     out = out.filter(p => String(p.brand || '').trim().toLowerCase() === wanted);
@@ -13008,9 +13016,10 @@ function buildProducts(filter) {
   const chipSlot = document.getElementById('activeBrandChipSlot');
   if (chipSlot) {
     const b = window.__filter && window.__filter.brand;
-    chipSlot.innerHTML = b
-      ? `<button class="brand-chip" data-action="clear-brand-filter" title="Clear brand filter">${window.safeText(b)} <span class="x">✕</span></button>`
-      : '';
+    const q = window.__filter && window.__filter.q;
+    chipSlot.innerHTML =
+      (q ? `<button class="brand-chip" data-action="clear-search-query" title="Clear search">&ldquo;${window.safeText(q)}&rdquo; <span class="x">✕</span></button>` : '') +
+      (b ? `<button class="brand-chip" data-action="clear-brand-filter" title="Clear brand filter">${window.safeText(b)} <span class="x">✕</span></button>` : '');
   }
   if (!list.length) {
     // Distinguish "filters too narrow" from "marketplace genuinely
@@ -13051,11 +13060,23 @@ function buildProducts(filter) {
       // price/condition/brand sub-filter removed everything, keep the
       // generic "widen your filters" message.
       const f = window.__filter || {};
+      // r335: a search with no hits is its own state — say what was searched
+      // and offer the one action that helps, not "widen your filters".
+      if (f.q) {
+        grid.innerHTML =
+          '<div class="cat-empty-callout" style="grid-column:1/-1;">'+
+            '<div class="cat-empty-title">No results for &ldquo;'+window.safeText(f.q)+'&rdquo;</div>'+
+            '<div class="cat-empty-sub">Try a brand, a model, or a category &mdash; or check back soon, new gear lands daily.</div>'+
+            '<button class="btn-primary" data-action="clear-search-query" style="padding:10px 22px;font-size:14px;">Clear search</button>'+
+            '<div style="margin-top:10px;font-size:13px;"><a href="#" data-action="handle-sell">Have one to sell? List it now</a></div>'+
+          '</div>';
+        return;
+      }
       const catActive = f.cat && f.cat !== 'all';
       const subFiltersDefault =
         (f.min == null) && (f.max == null) &&
         (!f.conditions || f.conditions.size === 0) &&
-        !f.brand;
+        !f.brand && !f.q;
       if (catActive && subFiltersDefault) {
         // Re-run the rest of the filter pipeline with the category
         // cleared, FOR DISPLAY ONLY. window.__filter is not mutated, so
@@ -18011,6 +18032,42 @@ function openSearch() {
 // with an empty string hides the dropdown immediately so it doesn't
 // flash a "No matches" frame on backspace-to-empty.
 let __searchDebounceTimer = null;
+// r335: the ONE definition of "does this listing match a search". The
+// typeahead dropdown and the grid's free-text filter both use it, so Enter /
+// "See all" shows exactly the set the dropdown was previewing.
+function searchHaystack(p) {
+  return [p.name, p.title, p.brand, p.cat, p.category, p.desc]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+function searchMatches(query) {
+  const ql = String(query || '').trim().toLowerCase();
+  if (!ql) return [];
+  return (window.PRODUCTS || []).filter(p => p && searchHaystack(p).includes(ql));
+}
+
+// r335: Enter / "See all" — show EVERY match in the marketplace grid.
+// Before this, Enter opened the first dropdown row, so "Peter Millar" ↵ took
+// you to one pair of shoes instead of every Peter Millar listing (Carter,
+// 2026-10-08). Category resets to All because the dropdown never filtered by
+// category and the result set must be the one it previewed. Pass null/'' to
+// clear (the chip's ✕).
+function applySearchQuery(q) {
+  const query = String(q || '').trim();
+  window.__filter.q = query || null;
+  const overlay = document.getElementById('searchOverlay');
+  if (overlay) overlay.classList.remove('open');
+  const input = document.getElementById('searchInput');
+  if (input) { try { input.blur(); } catch (_e) {} }
+  if (query) {
+    filterCat(null, 'all');          // sweeps the pills + buildProducts('all')
+    const sec = document.getElementById('homeLatest') || document.getElementById('productGrid');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    buildProducts();
+  }
+}
+window.applySearchQuery = applySearchQuery;
+
 function filterSearch(q) {
   if (__searchDebounceTimer) { clearTimeout(__searchDebounceTimer); __searchDebounceTimer = null; }
   const results = document.getElementById('searchResults');
@@ -18028,18 +18085,11 @@ function filterSearchRender(query) {
   const results = document.getElementById('searchResults');
   if (!results) return;
   results.style.display = '';
-  const ql = query.toLowerCase();
   // Substring match across the fields a buyer would type into a
   // typeahead: title/name, brand, category, plus description as a
   // last-resort signal. (Listings have no separate course/club field;
   // brand covers club names like "Scotty Cameron" today.)
-  const all = (window.PRODUCTS || []).filter(p => {
-    if (!p) return false;
-    const hay = [
-      p.name, p.title, p.brand, p.cat, p.category, p.desc,
-    ].filter(Boolean).join(' ').toLowerCase();
-    return hay.includes(ql);
-  });
+  const all = searchMatches(query);
   const matches = all.slice(0, 8);
   // Analytics: priority event #4 — `search_performed`. Fires from
   // inside the 150ms-debounced render (so we don't spam on every
@@ -18092,7 +18142,11 @@ function filterSearchRender(query) {
       `<div><div class="search-res-name">${window.safeText(p.name)}${verifiedSlot}</div><div class="search-res-cat">${window.safeText(p.brand)} · ${window.safeText(p.cat)}</div></div>`+
       `<span class="search-res-price">$${Number(p.ask||0).toLocaleString()}</span>`+
     `</div>`;
-  }).join('');
+  }).join('') +
+  // r335: the whole result set, one tap away. Same action Enter takes.
+  `<div class="search-result-item search-see-all" data-action="search-see-all" tabindex="0" role="option" data-search-idx="${matches.length}">`+
+    `See all ${all.length} result${all.length === 1 ? '' : 's'} for &ldquo;${window.safeText(query)}&rdquo; &rarr;`+
+  `</div>`;
   hydrateVerifiedSellerPills(results);
 }
 
@@ -25053,6 +25107,11 @@ A['open-saved-searches']     = () => { if (!window.requireAuth('to view your sav
 A['save-current-search']     = () => { if (!window.requireAuth('to save this search')) return; saveCurrentSearch(); };
 A['filter-by-brand']         = (el) => filterByBrand(el.dataset.brand);
 A['clear-brand-filter']      = () => filterByBrand(null);
+A['clear-search-query']      = () => applySearchQuery(null);
+A['search-see-all']          = () => {
+  const input = document.getElementById('searchInput');
+  applySearchQuery(input ? input.value : '');
+};
 A['renew-listing']           = (el) => { if (!window.requireAuth('to renew your listing')) return; renewListing(el.dataset.listingId); };
 A['edit-listing']            = (el) => { if (!window.requireAuth('to edit your listing')) return; window.openEditListing && window.openEditListing(el.dataset.listingId); };
 A['ask-delete-listing']      = (el) => { if (!window.requireAuth('to delete your listing')) return; askDeleteListing(el.dataset.listingId, el.dataset.listingTitle); };
@@ -26111,13 +26170,15 @@ if (termsBox) termsBox.addEventListener('change', () => onTermsCheck());
 const searchIn = document.getElementById('searchInput');
 if (searchIn) {
   searchIn.addEventListener('input', (e) => filterSearch(e.target.value));
-  // Enter from the input opens the first match (typeahead default).
+  // r335: Enter from the input shows EVERY match in the grid (it used to
+  // open the first row — "Peter Millar" ↵ landed on one pair of shoes).
   // ArrowDown moves focus into the results list so subsequent Enter
-  // opens whichever row the user has selected.
+  // opens whichever row the user has selected — the typeahead path is
+  // still there for anyone who wants a specific row.
   searchIn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      const first = document.querySelector('#searchResults .search-result-item');
-      if (first) { e.preventDefault(); first.click(); }
+      const q = String(e.target.value || '').trim();
+      if (q) { e.preventDefault(); applySearchQuery(q); }
     } else if (e.key === 'ArrowDown') {
       const first = document.querySelector('#searchResults .search-result-item');
       if (first) { e.preventDefault(); first.focus(); }
