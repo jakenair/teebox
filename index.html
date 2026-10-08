@@ -4546,8 +4546,27 @@
   body.is-native .inbox-header h2 { flex: 1; }
   body.is-native .dash-header { gap: 8px; }
   body.is-native .dash-header > div { flex: 1; }
-  body.is-native #profileBackdrop .modal-header { justify-content: flex-start; gap: 8px; }
-  body.is-native #profileBackdrop .modal-title { flex: 1; }
+  /* r337: the hub pages are pushed screens now (r336) — title beside the ←,
+     exactly as Your Profile has it, not stranded on the right by the
+     space-between header the sheets used. */
+  body.is-native #profileBackdrop .modal-header,
+  body.is-native #ordersBackdrop .modal-header,
+  body.is-native #savedSearchesBackdrop .modal-header,
+  body.is-native #pushPrefsBackdrop .modal-header,
+  body.is-native #emailPrefsBackdrop .modal-header,
+  body.is-native #shippingSettingsBackdrop .modal-header,
+  body.is-native #blockedUsersBackdrop .modal-header,
+  body.is-native #aboutBackdrop .modal-header,
+  body.is-native #guidelinesBackdrop .modal-header { justify-content: flex-start; gap: 8px; }
+  body.is-native #profileBackdrop .modal-title,
+  body.is-native #ordersBackdrop .modal-title,
+  body.is-native #savedSearchesBackdrop .modal-title,
+  body.is-native #pushPrefsBackdrop .modal-title,
+  body.is-native #emailPrefsBackdrop .modal-title,
+  body.is-native #shippingSettingsBackdrop .modal-title,
+  body.is-native #blockedUsersBackdrop .modal-title,
+  body.is-native #aboutBackdrop .modal-title,
+  body.is-native #guidelinesBackdrop .modal-title { flex: 1; }
   body.is-native .detail-header { justify-content: flex-start; }
   body.is-native .detail-header .detail-chrome { flex: 1; text-align: center; margin-right: 40px; }
   body.is-native .chat-header .app-back { margin-right: 2px; flex-shrink: 0; }
@@ -5514,7 +5533,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r336</span></div>
+        <span class="auth-build" aria-hidden="true">r337</span></div>
     </div>
   </div>
 </div>
