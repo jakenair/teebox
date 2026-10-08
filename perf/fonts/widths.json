@@ -1,0 +1,92 @@
+{
+ "DM Sans 300": {
+  "w": 46.171,
+  "asc": 99,
+  "desc": 31
+ },
+ "DM Sans 400": {
+  "w": 46.77,
+  "asc": 99,
+  "desc": 31
+ },
+ "DM Sans 500": {
+  "w": 47.591,
+  "asc": 99,
+  "desc": 31
+ },
+ "DM Sans 600": {
+  "w": 48.617,
+  "asc": 99,
+  "desc": 31
+ },
+ "DM Sans 700": {
+  "w": 49.386,
+  "asc": 99,
+  "desc": 31
+ },
+ "DM Sans 800": {
+  "w": 49.642,
+  "asc": 99,
+  "desc": 31
+ },
+ "Playfair 400": {
+  "w": 45.335,
+  "asc": 108,
+  "desc": 25
+ },
+ "Playfair 700": {
+  "w": 46.395,
+  "asc": 108,
+  "desc": 25
+ },
+ "Playfair 800": {
+  "w": 46.748,
+  "asc": 108,
+  "desc": 25
+ },
+ "Playfair 900": {
+  "w": 47.101,
+  "asc": 108,
+  "desc": 25
+ },
+ "Arial": {
+  "w": 45.061,
+  "asc": 91,
+  "desc": 21
+ },
+ "Arial Bold": {
+  "w": 48.544,
+  "asc": 91,
+  "desc": 21
+ },
+ "Times New Roman": {
+  "w": 41.026,
+  "asc": 89,
+  "desc": 22
+ },
+ "Times New Roman Bold": {
+  "w": 43.4,
+  "asc": 89,
+  "desc": 22
+ },
+ "Georgia": {
+  "w": 44.629,
+  "asc": 92,
+  "desc": 22
+ },
+ "Georgia Bold": {
+  "w": 51.97,
+  "asc": 92,
+  "desc": 22
+ },
+ "Helvetica": {
+  "w": 45.061,
+  "asc": 92,
+  "desc": 23
+ },
+ "system-ui": {
+  "w": 41.773,
+  "asc": 97,
+  "desc": 21
+ }
+}

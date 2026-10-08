@@ -66,3 +66,16 @@ LCP < 2000ms · CLS < 0.05 · TBT < 300ms · FCP < 1800ms, at Lighthouse mobile
 `perf/results/*.json` holds every baseline, keyed by the web revision it was
 taken against. Keep them — a trend across revisions is worth more than any
 single table, and it is the only way to catch a slow regression.
+
+## Font fallbacks (r334)
+
+`perf/fonts/` holds the tooling that computed the `@font-face` override faces
+at the top of index.html's stylesheet (`DM Sans Fallback`, `Playfair Fallback`):
+
+- `vmetrics.mjs` — hhea/typo/win tables from the served woff2 + local fallbacks (needs `npm i fontkit` in that dir)
+- `widths.mjs` — average advance width per weight as Chrome's canvas measures it (the only honest width)
+- `reflow.mjs` — renders the gate with fonts.gstatic.com blocked vs allowed and compares every element's height
+- `vmetrics.json`, `widths.json` — the raw numbers the percentages came from
+
+Recompute if the Google Fonts request (weights or families) ever changes. A
+fallback face is only as good as the weight it was measured at.

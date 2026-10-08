@@ -1,0 +1,12 @@
+@font-face { font-family: 'DM Sans Fallback'; src: local('Arial'), local('ArialMT'), local('Roboto'); font-weight: 100 400;
+  size-adjust: 103.79%; ascent-override: 95.57%; descent-override: 29.87%; line-gap-override: 0%; }
+@font-face { font-family: 'DM Sans Fallback'; src: local('Arial'), local('ArialMT'), local('Roboto'); font-weight: 500;
+  size-adjust: 105.61%; ascent-override: 93.93%; descent-override: 29.35%; line-gap-override: 0%; }
+@font-face { font-family: 'DM Sans Fallback'; src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'); font-weight: 600 900;
+  size-adjust: 101.73%; ascent-override: 97.51%; descent-override: 30.47%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('Georgia'); font-weight: 100 500;
+  size-adjust: 101.58%; ascent-override: 106.51%; descent-override: 24.71%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('Times New Roman Bold'), local('TimesNewRomanPS-BoldMT'), local('Times New Roman'); font-weight: 600 900;
+  size-adjust: 107.71%; ascent-override: 100.45%; descent-override: 23.30%; line-gap-override: 0%; }
+:root { --font-display: 'Playfair Display', 'Playfair Fallback', Georgia, serif !important;
+        --font-body: 'DM Sans', 'DM Sans Fallback', system-ui, sans-serif !important; }

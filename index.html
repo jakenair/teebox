@@ -295,6 +295,30 @@
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
+  /* r334 — METRIC-COMPATIBLE FALLBACK FACES.
+     The web fonts arrive after first paint (display=swap), and when they swap
+     in the text reflows: Lighthouse attributed 0.012 of the warm CLS to
+     .auth-box with cause "Web font loaded" (DM Sans + Playfair URLs). These
+     faces make the system fallback occupy the SAME space as the web font, so
+     the swap changes glyph shapes and nothing else.
+     Numbers are computed, not copied: size-adjust = web avg advance width /
+     fallback avg advance width, measured in Chrome's canvas over the gate's
+     own copy at each weight; ascent/descent are the hhea tables (which is
+     what Chrome uses on Apple platforms — canvas fontBoundingBox agrees to
+     the pixel) divided by size-adjust; line-gap is 0 for both web fonts.
+     Verified by rendering the gate with fonts.gstatic.com BLOCKED: every
+     measured element matches the web-font layout exactly (box 791/791).
+     Tooling + raw metrics: perf/README.md "Font fallbacks". */
+  @font-face { font-family: 'DM Sans Fallback'; src: local('Arial'), local('ArialMT'), local('Roboto'); font-weight: 100 400;
+    size-adjust: 103.79%; ascent-override: 95.57%; descent-override: 29.87%; line-gap-override: 0%; }
+  @font-face { font-family: 'DM Sans Fallback'; src: local('Arial'), local('ArialMT'), local('Roboto'); font-weight: 500;
+    size-adjust: 105.61%; ascent-override: 93.93%; descent-override: 29.35%; line-gap-override: 0%; }
+  @font-face { font-family: 'DM Sans Fallback'; src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'); font-weight: 600 900;
+    size-adjust: 101.73%; ascent-override: 97.51%; descent-override: 30.47%; line-gap-override: 0%; }
+  @font-face { font-family: 'Playfair Fallback'; src: local('Georgia'); font-weight: 100 500;
+    size-adjust: 101.58%; ascent-override: 106.51%; descent-override: 24.71%; line-gap-override: 0%; }
+  @font-face { font-family: 'Playfair Fallback'; src: local('Times New Roman Bold'), local('TimesNewRomanPS-BoldMT'), local('Times New Roman'); font-weight: 600 900;
+    size-adjust: 107.71%; ascent-override: 100.45%; descent-override: 23.30%; line-gap-override: 0%; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   /* Prevent iOS Safari from auto-zooming when a form field is focused.
      iOS zooms whenever an input has font-size < 16px. We force 16px on
@@ -324,8 +348,8 @@
     --blue-700: #1d4ed8; --blue-500: #3b82f6; --blue-100: #dbeafe;
     --heart-red: #e74c3c;
     --up-green: #1a8a3c; --up-bg: #e8f7ed; --dn-red: #c0392b; --dn-bg: #fde8e6;
-    --font-display: 'Playfair Display', Georgia, serif;
-    --font-body: 'DM Sans', system-ui, sans-serif;
+    --font-display: 'Playfair Display', 'Playfair Fallback', Georgia, serif;
+    --font-body: 'DM Sans', 'DM Sans Fallback', system-ui, sans-serif;
     --nav-h: 64px; --cat-bar-h: 48px; --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px; --radius-xl: 20px;
     --shadow-card: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 32px rgba(0,0,0,0.14);
     --transition: 0.22s cubic-bezier(.4,0,.2,1);
@@ -957,7 +981,13 @@
          the top of the native search row. */
       /* -1px: overlap the top bar by a pixel so no sub-pixel seam shows
          scrolling content between the two fixed bars. */
-      top: calc(var(--top-bar-h, calc(env(safe-area-inset-top) + 52px)) - 1px);
+      /* r334: the fallback is 64px because the bar IS 64px. It was 52px, so
+         until the JS sync wrote the measured value (~900ms on a throttled
+         phone) everything below sat 12px too high, then dropped — two scored
+         layout shifts on every load (0.040 of a 0.051 warm CLS). MEASURED
+         .mobile-top-bar offsetHeight = 64 at 390 and 412px; env() still adds
+         the notch on devices that have one, same as the JS value does. */
+      top: calc(var(--top-bar-h, calc(env(safe-area-inset-top) + 64px)) - 1px);
       background: linear-gradient(180deg, var(--green-800) 0%, var(--green-900) 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
@@ -980,7 +1010,7 @@
     body.has-bottom-nav .cat-bar-divider { margin-left: auto; margin-right: 6px; height: 18px; }
     body.has-bottom-nav .cat-bar-wrap::before { background: linear-gradient(to right, var(--green-800) 30%, transparent); }
     body.has-bottom-nav .cat-bar-wrap::after { background: linear-gradient(to left, var(--green-900) 30%, transparent); }
-    body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + var(--top-bar-h, calc(env(safe-area-inset-top) + 52px))); }
+    body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + var(--top-bar-h, calc(env(safe-area-inset-top) + 64px))); }  /* r334: 52→64, see .cat-bar-wrap */
     /* Push the install banner up above the bottom-nav so they don't stack */
     body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
 
@@ -5471,7 +5501,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r333</span></div>
+        <span class="auth-build" aria-hidden="true">r334</span></div>
     </div>
   </div>
 </div>
