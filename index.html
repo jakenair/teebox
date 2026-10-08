@@ -5545,7 +5545,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r341</span></div>
+        <span class="auth-build" aria-hidden="true">r342</span></div>
     </div>
   </div>
 </div>
@@ -16688,7 +16688,7 @@ function renderShopTables() {
             const photoUrl = window.variantImgUrl ? window.variantImgUrl(l, 0, 'w400') : (photo0 || '');
             const thumb = photoUrl
               ? `<img src="${escapeHtml(photoUrl)}" loading="lazy" alt="" style="width:50px;height:50px;border-radius:6px;object-fit:cover;background:var(--gray-100);flex-shrink:0" />`
-              : `<a class="shop-thumb-placeholder" data-action="open-detail" data-product-id="${escapeHtml(String(l.id))}" href="#" style="width:50px;height:50px;border-radius:6px;background:var(--gray-100);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--gray-500);font-size:10px;text-align:center;line-height:1.1;flex-shrink:0" title="Add a photo">📷<br>Add</a>`;
+              : `<a class="shop-thumb-placeholder" data-action="open-detail" data-product-id="${escapeHtml(String(l.id))}" href="#" style="width:50px;height:50px;border-radius:6px;background:var(--gray-100);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--gray-500);font-size:10px;text-align:center;line-height:1.1;flex-shrink:0" title="Add a photo">${(window.ICONS && window.ICONS.camera) || ""}<br>Add</a>`;
             return `<tr>
               <td>
                 <div class="item-cell" style="display:flex;align-items:center;gap:10px">
