@@ -1,0 +1,200 @@
+{
+  "url": "https://teeboxmarket.com/",
+  "at": "2026-10-08T15:22:39.559Z",
+  "results": [
+    {
+      "state": "logged-out-cold",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 3954,
+          "min": 3843,
+          "max": 8374
+        },
+        "LCP": {
+          "median": 5020,
+          "min": 3936,
+          "max": 10904
+        },
+        "CLS": {
+          "median": 0.005,
+          "min": 0,
+          "max": 0.005
+        },
+        "TBT": {
+          "median": 813,
+          "min": 701,
+          "max": 942
+        },
+        "SI": {
+          "median": 3954,
+          "min": 3843,
+          "max": 8374
+        },
+        "score": {
+          "median": 51,
+          "min": 40,
+          "max": 59
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 3954,
+          "LCP": 5481,
+          "CLS": 0.005,
+          "TBT": 828,
+          "SI": 3954,
+          "score": 51
+        },
+        {
+          "ok": true,
+          "FCP": 8374,
+          "LCP": 10904,
+          "CLS": 0,
+          "TBT": 701,
+          "SI": 8374,
+          "score": 40
+        },
+        {
+          "ok": true,
+          "FCP": 3936,
+          "LCP": 3936,
+          "CLS": 0.005,
+          "TBT": 813,
+          "SI": 3936,
+          "score": 59
+        },
+        {
+          "ok": true,
+          "FCP": 3843,
+          "LCP": 4917,
+          "CLS": 0.005,
+          "TBT": 795,
+          "SI": 3843,
+          "score": 54
+        },
+        {
+          "ok": true,
+          "FCP": 3955,
+          "LCP": 5020,
+          "CLS": 0.005,
+          "TBT": 942,
+          "SI": 3955,
+          "score": 51
+        }
+      ],
+      "spread": {
+        "LCP": 1.3880478087649402,
+        "FCP": 1.1459281740010117,
+        "TBT": 0.2964329643296433,
+        "CLS": 0.005
+      },
+      "lcpSpread": 1.3880478087649402,
+      "unstableBecause": [
+        "LCP 139%",
+        "FCP 115%",
+        "TBT 30%"
+      ],
+      "stable": false
+    },
+    {
+      "state": "logged-out-warm",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 134,
+          "min": 129,
+          "max": 137
+        },
+        "LCP": {
+          "median": 396,
+          "min": 246,
+          "max": 415
+        },
+        "CLS": {
+          "median": 0.004,
+          "min": 0.004,
+          "max": 0.004
+        },
+        "TBT": {
+          "median": 1159,
+          "min": 1084,
+          "max": 1243
+        },
+        "SI": {
+          "median": 558,
+          "min": 535,
+          "max": 630
+        },
+        "score": {
+          "median": 77,
+          "min": 76,
+          "max": 77
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 133,
+          "LCP": 406,
+          "CLS": 0.004,
+          "TBT": 1084,
+          "SI": 559,
+          "score": 77
+        },
+        {
+          "ok": true,
+          "FCP": 129,
+          "LCP": 393,
+          "CLS": 0.004,
+          "TBT": 1243,
+          "SI": 630,
+          "score": 76
+        },
+        {
+          "ok": true,
+          "FCP": 134,
+          "LCP": 246,
+          "CLS": 0.004,
+          "TBT": 1110,
+          "SI": 548,
+          "score": 77
+        },
+        {
+          "ok": true,
+          "FCP": 137,
+          "LCP": 396,
+          "CLS": 0.004,
+          "TBT": 1159,
+          "SI": 558,
+          "score": 77
+        },
+        {
+          "ok": true,
+          "FCP": 136,
+          "LCP": 415,
+          "CLS": 0.004,
+          "TBT": 1179,
+          "SI": 535,
+          "score": 76
+        }
+      ],
+      "spread": {
+        "LCP": 0.42676767676767674,
+        "FCP": 0.05970149253731343,
+        "TBT": 0.1371872303710095,
+        "CLS": 0
+      },
+      "lcpSpread": 0.42676767676767674,
+      "unstableBecause": [
+        "LCP 43%"
+      ],
+      "stable": false
+    }
+  ]
+}
