@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-08T16:58:17.364Z",
+  "generatedAt": "2026-10-08T18:36:14.799Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 182,
-    "pass": 182,
+    "total": 185,
+    "pass": 185,
     "fail": 0
   },
   "entries": [
@@ -1642,6 +1642,33 @@
       "shortName": "Wild Spring Dunes",
       "localHash": "736c44d219fadc4c28b5127eb2315b3332ee254f2fa4dc505abde75b481a73e7",
       "localBytes": 4507,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "abu-dhabi-golf-club",
+      "shortName": "Abu Dhabi GC",
+      "localHash": "db12a3e799c2c454801dc0084a1fa468afd2eaef55abfd222767616bfede0507",
+      "localBytes": 22393,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "finca-cortesin",
+      "shortName": "Finca Cortesín",
+      "localHash": "405d46d2a8c55b439f9131b2bf15cfc2fc0c4d1a0185b11bd09ec7b09e35eddd",
+      "localBytes": 23295,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "sentryworld",
+      "shortName": "SentryWorld",
+      "localHash": "36d9a980a41f03a8d7a40cc16ea9e73f7f0c07ca2f946d9af9131cd9193b4dfe",
+      "localBytes": 25392,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []

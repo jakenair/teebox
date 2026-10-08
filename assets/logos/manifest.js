@@ -3,6 +3,7 @@
 // dailySeed() filters Bingo course pool by this set — no emoji fallbacks.
 
 export const LOGOS_AVAILABLE = new Set([
+  'abu-dhabi-golf-club',
   'alotian',
   'arcadia-bluffs',
   'aronimink',
@@ -63,6 +64,7 @@ export const LOGOS_AVAILABLE = new Set([
   'emirates-majlis',
   'erin-hills',
   'essex-county',
+  'finca-cortesin',
   'fishers-island',
   'floridian-national-golf-club',
   'flossmoor',
@@ -151,6 +153,7 @@ export const LOGOS_AVAILABLE = new Set([
   'secession',
   'sedge-valley',
   'seminole',
+  'sentryworld',
   'sheep-ranch',
   'shinnecock-hills',
   'shooting-star',

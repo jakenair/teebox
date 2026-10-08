@@ -911,6 +911,21 @@
       "id": "wild-spring-dunes",
       "shortName": "Wild Spring Dunes",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fwild-spring-dunes.png?alt=media"
+    },
+    {
+      "id": "abu-dhabi-golf-club",
+      "shortName": "Abu Dhabi GC",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fabu-dhabi-golf-club.png?alt=media"
+    },
+    {
+      "id": "finca-cortesin",
+      "shortName": "Finca Cortesín",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Ffinca-cortesin.png?alt=media"
+    },
+    {
+      "id": "sentryworld",
+      "shortName": "SentryWorld",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsentryworld.png?alt=media"
     }
   ],
   "courseData": {
@@ -2285,9 +2300,37 @@
         "wild spring dunes golf club",
         "wsd"
       ]
+    },
+    "abu-dhabi-golf-club": {
+      "name": "Abu Dhabi Golf Club (National)",
+      "shortName": "Abu Dhabi GC",
+      "aliases": [
+        "abu dhabi golf club",
+        "abu dhabi gc",
+        "abu dhabi national",
+        "adgc"
+      ]
+    },
+    "finca-cortesin": {
+      "name": "Finca Cortesín Golf Club",
+      "shortName": "Finca Cortesín",
+      "aliases": [
+        "finca cortesin",
+        "cortesin",
+        "finca cortesín"
+      ]
+    },
+    "sentryworld": {
+      "name": "SentryWorld",
+      "shortName": "SentryWorld",
+      "aliases": [
+        "sentryworld",
+        "sentry world",
+        "sentry"
+      ]
     }
   },
-  "generatedAt": "2026-10-08T16:48:16.031Z",
+  "generatedAt": "2026-10-08T18:35:17.985Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
