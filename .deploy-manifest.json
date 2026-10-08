@@ -73,7 +73,7 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "sha": "58f7ffc3d9ae7b5bc12a78a5bb2fa0f4fa1c5e6f",
+    "sha": "791ca64549e465e7485632c031b438756baea9d5",
     "at": "2026-10-08",
     "region": "us-central1"
   },
@@ -140,7 +140,7 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "sha": "58f7ffc3d9ae7b5bc12a78a5bb2fa0f4fa1c5e6f",
+    "sha": "791ca64549e465e7485632c031b438756baea9d5",
     "at": "2026-10-08",
     "region": "us-central1"
   },
@@ -505,7 +505,7 @@
     "sha": null
   },
   "runGenerateDailyPuzzles": {
-    "sha": "58f7ffc3d9ae7b5bc12a78a5bb2fa0f4fa1c5e6f",
+    "sha": "791ca64549e465e7485632c031b438756baea9d5",
     "at": "2026-10-08",
     "region": "us-central1"
   },
