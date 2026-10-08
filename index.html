@@ -5471,7 +5471,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r332</span></div>
+        <span class="auth-build" aria-hidden="true">r333</span></div>
     </div>
   </div>
 </div>
@@ -15055,6 +15055,7 @@ function escapeInboxText(str) {
 // load-time polling interval is gone — the listener is the source of
 // truth.
 let __unreadUnsub = null;
+let __unreadAttaching = null; // in-flight attach, shared by concurrent callers
 let __unreadLastConvs = []; // last snapshot, reused to repaint the open inbox.
 
 async function refreshUnreadBadge() {
@@ -15086,7 +15087,14 @@ async function attachUnreadListener() {
   // Worst case: badge displays 50 instead of true count for power
   // sellers with >50 simultaneous unread. Dot stays ON either way; no
   // false all-clear is possible.
-  if (__unreadUnsub) return; // already wired
+  // r333: the guard has to cover the await below, not just the assignment.
+  // __unreadUnsub is only set once onSnapshot returns, so two overlapping
+  // callers — the load-event tick at 1.5s and openInbox() — both passed this
+  // check, both attached, and the second overwrote the first's handle. The
+  // orphan kept streaming and could never be detached. Park the promise here
+  // so concurrent callers await the same attach.
+  if (__unreadUnsub || __unreadAttaching) return __unreadAttaching || undefined;
+  __unreadAttaching = (async () => {
   try {
     const { getFirestore, collection, query, where, orderBy, limit, onSnapshot } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -15131,9 +15139,20 @@ async function attachUnreadListener() {
   } catch (err) {
     console.error('Error attaching unread listener:', err);
   }
+  })();
+  try { await __unreadAttaching; } finally { __unreadAttaching = null; }
 }
 
 function detachUnreadListener() {
+  // An attach may still be mid-flight (sign-out during boot). Wait for it to
+  // land and tear it down too, or its listener outlives the session it
+  // belonged to and keeps streaming the previous user's conversations.
+  const pending = __unreadAttaching;
+  if (pending) {
+    pending.then(() => {
+      if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
+    }).catch(() => {});
+  }
   if (__unreadUnsub) { try { __unreadUnsub(); } catch (_e) {} __unreadUnsub = null; }
   __unreadLastConvs = [];
 }
