@@ -1126,8 +1126,16 @@
      treatment the passport composer got in r285. Everything else keeps the
      sheet, because a sheet is right for something you dismiss and wrong for
      somewhere you go. */
+  /* r336 — and everything the profile's "Your account" list opens: Orders,
+     Likes, Saved Searches, Notifications, Email, Shipping, Blocked users,
+     About, Guidelines. Jake, 2026-10-08: "everything you click on should be
+     full screen". The 92vh sheet with a ✕ over a dimmed profile read as a
+     popup; these are places you go, so they get the same page treatment
+     and a ← that returns to the profile (see __profileReturn). */
+  #profileBackdrop.nav-behind { visibility: hidden !important; pointer-events: none !important; }
   @media (max-width: 600px) {
-    #inboxBackdrop, #chatBackdrop, #profileBackdrop, #sellModalBackdrop {
+    #inboxBackdrop, #chatBackdrop, #profileBackdrop, #sellModalBackdrop,
+    #ordersBackdrop, #savedSearchesBackdrop, #pushPrefsBackdrop, #emailPrefsBackdrop, #shippingSettingsBackdrop, #blockedUsersBackdrop, #aboutBackdrop, #guidelinesBackdrop {
       align-items: stretch !important;
       justify-content: stretch !important;
       padding: 0 !important;
@@ -1136,7 +1144,8 @@
     #inboxBackdrop .inbox-modal,
     #chatBackdrop .chat-modal,
     #profileBackdrop .info-modal,
-    #sellModalBackdrop .sell-modal {
+    #sellModalBackdrop .sell-modal,
+    #ordersBackdrop .info-modal, #savedSearchesBackdrop .info-modal, #pushPrefsBackdrop .info-modal, #emailPrefsBackdrop .info-modal, #shippingSettingsBackdrop .info-modal, #blockedUsersBackdrop .info-modal, #aboutBackdrop .info-modal, #guidelinesBackdrop .info-modal {
       width: 100% !important;
       max-width: none !important;
       height: 100% !important;
@@ -1154,7 +1163,8 @@
     #inboxBackdrop .inbox-header,
     #chatBackdrop .chat-header,
     #profileBackdrop .modal-header,
-    #sellModalBackdrop .modal-header {
+    #sellModalBackdrop .modal-header,
+    #ordersBackdrop .modal-header, #savedSearchesBackdrop .modal-header, #pushPrefsBackdrop .modal-header, #emailPrefsBackdrop .modal-header, #shippingSettingsBackdrop .modal-header, #blockedUsersBackdrop .modal-header, #aboutBackdrop .modal-header, #guidelinesBackdrop .modal-header {
       padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
     }
   }
@@ -5504,7 +5514,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r335</span></div>
+        <span class="auth-build" aria-hidden="true">r336</span></div>
     </div>
   </div>
 </div>
@@ -20495,7 +20505,13 @@ window.applyAppShell = function applyAppShell() {
   //    Centered modals (sell, checkout, orders, dispute, …) keep their ✕.
   try {
     ['.inbox-close', '.dash-close', '#profileBackdrop .modal-close',
-     '.detail-header .modal-close', '.chat-close'].forEach((sel) => {
+     '.detail-header .modal-close', '.chat-close',
+     // r336: the profile hub's pages are pushed screens now, not sheets.
+     '#ordersBackdrop .modal-close', '#savedSearchesBackdrop .modal-close',
+     '#pushPrefsBackdrop .modal-close', '#emailPrefsBackdrop .modal-close',
+     '#shippingSettingsBackdrop .modal-close', '#blockedUsersBackdrop .modal-close',
+     '#aboutBackdrop .modal-close', '#guidelinesBackdrop .modal-close',
+    ].forEach((sel) => {
       const btn = document.querySelector(sel);
       if (!btn) return;
       btn.innerHTML = I.arrowLeft || '←';
@@ -25766,6 +25782,84 @@ window.__pushOverlay = function(name, url) {
     } catch (_e2) { /* analytics must never break navigation */ }
   } catch (_e) {}
 };
+// ── r336: RETURN TO THE PROFILE ─────────────────────────────────────────
+// Profile → My Shop → ← landed on the marketplace, and so did
+// Profile → Notifications → ✕. Two causes, same effect: several hub openers
+// strip .open from EVERY .info-backdrop (openInfo, openSavedSearchesV2,
+// openBlockedUsers), and close-info does the same on the way out — and the
+// profile is an .info-backdrop. By the time the hub page closed there was no
+// profile left under it.
+//
+// No z-index surgery: the profile steps BEHIND (visibility hidden, DOM and
+// scroll position intact) when a hub page opens from it, and is restored
+// when the last hub page closes. Push/pop semantics, which is what a phone
+// user expects from a ←.
+const PROFILE_HUB_OPENS = ['open-shop-dashboard', 'open-orders', 'open-watchlist',
+  'open-saved-searches', 'open-push-prefs', 'open-email-prefs', 'open-shipping-settings',
+  'open-blocked-users', 'open-about', 'open-guidelines'];
+// Likes reuses the search overlay, so its ← is close-search.
+const PROFILE_HUB_CLOSES = ['close-info', 'close-shop-dashboard', 'close-search'];
+window.__returnToProfile = false;
+function __profileIsOpen() {
+  const p = document.getElementById('profileBackdrop');
+  return !!(p && p.classList.contains('open') && !p.classList.contains('nav-behind'));
+}
+function __hubStillOpen() {
+  // Pages that close-info does NOT close: a close-info from a dialog on top of
+  // My Shop must leave My Shop, not jump back to the profile.
+  const d = document.getElementById('shopDashboard');
+  const so = document.getElementById('searchOverlay');
+  return !!((d && d.classList.contains('open')) || (so && so.classList.contains('open')));
+}
+function __profileReturn() {
+  window.__returnToProfile = false;
+  const p = document.getElementById('profileBackdrop');
+  if (!p) return;
+  p.classList.remove('nav-behind');
+  p.classList.add('open');
+  (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
+}
+window.__profileReturn = __profileReturn;
+// The OPEN side hooks the tap itself, in the capture phase, not the action
+// table: the app shell has a second click dispatcher that handles My Shop
+// without ever calling A['open-shop-dashboard'], so an action wrapper never
+// saw that tap (verified — flag stayed false). A capture listener runs before
+// every dispatcher and cannot be bypassed by any of them.
+document.addEventListener('click', (ev) => {
+  const t = ev.target && ev.target.closest && ev.target.closest('[data-action]');
+  if (!t || !PROFILE_HUB_OPENS.includes(t.dataset.action)) return;
+  if (!t.closest('#profileBackdrop') || !__profileIsOpen()) return;
+  window.__returnToProfile = true;
+  // Step behind AFTER the opener has run, so an opener that checks what is
+  // open still sees the profile exactly as it did before this change.
+  setTimeout(() => {
+    const p = document.getElementById('profileBackdrop');
+    if (p && window.__returnToProfile) p.classList.add('nav-behind');
+  }, 0);
+}, true);
+window.addEventListener('load', () => {
+  PROFILE_HUB_CLOSES.forEach((act) => {
+    if (typeof A[act] !== 'function') return;
+    const orig = A[act];
+    A[act] = function(...args) {
+      const r = orig.apply(this, args);
+      if (window.__returnToProfile && !__hubStillOpen()) __profileReturn();
+      return r;
+    };
+  });
+  // "Browse listings" from an empty Likes screen means the marketplace, not
+  // the profile — honour the stated intent and drop the return.
+  if (typeof A['close-watchlist-browse'] === 'function') {
+    const orig = A['close-watchlist-browse'];
+    A['close-watchlist-browse'] = function(...args) {
+      window.__returnToProfile = false;
+      const p = document.getElementById('profileBackdrop');
+      if (p) { p.classList.remove('nav-behind'); p.classList.remove('open'); }
+      return orig.apply(this, args);
+    };
+  }
+});
+
 window.addEventListener('popstate', () => {
   const name = __ovStack.pop();
   if (name && __ovIsOpen(name)) __ovClose(name);
