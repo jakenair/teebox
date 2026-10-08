@@ -283,6 +283,21 @@
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-troon.png?alt=media"
     },
     {
+      "id": "royal-portrush-dunluce",
+      "shortName": "Royal Portrush",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-portrush-dunluce.png?alt=media"
+    },
+    {
+      "id": "royal-birkdale",
+      "shortName": "Royal Birkdale",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-birkdale.png?alt=media"
+    },
+    {
+      "id": "les-bordes",
+      "shortName": "Les Bordes",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fles-bordes.png?alt=media"
+    },
+    {
       "id": "cape-wickham",
       "shortName": "Cape Wickham",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcape-wickham.png?alt=media"
@@ -291,6 +306,11 @@
       "id": "tara-iti",
       "shortName": "Tara Iti",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Ftara-iti.png?alt=media"
+    },
+    {
+      "id": "cabot-cliffs",
+      "shortName": "Cabot Cliffs",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcabot-cliffs.png?alt=media"
     },
     {
       "id": "cabot-links",
@@ -403,6 +423,11 @@
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcherry-hills.png?alt=media"
     },
     {
+      "id": "southern-hills",
+      "shortName": "Southern Hills",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsouthern-hills.png?alt=media"
+    },
+    {
       "id": "olympia-fields-north",
       "shortName": "Olympia Fields North",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Folympia-fields-north.png?alt=media"
@@ -421,6 +446,21 @@
       "id": "congaree",
       "shortName": "Congaree",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcongaree.png?alt=media"
+    },
+    {
+      "id": "royal-porthcawl",
+      "shortName": "Royal Porthcawl",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-porthcawl.png?alt=media"
+    },
+    {
+      "id": "gleneagles-pga-centenary",
+      "shortName": "PGA Centenary",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fgleneagles-pga-centenary.png?alt=media"
+    },
+    {
+      "id": "emirates-majlis",
+      "shortName": "Emirates Majlis",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Femirates-majlis.png?alt=media"
     },
     {
       "id": "cabot-saint-lucia",
@@ -1334,6 +1374,30 @@
         "royal troon old"
       ]
     },
+    "royal-portrush-dunluce": {
+      "name": "Royal Portrush Golf Club (Dunluce)",
+      "shortName": "Royal Portrush",
+      "aliases": [
+        "portrush",
+        "royal portrush dunluce",
+        "dunluce"
+      ]
+    },
+    "royal-birkdale": {
+      "name": "Royal Birkdale Golf Club",
+      "shortName": "Royal Birkdale",
+      "aliases": [
+        "birkdale",
+        "royal birkdale gc"
+      ]
+    },
+    "les-bordes": {
+      "name": "Les Bordes Golf Club",
+      "shortName": "Les Bordes",
+      "aliases": [
+        "les bordes gc"
+      ]
+    },
     "cape-wickham": {
       "name": "Cape Wickham Links",
       "shortName": "Cape Wickham",
@@ -1346,6 +1410,13 @@
       "shortName": "Tara Iti",
       "aliases": [
         "tara iti gc"
+      ]
+    },
+    "cabot-cliffs": {
+      "name": "Cabot Cliffs",
+      "shortName": "Cabot Cliffs",
+      "aliases": [
+        "cabot cliffs gc"
       ]
     },
     "cabot-links": {
@@ -1511,6 +1582,13 @@
         "cherry hills cc"
       ]
     },
+    "southern-hills": {
+      "name": "Southern Hills Country Club",
+      "shortName": "Southern Hills",
+      "aliases": [
+        "southern hills cc"
+      ]
+    },
     "olympia-fields-north": {
       "name": "Olympia Fields Country Club (North)",
       "shortName": "Olympia Fields North",
@@ -1538,6 +1616,31 @@
       "shortName": "Congaree",
       "aliases": [
         "congaree gc"
+      ]
+    },
+    "royal-porthcawl": {
+      "name": "Royal Porthcawl Golf Club",
+      "shortName": "Royal Porthcawl",
+      "aliases": [
+        "royal porthcawl gc",
+        "porthcawl"
+      ]
+    },
+    "gleneagles-pga-centenary": {
+      "name": "Gleneagles (PGA Centenary)",
+      "shortName": "PGA Centenary",
+      "aliases": [
+        "gleneagles pga centenary",
+        "centenary course"
+      ]
+    },
+    "emirates-majlis": {
+      "name": "Emirates Golf Club (Majlis)",
+      "shortName": "Emirates Majlis",
+      "aliases": [
+        "emirates gc",
+        "majlis course",
+        "dubai desert classic"
       ]
     },
     "cabot-saint-lucia": {
@@ -2184,7 +2287,7 @@
       ]
     }
   },
-  "generatedAt": "2026-10-05T22:32:04.250Z",
+  "generatedAt": "2026-10-08T16:48:16.031Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"
