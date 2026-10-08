@@ -2651,6 +2651,22 @@
   .trend-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .trend-info-name { font-weight: 600; color: var(--gray-900); font-size: 14px; }
   .trend-info-meta { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
+  /* r329: one line each, and a fixed row height.
+     Trending's height was unpredictable because these two wrapped: MEASURED
+     at 390/412px the same seven rows came out 134, 156 or 178px tall
+     depending on the product name, while at 768px+ every row was 71px. A
+     skeleton cannot reserve a height that depends on its own content, which
+     is exactly why the r321 attempt under-reserved by ~540px and made cold
+     CLS worse. Clamping both lines makes every row 72px at every width, so
+     the skeleton below matches the real table to the pixel.
+     Trade-off: long names ellipsize on narrow screens instead of wrapping to
+     three lines. Desktop is unchanged — names already fitted on one line. */
+  .trend-info-name, .trend-info-meta { display: block; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .trending-table tbody tr { height: 72px; }
+  .trend-skel-row td { cursor: default; }
+  .trend-skel-bar { display: inline-block; height: 1em; vertical-align: middle;
+    border-radius: 3px; }
   .trend-price { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
   .trend-chg { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 50px; }
 
@@ -5426,7 +5442,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r328</span></div>
+        <span class="auth-build" aria-hidden="true">r329</span></div>
     </div>
   </div>
 </div>
@@ -7205,7 +7221,7 @@
        "every new section is web-only" ruling. -->
   <div class="section reveal" id="trending">
     <div class="section-header"><h2 class="section-title">Trending Now</h2></div>
-    <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"></table></div>
+    <div style="overflow-x:auto;"><table class="trending-table" id="trendingTable"><thead><tr><th>#</th><th>Item</th><th>Price</th><th>Status</th></tr></thead><tbody><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">1</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">2</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">3</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">4</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">5</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">6</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr><tr class="trend-skel-row" aria-hidden="true"><td><div class="trend-rank">7</div></td><td><div class="trend-item"><div class="trend-thumb sk"></div><div><div class="trend-info-name"><span class="sk trend-skel-bar" style="width:70%"></span></div><div class="trend-info-meta"><span class="sk trend-skel-bar" style="width:45%"></span></div></div></div></td><td><span class="trend-price"><span class="sk trend-skel-bar" style="width:44px"></span></span></td><td><span class="trend-chg"><span class="sk trend-skel-bar" style="width:50px"></span></span></td></tr></tbody></table></div>
   </div>
 
   <!-- r272: the category rail moved from Trending Now down to Latest
@@ -12596,6 +12612,14 @@ function buildTrending() {
   const real = (window.PRODUCTS || []).filter(p => typeof p.id === 'string');
   const tableEl = document.getElementById('trendingTable');
   const sectionEl = tableEl && tableEl.closest('.section');
+  // r329: this used to hide the whole section whenever `real` was empty —
+  // which is also true for the first ~750ms of every load, before the feed
+  // query resolves. MEASURED on a warm load: the section rendered at 457ms,
+  // was hidden at 551ms, and came back at 1228ms at h=1213, shoving
+  // everything below it down. That one toggle was 0.270 of a 0.283 CLS.
+  // Hold the static skeleton until the feed has actually settled; only a
+  // RESOLVED empty feed hides the section.
+  if (!window.__listingsLoaded) return;
   if (!real.length) {
     if (sectionEl) sectionEl.style.display = 'none';
     return;
