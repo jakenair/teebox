@@ -2663,6 +2663,17 @@
      three lines. Desktop is unchanged — names already fitted on one line. */
   .trend-info-name, .trend-info-meta { display: block; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; }
+  /* r330: nowrap alone made the table wider than the viewport — the cell grew
+     to fit the longest name, Price and Status were pushed off-screen behind a
+     horizontal scroll, and the ellipsis never engaged because nothing
+     constrained the width. Fixed layout pins the three narrow columns and
+     gives the rest to Item; min-width:0 lets the flex text block shrink below
+     its content width, which is what actually triggers the ellipsis. */
+  .trending-table { table-layout: fixed; }
+  .trending-table th:nth-child(1), .trending-table td:nth-child(1) { width: 38px; }
+  .trending-table th:nth-child(3), .trending-table td:nth-child(3) { width: 74px; }
+  .trending-table th:nth-child(4), .trending-table td:nth-child(4) { width: 86px; }
+  .trend-item > div { min-width: 0; }
   .trending-table tbody tr { height: 72px; }
   .trend-skel-row td { cursor: default; }
   .trend-skel-bar { display: inline-block; height: 1em; vertical-align: middle;
@@ -5442,7 +5453,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r329</span></div>
+        <span class="auth-build" aria-hidden="true">r330</span></div>
     </div>
   </div>
 </div>
