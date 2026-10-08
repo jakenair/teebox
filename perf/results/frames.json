@@ -1,20 +1,20 @@
 {
   "shots": [
     {
-      "at": 4000,
-      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t4.0s.png"
+      "at": 500,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t0.5s.png"
     },
     {
-      "at": 5000,
-      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t5.0s.png"
+      "at": 1000,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t1.0s.png"
     },
     {
-      "at": 6500,
-      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t6.5s.png"
+      "at": 2000,
+      "file": "/Users/jakenair/dev/teebox/perf/results/frames/t2.0s.png"
     }
   ],
   "lcp": {
-    "time": 5312,
+    "time": 4552,
     "tag": "IMG",
     "id": "",
     "cls": "",

@@ -1,0 +1,202 @@
+{
+  "url": "https://teeboxmarket.com/",
+  "at": "2026-10-07T23:18:45.006Z",
+  "results": [
+    {
+      "state": "logged-out-cold",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 8394,
+          "min": 3836,
+          "max": 8495
+        },
+        "LCP": {
+          "median": 10567,
+          "min": 9819,
+          "max": 10883
+        },
+        "CLS": {
+          "median": 0.004,
+          "min": 0,
+          "max": 0.365
+        },
+        "TBT": {
+          "median": 677,
+          "min": 577,
+          "max": 743
+        },
+        "SI": {
+          "median": 8394,
+          "min": 3836,
+          "max": 8495
+        },
+        "score": {
+          "median": 40,
+          "min": 25,
+          "max": 42
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 8495,
+          "LCP": 10567,
+          "CLS": 0.268,
+          "TBT": 743,
+          "SI": 8495,
+          "score": 25
+        },
+        {
+          "ok": true,
+          "FCP": 8143,
+          "LCP": 9965,
+          "CLS": 0.004,
+          "TBT": 666,
+          "SI": 8143,
+          "score": 41
+        },
+        {
+          "ok": true,
+          "FCP": 3836,
+          "LCP": 9819,
+          "CLS": 0.365,
+          "TBT": 741,
+          "SI": 3836,
+          "score": 30
+        },
+        {
+          "ok": true,
+          "FCP": 8394,
+          "LCP": 10883,
+          "CLS": 0,
+          "TBT": 577,
+          "SI": 8394,
+          "score": 42
+        },
+        {
+          "ok": true,
+          "FCP": 8437,
+          "LCP": 10877,
+          "CLS": 0,
+          "TBT": 677,
+          "SI": 8437,
+          "score": 40
+        }
+      ],
+      "spread": {
+        "LCP": 0.10069082994227312,
+        "FCP": 0.5550393137955683,
+        "TBT": 0.24519940915805022,
+        "CLS": 0.365
+      },
+      "lcpSpread": 0.10069082994227312,
+      "unstableBecause": [
+        "FCP 56%",
+        "TBT 25%",
+        "CLS ±0.365"
+      ],
+      "stable": false
+    },
+    {
+      "state": "logged-out-warm",
+      "runs": 5,
+      "requested": 5,
+      "lost": 0,
+      "metrics": {
+        "FCP": {
+          "median": 123,
+          "min": 118,
+          "max": 858
+        },
+        "LCP": {
+          "median": 375,
+          "min": 307,
+          "max": 955
+        },
+        "CLS": {
+          "median": 0.355,
+          "min": 0.355,
+          "max": 0.356
+        },
+        "TBT": {
+          "median": 1095,
+          "min": 973,
+          "max": 1288
+        },
+        "SI": {
+          "median": 1551,
+          "min": 1518,
+          "max": 1821
+        },
+        "score": {
+          "median": 60,
+          "min": 58,
+          "max": 61
+        }
+      },
+      "samples": [
+        {
+          "ok": true,
+          "FCP": 122,
+          "LCP": 375,
+          "CLS": 0.355,
+          "TBT": 1095,
+          "SI": 1551,
+          "score": 60
+        },
+        {
+          "ok": true,
+          "FCP": 118,
+          "LCP": 374,
+          "CLS": 0.355,
+          "TBT": 973,
+          "SI": 1518,
+          "score": 61
+        },
+        {
+          "ok": true,
+          "FCP": 123,
+          "LCP": 378,
+          "CLS": 0.355,
+          "TBT": 1140,
+          "SI": 1524,
+          "score": 59
+        },
+        {
+          "ok": true,
+          "FCP": 124,
+          "LCP": 307,
+          "CLS": 0.356,
+          "TBT": 1288,
+          "SI": 1704,
+          "score": 58
+        },
+        {
+          "ok": true,
+          "FCP": 858,
+          "LCP": 955,
+          "CLS": 0.355,
+          "TBT": 1081,
+          "SI": 1821,
+          "score": 60
+        }
+      ],
+      "spread": {
+        "LCP": 1.728,
+        "FCP": 6.016260162601626,
+        "TBT": 0.2876712328767123,
+        "CLS": 0.001
+      },
+      "lcpSpread": 1.728,
+      "unstableBecause": [
+        "LCP 173%",
+        "FCP 602%",
+        "TBT 29%"
+      ],
+      "stable": false
+    }
+  ]
+}

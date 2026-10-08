@@ -130,6 +130,79 @@ async function modeProfile(c, sid) {
   return profile;
 }
 
+// ── MODE: shifts ───────────────────────────────────────────────────────────
+// Every layout shift, with the element that moved. CLS is a single number that
+// says nothing about what to fix; this says which node to reserve space for.
+// `warm` first does a throwaway load so the service worker and cache are
+// primed, because warm CLS (0.355 every run) is the reproducible one.
+async function modeShifts(c, sid, warm) {
+  await c.send('Page.enable', {}, sid);
+  await c.send('Runtime.enable', {}, sid);
+  await emulateMobile(c.send, sid);
+  await c.send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    window.__shifts = [];
+    window.__mutations = [];
+    // Watch the sections around the shift so we see WHAT changed, not just
+    // which neighbour moved. A style flip on #trending moves everything below
+    // it, and the layout-shift API names the neighbour, not the cause.
+    try {
+      const watch = () => {
+        ['trending', 'homeLatest', 'productGrid'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el || el.__watched) return;
+          el.__watched = true;
+          window.__mutations.push({t: Math.round(performance.now()), id,
+            what: 'initial', display: getComputedStyle(el).display,
+            h: Math.round(el.getBoundingClientRect().height)});
+          new MutationObserver((ms) => {
+            for (const m of ms) {
+              window.__mutations.push({t: Math.round(performance.now()), id,
+                what: m.type === 'attributes' ? 'attr:' + m.attributeName : 'children',
+                display: getComputedStyle(el).display,
+                h: Math.round(el.getBoundingClientRect().height)});
+            }
+          }).observe(el, {attributes: true, attributeFilter: ['style', 'class', 'hidden'],
+            childList: true});
+        });
+      };
+      watch();
+      const iv = setInterval(watch, 150);
+      setTimeout(() => clearInterval(iv), 12000);
+    } catch (e) {}
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) {
+          if (e.hadRecentInput) continue;
+          window.__shifts.push({
+            t: Math.round(e.startTime),
+            v: +e.value.toFixed(4),
+            sources: (e.sources || []).map((s) => {
+              const n = s.node;
+              return {
+                tag: n ? n.tagName : '?',
+                id: n ? (n.id || '') : '',
+                cls: n ? (n.className || '').toString().slice(0, 60) : '',
+                from: s.previousRect ? [s.previousRect.y, s.previousRect.height] : null,
+                to: s.currentRect ? [s.currentRect.y, s.currentRect.height] : null,
+              };
+            }),
+          });
+        }
+      }).observe({type: 'layout-shift', buffered: true});
+    } catch (e) {}
+  `}, sid);
+  if (warm) {
+    await c.send('Page.navigate', {url: URL_}, sid);
+    await sleep(14000);
+  }
+  await c.send('Page.navigate', {url: URL_}, sid);
+  await sleep(14000);
+  const r = await c.send('Runtime.evaluate',
+      {expression: 'JSON.stringify({shifts: window.__shifts, mutations: window.__mutations})',
+        returnByValue: true}, sid);
+  return JSON.parse(r.result.value || '{"shifts":[],"mutations":[]}');
+}
+
 // ── MODE: frames ───────────────────────────────────────────────────────────
 async function modeFrames(c, sid) {
   await c.send('Page.enable', {}, sid);
@@ -200,6 +273,22 @@ async function modeFrames(c, sid) {
       const lines = await modeReads(c, sid);
       fs.writeFileSync(path.join(OUT, 'fs-debug.log'), lines.join('\n'));
       console.log(`captured ${lines.length} Firestore debug lines → perf/results/fs-debug.log`);
+    } else if (MODE === 'shifts') {
+      const out = await modeShifts(c, sid, process.argv.includes('--warm'));
+      const sh = out.shifts; const total = sh.reduce((a, b) => a + b.v, 0);
+      console.log(`\n  ${sh.length} layout shifts, CLS ${total.toFixed(3)}\n`);
+      for (const s2 of sh.sort((a, b) => b.v - a.v).slice(0, 12)) {
+        console.log(`  ${String(s2.v).padStart(7)}  at ${s2.t}ms`);
+        for (const src of s2.sources.slice(0, 3)) {
+          const move = src.from && src.to ? `  y ${Math.round(src.from[0])}->${Math.round(src.to[0])}  h ${Math.round(src.from[1])}->${Math.round(src.to[1])}` : '';
+          console.log(`           <${src.tag.toLowerCase()}${src.id ? ' #' + src.id : ''}${src.cls ? ' .' + src.cls.trim().split(/\s+/).join('.') : ''}>${move}`);
+        }
+      }
+      console.log('\n  ── section timeline ──');
+      for (const m of out.mutations) {
+        console.log(`  ${String(m.t).padStart(6)}ms  #${m.id.padEnd(12)} ${m.what.padEnd(12)} display:${String(m.display).padEnd(7)} h:${m.h}`);
+      }
+      console.log('');
     } else if (MODE === 'profile') {
       const p = await modeProfile(c, sid);
       fs.writeFileSync(path.join(OUT, 'boot-profile.json'), JSON.stringify(p));
