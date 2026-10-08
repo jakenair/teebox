@@ -1247,7 +1247,11 @@
   /* S6 fix: error states must NOT render success-green. Error = red, info =
      neutral dark. Default (no variant) keeps the base green. */
   .toast.error { background: var(--red-500, #d64545) !important; }
-  .toast.error::before { content: '⚠ '; font-weight: 800; }
+  /* r341: the ⚠ glyph renders as the yellow emoji on iOS. Same alert triangle
+     as ICONS.alert, inlined because ::before cannot hold markup. */
+  .toast.error::before { content: ''; display: inline-block; width: 1em; height: 1em; margin-right: 0.4em; vertical-align: -0.15em;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 4l9 16H3L12 4z'/><path d='M12 10v4M12 17.5h.01'/></svg>") no-repeat center / contain; }
+  .msg-interstitial-head .ico { width: 1.05em; height: 1.05em; vertical-align: -0.15em; margin-right: 2px; }
   .toast.info { background: var(--gray-800, #2a2a26) !important; }
 
   /* Off-platform interstitial — sits above flagged inbound chat bubbles.
@@ -4676,6 +4680,8 @@
     .app-teaser-text { flex: 1; min-width: 0; }
     .app-teaser-title { display: block; font-weight: 700; font-size: 14.5px; color: var(--gray-900); }
     .app-teaser-sub { display: block; font-size: 12.5px; color: var(--gray-700); margin-top: 2px; }
+    .app-teaser-flame { color: var(--gold-600); display: inline-block; vertical-align: -0.1em; }
+    .app-teaser-flame .ico { width: 1.05em; height: 1.05em; stroke-width: 1.8; }
     .app-teaser-cta { font-size: 13px; font-weight: 700; color: var(--green-700); flex-shrink: 0; }
     /* Feature grid in-app: first launch or logged-out only. */
     body.is-native.is-signed-in:not(.app-first-launch) .trust-bar { display: none; }
@@ -5427,6 +5433,12 @@
     home:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6"/></svg>',
     sliders:   '<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6"/></svg>',
     activity:  '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    // r341: streak flame + alert triangle. Founder ruling 2026-10-08: no
+    // emoji anywhere in the UI — the 🔥 on the Bingo teaser and the ⚠ (which
+    // iOS draws as the yellow emoji) in toasts and the off-platform
+    // interstitial were the last three. Line-art, so they take currentColor.
+    flame:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 01-8 0c0-1.5.6-2.6 1.5-3.5.2 1.4 1 2.2 2 2.5C11 8 10.5 5.5 12 3z"/><path d="M8 11.5C6.5 13 6 14.2 6 16a6 6 0 0012 0c0-1.8-.5-3-2-4.5"/></svg>',
+    alert:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4M12 17.5h.01"/></svg>',
     arrowLeft: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   };
 
@@ -5533,7 +5545,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r340</span></div>
+        <span class="auth-build" aria-hidden="true">r341</span></div>
     </div>
   </div>
 </div>
@@ -14903,7 +14915,7 @@ function renderMessages(messages) {
     const sidAttr = attrEsc(m.senderId);
     const interstitial = showInterstitial ? `
       <div class="msg-interstitial">
-        <div class="msg-interstitial-head">⚠ Heads up</div>
+        <div class="msg-interstitial-head">${(window.ICONS && window.ICONS.alert) || ''} Heads up</div>
         <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app means no dispute support or refunds from TeeBox.</strong></p>
         <div class="msg-interstitial-actions">
           <button class="btn-ghost" onclick="this.closest('.msg-wrap').classList.remove('msg-hidden'); this.closest('.msg-interstitial').remove();">Show message anyway</button>
@@ -18441,7 +18453,7 @@ window.showOrderOutcomeSheet = function(opts) {
     const thumbUrl = p && window.variantImgUrl ? window.variantImgUrl(p, 0, 'w200') : null;
     const thumb = thumbUrl
       ? `<img class="order-thumb" src="${window.safeAttr(thumbUrl)}" alt="" />`
-      : `<span class="order-thumb placeholder">${p ? window.CATEGORY_ICON(p.cat) : '⛳'}</span>`;
+      : `<span class="order-thumb placeholder">${window.CATEGORY_ICON(p ? p.cat : 'accessories')}</span>`;
     const itemRow = p
       ? `<div class="order-confirm-item">${thumb}<div class="order-title">${window.safeText(p.name || p.title || '')}${qty > 1 ? ' × ' + qty : ''}</div></div>`
       : '';
@@ -20579,7 +20591,12 @@ window.applyAppShell = function applyAppShell() {
     if (sub) {
       let streak = 0;
       try { streak = Number((JSON.parse(localStorage.getItem('teebox.bingo.streak') || '{}')).count) || 0; } catch (_e) {}
-      if (streak >= 2) sub.textContent = 'Today’s puzzle · ' + streak + '-day streak 🔥';
+      if (streak >= 2) {
+        // r341: icon, not emoji. `streak` is a Number — nothing user-authored
+        // reaches this innerHTML.
+        sub.innerHTML = 'Today’s puzzle · ' + Number(streak) + '-day streak ' +
+          '<span class="app-teaser-flame" aria-hidden="true">' + (I.flame || '') + '</span>';
+      }
     }
   } catch (_e) { /* teaser keeps its static copy */ }
   // 5) §3 browse toolbar + filter sheet: adopt the REAL controls so their
