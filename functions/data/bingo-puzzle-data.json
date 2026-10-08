@@ -926,6 +926,116 @@
       "id": "sentryworld",
       "shortName": "SentryWorld",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsentryworld.png?alt=media"
+    },
+    {
+      "id": "bakers-bay-golf-and-ocean-club",
+      "shortName": "Baker's Bay",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbakers-bay-golf-and-ocean-club.png?alt=media"
+    },
+    {
+      "id": "bandon-preserve",
+      "shortName": "Bandon Preserve",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fbandon-preserve.png?alt=media"
+    },
+    {
+      "id": "capilano-golf-and-country-club",
+      "shortName": "Capilano",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcapilano-golf-and-country-club.png?alt=media"
+    },
+    {
+      "id": "chantilly-golf-club",
+      "shortName": "Chantilly",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fchantilly-golf-club.png?alt=media"
+    },
+    {
+      "id": "corales-golf-club",
+      "shortName": "Corales",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fcorales-golf-club.png?alt=media"
+    },
+    {
+      "id": "desert-forest-golf-club",
+      "shortName": "Desert Forest",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fdesert-forest-golf-club.png?alt=media"
+    },
+    {
+      "id": "flint-hills-national",
+      "shortName": "Flint Hills National",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fflint-hills-national.png?alt=media"
+    },
+    {
+      "id": "galloway-national-golf-club",
+      "shortName": "Galloway National",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fgalloway-national-golf-club.png?alt=media"
+    },
+    {
+      "id": "hollywood-golf-club",
+      "shortName": "Hollywood",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fhollywood-golf-club.png?alt=media"
+    },
+    {
+      "id": "lawsonia",
+      "shortName": "Lawsonia",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Flawsonia.png?alt=media"
+    },
+    {
+      "id": "ocean-forest-golf-club",
+      "shortName": "Ocean Forest",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Focean-forest-golf-club.png?alt=media"
+    },
+    {
+      "id": "pine-needles",
+      "shortName": "Pine Needles",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fpine-needles.png?alt=media"
+    },
+    {
+      "id": "port-royal-golf-course",
+      "shortName": "Port Royal",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fport-royal-golf-course.png?alt=media"
+    },
+    {
+      "id": "princeville",
+      "shortName": "Princeville",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fprinceville.png?alt=media"
+    },
+    {
+      "id": "pronghorn",
+      "shortName": "Pronghorn",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fpronghorn.png?alt=media"
+    },
+    {
+      "id": "royal-isabela",
+      "shortName": "Royal Isabela",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Froyal-isabela.png?alt=media"
+    },
+    {
+      "id": "saint-nom-la-breteche",
+      "shortName": "Saint-Nom-la-Breteche",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsaint-nom-la-breteche.png?alt=media"
+    },
+    {
+      "id": "salem-country-club",
+      "shortName": "Salem CC",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fsalem-country-club.png?alt=media"
+    },
+    {
+      "id": "shaughnessy-golf-and-country-club",
+      "shortName": "Shaughnessy",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fshaughnessy-golf-and-country-club.png?alt=media"
+    },
+    {
+      "id": "the-bears-club",
+      "shortName": "The Bear's Club",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fthe-bears-club.png?alt=media"
+    },
+    {
+      "id": "the-creek",
+      "shortName": "The Creek",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fthe-creek.png?alt=media"
+    },
+    {
+      "id": "woking-golf-club",
+      "shortName": "Woking",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fwoking-golf-club.png?alt=media"
     }
   ],
   "courseData": {
@@ -2328,9 +2438,158 @@
         "sentry world",
         "sentry"
       ]
+    },
+    "bakers-bay-golf-and-ocean-club": {
+      "name": "Baker's Bay Golf and Ocean Club",
+      "shortName": "Baker's Bay",
+      "aliases": [
+        "baker's bay"
+      ]
+    },
+    "bandon-preserve": {
+      "name": "Bandon Preserve",
+      "shortName": "Bandon Preserve",
+      "aliases": []
+    },
+    "capilano-golf-and-country-club": {
+      "name": "Capilano Golf and Country Club",
+      "shortName": "Capilano",
+      "aliases": [
+        "capilano cc",
+        "capilano"
+      ]
+    },
+    "chantilly-golf-club": {
+      "name": "Chantilly Golf Club (Vineuil)",
+      "shortName": "Chantilly",
+      "aliases": [
+        "chantilly golf club",
+        "chantilly",
+        "vineuil"
+      ]
+    },
+    "corales-golf-club": {
+      "name": "Corales Golf Club",
+      "shortName": "Corales",
+      "aliases": [
+        "corales"
+      ]
+    },
+    "desert-forest-golf-club": {
+      "name": "Desert Forest Golf Club",
+      "shortName": "Desert Forest",
+      "aliases": [
+        "desert forest"
+      ]
+    },
+    "flint-hills-national": {
+      "name": "Flint Hills National",
+      "shortName": "Flint Hills National",
+      "aliases": []
+    },
+    "galloway-national-golf-club": {
+      "name": "Galloway National Golf Club",
+      "shortName": "Galloway National",
+      "aliases": [
+        "galloway national"
+      ]
+    },
+    "hollywood-golf-club": {
+      "name": "Hollywood Golf Club",
+      "shortName": "Hollywood",
+      "aliases": [
+        "hollywood"
+      ]
+    },
+    "lawsonia": {
+      "name": "Lawsonia (Links)",
+      "shortName": "Lawsonia",
+      "aliases": [
+        "lawsonia",
+        "links"
+      ]
+    },
+    "ocean-forest-golf-club": {
+      "name": "Ocean Forest Golf Club",
+      "shortName": "Ocean Forest",
+      "aliases": [
+        "ocean forest"
+      ]
+    },
+    "pine-needles": {
+      "name": "Pine Needles",
+      "shortName": "Pine Needles",
+      "aliases": []
+    },
+    "port-royal-golf-course": {
+      "name": "Port Royal Golf Course",
+      "shortName": "Port Royal",
+      "aliases": [
+        "port royal"
+      ]
+    },
+    "princeville": {
+      "name": "Princeville (Makai)",
+      "shortName": "Princeville",
+      "aliases": [
+        "princeville",
+        "makai"
+      ]
+    },
+    "pronghorn": {
+      "name": "Pronghorn (Fazio)",
+      "shortName": "Pronghorn",
+      "aliases": [
+        "pronghorn",
+        "fazio"
+      ]
+    },
+    "royal-isabela": {
+      "name": "Royal Isabela",
+      "shortName": "Royal Isabela",
+      "aliases": []
+    },
+    "saint-nom-la-breteche": {
+      "name": "Saint-Nom-la-Breteche",
+      "shortName": "Saint-Nom-la-Breteche",
+      "aliases": []
+    },
+    "salem-country-club": {
+      "name": "Salem Country Club",
+      "shortName": "Salem CC",
+      "aliases": [
+        "salem cc"
+      ]
+    },
+    "shaughnessy-golf-and-country-club": {
+      "name": "Shaughnessy Golf and Country Club",
+      "shortName": "Shaughnessy",
+      "aliases": [
+        "shaughnessy cc",
+        "shaughnessy"
+      ]
+    },
+    "the-bears-club": {
+      "name": "The Bear's Club",
+      "shortName": "The Bear's Club",
+      "aliases": [
+        "the bear's"
+      ]
+    },
+    "the-creek": {
+      "name": "The Creek",
+      "shortName": "The Creek",
+      "aliases": []
+    },
+    "woking-golf-club": {
+      "name": "Woking Golf Club",
+      "shortName": "Woking",
+      "aliases": [
+        "woking"
+      ]
     }
   },
-  "generatedAt": "2026-10-08T18:35:17.985Z",
+  "generatedAt": "2026-10-08T18:53:15.975Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

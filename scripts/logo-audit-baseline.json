@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-08T18:36:14.799Z",
+  "generatedAt": "2026-10-08T18:53:29.378Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 185,
-    "pass": 185,
+    "total": 207,
+    "pass": 207,
     "fail": 0
   },
   "entries": [
@@ -1669,6 +1669,204 @@
       "shortName": "SentryWorld",
       "localHash": "36d9a980a41f03a8d7a40cc16ea9e73f7f0c07ca2f946d9af9131cd9193b4dfe",
       "localBytes": 25392,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "bakers-bay-golf-and-ocean-club",
+      "shortName": "Baker's Bay",
+      "localHash": "7fd06002f972266a6c1cf03f92603af2e2b41e1a31d2598809560a7fea92fce6",
+      "localBytes": 15203,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "bandon-preserve",
+      "shortName": "Bandon Preserve",
+      "localHash": "fc5719561ef7b6b9849de2fc8666873c99e35aa428466948b546be5a0f6516dd",
+      "localBytes": 16514,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "capilano-golf-and-country-club",
+      "shortName": "Capilano",
+      "localHash": "5f189f7cacf865313f78f60e8dabcc2edd1f5d68c632f41f1acf9dc1cc8c2306",
+      "localBytes": 11629,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "chantilly-golf-club",
+      "shortName": "Chantilly",
+      "localHash": "9dddceac25700d15aecbf6f71dfd513a38df868642d5be694b4db91f5b79db0f",
+      "localBytes": 30494,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "corales-golf-club",
+      "shortName": "Corales",
+      "localHash": "f834d96cf6f35aa13deda7e79a43a1957cfc8e67deb701e7c9992548975baf2d",
+      "localBytes": 36591,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "desert-forest-golf-club",
+      "shortName": "Desert Forest",
+      "localHash": "64aa66c0c5ad597bf7d9c0ccd820f3996b29f969f74fee4c3188d1093a9c62de",
+      "localBytes": 17976,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "flint-hills-national",
+      "shortName": "Flint Hills National",
+      "localHash": "09d3c73e807b040d66d287fdca1aa33a9521d7f5a33eb5d77391723252adf2a0",
+      "localBytes": 79396,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "galloway-national-golf-club",
+      "shortName": "Galloway National",
+      "localHash": "2e039cc2d06c5266484a407e6125cd5c9fc8ee748439807a8dd62e12533ec1bc",
+      "localBytes": 14262,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "hollywood-golf-club",
+      "shortName": "Hollywood",
+      "localHash": "b8f31e72bea0131364564bc19704bf07a423c46b99a376a3aa3de9c2e7b17398",
+      "localBytes": 31416,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "lawsonia",
+      "shortName": "Lawsonia",
+      "localHash": "aa34c252dced03291f4480f45cf36fd08fa9ff034750e751b82cb5125a9bfe83",
+      "localBytes": 17565,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "ocean-forest-golf-club",
+      "shortName": "Ocean Forest",
+      "localHash": "ffc9146463d6b4a699a1c8bece089dd9339aa153c42bf8342d3eab731623a156",
+      "localBytes": 21427,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "pine-needles",
+      "shortName": "Pine Needles",
+      "localHash": "ec6ea1eab39f263319e503c8a4121655455b8ceb2c1c7f032b02a3f91adf335e",
+      "localBytes": 45525,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "port-royal-golf-course",
+      "shortName": "Port Royal",
+      "localHash": "5fe754f036b0108df9f8aa0808f95fa3426e4040a84192e87f7e6bea3fe55164",
+      "localBytes": 21078,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "princeville",
+      "shortName": "Princeville",
+      "localHash": "9c717bf818b7440e60748ec9d628558fcd54d762d167192185ba5f91c147eae3",
+      "localBytes": 44323,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "pronghorn",
+      "shortName": "Pronghorn",
+      "localHash": "889c6df12dd179389ea44c0f00515441c6dcd66d8f97d4f7112b782c3566f47a",
+      "localBytes": 8595,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "royal-isabela",
+      "shortName": "Royal Isabela",
+      "localHash": "b1761dbc852f7244ae784cc4adc257ceb95879b2f0346c6a8e641f295c51ad69",
+      "localBytes": 11680,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "saint-nom-la-breteche",
+      "shortName": "Saint-Nom-la-Breteche",
+      "localHash": "3e5ef376e36b51e5474a2d94849f09b2c99f0b183d85f89a0a5692bc5616cb82",
+      "localBytes": 21401,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "salem-country-club",
+      "shortName": "Salem CC",
+      "localHash": "ddde2c8a8d731d95cc7915fd64391ddf7885896c83f28bdca1be23f997e3400e",
+      "localBytes": 11327,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "shaughnessy-golf-and-country-club",
+      "shortName": "Shaughnessy",
+      "localHash": "afcc8304a50974e257e913aa3dfcedc89d766808ff465dd89437003261fe7cd5",
+      "localBytes": 25418,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "the-bears-club",
+      "shortName": "The Bear's Club",
+      "localHash": "0270c760d752558ce08030ddbf44dde9b04e47bda0caf9db48ee9a2e01e9b31c",
+      "localBytes": 20585,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "the-creek",
+      "shortName": "The Creek",
+      "localHash": "d5a91d09be5d4b24f2c52cab9e085489f13a450c38fd977eed6e40cb4a2ac8e0",
+      "localBytes": 28618,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "woking-golf-club",
+      "shortName": "Woking",
+      "localHash": "35206715432ea930307cdeb714eed4bd8f769a217096f39f3e9a9a99bdef1bf4",
+      "localBytes": 11941,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
