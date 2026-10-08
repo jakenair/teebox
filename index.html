@@ -2668,8 +2668,13 @@
      truncated so hard on mobile that three different items all read
      "Peter Millar …", which is not a Trending list anyone can use. */
   .trend-info-name { display: -webkit-box; -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical; white-space: normal; height: 2.58em;
-    overflow: hidden; }
+    -webkit-box-orient: vertical; white-space: normal;
+    /* line-height MUST be stated here. r331 set height:2.58em and inherited a
+       larger line-height from the body, so the box was shorter than the two
+       lines it was clamping: the second line was sliced through the glyphs
+       and the meta line rendered on top of it. The box is exactly
+       2 x line-height, and nothing else may set either. */
+    line-height: 1.3; height: 2.6em; overflow: hidden; }
   .trend-info-meta { display: block; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; }
   /* r330: nowrap alone made the table wider than the viewport — the cell grew
@@ -5466,7 +5471,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r331</span></div>
+        <span class="auth-build" aria-hidden="true">r332</span></div>
     </div>
   </div>
 </div>
