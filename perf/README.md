@@ -79,3 +79,12 @@ at the top of index.html's stylesheet (`DM Sans Fallback`, `Playfair Fallback`):
 
 Recompute if the Google Fonts request (weights or families) ever changes. A
 fallback face is only as good as the weight it was measured at.
+
+## Sideways-pan check (WebKit, web + native) — run before every iOS build
+
+`npm run perf:overflow` loads the live site in Playwright's WebKit with the iPhone 14
+profile, once as the website and once with Capacitor stubbed so `body.is-native`
+applies, and fails if any scroll container other than an intentional horizontal
+scroller is wider than its box. r343 incident: Trending was 509px wide in the app
+only — Chrome and the web layout both looked fine. Neither Lighthouse nor Chrome
+can see this class of bug.

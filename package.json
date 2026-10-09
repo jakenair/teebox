@@ -29,7 +29,8 @@
     "logos:verify": "node scripts/upload-logos-to-storage.mjs --dry-run",
     "perf": "node perf/measure.mjs --url https://teeboxmarket.com/ --runs 5",
     "perf:investigate": "node perf/investigate.mjs",
-    "check:css": "node scripts/check-css-parses.mjs"
+    "check:css": "node scripts/check-css-parses.mjs",
+    "perf:overflow": "node perf/overflow.mjs && node perf/overflow.mjs --native"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
