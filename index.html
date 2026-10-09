@@ -1059,6 +1059,7 @@
   #app-scroll {
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden; /* r343: an over-wide child must clip, never pan the app sideways */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     /* Content clears the home indicator at the end of the scroll. */
@@ -4820,6 +4821,16 @@
     body.is-native .trending-table tbody tr:last-child { border-bottom: 0; }
     body.is-native .trending-table td { display: block; padding: 0; border: 0; }
     body.is-native .trending-table td:nth-child(2) { flex: 1; min-width: 0; }
+    /* r343: in the app, main is a column flexbox and .section's auto side
+       margins stop it stretching — WebKit then sizes the section to its
+       content's max-content width. The r330 fixed Trending columns (38/74/86px)
+       plus the r331 two-line name box made that 509px on a 390px phone, and
+       #app-scroll (overflow-y:auto ⇒ overflow-x:auto) let the whole app pan
+       sideways while scrolling (Jake's 10-09 recording). Stretch every section
+       to the viewport, hide the 86px Status column in the app the way the
+       <600px web rule already does, and never let the app scroller pan. */
+    body.is-native main > .section { width: 100%; max-width: 100%; }
+    body.is-native .trending-table th:nth-child(4), body.is-native .trending-table td:nth-child(4) { display: none; }
     body.is-native .trend-rank { width: 20px; text-align: center; font-size: 13px; }
     body.is-native .trend-thumb { width: 52px; height: 52px; }
     body.is-native .trend-info-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
