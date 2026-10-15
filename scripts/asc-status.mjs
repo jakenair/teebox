@@ -5,7 +5,7 @@
  *   node scripts/asc-status.mjs
  *
  * Prints review submissions, App Store version states, and the newest builds.
- * Auth: the ASC API key at ~/Downloads/AuthKey_QJKN93F6FA.p8 (key id QJKN93F6FA,
+ * Auth: the ASC API key at ~/private_keys/AuthKey_QJKN93F6FA.p8 (key id QJKN93F6FA,
  * issuer in ASC_ISSUER below). Read-only; prints nothing secret.
  */
 import crypto from 'node:crypto';
