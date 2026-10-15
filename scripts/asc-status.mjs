@@ -15,7 +15,7 @@ import os from 'node:os';
 const APP = '6763954448';
 const KID = process.env.ASC_KEY_ID || 'QJKN93F6FA';
 const ISS = process.env.ASC_ISSUER || 'ce19d09b-06d6-42e8-aea8-f96c3f2325d6';
-const KEY_PATH = process.env.ASC_KEY_PATH || `${os.homedir()}/Downloads/AuthKey_${KID}.p8`;
+const KEY_PATH = process.env.ASC_KEY_PATH || `${os.homedir()}/private_keys/AuthKey_${KID}.p8`;
 const key = fs.readFileSync(KEY_PATH, 'utf8');
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const now = Math.floor(Date.now() / 1000);
