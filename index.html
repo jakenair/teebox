@@ -5556,7 +5556,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r343</span></div>
+        <span class="auth-build" aria-hidden="true">r344</span></div>
     </div>
   </div>
 </div>
@@ -27694,11 +27694,26 @@ if (uploadZone) {
   }
   function closeGuessModal() {
     const back = document.getElementById('bingoGuessBackdrop');
+    // r344: blur BEFORE hiding. On iOS (WKWebView) the keyboard scrolls the
+    // window to reveal the focused input even though body is overflow:hidden;
+    // hiding the sheet with the input still focused drops the keyboard but
+    // leaves that offset in place, so the next taps on the board hit-test
+    // against the shifted viewport and seem to do nothing — Jake's 10-15
+    // recording: 5-8 s of dead taps after every guess until the sheet
+    // finally opened. Blur first, then put the window back where it was.
+    try {
+      const ae = document.activeElement;
+      if (ae && ae !== document.body && back && back.contains(ae)) ae.blur();
+    } catch (_e) {}
     if (back) {
       back.classList.remove('open');
       back.setAttribute('aria-hidden', 'true');
     }
     game.activeCell = -1;
+    try {
+      if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
+      requestAnimationFrame(() => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); });
+    } catch (_e) {}
   }
 
   function renderAutocomplete(query) {
