@@ -8216,6 +8216,8 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
 Object.assign(exports, require("./metaCapi"));
+// Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
+Object.assign(exports, require("./metaFeed"));
 
 // Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
 // never rewrites the original. See the header of avatarVariants.js.

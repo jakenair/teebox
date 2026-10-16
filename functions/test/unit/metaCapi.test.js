@@ -1,0 +1,30 @@
+// functions/test/unit/metaCapi.test.js — hashing + user_data assembly.
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
+const {_internal: M} = require("../../metaCapi");
+const sha = (s) => crypto.createHash("sha256").update(s, "utf8").digest("hex");
+
+test("hashEmail trims + lowercases before hashing (Meta normalisation)", () => {
+  assert.equal(M.hashEmail("  Golfer@Example.COM "), sha("golfer@example.com"));
+  assert.equal(M.hashEmail(""), ""); assert.equal(M.hashEmail("nope"), "");
+});
+test("hashPhone keeps digits only incl. country code, drops +, leading zeros", () => {
+  assert.equal(M.hashPhone("+1 (312) 555-1234"), sha("13125551234"));
+  assert.equal(M.hashPhone("0013125551234"), sha("13125551234"));
+  assert.equal(M.hashPhone("123"), "");
+  assert.equal(M.hashPhone(undefined), "");
+});
+test("buildUserData: order keys + verified extra; nothing plaintext", () => {
+  const ud = M.buildUserData(
+      {fbp: "fb.1.1.2", fbc: "fb.1.1.abc", checkoutIp: "1.2.3.4", checkoutUa: "UA", buyerId: "u1", receiptEmail: "A@b.co"},
+      {phone: "+13125551234"});
+  assert.deepEqual(Object.keys(ud).sort(), ["client_ip_address", "client_user_agent", "em", "external_id", "fbc", "fbp", "ph"]);
+  assert.equal(ud.em, sha("a@b.co"));
+  assert.equal(ud.ph, sha("13125551234"));
+  for (const v of Object.values(ud)) { assert.ok(!/@/.test(v) && !/\+1/.test(v)); }
+});
+test("buildUserData: no phone → no ph key; missing email → no em key", () => {
+  const ud = M.buildUserData({buyerId: "u1"}, {});
+  assert.deepEqual(Object.keys(ud), ["external_id"]);
+});

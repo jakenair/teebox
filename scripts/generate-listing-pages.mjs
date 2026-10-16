@@ -80,6 +80,7 @@ function listingPage(l) {
 <link rel="canonical" href="${url}" />
 <meta name="theme-color" content="#0b1a0e" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<meta name="apple-itunes-app" content="app-id=6763954448, app-argument=${SITE}/?listing=${l.id}" />
 <meta property="og:type" content="product" />
 <meta property="og:site_name" content="TeeBox" />
 <meta property="og:title" content="${name}${brand ? ` — ${brand}` : ""}" />
