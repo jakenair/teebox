@@ -26,10 +26,9 @@
     "sha": null
   },
   "capiPurchaseOnOrderCreated": {
-    "sha": "b28ba424a0efb602548d9fffd07a29050f9adcbc",
-    "deployedAt": "2026-10-03T00:19:07Z",
-    "region": "us-central1",
-    "note": "created 2026-10-02 via raw gcloud (firebase deploy rejects the whole codebase on a pre-existing concurrency/CPU misconfig in 9 unrelated functions; deploy-fn.sh refuses to CREATE)"
+    "sha": "454fea3fba3f06124a09a29586554be4aaa935e2",
+    "at": "2026-10-16",
+    "region": "us-central1"
   },
   "checkEmailUsage": {
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb",
@@ -637,5 +636,15 @@
     "at": "2026-10-16",
     "region": "us-central1",
     "note": "created via firebase deploy --only (scheduler job firebase-schedule-photoGapAuditMonthly-us-central1, 0 6 1 * * America/Chicago)"
+  },
+  "metaFeed": {
+    "sha": "454fea3fba3f06124a09a29586554be4aaa935e2",
+    "at": "2026-10-16",
+    "region": "us-central1"
+  },
+  "capiRelay": {
+    "sha": "454fea3fba3f06124a09a29586554be4aaa935e2",
+    "at": "2026-10-16",
+    "region": "us-central1"
   }
 }
