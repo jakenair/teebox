@@ -350,8 +350,8 @@
     "region": "us-east1"
   },
   "optimizeListingPhoto": {
-    "sha": "2e1c34dbd1ec6679ce2510a08adcdf3fcbd7e9a4",
-    "at": "2026-10-02",
+    "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
+    "at": "2026-10-16",
     "region": "us-east1"
   },
   "optimizePassportPhoto": {
@@ -626,5 +626,16 @@
     "sha": "381caa156931a967966ff934fb988584938cdf15",
     "at": "2026-10-16",
     "region": "us-central1"
+  },
+  "approveFlaggedListing": {
+    "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
+    "at": "2026-10-16",
+    "region": "us-central1"
+  },
+  "photoGapAuditMonthly": {
+    "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
+    "at": "2026-10-16",
+    "region": "us-central1",
+    "note": "created via firebase deploy --only (scheduler job firebase-schedule-photoGapAuditMonthly-us-central1, 0 6 1 * * America/Chicago)"
   }
 }
