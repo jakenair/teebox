@@ -8144,6 +8144,8 @@ Object.assign(exports, require("./missingProducers"));
 // marketing-cat sends without revoking GDPR consent. Backs the
 // "Pause all marketing" toggle in account-settings → Email preferences.
 Object.assign(exports, require("./emailPauseToggle"));
+// r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
+Object.assign(exports, require("./sellerInviteCampaign"));
 
 // Security + listing-live email producers per EMAIL_TRIGGER_AUDIT.md
 // sections #2, #4, #5, #6, #7, #8, #9. Exposes `notifySecurityEvent`
