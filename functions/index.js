@@ -4361,40 +4361,11 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 //   Index = the 2nd '_'-delimited token of the filename — uploads are
 //   `listings/{uid}/{listingId}/{ts}_{i}_{safeName}` (index.html) and photos[i]
 //   maps to it, so photoVariants[i] aligns with photos[i] on the client.
-async function writeListingPhotoVariants(bucket, objName, listingId, baseSharp) {
-  const crypto = require("crypto");
-  const idx = parseInt(String(objName.split("/").pop()).split("_")[1], 10);
-  if (!Number.isInteger(idx)) {
-    logger.warn("photoVariants: could not parse photo index from", objName);
-    return;
-  }
-  const urls = {};
-  for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
-    const buf = await baseSharp.clone()
-      .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
-      // No .withMetadata() — it RETAINS EXIF rather than stripping it. See the
-      // note in lib/imageConvert.js; orientation is already baked in by the
-      // .rotate() that produced baseSharp.
-      .webp({quality: q})
-      .toBuffer();
-    const path = `${objName}_${key}.webp`;
-    const token = crypto.randomUUID();
-    await bucket.file(path).save(buf, {
-      metadata: {
-        contentType: "image/webp",
-        cacheControl: "public, max-age=31536000",
-        metadata: {optimized: "true", firebaseStorageDownloadTokens: token},
-      },
-      resumable: false,
-    });
-    urls[key] = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
-      `/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
-  }
-  // Field path photoVariants.<idx> — merges per-index, so concurrent photo
-  // uploads for the same listing don't clobber each other.
-  await admin.firestore().doc(`listings/${listingId}`)
-    .update({[`photoVariants.${idx}`]: urls});
-}
+// Moved to ./lib/listingPhotoVariants (2026-10-16) so approveFlaggedListing
+// and scripts/backfill-photo-variants.mjs encode variants with the SAME code
+// path as this trigger. Signature unchanged for the call below.
+const {writeListingPhotoVariants} = require("./lib/listingPhotoVariants");
+const {pruneAtDeletion} = require("./lib/photoPrune");
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
 // and scripts/backfill-heic.mjs share ONE implementation (no drift). It decodes
@@ -4417,7 +4388,13 @@ const {convertToWebp} = require("./lib/imageConvert");
 // ─────────────────────────────────────────────────────────────
 exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
   .onObjectFinalized(
-    {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app"},
+    // r346: RESEND_API_KEY bound so the "no photos left — please re-upload"
+    // email can go out (sendEmail fails quiet without it). Deploy note: an
+    // in-place update preserves bound secrets only if they were bound before;
+    // the first deploy after this change needs
+    //   --set-secrets=RESEND_API_KEY=RESEND_API_KEY:latest
+    {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app",
+      secrets: [RESEND_KEY]},
     async (event) => {
       const obj = event.data;
       if (!obj || !obj.name) return;
@@ -4669,9 +4646,19 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       //    text-side moderateListingOnCreate may have already deleted
       //    the doc; in that case we don't want to recreate an orphan
       //    via merge:true. We also short-circuit the rest if so.
+      //
+      //    r346: the SAME write prunes the deleted object's URL out of
+      //    photos[] (and re-keys photoVariants) and records it under
+      //    moderationFlags.removedPhotoUrl. Before this, approving a
+      //    false positive re-activated a listing that still pointed at an
+      //    object we had deleted (2026-09-14 vest; found via the Meta feed
+      //    2026-10-16). If nothing is left, the reason becomes
+      //    "no_photos" — the listing stays hidden until the seller
+      //    re-uploads; approval alone cannot make it visible.
       const db = admin.firestore();
       const listingRef = db.collection("listings").doc(listingId);
       let listingData = null;
+      let pruned = {update: null, empty: false, removedUrl: null};
       try {
         const snap = await listingRef.get();
         if (!snap.exists) {
@@ -4679,20 +4666,20 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           return;
         }
         listingData = snap.data();
-        await listingRef.update({
-          status: "flagged",
-          moderationFlags: {
-            reason,
-            source: AUTO_FLAG_SOURCE,
-            signals: safeSearch || {},
-            flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
-            offendingPath: obj.name,
-          },
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        pruned = pruneAtDeletion(listingData, obj.name,
+            {reason, source: AUTO_FLAG_SOURCE, signals: safeSearch || {}});
+        pruned.update.moderationFlags.flaggedAt = admin.firestore.FieldValue.serverTimestamp();
+        pruned.update.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        await listingRef.update(pruned.update);
+        logger.info("moderation: photo pruned from listing", {
+          listingId, removedUrl: !!pruned.removedUrl,
+          photosLeft: (pruned.update.photos || listingData.photos || []).length,
         });
       } catch (e) {
         logger.error("moderation: listing flag write failed", listingId, e);
       }
+      const photosLeft = (pruned.update && pruned.update.photos) || (listingData && listingData.photos) || [];
+      const queueReason = pruned.empty ? "no_photos" : reason;
 
       // 3. Mirror into flaggedListings/{listingId} for the admin
       //    queue UI to read (admin queue queries this collection,
@@ -4706,10 +4693,12 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           sellerId,
           title: data.title || "(unknown)",
           brand: data.brand || "",
-          photos: data.photos || [],
-          reason,
+          photos: photosLeft,          // what is actually left, not the pre-delete array
+          reason: queueReason,
+          tripReason: reason,
           signals: safeSearch || {},
           offendingPath: obj.name,
+          removedPhotoUrl: pruned.removedUrl || null,
           status: "pending",
           flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, {merge: true});
@@ -4717,20 +4706,58 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
         logger.error("moderation: flaggedListings write failed", listingId, e);
       }
 
-      // 4. Notify the seller (in-app). pushNotificationDispatch
-      //    will pick this up and send FCM if they have tokens.
+      // 4. Notify the seller. In-app always (pushNotificationDispatch
+      //    forwards it as FCM when they have tokens). When the listing has
+      //    NO photos left it cannot come back on its own, so the notice
+      //    says so plainly and the same message also goes out by email —
+      //    the one case where silence would strand the listing.
+      const noticeBody = pruned.empty ?
+        "The photo on your listing couldn't be approved and was removed, so the " +
+        "listing is hidden. Please re-upload a photo of the item from My Shop " +
+        "and it will go live again." :
+        "One of your photos couldn't be approved automatically and was removed. " +
+        "Our team is taking a look at the listing.";
       try {
         await db.collection("users").doc(sellerId)
           .collection("notifications").add({
             kind: "listing-under-review",
-            subject: "Listing under review",
-            body: "One of your photos couldn't be approved automatically. Our team is taking a look.",
+            subject: pruned.empty ? "Please re-upload a photo" : "Listing under review",
+            body: noticeBody,
             listingId,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             read: false,
           });
       } catch (e) {
         logger.error("moderation: seller notification failed", sellerId, e);
+      }
+      if (pruned.empty) {
+        try {
+          const {resolveUserEmail} = require("./lib/emailRecipient");
+          const {email} = await resolveUserEmail(sellerId, null, (u) => admin.auth().getUser(u));
+          if (email) {
+            let Tpl = null;
+            try {
+              Tpl = require("./emails-build/transactional/ListingPhotoRemoved");
+            } catch (_e) {
+              Tpl = null;
+            }
+            const ctx = {listingId, title: (listingData && listingData.title) || "your listing"};
+            await require("./lib/email").sendEmail({
+              to: email,
+              uid: sellerId,
+              subject: Tpl && Tpl.subject ? Tpl.subject(ctx) : "Please re-upload a photo for your TeeBox listing",
+              react: Tpl ? Tpl(ctx) : null,
+              html: Tpl ? null : `<p>${noticeBody}</p>`,
+              category: "transactional",
+              template: "ListingPhotoRemoved",
+              idempotencyKey: `listing-photo-removed-${listingId}`,
+            });
+          } else {
+            logger.warn("moderation: no seller email for re-upload notice", {sellerId, listingId});
+          }
+        } catch (e) {
+          logger.error("moderation: re-upload email failed", sellerId, e);
+        }
       }
     }
   );
@@ -8144,6 +8171,10 @@ Object.assign(exports, require("./missingProducers"));
 // marketing-cat sends without revoking GDPR consent. Backs the
 // "Pause all marketing" toggle in account-settings → Email preferences.
 Object.assign(exports, require("./emailPauseToggle"));
+// r346: idempotent flagged-listing approval (prunes deleted photos, backfills
+// variants) + the monthly photo-gap audit. See the file headers.
+Object.assign(exports, require("./moderationApprove"));
+Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));
 
