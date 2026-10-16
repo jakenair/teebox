@@ -119,6 +119,27 @@ function plainText(s, max) {
   return t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
 }
 
+/**
+ * Sellers sometimes edit a status into the title ("… (sold)", "SOLD -",
+ * "PENDING"). `availability` already carries that, and Meta rejects titles
+ * that contradict it, so strip the marker wherever it sits.
+ * @param {string} t title
+ * @return {string}
+ */
+function stripStatusMarkers(t) {
+  return String(t || "")
+      // bracketed anywhere, any case: "(sold)", "[SOLD]", "(sale pending)"
+      .replace(/\s*[\(\[\{]\s*(?:sale\s+)?(?:sold|pending|reserved)\s*[\)\]\}]/gi, "")
+      // bare word at the start/end: only when SHOUTED or set off by a dash
+      // or colon, so brand-ish titles like "Sold Out Golf Co. polo" survive.
+      .replace(/^\s*(?:SOLD|PENDING|RESERVED)\b\s*[-–—:]?\s*/, "")
+      .replace(/^\s*(?:sold|pending|reserved)\s*[-–—:]\s*/i, "")
+      .replace(/\s*[-–—:]?\s*\b(?:SOLD|PENDING|RESERVED)\s*$/, "")
+      .replace(/\s*[-–—:]\s*(?:sold|pending|reserved)\s*$/i, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+}
+
 /** Absolute https image URL from our storage, or "" if it is anything else. */
 function httpsImage(u) {
   const s = String(u || "");
@@ -143,7 +164,7 @@ function feedRow(l) {
   const ask = Number(l.ask);
   if (!Number.isFinite(ask) || ask <= 0) return null;
   const cat = String(l.cat || "accessories").toLowerCase();
-  const title = plainText(l.title, TITLE_MAX) || "Golf gear";
+  const title = stripStatusMarkers(plainText(l.title, TITLE_MAX)) || "Golf gear";
   const brand = plainText(l.brand, 70);
   // Fallback when the seller wrote nothing: don't repeat the brand when the
   // title already leads with it ("TaylorMade TaylorMade SIM2 …").
@@ -260,5 +281,5 @@ exports.metaFeed = onRequest(
 
 exports._feed = {
   buildFeedCsv, feedRow, mapCondition, mapAvailability, plainText, csvCell,
-  COLUMNS, GOOGLE_CATEGORY,
+  stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY,
 };

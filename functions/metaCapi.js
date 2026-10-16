@@ -124,10 +124,15 @@ function hashPhone(raw) {
  * matching by the founder ruling of 2026-09-28 and disclosed in
  * privacy.html. It is one-way; Meta cannot recover the address from it.
  *
- * `ph` is a SHA-256 hash of the buyer's VERIFIED phone (Firebase Auth
- * phoneNumber, E.164), added 2026-10-16 on the founder's Meta-ads brief
- * ("em, ph where we have them"). It is passed in via `extra` because the
- * order doc carries no phone; the trigger looks it up in Auth.
+ * `ph` (SHA-256 of the buyer's VERIFIED Firebase Auth phone, E.164) is
+ * wired but OFF by default: the 2026-09-28 ruling approved hashed email
+ * only, and privacy.html does not yet disclose phone hashing. The code
+ * path stays so turning it on is a flag flip, not a code change:
+ *   Firestore config/meta { sendHashedPhone: true }
+ * TODO(founder): before flipping, add the clause to privacy.html §CAPI —
+ * "…a one-way hash of your email address and, where you verified one,
+ * your phone number" — then set the flag. Until then `extra.phone` is
+ * ignored even when present.
  *
  * STILL BANNED, and this is the only place that could leak them: plaintext
  * email, name, phone. Do not add fn, ln or an unhashed em/ph here. If a
@@ -139,11 +144,13 @@ function hashPhone(raw) {
  * browser event to a server event for the same person.
  * @param {object} order The order document.
  * @param {{phone?: string, email?: string}} [extra] Verified Auth values.
+ * @param {{sendHashedPhone?: boolean}} [cfg] config/meta flags (default off).
  * @return {object} CAPI user_data.
  */
-function buildUserData(order, extra) {
+function buildUserData(order, extra, cfg) {
   const ud = {};
   const x = extra || {};
+  const c = cfg || {};
   if (order.fbp) ud.fbp = String(order.fbp);
   if (order.fbc) ud.fbc = String(order.fbc);
   if (order.checkoutIp) ud.client_ip_address = String(order.checkoutIp);
@@ -156,26 +163,37 @@ function buildUserData(order, extra) {
   // Verified against a live order doc on 2026-10-02.
   const em = hashEmail(order.receiptEmail || order.buyerEmail || order.email || x.email);
   if (em) ud.em = em;
-  const ph = hashPhone(x.phone);
-  if (ph) ud.ph = ph;
+  if (c.sendHashedPhone === true) {
+    const ph = hashPhone(x.phone);
+    if (ph) ud.ph = ph;
+  }
   return ud;
 }
 
 /**
- * Optional Events Manager test code for SERVER-originated events (the order
- * trigger has no browser to hand it one). Set `testEventCode` on the
- * Firestore doc config/meta while validating; delete it afterwards — Meta
- * drops test events from reporting, so leaving it set hides real sales.
- * @return {Promise<string>}
+ * Runtime flags from Firestore config/meta (admin-written via console):
+ *   testEventCode   string  — attached to SERVER-originated events while
+ *                             validating in Events Manager. Delete it after:
+ *                             Meta drops test events from reporting, so a
+ *                             forgotten code hides real sales.
+ *   sendHashedPhone boolean — see buildUserData(); default false.
+ * Cached per instance for 60s so the relay does not pay a read per event.
+ * @return {Promise<{testEventCode: string, sendHashedPhone: boolean}>}
  */
-async function serverTestEventCode() {
+let _metaCfg = {at: 0, v: {testEventCode: "", sendHashedPhone: false}};
+async function metaConfig() {
+  if (Date.now() - _metaCfg.at < 60000) return _metaCfg.v;
   try {
     const snap = await admin.firestore().collection("config").doc("meta").get();
-    const v = snap.exists && snap.data() && snap.data().testEventCode;
-    return v ? String(v).slice(0, 60) : "";
+    const d = (snap.exists && snap.data()) || {};
+    _metaCfg = {at: Date.now(), v: {
+      testEventCode: d.testEventCode ? String(d.testEventCode).slice(0, 60) : "",
+      sendHashedPhone: d.sendHashedPhone === true,
+    }};
   } catch (_e) {
-    return "";
+    _metaCfg = {at: Date.now(), v: {testEventCode: "", sendHashedPhone: false}};
   }
+  return _metaCfg.v;
 }
 
 /**
@@ -220,7 +238,8 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
           extra = {};
         }
       }
-      const userData = buildUserData(order, extra);
+      const cfg = await metaConfig();
+      const userData = buildUserData(order, extra, cfg);
       if (!Object.keys(userData).length) {
         // Meta rejects an event with no identifier at all. Better to send
         // nothing than to send junk that drags match quality down.
@@ -252,8 +271,7 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         },
       };
 
-      const testCode = await serverTestEventCode();
-      if (testCode) ev.test_event_code = testCode;
+      if (cfg.testEventCode) ev.test_event_code = cfg.testEventCode;
 
       const res = await postEvents(token, [ev]);
       if (res.ok) {
@@ -338,8 +356,12 @@ exports.capiRelay = onCall(
         ud.external_id = String(auth.uid);
         const em = hashEmail(auth.token && auth.token.email);
         if (em) ud.em = em;
-        const ph = hashPhone(auth.token && auth.token.phone_number);
-        if (ph) ud.ph = ph;
+        // ph: flag-gated, default off — see buildUserData().
+        const cfg = await metaConfig();
+        if (cfg.sendHashedPhone === true) {
+          const ph = hashPhone(auth.token && auth.token.phone_number);
+          if (ph) ud.ph = ph;
+        }
       }
       if (d.fbp) ud.fbp = String(d.fbp).slice(0, 200);
       if (d.fbc) ud.fbc = String(d.fbc).slice(0, 200);

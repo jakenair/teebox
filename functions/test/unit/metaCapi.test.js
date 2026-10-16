@@ -18,7 +18,7 @@ test("hashPhone keeps digits only incl. country code, drops +, leading zeros", (
 test("buildUserData: order keys + verified extra; nothing plaintext", () => {
   const ud = M.buildUserData(
       {fbp: "fb.1.1.2", fbc: "fb.1.1.abc", checkoutIp: "1.2.3.4", checkoutUa: "UA", buyerId: "u1", receiptEmail: "A@b.co"},
-      {phone: "+13125551234"});
+      {phone: "+13125551234"}, {sendHashedPhone: true});
   assert.deepEqual(Object.keys(ud).sort(), ["client_ip_address", "client_user_agent", "em", "external_id", "fbc", "fbp", "ph"]);
   assert.equal(ud.em, sha("a@b.co"));
   assert.equal(ud.ph, sha("13125551234"));
@@ -27,4 +27,10 @@ test("buildUserData: order keys + verified extra; nothing plaintext", () => {
 test("buildUserData: no phone → no ph key; missing email → no em key", () => {
   const ud = M.buildUserData({buyerId: "u1"}, {});
   assert.deepEqual(Object.keys(ud), ["external_id"]);
+});
+test("ph is OFF by default and only sent when config/meta.sendHashedPhone === true", () => {
+  const order = {buyerId: "u1", receiptEmail: "a@b.co"};
+  assert.ok(!("ph" in M.buildUserData(order, {phone: "+13125551234"})));
+  assert.ok(!("ph" in M.buildUserData(order, {phone: "+13125551234"}, {sendHashedPhone: "true"})));
+  assert.equal(M.buildUserData(order, {phone: "+13125551234"}, {sendHashedPhone: true}).ph, sha("13125551234"));
 });

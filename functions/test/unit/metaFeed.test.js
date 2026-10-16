@@ -53,3 +53,14 @@ test("description capped at 5000 chars", () => {
   const r = F.feedRow(base({desc: "x".repeat(6000)}));
   assert.ok(r.description.length <= 5000);
 });
+test("status markers stripped from titles (brand-like words survive)", () => {
+  assert.equal(F.stripStatusMarkers("Masters Head Cover (sold)"), "Masters Head Cover");
+  assert.equal(F.stripStatusMarkers("SOLD - Scotty Cameron Newport 2"), "Scotty Cameron Newport 2");
+  assert.equal(F.stripStatusMarkers("SOLD Scotty Cameron Newport 2"), "Scotty Cameron Newport 2");
+  assert.equal(F.stripStatusMarkers("Ping G430 driver [SOLD]"), "Ping G430 driver");
+  assert.equal(F.stripStatusMarkers("Ping G430 driver SOLD"), "Ping G430 driver");
+  assert.equal(F.stripStatusMarkers("Titleist bag - pending"), "Titleist bag");
+  assert.equal(F.stripStatusMarkers("Vokey SM10 (sale pending)"), "Vokey SM10");
+  assert.equal(F.stripStatusMarkers("Sold Out Golf Co. polo"), "Sold Out Golf Co. polo");
+  assert.equal(F.stripStatusMarkers("Unsold lot of balls"), "Unsold lot of balls");
+});
