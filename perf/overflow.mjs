@@ -17,14 +17,18 @@
  * scroller (cat bars, chips, carousels) is wider than its box.
  */
 import {webkit, devices} from 'playwright';
-const INTENDED = /cat-side-list|app-home-chips|cat-bar|carousel|pp-detail-photos|more-like-this-row|bag-row|dash-tabs|ticker/;
+const INTENDED = /cat-side-list|app-home-chips|cat-bar|carousel|pp-detail-photos|more-like-this-row|bag-row|dash-tabs|ticker|bh-row/;
 const url = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'https://teeboxmarket.com/';
 const native = process.argv.includes('--native');
 const browser = await webkit.launch();
 const ctx = await browser.newContext({...devices['iPhone 14'], locale: 'en-US'});
 if (native) await ctx.addInitScript(() => { window.Capacitor = {isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {}, isPluginAvailable: () => false}; });
 const page = await ctx.newPage();
-await page.goto(url, {waitUntil: 'networkidle', timeout: 90000});
+// r345: networkidle never arrives on a local static server (Firestore
+// streams + the SW precache keep the wire busy), so settle on 'load' and
+// give networkidle a bounded chance instead of failing the whole run.
+await page.goto(url, {waitUntil: 'load', timeout: 90000});
+await page.waitForLoadState('networkidle', {timeout: 30000}).catch(() => {});
 await page.waitForTimeout(5000);
 const out = await page.evaluate(() => {
   const W = document.documentElement.clientWidth;

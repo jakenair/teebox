@@ -621,5 +621,10 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+  },
+  "runSellerInviteCampaign": {
+    "sha": "381caa156931a967966ff934fb988584938cdf15",
+    "at": "2026-10-16",
+    "region": "us-central1"
   }
 }
