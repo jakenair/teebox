@@ -64,16 +64,22 @@ service cloud.firestore {
             || request.auth.token.firebase.sign_in_provider == 'phone');
     }
 
-    // Stripe Connect KYC gate. Reads the seller's user doc and asserts
-    // `stripeChargesEnabled == true`. The user doc is the source of
-    // truth — it's written by the Connect webhook
-    // (functions/index.js:839) on every Stripe `account.updated` event
-    // and refreshed by the getStripeAccountStatus callable. We do NOT
-    // trust a client-side claim here because clients can't be allowed
-    // to flip their own onboarding state.
-    function sellerStripeReady(uid) {
-      return get(/databases/$(database)/documents/users/$(uid))
-        .data.get('stripeChargesEnabled', false) == true;
+    // Per-seller listing-creation throttle (LIST-FIRST, 2026-10-19). With
+    // the Stripe gate gone from listing CREATE, nothing else slows a spammy
+    // account down, so cap new listings at LISTING_DAILY_CAP per rolling
+    // 24h. The counter is SERVER-maintained: the countListingCreate
+    // trigger (functions/listFirst.js) bumps users/{uid}/rateLimits/
+    // listingCreate {count, resetAt} after every create and starts a new
+    // window once resetAt passes. Clients can read their own counter
+    // (for a precise "limit reached, resets at…" message) but never write
+    // it. Fail-OPEN when the doc is missing or the window has lapsed —
+    // the trigger seeds it on the first create.
+    function listingDailyCap() { return 10; }
+    function underListingRateLimit(uid) {
+      let rl = /databases/$(database)/documents/users/$(uid)/rateLimits/listingCreate;
+      return !exists(rl)
+        || get(rl).data.get('resetAt', request.time) <= request.time
+        || get(rl).data.get('count', 0) < listingDailyCap();
     }
 
     // ─────────────────────────────────────────────
@@ -90,25 +96,31 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
 
-      // ONBOARDED-TO-LIST (2026-06, reverses list-first): a seller CANNOT
-      // create a listing unless they are Stripe payout-onboarded. Source of
-      // truth is users/{uid}.stripeChargesEnabled — the SAME flag the checkout
-      // money-gate trusts (createPaymentIntent, functions/index.js:~542) — not
-      // a second "verified" concept. One get() per create (well under the
-      // 10-get limit). KEEPS isEmailVerified() (anti-spam) + isValidListingCreate()
-      // (schema/moderation). Scope is CREATE only: the update rule below is
-      // untouched, so an already-onboarded seller can still edit/renew even if
-      // Stripe later flips their flag. Checkout money-gate is independent and
-      // unchanged.
-      // Email/phone verification no longer gates listing creation (founder
-      // ruling 2026-09-13): the stripeChargesEnabled requirement below is the
-      // real gate, and it means the seller completed Stripe Connect KYC —
-      // a far stronger identity + anti-spam signal than an email click.
-      // (isEmailVerified() requirement removed; kept elsewhere.)
+      // LIST-FIRST (founder ruling 2026-10-19, reverses the 2026-06
+      // onboarded-to-list gate): anyone with a VERIFIED email (or a phone
+      // sign-in) can create a listing without finishing Stripe. Stripe is
+      // required only before an item can be BOUGHT — that money gate is
+      // createPaymentIntent (functions/index.js ~617): it 409s and rolls
+      // back the reservation when users/{seller}.stripeChargesEnabled is
+      // false, before any PaymentIntent exists. It is independent of this
+      // rule and unchanged.
+      //
+      // Gate 1 is therefore: signed in, listing is yours, email verified
+      // (anti-spam; the token claim — the client refreshes it after a
+      // mid-session verify), under the per-seller daily cap (replaces the
+      // throttling the Stripe gate used to provide for free), schema valid.
+      // Reads: at most one get() (the rate-limit counter).
+      //
+      // Un-onboarded sellers' listings render to buyers as "Seller is
+      // finishing setup — tap to get notified" instead of Buy, and the
+      // hideUnonboardedListings sweep hides them after 7 days
+      // (status 'hidden', reason 'payouts_pending'); finishing Stripe
+      // relists them automatically. See functions/listFirst.js.
       allow create: if request.auth != null
         && appCheckOk()
         && request.resource.data.sellerId == request.auth.uid
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('stripeChargesEnabled', false) == true
+        && isEmailVerified()
+        && underListingRateLimit(request.auth.uid)
         && isValidListingCreate(request.resource.data);
 
       allow update: if request.auth != null
@@ -410,6 +422,16 @@ service cloud.firestore {
       // source of truth for the running game. Owner can read so the
       // client can hydrate cross-device once we wire that up.
       match /bingoGames/{date} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+
+      // Server-maintained throttle counters (checkRateLimit in index.js;
+      // countListingCreate in listFirst.js). Owner may READ so the client
+      // can explain a denied create ("10 listings today — resets at 4:12
+      // PM") instead of a generic error; never client-writable, since the
+      // listings create rule trusts `listingCreate.count`.
+      match /rateLimits/{key} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update, delete: if false;
       }

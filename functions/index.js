@@ -5668,13 +5668,18 @@ exports.createStripeOnboardingLink = onCall(
     const userSnap = await userRef.get();
     const user = userSnap.exists ? userSnap.data() : {};
 
-    // Pull email + name to pre-fill Stripe's onboarding form.
-    let email; let displayName;
+    // Pull email + name + phone to pre-fill Stripe's onboarding form so the
+    // seller types as little as possible (list-first polish, 2026-10-19).
+    let email; let displayName; let phone;
     try {
       const authUser = await admin.auth().getUser(uid);
-      email = authUser.email || undefined;
+      email = authUser.email || user.email || undefined;
       displayName = authUser.displayName || user.displayName || undefined;
+      phone = toE164US(authUser.phoneNumber || user.phone) || undefined;
     } catch (_e) { /* swallow — Stripe will collect on the form */ }
+    const nameParts = String(displayName || "").trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : undefined;
 
     let accountId = user.stripeAccountId;
     if (!accountId) {
@@ -5690,7 +5695,15 @@ exports.createStripeOnboardingLink = onCall(
         business_profile: {
           mcc: "5941", // sporting goods
           product_description: "Used + new golf gear via the TeeBox marketplace",
-          url: APP_URL,
+          // The seller's public TeeBox storefront, not the bare domain —
+          // Stripe asks for a business URL and this is the truthful one.
+          url: `${APP_URL}/seller/${uid}`,
+        },
+        individual: {
+          ...(email ? {email} : {}),
+          ...(phone ? {phone} : {}),
+          ...(firstName ? {first_name: firstName} : {}),
+          ...(lastName ? {last_name: lastName} : {}),
         },
         metadata: {
           firebaseUid: uid,
@@ -5707,18 +5720,37 @@ exports.createStripeOnboardingLink = onCall(
       }, {merge: true});
     }
 
+    // prepareOnly: pre-create the Connect account in the background right
+    // after a listing is published, so the later "Set up payouts" tap only
+    // has to mint a link (one Stripe call instead of two → faster redirect).
+    if (request.data && request.data.prepareOnly === true) {
+      return {url: null, accountId, prepared: true};
+    }
+
     // Refresh URL is hit if the link expires while the user is filling
     // out the form — sends them back to call us again for a new link.
-    // Return URL is hit on completion.
+    // Return URL is hit on completion. collection_options.fields =
+    // currently_due keeps the form to what Stripe needs to enable charges
+    // today; eventually_due items are collected later via the dashboard.
     const link = await stripeClient.accountLinks.create({
       account: accountId,
       refresh_url: `${APP_URL}/?stripe=refresh`,
       return_url: `${APP_URL}/?stripe=onboarded`,
       type: "account_onboarding",
+      collection_options: {fields: "currently_due"},
     });
     return {url: link.url, accountId};
   },
 );
+
+// US phone → E.164 for Stripe prefill. Anything that isn't a clean 10-digit
+// (or 1+10) number is dropped — a bad prefill is worse than none.
+function toE164US(raw) {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 10) return `+1${d}`;
+  if (d.length === 11 && d[0] === "1") return `+${d}`;
+  return undefined;
+}
 
 exports.getStripeAccountStatus = onCall(
   {secrets: [stripeSecret], ...USER_CALLABLE},
@@ -5773,6 +5805,18 @@ exports.getStripeAccountStatus = onCall(
       stripePayoutsEnabled: !!acct.payouts_enabled,
       stripeDetailsSubmitted: !!acct.details_submitted,
     }).catch(() => {});
+    // LIST-FIRST: the client calls this on the ?stripe=onboarded return and
+    // on every dashboard open, so it's the fastest path to notice a seller
+    // just became charges-ready → relist their auto-hidden listings and tell
+    // waiting buyers. The daily sweep self-heals anything this misses (a
+    // webhook-only flip with no client visit). Best-effort, never throws.
+    if (acct.charges_enabled && user.stripeChargesEnabled !== true) {
+      try {
+        await require("./lib/listFirstCore").onSellerChargesReady(uid);
+      } catch (e) {
+        logger.warn(`onSellerChargesReady failed for ${uid}`, e && e.message);
+      }
+    }
     return {
       connected: true,
       accountId: acct.id,
@@ -8091,6 +8135,11 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 Object.assign(exports, require("./listingAssist"));
 Object.assign(exports, require("./pushTriggers"));
 Object.assign(exports, require("./likeNotify"));
+// LIST-FIRST seller onboarding (2026-10-19): countListingCreate (daily-cap
+// counter the create rule reads), notifySellerInterest (buyer "notify me"),
+// hideUnonboardedListings (7-day auto-hide + self-heal relist). See the
+// file header for why there is no onUpdate trigger here.
+Object.assign(exports, require("./listFirst"));
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order

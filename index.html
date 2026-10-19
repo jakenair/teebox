@@ -690,6 +690,14 @@
   }
   .btn-stripe-connect:hover { background: var(--green-600); }
   .btn-stripe-connect:active { transform: scale(0.97); }
+  /* r348: Connecting-to-Stripe interstitial (see #stripeConnectingOverlay). */
+  #stripeConnectingOverlay { position: fixed; inset: 0; z-index: 1200; background: rgba(255,255,255,0.94); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 700; font-size: 15px; color: var(--gray-800); text-align: center; padding: 24px; }
+  #stripeConnectingOverlay.open { display: flex; }
+  .tb-spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--gray-200); border-top-color: var(--green-700); animation: tbSpin 0.8s linear infinite; }
+  @keyframes tbSpin { to { transform: rotate(360deg); } }
+  /* r348: owner-only "paused until payouts" badge on storefront cards. */
+  .hidden-badge { position: absolute; top: 8px; left: 8px; z-index: 2; background: var(--gold-600, #b8860b); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 3px 8px; border-radius: 50px; }
+  .profile-listing.is-hidden .profile-listing-img { opacity: .55; }
 
   /* Info modal (About / Terms / Privacy) */
   .info-backdrop { display: none; position: fixed; inset: 0; z-index: 350; background: rgba(0,0,0,0.6); align-items: flex-start; justify-content: center; padding: 4rem 1rem 2rem; overflow-y: auto; }
@@ -5645,7 +5653,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r347</span></div>
+        <span class="auth-build" aria-hidden="true">r348</span></div>
     </div>
   </div>
 </div>
@@ -7720,16 +7728,14 @@
     <div class="sell-form">
       <div class="seller-verified-bar"><span data-ico="check" aria-hidden="true"></span> Verified Seller. Your listings go live instantly</div>
 
-      <!-- Payout-setup required (2026-06, GATE 1). handleSellClick now blocks
-           un-onboarded sellers BEFORE this modal opens (routes them to the
-           stripeRequired dialog → Stripe onboarding), so onboarded sellers
-           normally never see this banner. Kept as defense-in-depth: if an
-           un-onboarded seller ever reaches the form, the copy reflects the
-           gate (finish setup to publish), not the old list-first "publish now".
-           CTA launches the real Stripe Connect onboarding (stripe-connect). -->
+      <!-- LIST-FIRST heads-up (r348, founder ruling 2026-10-19). Shown to
+           sellers who haven't finished Stripe: they CAN publish now; buyers
+           see "Seller is finishing setup — tap to get notified" instead of
+           Buy until payouts are set up, and listings auto-pause after 7 days.
+           Non-blocking. CTA launches Stripe Connect onboarding. -->
       <div class="sell-payout-headsup" id="sellPayoutHeadsUp" role="status" style="display:none;">
-        <strong>Finish payment setup to publish.</strong> Buyers pay through TeeBox, so you'll connect a Stripe payout account (~2 min) before your listing can go live.
-        <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Finish payment setup</button>
+        <strong>You can publish now.</strong> Buyers can’t purchase until you set up payouts (~3 min) — do it now or right after posting.
+        <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Set up payouts</button>
       </div>
 
       <!-- IMAGE UPLOAD -->
@@ -7937,18 +7943,18 @@
 <div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
   <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
     <div class="modal-header">
-      <span class="modal-title" id="stripeRequiredTitle">Finish payment setup to start selling</span>
+      <span class="modal-title" id="stripeRequiredTitle">You’re live — one more step</span>
       <button class="modal-close" data-action="close-stripe-required" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="sell-form">
       <div class="stripe-connect-banner cta" style="margin-bottom:14px;">
         <div>
-          <strong>TeeBox needs your bank info first</strong>
-          <span>Buyers can't pay you until Stripe verifies your account. Takes about 3 minutes: name, address, bank, and a quick ID check.</span>
+          <strong>Set up payouts so buyers can purchase</strong>
+          <span>Your listing is on the marketplace now. Until payouts are set up, buyers see “Seller is finishing setup” instead of Buy Now. About 3 minutes: name, address, bank, and a quick ID check.</span>
         </div>
       </div>
       <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
-        Buyers pay securely through TeeBox, so you'll connect a Stripe payout account <strong>before your first listing goes live</strong>. Once it's done, you can list in seconds.
+        Buyers pay securely through TeeBox and Stripe sends the money straight to your bank. Listings without payouts set up are paused after 7 days (not deleted) — finishing setup relists them automatically.
       </p>
       <div class="modal-footer" style="padding:0;margin-top:0;">
         <button class="btn-full ghost" data-action="close-stripe-required">Not now</button>
@@ -7956,6 +7962,15 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- r348: full-screen "Connecting to Stripe…" state between the Set up
+     payouts tap and the Stripe redirect (link minting takes 1–3 s; the old
+     toast-only feedback read as a dead tap). -->
+<div id="stripeConnectingOverlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="tb-spin" aria-hidden="true"></div>
+  <div>Connecting to Stripe…</div>
+  <div style="font-weight:500;font-size:12.5px;color:var(--gray-500);">Secure payout setup · about 3 minutes</div>
 </div>
 
 <!-- SEARCH -->
@@ -9474,6 +9489,11 @@ window.confirmPayment = async function() {
         window.__pendingDeepLink = null;
         setTimeout(() => { try { window.handleSellClick && window.handleSellClick(); } catch {} }, 500);
       }
+      // r348: ?payouts=setup from the list-first nudges (see the param handler).
+      if (window.__pendingDeepLink === 'payouts') {
+        window.__pendingDeepLink = null;
+        setTimeout(() => { try { window.__actions && window.__actions['stripe-connect'] && window.__actions['stripe-connect'](); } catch {} }, 500);
+      }
       // ?prefs=email — fired from the unsubscribe-success page CTA.
       if (window.__pendingDeepLink === 'email-prefs') {
         window.__pendingDeepLink = null;
@@ -10329,26 +10349,24 @@ window.confirmPayment = async function() {
       if (_a) { _a.classList.remove('hidden'); _a.classList.add('open'); }
       return;
     }
-    // GATE 1 (2026-06): listing requires a Stripe payout-onboarded seller.
-    // The REAL gate is firestore.rules (listings create denies unless
-    // users/{uid}.stripeChargesEnabled === true — the same flag checkout's
-    // money-gate trusts). This is the matching UX so an un-onboarded seller
-    // gets a clear "finish payment setup to start selling" path into the
-    // existing Stripe onboarding, never a raw permission-denied. Read FRESH
-    // (not the sign-in cache) so a seller who just finished onboarding in this
-    // session isn't wrongly blocked. On a read hiccup, fall back to the cached
-    // flag (the rules are the real gate either way).
-    let onboarded = window.STRIPE_CHARGES_ENABLED === true;
-    try {
-      const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
-      onboarded = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
-      window.STRIPE_CHARGES_ENABLED = onboarded;
-    } catch (_e) { /* fall back to cached flag */ }
-    if (!onboarded) { showStripeRequiredDialog(); return; }
-    // ToS acceptance is now INLINE in the sell modal (no separate verify
-    // screen) — onboarded sellers go straight to the sell flow. openSellModal
-    // reveals the inline Terms row for non-verified sellers, and submitListing
-    // records acceptance on first publish.
+    // LIST-FIRST (founder ruling 2026-10-19, r348): Stripe is NO LONGER a
+    // gate on listing. Anyone with a verified email can publish; Stripe is
+    // required only before an item can be BOUGHT (createPaymentIntent 409s
+    // for a non-charges-ready seller). So: straight into the sell modal.
+    // The payout flag is refreshed in the background purely to drive the
+    // in-modal heads-up + the post-publish nudge — and it can never block,
+    // which also retires the old fail-closed-on-read-error behaviour (a
+    // flaky users/{uid} read used to bounce onboarded sellers to the
+    // "finish setup" wall).
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+        window.STRIPE_CHARGES_ENABLED = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
+      } catch (_e) { /* advisory only */ }
+    })();
+    // ToS acceptance is INLINE in the sell modal (no separate verify screen).
+    // openSellModal reveals the inline Terms row for non-verified sellers, and
+    // submitListing records acceptance on first publish.
     openSellModal();
   };
 
@@ -12041,7 +12059,9 @@ window.confirmPayment = async function() {
         // undecodable image) — must never reach buyers. This is the single
         // source for window.PRODUCTS, so search, category (applyFilters),
         // "more like this", and the sidebar widgets inherit the exclusion.
-        .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed' && p.status !== 'flagged')
+        // r348: `hidden` = list-first auto-pause (seller never set up payouts
+        // within 7 days). Owner still sees it on their storefront + dashboard.
+        .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed' && p.status !== 'flagged' && p.status !== 'hidden')
         // Hide listings with no photos — orphans from before the rollback fix
         // shipped, plus any in-progress listing where photo upload failed.
         // Sellers can still see + delete these from My Shop.
@@ -12174,6 +12194,18 @@ window.confirmPayment = async function() {
     // verified seller via requestSellerVerification (persists termsAgreed +
     // termsAgreedAt) BEFORE the listing is created. email-verify was already
     // gated above, so the callable's email precondition won't trip here.
+    // LIST-FIRST (r348): the create RULE gates on a verified email (or phone
+    // sign-in), not Stripe. Check it HERE with a fresh reload + token-claim
+    // refresh, so a seller who verified mid-session never eats a
+    // permission-denied (the 2026-08-05 stale-claim incident), and an
+    // unverified one gets the Resend prompt instead of a dead Submit.
+    try {
+      const _u = window.CURRENT_USER;
+      const _phone = !!(_u.providerData || []).some(pd => pd && pd.providerId === 'phone');
+      if (!_phone && !_u.emailVerified) { try { await _u.reload(); } catch (_e) {} }
+      if (!_phone && !_u.emailVerified) { showSellVerifyPrompt(); return; }
+      await window.__ensureVerifiedClaimFresh();
+    } catch (_e) { /* rules remain the real gate */ }
     if (!window.IS_VERIFIED_SELLER) {
       const _tcb = document.getElementById('sellTermsCheckbox');
       if (!_tcb || !_tcb.checked) {
@@ -12309,6 +12341,12 @@ window.confirmPayment = async function() {
           const us = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
           const chargesReady = us.exists() && us.data().stripeChargesEnabled === true;
           if (!chargesReady) {
+            // r348: pre-create the Connect account NOW (no link, no redirect)
+            // so the "Set up payouts" tap only has to mint a link. Silent.
+            try {
+              const _prep = httpsCallable(fns, 'createStripeOnboardingLink');
+              _prep({ prepareOnly: true }).catch(() => {});
+            } catch (_e) {}
             setTimeout(() => { try { showStripeRequiredDialog(); } catch (_e) {} }, 1300);
           }
         } catch (_e) { /* non-blocking */ }
@@ -12364,9 +12402,26 @@ window.confirmPayment = async function() {
         // verified (App Check is the rare other case). Surface the specific
         // reason + Resend; never the old "set up payouts" misdirection and
         // never a dead Submit. emailVerified may be stale → reload first.
+        // r348: the per-seller daily cap (10 new listings / rolling 24h,
+        // firestore.rules underListingRateLimit) is the other denial. The
+        // counter is owner-readable, so say exactly when they can post again.
+        let capHit = false;
+        try {
+          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+          const rl = await getDoc(doc(db, 'users', window.CURRENT_USER.uid, 'rateLimits', 'listingCreate'));
+          const r = rl.exists() ? rl.data() : null;
+          const resetMs = r && r.resetAt && r.resetAt.toMillis ? r.resetAt.toMillis() : 0;
+          capHit = !!(r && Number(r.count) >= 10 && resetMs > Date.now());
+          if (capHit) {
+            msg = 'You’ve posted 10 listings in the last 24 hours — you can post again after ' +
+              new Date(resetMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.';
+          }
+        } catch (_e) { /* fall through to the email check */ }
         let emailOk = true;
-        try { await window.CURRENT_USER.reload(); emailOk = !!window.CURRENT_USER.emailVerified; } catch (_e) {}
-        if (!emailOk) {
+        if (!capHit) { try { await window.CURRENT_USER.reload(); emailOk = !!window.CURRENT_USER.emailVerified; } catch (_e) {} }
+        if (capHit) {
+          // message already set
+        } else if (!emailOk) {
           try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
           msg = 'Verify your email to publish — tap Resend on the banner above.';
         } else {
@@ -14004,6 +14059,7 @@ async function openDetailModal(id) {
   // charges-ready (visible-but-not-buyable, list-first).
   const notBuyableNote = document.getElementById('detailNotBuyableNote');
   if (notBuyableNote) { notBuyableNote.style.display = 'none'; notBuyableNote.textContent = ''; }
+  if (buyBtn) { delete buyBtn.dataset.notifySetup; buyBtn.classList.remove('is-notify-setup'); }
   // Owner-only "Edit listing" link. Visible ONLY when a user is
   // signed in AND owns this (real, Firestore-backed) listing. Hidden
   // for guests, other users, and demo listings. Locked listings
@@ -14100,14 +14156,37 @@ async function openDetailModal(id) {
       // disable Buy + explain. UX only — createPaymentIntent is the real gate.
       const ownsThis = !!(window.CURRENT_USER && p.sellerId &&
         window.CURRENT_USER.uid === p.sellerId);
+      // LIST-FIRST (r348): the seller hasn't finished payouts. Buyers get an
+      // ENABLED "tap to get notified" CTA in the Buy slot (notifySellerInterest
+      // records interest + nudges the seller; the buyer is told the moment it
+      // becomes buyable). The owner sees what buyers see + a one-tap fix.
+      // UX only — createPaymentIntent is the real gate.
       if (buyBtn && !isSold && !isPending && !ownsThis && prof.chargesReady !== true) {
-        buyBtn.disabled = true;
-        buyBtn.style.opacity = '0.55';
-        buyBtn.style.cursor = 'not-allowed';
-        buyBtn.textContent = 'Seller finalizing setup';
+        buyBtn.disabled = false;
+        buyBtn.style.opacity = '';
+        buyBtn.style.cursor = '';
+        buyBtn.dataset.notifySetup = '1';
+        buyBtn.classList.add('is-notify-setup');
+        const _already = (() => { try { return localStorage.getItem('tb_interest_' + p.id) === '1'; } catch (_e) { return false; } })();
+        buyBtn.textContent = _already ? 'We’ll let you know when it’s buyable' : 'Seller is finishing setup — tap to get notified';
+        if (_already) { buyBtn.disabled = true; buyBtn.style.opacity = '0.6'; buyBtn.style.cursor = 'default'; }
         if (notBuyableNote) {
+          const waiting = Number(p.interestCount || 0);
           notBuyableNote.textContent =
-            "This seller is finishing payment setup, so this isn't buyable yet — check back soon. You can still message them or save it to your watchlist.";
+            "This seller hasn’t finished payment setup, so it can’t be bought yet. " +
+            (_already ? "You’re on the list — we’ll notify you the moment it’s available." :
+              "Tap above and we’ll notify you the moment it is — you can also message them or save it.") +
+            (waiting > 0 ? ` ${waiting} buyer${waiting === 1 ? '' : 's'} waiting.` : '');
+          notBuyableNote.style.display = '';
+        }
+      } else if (buyBtn && ownsThis && !isSold && !isPending &&
+                 prof.chargesReady !== true && prof.stripeChargesEnabled !== true) {
+        if (notBuyableNote) {
+          const waiting = Number(p.interestCount || 0);
+          notBuyableNote.innerHTML =
+            'Buyers see <strong>“Seller is finishing setup”</strong> on this listing until you set up payouts (~3 min).' +
+            (waiting > 0 ? ` <strong>${waiting} buyer${waiting === 1 ? '' : 's'} waiting.</strong>` : '') +
+            ' <button type="button" class="btn-stripe-connect" data-action="stripe-connect" style="margin-left:6px;vertical-align:middle;">Set up payouts</button>';
           notBuyableNote.style.display = '';
         }
       }
@@ -16913,6 +16992,14 @@ function renderShopTables() {
                   label: 'Removed',
                   color: 'var(--gray-500)',
                   title: 'This listing was taken down and isn’t visible to buyers.',
+                };
+              }
+              if (l.status === 'hidden') {
+                return {
+                  label: 'Paused — set up payouts',
+                  color: 'var(--gold-600)',
+                  title: 'Live 7 days without payout setup, so it’s hidden from buyers (not deleted). ' +
+                    'Finish payout setup and it relists automatically.',
                 };
               }
               if (l.status === 'pending') {
@@ -22366,7 +22453,9 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     // Owner-only extras: expired (so they can renew) and flagged (so they
     // know something is under review — preserving the original intent of
     // the `isMe || status !== 'flagged'` clause this replaced).
-    return isMe && (isListingExpired(l) || l.status === 'flagged');
+    // r348: + hidden (list-first auto-pause) so the owner can see what's
+    // paused and relist by finishing payouts.
+    return isMe && (isListingExpired(l) || l.status === 'flagged' || l.status === 'hidden');
   });
   const sold = listings.filter(l => l.status === 'sold');
   recentSold = recentSold || [];
@@ -22494,13 +22583,15 @@ function renderProfileView(profile, listings, reviews, recentSold) {
         const expired = isListingExpired(l);
         const pinIndicator = isPinned ? `<span class="pin-indicator" title="Featured">Featured</span>` : '';
         const expiredBadge = expired ? `<span class="expired-badge">Expired</span>` : '';
+        const hiddenCard = l.status === 'hidden';
+        const hiddenBadge = hiddenCard ? `<span class="hidden-badge" title="Paused until payouts are set up">Paused — set up payouts</span>` : '';
         // An expired listing can't be pinned — it isn't purchasable, so
         // featuring it on the profile would advertise a dead link.
         const pinBtn = (isMe && !expired)
           ? `<button class="pin-btn ${isPinned ? 'pinned' : ''}" data-action="${isPinned ? 'unpin-listing' : 'pin-listing'}" data-listing-id="${id}" type="button">${isPinned ? 'Unpin' : 'Pin to profile'}</button>`
           : '';
-        return `<div class="profile-listing ${isPinned ? 'pinned-card' : ''}${expired ? ' is-expired' : ''}" data-action="open-detail" data-product-id="${id}" style="position:relative">`+
-          pinIndicator + expiredBadge +
+        return `<div class="profile-listing ${isPinned ? 'pinned-card' : ''}${expired ? ' is-expired' : ''}${hiddenCard ? ' is-hidden' : ''}" data-action="open-detail" data-product-id="${id}" style="position:relative">`+
+          pinIndicator + expiredBadge + hiddenBadge +
           `<div class="profile-listing-img">${img}</div>`+
           `<div class="profile-listing-name">${window.safeText(l.title || '')}</div>`+
           `<div class="profile-listing-price">$${Number(l.ask||0).toLocaleString()}</div>`+
@@ -25206,6 +25297,50 @@ window.__ensureVerifiedClaimFresh = async function() {
     }
   } catch (_e) { /* best-effort */ }
 };
+// r348 LIST-FIRST: buyer tapped "Seller is finishing setup — tap to get
+// notified". Guests sign in first (replay lands back here). Server records
+// listingInterest/{listingId}_{uid}, nudges the seller, and notifies this
+// buyer when the seller becomes charges-ready. Idempotent per buyer+listing.
+A['notify-seller-setup']     = async () => {
+  const pid = currentDetailId;
+  if (!pid) return;
+  if (!window.requireAuth('to get notified when this is buyable', () => { setTimeout(() => A['notify-seller-setup'](), 300); })) return;
+  const btn = document.getElementById('detailBuyNowBtn');
+  const prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'One sec…'; }
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fn = httpsCallable(getFunctions(), 'notifySellerInterest');
+    const res = await fn({ listingId: String(pid) });
+    const d = (res && res.data) || {};
+    if (d.alreadyBuyable) {
+      // Seller finished while the buyer was looking — reload the card as buyable.
+      showToast('Good news — this is buyable now.', 'success');
+      try { if (window.PROFILE_CACHE) delete window.PROFILE_CACHE[String((window.PRODUCTS.find(x => String(x.id) === String(pid)) || {}).sellerId)]; } catch (_e) {}
+      if (btn) { delete btn.dataset.notifySetup; btn.classList.remove('is-notify-setup'); btn.disabled = false; btn.textContent = 'Buy Now'; }
+      const note = document.getElementById('detailNotBuyableNote'); if (note) note.style.display = 'none';
+      return;
+    }
+    try { localStorage.setItem('tb_interest_' + pid, '1'); } catch (_e) {}
+    if (btn) { btn.textContent = 'We’ll let you know when it’s buyable'; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
+    const note = document.getElementById('detailNotBuyableNote');
+    if (note) { note.textContent = 'You’re on the list — we’ll notify you the moment it’s available. You can still message the seller.'; note.style.display = ''; }
+    showToast(d.duplicate ? 'You’re already on the list for this one.' : 'Got it — we’ll notify you when it’s buyable.', 'success');
+  } catch (e) {
+    console.warn('notifySellerInterest failed:', e && e.code, e && e.message);
+    if (btn) { btn.disabled = false; btn.textContent = prev; }
+    const m = (e && e.message) || '';
+    showToast(/own listing/i.test(m) ? 'That’s your own listing.' : (/isn.t available/i.test(m) ? 'This listing isn’t available anymore.' : 'Couldn’t save that — try again.'), 'error');
+  }
+};
+function showStripeConnecting(on) {
+  const el = document.getElementById('stripeConnectingOverlay');
+  if (!el) return;
+  el.classList.toggle('open', !!on);
+  el.setAttribute('aria-hidden', on ? 'false' : 'true');
+}
+window.showStripeConnecting = showStripeConnecting;
 A['stripe-connect']          = async () => {
   if (!window.requireAuth('to set up payouts')) return;
   // Email verification no longer gates Stripe onboarding (founder ruling
@@ -25214,7 +25349,10 @@ A['stripe-connect']          = async () => {
   // If the Stripe-required gate modal is open, close it so the seller's
   // listing draft is visible underneath when they return from onboarding.
   try { closeStripeRequiredDirect(); } catch (_e) {}
-  showToast('Opening Stripe…');
+  // r348: visible interstitial instead of a toast — link minting takes 1–3 s
+  // and the tap used to look dead. Cleared on any failure; on success the
+  // page navigates away under it.
+  showStripeConnecting(true);
   // If the user already has a payouts-enabled Connect account, this
   // click is a CHANGE (not an initial setup) — fire the payout-method-
   // changed security alert so a hijacker rerouting funds gets caught.
@@ -25256,6 +25394,7 @@ A['stripe-connect']          = async () => {
     // return_url handler already detects ?stripe=onboarded on return.
     window.location.href = url;
   } catch (e) {
+    showStripeConnecting(false);
     console.error('stripe-connect failed:', e);
     // Surface the SPECIFIC reason, never a dead end (mirrors the
     // become-a-seller handler). The common rejection is email-not-verified.
@@ -26217,6 +26356,10 @@ window.addEventListener('load', () => {
   });
 });
 A['detail-buy-now']          = () => {
+  // r348 LIST-FIRST: in "Seller is finishing setup" mode the Buy slot records
+  // interest instead of opening checkout (which would 409 server-side anyway).
+  const _bb = document.getElementById('detailBuyNowBtn');
+  if (_bb && _bb.dataset.notifySetup === '1') { A['notify-seller-setup'](); return; }
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
   // Capture the listing id BEFORE closing the modal. closeDetailModalDirect()
@@ -29137,6 +29280,18 @@ if (uploadZone) {
         setTimeout(() => { try { window.handleSellClick && window.handleSellClick(); } catch (_) {} }, 400);
       } else {
         window.__pendingDeepLink = 'sell';
+      }
+    }
+    // r348: ?payouts=setup — every list-first nudge (listing-live email,
+    // "someone wants your item", "listings paused") lands here. Signed-in →
+    // mint a FRESH Stripe account link and go; guests sign in first and the
+    // replay below does the same. Strip the param so a refresh doesn't loop.
+    if (sp.get('payouts') === 'setup') {
+      try { const u = new URL(window.location.href); u.searchParams.delete('payouts'); window.history.replaceState({}, '', u.pathname + u.search + u.hash); } catch (_) {}
+      if (window.CURRENT_USER) {
+        setTimeout(() => { try { window.__actions && window.__actions['stripe-connect'] && window.__actions['stripe-connect'](); } catch (_) {} }, 400);
+      } else {
+        window.__pendingDeepLink = 'payouts';
       }
     }
     // ?prefs=email deep-link from the unsubscribe-success page footer.
