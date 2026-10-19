@@ -9620,15 +9620,22 @@ window.confirmPayment = async function() {
         // state on real app termination, so this gives us the exact
         // semantics we want: dismissed-this-run vs. fresh-launch.
         // Also auto-open if the URL explicitly asked for it (?signin=1).
+        // r349 (founder ruling 2026-10-19): NO first-visit auth wall. Guests
+        // land straight on the marketplace; the sign-in screen appears only
+        // when they try to sell, buy, message or save (requireAuth), or when
+        // the URL explicitly asks for it (?signin=1 / ?launch=auth). The
+        // 2026-10-19 Slow-3G walk showed a brand-new visitor staring at a
+        // sign-in gate for the first 33 s of their session.
         try {
           const _sp = new URLSearchParams(window.location.search);
-          const _dismissed = window.__authGateDismissedInSession === true;
-          const _forced = _sp.get('signin') === '1';
-          if (_forced || !_dismissed) {
+          const _forced = _sp.get('signin') === '1' || _sp.get('launch') === 'auth';
+          if (_forced) {
             _authScreen.classList.remove('hidden');
             _authScreen.classList.add('open');
           } else {
             _authScreen.classList.remove('open');
+            _authScreen.classList.add('hidden');
+            window.GUEST_MODE = true;
           }
         } catch { _authScreen.classList.remove('open'); }
       }
@@ -24815,6 +24822,15 @@ document.addEventListener('keydown', (ev) => {
 });
 
 window.showSignInPrompt = function showSignInPrompt(reason, intent) {
+  // r349: ONE prompt, not two. The gated guest goes straight to the auth
+  // screen on the Create Account pane with the contextual reason; the old
+  // "Join TeeBox to continue" interstitial (below, unreachable now) added a
+  // tap and 3 s on slow links for no information.
+  window.__pendingAuthIntent = intent || null;
+  window.__pendingAuthReason = reason || '';
+  try { window.dismissSignInPrompt && window.dismissSignInPrompt(); } catch (_e) {}
+  if (window.setEmailMode) window.setEmailMode('signup');
+  if (window.showAuthScreen) { window.showAuthScreen(reason || ''); return; }
   const backdrop = document.getElementById('signInPromptBackdrop');
   if (!backdrop) return;
   // Compose title + message. r159: title matches the create-first CTA
