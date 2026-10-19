@@ -30,6 +30,19 @@ const PAYOUT_SETUP_URL = `${APP_URL}/?payouts=setup`;
 const LISTING_DAILY_CAP = 10;
 const RATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const HIDE_AFTER_DAYS = 7;
+// Day-one fairness: listings that already existed when list-first shipped get
+// a FULL 7-day clock starting at this epoch, not an overnight hide because
+// they happen to be older than 7 days. The sweep measures age from
+// max(createdAt, LIST_FIRST_EPOCH_MS). Set to the deploy day (America/Chicago
+// 04:00 = 09:00Z) — first possible hide of a pre-existing listing is 7 days
+// after this instant.
+const LIST_FIRST_EPOCH_MS = Date.parse("2026-10-20T09:00:00Z");
+// Seller-level ceiling on "Someone wants your [item]" nudges (push+email+
+// in-app), on top of the per-listing 6h dedupe: at most this many per rolling
+// 24h however many listings/buyers are involved. Interest is still RECORDED
+// (and the buyer still gets notified when the seller is ready) — only the
+// seller-facing nag is capped.
+const SELLER_NUDGE_CAP_PER_DAY = 3;
 const HIDDEN_STATUS = "hidden";
 const HIDDEN_REASON = "payouts_pending";
 
@@ -194,9 +207,38 @@ async function onSellerChargesReady(uid) {
   return out;
 }
 
+// Rolling-window counter shared by the nudge cap (same storage shape as
+// index.js checkRateLimit: users/{uid}/rateLimits/{key}.hits[]). Fail-open.
+async function rollingLimitAllowed(uid, key, max, windowMs) {
+  const db = admin.firestore();
+  const ref = db.collection("users").doc(uid).collection("rateLimits").doc(key);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      const recent = ((snap.exists && snap.data().hits) || [])
+          .map(Number).filter((n) => Number.isFinite(n) && n > now - windowMs).slice(-max * 2);
+      if (recent.length >= max) return false;
+      recent.push(now);
+      tx.set(ref, {hits: recent, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      return true;
+    });
+  } catch (e) {
+    logger.warn(`rollingLimitAllowed(${key}) failed open`, e && e.message);
+    return true;
+  }
+}
+
+// Effective "live since" for the auto-hide clock (see LIST_FIRST_EPOCH_MS).
+function hideClockStartMs(listing) {
+  const c = listing && listing.createdAt && listing.createdAt.toMillis ? listing.createdAt.toMillis() : 0;
+  return Math.max(c, LIST_FIRST_EPOCH_MS);
+}
+
 module.exports = {
   APP_URL, PAYOUT_SETUP_URL,
-  LISTING_DAILY_CAP, RATE_WINDOW_MS, HIDE_AFTER_DAYS,
+  LISTING_DAILY_CAP, RATE_WINDOW_MS, HIDE_AFTER_DAYS, LIST_FIRST_EPOCH_MS,
+  SELLER_NUDGE_CAP_PER_DAY, rollingLimitAllowed, hideClockStartMs,
   HIDDEN_STATUS, HIDDEN_REASON,
   emailFor, lookupUser, onSellerChargesReady,
 };

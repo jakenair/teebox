@@ -25,7 +25,8 @@ const {notify} = require("./lib/notify");
 const {RESEND_API_KEY, UNSUBSCRIBE_SECRET} = require("./lib/email");
 const {
   APP_URL, PAYOUT_SETUP_URL, RATE_WINDOW_MS, HIDE_AFTER_DAYS,
-  HIDDEN_STATUS, HIDDEN_REASON, emailFor, lookupUser, onSellerChargesReady,
+  HIDDEN_STATUS, HIDDEN_REASON, SELLER_NUDGE_CAP_PER_DAY,
+  emailFor, lookupUser, onSellerChargesReady, rollingLimitAllowed, hideClockStartMs,
 } = require("./lib/listFirstCore");
 
 const USER_CALLABLE = {
@@ -82,29 +83,8 @@ exports.countListingCreate = onDocumentCreated(
     },
 );
 
-// Small rolling limiter for the interest tap (20/hour/buyer) so one account
-// can't ring every seller's phone. Same storage shape as index.js
-// checkRateLimit; fail-open.
-async function interestTapAllowed(uid) {
-  const db = admin.firestore();
-  const ref = db.collection("users").doc(uid).collection("rateLimits").doc("interestTap");
-  const WINDOW = 60 * 60 * 1000; const MAX = 20;
-  try {
-    return await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const now = Date.now();
-      const recent = ((snap.exists && snap.data().hits) || [])
-          .map(Number).filter((n) => Number.isFinite(n) && n > now - WINDOW).slice(-MAX * 2);
-      if (recent.length >= MAX) return false;
-      recent.push(now);
-      tx.set(ref, {hits: recent, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
-      return true;
-    });
-  } catch (e) {
-    logger.warn("interestTapAllowed failed open", e && e.message);
-    return true;
-  }
-}
+// Interest tap: 20/hour/buyer so one account can't ring every seller's phone.
+const interestTapAllowed = (uid) => rollingLimitAllowed(uid, "interestTap", 20, 60 * 60 * 1000);
 
 // ── notifySellerInterest ───────────────────────────────────────────────
 // data: {listingId}
@@ -156,7 +136,16 @@ exports.notifySellerInterest = onCall(
 
       const title = String(listing.title || "your item").slice(0, 60);
       const others = interestCount > 1 ? ` (${interestCount} buyers waiting)` : "";
-      await notify({
+      // Nudge caps (interest itself is already recorded above):
+      //   • one buyer re-tapping → `duplicate` return above, no nudge at all
+      //   • per listing: notify() dedupeKey → 1 fan-out per 6h
+      //   • per seller: SELLER_NUDGE_CAP_PER_DAY per rolling 24h across all listings
+      if (!(await rollingLimitAllowed(listing.sellerId, "interestNudge",
+          SELLER_NUDGE_CAP_PER_DAY, RATE_WINDOW_MS))) {
+        logger.info(`[listFirst] seller nudge cap hit for ${listing.sellerId}; interest recorded only`);
+        return {ok: true, interestCount, sellerNudged: false};
+      }
+      const nudge = await notify({
         recipientUid: listing.sellerId,
         // One seller nudge per listing per 6h, however many buyers tap.
         dedupeKey: `interest:${listingId}`,
@@ -185,8 +174,9 @@ exports.notifySellerInterest = onCall(
           ctx: {user: seller, listing, interestCount, appUrl: APP_URL, setupUrl: PAYOUT_SETUP_URL},
         }),
       });
-      logger.info(`[listFirst] interest recorded ${listingId} by ${buyerId} (n=${interestCount})`);
-      return {ok: true, interestCount};
+      const sellerNudged = !(nudge && nudge.skipped);
+      logger.info(`[listFirst] interest recorded ${listingId} by ${buyerId} (n=${interestCount}, nudged=${sellerNudged})`);
+      return {ok: true, interestCount, sellerNudged};
     },
 );
 
@@ -215,9 +205,12 @@ exports.hideUnonboardedListings = onSchedule(
           .limit(500).get();
       summary.scanned = old.size;
       const bySeller = new Map();
+      const hideBefore = Date.now() - HIDE_AFTER_DAYS * 86400000;
       old.docs.forEach((d) => {
         const l = d.data() || {};
         if (!l.sellerId) return;
+        // Day-one grace: pre-existing listings count from LIST_FIRST_EPOCH.
+        if (hideClockStartMs(l) > hideBefore) return;
         if (!bySeller.has(l.sellerId)) bySeller.set(l.sellerId, []);
         bySeller.get(l.sellerId).push({id: d.id, ref: d.ref, title: l.title || "Untitled"});
       });
