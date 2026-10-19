@@ -350,14 +350,18 @@
     "region": "us-east1"
   },
   "optimizeListingPhoto": {
-    "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
+    "sha": "abdeaf622eae4f5b34602997bc61d87b48a124fd",
     "at": "2026-10-16",
-    "region": "us-east1"
+    "region": "us-east1",
+    "revision": "optimizelistingphoto-00020-tej",
+    "deployedAt": "2026-10-19T20:26:00Z"
   },
   "optimizePassportPhoto": {
-    "sha": "a42e11c47177ceb07f8b2f740cc369f943a62167",
+    "sha": "abdeaf622eae4f5b34602997bc61d87b48a124fd",
     "at": "2026-10-01",
-    "region": "us-east1"
+    "region": "us-east1",
+    "revision": "optimizepassportphoto-00010-nuy",
+    "deployedAt": "2026-10-19T20:26:00Z"
   },
   "proCanceledEmail": {
     "at": "2026-05-29",
@@ -628,14 +632,22 @@
     "region": "us-central1"
   },
   "approveFlaggedListing": {
-    "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
+    "sha": "abdeaf622eae4f5b34602997bc61d87b48a124fd",
     "at": "2026-10-16",
-    "region": "us-central1"
+    "region": "us-central1",
+    "revision": "approveflaggedlisting-00002-jon",
+    "deployedAt": "2026-10-19T20:26:00Z"
   },
   "photoGapAuditMonthly": {
     "sha": "9f41cc8bba7c2a7f5752020d48584913bb504ef8",
     "at": "2026-10-16",
     "region": "us-central1",
     "note": "created via firebase deploy --only (scheduler job firebase-schedule-photoGapAuditMonthly-us-central1, 0 6 1 * * America/Chicago)"
+  },
+  "sharePassportRound": {
+    "sha": "abdeaf622eae4f5b34602997bc61d87b48a124fd",
+    "region": "us-central1",
+    "revision": "sharepassportround-00002-yop",
+    "deployedAt": "2026-10-19T20:26:00Z"
   }
 }
