@@ -29,6 +29,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const admin = require('../functions/node_modules/firebase-admin');
 const { convertToWebp } = require('../functions/lib/imageConvert.js');
+const { SIZES } = require('../functions/lib/listingPhotoVariants.js');
+const sharp = require('../functions/node_modules/sharp');
+const NEWEST_KEY = SIZES[SIZES.length - 1][0];
 const crypto = require('node:crypto');
 
 const argv = process.argv.slice(2);
@@ -46,7 +49,7 @@ admin.initializeApp({
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
 
-const VARIANT_RE = /_w(?:400|800)\.webp$/i;
+const VARIANT_RE = /_w(?:400|800|1200)\.webp$/i;
 
 async function main() {
   const [files] = await bucket.getFiles({ prefix: 'passport/' });
@@ -76,8 +79,9 @@ async function main() {
     const basename = fileName.replace(/\.[^.]+$/, '');
     const hasW400 = byName.has(`${f.name}_w400.webp`);
     const hasW800 = byName.has(`${f.name}_w800.webp`);
-    const hasDocKey = !!(round.photoVariants && round.photoVariants[basename]);
-    if (hasW400 && hasW800 && hasDocKey) { done.push(f.name); continue; }
+    const hasNewest = byName.has(`${f.name}_${NEWEST_KEY}.webp`);
+    const hasDocKey = !!(round.photoVariants && round.photoVariants[basename] && round.photoVariants[basename][NEWEST_KEY]);
+    if (hasW400 && hasW800 && hasNewest && hasDocKey) { done.push(f.name); continue; }
     if (todo.length >= LIMIT) continue;
     bytes += Number(f.metadata.size || 0);
     todo.push({ file: f, docPath, basename, hasW400, hasW800, hasDocKey });
@@ -104,9 +108,16 @@ async function main() {
       const [meta] = await t.file.getMetadata();
       const token = (meta.metadata && meta.metadata.firebaseStorageDownloadTokens) ||
         crypto.randomUUID();
-      const { baseSharp, webp } = await convertToWebp(buf);
-      // 1) in-place original → 1600px webp, token preserved (URL stable)
-      await t.file.save(webp, {
+      // 2026-10-19: an original the live trigger already optimized is NOT
+      // re-encoded (that would be a second lossy pass on a 1600px WebP);
+      // only the variants are (re)generated from it. Raw pre-rework uploads
+      // still go through convertToWebp and are replaced in place.
+      const alreadyOptimized = !!(meta.metadata && meta.metadata.optimized === 'true');
+      const { baseSharp, webp } = alreadyOptimized
+        ? { baseSharp: sharp(buf).rotate(), webp: null }
+        : await convertToWebp(buf);
+      // 1) in-place original → webp, token preserved (URL stable)
+      if (webp) await t.file.save(webp, {
         metadata: {
           contentType: 'image/webp',
           cacheControl: 'public, max-age=31536000, immutable',
@@ -116,7 +127,7 @@ async function main() {
       });
       // 2) variants (identical params to the trigger)
       const urls = {};
-      for (const [key, px, q] of [['w400', 400, 78], ['w800', 800, 82]]) {
+      for (const [key, px, q] of SIZES) {
         const vbuf = await baseSharp.clone()
           .resize({ width: px, height: px, fit: 'inside', withoutEnlargement: true })
           // No .withMetadata() — kept identical to the live trigger, which
@@ -141,7 +152,7 @@ async function main() {
       // 3) record on the round doc
       await db.doc(t.docPath).set({ photoVariants: { [t.basename]: urls } }, { merge: true });
       ok++;
-      console.log('done', t.file.name, '(' + webp.length + 'B webp)');
+      console.log('done', t.file.name, webp ? '(' + webp.length + 'B webp)' : '(original kept, variants regenerated)');
     } catch (e) {
       failed++;
       console.error('FAILED (original left untouched):', t.file.name, e && e.message);

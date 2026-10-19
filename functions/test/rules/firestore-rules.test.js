@@ -169,3 +169,22 @@ test("conversations: update allows only own lastRead/hidden keys; lastMessage* i
   await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageText: "spoofed preview"}));
   await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageSenderId: "buyer", lastMessageAt: serverTimestamp()}));
 });
+
+test("users/{uid}: owner can save pushPrefs + bingoPushPrefs (Notifications panel); server-only keys still denied", async () => {
+  await seed("users", "alice", {displayName: "Alice"});
+  const alice = testEnv.authenticatedContext("alice", {email_verified: true});
+  // Exactly what savePushPrefs writes: setDoc(..., {merge: true}) with both maps.
+  await assertSucceeds(setDoc(doc(db(alice), "users", "alice"),
+      {pushPrefs: {messages: true, offers: false, quietHours: {start: "21:00", end: "08:00", tz: "America/Chicago"}},
+        bingoPushPrefs: {dailyReminder: true, reminderHour: 8, streakSaver: false}}, {merge: true}));
+  await assertFails(updateDoc(doc(db(alice), "users", "alice"), {emailPrefs: {savedSearchMatches: false}}));
+  await assertFails(updateDoc(doc(db(alice), "users", "alice"), {tier: "pro"}));
+  const bob = testEnv.authenticatedContext("bob", {email_verified: true});
+  await assertFails(setDoc(doc(db(bob), "users", "alice"), {pushPrefs: {messages: false}}, {merge: true}));
+});
+
+test("users/{uid}: unverified email cannot update the user doc at all (incl. pushPrefs) — documented gate", async () => {
+  await seed("users", "carol", {displayName: "Carol"});
+  const carol = testEnv.authenticatedContext("carol", {email_verified: false});
+  await assertFails(setDoc(doc(db(carol), "users", "carol"), {pushPrefs: {messages: false}}, {merge: true}));
+});

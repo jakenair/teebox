@@ -55,7 +55,7 @@ const BUCKET = "teebox-market.firebasestorage.app";
 const SHARE_PREFIX = "sharedRounds/";
 const SITE = "https://teeboxmarket.com";
 const REGION = "us-central1";
-const COPY_SIZES = ["w400", "w800"]; // derivatives only — never the original
+const COPY_SIZES = ["w400", "w800", "w1200"]; // derivatives only — never the original
 const MAX_PHOTOS = 12;
 
 const CALLABLE = {region: REGION, memory: "512MiB", timeoutSeconds: 60};

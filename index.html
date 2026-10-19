@@ -5360,10 +5360,17 @@
   // written by optimizeListingPhoto) over the full 1600px original for
   // grid/list/thumb. Falls back to the original for older/pre-backfill
   // listings that have no variants. idx aligns with photos[idx].
+  // r347: a w400 request on a 2x/3x screen is served w800 when it exists —
+  // a 2-column grid tile is ~560 physical px on an iPhone, so w400 was being
+  // upscaled. Callers keep asking for 'w400'; the bump is centralised here.
+  const HIDPI = (typeof window.devicePixelRatio === 'number' && window.devicePixelRatio >= 1.5);
   window.variantImgUrl = function (p, idx, size) {
     idx = idx || 0;
     const v = p && p.photoVariants && p.photoVariants[String(idx)];
-    if (v && v[size]) { const u = window.safeImgUrl(v[size]); if (u) return u; }
+    if (v) {
+      if (size === 'w400' && HIDPI && v.w800) { const u = window.safeImgUrl(v.w800); if (u) return u; }
+      if (v[size]) { const u = window.safeImgUrl(v[size]); if (u) return u; }
+    }
     return window.safeImgUrl(p && p.photos && p.photos[idx]);
   };
 
@@ -5638,7 +5645,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r346</span></div>
+        <span class="auth-build" aria-hidden="true">r347</span></div>
     </div>
   </div>
 </div>
@@ -11915,7 +11922,7 @@ window.confirmPayment = async function() {
     if (file.size < 600 * 1024) return file;
     try {
       const bmp = await createImageBitmap(file);
-      const max = 1600;
+      const max = 2048; // r347: was 1600 — see ppDownscaleImage
       const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
       const w = Math.round(bmp.width * scale);
       const h = Math.round(bmp.height * scale);
@@ -11924,7 +11931,7 @@ window.confirmPayment = async function() {
       canvas.height = h;
       canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
       bmp.close && bmp.close();
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
       return blob || file;
     } catch (err) {
       // Browser can't decode this codec (e.g. HEIC outside Safari) — upload the
@@ -23520,7 +23527,7 @@ function ppAddPhoto() {
     let added = 0;
     for (const f of files.slice(0, room)) {
       if (f.size > 30 * 1024 * 1024) continue;
-      const small = await ppDownscaleImage(f, 1600, 0.85); // match single-pick size
+      const small = await ppDownscaleImage(f, 2048, 0.9); // match single-pick size
       if (!__ppState) return;
       __ppState.photos.push({ file: small, previewUrl: URL.createObjectURL(small) });
       added++;
@@ -23533,7 +23540,9 @@ function ppAddPhoto() {
 
 // Downscale an image to fit within `max` px (longest side), re-encoded JPEG.
 // EXIF-orientation-safe via createImageBitmap; falls back to the original.
-async function ppDownscaleImage(file, max = 1600, quality = 0.85) {
+// r347: 2048px / q0.9 (was 1600 / 0.85). The server re-encodes to WebP, so this
+// JPEG is an intermediate — a larger, cleaner source keeps that second pass sharp.
+async function ppDownscaleImage(file, max = 2048, quality = 0.9) {
   try {
     // Decode + scale off the main thread via createImageBitmap resize options
     // (a 12MP photo is ~48MB RGBA if decoded at full size first). Probe the
@@ -24032,10 +24041,19 @@ function ppVariantSrc(variants, url, size) {
 function ppPhotoSrcAttrs(variants, url, big) {
   const w4 = ppVariantSrc(variants, url, 'w400');
   const w8 = ppVariantSrc(variants, url, 'w800');
+  const w12 = ppVariantSrc(variants, url, 'w1200'); // r347: may be absent on old rounds
   if (!w4 || !w8) return `src="${window.safeAttr(url)}"`;
-  const main = big ? w8 : w4;
+  // r347: the srcset now reaches 1200w and ends with the stored original
+  // (≥1600px) so a 3x phone at ~1170 physical px picks a sharp file instead
+  // of stretching w800. `sizes` describes the CSS width; the browser does the
+  // DPR math.
+  const main = big ? (w12 || w8) : w4;
   const sizes = big ? '(max-width: 520px) 94vw, 480px' : '(max-width: 640px) 100vw, 600px';
-  return `src="${window.safeAttr(main)}" srcset="${window.safeAttr(w4)} 400w, ${window.safeAttr(w8)} 800w" sizes="${sizes}"`;
+  const set = [`${window.safeAttr(w4)} 400w`, `${window.safeAttr(w8)} 800w`];
+  if (w12) set.push(`${window.safeAttr(w12)} 1200w`);
+  const orig = window.safeImgUrl ? window.safeImgUrl(url) : '';
+  if (orig) set.push(`${window.safeAttr(orig)} 1600w`);
+  return `src="${window.safeAttr(main)}" srcset="${set.join(', ')}" sizes="${sizes}"`;
 }
 // One-shot retry for passport imagery: an aborted/flaky load left a slide
 // permanently broken (error state, no retry — the "black cards" report,

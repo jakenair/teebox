@@ -1,7 +1,7 @@
 /**
  * functions/lib/listingPhotoVariants.js
  * ─────────────────────────────────────────────────────────────────────────
- * 400px + 800px WebP derivatives of a listing photo, recorded on the listing
+ * 400/800/1200px WebP derivatives of a listing photo, recorded on the listing
  * doc under photoVariants[index]. Grid/list/thumb fetch these instead of the
  * 1600px original.
  *
@@ -21,7 +21,11 @@ const admin = require("firebase-admin");
 const {logger} = require("firebase-functions");
 const {convertToWebp} = require("./imageConvert");
 
-const SIZES = [["w400", 400, 78], ["w800", 800, 82]];
+// [key, max edge px, webp quality]. w1200 added 2026-10-19: an iPhone renders a
+// full-width photo at ~1170 physical px, so w800 was being upscaled ~1.5x.
+// Shared by listings (here), passport (index.js writePassportPhotoVariants) and
+// both backfill scripts — one table, no drift.
+const SIZES = [["w400", 400, 80], ["w800", 800, 84], ["w1200", 1200, 84]];
 
 function indexFromObjectName(objName) {
   const idx = parseInt(String(objName.split("/").pop()).split("_")[1], 10);

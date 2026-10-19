@@ -4364,7 +4364,7 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 // Moved to ./lib/listingPhotoVariants (2026-10-16) so approveFlaggedListing
 // and scripts/backfill-photo-variants.mjs encode variants with the SAME code
 // path as this trigger. Signature unchanged for the call below.
-const {writeListingPhotoVariants} = require("./lib/listingPhotoVariants");
+const {writeListingPhotoVariants, SIZES: PHOTO_VARIANT_SIZES} = require("./lib/listingPhotoVariants");
 const {pruneAtDeletion} = require("./lib/photoPrune");
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
@@ -8439,7 +8439,8 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
       await purge(reason);
     });
 
-// Generate 400px + 800px WebP derivatives of a passport photo and record
+// Generate 400/800/1200px WebP derivatives of a passport photo (sizes shared
+// with listings via lib/listingPhotoVariants.SIZES) and record
 // their download URLs on the round doc under photoVariants.<basename>
 // (basename = "<stamp>_<i>", the object filename minus extension — no dots,
 // safe as a Firestore field-path segment). Mirrors writeListingPhotoVariants.
@@ -8453,7 +8454,7 @@ async function writePassportPhotoVariants(bucket, objName, roundRef, baseSharp) 
     return;
   }
   const urls = {};
-  for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
+  for (const [key, px, q] of PHOTO_VARIANT_SIZES) {
     const buf = await baseSharp.clone()
         .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
         // No .withMetadata() — it RETAINS EXIF rather than stripping it. See

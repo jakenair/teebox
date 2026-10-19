@@ -344,7 +344,8 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId
         && appCheckOk()
         && request.resource.data.keys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom',
+              'pushPrefs','bingoPushPrefs']);
 
       // Same allow-list on update. GDPR consent fields (marketingConsent,
       // marketingBannerDismissedAt) are deliberately excluded — they must
@@ -353,6 +354,12 @@ service cloud.firestore {
       // serverTimestamp() and append the audit-trail history. A diff that
       // touches a server-only field is rejected outright (hasOnly() is
       // exact-match, not subset).
+      //
+      // `pushPrefs` / `bingoPushPrefs` (added 2026-10-19): the Notifications
+      // panel writes both straight from the client (savePushPrefs, index.html)
+      // and they were never on this list, so every save since 2026-05-13 was
+      // rejected — 0 of 536 users had the field. Push triggers read them with
+      // "missing = on" defaults; nothing server-side ever writes them.
       //
       // `shippingFrom` is included because the Shippo label flow reads
       // it as the return address on every label. Field is a map of
@@ -364,7 +371,8 @@ service cloud.firestore {
         && appCheckOk()
         && isEmailVerified()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom']);
+             ['phone','termsAgreed','termsAgreedAt','displayName','watchlist','blocked','shippingFrom',
+              'pushPrefs','bingoPushPrefs']);
 
       allow delete: if false;
 
