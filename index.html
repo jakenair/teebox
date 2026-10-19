@@ -5638,7 +5638,7 @@
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r345</span></div>
+        <span class="auth-build" aria-hidden="true">r346</span></div>
     </div>
   </div>
 </div>
@@ -9357,8 +9357,20 @@ window.confirmPayment = async function() {
           // don't double-emit for that path.
           try {
             const m = user.metadata || {};
+            // r346: creationTime === lastSignInTime stays true for as long as
+            // a persisted session never re-authenticates, so on its own it
+            // re-fired "signup" (PostHog + Meta CompleteRegistration) on
+            // EVERY page load for those users — 801 relay attempts from 143
+            // accounts in 17 days, one account 49×. Two extra gates: the
+            // account must be younger than 15 minutes, and the per-uid
+            // once-key (localStorage, via fbTrack's `once`) must be unset.
+            const createdMs = Date.parse(m.creationTime || '');
+            const youngAccount = !Number.isFinite(createdMs) ||
+              (Date.now() - createdMs) < 15 * 60 * 1000;
+            const signupKey = 'signup_' + user.uid;
             const isFirstSession = m.creationTime && m.lastSignInTime &&
-              m.creationTime === m.lastSignInTime;
+              m.creationTime === m.lastSignInTime && youngAccount &&
+              !(window.fbAlreadyFired && window.fbAlreadyFired(signupKey));
             if (isFirstSession && !window.__teeboxSignupEmitted) {
               window.__teeboxSignupEmitted = true;
               // Method derivation from providerData[0].providerId. Apple
@@ -9384,7 +9396,8 @@ window.confirmPayment = async function() {
               // IS the registration signal. The Stripe-KYC transition is
               // marked by Lead.)
               window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' },
-                { eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || '') });
+                { once: signupKey,
+                  eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || user.uid) });
             }
           } catch (_e2) { /* swallow */ }
         } else {
@@ -10088,8 +10101,11 @@ window.confirmPayment = async function() {
             // via __teeboxSignupEmitted; no PII in params).
             // r278 item 4: see the note at the OAuth site — 'unknown' until
             // Stripe onboarding makes them a seller.
+            // r346: `once` marks the per-uid key in localStorage so the
+            // onAuthStateChanged detector cannot re-fire it on later loads.
             window.fbTrack('CompleteRegistration', { status: true, account_type: 'unknown' },
-                { eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || '') });
+                { once: 'signup_' + cred.user.uid,
+                  eventID: 'cr_' + String((window.CURRENT_USER && window.CURRENT_USER.uid) || cred.user.uid) });
             // One-shot guard so the onAuthStateChanged listener's OAuth
             // signup detector doesn't double-emit for this same user.
             window.__teeboxSignupEmitted = true;
