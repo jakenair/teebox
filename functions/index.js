@@ -8140,6 +8140,10 @@ Object.assign(exports, require("./likeNotify"));
 // hideUnonboardedListings (7-day auto-hide + self-heal relist). See the
 // file header for why there is no onUpdate trigger here.
 Object.assign(exports, require("./listFirst"));
+// completeAccountSetup (2026-10-19): idempotent server-side finish for new
+// accounts (name, users/profiles docs, verification email) so a client-side
+// timeout during sign-up never leaves a half-made account.
+exports.completeAccountSetup = require("./accountSetup").completeAccountSetup;
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order

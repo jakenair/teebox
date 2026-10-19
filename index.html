@@ -9472,6 +9472,8 @@ window.confirmPayment = async function() {
       document.body.classList.remove('is-anon');
       // Phase 2: soft email-verification prompt (never gates anything).
       try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(user); } catch (_e) {}
+      // r349: finish a half-made account (timed-out sign-up) — idempotent.
+      try { window.__finishPendingSetup && window.__finishPendingSetup(user); } catch (_e) {}
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
@@ -10097,17 +10099,68 @@ window.confirmPayment = async function() {
     }
     err.textContent = '';
     btn.disabled = true;
-    btn.textContent = emailMode === 'signin' ? 'Signing in…' : 'Creating account…';
+    btn.textContent = emailMode === 'signin' ? 'Signing in…' : 'Creating your account…';
+    // r349: slow-network copy. The Firebase SDK does not give up for 30 s on
+    // a 2 s-RTT connection; say so instead of looking frozen.
+    const _slowCopy = setTimeout(() => {
+      try { if (btn.disabled) btn.textContent = (emailMode === 'signin' ? 'Signing in' : 'Creating your account') + '… slow connection, hang tight'; } catch (_e) {}
+    }, 12000);
     try {
       if (emailMode === 'signin') {
-        await signInWithEmailAndPassword(auth, email, pw);
+        try {
+          await signInWithEmailAndPassword(auth, email, pw);
+        } catch (e1) {
+          // r349: one automatic retry on a network timeout — the first
+          // attempt usually just missed the SDK's 30 s window on slow links.
+          if (e1 && e1.code === 'auth/network-request-failed') {
+            btn.textContent = 'Slow connection — retrying…';
+            await signInWithEmailAndPassword(auth, email, pw);
+          } else { throw e1; }
+        }
       } else {
         // GDPR: read marketing-consent checkbox state BEFORE awaiting any
         // network call. If we read it after sign-up we race with the user
         // dismissing the form (or autofill state changes).
         const mktInput = document.getElementById('marketingConsentInput');
         const marketingConsentGranted = !!(mktInput && mktInput.checked);
-        const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        // r349: remember what this sign-up wanted BEFORE the network call, so
+        // a timed-out attempt (account created server-side 30–45 s later with
+        // no name / no docs) is finished by __finishPendingSetup on the next
+        // sign-in instead of becoming an orphan.
+        try { localStorage.setItem('tb_pending_signup', JSON.stringify({ email, name: signupName, consent: marketingConsentGranted, ts: Date.now() })); } catch (_e) {}
+        let cred;
+        let recovered = false;
+        try {
+          cred = await createUserWithEmailAndPassword(auth, email, pw);
+        } catch (e0) {
+          const c0 = (e0 && e0.code) || '';
+          // Our own request may have landed after the SDK gave up, or an
+          // earlier timed-out attempt already created the account. Either
+          // way: try to SIGN IN with the same credentials for up to ~45 s
+          // instead of showing "Network error" / "already in use".
+          if (c0 === 'auth/network-request-failed' || c0 === 'auth/email-already-in-use' || c0 === 'auth/timeout') {
+            btn.textContent = 'Finishing your account…';
+            const tries = c0 === 'auth/email-already-in-use' ? 2 : 8;
+            for (let i = 0; i < tries && !cred; i++) {
+              try {
+                cred = await signInWithEmailAndPassword(auth, email, pw);
+                recovered = true;
+              } catch (e1) {
+                const c1 = (e1 && e1.code) || '';
+                const notYet = c1 === 'auth/invalid-credential' || c1 === 'auth/user-not-found' || c1 === 'auth/wrong-password' || c1 === 'auth/invalid-login-credentials' || c1 === 'auth/network-request-failed';
+                if (!notYet) throw e1;
+                if (i < tries - 1) await new Promise(r => setTimeout(r, 6000));
+              }
+            }
+            if (!cred) {
+              // Genuine pre-existing account with a different password → the
+              // normal "already exists, sign in" path. Anything else → retry copy.
+              if (c0 === 'auth/email-already-in-use') throw e0;
+              const eTimeout = new Error('timeout'); eTimeout.code = 'auth/network-request-failed'; eTimeout.recoverable = true; throw eTimeout;
+            }
+          } else { throw e0; }
+        }
+        if (recovered) console.info('[signup] recovered a timed-out account creation by signing in');
         // Analytics: priority event #1 — fires only on a SUCCESSFUL new
         // email/password account creation. Mirrors OAuth providers below
         // (sign-in-google / sign-in-apple) so all three signup paths
@@ -10149,13 +10202,29 @@ window.confirmPayment = async function() {
         // profiles/{uid} (the public doc every render site reads). Profile
         // create-with-displayName is allowed by rules; content moderation
         // is covered by the moderateProfileOnCreate trigger.
-        try { await fbUpdateProfile(cred.user, { displayName: signupName }); } catch (_e) {}
+        // r349: ONE idempotent server call finishes the account (Auth
+        // displayName, users/{uid}, profiles/{uid}, verification email). It
+        // is also replayed on every later sign-in while tb_pending_signup is
+        // set, so a half-made account always gets completed. The legacy
+        // inline writes remain as a fallback if the callable is unreachable.
+        let _setupDone = false;
         try {
-          await setDoc(doc(db, 'users', cred.user.uid), { displayName: signupName }, { merge: true });
-        } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
-        try {
-          await setDoc(doc(db, 'profiles', cred.user.uid), { displayName: signupName }, { merge: true });
-        } catch (e) { console.warn('profiles doc seed failed:', e && e.code || e); }
+          const _finish = httpsCallable(fns, 'completeAccountSetup');
+          const _r = await _finish({ displayName: signupName });
+          _setupDone = !!(_r && _r.data && _r.data.ok);
+        } catch (e) { console.warn('completeAccountSetup failed, using inline fallback:', e && e.code || e); }
+        if (!_setupDone) {
+          try { await fbUpdateProfile(cred.user, { displayName: signupName }); } catch (_e) {}
+          try {
+            await setDoc(doc(db, 'users', cred.user.uid), { displayName: signupName }, { merge: true });
+          } catch (e) { console.warn('users doc bootstrap failed:', e && e.code || e); }
+          try {
+            await setDoc(doc(db, 'profiles', cred.user.uid), { displayName: signupName }, { merge: true });
+          } catch (e) { console.warn('profiles doc seed failed:', e && e.code || e); }
+        } else {
+          try { if (!cred.user.displayName) await cred.user.reload(); } catch (_e) {}
+          try { localStorage.removeItem('tb_pending_signup'); } catch (_e) {}
+        }
         window.CURRENT_DISPLAY_NAME = signupName;
         // GDPR: record the marketing-consent decision via the callable.
         // The callable (server-side) writes the audit trail to
@@ -10177,8 +10246,10 @@ window.confirmPayment = async function() {
         // just won't see the verification link until they retry. The
         // unverified-banner in the app surfaces this state.
         try {
-          const sendVerify = httpsCallable(fns, 'sendBrandedVerification');
-          await sendVerify();
+          if (!_setupDone) {
+            const sendVerify = httpsCallable(fns, 'sendBrandedVerification');
+            await sendVerify();
+          }
           if (window.showToast) showToast('Verification link sent to ' + email + ' — check your inbox, and your spam or Promotions folder if you don\'t see it.', 'success');
         } catch (_) {}
       }
@@ -10202,13 +10273,43 @@ window.confirmPayment = async function() {
         setTimeout(() => { try { document.getElementById('passwordInput').focus(); } catch {} }, 50);
       }
       else if (code === 'auth/weak-password') msg = 'Password is too weak. Use 8+ characters with a mix of letters and numbers.';
-      else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
+      else if (code === 'auth/network-request-failed') msg = emailMode === 'signup'
+        ? 'Your connection is very slow and we couldn’t confirm the account yet. Tap Try again — if it was created, we’ll sign you straight in.'
+        : 'Your connection is very slow. Tap Try again.';
       else if (code === 'auth/too-many-requests') msg = 'Too many attempts. Wait a few minutes before trying again.';
       else if (code === 'auth/operation-not-allowed') msg = 'Email sign-in is temporarily unavailable. Try Google sign-in instead.';
       err.textContent = msg;
       btn.disabled = false;
-      btn.textContent = emailMode === 'signin' ? 'Sign In' : 'Create Account';
+      btn.textContent = code === 'auth/network-request-failed' ? 'Try again' : (emailMode === 'signin' ? 'Sign In' : 'Create Account');
+    } finally {
+      clearTimeout(_slowCopy);
     }
+  };
+
+  // r349: finish a half-made account on ANY sign-in. Fires from the auth
+  // listener. Idempotent server-side (completeAccountSetup); the pending
+  // record is cleared once the server confirms. Also covers legacy
+  // accounts with a blank Auth displayName but a users-doc name.
+  window.__finishPendingSetup = async function(user) {
+    try {
+      if (!user || !user.uid) return;
+      if (window.__pendingSetupRan === user.uid) return;
+      let pending = null;
+      try { pending = JSON.parse(localStorage.getItem('tb_pending_signup') || 'null'); } catch (_e) {}
+      const mine = pending && pending.email && user.email && pending.email.toLowerCase() === user.email.toLowerCase();
+      const isPassword = (user.providerData || []).some(pd => pd && pd.providerId === 'password');
+      if (!mine && !(isPassword && !(user.displayName || '').trim())) return;
+      window.__pendingSetupRan = user.uid;
+      const _finish = httpsCallable(fns, 'completeAccountSetup');
+      const r = await _finish({ displayName: mine ? pending.name : undefined });
+      if (r && r.data && r.data.ok) {
+        if (mine) { try { localStorage.removeItem('tb_pending_signup'); } catch (_e) {} }
+        if (r.data.displayNameSet && mine) { window.CURRENT_DISPLAY_NAME = pending.name; try { await user.reload(); } catch (_e) {} }
+        if (mine && typeof pending.consent === 'boolean') {
+          try { await httpsCallable(fns, 'updateMarketingConsent')({ granted: pending.consent, source: 'signup' }); } catch (_e) {}
+        }
+      }
+    } catch (e) { console.warn('[signup] pending setup replay failed:', e && e.code || e); window.__pendingSetupRan = null; }
   };
 
   // Enter-key submit on email/password fields. iOS keyboard "Go"/"Return"
