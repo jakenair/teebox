@@ -42,7 +42,27 @@ if (!fs.existsSync(PHOTO)) { // 1200x1200 labelled JPEG via sharp (functions dep
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><rect width="1200" height="1200" fill="#e8efe6"/><circle cx="600" cy="560" r="300" fill="#2f5d3a"/><text x="600" y="1050" font-size="72" text-anchor="middle" font-family="Helvetica" fill="#333">SMOKE TEST</text></svg>`;
   await sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toFile(PHOTO);
 }
-const PIXEL = { events: [] };
+const PIXEL = { events: [], blocked: [] };
+const TAG = "pw" + Date.now().toString(36); const PW = "PwWalk!" + TAG;
+// Smoke accounts live on the RFC-reserved .invalid TLD: nothing can ever deliver to them, and the
+// cleanup guard below refuses to delete anything owned by an account outside this domain.
+const SMOKE_DOMAIN = "@teeboxtest.invalid";
+const SMOKE_TITLE = "PW WALK TEST polo (delete me)";
+const SELLER_EMAIL = `${TAG}-seller${SMOKE_DOMAIN}`, BUYER_EMAIL = `${TAG}-buyer${SMOKE_DOMAIN}`, BUYER_UID = `pwbuyer_${TAG}`;
+const CREATED_UIDS = new Set();
+// Hard guard: a uid may only be touched by cleanup if WE created it this run AND its email is a
+// smoke address. Throws loudly otherwise — nothing is deleted on a guard failure.
+async function assertSmokeAccount(uid, what) {
+  if (!uid || !CREATED_UIDS.has(uid)) throw new Error(`SMOKE GUARD: refusing ${what} — uid not created by this run`);
+  let u = null; try { u = await auth.getUser(uid); } catch (_) {}
+  const email = (u && u.email) || "";
+  if (!email.toLowerCase().endsWith(SMOKE_DOMAIN)) throw new Error(`SMOKE GUARD: refusing ${what} — account email is not a smoke address`);
+  return u;
+}
+// Everything the pixel would send to Meta (browser beacons, the Conversions API Gateway, and the
+// client→capiRelay call) is captured for --pixel reporting and ABORTED, so a smoke run never
+// reaches ad data. Nothing else is blocked.
+const META_BLOCK = [/https:\/\/www\.facebook\.com\/tr\/?\?/, /https:\/\/[^/]*\.on\.aws\//, /https:\/\/[^/]*\.run\.app\/events\?/, /cloudfunctions\.net\/capiRelay/, /\/capiRelay\b/, /capirelay-[a-z0-9]+-uc\.a\.run\.app/i];
 const JAKE_LISTING = "F1VEK3FxOKXF02BqC61H";
 const SLOW3G = {offline: false, latency: 2000, downloadThroughput: 50 * 1024, uploadThroughput: 50 * 1024};
 const FAST3G = {offline: false, latency: 562, downloadThroughput: 180 * 1024, uploadThroughput: 84 * 1024};
@@ -52,7 +72,6 @@ let shot = 0; let sellerUid = null; let testListingId = null;
 const now = () => Date.now();
 async function snap(page, name) { shot++; const f = path.join(OUT, `${String(shot).padStart(2, "0")}-${name}.png`); await page.screenshot({path: f}).catch(() => {}); return path.basename(f); }
 function wire(page, label) {
-  if (WANT_PIXEL) page.on("request", (r) => { const u = r.url(); if (/facebook\.com\/tr\/?\?/.test(u)) { try { const q = new URL(u).searchParams; PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } catch (_) {} } });
   page.on("console", (m) => { if (m.type() === "error") report.consoleErrors.push(`[${label}] ${m.text().slice(0, 160)}`); });
   page.on("pageerror", (e) => report.pageErrors.push(`[${label}] ${String(e.message || e).slice(0, 160)}`));
   page.on("requestfailed", (r) => { const u = r.url(); if (!/google-analytics|facebook|doubleclick|gstatic.*favicon/i.test(u)) report.failedRequests.push(`[${label}] ${r.failure() && r.failure().errorText} ${u.slice(0, 110)}`); });
@@ -89,6 +108,7 @@ async function clickWatch(page, sel, outcomeSel, label, timeout = 90000) {
 async function newPage(browser, label) {
   const ctx = await browser.newContext({...devices["iPhone 14"], locale: "en-US", timezoneId: "America/Chicago"});
   const page = await ctx.newPage(); wire(page, label);
+  await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { const q = new URL(u).searchParams; PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
   const cdp = await ctx.newCDPSession(page); await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", SLOW3G);
   page.setDefaultTimeout(120000);
   await page.addInitScript(() => { window.__lcp = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lcp = e.startTime; }).observe({type: "largest-contentful-paint", buffered: true}); } catch (_) {} });
@@ -174,6 +194,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       report.notes.push("Slow 3G: account creation never completes client-side (30 s SDK timeout) — remaining seller steps ran on Fast 3G.");
       let u = null; try { u = await auth.getUserByEmail(SELLER_EMAIL); } catch (_) {}
       if (!u) u = await auth.createUser({email: SELLER_EMAIL, password: PW, displayName: "PW Walk Seller"});
+      CREATED_UIDS.add(u.uid);
       await setNet(seller, FAST3G, "Fast 3G");
       await step(p, "signup: Sign In on Fast 3G (same account)", async () => {
         await p.locator('#authScreen [data-emailmode="signin"]').click().catch(() => {}); await p.waitForTimeout(400);
@@ -182,7 +203,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
         return {...attempts[attempts.length - 1]};
       });
     }
-    { const u = await auth.getUserByEmail(SELLER_EMAIL); sellerUid = u.uid; const ud = await db.doc(`users/${u.uid}`).get(); const pd = await db.doc(`profiles/${u.uid}`).get(); report.notes.push(`post-signup server state: displayName=${JSON.stringify(u.displayName)} usersDoc=${ud.exists} profilesDoc=${pd.exists}`); console.log("  server state:", {displayName: u.displayName, usersDoc: ud.exists, profilesDoc: pd.exists}); }
+    { const u = await auth.getUserByEmail(SELLER_EMAIL); sellerUid = u.uid; CREATED_UIDS.add(sellerUid); const ud = await db.doc(`users/${u.uid}`).get(); const pd = await db.doc(`profiles/${u.uid}`).get(); report.notes.push(`post-signup server state: displayName=${JSON.stringify(u.displayName)} usersDoc=${ud.exists} profilesDoc=${pd.exists}`); console.log("  server state:", {displayName: u.displayName, usersDoc: ud.exists, profilesDoc: pd.exists}); }
     await step(p, "signup: signed-in state", async () => { await p.waitForTimeout(3000); const banner = await p.locator("text=/verify/i").first().textContent({timeout: 5000}).catch(() => ""); return {verifyCopy: (banner || "").trim().slice(0, 100), attempts: attempts.length}; });
     if (MODE === "signup") { report.notes.push("mode=signup: stopped after sign-up"); throw new Error("__stop__"); }
     // Simulate the seller clicking the verification link (admin flip) — the app's "I've verified" path re-checks.
@@ -228,7 +249,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     await step(p, "list: dismiss payouts dialog", async () => { const b = p.locator('#stripeRequiredBackdrop [data-action="close-stripe-required"]').last(); if (await b.isVisible().catch(() => false)) await b.click(); await p.waitForTimeout(1500); const top = await p.locator(".product-card").first().getAttribute("data-product-id"); return {feedTopIsTestListing: top === testListingId}; });
 
     // ── Buyer ──
-    await auth.createUser({uid: BUYER_UID, email: BUYER_EMAIL, password: PW, emailVerified: true});
+    await auth.createUser({uid: BUYER_UID, email: BUYER_EMAIL, password: PW, emailVerified: true}); CREATED_UIDS.add(BUYER_UID);
     await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", createdAt: admin.firestore.FieldValue.serverTimestamp()});
     buyer = await newPage(browser, "buyer"); const b = buyer.page;
     await step(b, "buyer: load + sign in", async () => {
@@ -286,33 +307,51 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     await step(b, "buyer: close checkout", async () => { await b.locator('#checkoutBackdrop [data-action="close-checkout-direct"]').first().click().catch(() => {}); await b.waitForTimeout(1000); });
   } catch (e) { if (String(e && e.message) !== "__stop__") { report.fatal = String(e && e.stack || e).slice(0, 600); console.error("FATAL", e); } }
   finally {
-    // ── Cleanup ──
-    const clean = {};
+    // ── Cleanup (guarded) ──
+    const clean = {guard: "ok"};
     try {
-      if (testListingId) {
-        await db.doc(`listings/${testListingId}`).delete(); clean.listingDeleted = testListingId;
-        // Photos live at listings/{sellerUid}/{listingId}/… (see uploadPhotos).
-        let files = [];
-        if (sellerUid) { [files] = await admin.storage().bucket().getFiles({prefix: `listings/${sellerUid}/${testListingId}/`}); }
-        if (!files.length) { const [all] = await admin.storage().bucket().getFiles({prefix: "listings/"}); files = all.filter((f) => f.name.includes(`/${testListingId}/`)); }
-        for (const f of files) await f.delete().catch(() => {}); clean.storageObjectsDeleted = files.length;
-        const holds = await db.collection("listingHolds").doc(testListingId).get(); if (holds.exists) { await holds.ref.delete(); clean.holdDeleted = true; }
+      // The UI-created seller (sign-up leg) is ours too: resolve its uid by the smoke email.
+      if (!sellerUid) { try { const u = await auth.getUserByEmail(SELLER_EMAIL); sellerUid = u.uid; CREATED_UIDS.add(u.uid); } catch (_) {} }
+      // 0. Guard both accounts BEFORE any delete. A failure aborts the whole cleanup loudly.
+      const guarded = [];
+      for (const uid of [sellerUid, BUYER_UID].filter(Boolean)) { try { await assertSmokeAccount(uid, `cleanup of ${uid.slice(0, 6)}…`); guarded.push(uid); } catch (e) { if (/not created by this run/.test(e.message) && uid === BUYER_UID) continue; throw e; } }
+      // 1. Test listing: only docs owned by the guarded seller AND carrying the smoke title.
+      if (sellerUid && guarded.includes(sellerUid)) {
+        const mine = await db.collection("listings").where("sellerId", "==", sellerUid).get();
+        clean.listingsDeleted = [];
+        for (const d of mine.docs) {
+          if (d.data().title !== SMOKE_TITLE) { clean.skippedUnexpectedListing = (clean.skippedUnexpectedListing || 0) + 1; console.error("SMOKE GUARD: listing", d.id, "owned by the smoke seller does not carry the smoke title — left in place"); continue; }
+          const [files] = await admin.storage().bucket().getFiles({prefix: `listings/${sellerUid}/${d.id}/`});
+          for (const f of files) await f.delete().catch(() => {});
+          await d.ref.delete(); clean.listingsDeleted.push({id: d.id, storageObjects: files.length});
+          const hold = await db.collection("listingHolds").doc(d.id).get(); if (hold.exists) { await hold.ref.delete(); clean.holdDeleted = true; }
+        }
       }
-      if (sellerUid) { const u = await db.collection("listings").where("sellerId", "==", sellerUid).get(); for (const d of u.docs) await d.ref.delete(); }
-      for (const uid of [sellerUid, BUYER_UID].filter(Boolean)) {
-        for (const sub of ["rateLimits", "notifications", "fcmTokens"]) { const s = await db.collection(`users/${uid}/${sub}`).get(); for (const d of s.docs) await d.ref.delete().catch(() => {}); }
+      // 2. Accounts + their subcollections (guarded uids only).
+      for (const uid of guarded) {
+        for (const sub of ["rateLimits", "notifications", "fcmTokens"]) { const x = await db.collection(`users/${uid}/${sub}`).get(); for (const d of x.docs) await d.ref.delete().catch(() => {}); }
         await db.doc(`users/${uid}`).delete().catch(() => {}); await db.doc(`profiles/${uid}`).delete().catch(() => {}); await auth.deleteUser(uid).catch(() => {});
       }
-      if (!sellerUid) { try { const u = await auth.getUserByEmail(SELLER_EMAIL); await db.doc(`users/${u.uid}`).delete().catch(() => {}); await auth.deleteUser(u.uid); clean.orphanSellerDeleted = true; } catch (_) {} }
-      clean.usersDeleted = [sellerUid, BUYER_UID].filter(Boolean).length;
-      // release the checkout reservation the Buy Now tap placed on Jake's listing
+      clean.usersDeleted = guarded.length;
+      // 3. The checkout reservation the buyer's Buy Now placed on the real listing: cancel the
+      //    PaymentIntent (never confirmed) and release the hold — only if it is OUR buyer's.
       const jl = await db.doc(`listings/${JAKE_LISTING}`).get(); const d = jl.data() || {};
-      clean.jakeListingBefore = {status: d.status, quantityReserved: d.quantityReserved || 0, pendingBuyer: d.pendingBuyer ? "set" : null};
-      if (d.pendingBuyer === BUYER_UID || (d.quantityReserved || 0) > 0) {
+      clean.jakeListingBefore = {status: d.status, quantityReserved: d.quantityReserved || 0, pendingBuyerIsOurs: d.pendingBuyer === BUYER_UID};
+      if (d.pendingBuyer === BUYER_UID) {
+        const piId = d.pendingPaymentIntentId || null;
+        if (piId) {
+          try {
+            const {execFileSync} = await import("node:child_process");
+            const key = execFileSync("gcloud", ["secrets", "versions", "access", "latest", "--secret", "STRIPE_SECRET_KEY", "--project", "teebox-market"], {encoding: "utf8"}).trim();
+            const stripe = requireFns("stripe")(key);
+            const pi = await stripe.paymentIntents.cancel(piId, {cancellation_reason: "abandoned"});
+            clean.paymentIntentCancelled = {id: pi.id, status: pi.status};
+          } catch (e) { clean.paymentIntentCancelError = String(e && e.message || e).slice(0, 160); clean.paymentIntentId = piId; }
+        }
         await jl.ref.update({quantityReserved: 0, pendingBuyer: admin.firestore.FieldValue.delete(), pendingUntil: admin.firestore.FieldValue.delete(), pendingPaymentIntentId: admin.firestore.FieldValue.delete(), ...(d.status === "pending" ? {status: "active"} : {})});
         clean.jakeListingReleased = true;
       }
-    } catch (e) { clean.error = String(e && e.message || e); }
+    } catch (e) { clean.guard = "FAILED"; clean.error = String(e && e.message || e); console.error("CLEANUP ABORTED:", clean.error); }
     report.cleanup = clean;
     if (WANT_PIXEL) {
       const seen = (ev) => PIXEL.events.filter((e) => e.ev === ev);
@@ -321,6 +360,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
         const hits = seen(ev); const withIds = hits.filter((h) => h.content_ids); const withValue = hits.filter((h) => h.value);
         report.pixel[ev] = { fired: hits.length, withContentIds: withIds.length, withValue: withValue.length, pass: ev === "PageView" ? hits.length > 0 : (hits.length > 0 && withIds.length > 0 && (ev === "ViewContent" || withValue.length > 0)) };
       }
+      report.pixel.deliveredToMeta = 0; report.pixel.blockedRequests = PIXEL.blocked.length;
       console.log("PIXEL", JSON.stringify(report.pixel));
     }
     fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify(report, null, 1));
