@@ -64,12 +64,24 @@ async function assertSmokeAccount(uid, what) {
 // client→capiRelay call) is captured for --pixel reporting and ABORTED, so a smoke run never
 // reaches ad data. Nothing else is blocked.
 const META_BLOCK = [/https:\/\/www\.facebook\.com\/tr(\/|\?|$)/, /https:\/\/www\.facebook\.com\/privacy_sandbox\//, /https:\/\/[^/]*\.on\.aws\//, /https:\/\/[^/]*\.run\.app\/events\?/, /cloudfunctions\.net\/capiRelay/, /\/capiRelay\b/, /capirelay-[a-z0-9]+-uc\.a\.run\.app/i];
-const JAKE_LISTING = "F1VEK3FxOKXF02BqC61H";
+// Buy Now / checkout target. NEVER a real seller's listing: by default the smoke listing this run
+// creates (its seller is un-onboarded, so the leg verifies the "tap to get notified" slot and no
+// PaymentIntent is created). SMOKE_BUYABLE_LISTING may name a listing owned by a *smoke* account
+// that has payouts set up; assertSmokeListing() refuses anything else before the tap.
+const BUYABLE_LISTING_ENV = process.env.SMOKE_BUYABLE_LISTING || null;
+async function assertSmokeListing(listingId, what) {
+  const snap = await db.doc(`listings/${listingId}`).get();
+  if (!snap.exists) throw new Error(`SMOKE GUARD: ${what} — listing ${listingId} does not exist`);
+  const sellerId = snap.data().sellerId;
+  let email = ""; try { email = (await auth.getUser(sellerId)).email || ""; } catch (_) {}
+  if (!email.toLowerCase().endsWith(SMOKE_DOMAIN)) throw new Error(`SMOKE GUARD: ${what} — listing ${listingId} is NOT owned by a smoke account; refusing to touch a real seller's listing`);
+  return snap.data();
+}
 const SLOW3G = {offline: false, latency: 2000, downloadThroughput: 50 * 1024, uploadThroughput: 50 * 1024};
 const FAST3G = {offline: false, latency: 562, downloadThroughput: 180 * 1024, uploadThroughput: 84 * 1024};
 let NET = "Slow 3G";
 const report = {steps: [], slow: [], frozen: [], consoleErrors: [], pageErrors: [], failedRequests: [], notes: []};
-let shot = 0; let sellerUid = null; let testListingId = null;
+let shot = 0; let sellerUid = null; let testListingId = null; let BUY_TARGET_FOR_CLEANUP = null;
 const now = () => Date.now();
 async function snap(page, name) { shot++; const f = path.join(OUT, `${String(shot).padStart(2, "0")}-${name}.png`); await page.screenshot({path: f}).catch(() => {}); return path.basename(f); }
 function wire(page, label) {
@@ -120,6 +132,25 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
   const browser = await chromium.launch();
   let seller, buyer;
   try {
+    // ── Preflight: Meta blocker must intercept every pixel/CAPI request ──
+    // Loads the site once, opens a listing (PageView + ViewContent), and compares what the page
+    // *requested* against what the route *intercepted*. Any Meta request that was not intercepted
+    // aborts the run before an account or listing is created.
+    {
+      const pre = await newPage(browser, "preflight");
+      const requested = []; pre.page.on("request", (r) => { const u = r.url(); if (/facebook\.com|on\.aws|run\.app\/events|capiRelay/i.test(u) && !/connect\.facebook\.net/.test(u)) requested.push(u); });
+      const seenBefore = PIXEL.events.length + PIXEL.blocked.length;
+      await pre.page.goto((process.env.BASE || "https://teeboxmarket.com") + "/?_=pre" + TAG, {waitUntil: "commit", timeout: 120000});
+      await pre.page.locator(".product-card").first().waitFor({state: "visible", timeout: 120000});
+      await pre.page.waitForTimeout(8000); await pre.page.locator(".product-card").first().click().catch(() => {}); await pre.page.waitForTimeout(8000);
+      const intercepted = PIXEL.events.length + PIXEL.blocked.length - seenBefore;
+      const leaked = requested.length - intercepted;
+      report.preflight = {metaRequests: requested.length, intercepted, leaked: Math.max(0, leaked)};
+      await pre.ctx.close();
+      if (requested.length === 0) report.notes.push("preflight: no Meta requests observed (pixel off or blocked upstream)");
+      if (leaked > 0) throw new Error(`PREFLIGHT FAILED: ${leaked} Meta request(s) were not intercepted — fix META_BLOCK before running; nothing was created`);
+      console.log("preflight ok:", JSON.stringify(report.preflight));
+    }
     // ── Guest browse ──
     seller = await newPage(browser, "seller");
     const p = seller.page;
@@ -141,7 +172,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     });
     await step(p, "guest: scroll feed", async () => { await p.mouse.wheel(0, 1200); await p.waitForTimeout(1500); await p.mouse.wheel(0, 1200); await p.waitForTimeout(1500); const n = await p.locator(".product-card").count(); return {cardsRendered: n}; });
     await step(p, "guest: open a listing detail", async () => {
-      const r = await clickWatch(p, `.product-card[data-product-id="${JAKE_LISTING}"]`, "#detailBuyNowBtn", "guest open detail", 60000);
+      const r = await clickWatch(p, `.product-card`, "#detailBuyNowBtn", "guest open detail", 60000);
       const buy = await p.locator("#detailBuyNowBtn").textContent().catch(() => "");
       return {openMs: r.outcomeMs, buyLabel: (buy || "").trim()};
     });
@@ -295,10 +326,13 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       return {openMs: r.outcomeMs, buyLabel: label, disabled, note};
     });
     await step(b, "buyer: close detail", async () => { await b.locator('.modal-close, [data-action="close-detail"], [data-action="close-detail-direct"]').first().click().catch(() => b.keyboard.press("Escape")); await b.waitForTimeout(1000); });
-    await step(b, "buyer: open a buyable listing → Buy Now → checkout (STOP)", async () => {
-      await clickWatch(b, `.product-card[data-product-id="${JAKE_LISTING}"]`, "#detailBuyNowBtn", "buyer open buyable", 60000);
+    const BUY_TARGET = BUYABLE_LISTING_ENV || testListingId; BUY_TARGET_FOR_CLEANUP = BUY_TARGET;
+    if (BUY_TARGET) await step(b, "buyer: Buy Now on the smoke listing → checkout (STOP)", async () => {
+      await assertSmokeListing(BUY_TARGET, "Buy Now");
+      await clickWatch(b, `.product-card[data-product-id="${BUY_TARGET}"]`, "#detailBuyNowBtn", "buyer open smoke listing", 60000);
       await b.waitForTimeout(5000);
       const label = (await b.locator("#detailBuyNowBtn").textContent()).trim();
+      if (/finishing setup/i.test(label)) { report.notes.push("checkout leg: smoke seller is un-onboarded → Buy slot is the notify CTA; no PaymentIntent created (set SMOKE_BUYABLE_LISTING to a payouts-enabled smoke listing to exercise Stripe)"); return {buyLabel: label, checkoutSkipped: true}; }
       const r = await clickWatch(b, "#detailBuyNowBtn", "#checkoutBackdrop.open", "Buy Now → checkout", 90000);
       const t0 = now(); let stripeMs = -1;
       try { await b.locator('#checkoutBackdrop iframe[name^="__privateStripeFrame"], #checkoutBackdrop iframe[src*="stripe"]').first().waitFor({state: "attached", timeout: 120000}); stripeMs = now() - t0; } catch (_) {}
@@ -338,9 +372,9 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       clean.usersDeleted = guarded.length;
       // 3. The checkout reservation the buyer's Buy Now placed on the real listing: cancel the
       //    PaymentIntent (never confirmed) and release the hold — only if it is OUR buyer's.
-      const jl = await db.doc(`listings/${JAKE_LISTING}`).get(); const d = jl.data() || {};
-      clean.jakeListingBefore = {status: d.status, quantityReserved: d.quantityReserved || 0, pendingBuyerIsOurs: d.pendingBuyer === BUYER_UID};
-      if (d.pendingBuyer === BUYER_UID) {
+      const jl = BUY_TARGET_FOR_CLEANUP ? await db.doc(`listings/${BUY_TARGET_FOR_CLEANUP}`).get() : null; const d = (jl && jl.data()) || {};
+      clean.buyTargetBefore = jl ? {id: BUY_TARGET_FOR_CLEANUP, status: d.status, quantityReserved: d.quantityReserved || 0, pendingBuyerIsOurs: d.pendingBuyer === BUYER_UID} : "none";
+      if (jl && d.pendingBuyer === BUYER_UID) {
         const piId = d.pendingPaymentIntentId || null;
         if (piId) {
           try {
@@ -352,7 +386,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
           } catch (e) { clean.paymentIntentCancelError = String(e && e.message || e).slice(0, 160); clean.paymentIntentId = piId; }
         }
         await jl.ref.update({quantityReserved: 0, pendingBuyer: admin.firestore.FieldValue.delete(), pendingUntil: admin.firestore.FieldValue.delete(), pendingPaymentIntentId: admin.firestore.FieldValue.delete(), ...(d.status === "pending" ? {status: "active"} : {})});
-        clean.jakeListingReleased = true;
+        clean.buyTargetReleased = true;
       }
     } catch (e) { clean.guard = "FAILED"; clean.error = String(e && e.message || e); console.error("CLEANUP ABORTED:", clean.error); }
     report.cleanup = clean;
