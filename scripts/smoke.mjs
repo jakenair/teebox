@@ -63,7 +63,7 @@ async function assertSmokeAccount(uid, what) {
 // Everything the pixel would send to Meta (browser beacons, the Conversions API Gateway, and the
 // client→capiRelay call) is captured for --pixel reporting and ABORTED, so a smoke run never
 // reaches ad data. Nothing else is blocked.
-const META_BLOCK = [/https:\/\/www\.facebook\.com\/tr\/?\?/, /https:\/\/[^/]*\.on\.aws\//, /https:\/\/[^/]*\.run\.app\/events\?/, /cloudfunctions\.net\/capiRelay/, /\/capiRelay\b/, /capirelay-[a-z0-9]+-uc\.a\.run\.app/i];
+const META_BLOCK = [/https:\/\/www\.facebook\.com\/tr(\/|\?|$)/, /https:\/\/www\.facebook\.com\/privacy_sandbox\//, /https:\/\/[^/]*\.on\.aws\//, /https:\/\/[^/]*\.run\.app\/events\?/, /cloudfunctions\.net\/capiRelay/, /\/capiRelay\b/, /capirelay-[a-z0-9]+-uc\.a\.run\.app/i];
 const JAKE_LISTING = "F1VEK3FxOKXF02BqC61H";
 const SLOW3G = {offline: false, latency: 2000, downloadThroughput: 50 * 1024, uploadThroughput: 50 * 1024};
 const FAST3G = {offline: false, latency: 562, downloadThroughput: 180 * 1024, uploadThroughput: 84 * 1024};
