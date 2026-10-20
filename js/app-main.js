@@ -1242,8 +1242,12 @@ async function openDetailModal(id) {
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
+  // r349 (P1-6): incrementListingView requires a signed-in caller and
+  // answered every guest open with a 401. Guests skip the call; signed-in
+  // non-owners still count. (Counting guest views needs an unauthenticated,
+  // IP-rate-limited variant of the callable — a functions change, not done here.)
   if (typeof p.id === 'string' && p.sellerId
-      && (!window.CURRENT_USER || window.CURRENT_USER.uid !== p.sellerId)) {
+      && window.CURRENT_USER && window.CURRENT_USER.uid !== p.sellerId) {
     (async () => {
       try {
         const { getFunctions, httpsCallable } =
