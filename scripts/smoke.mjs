@@ -164,7 +164,9 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       return {domContentLoadedMs: dcl, firstCardMs: cards, bootPaintMs: bootPaint, lcpMs: lcp};
     });
     await step(p, "guest: first-launch sign-in gate", async () => {
-      const gate = await p.locator("#authScreen").isVisible().catch(() => false);
+      // r352: judge the gate by computed style + class at first paint (the earlier isVisible()
+      // check missed the r327 optimistic open), and keep a screenshot as evidence.
+      const gate = await p.evaluate(() => { const g = document.getElementById("authScreen"); if (!g) return false; const cs = getComputedStyle(g); return g.classList.contains("open") && cs.display !== "none" && cs.visibility !== "hidden"; }).catch(() => false);
       let dismissMs = null;
       if (gate) { const t0 = now(); await p.locator('[data-action="continue-as-guest"]').click(); await p.locator("#authScreen").waitFor({state: "hidden", timeout: 30000}); dismissMs = now() - t0; }
       report.notes.push(gate ? "First-time guest lands on a full-screen sign-in gate; 'Browse the marketplace first' dismisses it." : "no gate");
