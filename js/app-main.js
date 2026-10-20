@@ -2552,7 +2552,7 @@ function renderMessages(messages) {
         <div class="msg-interstitial-head">${(window.ICONS && window.ICONS.alert) || ''} Heads up</div>
         <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app means no dispute support or refunds from TeeBox.</strong></p>
         <div class="msg-interstitial-actions">
-          <button class="btn-ghost" onclick="this.closest('.msg-wrap').classList.remove('msg-hidden'); this.closest('.msg-interstitial').remove();">Show message anyway</button>
+          <button class="btn-ghost" type="button" data-action="msg-show-anyway">Show message anyway</button>
           <button class="btn-ghost btn-warn" data-action="report-message" data-mid="${midAttr}" data-sender="${sidAttr}">Report this message</button>
         </div>
       </div>` : '';
@@ -3023,6 +3023,30 @@ function renderInbox(convs) {
 // Client-side inbox search — hides conversation rows that don't match the
 // query (listing title, partner name, last-message preview). Pure DOM filter,
 // no query/index; re-applied by renderInbox on each snapshot.
+// r349 (P0-4): the page's CSP has script-src-attr 'none', so every inline
+// on*="" attribute was silently dead. These four are wired here instead.
+//   • #inboxFilter input → filterInbox   (inbox search never filtered)
+//   • .mobile-nav-drawer-inner click     (tap inside the drawer closed it)
+//   • "Show message anyway" button       → data-action="msg-show-anyway"
+//   • sold-thumb <img onerror> fallback  → capture-phase error listener
+(function wireFormerInlineHandlers() {
+  const inbox = document.getElementById('inboxFilter');
+  if (inbox && !inbox.__wired) { inbox.__wired = true; inbox.addEventListener('input', () => { window.__lastInboxFilter = inbox.value; if (window.filterInbox) window.filterInbox(inbox.value); }); }
+  const drawer = document.querySelector('.mobile-nav-drawer-inner');
+  if (drawer && !drawer.__wired) { drawer.__wired = true; drawer.addEventListener('click', (e) => e.stopPropagation()); }
+  if (!document.__imgFallbackWired) {
+    document.__imgFallbackWired = true;
+    document.addEventListener('error', (e) => {
+      const img = e.target;
+      if (!img || img.tagName !== 'IMG' || !img.classList || !img.classList.contains('js-img-fallback')) return;
+      const span = document.createElement('span');
+      span.className = 'item-emoji placeholder-art';
+      span.style.cssText = 'width:36px;height:36px;border-radius:6px';
+      span.innerHTML = img.dataset.fallback || '';
+      img.replaceWith(span);
+    }, true);
+  }
+})();
 window.filterInbox = function(q) {
   const query = String(q || '').trim().toLowerCase();
   const body = document.getElementById('inboxBody');
@@ -4437,7 +4461,7 @@ function renderShopTables() {
             // already in soldListingsById, so this is no extra Firestore read.
             const soldThumbUrl = window.variantImgUrl(listing, 0, 'w400');
             const soldThumb = soldThumbUrl
-              ? `<img src="${escapeHtml(soldThumbUrl)}" alt="" loading="lazy" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'item-emoji placeholder-art',style:'width:36px;height:36px;border-radius:6px',innerHTML:this.dataset.fallback}))" data-fallback="${escapeHtml(window.CATEGORY_ICON(listing.cat))}">`
+              ? `<img src="${escapeHtml(soldThumbUrl)}" alt="" loading="lazy" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" class="js-img-fallback" data-fallback="${escapeHtml(window.CATEGORY_ICON(listing.cat))}">`
               : `<span class="item-emoji placeholder-art" style="width:36px;height:36px;border-radius:6px">${window.CATEGORY_ICON(listing.cat)}</span>`;
             return `
               <tr>
@@ -12723,6 +12747,7 @@ A['stripe-connect']          = async () => {
     }
   }
 };
+A['msg-show-anyway']         = (el) => { try { const w = el.closest('.msg-wrap'); if (w) w.classList.remove('msg-hidden'); const i = el.closest('.msg-interstitial'); if (i) i.remove(); } catch (_e) {} };
 A['close-inbox']             = () => closeInbox();
 A['close-inbox-and-browse']  = () => { closeInbox(); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
 A['close-watchlist-browse']  = () => { const so = document.getElementById('searchOverlay'); if (so) so.classList.remove('open'); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
