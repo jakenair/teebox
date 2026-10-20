@@ -5,6 +5,7 @@
 //   BASE=http://127.0.0.1:8788 node scripts/smoke.mjs
 //   MODE=signup node scripts/smoke.mjs           # stop after account creation
 //   MODE=guest  node scripts/smoke.mjs           # cold load + browse only (no accounts)
+//   MODE=pixel  node scripts/smoke.mjs --pixel   # guest + buyer/checkout legs only (no listing created)
 //   node scripts/smoke.mjs --pixel               # also assert Meta pixel events (see --help)
 //
 // What it does (iPhone 14, Chromium, Chrome "Slow 3G" preset via CDP; steps that
@@ -108,7 +109,7 @@ async function clickWatch(page, sel, outcomeSel, label, timeout = 90000) {
 async function newPage(browser, label) {
   const ctx = await browser.newContext({...devices["iPhone 14"], locale: "en-US", timezoneId: "America/Chicago"});
   const page = await ctx.newPage(); wire(page, label);
-  await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { let q = new URL(u).searchParams; if (!q.get("ev")) { try { q = new URLSearchParams(route.request().postData() || ""); } catch (_) {} } PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
+  await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { let q = new URL(u).searchParams; if (!q.get("ev")) { const body = route.request().postData() || ""; if (/^--/.test(body)) { q = new URLSearchParams(); const re = /name="([^"]+)"\r?\n\r?\n([\s\S]*?)\r?\n--/g; let m; while ((m = re.exec(body))) q.set(m[1], m[2]); } else { try { q = new URLSearchParams(body); } catch (_) {} } } PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
   const cdp = await ctx.newCDPSession(page); await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", SLOW3G);
   page.setDefaultTimeout(120000);
   await page.addInitScript(() => { window.__lcp = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lcp = e.startTime; }).observe({type: "largest-contentful-paint", buffered: true}); } catch (_) {} });
@@ -147,6 +148,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     await step(p, "guest: close detail", async () => { await p.keyboard.press("Escape"); await p.waitForTimeout(800); const open = await p.locator("#detailBuyNowBtn").isVisible().catch(() => false); if (open) { await p.locator('[data-action="close-detail"],[data-action="close-detail-direct"],.modal-close').first().click().catch(() => {}); } });
 
     if (MODE === "guest") { report.notes.push("mode=guest: stopped before sign-up"); throw new Error("__stop__"); }
+    if (MODE !== "pixel") {
     // ── Sign up (guest taps Sell → auth screen → Create Account) ──
     await step(p, "signup: tap Sell as guest → join prompt", async () => {
       const install = await p.locator("#installBanner:not([hidden])").isVisible().catch(() => false);
@@ -248,6 +250,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     testListingId = mine.docs[0] && mine.docs[0].id; report.notes.push(`test listing ${testListingId} (${mine.size} created)`);
     await step(p, "list: dismiss payouts dialog", async () => { const b = p.locator('#stripeRequiredBackdrop [data-action="close-stripe-required"]').last(); if (await b.isVisible().catch(() => false)) await b.click(); await p.waitForTimeout(1500); const top = await p.locator(".product-card").first().getAttribute("data-product-id"); return {feedTopIsTestListing: top === testListingId}; });
 
+    } // end MODE !== "pixel"
     // ── Buyer ──
     await auth.createUser({uid: BUYER_UID, email: BUYER_EMAIL, password: PW, emailVerified: true}); CREATED_UIDS.add(BUYER_UID);
     await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", createdAt: admin.firestore.FieldValue.serverTimestamp()});
@@ -283,7 +286,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       if (sm) { await b.locator('#sellModalBackdrop [data-action="close-sell-direct"]').first().click().catch(() => {}); await b.waitForTimeout(800); }
       return {loadMs: loaded, signInMs: r.outcomeMs, signInOutcome: r.outcome};
     });
-    await step(b, "buyer: open the test listing (un-onboarded seller)", async () => {
+    if (testListingId) await step(b, "buyer: open the test listing (un-onboarded seller)", async () => {
       const r = await clickWatch(b, `.product-card[data-product-id="${testListingId}"]`, "#detailBuyNowBtn", "buyer open test listing", 60000);
       await b.waitForTimeout(6000); // seller profile loads async under 3G
       const label = (await b.locator("#detailBuyNowBtn").textContent()).trim();
