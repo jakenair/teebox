@@ -465,11 +465,23 @@ function renderProductCardHtml(p, i) {
   // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
   const delay = Math.min(i, 12) * 30;
   const url = window.variantImgUrl(p, 0, 'w400');
-  // r349 cold-load: the first four cards are the LCP candidates on a phone —
-  // fetch them eagerly at high priority; everything below stays lazy.
+  // r351 thumbnails: let the BROWSER choose the file for the rendered width
+  // (srcset + sizes) instead of forcing w800 on every retina phone, and never
+  // let more than THUMB_MAX_INFLIGHT below-the-fold thumbnails download at
+  // once (window.__thumbLoader). First four cards stay eager + high priority
+  // (LCP); the rest carry data-src/data-srcset and are swapped in by the
+  // loader as they approach the viewport. Works without the Network
+  // Information API, so Safari/iOS benefit too.
   const _eager = i < 4;
+  const _v = (p.photoVariants && p.photoVariants['0']) || null;
+  const _w4 = _v && window.safeImgUrl(_v.w400), _w8 = _v && window.safeImgUrl(_v.w800);
+  const _srcset = (_w4 && _w8) ? `${window.safeAttr(_w4)} 400w, ${window.safeAttr(_w8)} 800w` : '';
+  const _sizes = '(max-width: 600px) 46vw, 220px';
+  const _srcAttr = _eager
+    ? `src="${window.safeAttr(_w4 || url)}"${_srcset ? ` srcset="${_srcset}" sizes="${_sizes}"` : ''} loading="eager" fetchpriority="high"`
+    : `src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="${window.safeAttr(_w4 || url)}"${_srcset ? ` data-srcset="${_srcset}" sizes="${_sizes}"` : ''} loading="lazy" fetchpriority="low" class="thumb-deferred"`;
   const mainImg = url
-    ? `<img src="${window.safeAttr(url)}" alt="${window.safeAttr(p.name||'')}" loading="${_eager ? 'eager' : 'lazy'}"${_eager ? ' fetchpriority="high"' : ''} decoding="async" />`
+    ? `<img ${_srcAttr} alt="${window.safeAttr(p.name||'')}" decoding="async" />`
     : `<div class="placeholder-art" style="width:100%;height:100%">${window.CATEGORY_ICON(p.cat)}</div>`;
   const soldBadge = p.status === 'sold' ? '<div class="sold-badge">SOLD</div>' : '';
   const badgeCls = p.badge === 'hot' ? 'hot' : (p.badge === 'new' ? 'new' : '');
@@ -12611,6 +12623,44 @@ A['manage-subscription']     = async () => {
 // painted LATER than before the change (10.5s -> 12.8s, measured). Gate
 // background work on the feed actually having painted, with a hard cap so a
 // page without a grid (or an empty marketplace) still runs it.
+// r351: concurrency-capped thumbnail loader. IntersectionObserver with a short
+// lookahead decides WHEN a deferred card image may load; at most
+// THUMB_MAX_INFLIGHT download at once (queue drains on load/error). On a
+// 50 KB/s link this bounds the bandwidth the feed can take from a sign-up or
+// checkout call to ~4 small files instead of ~30.
+(function thumbLoader() {
+  const THUMB_MAX_INFLIGHT = 4;
+  const queue = []; let inflight = 0;
+  const pump = () => {
+    while (inflight < THUMB_MAX_INFLIGHT && queue.length) {
+      const img = queue.shift();
+      if (!img.isConnected || !img.dataset.src) continue;
+      inflight++;
+      const done = () => { inflight--; img.removeEventListener('load', done); img.removeEventListener('error', done); pump(); };
+      img.addEventListener('load', done); img.addEventListener('error', done);
+      if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+      img.src = img.dataset.src;
+      delete img.dataset.src; delete img.dataset.srcset;
+      img.classList.remove('thumb-deferred');
+    }
+  };
+  const io = ('IntersectionObserver' in window) ? new IntersectionObserver((entries) => {
+    for (const e of entries) { if (e.isIntersecting) { io.unobserve(e.target); queue.push(e.target); } }
+    pump();
+  }, {rootMargin: '240px 0px'}) : null;
+  window.__thumbLoader = {
+    scan() {
+      const imgs = document.querySelectorAll('img.thumb-deferred[data-src]:not([data-thumb-seen])');
+      imgs.forEach((img) => { img.dataset.thumbSeen = '1'; if (io) io.observe(img); else { queue.push(img); } });
+      if (!io) pump();
+    },
+    stats() { return {queued: queue.length, inflight}; },
+  };
+  // Re-scan whenever the grid re-renders (loadListings / filters replace innerHTML).
+  const grid = document.getElementById('productGrid');
+  if (grid && 'MutationObserver' in window) new MutationObserver(() => window.__thumbLoader.scan()).observe(grid, {childList: true});
+  window.__thumbLoader.scan();
+})();
 window.__afterFeedPaint = function (fn, capMs) {
   let fired = false;
   const run = () => {

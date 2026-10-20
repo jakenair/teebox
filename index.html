@@ -7591,12 +7591,18 @@ window.__phDeferLoad = function(load) {
                 if (!photos.length) return;
                 var v0 = f.photoVariants && f.photoVariants.mapValue && f.photoVariants.mapValue.fields && f.photoVariants.mapValue.fields['0'];
                 var vf = v0 && v0.mapValue && v0.mapValue.fields || {};
-                var thumb = safeUrl((hidpi && vf.w800 && vf.w800.stringValue) || (vf.w400 && vf.w400.stringValue) || photos[0]);
+                var w4 = safeUrl(vf.w400 && vf.w400.stringValue), w8 = safeUrl(vf.w800 && vf.w800.stringValue);
+                var thumb = w4 || safeUrl(photos[0]);
                 if (!thumb) return;
+                var srcset = (w4 && w8) ? (esc(w4) + ' 400w, ' + esc(w8) + ' 800w') : '';
+                var sizes = '(max-width: 600px) 46vw, 220px';
                 var ask = f.ask ? Number(f.ask.integerValue != null ? f.ask.integerValue : f.ask.doubleValue) : 0;
                 var eager = n < 4;
                 html.push('<div class="product-card" data-action="open-detail" data-product-id="' + esc(id) + '" data-boot="1">' +
-                  '<div class="product-img-wrap"><img src="' + esc(thumb) + '" alt="' + esc(str('title')) + '" loading="' + (eager ? 'eager' : 'lazy') + '"' + (eager ? ' fetchpriority="high"' : '') + ' decoding="async" /></div>' +
+                  '<div class="product-img-wrap"><img ' + (eager
+                    ? ('src="' + esc(thumb) + '"' + (srcset ? ' srcset="' + srcset + '" sizes="' + sizes + '"' : '') + ' loading="eager" fetchpriority="high"')
+                    : ('src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="' + esc(thumb) + '"' + (srcset ? ' data-srcset="' + srcset + '" sizes="' + sizes + '"' : '') + ' loading="lazy" fetchpriority="low" class="thumb-deferred"')) +
+                  ' alt="' + esc(str('title')) + '" decoding="async" /></div>' +
                   '<div class="product-body">' +
                     (str('brand') ? '<div class="product-brand"><span class="brand-link">' + esc(str('brand')) + '</span></div>' : '') +
                     '<div class="product-name"><a class="product-name-link" href="/listing/' + esc(id) + '/">' + esc(str('title')) + '</a></div>' +
