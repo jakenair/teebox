@@ -5699,7 +5699,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r351</span></div>
+        <span class="auth-build" aria-hidden="true">r352</span></div>
     </div>
   </div>
 </div>
@@ -5725,13 +5725,13 @@ window.__phDeferLoad = function(load) {
       var hadSession = false;
       try { hadSession = localStorage.getItem('tb_had_session') === '1'; } catch (_e) {}
       if (hadSession) return;  // returning user: keep the splash, auth is coming
-      var gate = document.getElementById('authScreen');
-      if (!gate) return;
-      gate.classList.remove('hidden');
-      gate.classList.add('open');
-      window.__gateOpenedOptimistically = true;
-      // The splash exists to hide the is-anon flash. With the gate already up
-      // there is no flash left to hide, so stop waiting for auth.
+      // r352 (completes P0-2, founder ruling 2026-10-19): a first-time visitor
+      // lands on the MARKETPLACE, never the sign-in wall. This script used to
+      // open #authScreen here "optimistically" (r327), and because the auth
+      // listener that closes it lives in the deferred app-auth.js, a guest on
+      // Slow 3G was staring at the wall for ~40 s after r349. Now we only tell
+      // the splash that auth is effectively known (logged out) so the feed
+      // shows as soon as it paints. requireAuth still opens the gate on demand.
       window.__splashAuthKnown = true;
       if (window.__maybeDismissSplash) window.__maybeDismissSplash();
     } catch (_e) { /* never block boot on a prediction */ }
