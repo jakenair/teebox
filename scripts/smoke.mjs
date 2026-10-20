@@ -291,7 +291,11 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     try {
       if (testListingId) {
         await db.doc(`listings/${testListingId}`).delete(); clean.listingDeleted = testListingId;
-        const [files] = await admin.storage().bucket().getFiles({prefix: `listings/${testListingId}/`}); for (const f of files) await f.delete().catch(() => {}); clean.storageObjectsDeleted = files.length;
+        // Photos live at listings/{sellerUid}/{listingId}/… (see uploadPhotos).
+        let files = [];
+        if (sellerUid) { [files] = await admin.storage().bucket().getFiles({prefix: `listings/${sellerUid}/${testListingId}/`}); }
+        if (!files.length) { const [all] = await admin.storage().bucket().getFiles({prefix: "listings/"}); files = all.filter((f) => f.name.includes(`/${testListingId}/`)); }
+        for (const f of files) await f.delete().catch(() => {}); clean.storageObjectsDeleted = files.length;
         const holds = await db.collection("listingHolds").doc(testListingId).get(); if (holds.exists) { await holds.ref.delete(); clean.holdDeleted = true; }
       }
       if (sellerUid) { const u = await db.collection("listings").where("sellerId", "==", sellerUid).get(); for (const d of u.docs) await d.ref.delete(); }
