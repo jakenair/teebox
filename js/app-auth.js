@@ -107,13 +107,18 @@
     // which is exactly what happens today on every native build.
     const APPCHECK_FLOOR_MS = 10000;
     const __deferAppCheck = () => {
-      // r350: App Check is monitor-only, so it has no deadline — but its
-      // reCAPTCHA Enterprise bundle (~700 KB across 4 requests) must never
-      // load while the sign-in screen is open or an auth call is in flight;
-      // on Slow 3G that burst starved the sign-up POST past the Auth SDK's
-      // 30 s timeout (2026-10-20 timeline). Re-check every 3 s until clear.
-      const gateBusy = () => { const g = document.getElementById('authScreen'); return (g && g.classList.contains('open')) || !!window.__authInFlight; };
-      const attempt = () => { if (gateBusy()) { setTimeout(attempt, 3000); return; } __initAppCheck(); };
+      // r350 AUTH HOLD: App Check is monitor-only (appCheckOk() is true server-
+      // side, every service UNENFORCED), so it has no deadline — but once it is
+      // initialised the Auth SDK waits for an App Check token before every
+      // Identity Toolkit call, and its reCAPTCHA Enterprise bundle (~700 KB,
+      // 4 requests) took 40 s on Slow 3G mid-sign-up (2026-10-20 timeline).
+      // So: do not initialise while window.__authBusy() (sign-in screen open or
+      // auth call in flight, ≤60 s). It still initialises in EVERY session once
+      // the hold clears (poll every 3 s), so the App Check metrics stay whole.
+      // !!! If App Check is ever ENFORCED on identitytoolkit (Auth), revisit
+      // this: an enforced Auth would need the token BEFORE sign-in, and the
+      // hold would have to become an early, awaited init instead.
+      const attempt = () => { if (window.__authBusy && window.__authBusy()) { setTimeout(attempt, 3000); return; } __initAppCheck(); };
       (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(attempt, {timeout: 4000});
     };
     setTimeout(() => {
@@ -459,7 +464,10 @@
       // index.html runs at parse time, when CURRENT_USER is still null for
       // anyone signing in later; the detail-open warm only helps if the buyer
       // lingers on a listing first. Guests never pay, so this is the right hook.
-      try { (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { try { if (window.CURRENT_USER && typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {} }, {timeout: 6000}); } catch (_e) {}
+      try {
+        const __warmStripe = () => { try { if (window.__authBusy && window.__authBusy()) { setTimeout(__warmStripe, 3000); return; } if (window.CURRENT_USER && typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {} };
+        (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(__warmStripe, {timeout: 6000});
+      } catch (_e) {}
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {

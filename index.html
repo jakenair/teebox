@@ -89,13 +89,24 @@
 // product card. The snippet below still installs the stub immediately (every
 // posthog.* call queues), only the DOWNLOAD waits until the page has loaded
 // and been idle. Events captured in the meantime flush when it arrives.
+// r350 AUTH HOLD. True while the sign-in screen is open or an email auth call
+// is in flight (window.__authInFlight), for at most 60 s continuously — after
+// that the hold releases on its own so nothing stays parked if someone leaves
+// the screen open. Deferred bulk work (PostHog, App Check/reCAPTCHA, Stripe.js
+// warm) polls this and resumes within ~3 s of the hold clearing.
+// Why: on Slow 3G the 2026-10-20 timeline showed the reCAPTCHA bundle starting
+// mid-sign-up and the Auth SDK waiting ~40 s for an App Check token.
+window.__authBusy = function() {
+  var g = document.getElementById('authScreen');
+  var busy = !!((g && g.classList.contains('open')) || window.__authInFlight);
+  var now = Date.now();
+  if (!busy) { window.__authBusySince = 0; return false; }
+  if (!window.__authBusySince) window.__authBusySince = now;
+  return (now - window.__authBusySince) < 60000;
+};
 window.__phDeferLoad = function(load) {
   var go = function() { var fire = function() {
-      // r350: never start a 300 KB+ download while the user is on the sign-in
-      // screen or an auth request is in flight — on a slow link that burst
-      // starves the sign-up POST past the SDK's 30 s timeout. Try again later.
-      var gate = document.getElementById('authScreen');
-      if ((gate && gate.classList.contains('open')) || window.__authInFlight) { setTimeout(fire, 3000); return; }
+      if (window.__authBusy()) { setTimeout(fire, 3000); return; }
       try { load(); } catch (_e) {} };
     if ('requestIdleCallback' in window) requestIdleCallback(fire, { timeout: 4000 }); else setTimeout(fire, 1500); };
   if (document.readyState === 'complete') setTimeout(go, 1500); else window.addEventListener('load', function() { setTimeout(go, 1500); });
