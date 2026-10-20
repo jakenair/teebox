@@ -108,7 +108,7 @@ async function clickWatch(page, sel, outcomeSel, label, timeout = 90000) {
 async function newPage(browser, label) {
   const ctx = await browser.newContext({...devices["iPhone 14"], locale: "en-US", timezoneId: "America/Chicago"});
   const page = await ctx.newPage(); wire(page, label);
-  await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { const q = new URL(u).searchParams; PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
+  await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { let q = new URL(u).searchParams; if (!q.get("ev")) { try { q = new URLSearchParams(route.request().postData() || ""); } catch (_) {} } PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
   const cdp = await ctx.newCDPSession(page); await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", SLOW3G);
   page.setDefaultTimeout(120000);
   await page.addInitScript(() => { window.__lcp = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lcp = e.startTime; }).observe({type: "largest-contentful-paint", buffered: true}); } catch (_) {} });
@@ -360,7 +360,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
         const hits = seen(ev); const withIds = hits.filter((h) => h.content_ids); const withValue = hits.filter((h) => h.value);
         report.pixel[ev] = { fired: hits.length, withContentIds: withIds.length, withValue: withValue.length, pass: ev === "PageView" ? hits.length > 0 : (hits.length > 0 && withIds.length > 0 && (ev === "ViewContent" || withValue.length > 0)) };
       }
-      report.pixel.deliveredToMeta = 0; report.pixel.blockedRequests = PIXEL.blocked.length;
+      report.pixel.deliveredToMeta = 0; report.pixel.blockedRequests = PIXEL.blocked.length; report.pixel.blockedSample = PIXEL.blocked.slice(0, 6); report.pixel.rawEvents = PIXEL.events.slice(0, 20);
       console.log("PIXEL", JSON.stringify(report.pixel));
     }
     fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify(report, null, 1));
