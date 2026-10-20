@@ -131,3 +131,4 @@ reel-blind-ranking/
 # Baselines (perf/results/*.json) and frames ARE kept — they are the evidence.
 perf/results/boot-profile.json
 perf/results/fs-debug.log
+smoke-out/
