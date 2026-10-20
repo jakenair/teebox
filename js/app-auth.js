@@ -107,8 +107,14 @@
     // which is exactly what happens today on every native build.
     const APPCHECK_FLOOR_MS = 10000;
     const __deferAppCheck = () => {
-      (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(
-          __initAppCheck, {timeout: 4000});
+      // r350: App Check is monitor-only, so it has no deadline — but its
+      // reCAPTCHA Enterprise bundle (~700 KB across 4 requests) must never
+      // load while the sign-in screen is open or an auth call is in flight;
+      // on Slow 3G that burst starved the sign-up POST past the Auth SDK's
+      // 30 s timeout (2026-10-20 timeline). Re-check every 3 s until clear.
+      const gateBusy = () => { const g = document.getElementById('authScreen'); return (g && g.classList.contains('open')) || !!window.__authInFlight; };
+      const attempt = () => { if (gateBusy()) { setTimeout(attempt, 3000); return; } __initAppCheck(); };
+      (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(attempt, {timeout: 4000});
     };
     setTimeout(() => {
       if (window.__afterFeedPaint) window.__afterFeedPaint(__deferAppCheck, 4000);
@@ -447,6 +453,13 @@
       try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(user); } catch (_e) {}
       // r349: finish a half-made account (timed-out sign-up) — idempotent.
       try { window.__finishPendingSetup && window.__finishPendingSetup(user); } catch (_e) {}
+      // r350: a signed-in user is a potential buyer — warm Stripe.js (300 KB gz)
+      // at idle so the first Buy Now mounts the Payment Element immediately
+      // instead of paying the download on a slow link. The idle warm in
+      // index.html runs at parse time, when CURRENT_USER is still null for
+      // anyone signing in later; the detail-open warm only helps if the buyer
+      // lingers on a listing first. Guests never pay, so this is the right hook.
+      try { (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { try { if (window.CURRENT_USER && typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {} }, {timeout: 6000}); } catch (_e) {}
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
@@ -1079,6 +1092,7 @@
     }
     err.textContent = '';
     btn.disabled = true;
+    window.__authInFlight = true; // r350: holds PostHog / App Check downloads (see __phDeferLoad)
     btn.textContent = emailMode === 'signin' ? 'Signing in…' : 'Creating your account…';
     // r349: slow-network copy. The Firebase SDK does not give up for 30 s on
     // a 2 s-RTT connection; say so instead of looking frozen.
@@ -1188,6 +1202,9 @@
         // set, so a half-made account always gets completed. The legacy
         // inline writes remain as a fallback if the callable is unreachable.
         let _setupDone = false;
+        // r350: the auth listener's __finishPendingSetup fires for this uid before
+        // this call returns — mark it done here so the callable runs once.
+        window.__pendingSetupRan = cred.user.uid;
         try {
           const _finish = httpsCallable(fns, 'completeAccountSetup');
           const _r = await _finish({ displayName: signupName });
@@ -1263,6 +1280,7 @@
       btn.textContent = code === 'auth/network-request-failed' ? 'Try again' : (emailMode === 'signin' ? 'Sign In' : 'Create Account');
     } finally {
       clearTimeout(_slowCopy);
+      window.__authInFlight = false;
     }
   };
 

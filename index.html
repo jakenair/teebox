@@ -90,7 +90,13 @@
 // posthog.* call queues), only the DOWNLOAD waits until the page has loaded
 // and been idle. Events captured in the meantime flush when it arrives.
 window.__phDeferLoad = function(load) {
-  var go = function() { var fire = function() { try { load(); } catch (_e) {} };
+  var go = function() { var fire = function() {
+      // r350: never start a 300 KB+ download while the user is on the sign-in
+      // screen or an auth request is in flight — on a slow link that burst
+      // starves the sign-up POST past the SDK's 30 s timeout. Try again later.
+      var gate = document.getElementById('authScreen');
+      if ((gate && gate.classList.contains('open')) || window.__authInFlight) { setTimeout(fire, 3000); return; }
+      try { load(); } catch (_e) {} };
     if ('requestIdleCallback' in window) requestIdleCallback(fire, { timeout: 4000 }); else setTimeout(fire, 1500); };
   if (document.readyState === 'complete') setTimeout(go, 1500); else window.addEventListener('load', function() { setTimeout(go, 1500); });
 };
@@ -301,7 +307,7 @@ window.__phDeferLoad = function(load) {
 <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
 <link rel="dns-prefetch" href="https://us-central1-teebox-market.cloudfunctions.net" />
 <link rel="dns-prefetch" href="https://api.stripe.com" />
-<link rel="dns-prefetch" href="https://js.stripe.com" />
+<link rel="preconnect" href="https://js.stripe.com" crossorigin />
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 <!-- r349 cold-load: the Google Fonts stylesheet was render-blocking (one
      extra RTT before first paint on a 2 s-RTT link). Inserted from script
