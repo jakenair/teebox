@@ -5411,11 +5411,18 @@ window.__phDeferLoad = function(load) {
   // a 2-column grid tile is ~560 physical px on an iPhone, so w400 was being
   // upscaled. Callers keep asking for 'w400'; the bump is centralised here.
   const HIDPI = (typeof window.devicePixelRatio === 'number' && window.devicePixelRatio >= 1.5);
+  // r350: on a slow or data-saver connection serve the w400 thumbnail even on
+  // retina screens (halves the feed's image bytes — 31 thumbnails were in
+  // flight during the 2026-10-20 Slow-3G sign-up). Network Information API
+  // only: Safari/iOS lack navigator.connection, so they keep the w800 path.
+  window.__slowNet = function () {
+    try { const c = navigator.connection; if (!c) return false; if (c.saveData) return true; return /^(slow-)?2g$|^3g$/.test(String(c.effectiveType || '')); } catch (_e) { return false; }
+  };
   window.variantImgUrl = function (p, idx, size) {
     idx = idx || 0;
     const v = p && p.photoVariants && p.photoVariants[String(idx)];
     if (v) {
-      if (size === 'w400' && HIDPI && v.w800) { const u = window.safeImgUrl(v.w800); if (u) return u; }
+      if (size === 'w400' && HIDPI && !window.__slowNet() && v.w800) { const u = window.safeImgUrl(v.w800); if (u) return u; }
       if (v[size]) { const u = window.safeImgUrl(v[size]); if (u) return u; }
     }
     return window.safeImgUrl(p && p.photos && p.photos[idx]);
@@ -7566,7 +7573,7 @@ window.__phDeferLoad = function(load) {
           var t0 = performance.now();
           var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
           var safeUrl = function (u) { return (typeof u === 'string' && /^https:\/\/(firebasestorage\.googleapis\.com|teebox-market\.firebasestorage\.app)\//.test(u)) ? u : ''; };
-          var hidpi = (window.devicePixelRatio || 1) >= 1.5;
+          var hidpi = (window.devicePixelRatio || 1) >= 1.5 && !(window.__slowNet && window.__slowNet());
           var body = JSON.stringify({structuredQuery: {from: [{collectionId: 'listings'}],
             select: {fields: ['title', 'brand', 'ask', 'photos', 'photoVariants', 'createdAt'].map(function (f) { return {fieldPath: f}; })},
             where: {fieldFilter: {field: {fieldPath: 'status'}, op: 'EQUAL', value: {stringValue: 'active'}}},
