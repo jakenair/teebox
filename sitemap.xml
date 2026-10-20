@@ -286,6 +286,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://teeboxmarket.com/listing/1Qn4Do1XvTdDLi2UfT9Y/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://teeboxmarket.com/listing/1pTaTHlDo5F4Qp8qDFUt/</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
@@ -347,6 +352,11 @@
   </url>
   <url>
     <loc>https://teeboxmarket.com/listing/Rf6a38WD7nsEgszEzihP/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://teeboxmarket.com/listing/SpF8UYr07iH56LX06Qz9/</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
