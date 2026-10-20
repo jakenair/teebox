@@ -3016,22 +3016,31 @@
     return out;
   };
 
+  // r349 (P1-9): target ≤ 500 KB per photo so a post-to-live on a phone link
+  // is seconds, not 15 s. Steps: 2048px q0.85 → q0.72 → 1600px q0.8. The server
+  // still re-encodes to WebP + variants, so nothing visible is lost on cards.
+  const UPLOAD_TARGET_BYTES = 500 * 1024;
   async function shrinkForUpload(file) {
     // Skip if already small enough — no point recompressing.
-    if (file.size < 600 * 1024) return file;
+    if (file.size < UPLOAD_TARGET_BYTES) return file;
     try {
       const bmp = await createImageBitmap(file);
-      const max = 2048; // r347: was 1600 — see ppDownscaleImage
-      const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-      const w = Math.round(bmp.width * scale);
-      const h = Math.round(bmp.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      const steps = [[2048, 0.85], [2048, 0.72], [1600, 0.8], [1280, 0.75]];
+      let best = null;
+      for (const [max, q] of steps) {
+        const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+        const w = Math.round(bmp.width * scale);
+        const h = Math.round(bmp.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', q));
+        if (blob && (!best || blob.size < best.size)) best = blob;
+        if (blob && blob.size <= UPLOAD_TARGET_BYTES) break;
+      }
       bmp.close && bmp.close();
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
-      return blob || file;
+      return (best && best.size < file.size) ? best : file;
     } catch (err) {
       // Browser can't decode this codec (e.g. HEIC outside Safari) — upload the
       // raw file. The server's optimizeListingPhoto converts HEIC via heic-convert

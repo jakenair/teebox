@@ -10967,7 +10967,7 @@ function ppAddPhoto() {
 // EXIF-orientation-safe via createImageBitmap; falls back to the original.
 // r347: 2048px / q0.9 (was 1600 / 0.85). The server re-encodes to WebP, so this
 // JPEG is an intermediate — a larger, cleaner source keeps that second pass sharp.
-async function ppDownscaleImage(file, max = 2048, quality = 0.9) {
+async function ppDownscaleImage(file, max = 2048, quality = 0.85) {
   try {
     // Decode + scale off the main thread via createImageBitmap resize options
     // (a 12MP photo is ~48MB RGBA if decoded at full size first). Probe the
