@@ -107,8 +107,19 @@
     // which is exactly what happens today on every native build.
     const APPCHECK_FLOOR_MS = 10000;
     const __deferAppCheck = () => {
-      (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(
-          __initAppCheck, {timeout: 4000});
+      // r350 AUTH HOLD: App Check is monitor-only (appCheckOk() is true server-
+      // side, every service UNENFORCED), so it has no deadline — but once it is
+      // initialised the Auth SDK waits for an App Check token before every
+      // Identity Toolkit call, and its reCAPTCHA Enterprise bundle (~700 KB,
+      // 4 requests) took 40 s on Slow 3G mid-sign-up (2026-10-20 timeline).
+      // So: do not initialise while window.__authBusy() (sign-in screen open or
+      // auth call in flight, ≤60 s). It still initialises in EVERY session once
+      // the hold clears (poll every 3 s), so the App Check metrics stay whole.
+      // !!! If App Check is ever ENFORCED on identitytoolkit (Auth), revisit
+      // this: an enforced Auth would need the token BEFORE sign-in, and the
+      // hold would have to become an early, awaited init instead.
+      const attempt = () => { if (window.__authBusy && window.__authBusy()) { setTimeout(attempt, 3000); return; } __initAppCheck(); };
+      (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(attempt, {timeout: 4000});
     };
     setTimeout(() => {
       if (window.__afterFeedPaint) window.__afterFeedPaint(__deferAppCheck, 4000);
@@ -447,6 +458,16 @@
       try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(user); } catch (_e) {}
       // r349: finish a half-made account (timed-out sign-up) — idempotent.
       try { window.__finishPendingSetup && window.__finishPendingSetup(user); } catch (_e) {}
+      // r350: a signed-in user is a potential buyer — warm Stripe.js (300 KB gz)
+      // at idle so the first Buy Now mounts the Payment Element immediately
+      // instead of paying the download on a slow link. The idle warm in
+      // index.html runs at parse time, when CURRENT_USER is still null for
+      // anyone signing in later; the detail-open warm only helps if the buyer
+      // lingers on a listing first. Guests never pay, so this is the right hook.
+      try {
+        const __warmStripe = () => { try { if (window.__authBusy && window.__authBusy()) { setTimeout(__warmStripe, 3000); return; } if (window.CURRENT_USER && typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {} };
+        (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(__warmStripe, {timeout: 6000});
+      } catch (_e) {}
       // After successful sign-in, replay the gated action (if any) so a
       // guest who clicked Buy / Sell / Like ends up where they intended.
       if (window.__pendingAuthIntent && typeof window.__pendingAuthIntent === 'function') {
@@ -1079,6 +1100,7 @@
     }
     err.textContent = '';
     btn.disabled = true;
+    window.__authInFlight = true; // r350: holds PostHog / App Check downloads (see __phDeferLoad)
     btn.textContent = emailMode === 'signin' ? 'Signing in…' : 'Creating your account…';
     // r349: slow-network copy. The Firebase SDK does not give up for 30 s on
     // a 2 s-RTT connection; say so instead of looking frozen.
@@ -1188,6 +1210,9 @@
         // set, so a half-made account always gets completed. The legacy
         // inline writes remain as a fallback if the callable is unreachable.
         let _setupDone = false;
+        // r350: the auth listener's __finishPendingSetup fires for this uid before
+        // this call returns — mark it done here so the callable runs once.
+        window.__pendingSetupRan = cred.user.uid;
         try {
           const _finish = httpsCallable(fns, 'completeAccountSetup');
           const _r = await _finish({ displayName: signupName });
@@ -1263,6 +1288,7 @@
       btn.textContent = code === 'auth/network-request-failed' ? 'Try again' : (emailMode === 'signin' ? 'Sign In' : 'Create Account');
     } finally {
       clearTimeout(_slowCopy);
+      window.__authInFlight = false;
     }
   };
 

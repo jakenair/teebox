@@ -89,8 +89,25 @@
 // product card. The snippet below still installs the stub immediately (every
 // posthog.* call queues), only the DOWNLOAD waits until the page has loaded
 // and been idle. Events captured in the meantime flush when it arrives.
+// r350 AUTH HOLD. True while the sign-in screen is open or an email auth call
+// is in flight (window.__authInFlight), for at most 60 s continuously — after
+// that the hold releases on its own so nothing stays parked if someone leaves
+// the screen open. Deferred bulk work (PostHog, App Check/reCAPTCHA, Stripe.js
+// warm) polls this and resumes within ~3 s of the hold clearing.
+// Why: on Slow 3G the 2026-10-20 timeline showed the reCAPTCHA bundle starting
+// mid-sign-up and the Auth SDK waiting ~40 s for an App Check token.
+window.__authBusy = function() {
+  var g = document.getElementById('authScreen');
+  var busy = !!((g && g.classList.contains('open')) || window.__authInFlight);
+  var now = Date.now();
+  if (!busy) { window.__authBusySince = 0; return false; }
+  if (!window.__authBusySince) window.__authBusySince = now;
+  return (now - window.__authBusySince) < 60000;
+};
 window.__phDeferLoad = function(load) {
-  var go = function() { var fire = function() { try { load(); } catch (_e) {} };
+  var go = function() { var fire = function() {
+      if (window.__authBusy()) { setTimeout(fire, 3000); return; }
+      try { load(); } catch (_e) {} };
     if ('requestIdleCallback' in window) requestIdleCallback(fire, { timeout: 4000 }); else setTimeout(fire, 1500); };
   if (document.readyState === 'complete') setTimeout(go, 1500); else window.addEventListener('load', function() { setTimeout(go, 1500); });
 };
@@ -301,7 +318,7 @@ window.__phDeferLoad = function(load) {
 <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
 <link rel="dns-prefetch" href="https://us-central1-teebox-market.cloudfunctions.net" />
 <link rel="dns-prefetch" href="https://api.stripe.com" />
-<link rel="dns-prefetch" href="https://js.stripe.com" />
+<link rel="preconnect" href="https://js.stripe.com" crossorigin />
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
 <!-- r349 cold-load: the Google Fonts stylesheet was render-blocking (one
      extra RTT before first paint on a 2 s-RTT link). Inserted from script
@@ -5394,11 +5411,18 @@ window.__phDeferLoad = function(load) {
   // a 2-column grid tile is ~560 physical px on an iPhone, so w400 was being
   // upscaled. Callers keep asking for 'w400'; the bump is centralised here.
   const HIDPI = (typeof window.devicePixelRatio === 'number' && window.devicePixelRatio >= 1.5);
+  // r350: on a slow or data-saver connection serve the w400 thumbnail even on
+  // retina screens (halves the feed's image bytes — 31 thumbnails were in
+  // flight during the 2026-10-20 Slow-3G sign-up). Network Information API
+  // only: Safari/iOS lack navigator.connection, so they keep the w800 path.
+  window.__slowNet = function () {
+    try { const c = navigator.connection; if (!c) return false; if (c.saveData) return true; return /^(slow-)?2g$|^3g$/.test(String(c.effectiveType || '')); } catch (_e) { return false; }
+  };
   window.variantImgUrl = function (p, idx, size) {
     idx = idx || 0;
     const v = p && p.photoVariants && p.photoVariants[String(idx)];
     if (v) {
-      if (size === 'w400' && HIDPI && v.w800) { const u = window.safeImgUrl(v.w800); if (u) return u; }
+      if (size === 'w400' && HIDPI && !window.__slowNet() && v.w800) { const u = window.safeImgUrl(v.w800); if (u) return u; }
       if (v[size]) { const u = window.safeImgUrl(v[size]); if (u) return u; }
     }
     return window.safeImgUrl(p && p.photos && p.photos[idx]);
@@ -7549,7 +7573,7 @@ window.__phDeferLoad = function(load) {
           var t0 = performance.now();
           var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
           var safeUrl = function (u) { return (typeof u === 'string' && /^https:\/\/(firebasestorage\.googleapis\.com|teebox-market\.firebasestorage\.app)\//.test(u)) ? u : ''; };
-          var hidpi = (window.devicePixelRatio || 1) >= 1.5;
+          var hidpi = (window.devicePixelRatio || 1) >= 1.5 && !(window.__slowNet && window.__slowNet());
           var body = JSON.stringify({structuredQuery: {from: [{collectionId: 'listings'}],
             select: {fields: ['title', 'brand', 'ask', 'photos', 'photoVariants', 'createdAt'].map(function (f) { return {fieldPath: f}; })},
             where: {fieldFilter: {field: {fieldPath: 'status'}, op: 'EQUAL', value: {stringValue: 'active'}}},
