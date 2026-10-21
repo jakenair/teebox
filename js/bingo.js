@@ -1312,12 +1312,64 @@
     });
   }
   let currentLbTab = 'week';
+  // r353 leaderboard redesign: podium for the top three, rows below, a
+  // skeleton while loading. All text goes through safeText; names come from
+  // the server projection (never a uid).
+  function lbSkeletonHtml(n = 5) {
+    return Array.from({length: n}, () =>
+      '<div class="bingo-lb-skel" aria-hidden="true"><span class="sk-rank"></span><span class="sk-av"></span><span class="sk-name"></span><span class="sk-score"></span></div>'
+    ).join('');
+  }
+  function lbInitials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'G';
+    const a = parts[0][0] || '';
+    const b = parts.length > 1 ? (parts[parts.length - 1][0] || '') : '';
+    return (a + b).toUpperCase();
+  }
+  function lbTone(name) {
+    let hsh = 0; const s = String(name || '');
+    for (let i = 0; i < s.length; i++) hsh = (hsh * 31 + s.charCodeAt(i)) >>> 0;
+    return 1 + (hsh % 4);
+  }
+  function lbStreakText(streak) {
+    const n = Number(streak) || 0;
+    return n > 0 ? `${n}-day streak` : '';
+  }
+  function lbPodiumHtml(r) {
+    const safe = window.safeText || ((s) => String(s || ''));
+    const name = r.displayName || 'Golfer';
+    const sub = r.isCaller ? ['You', lbStreakText(r.streak)].filter(Boolean).join(' · ') : lbStreakText(r.streak);
+    return `<div class="bingo-lb-pod rank-${Number(r.rank) || 0}${r.isCaller ? ' you' : ''}">
+      <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
+      <div class="bingo-lb-pod-rank">${Number(r.rank) || ''}</div>
+      <div class="bingo-lb-pod-name">${safe(name)}</div>
+      <div class="bingo-lb-pod-score">${Number(r.correctCount) || 0}/9</div>
+      ${sub ? `<div class="bingo-lb-pod-streak">${safe(sub)}</div>` : ''}
+    </div>`;
+  }
+  function lbRowHtml(r) {
+    const safe = window.safeText || ((s) => String(s || ''));
+    const name = r.displayName || 'Golfer';
+    const score = Number(r.correctCount) || 0;
+    const sub = lbStreakText(r.streak);
+    return `<div class="bingo-lb-row${r.isCaller ? ' you' : ''}">
+      <div class="bingo-lb-rank${r.rank === 1 ? ' gold' : ''}">${Number(r.rank) || ''}</div>
+      <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
+      <div class="bingo-lb-who">
+        <div class="bingo-lb-name"><span>${safe(name)}</span>${r.isCaller ? '<span class="bingo-lb-you">You</span>' : ''}</div>
+        ${sub ? `<div class="bingo-lb-sub">${safe(sub)}</div>` : ''}
+      </div>
+      <div class="bingo-lb-score${score === 9 ? ' perfect' : ''}">${score}/9</div>
+    </div>`;
+  }
   async function loadLeaderboard(scope) {
     currentLbTab = scope || 'week';
     const list = document.getElementById('bingoLbList');
     if (!list) return;
     document.querySelectorAll('.bingo-lb-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === currentLbTab);
+      t.setAttribute('aria-selected', t.dataset.tab === currentLbTab ? 'true' : 'false');
     });
     // r317: the heading was static markup, so it read "This week's top
     // players" even on the Today tab.
@@ -1327,7 +1379,8 @@
         ? "Today's top players"
         : "This week's top players";
     }
-    list.innerHTML = '<div class="bingo-lb-empty">Loading…</div>';
+    list.innerHTML = lbSkeletonHtml();
+    list.setAttribute('aria-busy', 'true');
     try {
       // r255 (audit 2026-09-01 A1-full): the board comes from the
       // getBingoLeaderboard PROJECTED callable — {rank, displayName,
@@ -1350,20 +1403,19 @@
           : '<div class="bingo-lb-empty">No finished boards this week yet.</div>';
         return;
       }
-      list.innerHTML = rows.map((r) => {
-        const rankClass = r.rank === 1 ? 'gold' : '';
-        const youClass = r.isCaller ? 'you' : '';
-        const streakStr = r.streak ? `${r.streak}d` : '';
-        return `<div class="bingo-lb-row ${youClass}">
-          <div class="bingo-lb-rank ${rankClass}">${r.rank}</div>
-          <div class="bingo-lb-name">${window.safeText(r.displayName || 'Golfer')}</div>
-          <div class="bingo-lb-score">${r.correctCount || 0}/9</div>
-          <div class="bingo-lb-streak">${streakStr}</div>
-        </div>`;
-      }).join('');
+      // Podium for the top three (2-1-3 left to right) when there are at
+      // least three finishers; otherwise plain rows so a two-player day
+      // does not get an empty third plinth.
+      const podium = rows.length >= 3
+        ? `<div class="bingo-lb-podium">${[rows[1], rows[0], rows[2]].map(lbPodiumHtml).join('')}</div>`
+        : '';
+      const rest = rows.length >= 3 ? rows.slice(3) : rows;
+      list.innerHTML = podium + rest.map(lbRowHtml).join('');
     } catch (err) {
       console.warn('leaderboard load failed', err);
       list.innerHTML = '<div class="bingo-lb-empty">Could not load leaderboard.</div>';
+    } finally {
+      list.setAttribute('aria-busy', 'false');
     }
   }
   window.loadLeaderboard = loadLeaderboard;
