@@ -857,7 +857,8 @@ window.__phDeferLoad = function(load) {
      detail modal (z-index:250) and was floating over the Buy Now button + checkout
      CTAs. Hide it whenever any full-screen overlay is open. :has() degrades
      gracefully — on browsers without support the banner just behaves as before. */
-  body:has(.detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, .sell-modal-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open, #authScreen.open, .signin-prompt-backdrop.open, #nameGateBackdrop.open) .install-banner { display: none !important; }
+  /* r353: the install banner also covered the Bingo board (tiles 7-9) and the leaderboard. */
+  body:has(#bingoScreen.open, .detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, .sell-modal-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open, #authScreen.open, .signin-prompt-backdrop.open, #nameGateBackdrop.open) .install-banner { display: none !important; }
   /* r349 (P1-8): while the post-publish "one more step" dialog (or any sell-modal
      dialog) is open, toasts dock at the TOP so they never cover its buttons. */
   body:has(#stripeRequiredBackdrop.open, #sellModalBackdrop.open) .toast { bottom: auto; top: calc(72px + env(safe-area-inset-top)); animation: none; }
