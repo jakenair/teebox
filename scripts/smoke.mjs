@@ -327,7 +327,10 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       const disabled = await b.locator("#detailBuyNowBtn").isDisabled();
       return {openMs: r.outcomeMs, buyLabel: label, disabled, note};
     });
-    await step(b, "buyer: close detail", async () => { await b.locator('.modal-close, [data-action="close-detail"], [data-action="close-detail-direct"]').first().click().catch(() => b.keyboard.press("Escape")); await b.waitForTimeout(1000); });
+    // r353 fix: the un-filtered selector matched ~30 close buttons and .first() was a
+    // HIDDEN info-modal X, so the click waited the full 120 s default timeout before
+    // falling back to Escape on every run. Visible-only, short timeout, then Escape.
+    await step(b, "buyer: close detail", async () => { await b.locator('.modal-close:visible, [data-action="close-detail"]:visible, [data-action="close-detail-direct"]:visible').first().click({timeout: 5000}).catch(() => b.keyboard.press("Escape")); await b.waitForTimeout(1000); });
     const BUY_TARGET = BUYABLE_LISTING_ENV || testListingId; BUY_TARGET_FOR_CLEANUP = BUY_TARGET;
     if (BUY_TARGET) await step(b, "buyer: Buy Now on the smoke listing → checkout (STOP)", async () => {
       await assertSmokeListing(BUY_TARGET, "Buy Now");
@@ -343,7 +346,9 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       const errText = (await b.locator("#checkoutError, .checkout-error").first().textContent().catch(() => "")).trim().slice(0, 120);
       return {buyLabel: label, checkoutOpenMs: r.outcomeMs, stripeElementMs: stripeMs, payBtn, checkoutError: errText, STOPPED_BEFORE_CARD: true};
     });
-    await step(b, "buyer: close checkout", async () => { await b.locator('#checkoutBackdrop [data-action="close-checkout-direct"]').first().click().catch(() => {}); await b.waitForTimeout(1000); });
+    // r353 fix: in the default (notify-slot) leg there is no checkout, so this click used
+    // to wait 120 s for a button that never existed. Only click when the checkout is open.
+    await step(b, "buyer: close checkout", async () => { const open = await b.locator("#checkoutBackdrop.open").count().catch(() => 0); if (open) await b.locator('#checkoutBackdrop [data-action="close-checkout-direct"]:visible').first().click({timeout: 5000}).catch(() => b.keyboard.press("Escape")); else await b.keyboard.press("Escape").catch(() => {}); await b.waitForTimeout(600); return {checkoutWasOpen: !!open}; });
   } catch (e) { if (String(e && e.message) !== "__stop__") { report.fatal = String(e && e.stack || e).slice(0, 600); console.error("FATAL", e); } }
   finally {
     // ── Cleanup (guarded) ──
