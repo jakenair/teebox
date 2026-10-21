@@ -4482,6 +4482,23 @@ window.__phDeferLoad = function(load) {
   .bingo-autocomplete-empty button:hover { background: var(--gold-400); }
   .bingo-guess-footer { display: flex; gap: 10px; padding: 0 1.25rem 1.25rem; }
   .bingo-guess-footer .btn-full { padding: 12px; font-size: 14px; }
+  /* r353: on phones the guess sheet takes the whole screen. The 85vh
+     partial sheet left the board peeking through, squeezed the course list
+     under the keyboard, and the logo sat in a 100px strip. >= 600px keeps
+     the centered dialog. The body becomes a column so the logo + input stay
+     put and only the course list scrolls. */
+  @media (max-width: 599px) {
+    #bingoGuessBackdrop { align-items: stretch; background: var(--white); }
+    .bingo-guess-modal { max-width: none; max-height: none; height: 100%; min-height: 100vh; min-height: 100dvh; border-radius: 0; animation: slideUp 0.26s cubic-bezier(.4,0,.2,1); }
+    .bingo-guess-header { padding: calc(0.9rem + env(safe-area-inset-top, 0px)) 1.25rem 0.9rem; }
+    .bingo-guess-body { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0.5rem; }
+    .bingo-guess-logo { height: 150px; flex: 0 0 auto; margin-bottom: 1.1rem; }
+    .bingo-guess-logo img { max-height: 118px; }
+    .bingo-autocomplete { max-height: none; min-height: 0; flex: 0 1 auto; }
+    .bingo-autocomplete.open { flex: 1 1 0; }
+    .bingo-guess-hint { flex: 0 0 auto; }
+    .bingo-guess-footer { flex: 0 0 auto; padding: 0.75rem 1.25rem calc(0.9rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--gray-100); }
+  }
 
   /* First-run seller tour (Feature: tour-v1) */
   /* Backdrop dims surroundings so the tooltip + highlighted target pop.
