@@ -718,11 +718,25 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
     dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`);
   }
   const db = admin.firestore();
-  const snap = await db.collection("gameScores")
-      .where("date", "in", dates)
-      .orderBy("correctCount", "desc")
-      .limit(50)
-      .get();
+  // r355: rank on points (accuracy + per-tile speed, written by the sync
+  // fanout and backfilled for the trailing week). Falls back to the old
+  // correctCount order if the (date, points) index is not ready yet, so the
+  // deploy order cannot blank the board.
+  let snap;
+  try {
+    snap = await db.collection("gameScores")
+        .where("date", "in", dates)
+        .orderBy("points", "desc")
+        .limit(50)
+        .get();
+  } catch (e) {
+    logger.warn("getBingoLeaderboard: points order unavailable, falling back", {code: e && e.code});
+    snap = await db.collection("gameScores")
+        .where("date", "in", dates)
+        .orderBy("correctCount", "desc")
+        .limit(50)
+        .get();
+  }
   const callerUid = (request.auth && request.auth.uid) || null;
   const rows = [];
   const seen = new Set();
@@ -736,8 +750,14 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       displayName: r.displayName ? String(r.displayName) : null,
       correctCount: Number(r.correctCount) || 0,
       streak: Number(r.streak) || 0,
+      points: Number.isFinite(r.points) ? Number(r.points) : null,
+      timeSec: Number.isFinite(r.timeSec) ? Number(r.timeSec) : null,
     });
   });
+  // Points first; equal points → more correct → faster board.
+  rows.sort((a, b) => ((b.points || 0) - (a.points || 0)) ||
+      (b.correctCount - a.correctCount) ||
+      ((a.timeSec ?? Infinity) - (b.timeSec ?? Infinity)));
   const top = rows.slice(0, 9);
   await Promise.all(top.map(async (r) => {
     if (!r.displayName) {
@@ -751,6 +771,8 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       displayName: r.displayName || ("Player " + r.uid.slice(-4).toUpperCase()),
       correctCount: r.correctCount,
       streak: r.streak,
+      points: r.points,
+      timeSec: r.timeSec,
       isCaller: !!(callerUid && r.uid === callerUid),
     })),
   };

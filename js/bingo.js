@@ -1256,23 +1256,41 @@
     const n = Number(streak) || 0;
     return n > 0 ? `${n}-day streak` : '';
   }
+  // r355: the board ranks on points (accuracy + per-tile speed). Rows from
+  // before the backfill may lack points/timeSec — degrade to the old look.
+  function lbScoreText(r) {
+    return Number.isFinite(r.points) ? `${Number(r.points).toLocaleString()} pts` : `${Number(r.correctCount) || 0}/9`;
+  }
+  function lbDetailText(r) {
+    const parts = [];
+    if (Number.isFinite(r.points)) parts.push(`${Number(r.correctCount) || 0}/9`);
+    if (Number.isFinite(r.timeSec) && r.timeSec > 0 && r.timeSec < 3600) parts.push(formatDuration(r.timeSec));
+    const s = lbStreakText(r.streak); if (s) parts.push(s);
+    return parts.join(' · ');
+  }
   function lbPodiumHtml(r) {
     const safe = window.safeText || ((s) => String(s || ''));
     const name = r.displayName || 'Golfer';
-    const sub = r.isCaller ? ['You', lbStreakText(r.streak)].filter(Boolean).join(' · ') : lbStreakText(r.streak);
+    // Two short centred lines: "9/9 · 1:14" then "You · 15-day streak" — one
+    // long line overflowed the narrow podium columns on phones.
+    const line1 = Number.isFinite(r.points)
+      ? [`${Number(r.correctCount) || 0}/9`, (Number.isFinite(r.timeSec) && r.timeSec > 0 && r.timeSec < 3600) ? formatDuration(r.timeSec) : ''].filter(Boolean).join(' · ')
+      : '';
+    const line2 = [r.isCaller ? 'You' : '', lbStreakText(r.streak)].filter(Boolean).join(' · ');
+    const sub = [line1, line2].filter(Boolean).join('<br>');
     return `<div class="bingo-lb-pod rank-${Number(r.rank) || 0}${r.isCaller ? ' you' : ''}">
       <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
       <div class="bingo-lb-pod-rank">${Number(r.rank) || ''}</div>
       <div class="bingo-lb-pod-name">${safe(name)}</div>
-      <div class="bingo-lb-pod-score">${Number(r.correctCount) || 0}/9</div>
-      ${sub ? `<div class="bingo-lb-pod-streak">${safe(sub)}</div>` : ''}
+      <div class="bingo-lb-pod-score">${safe(lbScoreText(r))}</div>
+      ${sub ? `<div class="bingo-lb-pod-streak">${sub.split('<br>').map(safe).join('<br>')}</div>` : ''}
     </div>`;
   }
   function lbRowHtml(r) {
     const safe = window.safeText || ((s) => String(s || ''));
     const name = r.displayName || 'Golfer';
     const score = Number(r.correctCount) || 0;
-    const sub = lbStreakText(r.streak);
+    const sub = lbDetailText(r);
     return `<div class="bingo-lb-row${r.isCaller ? ' you' : ''}">
       <div class="bingo-lb-rank${r.rank === 1 ? ' gold' : ''}">${Number(r.rank) || ''}</div>
       <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
@@ -1280,7 +1298,7 @@
         <div class="bingo-lb-name"><span>${safe(name)}</span>${r.isCaller ? '<span class="bingo-lb-you">You</span>' : ''}</div>
         ${sub ? `<div class="bingo-lb-sub">${safe(sub)}</div>` : ''}
       </div>
-      <div class="bingo-lb-score${score === 9 ? ' perfect' : ''}">${score}/9</div>
+      <div class="bingo-lb-score${score === 9 ? ' perfect' : ''}">${safe(lbScoreText(r))}</div>
     </div>`;
   }
   async function loadLeaderboard(scope) {

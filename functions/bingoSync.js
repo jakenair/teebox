@@ -220,6 +220,28 @@ function sanitizeCell(raw) {
   return {state, attempts, guess, tappedAt, resolvedAt, points};
 }
 
+// ── Points (r355) ──────────────────────────────────────────────────────────
+// Server mirror of the client's computeCellPoints (js/bingo.js): a correct
+// tile is 100 first try / 50 after a wrong guess; a first-try correct also
+// earns a speed bonus from tap→answer: ≤5 s +200, ≤10 s +100, ≤15 s +50,
+// else +20. Recomputed here from the sanitized cells (client points are
+// ignored) so the leaderboard ranks on accuracy AND speed with one number.
+// Tap/answer timestamps are client clocks — the same trust level as solvedAt.
+function pointsForCells(cells) {
+  if (!Array.isArray(cells)) return 0;
+  let total = 0;
+  for (const c of cells) {
+    if (!c || c.state !== "correct") continue;
+    const base = c.attempts === 1 ? 100 : 50;
+    if (c.attempts !== 1 || !Number.isFinite(c.tappedAt) || !Number.isFinite(c.resolvedAt)) { total += base; continue; }
+    const sec = Math.max(0, (c.resolvedAt - c.tappedAt) / 1000);
+    const bonus = sec <= 5 ? 200 : sec <= 10 ? 100 : sec <= 15 ? 50 : 20;
+    total += base + bonus;
+  }
+  return Math.min(total, 9 * 300);
+}
+exports.pointsForCells = pointsForCells;
+
 // ── Legacy gameScores fanout ───────────────────────────────────────────────
 // Mirror the essential fields of users/{uid}/bingoGames/{date} into
 // gameScores/{date}_{uid} so the legacy in-app leaderboard query (in
@@ -273,6 +295,7 @@ async function _fanoutToGameScores(db, uid, date, finalState) {
       attempts,
       startedAtVal,
       solvedAtVal,
+      points,
     } = finalState;
 
     // Only mirror once the puzzle is solved — pre-solve partials don't
@@ -330,6 +353,8 @@ async function _fanoutToGameScores(db, uid, date, finalState) {
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     if (timeSec !== null) patch.timeSec = timeSec;
+    // r355: ranking key for getBingoLeaderboard (accuracy + per-tile speed).
+    if (Number.isFinite(points)) patch.points = points;
     if (displayName) patch.displayName = displayName;
     if (country) patch.country = country;
 
@@ -485,6 +510,7 @@ exports.syncBingoProgress = onCall(
   let finalSolvedAtOut = null;
   let finalStartedAtOut = startedAtVal;
   let finalCorrectCountOut = correctCount;
+  let finalCellsOut = null;
   try {
     await db.runTransaction(async (tx) => {
       const existing = await tx.get(ref);
@@ -547,6 +573,7 @@ exports.syncBingoProgress = onCall(
       finalSolvedAtOut = finalSolvedAt;
       finalStartedAtOut = finalStartedAt;
       finalCorrectCountOut = finalCorrectCount;
+      finalCellsOut = finalCells;
 
       tx.set(
         ref,
@@ -595,6 +622,7 @@ exports.syncBingoProgress = onCall(
     attempts: attemptsTotal,
     startedAtVal: finalStartedAtOut,
     solvedAtVal: finalSolvedAtOut,
+    points: pointsForCells(finalCellsOut),
   });
 
   return {ok: true, correctCount: finalCorrectCountOut};
