@@ -828,55 +828,14 @@
     const s = sec % 60;
     return m ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
   }
-  // ── Sell card gating (r308, reworked r345) ──────────────────────────────
-  // r308 put a sell nudge INSIDE the result banner, once per 7 days. r345
-  // moves it to the handoff block below the board (renderBingoHandoff), where
-  // it is a persistent card next to the listings row, so the cooldown goes:
-  // the rules that remain are
-  //   1. signed-in only — a guest already gets the sign-in ask in the banner,
-  //      and two stacked asks reads as nagging rather than an invitation;
-  //   2. never to an existing seller — they get the progress card instead;
-  //   3. "Not now" hides it for 30 days;
-  //   4. localStorage only, wrapped in try/catch, because a private window or
-  //      blocked site data throws on access and must never break the board.
-  const SELL_NUDGE_KEY = 'tb_bingo_sell_nudge_v1';
-  const SELL_NUDGE_DISMISS_DAYS = 30;
-  function alreadySells() {
-    try {
-      const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
-      if (!uid) return false;
-      // PRODUCTS may not be loaded inside the Bingo view. An empty list means
-      // "unknown", not "no listings" — showing the nudge once to someone who
-      // already sells is a far smaller cost than never showing it at all.
-      return (window.PRODUCTS || []).some(p => p && p.sellerId === uid);
-    } catch (_e) { return false; }
-  }
-  function shouldShowSellNudge() {
-    try {
-      if (!window.CURRENT_USER) return false;
-      if (alreadySells()) return false;
-      const raw = localStorage.getItem(SELL_NUDGE_KEY);
-      if (raw) {
-        const o = JSON.parse(raw);
-        const days = (Date.now() - Number(o.at || 0)) / 86400000;
-        if (o.dismissed && days < SELL_NUDGE_DISMISS_DAYS) return false;
-      }
-      return true;
-    } catch (_e) { return false; }
-  }
-  function markSellNudgeSeen(dismissed) {
-    try {
-      localStorage.setItem(SELL_NUDGE_KEY,
-        JSON.stringify({at: Date.now(), dismissed: !!dismissed}));
-    } catch (_e) {}
-  }
-  // Mirrored for the action handlers, which live in a sibling <script>.
-  window.__bingoSellNudge = {markSellNudgeSeen};
+  // r353: the sell card ("list five and you're a Featured Seller") and its
+  // 30-day nudge gating were removed from Bingo at Jake's call — the puzzle
+  // should not advertise selling. Only the listings row remains below.
 
   // ── r345: Bingo → marketplace handoff ───────────────────────────────────
   // The solve is the most engaged moment of the day for ~90 people, and the
   // screen used to end at "come back tomorrow". This renders, below the
-  // footer, a row of the freshest listings and a sell card. The row reads
+  // footer, a row of the freshest listings (the sell card went in r353). The row reads
   // window.PRODUCTS — the home feed, fetched at boot for everyone including
   // guests — so it costs no extra query; if the feed hasn't resolved yet we
   // render when it announces itself (teebox-listings-loaded, r157).
@@ -892,44 +851,6 @@
         && !(blocked && blocked.has(p.sellerId)))
       .sort((a, b) => ms(b) - ms(a))
       .slice(0, HANDOFF_PICKS);
-  }
-  function handoffSellCard() {
-    const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
-    if (!uid) return '';
-    const min = window.FEATURED_MIN_LISTINGS || 5;
-    const mine = window.featuredSellerStats ? window.featuredSellerStats().get(uid) : null;
-    const count = mine ? mine.count : 0;
-    if (count > 0) {
-      const need = Math.max(0, min - count);
-      const pct = Math.min(100, Math.round((count / min) * 100));
-      return `
-        <div class="bh-card">
-          <div class="bh-sell">
-            <div class="bh-sell-copy">
-              <strong>${need > 0 ? `${need} more listing${need === 1 ? '' : 's'} and you&rsquo;re featured` : 'You&rsquo;re a Featured Seller'}</strong>
-              ${need > 0 ? `${count} of ${min} live. Five puts your card on the home page.` : 'Your card is live on the TeeBox home page.'}
-              <div class="bh-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
-            </div>
-            <div class="bh-sell-actions">
-              <button type="button" class="bh-sell-cta" data-action="bingo-handoff-sell">List another</button>
-            </div>
-          </div>
-        </div>`;
-    }
-    if (!shouldShowSellNudge()) return '';
-    return `
-      <div class="bh-card">
-        <div class="bh-sell">
-          <div class="bh-sell-copy">
-            <strong>Sell your stuff</strong>
-            Clubs, bags, shoes, polos &mdash; list five and you&rsquo;re a Featured Seller on the home page.
-          </div>
-          <div class="bh-sell-actions">
-            <button type="button" class="bh-sell-cta" data-action="bingo-handoff-sell">Start selling</button>
-            <button type="button" class="bh-sell-x" data-action="bingo-handoff-dismiss">Not now</button>
-          </div>
-        </div>
-      </div>`;
   }
   let __handoffWaiting = false;
   function renderBingoHandoff() {
@@ -973,14 +894,13 @@
           `</button>`;
         }).join('')}</div>
       </div>` : '';
-    const sellHtml = handoffSellCard();
-    if (!picksHtml && !sellHtml) { host.remove(); return; }
-    host.innerHTML = picksHtml + sellHtml;
+    if (!picksHtml) { host.remove(); return; }
+    host.innerHTML = picksHtml;
     try {
       if (!host.dataset.tracked) {
         host.dataset.tracked = '1';
         window.posthog && window.posthog.capture('bingo_handoff_shown', {
-          picks: picks.length, sell_card: !!sellHtml, signed_in: !!window.CURRENT_USER,
+          picks: picks.length, signed_in: !!window.CURRENT_USER,
         });
       }
     } catch (_e) {}
@@ -2588,22 +2508,6 @@
   A['bingo-skip-guess']     = () => skipGuess();
   A['bingo-cancel-guess']   = () => closeGuessModal();
   A['bingo-share']          = () => shareResult();
-  // r308 sell nudge. Record BEFORE navigating: handle-sell can open the auth
-  // or Stripe-onboarding path and never return here, and a nudge that reopens
-  // every single day because the user actually acted on it is the worst
-  // possible outcome.
-  A['bingo-sell-start']     = () => {
-    try { window.__bingoSellNudge && window.__bingoSellNudge.markSellNudgeSeen(false); } catch (_e) {}
-    const n = document.querySelector('.bingo-sell-nudge');
-    if (n) n.remove();
-    try { A['close-bingo'] && A['close-bingo'](); } catch (_e) {}
-    handleSellClick();
-  };
-  A['bingo-sell-dismiss']   = () => {
-    try { window.__bingoSellNudge && window.__bingoSellNudge.markSellNudgeSeen(true); } catch (_e) {}
-    const n = document.querySelector('.bingo-sell-nudge');
-    if (n) n.remove();
-  };
   // r345 handoff actions. A pick closes the game FIRST: the detail modal's
   // backdrop sits under #bingoScreen (z 320 — the r317 stats-sheet lesson),
   // so opening it on top would open it invisibly. The handler is the same
@@ -2625,17 +2529,6 @@
       if (el) { try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_e) {} }
     }, 80);
   };
-  A['bingo-handoff-sell'] = () => {
-    try { window.posthog && window.posthog.capture('bingo_handoff_sell_tap'); } catch (_e) {}
-    try { markSellNudgeSeen(false); } catch (_e) {}
-    try { closeBingo(); } catch (_e) {}
-    handleSellClick();
-  };
-  A['bingo-handoff-dismiss'] = () => {
-    try { markSellNudgeSeen(true); } catch (_e) {}
-    try { renderBingoHandoff(); } catch (_e) {}
-  };
-
   // Wire input listeners (autocomplete + Enter-to-submit). We attach once
   // and just feed today's pool every time.
   const guessInput = document.getElementById('bingoGuessInput');
