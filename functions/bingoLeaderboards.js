@@ -784,6 +784,11 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
   rows.sort((a, b) => ((b.points || 0) - (a.points || 0)) ||
       (b.correctCount - a.correctCount) ||
       ((a.timeSec ?? Infinity) - (b.timeSec ?? Infinity)));
+  // r356: the caller's own standing within the top 50, even when they are
+  // outside the nine rows we return — feeds the "You're #N this week" nudge.
+  // Still no uid in the response.
+  let callerRank = null;
+  if (callerUid) { const i = rows.findIndex((r) => r.uid === callerUid); if (i >= 0) callerRank = i + 1; }
   const top = rows.slice(0, 9);
   // r355: enrich the top rows with a profile photo. profiles/{uid} is
   // public-read; prefer the smallest optimizeAvatar variant >= 96px, then the
@@ -800,8 +805,21 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       try { const u = await admin.auth().getUser(r.uid); if (u && typeof u.photoURL === "string" && /^https:\/\//.test(u.photoURL)) r.photoURL = u.photoURL; } catch (_e) { /* no photo */ }
     }
   }));
+  // r356: does the caller have a photo at all (top-9 row if present, else one
+  // profile read)? Drives the "Add a photo" nudge; boolean only.
+  let callerHasPhoto = null;
+  if (callerUid) {
+    const mine = top.find((r) => r.uid === callerUid);
+    if (mine) callerHasPhoto = !!mine.photoURL;
+    else {
+      try { const s = await db.doc(`profiles/${callerUid}`).get(); callerHasPhoto = !!pickAvatarUrl(s.exists ? (s.data() || {}) : null); } catch (_e) { callerHasPhoto = null; }
+      if (callerHasPhoto === false) { try { const u = await admin.auth().getUser(callerUid); if (u && u.photoURL) callerHasPhoto = true; } catch (_e) { /* keep false */ } }
+    }
+  }
   return {
     scope,
+    callerRank,
+    callerHasPhoto,
     rows: top.map((r, i) => ({
       rank: i + 1,
       displayName: r.displayName || ("Player " + r.uid.slice(-4).toUpperCase()),

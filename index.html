@@ -4171,6 +4171,14 @@ window.__phDeferLoad = function(load) {
   .bingo-lb-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.3px; background: var(--green-100); color: var(--green-700); flex: 0 0 auto; }
   .bingo-lb-avatar { position: relative; overflow: hidden; }
   .bingo-lb-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+  /* r356: the caller's own avatar when they have no photo — dashed gold ring + plus badge. */
+  .bingo-lb-avatar.add-photo { box-shadow: 0 0 0 2px var(--white), 0 0 0 3.5px var(--gold-500) !important; overflow: visible; }
+  .bingo-lb-avatar.add-photo::after { content: '+'; position: absolute; right: -3px; bottom: -3px; width: 16px; height: 16px; border-radius: 50%; background: var(--gold-500); color: var(--green-950); font-size: 13px; line-height: 1; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--white); }
+  .bingo-lb-addphoto { background: none; border: none; padding: 0; margin: 0; color: var(--gold-700); font-family: var(--font-body); font-weight: 700; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .bingo-photo-nudge { margin-top: 10px; font-size: 13px; opacity: 0.95; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .bingo-photo-nudge-actions { display: inline-flex; gap: 6px; }
+  .bingo-photo-nudge button { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.5); color: #fff; font-family: var(--font-body); font-weight: 600; font-size: 13px; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+  .bingo-photo-nudge button.ghost { background: transparent; border-color: rgba(255,255,255,0.3); opacity: 0.85; }
   .bingo-lb-avatar.tone-2 { background: var(--gold-50); color: var(--gold-700); }
   .bingo-lb-avatar.tone-3 { background: #e9eef6; color: #2f4a6a; }
   .bingo-lb-avatar.tone-4 { background: #f6e9e4; color: #8a3b24; }
@@ -5757,7 +5765,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r355</span></div>
+        <span class="auth-build" aria-hidden="true">r356</span></div>
     </div>
   </div>
 </div>
@@ -9219,8 +9227,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r355"></script>
-<script type="module" src="/js/app-auth.js?v=r355"></script>
+<script defer src="/js/app-main.js?v=r356"></script>
+<script type="module" src="/js/app-auth.js?v=r356"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9250,7 +9258,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r355"></script>
+<script type="module" src="/js/bingo.js?v=r356"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

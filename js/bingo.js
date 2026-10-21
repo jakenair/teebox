@@ -1024,6 +1024,7 @@
       }
       // r345: listings row + sell card under the footer.
       try { renderBingoHandoff(); } catch (_e) {}
+      try { updatePhotoNudge(); } catch (_e) {}
       // Reload-of-completed path: kick off the results panel load.
       // loadBingoResults is idempotent and a no-op for anonymous users
       // / offline / already-loaded states.
@@ -1271,11 +1272,42 @@
   // Photo when the server found one; the initials stay underneath so a broken
   // or slow image never leaves an empty circle. Broken images are removed by
   // the capture-phase error listener below (CSP: no inline handlers).
-  function lbAvatarHtml(name, photoURL) {
+  // r356: "Add a photo" nudge. The callable tells us the caller's rank within
+  // the top 50 and whether they have any photo; both are null for guests.
+  let lbCaller = {rank: null, hasPhoto: null};
+  function photoNudgeDismissed() {
+    try { const uid = window.CURRENT_USER && window.CURRENT_USER.uid; return !uid || !!localStorage.getItem('teebox.photoNudgeDismissed.' + uid); } catch (_e) { return true; }
+  }
+  function wantPhotoNudge() {
+    return !!window.CURRENT_USER && lbCaller.hasPhoto === false && !photoNudgeDismissed();
+  }
+  // Inserts or removes the nudge line inside the completion banner. Idempotent;
+  // called after render() builds the banner and after each leaderboard load,
+  // whichever happens last.
+  function updatePhotoNudge() {
+    const banner = document.getElementById('bingoResultBanner');
+    const existing = document.getElementById('bingoPhotoNudge');
+    if (!banner || !wantPhotoNudge()) { if (existing) existing.remove(); return; }
+    const safe = window.safeText || ((s) => String(s || ''));
+    const rank = Number(lbCaller.rank);
+    const lead = rank > 0 ? `You're #${rank} this week.` : `You're on the leaderboard.`;
+    const html = `<span>${safe(lead)} Add a photo so people recognise you.</span>
+        <span class="bingo-photo-nudge-actions">
+          <button type="button" data-action="bingo-add-photo">Add a photo</button>
+          <button type="button" class="ghost" data-action="bingo-photo-nudge-dismiss" aria-label="Not now">Not now</button>
+        </span>`;
+    if (existing) { existing.innerHTML = html; return; }
+    const div = document.createElement('div');
+    div.id = 'bingoPhotoNudge'; div.className = 'bingo-photo-nudge'; div.innerHTML = html;
+    const statsLink = banner.querySelector('.bingo-stats-link');
+    const anchor = statsLink && statsLink.parentElement && statsLink.parentElement.parentElement === banner ? statsLink.parentElement : null;
+    if (anchor) banner.insertBefore(div, anchor); else banner.appendChild(div);
+  }
+  function lbAvatarHtml(name, photoURL, addPhoto) {
     const safe = window.safeText || ((s) => String(s || ''));
     const url = (typeof photoURL === 'string' && /^https:\/\//.test(photoURL) && window.safeAttr) ? window.safeAttr(photoURL) : '';
     const img = url ? `<img src="${url}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : '';
-    return `<div class="bingo-lb-avatar tone-${lbTone(name)}${url ? ' has-photo' : ''}" aria-hidden="true"><span>${safe(lbInitials(name))}</span>${img}</div>`;
+    return `<div class="bingo-lb-avatar tone-${lbTone(name)}${url ? ' has-photo' : ''}${addPhoto && !url ? ' add-photo' : ''}" aria-hidden="true"><span>${safe(lbInitials(name))}</span>${img}</div>`;
   }
   if (!window.__lbAvatarErrWired) {
     window.__lbAvatarErrWired = true;
@@ -1294,14 +1326,16 @@
     const line1 = Number.isFinite(r.points)
       ? [`${Number(r.correctCount) || 0}/9`, (Number.isFinite(r.timeSec) && r.timeSec > 0 && r.timeSec < 3600) ? formatDuration(r.timeSec) : ''].filter(Boolean).join(' · ')
       : '';
+    const nudge = r.isCaller && !r.photoURL && !photoNudgeDismissed();
     const line2 = [r.isCaller ? 'You' : '', lbStreakText(r.streak)].filter(Boolean).join(' · ');
     const sub = [line1, line2].filter(Boolean).join('<br>');
     return `<div class="bingo-lb-pod rank-${Number(r.rank) || 0}${r.isCaller ? ' you' : ''}">
-      ${lbAvatarHtml(name, r.photoURL)}
+      ${lbAvatarHtml(name, r.photoURL, nudge)}
       <div class="bingo-lb-pod-rank">${Number(r.rank) || ''}</div>
       <div class="bingo-lb-pod-name">${safe(name)}</div>
       <div class="bingo-lb-pod-score">${safe(lbScoreText(r))}</div>
       ${sub ? `<div class="bingo-lb-pod-streak">${sub.split('<br>').map(safe).join('<br>')}</div>` : ''}
+      ${nudge ? '<button type="button" class="bingo-lb-addphoto" data-action="bingo-add-photo">Add a photo</button>' : ''}
     </div>`;
   }
   function lbRowHtml(r) {
@@ -1309,12 +1343,13 @@
     const name = r.displayName || 'Golfer';
     const score = Number(r.correctCount) || 0;
     const sub = lbDetailText(r);
+    const nudge = r.isCaller && !r.photoURL && !photoNudgeDismissed();
     return `<div class="bingo-lb-row${r.isCaller ? ' you' : ''}">
       <div class="bingo-lb-rank${r.rank === 1 ? ' gold' : ''}">${Number(r.rank) || ''}</div>
-      ${lbAvatarHtml(name, r.photoURL)}
+      ${lbAvatarHtml(name, r.photoURL, nudge)}
       <div class="bingo-lb-who">
         <div class="bingo-lb-name"><span>${safe(name)}</span>${r.isCaller ? '<span class="bingo-lb-you">You</span>' : ''}</div>
-        ${sub ? `<div class="bingo-lb-sub">${safe(sub)}</div>` : ''}
+        ${sub || nudge ? `<div class="bingo-lb-sub">${safe(sub)}${nudge ? (sub ? ' · ' : '') + '<button type="button" class="bingo-lb-addphoto" data-action="bingo-add-photo">Add a photo</button>' : ''}</div>` : ''}
       </div>
       <div class="bingo-lb-score${score === 9 ? ' perfect' : ''}">${safe(lbScoreText(r))}</div>
     </div>`;
@@ -1350,6 +1385,11 @@
       const fn = httpsCallable(getFunctions(), 'getBingoLeaderboard');
       const res = await fn({ scope: currentLbTab });
       const rows = (res && res.data && res.data.rows) || [];
+      lbCaller = {
+        rank: res && res.data && Number.isFinite(res.data.callerRank) ? res.data.callerRank : null,
+        hasPhoto: res && res.data && typeof res.data.callerHasPhoto === 'boolean' ? res.data.callerHasPhoto : null,
+      };
+      try { updatePhotoNudge(); } catch (_e) {}
       if (!rows.length) {
         // r317: scope-aware. The old copy said "no completed scores yet" on
         // both tabs, which reads as "nobody has played today" even when the
@@ -2522,6 +2562,23 @@
     }
   } catch {}
   A['bingo-lb-tab']         = (el) => loadLeaderboard(el.dataset.tab);
+  // r356: photo nudge → close the game, open my profile, jump to the editor.
+  A['bingo-add-photo']      = () => {
+    const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+    if (!uid) { try { A['show-auth'] && A['show-auth'](); } catch (_e) {} return; }
+    try { window.posthog && window.posthog.capture('bingo_photo_nudge_tap', {rank: lbCaller.rank}); } catch (_e) {}
+    try { closeBingo(); } catch (_e) {}
+    setTimeout(() => {
+      Promise.resolve(A['open-profile'] ? A['open-profile']({dataset: {uid}}) : null)
+        .then(() => { try { A['edit-profile'] && A['edit-profile'](); } catch (_e) {} })
+        .catch(() => {});
+    }, 80);
+  };
+  A['bingo-photo-nudge-dismiss'] = () => {
+    try { const uid = window.CURRENT_USER && window.CURRENT_USER.uid; if (uid) localStorage.setItem('teebox.photoNudgeDismissed.' + uid, String(Date.now())); } catch (_e) {}
+    try { updatePhotoNudge(); } catch (_e) {}
+    try { loadLeaderboard(currentLbTab); } catch (_e) {}
+  };
   A['apply-suggest-price']  = (el) => {
     const p = Number(el.dataset.price || 0);
     const inp = document.getElementById('sellPrice');
