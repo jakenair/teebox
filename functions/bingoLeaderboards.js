@@ -149,6 +149,32 @@ async function fetchUserDoc(db, uid) {
   }
 }
 
+// Smallest avatar derivative that is still >= 96px, else the original upload.
+// Mirrors window.avatarVariantUrl in js/app-main.js (variants keyed by the
+// upload basename, then by size label such as w96/w200).
+function pickAvatarUrl(prof) {
+  if (!prof || typeof prof.avatarUrl !== "string" || !/^https:\/\//.test(prof.avatarUrl)) return null;
+  const orig = prof.avatarUrl;
+  const v = prof.avatarVariants;
+  if (v && typeof v === "object") {
+    const m = orig.match(/\/o\/([^?]+)/);
+    if (m) {
+      try {
+        const base = decodeURIComponent(m[1]).split("/").pop().replace(/\.[^.]+$/, "");
+        const sizes = v[base];
+        if (sizes && typeof sizes === "object") {
+          const best = Object.keys(sizes)
+              .map((k) => ({k, px: Number((k.match(/\d+/) || [0])[0])}))
+              .filter((x) => x.px >= 96 && /^https:\/\//.test(String(sizes[x.k])))
+              .sort((a, b) => a.px - b.px)[0];
+          if (best) return String(sizes[best.k]);
+        }
+      } catch (_e) { /* fall through */ }
+    }
+  }
+  return orig;
+}
+
 async function fetchDisplayName(db, uid) {
   // profiles is public-read (per firestore.rules) so this works even
   // when we're returning data about another user to the requester.
@@ -759,9 +785,19 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       (b.correctCount - a.correctCount) ||
       ((a.timeSec ?? Infinity) - (b.timeSec ?? Infinity)));
   const top = rows.slice(0, 9);
+  // r355: enrich the top rows with a profile photo. profiles/{uid} is
+  // public-read; prefer the smallest optimizeAvatar variant >= 96px, then the
+  // uploaded original, then the Auth provider photo (Google sign-in). Only the
+  // URL leaves the server, never the uid — same projection rule as A1.
   await Promise.all(top.map(async (r) => {
+    let prof = null;
+    try { const s = await db.doc(`profiles/${r.uid}`).get(); prof = s.exists ? (s.data() || {}) : null; } catch (_e) { prof = null; }
     if (!r.displayName) {
-      try { r.displayName = await fetchDisplayName(db, r.uid); } catch (_e) { /* mask below */ }
+      r.displayName = (prof && prof.displayName) ? String(prof.displayName) : ("Player " + String(r.uid).slice(-4).toUpperCase());
+    }
+    r.photoURL = pickAvatarUrl(prof);
+    if (!r.photoURL) {
+      try { const u = await admin.auth().getUser(r.uid); if (u && typeof u.photoURL === "string" && /^https:\/\//.test(u.photoURL)) r.photoURL = u.photoURL; } catch (_e) { /* no photo */ }
     }
   }));
   return {
@@ -773,6 +809,7 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       streak: r.streak,
       points: r.points,
       timeSec: r.timeSec,
+      photoURL: r.photoURL || null,
       isCaller: !!(callerUid && r.uid === callerUid),
     })),
   };

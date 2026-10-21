@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://teeboxmarket.com https://www.facebook.com https://*.firebasestorage.app https://firebasestorage.googleapis.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://connect.facebook.net https://www.facebook.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com https://xd-f1cf3d4fdb19408ea770fc6f80817dcb.ecs.us-east-1.on.aws; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://teeboxmarket.com https://www.facebook.com https://*.firebasestorage.app https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://connect.facebook.net https://www.facebook.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com https://xd-f1cf3d4fdb19408ea770fc6f80817dcb.ecs.us-east-1.on.aws; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -4169,6 +4169,8 @@ window.__phDeferLoad = function(load) {
   .bingo-lb-pod { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; padding: 8px 4px 10px; border-radius: var(--radius-md); }
   .bingo-lb-pod.you { background: var(--gold-50); box-shadow: inset 0 0 0 1px var(--gold-400); }
   .bingo-lb-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.3px; background: var(--green-100); color: var(--green-700); flex: 0 0 auto; }
+  .bingo-lb-avatar { position: relative; overflow: hidden; }
+  .bingo-lb-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
   .bingo-lb-avatar.tone-2 { background: var(--gold-50); color: var(--gold-700); }
   .bingo-lb-avatar.tone-3 { background: #e9eef6; color: #2f4a6a; }
   .bingo-lb-avatar.tone-4 { background: #f6e9e4; color: #8a3b24; }
@@ -5755,7 +5757,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r354</span></div>
+        <span class="auth-build" aria-hidden="true">r355</span></div>
     </div>
   </div>
 </div>
@@ -9217,8 +9219,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r354"></script>
-<script type="module" src="/js/app-auth.js?v=r354"></script>
+<script defer src="/js/app-main.js?v=r355"></script>
+<script type="module" src="/js/app-auth.js?v=r355"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9248,7 +9250,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r354"></script>
+<script type="module" src="/js/bingo.js?v=r355"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

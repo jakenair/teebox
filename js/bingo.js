@@ -1268,6 +1268,24 @@
     const s = lbStreakText(r.streak); if (s) parts.push(s);
     return parts.join(' · ');
   }
+  // Photo when the server found one; the initials stay underneath so a broken
+  // or slow image never leaves an empty circle. Broken images are removed by
+  // the capture-phase error listener below (CSP: no inline handlers).
+  function lbAvatarHtml(name, photoURL) {
+    const safe = window.safeText || ((s) => String(s || ''));
+    const url = (typeof photoURL === 'string' && /^https:\/\//.test(photoURL) && window.safeAttr) ? window.safeAttr(photoURL) : '';
+    const img = url ? `<img src="${url}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : '';
+    return `<div class="bingo-lb-avatar tone-${lbTone(name)}${url ? ' has-photo' : ''}" aria-hidden="true"><span>${safe(lbInitials(name))}</span>${img}</div>`;
+  }
+  if (!window.__lbAvatarErrWired) {
+    window.__lbAvatarErrWired = true;
+    document.addEventListener('error', (e) => {
+      const t = e && e.target;
+      if (t && t.tagName === 'IMG' && t.parentElement && t.parentElement.classList && t.parentElement.classList.contains('bingo-lb-avatar')) {
+        t.parentElement.classList.remove('has-photo'); t.remove();
+      }
+    }, true);
+  }
   function lbPodiumHtml(r) {
     const safe = window.safeText || ((s) => String(s || ''));
     const name = r.displayName || 'Golfer';
@@ -1279,7 +1297,7 @@
     const line2 = [r.isCaller ? 'You' : '', lbStreakText(r.streak)].filter(Boolean).join(' · ');
     const sub = [line1, line2].filter(Boolean).join('<br>');
     return `<div class="bingo-lb-pod rank-${Number(r.rank) || 0}${r.isCaller ? ' you' : ''}">
-      <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
+      ${lbAvatarHtml(name, r.photoURL)}
       <div class="bingo-lb-pod-rank">${Number(r.rank) || ''}</div>
       <div class="bingo-lb-pod-name">${safe(name)}</div>
       <div class="bingo-lb-pod-score">${safe(lbScoreText(r))}</div>
@@ -1293,7 +1311,7 @@
     const sub = lbDetailText(r);
     return `<div class="bingo-lb-row${r.isCaller ? ' you' : ''}">
       <div class="bingo-lb-rank${r.rank === 1 ? ' gold' : ''}">${Number(r.rank) || ''}</div>
-      <div class="bingo-lb-avatar tone-${lbTone(name)}" aria-hidden="true">${safe(lbInitials(name))}</div>
+      ${lbAvatarHtml(name, r.photoURL)}
       <div class="bingo-lb-who">
         <div class="bingo-lb-name"><span>${safe(name)}</span>${r.isCaller ? '<span class="bingo-lb-you">You</span>' : ''}</div>
         ${sub ? `<div class="bingo-lb-sub">${safe(sub)}</div>` : ''}
