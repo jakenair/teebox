@@ -13304,6 +13304,7 @@ function openLegalUrl(path) {
   if (!w) window.location.href = path;
 }
 A['open-privacy-full']       = () => openLegalUrl('/privacy.html');
+A['open-terms-full']         = () => openLegalUrl('/terms.html');
 A['open-terms-page']         = () => openLegalUrl('/terms.html');
 A['open-dmca']               = () => openLegalUrl('/dmca.html');
 A['open-refund-policy']      = () => openLegalUrl('/refunds.html');

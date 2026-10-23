@@ -596,9 +596,45 @@ exports.onDisputeOpenedEmail = onDocumentCreated(
           ctx,
         }) : recordEmailMiss({uid: s.uid, template: "DisputeOpenedSeller",
           orderId: order.id, reason: "no seller email (auth + doc both empty)"}),
+        // r357: the buyer/seller copy says "the seller and TeeBox are
+        // notified" — make that true in real time (before this the only
+        // TeeBox-side signal was the daily founder briefing). Plain HTML to
+        // the support inbox; reply-to is the buyer so support can answer
+        // from the thread.
+        sendEmail({
+          to: SUPPORT_INBOX,
+          subject: `Dispute opened: ${(listing && listing.title) || order.id}`,
+          html: disputeAdminHtml({order, dispute, listing, b, s}),
+          category: CATEGORIES.TRANSACTIONAL,
+          template: "DisputeOpenedAdmin",
+          replyTo: b.email || undefined,
+        }).catch((e) => logger.warn("DisputeOpenedAdmin send failed", e.message)),
       ]);
     },
 );
+
+const SUPPORT_INBOX = "support@teeboxmarket.com";
+function escHtml(v) {
+  return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+}
+function disputeAdminHtml({order, dispute, listing, b, s}) {
+  const rows = [
+    ["Order", order.id],
+    ["Listing", (listing && listing.title) || order.listingId || ""],
+    ["Reason", dispute.reason || ""],
+    ["Details", dispute.detail || ""],
+    ["Buyer", `${b.email || "(no email)"} · ${order.buyerId || ""}`],
+    ["Seller", `${s.email || "(no email)"} · ${order.sellerId || ""}`],
+    ["Source", dispute.stripeDisputeId ? `Stripe chargeback ${dispute.stripeDisputeId}` : "In-app report"],
+  ].map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;vertical-align:top">${escHtml(k)}</td><td style="padding:4px 0;white-space:pre-wrap">${escHtml(v)}</td></tr>`).join("");
+  return `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;color:#111">` +
+    `<p><strong>A dispute was opened.</strong> Reply to this email to reach the buyer; the seller's address is below.</p>` +
+    `<table style="border-collapse:collapse">${rows}</table>` +
+    `<p><a href="https://teeboxmarket.com/orders/${encodeURIComponent(order.id || "")}">Open the order</a></p>` +
+    `</body></html>`;
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // C. SECURITY — most are called inline from auth flows. Exposed here as

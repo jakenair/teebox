@@ -1,26 +1,33 @@
 const React = require("react");
 const {Base, Button, H1, P} = require("../layout/Base");
 
+// r357 (2026-10-23): copy matches the dispute flow that actually exists —
+// seller + TeeBox notified, worked out over email, refunds to the original
+// payment method. No response deadlines, no "funds on hold", no automatic
+// refund, and the CTA goes to /orders/<id> (404.html bounces /disputes/*).
 function DisputeOpenedBuyer({order = {}, buyer = {}, listing = {}}) {
   const title = listing.title || "your item";
-  const url = `https://teeboxmarket.com/disputes/${order.id || ""}`;
+  const url = `https://teeboxmarket.com/orders/${order.id || ""}`;
 
   return (
     <Base
-      preview={`Dispute opened for ${title}. We've notified the seller.`}
+      preview={`Dispute opened for ${title}. The seller and TeeBox have been notified.`}
       uid={buyer.uid}
       category="transactional"
     >
       <H1>Dispute opened</H1>
       <P>
         We received your dispute for <strong>{title}</strong>. The seller has
-        72 hours to respond. Our team is monitoring the case and will step in
-        if you and the seller can't resolve it.
+        been notified, and so has our team. We&apos;ll work it out with you and
+        the seller by email, so keep an eye on your inbox. Reply to this email
+        with any photos, tracking details, or messages that help explain what
+        happened.
       </P>
-      <Button href={url}>Manage dispute</Button>
+      <Button href={url}>View order</Button>
       <P muted>
-        Keep all packaging and photo evidence. If the dispute is decided in your
-        favor, we refund your full payment to your original payment method.
+        If a refund is the outcome, it goes back to your original payment
+        method. Opening a dispute doesn&apos;t affect any rights you have with
+        your card issuer.
       </P>
     </Base>
   );
