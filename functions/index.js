@@ -8,6 +8,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
+const disputeReversal = require("./lib/disputeReversal");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
@@ -874,7 +875,7 @@ exports.stripeWebhook = onRequest(
     try {
       switch (event.type) {
         case "payment_intent.succeeded":
-          await handlePaymentSucceeded(event.data.object);
+          await handlePaymentSucceeded(event.data.object, stripeClient);
           break;
         case "payment_intent.payment_failed":
         case "payment_intent.canceled":
@@ -1355,61 +1356,21 @@ async function handleDisputeFundsWithdrawn(dispute, stripeClient) {
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) {
     logger.warn(
-      `funds_withdrawn for unknown order ${dispute.payment_intent}`);
+        `funds_withdrawn for unknown order ${dispute.payment_intent}`);
     return;
   }
-  const order = orderSnap.data();
-
-  let transferId = order.transferId || null;
-  // Backstop: if we didn't capture the transfer id when the PI succeeded
-  // (e.g. older orders, or transfer was created async), pull it from the
-  // PI now via Stripe.
-  if (!transferId) {
-    try {
-      const pi = await stripeClient.paymentIntents.retrieve(
-          dispute.payment_intent, {expand: ["charges.data.transfer"]});
-      const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
-      transferId = ch && ch.transfer
-        ? (typeof ch.transfer === "string" ? ch.transfer : ch.transfer.id)
-        : null;
-    } catch (e) {
-      logger.warn("funds_withdrawn: PI retrieve failed", e.message);
-    }
-  }
-
-  if (!transferId) {
-    logger.error(
-      `funds_withdrawn: no transferId for ${dispute.payment_intent}; ` +
-      "cannot reverse seller payout");
-    await orderRef.set({
-      disputeFundsWithdrawn: true,
-      sellerDebited: false,
-      disputeFundsWithdrawnAt:
-        admin.firestore.FieldValue.serverTimestamp(),
-    }, {merge: true});
-    return;
-  }
-
-  const sellerPayoutCents = Number(order.sellerPayoutCents || 0);
-  try {
-    await stripeClient.transfers.createReversal(transferId, {
-      amount: sellerPayoutCents > 0 ? sellerPayoutCents : undefined,
-      refund_application_fee: true,
-      metadata: {
-        reason: "chargeback",
-        disputeId: dispute.id,
-      },
-    });
-  } catch (revErr) {
-    logger.error("funds_withdrawn: transfer reversal failed", revErr);
-  }
-
-  await orderRef.set({
-    disputeFundsWithdrawn: true,
-    sellerDebited: true,
-    disputeFundsWithdrawnAt:
-      admin.firestore.FieldValue.serverTimestamp(),
-  }, {merge: true});
+  // lib/disputeReversal: resolves the transfer via latest_charge when the
+  // order never captured it, reverses ONLY the seller's share (no fee
+  // refund), and records failure as failure (sellerDebited:false +
+  // reversalError) instead of the old unconditional sellerDebited:true.
+  await disputeReversal.reverseSellerTransferForDispute({
+    dispute,
+    order: orderSnap.data(),
+    orderRef,
+    stripe: stripeClient,
+    logger,
+    FieldValue: admin.firestore.FieldValue,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1587,7 +1548,7 @@ async function handleIdentitySessionUpdate(event) {
   await db.collection("users").doc(uid).set(update, {merge: true});
 }
 
-async function handlePaymentSucceeded(pi) {
+async function handlePaymentSucceeded(pi, stripeClient) {
   const db = admin.firestore();
   const {
     listingId,
@@ -1624,26 +1585,24 @@ async function handlePaymentSucceeded(pi) {
 
   // Capture the destination-charge transferId so charge.dispute.
   // funds_withdrawn can reverse it without a round-trip back to Stripe.
-  // PI shape: pi.charges.data[0].transfer is the Connect transfer object
-  // (or its id string, depending on expand state).
+  // 2026-10-24: PI payloads on the pinned API version carry `latest_charge`
+  // (an id), not `charges.data[]` — lib/disputeReversal.resolveCharge handles
+  // both shapes and fetches the Charge when only the id is present.
   let transferId = null;
-  // Card fingerprint — Stripe's stable per-card hash, shared across
-  // customer/account/PI for the same underlying card number. Used by
-  // banEvasion.js to detect a banned user creating a fresh account and
-  // re-attempting checkout with the same card. May be null on non-card
-  // PMs (wallet, ACH, etc.).
+  // Card fingerprint — Stripe's stable per-card hash, used by banEvasion.js
+  // to detect a banned user re-attempting checkout with the same card.
   let cardFingerprint = null;
   try {
-    const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
-    if (ch && ch.transfer) {
-      transferId = typeof ch.transfer === "string"
-        ? ch.transfer
-        : ch.transfer.id || null;
+    const ch = await disputeReversal.resolveCharge(pi, stripeClient);
+    transferId = disputeReversal.transferIdFromCharge(ch);
+    cardFingerprint = disputeReversal.cardFingerprintFromCharge(ch);
+    if (!transferId) {
+      logger.warn(`handlePaymentSucceeded: no transferId resolved for ${pi.id} ` +
+        `(latest_charge=${pi.latest_charge ? "present" : "absent"})`);
     }
-    if (ch && ch.payment_method_details && ch.payment_method_details.card) {
-      cardFingerprint = ch.payment_method_details.card.fingerprint || null;
-    }
-  } catch (_e) { /* tolerate missing fields */ }
+  } catch (e) {
+    logger.warn(`handlePaymentSucceeded: charge resolve failed for ${pi.id}: ${e.message}`);
+  }
 
   const orderRef = db.collection("orders").doc(pi.id);
   const listingRef = listingId
