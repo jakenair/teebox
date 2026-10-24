@@ -3043,13 +3043,17 @@ function renderInbox(convs) {
 // on*="" attribute was silently dead. These four are wired here instead.
 //   • #inboxFilter input → filterInbox   (inbox search never filtered)
 //   • .mobile-nav-drawer-inner click     (tap inside the drawer closed it)
+//     r358: the r349 replacement — a stopPropagation listener on the panel —
+//     also stopped every drawer link from reaching the document-level
+//     data-action dispatcher, so About/Guidelines/Logo Bingo/My Shop/Sign out
+//     did nothing (web since r349, iOS since 2.5.3). The panel no longer
+//     swallows clicks; close-mobile-nav itself ignores bubbled taps that
+//     didn't land on the backdrop or a close control.
 //   • "Show message anyway" button       → data-action="msg-show-anyway"
 //   • sold-thumb <img onerror> fallback  → capture-phase error listener
 (function wireFormerInlineHandlers() {
   const inbox = document.getElementById('inboxFilter');
   if (inbox && !inbox.__wired) { inbox.__wired = true; inbox.addEventListener('input', () => { window.__lastInboxFilter = inbox.value; if (window.filterInbox) window.filterInbox(inbox.value); }); }
-  const drawer = document.querySelector('.mobile-nav-drawer-inner');
-  if (drawer && !drawer.__wired) { drawer.__wired = true; drawer.addEventListener('click', (e) => e.stopPropagation()); }
   if (!document.__imgFallbackWired) {
     document.__imgFallbackWired = true;
     document.addEventListener('error', (e) => {
@@ -12943,9 +12947,13 @@ A['toggle-mobile-nav']       = () => {
   if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
   (document.getElementById('app-scroll')||document.body).style.overflowY = opening ? 'hidden' : '';
 };
-A['close-mobile-nav']        = () => {
+A['close-mobile-nav']        = (el, ev) => {
   const d = document.getElementById('mobileNavDrawer');
   if (!d) return;
+  // r358: the drawer root carries this action as its backdrop handler. A tap
+  // on dead space inside the panel bubbles up to it too — ignore those so
+  // only the backdrop itself, the × button, or a direct call closes it.
+  if (ev && el === d && ev.target !== d) return;
   d.classList.remove('open');
   d.setAttribute('aria-hidden', 'true');
   const btn = document.querySelector('.mobile-nav-toggle');
