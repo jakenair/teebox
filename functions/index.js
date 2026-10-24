@@ -8129,7 +8129,7 @@ Object.assign(exports, require("./subscriptionLifecycle"));
 
 // Daily Pro Seller subscription smoke test (04:00 ET). See
 // SMOKE_TEST_OPS.md for the runbook + secret setup.
-Object.assign(exports, require("./smokeTest"));
+// smokeTest.js removed 2026-10-24 (smokeProUpgrade + Manual deleted; Stripe test key never provisioned).
 
 // Logo Bingo offline-play sync. Receives the local game state from the
 // client after a tap or on reconnect-drain and writes the durable mirror
