@@ -8135,6 +8135,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 Object.assign(exports, require("./listingAssist"));
 Object.assign(exports, require("./pushTriggers"));
 Object.assign(exports, require("./likeNotify"));
+Object.assign(exports, require("./passportLikeCount"));
 // LIST-FIRST seller onboarding (2026-10-19): countListingCreate (daily-cap
 // counter the create rule reads), notifySellerInterest (buyer "notify me"),
 // hideUnonboardedListings (7-day auto-hide + self-heal relist). See the

@@ -1863,6 +1863,13 @@ window.__phDeferLoad = function(load) {
   .pf-course-chip { position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.94); border-radius: 999px; padding: 5px 11px 5px 6px; font-size: 12.5px; font-weight: 700; color: var(--gray-900); box-shadow: 0 1px 4px rgba(0,0,0,0.25); max-width: 78%; }
   .pf-course-chip img { width: 22px; height: 22px; object-fit: contain; flex: none; }
   .pf-grade-seal { position: absolute; right: 10px; bottom: 10px; min-width: 30px; height: 30px; padding: 0 8px; line-height: 30px; text-align: center; border-radius: 999px; color: #fff; font-weight: 800; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  /* r360: like total under each feed post (count maintained server-side). */
+  .pf-foot { display: flex; align-items: center; gap: 12px; padding: 8px 14px 0; min-height: 22px; }
+  .pf-likes { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--gray-700); }
+  .pf-likes .pf-likes-ico { display: inline-flex; width: 18px; height: 18px; color: var(--gray-500); }
+  .pf-likes .pf-likes-ico svg { width: 18px; height: 18px; }
+  .pf-likes.liked .pf-likes-ico { color: #e0245e; }
+  .pf-likes.is-zero .pf-likes-n::after { content: 'Be the first to like this'; font-weight: 500; color: var(--gray-500); }
   .pf-review { margin: 0; padding: 10px 14px 14px; font-size: 13.5px; color: var(--gray-700); line-height: 1.5; }
   .pf-skel-photo { width: 100%; aspect-ratio: 1/1; }
   .pf-skel-line { display: block; height: 10px; border-radius: 5px; margin: 3px 0; }
@@ -4244,7 +4251,9 @@ window.__phDeferLoad = function(load) {
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(45,84,56,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
     overflow: hidden;
     transform-style: preserve-3d;
-    will-change: transform;
+    /* r360: will-change:transform removed — it pinned every tile to its own
+       compositor layer, and iOS WebKit could leave that layer unpainted after
+       the logo <img> was inserted until a tap (:active transform) repainted. */
   }
   /* Subtle inner highlight so the box has a touch of depth without shouting. */
   .bingo-cell::after {
@@ -5765,7 +5774,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r359</span></div>
+        <span class="auth-build" aria-hidden="true">r360</span></div>
     </div>
   </div>
 </div>
@@ -9204,8 +9213,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r359"></script>
-<script type="module" src="/js/app-auth.js?v=r359"></script>
+<script defer src="/js/app-main.js?v=r360"></script>
+<script type="module" src="/js/app-auth.js?v=r360"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9235,7 +9244,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r359"></script>
+<script type="module" src="/js/bingo.js?v=r360"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

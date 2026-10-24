@@ -11537,8 +11537,30 @@ function ppFeedCard(p, cat, opts) {
       ${dots}
       <div class="pp-heart-burst" aria-hidden="true">${window.ICONS.heartFill}</div>
     </div>
+    <div class="pf-foot" data-uid="${ua}" data-course="${ca}">
+      <span class="pf-likes${Number(p.likeCount) > 0 ? '' : ' is-zero'}"><span class="pf-likes-ico">${window.ICONS.heart}</span><span class="pf-likes-n">${Number(p.likeCount) > 0 ? Number(p.likeCount).toLocaleString() : ''}</span></span>
+    </div>
     ${review ? `<p class="pf-review">${window.safeText(review)}</p>` : ''}
   </article>`;
+}
+
+// r360: after a like lands, refresh that card's total from the server (one
+// aggregate read) so the number is exact whether the tap was a first like or
+// a repeat. likeCount on the round doc is maintained by onPassportLikeWritten.
+async function ppRefreshCardLikes(uid, courseId) {
+  try {
+    const { getFirestore, collection, getCountFromServer } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const cnt = await getCountFromServer(collection(db, 'passport', uid, 'played', courseId, 'likes'));
+    const n = cnt.data().count || 0;
+    document.querySelectorAll(`.pf-foot[data-uid="${CSS.escape(uid)}"][data-course="${CSS.escape(courseId)}"] .pf-likes`).forEach((el) => {
+      el.classList.toggle('is-zero', n === 0);
+      const num = el.querySelector('.pf-likes-n'); if (num) num.textContent = n ? n.toLocaleString() : '';
+      const ico = el.querySelector('.pf-likes-ico'); if (ico) ico.innerHTML = window.ICONS.heartFill;
+      el.classList.add('liked');
+    });
+  } catch (_e) { /* cosmetic */ }
 }
 
 // After the feed HTML is set, wire each card's carousel (dot tracking) and
@@ -11623,6 +11645,7 @@ async function ppLikePost(uid, courseId) {
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     await setDoc(doc(db, 'passport', uid, 'played', courseId, 'likes', myUid), { createdAt: serverTimestamp() });
+    ppRefreshCardLikes(uid, courseId);
   } catch (e) { console.warn('passport feed like failed', e); }
 }
 

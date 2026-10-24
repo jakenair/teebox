@@ -372,7 +372,11 @@
         if (settled) return;
         settled = true;
         clearTimeout(stallTimer);
-        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+        // r360: EAGER, not lazy. The probe above already fetched the file, so
+        // lazy gains nothing — and inside #bingoScreen (position:fixed +
+        // overflow scroll) iOS WebKit sometimes never fires the lazy load
+        // until a tap repaints the tile ("blank until you click it").
+        if (el.isConnected) el.innerHTML = `<img src="${url}" alt="" decoding="sync">`;
       };
       probe.onerror = () => { clearTimeout(stallTimer); fail(); };
       probe.src = url;
