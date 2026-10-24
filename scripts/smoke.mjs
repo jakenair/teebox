@@ -180,6 +180,22 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     });
     await step(p, "guest: close detail", async () => { await p.keyboard.press("Escape"); await p.waitForTimeout(800); const open = await p.locator("#detailBuyNowBtn").isVisible().catch(() => false); if (open) { await p.locator('[data-action="close-detail"],[data-action="close-detail-direct"],.modal-close').first().click().catch(() => {}); } });
 
+    // r358: the hamburger drawer's links were dead for 4 days (r349→r357) and
+    // no smoke step touched the drawer. Tap About from the drawer and REQUIRE
+    // the modal to open — a drawer that only closes itself is a failure.
+    await step(p, "guest: drawer → About TeeBox opens", async () => {
+      await p.locator(".mobile-nav-toggle:visible").first().click({timeout: 10000});
+      await p.waitForTimeout(500);
+      const drawerOpen = await p.evaluate(() => !!document.getElementById("mobileNavDrawer")?.classList.contains("open"));
+      await p.locator('#mobileNavDrawer [data-action="open-about"]').first().click({timeout: 10000});
+      await p.waitForTimeout(700);
+      const aboutOpen = await p.evaluate(() => !!document.getElementById("aboutBackdrop")?.classList.contains("open"));
+      if (!aboutOpen) throw new Error("About modal did not open from the drawer (drawerOpen=" + drawerOpen + ")");
+      await p.locator('#aboutBackdrop [data-action="close-info"]').first().click({timeout: 5000}).catch(() => {});
+      await p.waitForTimeout(300);
+      return {drawerOpen, aboutOpen};
+    });
+
     if (MODE === "guest") { report.notes.push("mode=guest: stopped before sign-up"); throw new Error("__stop__"); }
     if (MODE !== "pixel") {
     // ── Sign up (guest taps Sell → auth screen → Create Account) ──
