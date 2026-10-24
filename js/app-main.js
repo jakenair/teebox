@@ -11402,6 +11402,7 @@ async function openPassportFeed() {
         photos: Array.isArray(data.photos) ? data.photos : [], review: data.review || '',
         photoVariants: data.photoVariants || null,
         createdAt: data.createdAt, ownerName: data.ownerName || '', ownerAvatar: data.ownerAvatar || '',
+        likeCount: Number(data.likeCount || 0), // r361: server-maintained (onPassportLikeWritten)
       });
     });
   } catch (e) { console.warn('passport feed read failed', e); }
@@ -11703,6 +11704,7 @@ async function openCoursePage(courseId) {
         uid, courseId, courseName: data.courseName, grade: data.grade,
         photos: Array.isArray(data.photos) ? data.photos : [], review: data.review || '',
         createdAt: data.createdAt, ownerName: data.ownerName || '', ownerAvatar: data.ownerAvatar || '',
+        likeCount: Number(data.likeCount || 0), // r361: server-maintained (onPassportLikeWritten)
       });
     });
   } catch (e) { console.warn('course page read failed', e); }
