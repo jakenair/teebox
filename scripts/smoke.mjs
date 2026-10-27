@@ -118,6 +118,24 @@ async function clickWatch(page, sel, outcomeSel, label, timeout = 90000) {
   if (outcomeMs > 2000) report.slow.push({name: label + " → outcome", ms: outcomeMs});
   return {samples, outcomeMs};
 }
+
+// r366/r367: first-visit overlays. The welcome screen covers the nav for a
+// fresh guest; Phase 2's provider sheet is the first step of every sign-in
+// prompt. Both helpers are no-ops when the surface isn't there.
+async function skipWelcome(pg) {
+  try {
+    const open = await pg.evaluate(() => !!document.getElementById("welcomeScreen")?.classList.contains("open"));
+    if (open) { await pg.locator('[data-action="welcome-skip"]').first().click({timeout: 10000}); await pg.waitForTimeout(400); }
+    return open;
+  } catch (_e) { return false; }
+}
+async function skipAuthSheet(pg) {
+  try {
+    const open = await pg.evaluate(() => !!document.getElementById("authSheetBackdrop")?.classList.contains("open"));
+    if (open) { await pg.locator('[data-action="sheet-email"]').first().click({timeout: 10000}); await pg.waitForTimeout(400); }
+    return open;
+  } catch (_e) { return false; }
+}
 async function newPage(browser, label) {
   const ctx = await browser.newContext({...devices["iPhone 14"], locale: "en-US", timezoneId: "America/Chicago"});
   const page = await ctx.newPage(); wire(page, label);
@@ -215,7 +233,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       // Older builds showed a "Join TeeBox" interstitial first; handle both.
       const r = await clickWatch(p, '.bottom-nav-item[data-action="handle-sell"]', '#authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]', "guest Sell → sign-up prompt", 30000);
       const interstitial = await p.locator('[data-action="show-auth-from-prompt-signup"]').isVisible().catch(() => false);
-      if (interstitial) { report.notes.push("two-step join prompt still present"); await p.locator('[data-action="show-auth-from-prompt-signup"]').click(); await p.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000}); }
+      if (interstitial) { report.notes.push("two-step join prompt still present"); await p.locator('[data-action="show-auth-from-prompt-signup"]').click(); await skipAuthSheet(p); await p.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000}); }
       const mode = await p.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "");
       return {promptMs: r.outcomeMs, twoStep: interstitial, modePreselected: (mode || "").trim(), installBannerShown: install};
     });
@@ -316,9 +334,10 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     await step(b, "buyer: load + sign in", async () => {
       const t0 = now(); await b.goto((process.env.BASE || "https://teeboxmarket.com") + "/?_=b" + TAG, {waitUntil: "domcontentloaded"});
       await b.locator(".product-card").first().waitFor({state: "visible"}); const loaded = now() - t0;
+      await skipWelcome(b);
       const gate = await b.locator("#authScreen").isVisible().catch(() => false);
       if (!gate) { await b.locator('.bottom-nav-item[data-action="handle-sell"]').click(); await b.locator('#authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]').first().waitFor({state: "visible", timeout: 30000}); const inter = b.locator('[data-action="show-auth-from-prompt-signup"]'); if (await inter.isVisible().catch(() => false)) await inter.click(); }
-      await b.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000});
+      await skipAuthSheet(b); await b.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000});
       const act = (await b.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "")).trim();
       if (!/sign in/i.test(act)) { await b.locator('#authScreen [data-emailmode="signin"]').click(); await b.waitForTimeout(400); }
       await b.fill("#emailInput", BUYER_EMAIL); await b.fill("#passwordInput", PW);
