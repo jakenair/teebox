@@ -25,6 +25,7 @@ const SHELL = [
   '/icon-512.png',
   '/apple-touch-icon.png',
   '/assets/splash-wordmark.png',
+  '/assets/footer.css',
   '/offline.html',
   '/404.html',
 ];
