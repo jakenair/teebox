@@ -172,6 +172,15 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       report.notes.push(gate ? "First-time guest lands on a full-screen sign-in gate; 'Browse the marketplace first' dismisses it." : "no gate");
       return {gateShown: gate, dismissMs};
     });
+    // r366: first-visit guests get the welcome (opening) screen. It must be
+    // present for a fresh guest and Skip must drop them into the marketplace.
+    await step(p, "guest: welcome screen → Skip", async () => {
+      const open = await p.evaluate(() => !!document.getElementById("welcomeScreen")?.classList.contains("open"));
+      if (open) { await p.locator('[data-action="welcome-skip"]').first().click({timeout: 10000}); await p.waitForTimeout(400); }
+      const still = await p.evaluate(() => !!document.getElementById("welcomeScreen")?.classList.contains("open"));
+      if (still) throw new Error("welcome did not close after Skip");
+      return {welcomeShown: open};
+    });
     await step(p, "guest: scroll feed", async () => { await p.mouse.wheel(0, 1200); await p.waitForTimeout(1500); await p.mouse.wheel(0, 1200); await p.waitForTimeout(1500); const n = await p.locator(".product-card").count(); return {cardsRendered: n}; });
     await step(p, "guest: open a listing detail", async () => {
       const r = await clickWatch(p, `.product-card`, "#detailBuyNowBtn", "guest open detail", 60000);
