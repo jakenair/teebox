@@ -9,6 +9,8 @@ const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
 const disputeReversal = require("./lib/disputeReversal");
+const accountLinking = require("./lib/accountLinking");
+const exchangeFlow = require("./lib/exchangeFlow");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
@@ -2412,52 +2414,8 @@ async function _verifyAppleIdToken(idToken, rawNonce) {
   };
 }
 
-async function _findOrCreateUser(provider, verified) {
-  const auth = admin.auth();
-  // 1. Try to find by email first — email is the natural primary key.
-  //    SECURITY: Only fuse accounts when the incoming provider matches
-  //    one of the providers already on file. Otherwise an attacker who
-  //    controls an Apple/Google account for someone else's email could
-  //    take over their existing password account just by signing in.
-  //    Force the user to sign in with the original method first and
-  //    explicitly link the new provider from settings.
-  if (verified.email) {
-    try {
-      const existing = await auth.getUserByEmail(verified.email);
-      const matches = (existing.providerData || []).some(
-          (p) => p && p.providerId === provider);
-      if (!matches) {
-        throw new HttpsError(
-          "already-exists",
-          "This email is registered with a different sign-in method. " +
-          "Sign in with that method first, then link this provider " +
-          "from settings.");
-      }
-      return existing.uid;
-    } catch (err) {
-      if (err instanceof HttpsError) throw err;
-      if (err.code !== "auth/user-not-found") throw err;
-    }
-  }
-  // 2. Fall back to provider:sub (deterministic UID so repeat sign-ins
-  //    without an email — e.g. Apple "Hide My Email" later revoked —
-  //    still land on the same account).
-  const synthUid = `${provider.replace(".", "_")}_${verified.sub}`.slice(0, 128);
-  try {
-    const existing = await auth.getUser(synthUid);
-    return existing.uid;
-  } catch (err) {
-    if (err.code !== "auth/user-not-found") throw err;
-  }
-  // 3. Create.
-  const created = await auth.createUser({
-    uid: synthUid,
-    email: verified.email || undefined,
-    emailVerified: verified.emailVerified,
-    displayName: verified.name || undefined,
-  });
-  return created.uid;
-}
+// _findOrCreateUser REMOVED 2026-10-26 — replaced by lib/accountLinking.resolveFederatedSignIn
+// (one person = one account: needs-link / relay-choice / link intents; see the lib header).
 
 exports.exchangeIdTokenForCustomToken = onCall(
     {...USER_CALLABLE},
@@ -2473,6 +2431,15 @@ exports.exchangeIdTokenForCustomToken = onCall(
             "invalid-argument",
             "providerId must be google.com or apple.com",
         );
+      }
+      // Phase 2 (2026-10-26): intent = "signin" (default) | "create" | "link".
+      // "link" attaches the provider to the CALLER's signed-in account;
+      // "create" confirms a relay-email sign-up after the client asked.
+      const intent = ["signin", "create", "link"].includes(request.data && request.data.intent) ?
+        request.data.intent : "signin";
+      const callerUid = request.auth && request.auth.uid ? request.auth.uid : null;
+      if (intent === "link" && !callerUid) {
+        throw new HttpsError("unauthenticated", "Sign in first to connect another sign-in method.");
       }
       // Apple replay protection — force the client to send the raw
       // nonce that was hashed into the id_token. Without it,
@@ -2513,14 +2480,22 @@ exports.exchangeIdTokenForCustomToken = onCall(
       }
 
       let uid;
+      // Compatibility gate: App Store builds ≤ 118 never send `intent` and
+      // can only render {customToken} / a non-2xx error. See lib/exchangeFlow.
+      const legacyClient = exchangeFlow.isLegacyClient(request.data);
+      if (legacyClient) logger.info("exchangeIdTokenForCustomToken: legacy client", {providerId});
       try {
-        uid = await _findOrCreateUser(providerId, verified);
+        const out = await exchangeFlow.decideExchange({
+          auth: admin.auth(), providerId, verified, callerUid, intent, legacyClient,
+        });
+        if (out.response) return out.response;
+        uid = out.uid;
       } catch (err) {
         // Propagate the explicit "already-exists" pre-takeover error so
         // the client can show the right "sign in with the other method"
         // copy. Anything else gets bucketed as internal.
         if (err instanceof HttpsError) throw err;
-        logger.error("exchangeIdTokenForCustomToken: _findOrCreateUser failed", {
+        logger.error("exchangeIdTokenForCustomToken: resolveFederatedSignIn failed", {
           providerId,
           sub: verified && verified.sub,
           // Email PII redacted to a short SHA-256 prefix so the log is
