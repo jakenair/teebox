@@ -7,7 +7,7 @@
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
   // Resend from `noreply@mail.teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
-  import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, updateProfile as fbUpdateProfile } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, updateProfile as fbUpdateProfile, linkWithCredential, linkWithPopup, unlink, fetchSignInMethodsForEmail, EmailAuthProvider, FacebookAuthProvider, reload as fbReload } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -429,6 +429,10 @@
       // on app termination, which is what we want.
       window.__authGateDismissedInSession = true;
       if (window.hideWelcome) window.hideWelcome('signed-in'); // r364: the opener never stays up for a member
+      if (window.closeAuthSheet) window.closeAuthSheet();
+      // Phase 2: if this sign-in was the 'sign in with your existing method' step
+      // of a link flow, attach the pending provider now.
+      if (window.completePendingLink) setTimeout(() => { try { window.completePendingLink(); } catch (_e) {} }, 0);
       // Smooth fade-out before hiding so successful sign-in feels deliberate
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
@@ -928,6 +932,15 @@
     window.signInWithCredential = signInWithCredential;
     window.signInWithCustomToken = signInWithCustomToken;
     window.signInWithPopup = signInWithPopup;
+    // Phase 2 (account linking): the classic-script link flow + the
+    // "Connected sign-in methods" panel need these.
+    window.linkWithCredential = linkWithCredential;
+    window.linkWithPopup = linkWithPopup;
+    window.unlinkProvider = unlink;
+    window.fetchSignInMethodsForEmail = fetchSignInMethodsForEmail;
+    window.EmailAuthProvider = EmailAuthProvider;
+    window.FacebookAuthProvider = FacebookAuthProvider;
+    window.authReload = fbReload;
     // Expose the Functions instance + httpsCallable so the regular-script
     // auth handlers can call `exchangeIdTokenForCustomToken` directly
     // without dynamically re-importing firebase-functions on each tap.

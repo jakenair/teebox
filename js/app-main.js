@@ -8496,6 +8496,285 @@ window.__actions['activity-seg'] = function(el) {
 };
 
 
+
+// ═══ Phase 2 — provider sheet, account linking, connected methods ═════════
+// (2026-10-26) One person = one TeeBox account. Server rules live in
+// functions/lib/accountLinking.js; this is the client half.
+const TB_PROVIDER_LABEL = { 'password': 'email & password', 'google.com': 'Google', 'apple.com': 'Apple', 'facebook.com': 'Facebook' };
+function tbProviderLabel(id) { return TB_PROVIDER_LABEL[id] || id; }
+function tbIsNative() { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+function tbFlag(name) { return !!(window.FEATURE_FLAGS && window.FEATURE_FLAGS[name] === true); }
+
+// ── Provider sheet ───────────────────────────────────────────────────────
+window.__authSheetMode = 'signup';
+window.openAuthSheet = function openAuthSheet(mode, reason) {
+  window.__authSheetMode = mode === 'login' ? 'login' : 'signup';
+  if (reason) window.__pendingAuthReason = reason;
+  const bd = document.getElementById('authSheetBackdrop'); if (!bd) return;
+  const t = document.getElementById('authSheetTitle'); if (t) t.textContent = window.__authSheetMode === 'login' ? 'Log in to TeeBox' : 'Sign up for TeeBox';
+  const err = document.getElementById('authSheetError'); if (err) err.textContent = '';
+  const native = tbIsNative();
+  // Apple: native always; web only once the Services ID is configured (flag).
+  const apple = document.getElementById('authSheetApple'); if (apple) apple.hidden = !(native || tbFlag('appleWeb'));
+  // Google: web always; native only once the GoogleSignIn pod ships (flag).
+  const google = document.getElementById('authSheetGoogle'); if (google) google.hidden = native && !tbFlag('nativeGoogle');
+  // Facebook: behind a flag that defaults OFF (needs the Meta app + Firebase provider).
+  const fb = document.getElementById('authSheetFacebook'); if (fb) fb.hidden = !(tbFlag('facebookLogin') && (!native || tbFlag('nativeFacebook')));
+  const div = document.getElementById('authSheetDivider'); if (div) div.hidden = !!(apple && apple.hidden);
+  bd.classList.add('open');
+  try { window.posthog && window.posthog.capture('auth_sheet_open', { mode: window.__authSheetMode, native }); } catch (_e) {}
+};
+window.closeAuthSheet = function closeAuthSheet() { const bd = document.getElementById('authSheetBackdrop'); if (bd) bd.classList.remove('open'); };
+window.__actions['open-auth-sheet-signup'] = () => window.openAuthSheet('signup');
+window.__actions['open-auth-sheet-login'] = () => window.openAuthSheet('login');
+window.__actions['close-auth-sheet'] = () => window.closeAuthSheet();
+window.__actions['sheet-apple'] = (btn) => { window.__actions['sign-in-apple'](btn); };
+window.__actions['sheet-google'] = (btn) => { window.__actions['sign-in-google'](btn); };
+window.__actions['sheet-facebook'] = (btn) => { window.signInWithFacebook && window.signInWithFacebook(btn); };
+window.__actions['sheet-email'] = () => {
+  window.closeAuthSheet();
+  if (window.showAuthScreen) window.showAuthScreen(window.__pendingAuthReason || '');
+  if (window.setEmailMode) window.setEmailMode(window.__authSheetMode === 'login' ? 'signin' : 'signup');
+};
+// Welcome buttons + the generic "sign in to continue" prompt open the sheet.
+window.__actions['welcome-signup'] = () => { try { window.posthog && window.posthog.capture('welcome_signup_tap'); } catch (_e) {} window.openAuthSheet('signup'); };
+window.__actions['welcome-login'] = () => { try { window.posthog && window.posthog.capture('welcome_login_tap'); } catch (_e) {} window.openAuthSheet('login'); };
+
+// ── Facebook (web popup; native waits for the FBSDK pod + flag) ──────────
+window.signInWithFacebook = async function signInWithFacebook(btn) {
+  const err = document.getElementById('authSheetError'); if (err) err.textContent = '';
+  if (btn) btn.disabled = true;
+  try {
+    if (tbIsNative()) {
+      if (!(window.FBAuthPlugin && window.FBAuthPlugin.signInWithFacebook)) throw Object.assign(new Error('Facebook sign-in is not available in this app version yet.'), { code: 'teebox/not-available' });
+      const r = await window.FBAuthPlugin.signInWithFacebook({ skipNativeAuth: true });
+      const token = r && r.credential && r.credential.accessToken; if (!token) return;
+      const cred = window.FacebookAuthProvider.credential(token);
+      await window.signInWithCredential(window.firebaseAuth, cred);
+      return;
+    }
+    const provider = new window.FacebookAuthProvider(); provider.addScope('email'); provider.addScope('public_profile');
+    await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver);
+  } catch (e) {
+    const code = (e && e.code) || '';
+    if (/cancel|popup-closed/i.test(code + ' ' + (e && e.message))) return;
+    if (code === 'auth/account-exists-with-different-credential') { await window.tbHandleAccountExists(e, 'facebook.com'); return; }
+    if (err) err.textContent = code === 'teebox/not-available' ? e.message : 'Could not sign in with Facebook. Try another method.';
+  } finally { if (btn) btn.disabled = false; }
+};
+
+// ── Native token exchange (shared by Apple/Google native paths) ──────────
+// intent: 'signin' | 'create' | 'link'. Returns {customToken} | {needsLink} | {relayChoice} | {linked}.
+window.tbNativeExchange = async function tbNativeExchange(providerId, tok, intent) {
+  const call = window.firebaseHttpsCallable(window.firebaseFns, 'exchangeIdTokenForCustomToken');
+  const payload = { idToken: tok.idToken, providerId, intent: intent || 'signin' };
+  if (tok.rawNonce) payload.rawNonce = tok.rawNonce;
+  const res = await Promise.race([
+    call(payload),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('exchange timed out after 15s')), 15000)),
+  ]);
+  return (res && res.data) || {};
+};
+
+// ── Link flow ────────────────────────────────────────────────────────────
+// __pendingLink = { kind:'native'|'web', providerId, idToken?, rawNonce?, pendingCred?, email, methods, unverified, relay }
+window.__pendingLink = null;
+window.tbHandleNeedsLink = function tbHandleNeedsLink(info) {
+  window.__pendingLink = Object.assign({}, info);
+  const msg = document.getElementById('linkSheetMsg'), acts = document.getElementById('linkSheetActions');
+  const provider = tbProviderLabel(info.providerId);
+  const methods = (info.methods || []).filter((m) => m !== info.providerId);
+  const list = methods.map(tbProviderLabel).join(' or ') || 'another method';
+  if (msg) {
+    msg.textContent = info.unverified
+      ? `You already have a TeeBox account for ${info.email} using ${list}, but that email was never verified. Sign in with ${list}, verify your email, and then connect ${provider} from Account → Connected sign-in methods.`
+      : `You already have a TeeBox account for ${info.email} using ${list}. Sign in with it and we'll connect ${provider}, so you can use either from now on.`;
+  }
+  if (acts) {
+    acts.innerHTML = methods.map((m) => {
+      if (m === 'password') return `<button type="button" class="tb-sheet-btn email" data-action="link-via-password">Sign in with email &amp; password</button>`;
+      if (m === 'google.com') return `<button type="button" class="tb-sheet-btn google" data-action="link-via-google"><span>Continue with Google</span></button>`;
+      if (m === 'apple.com') return `<button type="button" class="tb-sheet-btn apple" data-action="link-via-apple"><span>Continue with Apple</span></button>`;
+      if (m === 'facebook.com') return `<button type="button" class="tb-sheet-btn facebook" data-action="link-via-facebook"><span>Continue with Facebook</span></button>`;
+      return '';
+    }).join('');
+  }
+  if (info.unverified) window.__pendingLink.noAutoLink = true;
+  window.closeAuthSheet();
+  const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.add('open');
+  try { window.posthog && window.posthog.capture('auth_link_prompt', { provider: info.providerId, methods, unverified: !!info.unverified }); } catch (_e) {}
+};
+window.__actions['close-link-sheet'] = () => { const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.remove('open'); if (window.__pendingLink && !window.__pendingLink.keep) window.__pendingLink = null; };
+window.__actions['link-via-password'] = () => {
+  const p = window.__pendingLink; if (!p) return; p.keep = true;
+  const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.remove('open');
+  if (window.showAuthScreen) window.showAuthScreen('to connect your sign-in methods');
+  if (window.setEmailMode) window.setEmailMode('signin');
+  const em = document.getElementById('emailInput'); if (em && p.email) em.value = p.email;
+  setTimeout(() => { const pw = document.getElementById('passwordInput'); if (pw) pw.focus(); }, 150);
+};
+window.__actions['link-via-google'] = (btn) => { if (window.__pendingLink) window.__pendingLink.keep = true; const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.remove('open'); window.__actions['sign-in-google'](btn); };
+window.__actions['link-via-apple'] = (btn) => { if (window.__pendingLink) window.__pendingLink.keep = true; const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.remove('open'); window.__actions['sign-in-apple'](btn); };
+window.__actions['link-via-facebook'] = (btn) => { if (window.__pendingLink) window.__pendingLink.keep = true; const bd = document.getElementById('linkSheetBackdrop'); if (bd) bd.classList.remove('open'); window.signInWithFacebook(btn); };
+// Web popup path: Firebase raised account-exists-with-different-credential.
+window.tbHandleAccountExists = async function tbHandleAccountExists(e, providerId) {
+  try {
+    const P = providerId === 'google.com' ? window.GoogleAuthProvider : providerId === 'facebook.com' ? window.FacebookAuthProvider : window.OAuthProvider;
+    const pendingCred = P && P.credentialFromError ? P.credentialFromError(e) : null;
+    const email = e && e.customData && e.customData.email;
+    if (!email) throw e;
+    const methods = await window.fetchSignInMethodsForEmail(window.firebaseAuth, email);
+    window.tbHandleNeedsLink({ kind: 'web', providerId, pendingCred, email, methods, unverified: false });
+  } catch (_e) {
+    const err = document.getElementById('authErrorEmail'); if (err) err.textContent = 'An account with that email already exists. Sign in with your original method, then connect this one from Account settings.';
+  }
+};
+// Runs after any successful sign-in (app-auth.js hook): attach the pending provider.
+window.completePendingLink = async function completePendingLink() {
+  const p = window.__pendingLink; const u = window.firebaseAuth && window.firebaseAuth.currentUser;
+  if (!p || !u) return;
+  window.__pendingLink = null;
+  if (p.noAutoLink) { showToast('Signed in. Verify your email, then connect ' + tbProviderLabel(p.providerId) + ' from Account → Connected sign-in methods.'); return; }
+  // Rule: auto-link only on a verified email on the account we just signed in to.
+  // (A relay-choice "I already have an account" is an explicit user action, so it may link.)
+  if (!u.emailVerified && !p.relay) { showToast('Verify your email first, then connect ' + tbProviderLabel(p.providerId) + ' from Account settings.'); return; }
+  try {
+    if (p.kind === 'native') {
+      const r = await window.tbNativeExchange(p.providerId, { idToken: p.idToken, rawNonce: p.rawNonce }, 'link');
+      if (!r || !r.linked) throw new Error('link failed');
+    } else if (p.pendingCred) {
+      await window.linkWithCredential(u, p.pendingCred);
+    }
+    try { await window.authReload(u); } catch (_e) {}
+    showToast(tbProviderLabel(p.providerId) + ' connected. You can sign in with either from now on.');
+    try { window.posthog && window.posthog.capture('auth_linked', { provider: p.providerId, kind: p.kind }); } catch (_e) {}
+  } catch (e) {
+    const code = (e && e.code) || '';
+    const msg = /already-exists|credential-already-in-use|already in use/i.test(code + ' ' + (e && e.message))
+      ? 'That ' + tbProviderLabel(p.providerId) + ' sign-in is already its own TeeBox account. Email support@teeboxmarket.com and we will merge them.'
+      : 'Signed in, but connecting ' + tbProviderLabel(p.providerId) + ' failed. You can retry from Account → Connected sign-in methods.';
+    showToast(msg);
+    console.warn('completePendingLink failed', e);
+  }
+};
+// Apple "Hide My Email": nothing matched — ask before creating a second account.
+window.tbHandleRelayChoice = function tbHandleRelayChoice(info) {
+  window.__pendingLink = Object.assign({ kind: 'native', relay: true, keep: true }, info);
+  window.closeAuthSheet();
+  const bd = document.getElementById('relaySheetBackdrop'); if (bd) bd.classList.add('open');
+};
+window.__actions['close-relay-sheet'] = () => { const bd = document.getElementById('relaySheetBackdrop'); if (bd) bd.classList.remove('open'); window.__pendingLink = null; };
+window.__actions['relay-create'] = async () => {
+  const p = window.__pendingLink; const bd = document.getElementById('relaySheetBackdrop'); if (bd) bd.classList.remove('open');
+  if (!p) return; window.__pendingLink = null;
+  try {
+    const r = await window.tbNativeExchange(p.providerId, { idToken: p.idToken, rawNonce: p.rawNonce }, 'create');
+    if (r && r.customToken) await window.signInWithCustomToken(window.firebaseAuth, r.customToken);
+    else showToast('Could not create your account. Try again.');
+  } catch (e) { showToast('Could not create your account. Try again.'); }
+};
+window.__actions['relay-existing'] = () => {
+  const bd = document.getElementById('relaySheetBackdrop'); if (bd) bd.classList.remove('open');
+  // Keep the Apple token; after they sign in with their existing method the
+  // completePendingLink hook attaches Apple to that account.
+  window.openAuthSheet('login', 'to connect Apple to your account');
+};
+
+// ── Account → Connected sign-in methods ──────────────────────────────────
+window.openConnectedMethods = async function openConnectedMethods() {
+  if (!window.requireAuth('to manage your sign-in methods', () => window.openConnectedMethods())) return;
+  openInfo('connectedBackdrop');
+  window.renderConnectedMethods();
+};
+window.renderConnectedMethods = function renderConnectedMethods() {
+  const u = window.firebaseAuth && window.firebaseAuth.currentUser; const list = document.getElementById('connectedList'); if (!u || !list) return;
+  const have = new Set((u.providerData || []).map((p) => p.providerId));
+  const m = /^(google_com|apple_com)_/.exec(u.uid || ''); if (m) have.add(m[1].replace('_', '.')); // legacy native accounts
+  const native = tbIsNative();
+  const rows = [
+    { id: 'password', name: 'Email & password', sub: have.has('password') ? (u.email || '') : 'Sign in with an email and password', can: true, action: 'cm-add-password' },
+    { id: 'google.com', name: 'Google', sub: have.has('google.com') ? ((u.providerData.find((p) => p.providerId === 'google.com') || {}).email || 'Connected') : 'Connect your Google account', can: !native || tbFlag('nativeGoogle'), action: 'cm-connect-google' },
+    { id: 'apple.com', name: 'Apple', sub: have.has('apple.com') ? ((u.providerData.find((p) => p.providerId === 'apple.com') || {}).email || 'Connected') : 'Connect your Apple ID', can: native || tbFlag('appleWeb'), action: 'cm-connect-apple' },
+  ];
+  if (tbFlag('facebookLogin')) rows.push({ id: 'facebook.com', name: 'Facebook', sub: have.has('facebook.com') ? 'Connected' : 'Connect your Facebook account', can: !native || tbFlag('nativeFacebook'), action: 'cm-connect-facebook' });
+  const count = rows.filter((r) => have.has(r.id)).length;
+  list.innerHTML = rows.map((r) => {
+    const on = have.has(r.id);
+    const btn = on
+      ? `<button type="button" class="cm-btn ghost" data-action="cm-disconnect" data-provider="${r.id}" ${count <= 1 ? 'disabled title="Keep at least one way to sign in"' : ''}>Disconnect</button>`
+      : (r.can ? `<button type="button" class="cm-btn" data-action="${r.action}">Connect</button>` : `<button type="button" class="cm-btn ghost" disabled>Not available here</button>`);
+    return `<div class="cm-row"><div class="cm-ico" data-ico="${r.id === 'password' ? 'mail' : 'user'}"></div><div class="cm-body"><div class="cm-name">${window.safeText(r.name)}</div><div class="cm-sub">${window.safeText(on ? r.sub : r.sub)}</div></div>${btn}</div>`;
+  }).join('');
+  try { window.renderIcons && window.renderIcons(list); } catch (_e) {}
+  const f = document.getElementById('cmPasswordForm'); if (f) { f.classList.remove('open'); const em = document.getElementById('cmEmail'); if (em) { em.value = u.email || ''; em.readOnly = !!u.email; } }
+  const err = document.getElementById('cmError'); if (err) err.textContent = '';
+};
+function cmErr(msg) { const err = document.getElementById('cmError'); if (err) err.textContent = msg || ''; }
+function cmLinkError(e, provider) {
+  const code = (e && e.code) || '';
+  if (/cancel|popup-closed/i.test(code + ' ' + (e && e.message))) return '';
+  if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use' || code === 'functions/already-exists') return 'That ' + provider + ' sign-in is already its own TeeBox account. Email support@teeboxmarket.com and we will merge them.';
+  if (code === 'auth/requires-recent-login') return 'For security, sign out and back in, then try connecting again.';
+  if (code === 'auth/provider-already-linked') return provider + ' is already connected.';
+  if (code === 'auth/weak-password') return 'Choose a password with at least 8 characters.';
+  return 'Could not connect ' + provider + '. Try again.';
+}
+window.__actions['open-connected-methods'] = () => window.openConnectedMethods();
+window.__actions['cm-add-password'] = () => { const f = document.getElementById('cmPasswordForm'); if (f) f.classList.add('open'); setTimeout(() => { const i = document.getElementById(document.getElementById('cmEmail').value ? 'cmPassword' : 'cmEmail'); if (i) i.focus(); }, 80); };
+window.__actions['cm-add-password-submit'] = async () => {
+  const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
+  const email = (document.getElementById('cmEmail').value || '').trim().toLowerCase(); const pw = document.getElementById('cmPassword').value || '';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { cmErr('Enter a valid email.'); return; }
+  if (pw.length < 8) { cmErr('Password needs at least 8 characters.'); return; }
+  try {
+    await window.linkWithCredential(u, window.EmailAuthProvider.credential(email, pw));
+    try { await window.authReload(u); } catch (_e) {}
+    showToast('Email & password added. Check your inbox to verify the address.');
+    try { await window.firebaseHttpsCallable(window.firebaseFns, 'sendBrandedVerification')({}); } catch (_e) {}
+    window.renderConnectedMethods();
+  } catch (e) { cmErr(cmLinkError(e, 'email & password')); }
+};
+window.__actions['cm-connect-google'] = async () => {
+  const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
+  try {
+    if (tbIsNative()) {
+      const r = await window.FBAuthPlugin.signInWithGoogle(); const idToken = r && r.credential && r.credential.idToken; if (!idToken) return;
+      const x = await window.tbNativeExchange('google.com', { idToken }, 'link'); if (!x.linked) throw new Error('link failed');
+    } else {
+      await window.linkWithPopup(u, new window.GoogleAuthProvider());
+    }
+    try { await window.authReload(u); } catch (_e) {} showToast('Google connected.'); window.renderConnectedMethods();
+  } catch (e) { cmErr(cmLinkError(e, 'Google')); }
+};
+window.__actions['cm-connect-apple'] = async () => {
+  const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
+  try {
+    if (tbIsNative()) {
+      const r = await window.FBAuthPlugin.signInWithApple({ skipNativeAuth: true }); const idToken = r && r.credential && r.credential.idToken; const rawNonce = r && r.credential && r.credential.nonce; if (!idToken) return;
+      const x = await window.tbNativeExchange('apple.com', { idToken, rawNonce }, 'link'); if (!x.linked) throw new Error('link failed');
+    } else {
+      const prov = new window.OAuthProvider('apple.com'); prov.addScope('email'); prov.addScope('name');
+      await window.linkWithPopup(u, prov);
+    }
+    try { await window.authReload(u); } catch (_e) {} showToast('Apple connected.'); window.renderConnectedMethods();
+  } catch (e) { cmErr(cmLinkError(e, 'Apple')); }
+};
+window.__actions['cm-connect-facebook'] = async () => {
+  const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
+  try {
+    const prov = new window.FacebookAuthProvider(); prov.addScope('email');
+    await window.linkWithPopup(u, prov);
+    try { await window.authReload(u); } catch (_e) {} showToast('Facebook connected.'); window.renderConnectedMethods();
+  } catch (e) { cmErr(cmLinkError(e, 'Facebook')); }
+};
+window.__actions['cm-disconnect'] = async (el) => {
+  const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
+  const pid = el.dataset.provider; if ((u.providerData || []).length <= 1) { cmErr('Keep at least one way to sign in.'); return; }
+  if (!window.confirm('Disconnect ' + tbProviderLabel(pid) + ' from this account?')) return;
+  try { await window.unlinkProvider(u, pid); try { await window.authReload(u); } catch (_e) {} showToast(tbProviderLabel(pid) + ' disconnected.'); window.renderConnectedMethods(); }
+  catch (e) { cmErr(cmLinkError(e, tbProviderLabel(pid))); }
+};
+
 // ═══ Welcome / opening screen (r364 Phase 1) ═══════════════════════════
 // Shown to logged-out visitors: web on the first visit (then snoozed 7 days
 // after Skip), native on every cold launch (in-memory dismiss, like the old
@@ -8553,16 +8832,7 @@ function initWelcomeScreen() {
   window.showWelcome();
 }
 window.__actions['welcome-skip'] = () => { window.hideWelcome('skip'); try { window.posthog && window.posthog.capture('welcome_skip'); } catch (_e) {} };
-window.__actions['welcome-signup'] = () => {
-  try { window.posthog && window.posthog.capture('welcome_signup_tap'); } catch (_e) {}
-  if (window.showAuthScreen) window.showAuthScreen('');
-  const btn = document.querySelector('#authScreen [data-emailmode="signup"]'); if (btn) btn.click();
-};
-window.__actions['welcome-login'] = () => {
-  try { window.posthog && window.posthog.capture('welcome_login_tap'); } catch (_e) {}
-  if (window.showAuthScreen) window.showAuthScreen('');
-  const btn = document.querySelector('#authScreen [data-emailmode="signin"]'); if (btn) btn.click();
-};
+// welcome-signup / welcome-login: defined in the Phase 2 block above (open the provider sheet).
 // Boot: decide once the DOM is ready. Auth state may still be resolving —
 // app-auth.js calls hideWelcome() the moment a signed-in user is restored,
 // so a returning member sees at most a brief opener on a cold web load.
@@ -10134,6 +10404,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
            </button>
            <button class="account-hub-item" data-action="open-email-prefs" type="button">
              <span class="account-hub-label">Email preferences</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item" data-action="open-connected-methods" type="button">
+             <span class="account-hub-label">Connected sign-in methods</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-shipping-settings" type="button">
@@ -12170,6 +12444,8 @@ window.showSignInPrompt = function showSignInPrompt(reason, intent) {
   window.__pendingAuthReason = reason || '';
   try { window.dismissSignInPrompt && window.dismissSignInPrompt(); } catch (_e) {}
   if (window.setEmailMode) window.setEmailMode('signup');
+  // Phase 2: the provider sheet (Apple / Google / email) is the first step.
+  if (window.openAuthSheet) { window.openAuthSheet('signup', reason || ''); return; }
   if (window.showAuthScreen) { window.showAuthScreen(reason || ''); return; }
   const backdrop = document.getElementById('signInPromptBackdrop');
   if (!backdrop) return;
@@ -12355,30 +12631,10 @@ A['sign-in-google']          = async (btn) => {
       // request leaves the device — never reaches the function. Same family
       // of WKWebView issue as signInWithCredential. fetch() routes through
       // Capacitor's native networking and works correctly.
-      const _exchangeRes = await Promise.race([
-        fetch('https://us-central1-teebox-market.cloudfunctions.net/exchangeIdTokenForCustomToken', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: { idToken, providerId: 'google.com' } }),
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('exchange fetch timed out after 15s')), 15000)),
-      ]);
-      if (!_exchangeRes.ok) {
-        const _errText = await _exchangeRes.text().catch(() => '');
-        // r186 §8: surface the function's same-email refusal honestly.
-        // _findOrCreateUser throws ALREADY_EXISTS when this email belongs
-        // to an account without the Google provider (anti-takeover). The
-        // old generic message hid that; map it to actionable copy. (No
-        // "link from settings" wording — that flow doesn't exist.)
-        if (/ALREADY_EXISTS|already.?exists|different sign.?in method/i.test(_errText)) {
-          const _dup = new Error('email exists under a different method');
-          _dup.code = 'teebox/email-exists-different-method';
-          throw _dup;
-        }
-        throw new Error('exchange HTTP ' + _exchangeRes.status + ': ' + _errText.substring(0, 200));
-      }
-      const _exchangeJson = await _exchangeRes.json();
-      const customToken = _exchangeJson && _exchangeJson.result && _exchangeJson.result.customToken;
+      const _gX = await window.tbNativeExchange('google.com', { idToken }, 'signin');
+      if (_gX && _gX.needsLink) { restoreBtn(); window.tbHandleNeedsLink(Object.assign({ kind: 'native', providerId: 'google.com', idToken }, _gX.needsLink)); return; }
+      if (_gX && _gX.relayChoice) { restoreBtn(); window.tbHandleRelayChoice({ providerId: 'google.com', idToken }); return; }
+      const customToken = _gX && _gX.customToken;
       if (!customToken) {
         throw new Error('Token exchange returned no customToken');
       }
@@ -12440,7 +12696,9 @@ A['sign-in-google']          = async (btn) => {
     if (code === 'auth/popup-blocked') msg = 'Pop-up blocked. Allow pop-ups or use email sign-in.';
     else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
     else if (code === 'auth/account-exists-with-different-credential') {
-      msg = 'An account with that email already exists. Sign in with email or your original method first.';
+      restoreBtn();
+      await window.tbHandleAccountExists(e, 'google.com');
+      return;
     } else if (code === 'teebox/email-exists-different-method') {
       // r186 §8: native exchange-path twin of the case above.
       msg = 'An account with that email already exists. Sign in with your email and password instead.';
@@ -12491,20 +12749,10 @@ A['sign-in-apple']           = async (btn) => {
         return;
       }
       // Plain fetch — see Google handler comment for rationale.
-      const _aExchangeRes = await Promise.race([
-        fetch('https://us-central1-teebox-market.cloudfunctions.net/exchangeIdTokenForCustomToken', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: { idToken, providerId: 'apple.com', rawNonce } }),
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('exchange fetch timed out after 15s')), 15000)),
-      ]);
-      if (!_aExchangeRes.ok) {
-        const _errText = await _aExchangeRes.text().catch(() => '');
-        throw new Error('exchange HTTP ' + _aExchangeRes.status + ': ' + _errText.substring(0, 200));
-      }
-      const _aExchangeJson = await _aExchangeRes.json();
-      const customToken = _aExchangeJson && _aExchangeJson.result && _aExchangeJson.result.customToken;
+      const _aX = await window.tbNativeExchange('apple.com', { idToken, rawNonce }, 'signin');
+      if (_aX && _aX.needsLink) { restoreBtn(); window.tbHandleNeedsLink(Object.assign({ kind: 'native', providerId: 'apple.com', idToken, rawNonce }, _aX.needsLink)); return; }
+      if (_aX && _aX.relayChoice) { restoreBtn(); window.tbHandleRelayChoice({ providerId: 'apple.com', idToken, rawNonce }); return; }
+      const customToken = _aX && _aX.customToken;
       if (!customToken) {
         throw new Error('Token exchange returned no customToken');
       }
@@ -12554,7 +12802,9 @@ A['sign-in-apple']           = async (btn) => {
     if (code === 'auth/popup-blocked') msg = 'Pop-up blocked. Allow pop-ups or use email sign-in.';
     else if (code === 'auth/network-request-failed') msg = 'Network error. Check your connection and try again.';
     else if (code === 'auth/account-exists-with-different-credential') {
-      msg = 'An account with that email already exists. Sign in with email or your original method first.';
+      restoreBtn();
+      await window.tbHandleAccountExists(e, 'apple.com');
+      return;
     } else if (code === 'auth/operation-not-allowed') {
       msg = 'Apple Sign In is not enabled yet. Use email or Google for now.';
     } else if (code === 'auth/internal-error') {
@@ -13752,7 +14002,7 @@ window.__pushOverlay = function(name, url) {
 // when the last hub page closes. Push/pop semantics, which is what a phone
 // user expects from a ←.
 const PROFILE_HUB_OPENS = ['open-shop-dashboard', 'open-orders', 'open-watchlist',
-  'open-saved-searches', 'open-push-prefs', 'open-email-prefs', 'open-shipping-settings',
+  'open-saved-searches', 'open-push-prefs', 'open-email-prefs', 'open-connected-methods', 'open-shipping-settings',
   'open-blocked-users', 'open-about', 'open-guidelines'];
 // Likes reuses the search overlay, so its ← is close-search.
 const PROFILE_HUB_CLOSES = ['close-info', 'close-shop-dashboard', 'close-search'];
