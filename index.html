@@ -530,7 +530,7 @@ window.__phDeferLoad = function(load) {
   .profile-listings { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 12px; }
   .profile-listing { background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px; cursor: pointer; transition: var(--transition); }
   .profile-listing:hover { background: var(--white); border-color: var(--green-400); }
-  .profile-listing-img { aspect-ratio: 4/3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .profile-listing-img { aspect-ratio: 4/3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; position: relative; }
   .profile-listing-img img { width: 100%; height: 100%; object-fit: cover; }
   .profile-listing-name { font-size: 12px; font-weight: 600; color: var(--gray-900); margin-bottom: 2px; line-height: 1.3; }
   .profile-listing-price { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--green-600); }
@@ -2761,7 +2761,23 @@ window.__phDeferLoad = function(load) {
   .cond-pill.cond-parts     { background: var(--red-100); color: var(--red-500); }
   .ai-desc-spark { font-size: 13px; line-height: 1; }
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
-  .photo-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
+  .photo-count-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
+  /* Phase 3 (r368): Vinted-style heart on the photo, bottom-right, count inside.
+     Both heart icons are in the markup; .liked swaps outline → filled. */
+  .card-fav { position: absolute; bottom: 8px; right: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px 0 7px; border-radius: 50px; border: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.94); color: var(--gray-700); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.18); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); -webkit-tap-highlight-color: transparent; font-family: inherit; }
+  .card-fav .fav-ico { display: inline-flex; width: 16px; height: 16px; }
+  .card-fav .fav-ico .ico { width: 16px; height: 16px; stroke-width: 2; }
+  .card-fav .fav-ico .ico-fill { display: none; }
+  .card-fav.liked { color: var(--heart-red, #e74c3c); border-color: rgba(231,76,60,.35); }
+  .card-fav.liked .fav-ico .ico-fill { display: inline; }
+  .card-fav.liked .fav-ico .ico:not(.ico-fill) { display: none; }
+  .card-fav .fav-count:empty { display: none; }
+  .card-fav .fav-count:empty ~ *, .card-fav:has(.fav-count:empty) { padding-right: 7px; }
+  .product-card.sold .card-fav { display: none; }
+  .detail-gallery { position: relative; }
+  .detail-fav { bottom: 12px; right: 12px; min-height: 34px; font-size: 13px; padding: 0 11px 0 9px; }
+  .detail-fav .fav-ico, .detail-fav .fav-ico .ico { width: 18px; height: 18px; }
+  @media (hover: hover) { .card-fav:hover { transform: scale(1.06); } }
   .product-body { padding: 14px 14px 16px; display: flex; flex-direction: column; flex: 1; }
   /* Fixed slot: an empty brand row still reserves its line so cards with and
      without a brand eyebrow keep identical structure. */
@@ -5934,7 +5950,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r367</span></div>
+        <span class="auth-build" aria-hidden="true">r368</span></div>
     </div>
   </div>
 </div>
@@ -9391,8 +9407,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r367"></script>
-<script type="module" src="/js/app-auth.js?v=r367"></script>
+<script defer src="/js/app-main.js?v=r368"></script>
+<script type="module" src="/js/app-auth.js?v=r368"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9422,7 +9438,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r367"></script>
+<script type="module" src="/js/bingo.js?v=r368"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
