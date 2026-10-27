@@ -8943,7 +8943,7 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-oakley-sunglasses', 'art-footjoy-premiere', 'art-gfore-golf-shoes', 'art-maui-jim-sunglasses', 'art-vessel-stand-bag', 'art-titleist-pro-v1', 'art-sun-mountain-bag', 'art-rainbow-flip-flops', 'art-peter-millar-belt', 'art-polo-blue', 'art-callaway-chrome-tour', 'art-beanie-footjoy', 'art-scotty-cameron-putter', 'art-cap-white-crest'];
+const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-footjoy-premiere', 'art-gfore-golf-shoes', 'art-vessel-stand-bag', 'art-titleist-pro-v1', 'art-sun-mountain-bag', 'art-rainbow-flip-flops', 'art-peter-millar-belt', 'art-polo-blue', 'art-callaway-chrome-tour', 'art-beanie-footjoy', 'art-scotty-cameron-putter', 'art-cap-white-crest'];
 const WELCOME_PHOTOS_B = ['art-divot-tool', 'art-vokey-wedge', 'art-vineyard-vines-belt', 'art-adidas-tour360', 'art-garmin-z82', 'art-smathers-branson-belt', 'art-needlepoint-flask', 'art-titleist-cap', 'art-ecco-biom', 'art-titleist-cart-bag', 'art-golf-umbrella', 'art-ping-hoofer', 'art-ball-marker', 'art-headcover-medallion', 'art-golf-towel'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
@@ -8951,7 +8951,7 @@ function welcomeTileHtml(name, eager) {
   // All tiles load eagerly: the second copy of each row reuses the same URLs
   // (cached), and lazy tiles inside a translating track would pop in blank
   // mid-loop. Only the first few get fetchpriority=high.
-  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 200px, 150px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
+  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 124px, 96px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
 }
 function welcomeShouldShow() {
   try {

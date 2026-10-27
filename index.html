@@ -1565,12 +1565,12 @@ window.__phDeferLoad = function(load) {
   body.welcome-open { overflow: hidden; }
   .welcome-skip { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px; z-index: 2; background: rgba(255,255,255,0.85); border: 1px solid var(--gray-200); color: var(--green-900); font: 600 13px/1 var(--font-body); padding: 10px 14px; border-radius: 50px; cursor: pointer; white-space: nowrap; max-width: calc(100vw - 32px); }
   @media (min-width: 700px) { .welcome-skip { font-size: 14px; padding: 10px 16px; } }
-  .welcome-marquee { flex: 0 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + 64px); display: flex; flex-direction: column; gap: 10px; }
+  .welcome-marquee { flex: 0 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + 64px); display: flex; flex-direction: column; gap: 6px; }
   .welcome-row { overflow: hidden; width: 100%; }
-  .welcome-track { display: flex; gap: 10px; width: max-content; will-change: transform; }
+  .welcome-track { display: flex; gap: 6px; width: max-content; will-change: transform; }
   .welcome-row-a .welcome-track { animation: welcomeSlideLeft 48s linear infinite; }
   .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
-  .welcome-tile { width: 150px; height: 150px; flex: 0 0 150px; background: transparent; }
+  .welcome-tile { width: 96px; height: 96px; flex: 0 0 96px; background: transparent; }
   .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
   @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes welcomeSlideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
@@ -1587,14 +1587,14 @@ window.__phDeferLoad = function(load) {
   .welcome-fine { font-size: 12px; color: var(--gray-500); text-align: center; margin: 14px 0 0; }
   .welcome-fine a { color: var(--green-700); text-decoration: underline; }
   @media (min-width: 700px) {
-    .welcome-marquee { padding-top: 56px; gap: 14px; }
-    .welcome-track { gap: 14px; }
-    .welcome-tile { width: 200px; height: 200px; flex-basis: 200px; }
+    .welcome-marquee { padding-top: 56px; gap: 10px; }
+    .welcome-track { gap: 10px; }
+    .welcome-tile { width: 124px; height: 124px; flex-basis: 124px; }
     .welcome-body { justify-content: center; padding-top: 40px; }
     .welcome-headline { font-size: 44px; }
   }
   @media (min-width: 700px) and (min-height: 820px) { .welcome-marquee { padding-top: 96px; } }
-  @media (max-height: 700px) { .welcome-tile { width: 120px; height: 120px; flex-basis: 120px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
+  @media (max-height: 700px) { .welcome-tile { width: 84px; height: 84px; flex-basis: 84px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: flex-start; align-items: safe center; justify-content: center; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; opacity: 1; transition: opacity 0.25s ease; }
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
