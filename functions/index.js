@@ -11,6 +11,7 @@ const stripe = require("stripe");
 const disputeReversal = require("./lib/disputeReversal");
 const accountLinking = require("./lib/accountLinking");
 const exchangeFlow = require("./lib/exchangeFlow");
+const watchLib = require("./lib/watch");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
@@ -3525,86 +3526,76 @@ exports.onReportCreate = onDocumentCreated(
 );
 
 // ─────────────────────────────────────────────────────────────
-// syncWatchlistCount (Firestore trigger)
-//   Watchlist is stored as a map on users/{uid}.watchlist (not a
-//   subcollection). When the user doc updates, diff before/after
-//   to find listings added/removed, then ±1 listings/{id}.watchlistCount
-//   accordingly. Without this trigger, watchlistCount is read by the
-//   dashboard but never written — every listing shows 0 watchers.
+// Likes / watch list — Phase 3 (2026-10-27). lib/watch.js owns the graph:
+//   listings/{id}/watchers/{uid}   one doc per liker (server-written only)
+//   listings.watchlistCount        written in the SAME transaction
+//   users/{uid}.watchlist          mirror for the Likes screen + old bundles
 // ─────────────────────────────────────────────────────────────
+
+// setWatch — the client's like toggle. Idempotent; returns the new state and
+// count so the UI can reconcile its optimistic value.
+exports.setWatch = onCall({...USER_CALLABLE}, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in to like listings.");
+  const listingId = request.data && request.data.listingId;
+  const on = !!(request.data && request.data.on);
+  if (typeof listingId !== "string" || !listingId) {
+    throw new HttpsError("invalid-argument", "listingId required");
+  }
+  const rl = await checkRateLimit(uid, "setWatch", 60);
+  if (!rl.ok) throw new HttpsError("resource-exhausted", "Slow down a little and try again.");
+  try {
+    return await watchLib.setWatch({
+      db: admin.firestore(), FieldValue: admin.firestore.FieldValue, uid, listingId, on,
+    });
+  } catch (err) {
+    if (err && (err.code === "not-found" || err.code === "invalid-argument")) {
+      throw new HttpsError(err.code, err.message);
+    }
+    logger.error("setWatch failed", {uid, listingId, on, err: err && err.message});
+    throw new HttpsError("internal", "Could not update likes.");
+  }
+});
+
+// syncWatchlistCount — legacy shim. App bundles shipped before Phase 3 still
+// write the users/{uid}.watchlist map directly; converge the watchers graph
+// + count from the diff. Every step checks the watcher doc first, so a map
+// change that setWatch already wrote (same transaction) or a redelivered
+// event is a no-op — no double counting. Remove once every bundle in use
+// calls setWatch.
 exports.syncWatchlistCount = onDocumentUpdated(
   {document: "users/{uid}", ...LIGHT_TRIGGER},
   async (event) => {
     try {
       const before = (event.data && event.data.before && event.data.before.data()) || {};
       const after = (event.data && event.data.after && event.data.after.data()) || {};
-      const beforeIds = new Set(Object.keys(before.watchlist || {}));
-      const afterIds = new Set(Object.keys(after.watchlist || {}));
-      const added = [];
-      const removed = [];
-      for (const id of afterIds) if (!beforeIds.has(id)) added.push(id);
-      for (const id of beforeIds) if (!afterIds.has(id)) removed.push(id);
-      if (added.length === 0 && removed.length === 0) return;
-      const db = admin.firestore();
-      const batch = db.batch();
-      for (const id of added) {
-        batch.set(
-            db.collection("listings").doc(id),
-            {watchlistCount: admin.firestore.FieldValue.increment(1)},
-            {merge: true},
-        );
-      }
-      for (const id of removed) {
-        batch.set(
-            db.collection("listings").doc(id),
-            {watchlistCount: admin.firestore.FieldValue.increment(-1)},
-            {merge: true},
-        );
-      }
-      await batch.commit();
+      const r = await watchLib.syncWatchersFromMapDiff({
+        db: admin.firestore(), FieldValue: admin.firestore.FieldValue,
+        uid: event.params.uid, before, after,
+      });
+      if (r.applied) logger.info("syncWatchlistCount: legacy map write converged", {uid: event.params.uid, applied: r.applied});
     } catch (err) {
       logger.error("syncWatchlistCount error", err);
     }
   },
 );
 
-// reconcileWatchlistCounts — weekly self-heal for the #34-unreliable
-// syncWatchlistCount trigger (the sole writer of listings.watchlistCount).
-// The watchlist toggle is a direct client write (no callable to do this
-// synchronously without a client change — that's Lane B), so a dropped
-// onUpdate permanently drifts the count. This recomputes each listing's
-// watchlistCount from the SOURCE OF TRUTH — the users/{uid}.watchlist map,
-// the same source the trigger diffs — and authoritatively corrects drift in
-// EITHER direction (under-count and stale-positive→0). Two full scans (users
-// + listings); fine at current volume — paginate at scale.
+// reconcileWatchlistCounts — weekly self-heal. The count is now written in
+// the same transaction as the watcher doc, so drift should be zero; this
+// recounts every listing from its watchers subcollection (the source of
+// truth) and logs anything it had to correct.
 exports.reconcileWatchlistCounts = onSchedule(
   {schedule: "0 5 * * 1", timeZone: "UTC", ...SCHEDULED_BATCH},
   async () => {
     const db = admin.firestore();
-    const usersSnap = await db.collection("users").get();
-    const tally = {}; // listingId -> number of users watching it
-    usersSnap.forEach((d) => {
-      const wl = (d.data() || {}).watchlist;
-      if (wl && typeof wl === "object") {
-        for (const listingId of Object.keys(wl)) {
-          tally[listingId] = (tally[listingId] || 0) + 1;
-        }
-      }
-    });
     const listingsSnap = await db.collection("listings").get();
     let healed = 0;
     for (const ldoc of listingsSnap.docs) {
-      const want = tally[ldoc.id] || 0;
-      const have = Number((ldoc.data() || {}).watchlistCount) || 0;
-      if (have !== want) {
-        await ldoc.ref.set({watchlistCount: want}, {merge: true});
-        healed += 1;
-      }
+      const r = await watchLib.recountListing({db, listingRef: ldoc.ref});
+      if (r.healed) { healed += 1; logger.warn("reconcileWatchlistCounts: drift", {listingId: ldoc.id, had: r.have, now: r.want}); }
     }
-    logger.info(
-      `reconcileWatchlistCounts: ${Object.keys(tally).length} watched listings, ` +
-      `${healed} counts corrected`);
-  }
+    logger.info(`reconcileWatchlistCounts: ${listingsSnap.size} listings, ${healed} counts corrected`);
+  },
 );
 
 // ─────────────────────────────────────────────────────────────

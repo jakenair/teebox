@@ -96,6 +96,14 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
 
+      // Likes (Phase 3, 2026-10-27): one doc per liker, written ONLY by the
+      // setWatch callable (count + mirror in the same transaction). A liker
+      // may read their own doc; nobody writes from the client.
+      match /watchers/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
       // LIST-FIRST (founder ruling 2026-10-19, reverses the 2026-06
       // onboarded-to-list gate): anyone with a VERIFIED email (or a phone
       // sign-in) can create a listing without finishing Stripe. Stripe is
@@ -412,9 +420,6 @@ service cloud.firestore {
 
       // Watchlist subcollection — owner-only read/write. Cloud Functions
       // read via collectionGroup queries (Admin SDK bypasses rules).
-      match /watchlist/{listingId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
 
       // Logo Bingo durable game mirror. Doc id is the YYYY-MM-DD UTC date.
       // Written exclusively by the syncBingoProgress callable (Admin SDK

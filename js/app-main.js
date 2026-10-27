@@ -460,6 +460,34 @@ window.filterByBrand = filterByBrand;
 // Render one listing card's HTML. Extracted from buildProducts so the
 // category-empty fallback (Part 2) can re-render the full inventory grid
 // without duplicating the card markup.
+// ── Phase 3 likes: shared heart button (cards, detail, profile grids) ─────
+// One markup for every surface. State comes from the `fav` set (my likes) and
+// listings.watchlistCount (server-owned, see functions/lib/watch.js). The
+// count is omitted at zero — "0 likes" on every card reads as nobody wants it.
+window.favButtonHtml = function favButtonHtml(p, extraClass) {
+  const id = window.safeId(p.id);
+  const liked = fav.has(p.id) || fav.has(String(p.id));
+  const n = Math.max(0, Number(p.watchlistCount || 0));
+  return `<button type="button" class="fav-btn ${extraClass || ''}${liked ? ' liked' : ''}" data-action="toggle-watch" data-product-id="${window.safeAttr(id)}" aria-pressed="${liked ? 'true' : 'false'}" aria-label="${liked ? 'Unlike' : 'Like'}${n ? ` (${n.toLocaleString()} like${n === 1 ? '' : 's'})` : ''}">` +
+    `<span class="fav-ico" aria-hidden="true">${window.ICONS.heart}${window.ICONS.heartFill}</span>` +
+    `<span class="fav-count">${n ? n.toLocaleString() : ''}</span></button>`;
+};
+// Repaint every rendered heart for a listing (grid, detail, more-like-this,
+// profile) without rebuilding the feed. count === null keeps the number.
+window.paintFav = function paintFav(productId, liked, count) {
+  const id = String(productId);
+  document.querySelectorAll('.fav-btn[data-product-id]').forEach((btn) => {
+    if (String(btn.dataset.productId) !== id) return;
+    btn.classList.toggle('liked', !!liked);
+    btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+    btn.setAttribute('aria-label', liked ? 'Unlike' : 'Like');
+    if (count !== null && count !== undefined) {
+      const c = btn.querySelector('.fav-count');
+      if (c) c.textContent = count > 0 ? Number(count).toLocaleString() : '';
+    }
+  });
+};
+
 function renderProductCardHtml(p, i) {
   const id = window.safeId(p.id);
   // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
@@ -521,11 +549,12 @@ function renderProductCardHtml(p, i) {
       `${mainImg}`+
       `${badge}`+
       `${stockBadge}`+
-      // r283: the heart overlay is gone from the card. Liking now happens by
-      // double-tapping the photo inside the listing detail, the same gesture
-      // Passport already uses. The like COUNT still renders below, in
-      // .product-stats — the social proof stays, the button doesn't.
+      // Phase 3 (r368): Vinted-style heart on the photo, bottom-right, with
+      // the like count inside it. Optimistic toggle in the toggle-watch action;
+      // guests get the sign-up sheet. (r283 had removed the card heart in
+      // favour of double-tap on the detail photo — both gestures work now.)
       `${photoCount}`+
+      `${window.favButtonHtml ? window.favButtonHtml(p, 'card-fav') : ''}`+
     `</div>`+
     `<div class="product-body">`+
       `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
@@ -540,7 +569,8 @@ function renderProductCardHtml(p, i) {
         // render ONLY above zero: "0 likes" on every card advertises that
         // nobody wants the item, which is worse than showing nothing.
         const v = window.getListingViews ? window.getListingViews(p) : 0;
-        const likes = Number(p.watchlistCount || 0);
+        // Phase 3: the like count moved into the heart on the photo.
+        const likes = 0;
         if (!v && !likes) return '';
         const parts = [];
         if (v) parts.push(`<span class="stat" title="${v.toLocaleString()} view${v===1?'':'s'}">`+
@@ -1547,6 +1577,9 @@ async function openDetailModal(id) {
   } else {
     window.buildIgSwiper(galleryEl, photos, p.name || '');
   }
+  // Phase 3: heart with count on the detail photo too (same button, same
+  // toggle); double-tap keeps working alongside it.
+  if (window.favButtonHtml) galleryEl.insertAdjacentHTML('beforeend', window.favButtonHtml(p, 'card-fav detail-fav'));
   // "More like this" row — same category, current listing excluded, max 6.
   renderMoreLikeThis(p);
   document.getElementById('detailBackdrop').classList.add('open');
@@ -1825,7 +1858,7 @@ function renderDetailLikes(id) {
     `<span class="detail-like-ico" aria-hidden="true">` +
       `${liked ? window.ICONS.heartFill : window.ICONS.heart}</span>` +
     `<span class="detail-like-count">${countLabel}</span>` +
-    `<span class="detail-like-hint">${liked ? 'Double-tap the photo to unlike' : 'Double-tap the photo to like'}</span>`;
+    `<span class="detail-like-hint">${liked ? 'Saved to your liked items' : 'Tap the heart or double-tap the photo to like'}</span>`;
 }
 window.renderDetailLikes = renderDetailLikes;
 
@@ -9473,87 +9506,66 @@ async function loadWatchlist() {
   }
 }
 
-async function toggleWatch(productId) {
-  // Guest gate. We do NOT replay after sign-in — silently liking a
-  // listing the user clicked before authenticating would feel
-  // surprising. The optimistic CSS pop is suppressed inside the
-  // `toggle-watch` action handler when there is no current user.
-  if (typeof window.requireAuth === 'function') {
-    if (!window.requireAuth('to like and save listings')) return;
-  } else if (!window.CURRENT_USER) {
-    showToast('Sign in to save items.');
+async function toggleWatch(productId, desired) {
+  // Guest gate — Phase 3: guests get the sign-up sheet (Vinted behaviour).
+  if (!window.CURRENT_USER) {
+    if (typeof window.openAuthSheet === 'function') window.openAuthSheet('signup', 'to like and save listings');
+    else if (typeof window.requireAuth === 'function') window.requireAuth('to like and save listings');
+    else showToast('Sign in to save items.');
     return;
   }
-  const watch = await loadWatchlist();
   const id = String(productId);
-  // Snapshot the current ask so we can later detect price drops
-  // (Feature #16). loadWatchlist returns the per-id object with
-  // priceWhenAdded already if present.
   const product = (window.PRODUCTS || []).find(p => String(p.id) === id);
-  const askNow = product ? Number(product.ask || 0) : 0;
+  const wasLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
+  const on = typeof desired === 'boolean' ? desired : !wasLiked;
+  const prevCount = product ? Math.max(0, Number(product.watchlistCount || 0)) : null;
+  // Optimistic: flip my state + the visible count now; the server answer
+  // below reconciles (or the catch rolls back).
+  if (on) { fav.add(productId); fav.add(id); } else { fav.delete(productId); fav.delete(id); fav.delete(Number(id)); }
+  if (product) product.watchlistCount = Math.max(0, prevCount + (on ? 1 : -1));
+  window.paintFav(id, on, product ? product.watchlistCount : null);
+  const syncDetail = (count, liked) => {
+    if (currentDetailId != null && String(currentDetailId) === id && typeof window.renderDetailLikes === 'function') {
+      if (typeof count === 'number') detailLikeBase[id] = { count, likedAtOpen: !!liked };
+      window.renderDetailLikes(id);
+    }
+  };
+  syncDetail(product ? product.watchlistCount : undefined, on);
   try {
-    const { getFirestore, doc, setDoc, serverTimestamp, deleteField } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    if (watch[id]) {
-      await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
-        { watchlist: { [id]: deleteField() } }, { merge: true });
-      fav.delete(productId);
-    } else {
-      const entry = { addedAt: serverTimestamp() };
-      if (askNow > 0) entry.priceWhenAdded = askNow;
-      await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
-        { watchlist: { [id]: entry } }, { merge: true });
-      fav.add(productId);
+    // setWatch (functions/lib/watch.js) writes listings/{id}/watchers/{uid},
+    // the users/{uid}.watchlist mirror and watchlistCount in ONE transaction,
+    // so the count can't drift and a user can like a listing exactly once.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const res = await httpsCallable(getFunctions(), 'setWatch')({ listingId: id, on });
+    const r = (res && res.data) || {};
+    const liked = !!r.on;
+    if (liked) { fav.add(productId); fav.add(id); } else { fav.delete(productId); fav.delete(id); fav.delete(Number(id)); }
+    if (product && typeof r.count === 'number') product.watchlistCount = r.count;
+    window.paintFav(id, liked, typeof r.count === 'number' ? r.count : null);
+    syncDetail(typeof r.count === 'number' ? r.count : undefined, liked);
+    if (liked && r.changed) {
+      const askNow = product ? Number(product.ask || 0) : 0;
       // Meta Pixel: wishlist ADD only (removals deliberately untracked).
       window.fbTrack && window.fbTrack('AddToWishlist', { content_ids: [id], content_type: 'product', value: askNow, currency: 'USD' });
-      // r286: tell the seller someone liked their listing. The notifyLike
-      // callable has been deployed since the likes push category was added
-      // but NOTHING had ever called it — the category, the prefs and the
-      // function all existed while a like silently notified no one. It
-      // re-checks the watchlist server-side and skips self-likes, so this is
-      // fire-and-forget: a failed notification must never fail the like.
+      // r286: tell the seller someone liked their listing (fire-and-forget —
+      // it re-checks the watchlist server-side and skips self-likes).
       (async () => {
-        try {
-          const { getFunctions, httpsCallable } =
-            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
-          await httpsCallable(getFunctions(), 'notifyLike')({ listingId: id });
-        } catch (e) { console.warn('notifyLike failed (non-fatal)', e); }
+        try { await httpsCallable(getFunctions(), 'notifyLike')({ listingId: id }); }
+        catch (e) { console.warn('notifyLike failed (non-fatal)', e); }
       })();
       // Contextual push prompt — first item added to watchlist.
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
-    // Sync every rendered like button for this product to the new state
-    // (grid card + detail + more-like-this) WITHOUT repainting the whole
-    // feed. A full buildProducts() here rebuilt every card + the hero
-    // widget on each like, which is the visible screen flash. The tapped
-    // button's pop animation is already handled optimistically in the
-    // toggle-watch action handler; this just keeps any other instances of
-    // the same product in sync.
-    try {
-      const nowLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
-      // r283: the card heart is gone, so the only surviving like indicator
-      // is the detail sheet's like row — repaint it whenever the open
-      // listing is the one that changed. The querySelectorAll below is kept
-      // for any fav-btn a future surface renders; today it matches nothing.
-      if (currentDetailId != null && String(currentDetailId) === id &&
-          typeof window.renderDetailLikes === 'function') {
-        window.renderDetailLikes(id);
-      }
-      document.querySelectorAll('.fav-btn[data-product-id]').forEach((btn) => {
-        if (String(btn.dataset.productId) !== id) return;
-        btn.classList.toggle('liked', nowLiked);
-        if (nowLiked) {
-          btn.classList.remove('just-liked');
-          void btn.offsetWidth; // restart the animation
-          btn.classList.add('just-liked');
-          setTimeout(() => btn.classList.remove('just-liked'), 400);
-        }
-      });
-    } catch (_e) { /* non-fatal — optimistic state already applied */ }
   } catch (e) {
+    // Roll back the optimistic state.
+    if (wasLiked) { fav.add(productId); fav.add(id); } else { fav.delete(productId); fav.delete(id); fav.delete(Number(id)); }
+    if (product && prevCount !== null) product.watchlistCount = prevCount;
+    window.paintFav(id, wasLiked, prevCount);
+    syncDetail(prevCount === null ? undefined : prevCount, wasLiked);
     console.error('toggleWatch failed:', e);
-    showToast('Could not update likes.');
+    const code = (e && e.code) || '';
+    showToast(/not-found/.test(code) ? 'That listing is no longer available.' : 'Could not update likes. Check your connection and try again.');
   }
 }
 
@@ -10285,7 +10297,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
           : '';
         return `<div class="profile-listing ${isPinned ? 'pinned-card' : ''}${expired ? ' is-expired' : ''}${hiddenCard ? ' is-hidden' : ''}" data-action="open-detail" data-product-id="${id}" style="position:relative">`+
           pinIndicator + expiredBadge + hiddenBadge +
-          `<div class="profile-listing-img">${img}</div>`+
+          `<div class="profile-listing-img">${img}${(!expired && !hiddenCard && window.favButtonHtml) ? window.favButtonHtml(l, 'card-fav') : ''}</div>`+
           `<div class="profile-listing-name">${window.safeText(l.title || '')}</div>`+
           `<div class="profile-listing-price">$${Number(l.ask||0).toLocaleString()}</div>`+
           (pinBtn ? `<div style="margin-top:6px">${pinBtn}</div>` : '') +
@@ -10391,7 +10403,7 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-watchlist" type="button">
-             <span class="account-hub-label">Likes</span>
+             <span class="account-hub-label">Liked items</span>
              <span class="account-hub-chev">›</span>
            </button>
            <button class="account-hub-item" data-action="open-saved-searches" type="button">
@@ -13405,30 +13417,26 @@ A['toggle-watch']            = (el, ev) => {
   // run any optimistic animation. Otherwise a guest sees a fake
   // "liked" state that doesn't survive a refresh.
   if (!window.CURRENT_USER) {
-    if (typeof window.requireAuth === 'function') {
-      window.requireAuth('to like and save listings');
-    }
+    // Phase 3: guests get the sign-up sheet, nothing optimistic.
+    if (typeof window.openAuthSheet === 'function') window.openAuthSheet('signup', 'to like and save listings');
+    else if (typeof window.requireAuth === 'function') window.requireAuth('to like and save listings');
     return;
   }
-  // Two-state animation. We infer the "next" state from whether the
-  // element is currently in the "liked" set — matches the optimistic
-  // toggle inside toggleWatch(). On a fresh like, also spawn a small
+  // Two-state animation; the liked class + count are painted by toggleWatch
+  // (optimistically, with rollback). On a fresh like, also spawn a small
   // CSS-only particle burst (six tiny hearts that float up + fade).
   const wasLiked = fav.has(id) || fav.has(Number(id));
   el.classList.remove('popped', 'unpopped');
   void el.offsetWidth; // force reflow so animation re-triggers
   if (wasLiked) {
-    // About to unlike → small dip animation, drop "liked" tint.
-    el.classList.remove('liked');
     el.classList.add('unpopped');
     setTimeout(() => el.classList.remove('unpopped'), 360);
   } else {
-    // About to like → spring up, paint red, spawn particle burst.
-    el.classList.add('popped', 'liked');
+    el.classList.add('popped');
     setTimeout(() => el.classList.remove('popped'), 420);
     spawnHeartBurst(el);
   }
-  toggleWatch(id);
+  toggleWatch(id, !wasLiked);
 };
 // Optional CSS-only flourish — six tiny floating hearts. Skipped when
 // prefers-reduced-motion is set (the .heart-burst rule hides itself).

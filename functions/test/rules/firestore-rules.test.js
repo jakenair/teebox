@@ -243,3 +243,29 @@ test("listings: cannot create a listing for someone else, nor pre-set a hidden/s
   await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("mallory"), status: "hidden"}));
   await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("mallory"), hiddenReason: "x"}));
 });
+
+// ── Phase 3 likes: listings/{id}/watchers/{uid} is server-written only ──────
+test("watchers: a liker can read their OWN watcher doc; others and anon cannot", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "listings/L1"), {title: "x", status: "active"});
+    await setDoc(doc(ctx.firestore(), "listings/L1/watchers/alice"), {addedAt: new Date()});
+  });
+  const alice = testEnv.authenticatedContext("alice").firestore();
+  const bob = testEnv.authenticatedContext("bob").firestore();
+  const anon = testEnv.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(alice, "listings/L1/watchers/alice")));
+  await assertFails(getDoc(doc(bob, "listings/L1/watchers/alice")));
+  await assertFails(getDoc(doc(anon, "listings/L1/watchers/alice")));
+});
+
+test("watchers: no client may create, update or delete a watcher doc (setWatch callable only)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "listings/L2"), {title: "y", status: "active"});
+    await setDoc(doc(ctx.firestore(), "listings/L2/watchers/alice"), {addedAt: new Date()});
+  });
+  const alice = testEnv.authenticatedContext("alice").firestore();
+  await assertFails(setDoc(doc(alice, "listings/L2/watchers/alice"), {addedAt: new Date(), priceWhenAdded: 1}));
+  await assertFails(setDoc(doc(alice, "listings/L2/watchers/bob"), {addedAt: new Date()}));
+  const {deleteDoc} = require("firebase/firestore");
+  await assertFails(deleteDoc(doc(alice, "listings/L2/watchers/alice")));
+});
