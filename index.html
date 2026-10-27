@@ -5774,7 +5774,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r361</span></div>
+        <span class="auth-build" aria-hidden="true">r365</span></div>
     </div>
   </div>
 </div>
@@ -7393,7 +7393,25 @@ window.__phDeferLoad = function(load) {
       // as its fallback.
       var tb = document.querySelector('.mobile-top-bar');
       if (tb && tb.offsetHeight) {
-        document.body.style.setProperty('--top-bar-h', tb.offsetHeight + 'px');
+        // r365: write the value as calc(env(safe-area-inset-top) + base) instead
+        // of a fixed pixel count. On iOS WKWebView the inset can still be 0 at
+        // the moment this first runs and only land afterwards; a fixed 64px
+        // then left the sticky search/category block ~59px under the header
+        // (Jake's 2026-10-26 screenshot: first chip row hidden, "Passport"
+        // peeking out). Measuring the inset NOW via a probe and subtracting it
+        // gives the bar's base height, and the calc() tracks env() from then on.
+        var inset = 0;
+        try {
+          var probe = document.getElementById('tbSafeTopProbe');
+          if (!probe) {
+            probe = document.createElement('div'); probe.id = 'tbSafeTopProbe';
+            probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden';
+            document.body.appendChild(probe);
+          }
+          inset = probe.offsetHeight || 0;
+        } catch (_e) { inset = 0; }
+        var base = Math.max(44, tb.offsetHeight - inset);
+        document.body.style.setProperty('--top-bar-h', 'calc(env(safe-area-inset-top, 0px) + ' + base + 'px)');
       }
     }
     function refresh() { updateFades(); syncBarHeight(); }
@@ -9213,8 +9231,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r361"></script>
-<script type="module" src="/js/app-auth.js?v=r361"></script>
+<script defer src="/js/app-main.js?v=r365"></script>
+<script type="module" src="/js/app-auth.js?v=r365"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9244,7 +9262,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r361"></script>
+<script type="module" src="/js/bingo.js?v=r365"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
