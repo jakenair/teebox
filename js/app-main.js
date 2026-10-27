@@ -8943,8 +8943,9 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-footjoy-premiere', 'art-gfore-golf-shoes', 'art-vessel-stand-bag', 'art-titleist-pro-v1', 'art-sun-mountain-bag', 'art-rainbow-flip-flops', 'art-peter-millar-belt', 'art-polo-blue', 'art-callaway-chrome-tour', 'art-beanie-footjoy', 'art-scotty-cameron-putter', 'art-cap-white-crest'];
-const WELCOME_PHOTOS_B = ['art-divot-tool', 'art-vokey-wedge', 'art-vineyard-vines-belt', 'art-adidas-tour360', 'art-garmin-z82', 'art-smathers-branson-belt', 'art-needlepoint-flask', 'art-titleist-cap', 'art-ecco-biom', 'art-titleist-cart-bag', 'art-golf-umbrella', 'art-ping-hoofer', 'art-ball-marker', 'art-headcover-medallion', 'art-golf-towel'];
+const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-vessel-stand-bag', 'art-rainbow-flip-flops', 'art-callaway-chrome-tour', 'art-cap-white-crest', 'art-vineyard-vines-belt', 'art-smathers-branson-belt', 'art-ecco-biom', 'art-ping-hoofer', 'art-golf-towel'];
+const WELCOME_PHOTOS_B = ['art-footjoy-premiere', 'art-titleist-pro-v1', 'art-peter-millar-belt', 'art-beanie-footjoy', 'art-divot-tool', 'art-adidas-tour360', 'art-needlepoint-flask', 'art-titleist-cart-bag', 'art-ball-marker'];
+const WELCOME_PHOTOS_C = ['art-gfore-golf-shoes', 'art-sun-mountain-bag', 'art-polo-blue', 'art-scotty-cameron-putter', 'art-vokey-wedge', 'art-garmin-z82', 'art-titleist-cap', 'art-golf-umbrella', 'art-headcover-medallion'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
@@ -8969,15 +8970,16 @@ function welcomeShouldShow() {
 }
 window.showWelcome = function showWelcome() {
   const el = document.getElementById('welcomeScreen'); if (!el || el.classList.contains('open')) return;
-  const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB');
+  const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB'), c = document.getElementById('welcomeTrackC');
   if (a && !a.childElementCount) {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
     // One copy must be wider than the viewport or the loop shows a gap, so a
     // short pool is repeated first (tile ≤ 200px + 14px gap).
-    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 214; const one = names.length * 214; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
+    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 134; const one = names.length * 134; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
     const fill = (names, eager) => { const one = reps(names); return one.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + one.map((n) => welcomeTileHtml(n, false)).join(''); };
     a.innerHTML = fill(WELCOME_PHOTOS_A, 4);
     b.innerHTML = fill(WELCOME_PHOTOS_B, 3);
+    if (c) c.innerHTML = fill(WELCOME_PHOTOS_C, 3);
     // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
     // in the Lighthouse A/B the extra preloads delayed the web fonts behind
     // the overlay and cost CLS/TBT for no visible gain.

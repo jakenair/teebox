@@ -1570,6 +1570,7 @@ window.__phDeferLoad = function(load) {
   .welcome-track { display: flex; gap: 6px; width: max-content; will-change: transform; }
   .welcome-row-a .welcome-track { animation: welcomeSlideLeft 48s linear infinite; }
   .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
+  .welcome-row-c .welcome-track { animation: welcomeSlideLeft 60s linear infinite; }
   .welcome-tile { width: 96px; height: 96px; flex: 0 0 96px; background: transparent; }
   .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
   @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -5906,6 +5907,7 @@ window.__phDeferLoad = function(load) {
   <div class="welcome-marquee" aria-hidden="true">
     <div class="welcome-row welcome-row-a"><div class="welcome-track" id="welcomeTrackA"></div></div>
     <div class="welcome-row welcome-row-b"><div class="welcome-track" id="welcomeTrackB"></div></div>
+    <div class="welcome-row welcome-row-c"><div class="welcome-track" id="welcomeTrackC"></div></div>
   </div>
   <div class="welcome-body">
     <div class="welcome-wordmark"><span>Tee</span>Box</div>
