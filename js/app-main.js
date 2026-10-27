@@ -8943,10 +8943,11 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-const WELCOME_PHOTOS_A = ['art-garmin-z82', 'art-titleist-cart-bag', 'art-titleist-cap', 'art-hoodie-quilted', 'art-ping-hoofer', 'art-belt-needlepoint-golf', 'art-divot-tool', 'art-cap-white-crest', 'art-rainbow-flip-flops', 'art-callaway-chrome-tour'];
-const WELCOME_PHOTOS_B = ['art-titleist-pro-v1', 'art-vineyard-vines-belt', 'art-footjoy-premiere', 'art-golf-cooler', 'art-golf-towel', 'art-scotty-cameron-putter', 'art-adidas-tour360', 'art-putter-mallet', 'art-shoe-footjoy-navy', 'art-needlepoint-flask'];
-const WELCOME_PHOTOS_C = ['art-gfore-golf-shoes', 'art-sun-mountain-bag', 'art-wooden-golf-tees', 'art-vokey-wedge', 'art-headcover-medallion', 'art-seamus-headcover', 'art-golf-umbrella', 'art-callaway-cap', 'art-oakley-sunglasses'];
-const WELCOME_PHOTOS_D = ['art-smathers-branson-belt', 'art-speaker-turtlebox', 'art-peter-millar-belt', 'art-maui-jim-sunglasses', 'art-beanie-footjoy', 'art-vessel-stand-bag', 'art-ecco-biom', 'art-polo-blue', 'art-ball-marker'];
+// 2026-10-27 night: wall emptied on Jake's call ("remove all of that, some of those are not right") until the correct cartoon set arrives. Empty lists = rows stay hidden (.welcome-marquee[hidden]).
+const WELCOME_PHOTOS_A = [];
+const WELCOME_PHOTOS_B = [];
+const WELCOME_PHOTOS_C = [];
+const WELCOME_PHOTOS_D = [];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
@@ -8972,7 +8973,8 @@ function welcomeShouldShow() {
 window.showWelcome = function showWelcome() {
   const el = document.getElementById('welcomeScreen'); if (!el || el.classList.contains('open')) return;
   const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB'), c = document.getElementById('welcomeTrackC'), d = document.getElementById('welcomeTrackD');
-  if (a && !a.childElementCount) {
+  const mq = el.querySelector('.welcome-marquee'); if (mq) mq.hidden = !(WELCOME_PHOTOS_A.length || WELCOME_PHOTOS_B.length);
+  if (a && !a.childElementCount && WELCOME_PHOTOS_A.length) {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
     // One copy must be wider than the viewport or the loop shows a gap, so a
     // short pool is repeated first (tile ≤ 200px + 14px gap).
