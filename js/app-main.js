@@ -8943,9 +8943,9 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-vessel-stand-bag', 'art-rainbow-flip-flops', 'art-callaway-chrome-tour', 'art-cap-white-crest', 'art-vineyard-vines-belt', 'art-smathers-branson-belt', 'art-ecco-biom', 'art-ping-hoofer', 'art-golf-towel'];
-const WELCOME_PHOTOS_B = ['art-footjoy-premiere', 'art-titleist-pro-v1', 'art-peter-millar-belt', 'art-beanie-footjoy', 'art-divot-tool', 'art-adidas-tour360', 'art-needlepoint-flask', 'art-titleist-cart-bag', 'art-ball-marker'];
-const WELCOME_PHOTOS_C = ['art-gfore-golf-shoes', 'art-sun-mountain-bag', 'art-polo-blue', 'art-scotty-cameron-putter', 'art-vokey-wedge', 'art-garmin-z82', 'art-titleist-cap', 'art-golf-umbrella', 'art-headcover-medallion'];
+const WELCOME_PHOTOS_A = ['art-polo-blue', 'art-vessel-stand-bag', 'art-scotty-cameron-putter', 'art-titleist-cart-bag', 'art-titleist-pro-v1', 'art-rainbow-flip-flops', 'art-putter-mallet', 'art-gfore-golf-shoes', 'art-shoe-footjoy-navy', 'art-ball-marker', 'art-divot-tool'];
+const WELCOME_PHOTOS_B = ['art-beanie-footjoy', 'art-garmin-z82', 'art-ecco-biom', 'art-seamus-headcover', 'art-peter-millar-belt', 'art-cap-white-crest', 'art-callaway-chrome-tour', 'art-sun-mountain-bag', 'art-vineyard-vines-belt', 'art-headcover-medallion', 'art-hoodie-quilted'];
+const WELCOME_PHOTOS_C = ['art-vokey-wedge', 'art-speaker-turtlebox', 'art-golf-umbrella', 'art-footjoy-premiere', 'art-ping-hoofer', 'art-golf-towel', 'art-titleist-cap', 'art-adidas-tour360', 'art-smathers-branson-belt', 'art-needlepoint-flask', 'art-belt-needlepoint-golf'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
