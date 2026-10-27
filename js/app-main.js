@@ -8939,11 +8939,13 @@ window.__actions['cm-disconnect'] = async (el) => {
 // after Skip), native on every cold launch (in-memory dismiss, like the old
 // auth gate — WKWebView keeps sessionStorage across cold launches). Never on
 // deep links (listing/order/offer/brand/seller/bingo/signin…), never for
-// crawlers, never once signed in. Photos: /assets/welcome/*.webp — 16 real
-// listing photos (sources in .internal-docs/welcome-photos.md).
-// All 16 are real TeeBox listing photos (Jake, 2026-10-26: no stock images).
-const WELCOME_PHOTOS_A = ['irons-set', 'shoes-peter-millar', 'putter-bettinardi', 'polo-stripe', 'bag-callaway', 'wedge-callaway', 'headcover-r11s', 'polo-print'];
-const WELCOME_PHOTOS_B = ['balls-callaway', 'putter-scotty', 'polo-checkered', 'irons-set-2', 'shoes-back', 'headcover-masters', 'grips-red', 'putter-lab'];
+// crawlers, never once signed in. Tiles: /assets/welcome/art-*.webp — square
+// crops of the TeeBox gear illustrations (Jake, 2026-10-27: cartoon gear, not
+// listing photos). Add a tile = drop art-<name>.webp (600) + art-<name>-320.webp
+// in assets/welcome and list the name below; both rows cycle the same pool in
+// a different order so they never line up.
+const WELCOME_PHOTOS_A = ['art-flipflops', 'art-hat', 'art-headcover', 'art-wedge', 'art-wallet-green', 'art-shoe-saddle', 'art-tees', 'art-polo-stripe', 'art-gameday-wallet'];
+const WELCOME_PHOTOS_B = ['art-tees', 'art-gameday-wallet', 'art-flipflops', 'art-polo-stripe', 'art-headcover', 'art-wallet-green', 'art-hat', 'art-shoe-saddle', 'art-wedge'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
@@ -8971,8 +8973,12 @@ window.showWelcome = function showWelcome() {
   const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB');
   if (a && !a.childElementCount) {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
-    a.innerHTML = WELCOME_PHOTOS_A.map((n, i) => welcomeTileHtml(n, i < 4)).join('') + WELCOME_PHOTOS_A.map((n) => welcomeTileHtml(n, false)).join('');
-    b.innerHTML = WELCOME_PHOTOS_B.map((n, i) => welcomeTileHtml(n, i < 3)).join('') + WELCOME_PHOTOS_B.map((n) => welcomeTileHtml(n, false)).join('');
+    // One copy must be wider than the viewport or the loop shows a gap, so a
+    // short pool is repeated first (tile ≤ 200px + 14px gap).
+    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 214; const one = names.length * 214; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
+    const fill = (names, eager) => { const one = reps(names); return one.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + one.map((n) => welcomeTileHtml(n, false)).join(''); };
+    a.innerHTML = fill(WELCOME_PHOTOS_A, 4);
+    b.innerHTML = fill(WELCOME_PHOTOS_B, 3);
     // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
     // in the Lighthouse A/B the extra preloads delayed the web fonts behind
     // the overlay and cost CLS/TBT for no visible gain.
