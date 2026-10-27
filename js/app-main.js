@@ -8535,8 +8535,9 @@ window.showWelcome = function showWelcome() {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
     a.innerHTML = WELCOME_PHOTOS_A.map((n, i) => welcomeTileHtml(n, i < 4)).join('') + WELCOME_PHOTOS_A.map((n) => welcomeTileHtml(n, false)).join('');
     b.innerHTML = WELCOME_PHOTOS_B.map((n, i) => welcomeTileHtml(n, i < 3)).join('') + WELCOME_PHOTOS_B.map((n) => welcomeTileHtml(n, false)).join('');
-    // Preload the first row's first four tiles so the opener paints with photos.
-    try { WELCOME_PHOTOS_A.slice(0, 4).forEach((n) => { const l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = '/assets/welcome/' + n + '-320.webp'; document.head.appendChild(l); }); } catch (_e) {}
+    // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
+    // in the Lighthouse A/B the extra preloads delayed the web fonts behind
+    // the overlay and cost CLS/TBT for no visible gain.
   }
   el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); document.body.classList.add('welcome-open');
   try { window.posthog && window.posthog.capture('welcome_shown', { native: !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) }); } catch (_e) {}
