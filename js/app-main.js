@@ -8943,16 +8943,17 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-const WELCOME_PHOTOS_A = ['art-polo-blue', 'art-vessel-stand-bag', 'art-scotty-cameron-putter', 'art-titleist-cart-bag', 'art-titleist-pro-v1', 'art-rainbow-flip-flops', 'art-putter-mallet', 'art-gfore-golf-shoes', 'art-shoe-footjoy-navy', 'art-ball-marker', 'art-divot-tool'];
-const WELCOME_PHOTOS_B = ['art-beanie-footjoy', 'art-garmin-z82', 'art-ecco-biom', 'art-seamus-headcover', 'art-peter-millar-belt', 'art-cap-white-crest', 'art-callaway-chrome-tour', 'art-sun-mountain-bag', 'art-vineyard-vines-belt', 'art-headcover-medallion', 'art-hoodie-quilted'];
-const WELCOME_PHOTOS_C = ['art-vokey-wedge', 'art-speaker-turtlebox', 'art-golf-umbrella', 'art-footjoy-premiere', 'art-ping-hoofer', 'art-golf-towel', 'art-titleist-cap', 'art-adidas-tour360', 'art-smathers-branson-belt', 'art-needlepoint-flask', 'art-belt-needlepoint-golf'];
+const WELCOME_PHOTOS_A = ['art-garmin-z82', 'art-titleist-cart-bag', 'art-titleist-cap', 'art-hoodie-quilted', 'art-ping-hoofer', 'art-belt-needlepoint-golf', 'art-divot-tool', 'art-cap-white-crest', 'art-rainbow-flip-flops', 'art-callaway-chrome-tour'];
+const WELCOME_PHOTOS_B = ['art-titleist-pro-v1', 'art-vineyard-vines-belt', 'art-footjoy-premiere', 'art-golf-cooler', 'art-golf-towel', 'art-scotty-cameron-putter', 'art-adidas-tour360', 'art-putter-mallet', 'art-shoe-footjoy-navy', 'art-needlepoint-flask'];
+const WELCOME_PHOTOS_C = ['art-gfore-golf-shoes', 'art-sun-mountain-bag', 'art-wooden-golf-tees', 'art-vokey-wedge', 'art-headcover-medallion', 'art-seamus-headcover', 'art-golf-umbrella', 'art-callaway-cap', 'art-oakley-sunglasses'];
+const WELCOME_PHOTOS_D = ['art-smathers-branson-belt', 'art-speaker-turtlebox', 'art-peter-millar-belt', 'art-maui-jim-sunglasses', 'art-beanie-footjoy', 'art-vessel-stand-bag', 'art-ecco-biom', 'art-polo-blue', 'art-ball-marker'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
   // All tiles load eagerly: the second copy of each row reuses the same URLs
   // (cached), and lazy tiles inside a translating track would pop in blank
   // mid-loop. Only the first few get fetchpriority=high.
-  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 124px, 96px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
+  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 104px, 80px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
 }
 function welcomeShouldShow() {
   try {
@@ -8970,16 +8971,17 @@ function welcomeShouldShow() {
 }
 window.showWelcome = function showWelcome() {
   const el = document.getElementById('welcomeScreen'); if (!el || el.classList.contains('open')) return;
-  const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB'), c = document.getElementById('welcomeTrackC');
+  const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB'), c = document.getElementById('welcomeTrackC'), d = document.getElementById('welcomeTrackD');
   if (a && !a.childElementCount) {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
     // One copy must be wider than the viewport or the loop shows a gap, so a
     // short pool is repeated first (tile ≤ 200px + 14px gap).
-    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 134; const one = names.length * 134; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
+    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 112; const one = names.length * 112; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
     const fill = (names, eager) => { const one = reps(names); return one.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + one.map((n) => welcomeTileHtml(n, false)).join(''); };
     a.innerHTML = fill(WELCOME_PHOTOS_A, 4);
     b.innerHTML = fill(WELCOME_PHOTOS_B, 3);
     if (c) c.innerHTML = fill(WELCOME_PHOTOS_C, 3);
+    if (d) d.innerHTML = fill(WELCOME_PHOTOS_D, 2);
     // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
     // in the Lighthouse A/B the extra preloads delayed the web fonts behind
     // the overlay and cost CLS/TBT for no visible gain.

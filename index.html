@@ -1571,7 +1571,8 @@ window.__phDeferLoad = function(load) {
   .welcome-row-a .welcome-track { animation: welcomeSlideLeft 48s linear infinite; }
   .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
   .welcome-row-c .welcome-track { animation: welcomeSlideLeft 60s linear infinite; }
-  .welcome-tile { width: 96px; height: 96px; flex: 0 0 96px; background: transparent; }
+  .welcome-row-d .welcome-track { animation: welcomeSlideRight 66s linear infinite; }
+  .welcome-tile { width: 80px; height: 80px; flex: 0 0 80px; background: transparent; }
   .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
   @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes welcomeSlideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
@@ -1588,14 +1589,14 @@ window.__phDeferLoad = function(load) {
   .welcome-fine { font-size: 12px; color: var(--gray-500); text-align: center; margin: 14px 0 0; }
   .welcome-fine a { color: var(--green-700); text-decoration: underline; }
   @media (min-width: 700px) {
-    .welcome-marquee { padding-top: 56px; gap: 10px; }
-    .welcome-track { gap: 10px; }
-    .welcome-tile { width: 124px; height: 124px; flex-basis: 124px; }
+    .welcome-marquee { padding-top: 56px; gap: 8px; }
+    .welcome-track { gap: 8px; }
+    .welcome-tile { width: 104px; height: 104px; flex-basis: 104px; }
     .welcome-body { justify-content: center; padding-top: 40px; }
     .welcome-headline { font-size: 44px; }
   }
   @media (min-width: 700px) and (min-height: 820px) { .welcome-marquee { padding-top: 96px; } }
-  @media (max-height: 700px) { .welcome-tile { width: 84px; height: 84px; flex-basis: 84px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
+  @media (max-height: 700px) { .welcome-tile { width: 68px; height: 68px; flex-basis: 68px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: flex-start; align-items: safe center; justify-content: center; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; opacity: 1; transition: opacity 0.25s ease; }
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
@@ -5908,6 +5909,7 @@ window.__phDeferLoad = function(load) {
     <div class="welcome-row welcome-row-a"><div class="welcome-track" id="welcomeTrackA"></div></div>
     <div class="welcome-row welcome-row-b"><div class="welcome-track" id="welcomeTrackB"></div></div>
     <div class="welcome-row welcome-row-c"><div class="welcome-track" id="welcomeTrackC"></div></div>
+    <div class="welcome-row welcome-row-d"><div class="welcome-track" id="welcomeTrackD"></div></div>
   </div>
   <div class="welcome-body">
     <div class="welcome-wordmark"><span>Tee</span>Box</div>
@@ -5991,7 +5993,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r372</span></div>
+        <span class="auth-build" aria-hidden="true">r373</span></div>
     </div>
   </div>
 </div>
@@ -9486,8 +9488,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r372"></script>
-<script type="module" src="/js/app-auth.js?v=r372"></script>
+<script defer src="/js/app-main.js?v=r373"></script>
+<script type="module" src="/js/app-auth.js?v=r373"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9517,7 +9519,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r372"></script>
+<script type="module" src="/js/bingo.js?v=r373"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
