@@ -8495,6 +8495,78 @@ window.__actions['activity-seg'] = function(el) {
   if (el && el.dataset && el.dataset.seg) activityShow(el.dataset.seg);
 };
 
+
+// ═══ Welcome / opening screen (r364 Phase 1) ═══════════════════════════
+// Shown to logged-out visitors: web on the first visit (then snoozed 7 days
+// after Skip), native on every cold launch (in-memory dismiss, like the old
+// auth gate — WKWebView keeps sessionStorage across cold launches). Never on
+// deep links (listing/order/offer/brand/seller/bingo/signin…), never for
+// crawlers, never once signed in. Photos: /assets/welcome/*.webp — 16 real
+// listing photos (sources in .internal-docs/welcome-photos.md).
+// All 16 are real TeeBox listing photos (Jake, 2026-10-26: no stock images).
+const WELCOME_PHOTOS_A = ['irons-set', 'shoes-peter-millar', 'putter-bettinardi', 'polo-stripe', 'bag-callaway', 'wedge-callaway', 'headcover-r11s', 'polo-print'];
+const WELCOME_PHOTOS_B = ['balls-callaway', 'putter-scotty', 'polo-checkered', 'irons-set-2', 'shoes-back', 'headcover-masters', 'grips-red', 'putter-lab'];
+const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
+function welcomeTileHtml(name, eager) {
+  const b = '/assets/welcome/' + name;
+  // All tiles load eagerly: the second copy of each row reuses the same URLs
+  // (cached), and lazy tiles inside a translating track would pop in blank
+  // mid-loop. Only the first few get fetchpriority=high.
+  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 200px, 150px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
+}
+function welcomeShouldShow() {
+  try {
+    if (window.CURRENT_USER) return false;
+    if (/bot|crawl|spider|slurp|bingpreview|facebookexternalhit/i.test(navigator.userAgent)) return false;
+    if (location.pathname !== '/' && location.pathname !== '/index.html') return false;
+    const q = new URLSearchParams(location.search);
+    for (const k of ['listing', 'order', 'offer', 'brand', 'seller', 'launch', 'action', 'play', 'signin', 'checkout', 'prefs', 'search', 'sell', 'admin', 'preview', 'meta_test']) if (q.has(k)) return false;
+    if (location.hash && location.hash.length > 1) return false;
+    const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (native) return !window.__welcomeDismissedInSession;
+    const until = Number(localStorage.getItem(WELCOME_SNOOZE_KEY) || 0);
+    return !(until && until > Date.now());
+  } catch (_e) { return false; }
+}
+window.showWelcome = function showWelcome() {
+  const el = document.getElementById('welcomeScreen'); if (!el || el.classList.contains('open')) return;
+  const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB');
+  if (a && !a.childElementCount) {
+    // Each track holds the list TWICE so a -50% translate loops seamlessly.
+    a.innerHTML = WELCOME_PHOTOS_A.map((n, i) => welcomeTileHtml(n, i < 4)).join('') + WELCOME_PHOTOS_A.map((n) => welcomeTileHtml(n, false)).join('');
+    b.innerHTML = WELCOME_PHOTOS_B.map((n, i) => welcomeTileHtml(n, i < 3)).join('') + WELCOME_PHOTOS_B.map((n) => welcomeTileHtml(n, false)).join('');
+    // Preload the first row's first four tiles so the opener paints with photos.
+    try { WELCOME_PHOTOS_A.slice(0, 4).forEach((n) => { const l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = '/assets/welcome/' + n + '-320.webp'; document.head.appendChild(l); }); } catch (_e) {}
+  }
+  el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); document.body.classList.add('welcome-open');
+  try { window.posthog && window.posthog.capture('welcome_shown', { native: !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) }); } catch (_e) {}
+};
+window.hideWelcome = function hideWelcome(reason) {
+  const el = document.getElementById('welcomeScreen'); if (!el) return;
+  el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); document.body.classList.remove('welcome-open');
+  window.__welcomeDismissedInSession = true;
+  if (reason === 'skip') { try { localStorage.setItem(WELCOME_SNOOZE_KEY, String(Date.now() + 7 * 864e5)); } catch (_e) {} }
+};
+function initWelcomeScreen() {
+  if (!welcomeShouldShow()) return;
+  window.showWelcome();
+}
+window.__actions['welcome-skip'] = () => { window.hideWelcome('skip'); try { window.posthog && window.posthog.capture('welcome_skip'); } catch (_e) {} };
+window.__actions['welcome-signup'] = () => {
+  try { window.posthog && window.posthog.capture('welcome_signup_tap'); } catch (_e) {}
+  if (window.showAuthScreen) window.showAuthScreen('');
+  const btn = document.querySelector('#authScreen [data-emailmode="signup"]'); if (btn) btn.click();
+};
+window.__actions['welcome-login'] = () => {
+  try { window.posthog && window.posthog.capture('welcome_login_tap'); } catch (_e) {}
+  if (window.showAuthScreen) window.showAuthScreen('');
+  const btn = document.querySelector('#authScreen [data-emailmode="signin"]'); if (btn) btn.click();
+};
+// Boot: decide once the DOM is ready. Auth state may still be resolving —
+// app-auth.js calls hideWelcome() the moment a signed-in user is restored,
+// so a returning member sees at most a brief opener on a cold web load.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initWelcomeScreen); else initWelcomeScreen();
+
 // 6. Launch shortcuts + deep links from brand SEO pages + path-style routes.
 //    PWA manifest shortcuts: /?launch=sell /?launch=inbox /?launch=watchlist
 //    Brand SEO links:        /?brand=scotty-cameron /?listing=<id> /?action=sell

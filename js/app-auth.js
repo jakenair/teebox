@@ -428,6 +428,7 @@
       // user re-shows the gate. iOS WKWebView discards in-memory state
       // on app termination, which is what we want.
       window.__authGateDismissedInSession = true;
+      if (window.hideWelcome) window.hideWelcome('signed-in'); // r364: the opener never stays up for a member
       // Smooth fade-out before hiding so successful sign-in feels deliberate
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
