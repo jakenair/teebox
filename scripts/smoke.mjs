@@ -231,7 +231,11 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       if (install) report.notes.push("Install TeeBox banner appears over the bottom of the viewport on the first guest session (covers the lower part of modals).");
       // r349: ONE prompt — the Sell tap opens the auth screen directly (Create Account pane).
       // Older builds showed a "Join TeeBox" interstitial first; handle both.
-      const r = await clickWatch(p, '.bottom-nav-item[data-action="handle-sell"]', '#authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]', "guest Sell → sign-up prompt", 30000);
+      // r367: the Sell tap opens the provider sheet ("Sign up for TeeBox") first; "Continue with
+      // email" reveals the Create Account form underneath.
+      const r = await clickWatch(p, '.bottom-nav-item[data-action="handle-sell"]', '#authSheetBackdrop.open, #authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]', "guest Sell → sign-up prompt", 30000);
+      const sheet = await skipAuthSheet(p);
+      if (sheet) report.notes.push("Sell tap → provider sheet (Apple/Google/email) → Continue with email");
       const interstitial = await p.locator('[data-action="show-auth-from-prompt-signup"]').isVisible().catch(() => false);
       if (interstitial) { report.notes.push("two-step join prompt still present"); await p.locator('[data-action="show-auth-from-prompt-signup"]').click(); await skipAuthSheet(p); await p.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000}); }
       const mode = await p.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "");
@@ -257,7 +261,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       console.log("  attempt", JSON.stringify(attempts[attempts.length - 1]));
       return outcome;
     };
-    await step(p, "signup: submit (attempt 1)", async () => { const o = await submitOnce("create #1"); return {outcome: o, ...attempts[0]}; });
+    await step(p, "signup: submit (attempt 1)", async () => { const o = await submitOnce("create #1"); return {outcome: o, ...(attempts[0] || {})}; });
     if (attempts[0].outcome !== "signed-in") {
       await step(p, "signup: submit (attempt 2, same form)", async () => { const o = await submitOnce("create #2"); return {outcome: o, ...attempts[1]}; });
     }
