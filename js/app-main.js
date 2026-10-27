@@ -372,6 +372,37 @@ window.renderSellerInvite = renderSellerInvite;
 // Active filter state. Updated by filter-bar inputs; persisted across renders.
 window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set(), brand: null, q: null };
 
+// ── Phase 4 (r370): Vinted-style browse chips ──────────────────────────────
+// One chip key → listing predicate. Club chips read listing.specCategory
+// (set by the sell flow's spec pills); legacy club listings without one fall
+// back to a title keyword match. "accessories" also gathers balls + headcovers.
+// Unknown keys (footer links, saved searches from before r369) still match
+// listing.cat, so nothing that used to work stops working.
+window.FEED_CHIPS = [['all', 'All'], ['driver', 'Drivers'], ['fairway', 'Fairway Woods'], ['hybrid', 'Hybrids'], ['irons', 'Irons'], ['wedge', 'Wedges'], ['putter', 'Putters'], ['bags', 'Bags'], ['shoes', 'Shoes'], ['apparel', 'Apparel'], ['accessories', 'Accessories']];
+const CLUB_WORDS = {
+  driver: /\bdrivers?\b/i,
+  fairway: /\b(fairway|[3579]\s*-?wood|woods?)\b/i,
+  hybrid: /\b(hybrids?|rescue)\b/i,
+  irons: /\birons?\b/i,
+  wedge: /\bwedges?\b/i,
+  putter: /\bputters?\b/i,
+};
+window.chipMatches = function chipMatches(p, key) {
+  if (!key || key === 'all') return true;
+  const sc = String(p.specCategory || '');
+  const title = String(p.name || p.title || '');
+  switch (key) {
+    case 'driver': case 'fairway': case 'hybrid': case 'wedge': case 'putter':
+      if (sc && sc !== 'other') return sc === key;
+      return p.cat === 'clubs' && CLUB_WORDS[key].test(title);
+    case 'irons':
+      if (sc && sc !== 'other') return sc === 'iron-set' || sc === 'single-iron';
+      return p.cat === 'clubs' && CLUB_WORDS.irons.test(title);
+    case 'accessories': return p.cat === 'accessories' || p.cat === 'balls' || p.cat === 'headcovers';
+    default: return p.cat === key;
+  }
+};
+
 function applyFilters(list) {
   const f = window.__filter;
   let out = list.slice();
@@ -381,7 +412,7 @@ function applyFilters(list) {
   if (blocked && blocked.size) {
     out = out.filter(p => !p.sellerId || !blocked.has(p.sellerId));
   }
-  if (f.cat && f.cat !== 'all') out = out.filter(p => p.cat === f.cat);
+  if (f.cat && f.cat !== 'all') out = out.filter(p => window.chipMatches(p, f.cat));
   // r335: free-text search applied to the grid (Enter / "See all").
   if (f.q) {
     const ql = String(f.q).toLowerCase();
@@ -488,18 +519,42 @@ window.paintFav = function paintFav(productId, liked, count) {
   });
 };
 
+// Phase 4 (r370): one muted "key spec · condition" line under the brand, like
+// "Stiff · 10.5° · Very good". Picks the two most useful specs per category.
+const FLEX_WORD = { L: 'Ladies', A: 'Senior', R: 'Regular', S: 'Stiff', X: 'X-Stiff' };
+function cardSpecLine(p) {
+  const sp = p.specs || {};
+  const v = (k) => { const x = sp[k]; return x == null ? '' : String(x).trim(); };
+  const flex = v('flex') ? (FLEX_WORD[v('flex')] || v('flex')) : '';
+  let bits = [];
+  switch (String(p.specCategory || '')) {
+    case 'driver': case 'fairway': case 'hybrid': bits = [flex, v('loft')]; break;
+    case 'iron-set': bits = [(v('setFrom') && v('setTo')) ? `${v('setFrom')}–${v('setTo')}` : '', flex]; break;
+    case 'single-iron': bits = [v('ironNumber') ? v('ironNumber') + ' iron' : '', flex]; break;
+    case 'wedge': bits = [v('loft'), v('bounce') ? v('bounce') + ' bounce' : '']; break;
+    case 'putter': bits = [v('length'), v('headStyle')]; break;
+    case 'shoes': bits = [v('size') ? 'US ' + v('size') : '']; break;
+    case 'apparel': bits = [v('apparelType'), v('size') ? 'Size ' + v('size') : '']; break;
+    case 'bag': bits = [v('bagType') ? v('bagType') + ' bag' : '']; break;
+    case 'balls': bits = [/^\d+$/.test(v('quantity')) ? v('quantity') + ' balls' : '']; break;
+    case 'headcover': bits = [v('hcType') ? 'Fits ' + v('hcType').toLowerCase() : '']; break;
+    case 'accessories': bits = [v('itemType')]; break;
+    default: bits = [];
+  }
+  const cm = window.conditionBadgeMeta ? window.conditionBadgeMeta(p.condition) : null;
+  bits.push(cm ? cm.label : (p.condition || ''));
+  return bits.filter(Boolean).slice(0, 3).map((b) => window.safeText(b)).join(' · ');
+}
+window.cardSpecLine = cardSpecLine;
+
 function renderProductCardHtml(p, i) {
   const id = window.safeId(p.id);
   // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
   const delay = Math.min(i, 12) * 30;
   const url = window.variantImgUrl(p, 0, 'w400');
-  // r351 thumbnails: let the BROWSER choose the file for the rendered width
-  // (srcset + sizes) instead of forcing w800 on every retina phone, and never
-  // let more than THUMB_MAX_INFLIGHT below-the-fold thumbnails download at
-  // once (window.__thumbLoader). First four cards stay eager + high priority
-  // (LCP); the rest carry data-src/data-srcset and are swapped in by the
-  // loader as they approach the viewport. Works without the Network
-  // Information API, so Safari/iOS benefit too.
+  // r351 thumbnails: browser picks the file for the rendered width (srcset +
+  // sizes); first four cards eager + high priority (LCP), the rest carry
+  // data-src/data-srcset and are swapped in by window.__thumbLoader.
   const _eager = i < 4;
   const _v = (p.photoVariants && p.photoVariants['0']) || null;
   const _w4 = _v && window.safeImgUrl(_v.w400), _w8 = _v && window.safeImgUrl(_v.w800);
@@ -516,27 +571,13 @@ function renderProductCardHtml(p, i) {
   const badge = p.badge ? `<span class="product-badge badge-${window.safeAttr(badgeCls)}">${p.badge==='hot'?'Hot':'New'}</span>` : '';
   const photoCount = (p.photos && p.photos.length > 1) ? `<span class="photo-count-badge">${Number(p.photos.length)} photos</span>` : '';
   const idAttr = window.safeAttr(id);
+  // Verified / Pro pills stay in the brand row (hydrated from PROFILE_CACHE);
+  // seller identity, ratings, view counts and Buy Now live in the detail sheet.
   const sellerVerifiedSlot = p.sellerId
     ? `<span class="seller-verified-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
     : '';
-  // Pro Seller pill — gold pill, hydrated alongside the verified pill.
-  // Lives in the same .product-brand row so it renders inline with the brand.
   const sellerProSlot = p.sellerId
     ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
-    : '';
-  // Tenured-seller pill — colour-coded social-proof pill. Placeholder
-  // here, hydrated by hydrateSellerTenurePills() once profile data
-  // (salesCount / avgRating / createdAt) loads from Firestore.
-  const sellerTenureSlot = p.sellerId
-    ? `<span class="seller-tenure-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
-    : '';
-  const sellerRatingSlot = p.sellerId
-    ? `<div class="product-rating seller-rating-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
-    : '';
-  // Seller identity (avatar + name) — hydrated by hydrateSellerIdentity() from
-  // the shared PROFILE_CACHE (zero extra fetches). Tappable → openProfile.
-  const sellerIdentitySlot = p.sellerId
-    ? `<div class="card-seller seller-id-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}" data-action="open-profile" data-uid="${window.safeAttr(window.safeId(p.sellerId))}"></div>`
     : '';
   const totalQty = Math.max(1, Number(p.quantity || 1));
   const soldQty = Math.max(0, Number(p.quantitySold || 0));
@@ -544,51 +585,20 @@ function renderProductCardHtml(p, i) {
   const stockBadge = totalQty > 1 && p.status !== 'sold'
     ? `<span class="stock-badge">${remaining} in stock</span>`
     : '';
-  return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}">`+
+  const spec = cardSpecLine(p);
+  return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}" aria-label="${window.safeAttr(p.name || '')}">`+
     `<div class="product-img-wrap">${soldBadge}`+
       `${mainImg}`+
       `${badge}`+
       `${stockBadge}`+
-      // Phase 3 (r368): Vinted-style heart on the photo, bottom-right, with
-      // the like count inside it. Optimistic toggle in the toggle-watch action;
-      // guests get the sign-up sheet. (r283 had removed the card heart in
-      // favour of double-tap on the detail photo — both gestures work now.)
       `${photoCount}`+
       `${window.favButtonHtml ? window.favButtonHtml(p, 'card-fav') : ''}`+
     `</div>`+
     `<div class="product-body">`+
-      `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}${sellerTenureSlot}</div>`+
+      `<div class="product-brand">${p.brand ? `<button type="button" class="brand-link" data-action="filter-by-brand" data-brand="${window.safeAttr(p.brand)}">${window.safeText(p.brand)}</button>` : ''}${sellerProSlot}${sellerVerifiedSlot}</div>`+
       `<div class="product-name"><a class="product-name-link" href="/listing/${idAttr}/">${window.safeText(p.name)}</a></div>`+
-      `${sellerIdentitySlot}`+
-      `${sellerRatingSlot}`+
+      `<div class="product-spec">${spec}</div>`+
       `<div class="product-price"><span class="product-price-val">$${Number(p.ask||0).toLocaleString()}</span></div>`+
-      `${(() => {
-        // Social proof: views (sharded views_0..9 via incrementListingView) and
-        // likes (listings.watchlistCount, kept by the syncWatchlistCount
-        // trigger). Views always render — every listing has real ones. Likes
-        // render ONLY above zero: "0 likes" on every card advertises that
-        // nobody wants the item, which is worse than showing nothing.
-        const v = window.getListingViews ? window.getListingViews(p) : 0;
-        // Phase 3: the like count moved into the heart on the photo.
-        const likes = 0;
-        if (!v && !likes) return '';
-        const parts = [];
-        if (v) parts.push(`<span class="stat" title="${v.toLocaleString()} view${v===1?'':'s'}">`+
-          `<span class="stat-ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;opacity:.75"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>${v.toLocaleString()}</span>`);
-        if (likes) parts.push(`<span class="stat" title="${likes.toLocaleString()} like${likes===1?'':'s'}">`+
-          `<span class="stat-ico" aria-hidden="true">${window.ICONS.heartFill}</span>${likes.toLocaleString()}</span>`);
-        return `<div class="product-stats">${parts.join('')}</div>`;
-      })()}`+
-      `${(() => {
-        // r186 §3 (app-only): one muted "Brand · Condition" metadata line.
-        // display:none on web — the ONLY renderer change for the audit pass.
-        const cm = window.conditionBadgeMeta ? window.conditionBadgeMeta(p.condition) : null;
-        const bits = [p.brand ? window.safeText(p.brand) : '', cm ? window.safeText(cm.label) : (p.condition ? window.safeText(p.condition) : '')].filter(Boolean);
-        return bits.length ? '<div class="card-meta-app">' + bits.join(' · ') + '</div>' : '';
-      })()}`+
-      `<div class="product-btns">`+
-        `<button class="btn-buy" data-action="open-detail" data-product-id="${idAttr}">Buy Now</button>`+
-      `</div>`+
     `</div>`+
   `</div>`;
 }
@@ -604,6 +614,8 @@ window.CATEGORY_LABEL = function(cat) {
     bags: 'Bags',
     balls: 'Balls',
     headcovers: 'Headcovers',
+    // Phase 4 browse chips
+    driver: 'Drivers', fairway: 'Fairway Woods', hybrid: 'Hybrids', irons: 'Irons', wedge: 'Wedges', putter: 'Putters',
   })[cat] || (cat ? String(cat).charAt(0).toUpperCase() + String(cat).slice(1) : '');
 };
 
@@ -714,6 +726,10 @@ function buildProducts(filter) {
       (q ? `<button class="brand-chip" data-action="clear-search-query" title="Clear search">&ldquo;${window.safeText(q)}&rdquo; <span class="x">✕</span></button>` : '') +
       (b ? `<button class="brand-chip" data-action="clear-brand-filter" title="Clear brand filter">${window.safeText(b)} <span class="x">✕</span></button>` : '');
   }
+  // Phase 4: keep the windowed-feed state honest on the empty paths too, so
+  // the sentinel hides and a later chip tap starts from a clean list.
+  window.__feedList = list; window.__feedShown = 0;
+  if (typeof updateFeedSentinel === 'function') updateFeedSentinel();
   if (!list.length) {
     // Distinguish "filters too narrow" from "marketplace genuinely
     // empty" — the latter gets a CTA into the Sell flow so signed-out
@@ -808,15 +824,85 @@ function buildProducts(filter) {
     }
     return;
   }
-  document.getElementById('productGrid').innerHTML = list.map((p, i)=>renderProductCardHtml(p, i)).join('');
-  // Async hydrate verified-seller pills inside listing cards (Feature #3).
-  hydrateVerifiedSellerPills(document.getElementById('productGrid'));
-  // Async hydrate Pro Seller pills inside listing cards.
-  hydrateSellerProPills(document.getElementById('productGrid'));
-  // Async hydrate seller star ratings on each card. Empty if 0 reviews.
-  hydrateSellerRatings(document.getElementById('productGrid'));
-  hydrateSellerIdentity(document.getElementById('productGrid'));
+  // Phase 4 (r370): windowed render — first FEED_PAGE cards now, the rest
+  // appended as #feedSentinel scrolls into view (and more pages fetched by
+  // cursor when the in-memory list runs out). Keeps 100+ listings smooth on
+  // a mid-range phone: fewer nodes up front, lazy thumbs, content-visibility.
+  window.__feedList = list;
+  window.__feedShown = 0;
+  document.getElementById('productGrid').innerHTML = '';
+  appendFeedCards(FEED_PAGE);
 }
+
+const FEED_PAGE = 24;
+window.__feedList = []; window.__feedShown = 0; window.__feedFetching = false;
+function hydrateGridCards(root) {
+  // Async hydrate verified-seller + Pro pills inside listing cards (Feature #3).
+  hydrateVerifiedSellerPills(root);
+  hydrateSellerProPills(root);
+  hydrateSellerRatings(root);
+  hydrateSellerIdentity(root);
+}
+function appendFeedCards(n) {
+  const grid = document.getElementById('productGrid');
+  if (!grid) return;
+  const list = window.__feedList || [];
+  const from = window.__feedShown, to = Math.min(list.length, from + n);
+  if (to > from) {
+    const frag = document.createElement('div');
+    frag.innerHTML = list.slice(from, to).map((p, i) => renderProductCardHtml(p, from + i)).join('');
+    const added = Array.from(frag.children);
+    added.forEach((el) => grid.appendChild(el));
+    window.__feedShown = to;
+    // Hydrate only the new cards' slots (the hydrators walk a root element).
+    const tmpRoot = { querySelectorAll: (sel) => added.flatMap((el) => Array.from(el.querySelectorAll(sel))) };
+    try { hydrateGridCards(tmpRoot); } catch (_e) {}
+  }
+  updateFeedSentinel();
+}
+function updateFeedSentinel() {
+  const s = document.getElementById('feedSentinel');
+  if (!s) return;
+  const list = window.__feedList || [];
+  const more = window.__feedShown < list.length ||
+    (window.__feedHasMore === true && typeof window.fetchMoreListings === 'function');
+  s.hidden = !more;
+}
+async function growFeed() {
+  const list = window.__feedList || [];
+  if (window.__feedShown < list.length) { appendFeedCards(FEED_PAGE); return; }
+  if (window.__feedHasMore !== true || window.__feedFetching || typeof window.fetchMoreListings !== 'function') { updateFeedSentinel(); return; }
+  const s = document.getElementById('feedSentinel');
+  window.__feedFetching = true;
+  if (s) s.classList.add('loading');
+  try {
+    const added = await window.fetchMoreListings();
+    if (added > 0) {
+      // Re-run the active filters over the grown catalogue, but keep the cards
+      // already on screen in place (no reflow); only unseen items are appended.
+      const fresh = applyFilters(window.PRODUCTS || []);
+      const shown = (window.__feedList || []).slice(0, window.__feedShown);
+      const shownIds = new Set(shown.map((p) => String(p.id)));
+      window.__feedList = [...shown, ...fresh.filter((p) => !shownIds.has(String(p.id)))];
+      appendFeedCards(FEED_PAGE);
+    }
+  } catch (_e) { /* sentinel just hides below */ }
+  finally {
+    window.__feedFetching = false;
+    if (s) s.classList.remove('loading');
+    updateFeedSentinel();
+  }
+}
+window.growFeed = growFeed;
+(function initFeedSentinel() {
+  const s = document.getElementById('feedSentinel');
+  if (!s) return;
+  if (!('IntersectionObserver' in window)) { s.hidden = true; return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) growFeed();
+  }, { rootMargin: '700px 0px' });
+  io.observe(s);
+})();
 
 // Walk a container, find all .seller-verified-slot[data-seller-id] elements,
 // dedupe by sellerId, look up profiles (cached via PROFILE_CACHE), and inject
@@ -5853,6 +5939,43 @@ function filterSearch(q) {
   }
   __searchDebounceTimer = setTimeout(() => filterSearchRender(query), 150);
 }
+// Phase 4 (r370): member search — profiles are public-readable; prefix match
+// on displayName (as typed + Capitalised), max 4 rows, ≥2 chars, 250 ms debounce
+// via the caller. Results append below the listing rows as "Members".
+let __memberSearchSeq = 0;
+async function appendMemberResults(results, query) {
+  const q = String(query || '').trim();
+  const seq = ++__memberSearchSeq;
+  if (q.length < 2) return;
+  try {
+    const { getFirestore, collection, query: fsQuery, orderBy, startAt, endAt, limit, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+    const db = getFirestore();
+    const variants = [...new Set([q, q.charAt(0).toUpperCase() + q.slice(1), q.toLowerCase()])];
+    const snaps = await Promise.all(variants.map((v) =>
+      getDocs(fsQuery(collection(db, 'profiles'), orderBy('displayName'), startAt(v), endAt(v + '\uf8ff'), limit(4))).catch(() => null)));
+    if (seq !== __memberSearchSeq || !results.isConnected) return;
+    const seen = new Set(); const rows = [];
+    snaps.forEach((snap) => snap && snap.forEach((d) => {
+      if (seen.has(d.id) || rows.length >= 4) return;
+      const prof = d.data() || {};
+      if (!prof.displayName) return;
+      seen.add(d.id);
+      rows.push({ uid: d.id, name: String(prof.displayName), avatar: window.safeImgUrl(prof.avatarUrl) });
+    }));
+    if (!rows.length) return;
+    const html = '<div class="search-members-title">Members</div>' + rows.map((r) =>
+      `<div class="search-result-item search-member" data-action="open-profile" data-uid="${window.safeAttr(window.safeId(r.uid))}" tabindex="0" role="option">` +
+        `<div class="search-res-img search-member-avatar">${r.avatar ? `<img src="${window.safeAttr(r.avatar)}" alt="" loading="lazy" decoding="async" />` : `<span class="search-member-initial">${window.safeText(r.name.charAt(0).toUpperCase())}</span>`}</div>` +
+        `<div><div class="search-res-name">${window.safeText(r.name)}</div><div class="search-res-cat">TeeBox member</div></div>` +
+      `</div>`).join('');
+    const wrap = document.createElement('div'); wrap.className = 'search-members'; wrap.innerHTML = html;
+    results.querySelectorAll('.search-members').forEach((el) => el.remove());
+    results.appendChild(wrap);
+    results.style.display = '';
+  } catch (_e) { /* members are a bonus; gear results already rendered */ }
+}
+
 function filterSearchRender(query) {
   const results = document.getElementById('searchResults');
   if (!results) return;
@@ -5894,8 +6017,11 @@ function filterSearchRender(query) {
     // Meta Pixel: Search (guarded; query capped at 80 chars like posthog).
     window.fbTrack && window.fbTrack('Search', { search_string: String(query).slice(0, 80) });
   } catch (_e) { /* never block search render on analytics */ }
+  // Phase 4: members too ("Search for gear or members"). Async, appended
+  // under the listing rows when the profile query returns; never blocks.
+  appendMemberResults(results, query);
   if (!matches.length) {
-    results.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matches</div>';
+    results.innerHTML = '<div class="search-no-matches" style="padding:1rem;text-align:center;color:var(--gray-400);font-size:14px">No matching gear</div>';
     return;
   }
   results.innerHTML = matches.map((p, i) => {
@@ -8813,11 +8939,13 @@ window.__actions['cm-disconnect'] = async (el) => {
 // after Skip), native on every cold launch (in-memory dismiss, like the old
 // auth gate — WKWebView keeps sessionStorage across cold launches). Never on
 // deep links (listing/order/offer/brand/seller/bingo/signin…), never for
-// crawlers, never once signed in. Photos: /assets/welcome/*.webp — 16 real
-// listing photos (sources in .internal-docs/welcome-photos.md).
-// All 16 are real TeeBox listing photos (Jake, 2026-10-26: no stock images).
-const WELCOME_PHOTOS_A = ['irons-set', 'shoes-peter-millar', 'putter-bettinardi', 'polo-stripe', 'bag-callaway', 'wedge-callaway', 'headcover-r11s', 'polo-print'];
-const WELCOME_PHOTOS_B = ['balls-callaway', 'putter-scotty', 'polo-checkered', 'irons-set-2', 'shoes-back', 'headcover-masters', 'grips-red', 'putter-lab'];
+// crawlers, never once signed in. Tiles: /assets/welcome/art-*.webp — square
+// crops of the TeeBox gear illustrations (Jake, 2026-10-27: cartoon gear, not
+// listing photos). Add a tile = drop art-<name>.webp (600) + art-<name>-320.webp
+// in assets/welcome and list the name below; both rows cycle the same pool in
+// a different order so they never line up.
+const WELCOME_PHOTOS_A = ['art-flipflops', 'art-hat', 'art-headcover', 'art-wedge', 'art-wallet-green', 'art-shoe-saddle', 'art-tees', 'art-polo-stripe', 'art-gameday-wallet'];
+const WELCOME_PHOTOS_B = ['art-tees', 'art-gameday-wallet', 'art-flipflops', 'art-polo-stripe', 'art-headcover', 'art-wallet-green', 'art-hat', 'art-shoe-saddle', 'art-wedge'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
@@ -8845,8 +8973,12 @@ window.showWelcome = function showWelcome() {
   const a = document.getElementById('welcomeTrackA'), b = document.getElementById('welcomeTrackB');
   if (a && !a.childElementCount) {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
-    a.innerHTML = WELCOME_PHOTOS_A.map((n, i) => welcomeTileHtml(n, i < 4)).join('') + WELCOME_PHOTOS_A.map((n) => welcomeTileHtml(n, false)).join('');
-    b.innerHTML = WELCOME_PHOTOS_B.map((n, i) => welcomeTileHtml(n, i < 3)).join('') + WELCOME_PHOTOS_B.map((n) => welcomeTileHtml(n, false)).join('');
+    // One copy must be wider than the viewport or the loop shows a gap, so a
+    // short pool is repeated first (tile ≤ 200px + 14px gap).
+    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 214; const one = names.length * 214; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
+    const fill = (names, eager) => { const one = reps(names); return one.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + one.map((n) => welcomeTileHtml(n, false)).join(''); };
+    a.innerHTML = fill(WELCOME_PHOTOS_A, 4);
+    b.innerHTML = fill(WELCOME_PHOTOS_B, 3);
     // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
     // in the Lighthouse A/B the extra preloads delayed the web fonts behind
     // the overlay and cost CLS/TBT for no visible gain.

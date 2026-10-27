@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-10-27-r369';
+const CACHE_VERSION = 'teebox-v1-2026-10-27-r370';
 // r354: the split scripts are referenced with ?v=<rev> from index.html so a new
 // page never runs against a stale cached script. Precache the same URLs.
 const REV = (CACHE_VERSION.match(/r\d+$/) || [''])[0];
@@ -25,6 +25,7 @@ const SHELL = [
   '/icon-512.png',
   '/apple-touch-icon.png',
   '/assets/splash-wordmark.png',
+  '/assets/footer.css',
   '/offline.html',
   '/404.html',
 ];

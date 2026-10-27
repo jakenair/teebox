@@ -1,0 +1,272 @@
+/* ==========================================================================
+   TeeBox shared footer — the ONE footer for every page.
+   Stamped by scripts/sync-footer.mjs between <!-- tb-footer:start/end -->.
+
+   Rules
+   • Everything lives under .tb-footer so it cannot leak into page styles,
+     and every property a page's own `footer {}` / `footer a {}` / `a {}`
+     element rule might set is pinned here explicitly (class selectors
+     out-rank the element rules still left in the legal/brand/reads pages).
+   • Colours come from the index.html :root tokens with the same literal
+     fallbacks, because the legal pages and 404/offline define none.
+   • Layout: phone = wordmark + badge row, then links, then legal;
+     tablet = two columns (wordmark/badge | links); desktop = one row. Link tap targets are >= 44px tall below 900px.
+   • Mobile web: body.has-bottom-nav adds clearance for the fixed
+     .bottom-nav (70px + safe-area). Inside the iOS shell (body.is-native)
+     the footer is hidden outright.
+   ========================================================================== */
+
+.tb-footer {
+  --tbf-bg: var(--green-950, #0b1a0e);
+  --tbf-rule: rgba(255, 255, 255, 0.08);
+  --tbf-ink: rgba(255, 255, 255, 0.62);
+  --tbf-ink-strong: rgba(255, 255, 255, 0.88);
+  --tbf-muted: rgba(255, 255, 255, 0.42);
+  --tbf-gold: var(--gold-300, #f0cc6a);
+  --tbf-white: var(--white, #ffffff);
+  --tbf-display: var(--font-display, 'Playfair Display', Georgia, serif);
+  --tbf-body: var(--font-body, 'DM Sans', system-ui, -apple-system, sans-serif);
+  --tbf-pad-x: 16px;
+  --tbf-pad-y: 20px;
+
+  display: block;
+  position: static;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 48px 0 0;
+  padding: var(--tbf-pad-y) var(--tbf-pad-x);
+  background: var(--tbf-bg);
+  color: var(--tbf-ink);
+  border: 0;
+  border-top: 1px solid var(--tbf-rule);
+  font-family: var(--tbf-body);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Page-level `footer a {}` rules set margins, gold colours and underlines —
+   pin every one of those back. */
+.tb-footer a {
+  color: var(--tbf-ink);
+  text-decoration: none;
+  margin: 0;
+  padding: 0;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  transition: color 0.18s ease;
+}
+.tb-footer a:hover,
+.tb-footer a:focus-visible { color: var(--tbf-gold); text-decoration: none; }
+.tb-footer a:focus-visible { outline: 2px solid var(--tbf-gold); outline-offset: 3px; border-radius: 4px; }
+
+.tb-footer-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand apps"
+    "links links";
+  gap: 4px 12px;
+  align-items: center;
+}
+.tb-footer-brand { grid-area: brand; }
+.tb-footer-apps  { grid-area: apps; justify-self: end; }
+.tb-footer-links { grid-area: links; }
+
+/* --- wordmark -------------------------------------------------------- */
+.tb-footer-brand { display: inline-flex; align-items: center; align-self: center; justify-self: start; min-height: 44px; }
+.tb-footer-logo {
+  font-family: var(--tbf-display);
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--tbf-gold);
+  white-space: nowrap;
+}
+.tb-footer-logo span { color: var(--tbf-white); }
+.tb-footer-brand:hover .tb-footer-logo { color: var(--tbf-gold); }
+
+/* --- primary links --------------------------------------------------- */
+.tb-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 2px;
+  margin: 0 -10px;
+  padding: 0;
+  list-style: none;
+}
+.tb-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  color: var(--tbf-ink-strong);
+  white-space: nowrap;
+  border-radius: 6px;
+}
+
+/* --- app badge + social ---------------------------------------------- */
+.tb-footer-apps {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: start;
+}
+.tb-footer-badge { display: inline-flex; align-items: center; min-height: 44px; line-height: 0; }
+.tb-footer-badge img {
+  display: block;
+  width: 120px;
+  height: 40px;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 7px;
+}
+.tb-footer-badge:hover img { opacity: 0.88; }
+.tb-footer-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--tbf-ink-strong);
+}
+.tb-footer-social svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tb-footer-social svg .tbf-dot { fill: currentColor; stroke: none; }
+
+/* --- optional per-page rows (index.html: Brands / Explore) ------------ */
+.tb-footer-extra {
+  max-width: 1240px;
+  margin: 6px auto 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  font-size: 12.5px;
+}
+.tb-footer-extra-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  margin-right: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tbf-muted);
+}
+.tb-footer-extra a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 8px;
+  color: var(--tbf-ink);
+  white-space: nowrap;
+}
+
+/* --- disclaimer / context note (brand pages, round.html) --------------- */
+.tb-footer-note {
+  max-width: 1240px;
+  margin: 10px auto 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tbf-muted);
+}
+
+/* --- legal line ------------------------------------------------------- */
+.tb-footer-legal {
+  max-width: 1240px;
+  margin: 12px auto 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--tbf-rule);
+  font-size: 11.5px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--tbf-muted);
+}
+.tb-footer-legal .tb-footer-co { color: var(--tbf-ink); font-weight: 600; letter-spacing: 0.06em; }
+.tb-footer-legal a { color: var(--tbf-muted); }
+.tb-footer-legal a:hover { color: var(--tbf-gold); }
+.tb-footer-sep { padding: 0 6px; }
+
+/* --- fixed bottom chrome must never hide the legal line ---------------- */
+/* index.html's PWA install banner (#installBanner, fixed, z 350, ~72px +
+   12px inset) floats over whatever is at the bottom of the scroll; while it
+   is showing, the footer carries that much extra clearance. */
+body:has(#installBanner:not([hidden])) .tb-footer {
+  padding-bottom: calc(var(--tbf-pad-y) + 84px + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- mobile: clear the fixed bottom tab bar on web -------------------- */
+@media (max-width: 900px) {
+  body.has-bottom-nav .tb-footer {
+    padding-bottom: calc(var(--tbf-pad-y) + 70px + env(safe-area-inset-bottom, 0px));
+  }
+  body.has-bottom-nav:has(#installBanner:not([hidden])) .tb-footer {
+    /* banner sits 78px above the safe area when the tab bar is present */
+    padding-bottom: calc(var(--tbf-pad-y) + 78px + 84px + env(safe-area-inset-bottom, 0px));
+  }
+  /* index.html already pads #app-scroll for the tab bar; when the footer is
+     the last thing in the scroller it carries that clearance itself, so the
+     dark footer sits flush on the white bar instead of over a second band of
+     body-green. Native keeps the #app-scroll padding because the footer is
+     display:none there. */
+  body.has-bottom-nav:not(.is-native) #app-scroll:has(> .tb-footer) {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* --- tablet: two columns --------------------------------------------- */
+@media (min-width: 700px) {
+  .tb-footer { --tbf-pad-x: 24px; --tbf-pad-y: 24px; }
+  .tb-footer-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "brand links"
+      "apps  links";
+    gap: 8px 32px;
+  }
+  .tb-footer-apps  { justify-self: start; }
+  .tb-footer-links { justify-content: flex-end; align-self: center; }
+  .tb-footer-legal { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; }
+}
+
+/* --- desktop: one row ------------------------------------------------- */
+@media (min-width: 1100px) {
+  .tb-footer { --tbf-pad-x: 32px; --tbf-pad-y: 28px; }
+  .tb-footer-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "brand links apps";
+    gap: 0 32px;
+  }
+  .tb-footer-links { justify-content: center; margin: 0; }
+  .tb-footer-links a { min-height: 40px; }
+  .tb-footer-logo { font-size: 1.75rem; }
+  .tb-footer-extra { margin-top: 2px; }
+  .tb-footer-legal { margin-top: 16px; padding-top: 14px; }
+}
+
+/* --- the iOS shell never shows the website footer ---------------------- */
+body.is-native .tb-footer { display: none !important; }
+
+@media print { .tb-footer-apps, .tb-footer-extra { display: none; } }
