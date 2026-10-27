@@ -3154,7 +3154,9 @@
       // pass this threshold we'll graduate to cursor-paginated infinite
       // scroll. Bumping this is fine; just remember every doc here is a
       // Firestore read on every page load.
-      const LISTINGS_FETCH_CAP = 200;
+      // Phase 4 (r369): first page is 60 newest; the feed grows by cursor
+      // (window.fetchMoreListings, below) as the sentinel scrolls into view.
+      const LISTINGS_FETCH_CAP = 60;
       const q = query(
         collection(db, 'listings'),
         orderBy('createdAt', 'desc'),
@@ -3182,6 +3184,9 @@
       if (snap && snap.empty && snap.metadata && snap.metadata.fromCache) {
         throw new Error('feed query served from empty local cache — offline');
       }
+      // Cursor for infinite scroll: more pages exist only if this one was full.
+      window.__feedCursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+      window.__feedHasMore = snap.docs.length >= LISTINGS_FETCH_CAP;
       const items = snap.docs
         .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
         // Hide dead listings from the public feed so they never render as live
@@ -3213,6 +3218,31 @@
     // r148: the first query has now RESOLVED (success or failure). Only from
     // this point does an empty PRODUCTS array mean a genuinely empty
     // marketplace rather than "still loading" — buildProducts keys off this.
+    // Phase 4: next page by cursor. Appends to window.PRODUCTS (same filters as
+    // the first page) and returns how many were added. 0 ends the feed.
+    window.fetchMoreListings = async function fetchMoreListings() {
+      if (!window.__feedCursor || window.__feedHasMore === false) return 0;
+      try {
+        const { getFirestore, collection, query, orderBy, startAfter, limit, getDocs } =
+          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+        const PAGE = 60;
+        const snap = await getDocs(query(collection(getFirestore(), 'listings'), orderBy('createdAt', 'desc'), startAfter(window.__feedCursor), limit(PAGE)));
+        window.__feedCursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+        window.__feedHasMore = snap.docs.length >= PAGE;
+        const have = new Set((window.PRODUCTS || []).map(p => String(p.id)));
+        const items = snap.docs
+          .map(d => ({ id: d.id, name: d.data().title, ...d.data() }))
+          .filter(p => p.status !== 'expired' && p.status !== 'sold' && p.status !== 'removed' && p.status !== 'flagged' && p.status !== 'hidden')
+          .filter(p => Array.isArray(p.photos) && p.photos.length > 0)
+          .filter(p => !have.has(String(p.id)));
+        if (items.length) window.PRODUCTS = [...(window.PRODUCTS || []), ...items];
+        return items.length;
+      } catch (e) {
+        console.warn('fetchMoreListings failed', e);
+        window.__feedHasMore = false;
+        return 0;
+      }
+    };
     window.__listingsLoaded = true;
     // r172: first meaningful content (loaded OR error state — both render) —
     // release the splash if auth is already known.

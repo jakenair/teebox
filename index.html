@@ -2778,6 +2778,34 @@ window.__phDeferLoad = function(load) {
   .detail-fav { bottom: 12px; right: 12px; min-height: 34px; font-size: 13px; padding: 0 11px 0 9px; }
   .detail-fav .fav-ico, .detail-fav .fav-ico .ico { width: 18px; height: 18px; }
   @media (hover: hover) { .card-fav:hover { transform: scale(1.06); } }
+  /* Phase 4 (r369): Vinted-style browse cards — tall 4:5 photo, rounded, then
+     brand / key spec + condition / bold price. Title stays in the DOM for the
+     /listing/ link + screen readers but is visually hidden; seller identity,
+     ratings, view counts and Buy Now moved to the detail sheet. */
+  .product-img-wrap { aspect-ratio: 4 / 5; }
+  .product-card { border-radius: 14px; border-color: var(--gray-100); content-visibility: auto; contain-intrinsic-size: auto 360px; }
+  .product-card .product-body { padding: 9px 10px 11px; }
+  .product-card .product-brand { margin-bottom: 2px; min-height: 14px; }
+  .product-card .product-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+  .product-spec { font-size: 12px; color: var(--gray-500); line-height: 1.35; min-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .product-card .product-price { border-top: 0; padding-top: 4px; margin-top: 2px; }
+  .product-card .product-price-val { font-family: var(--font-body); font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+  .sk-img { aspect-ratio: 4 / 5; }
+  .feed-sentinel { margin-top: 12px; min-height: 2px; }
+  .feed-sentinel[hidden] { display: none; }
+  .feed-sentinel .sk-card { visibility: hidden; }
+  .feed-sentinel.loading .sk-card { visibility: visible; }
+  @media (max-width: 600px) {
+    .product-grid { gap: 10px; }
+    /* Vinted order on mobile web: feed first, then sellers / trending. The
+       native app already orders #homeLatest first (body.is-native rules). */
+    body.web-searchfirst main { display: flex; flex-direction: column; }
+    body.web-searchfirst main > * { order: 4; }
+    body.web-searchfirst main > .hero { order: 0; }
+    body.web-searchfirst main > .home-split { order: 1; }
+    body.web-searchfirst main > #featuredSellers { order: 2; }
+    body.web-searchfirst main > #trending { order: 3; }
+  }
   .product-body { padding: 14px 14px 16px; display: flex; flex-direction: column; flex: 1; }
   /* Fixed slot: an empty brand row still reserves its line so cards with and
      without a brand eyebrow keep identical structure. */
@@ -5512,10 +5540,10 @@ window.__phDeferLoad = function(load) {
 <!-- BOTTOM TAB NAV (mobile only) -->
 <nav class="bottom-nav" aria-label="Mobile primary">
   <button class="bottom-nav-item active" data-tab="home" data-action="bn-home" type="button">
-    <span data-ico="search" aria-hidden="true"></span>Browse
+    <span data-ico="home" aria-hidden="true"></span>Home
   </button>
   <button class="bottom-nav-item" data-tab="search" data-action="open-search" type="button">
-    <span data-ico="search" aria-hidden="true"></span>Search
+    <span data-ico="grid" aria-hidden="true"></span>Browse
   </button>
   <button class="bottom-nav-item sell" data-tab="sell" data-action="handle-sell" type="button">
     <span data-ico="plus" aria-hidden="true"></span>Sell
@@ -5524,7 +5552,7 @@ window.__phDeferLoad = function(load) {
     <span data-ico="message" class="bn-icon" aria-hidden="true"><span class="unread-badge" aria-hidden="true"></span></span>Inbox
   </button>
   <button class="bottom-nav-item" data-tab="account" data-action="open-profile-self" type="button">
-    <span data-ico="user" aria-hidden="true"></span>Account
+    <span data-ico="user" aria-hidden="true"></span>Profile
   </button>
 </nav>
 
@@ -5710,6 +5738,7 @@ window.__phDeferLoad = function(load) {
     // r271: line icons for the hero quick-action panel. Bingo gets a 3x3
     // grid (the board), Journal an open book. Line-art to match the rest of
     // this map, and no emoji anywhere per the homepage ruling.
+    home:      '<svg class="ico" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.2V20h14v-9.8"/><path d="M10 20v-6h4v6"/></svg>',
     grid:      '<svg class="ico" viewBox="0 0 24 24"><path d="M4 4h5v5H4zM9.5 4h5v5h-5zM15 4h5v5h-5zM4 9.5h5v5H4zM9.5 9.5h5v5h-5zM15 9.5h5v5h-5zM4 15h5v5H4zM9.5 15h5v5h-5zM15 15h5v5h-5z"/></svg>',
     // r272: real golf glyphs. The category rail previously showed a pen for
     // clubs and a SHOPPING CART for both balls and headcovers — cart was the
@@ -5784,6 +5813,9 @@ window.__phDeferLoad = function(load) {
       balls: window.ICONS.golfball,
       headcovers: window.ICONS.headcover,
       accessories: window.ICONS.accessory,
+      // Phase 4 browse chips (club types) share the club glyph.
+      driver: window.ICONS.golfclub, fairway: window.ICONS.golfclub, hybrid: window.ICONS.golfclub,
+      irons: window.ICONS.golfclub, wedge: window.ICONS.golfclub, putter: window.ICONS.golfclub,
     })[cat] || window.ICONS.accessory;
   };
 
@@ -5950,7 +5982,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r368</span></div>
+        <span class="auth-build" aria-hidden="true">r369</span></div>
     </div>
   </div>
 </div>
@@ -7427,7 +7459,7 @@ window.__phDeferLoad = function(load) {
   <a class="nav-logo" href="#" aria-label="TeeBox home"><span>Tee</span>Box</a>
   <div class="nav-search">
     <span class="nav-search-icon" id="navSearchIcon"></span>
-    <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
+    <input type="text" placeholder="Search for gear or members" readonly data-action="open-search" aria-label="Open search" />
   </div>
   <div class="nav-ribbon" role="group" aria-label="Account and selling">
     <!-- r270 (homepage restructure, bump 1): SHOP dropdown.
@@ -7521,16 +7553,19 @@ window.__phDeferLoad = function(load) {
          Hidden on web/desktop, where the desktop nav already has search. -->
     <div class="nav-search native-cat-search">
       <span class="nav-search-icon"></span>
-      <input type="text" placeholder="Search clubs, apparel, accessories…" readonly data-action="open-search" aria-label="Open search" />
+      <input type="text" placeholder="Search for gear or members" readonly data-action="open-search" aria-label="Open search" />
     </div>
-    <button class="cat-pill active" data-action="filter-cat" data-cat="all">All</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="shoes">Shoes</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="clubs">Clubs</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="apparel">Apparel</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="accessories">Accessories</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="bags">Bags</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="balls">Balls</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="headcovers">Headcovers</button>
+    <button class="cat-pill active" data-action="filter-cat" data-cat="all" type="button">All</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="driver" type="button">Drivers</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="fairway" type="button">Fairway Woods</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="hybrid" type="button">Hybrids</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="irons" type="button">Irons</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="wedge" type="button">Wedges</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="putter" type="button">Putters</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="bags" type="button">Bags</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="shoes" type="button">Shoes</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="accessories" type="button">Accessories</button>
     <span class="cat-bar-divider" aria-hidden="true"></span>
     <button class="cat-pill cat-journal" data-action="open-journal" type="button" aria-label="TeeBox Journal — course guides and gear reads">
       <span class="cat-journal-icon" aria-hidden="true">✦</span><span>Journal</span>
@@ -7686,13 +7721,16 @@ window.__phDeferLoad = function(load) {
        with the web pills and the search-overlay chips. -->
   <div class="app-home-chips" id="appHomeChips" role="group" aria-label="Filter by category">
     <button class="cat-pill active" data-action="filter-cat" data-cat="all" type="button">All</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="clubs" type="button">Clubs</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="accessories" type="button">Accessories</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="driver" type="button">Drivers</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="fairway" type="button">Fairway Woods</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="hybrid" type="button">Hybrids</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="irons" type="button">Irons</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="wedge" type="button">Wedges</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="putter" type="button">Putters</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="bags" type="button">Bags</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="shoes" type="button">Shoes</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="balls" type="button">Balls</button>
-    <button class="cat-pill" data-action="filter-cat" data-cat="headcovers" type="button">Headcovers</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="accessories" type="button">Accessories</button>
   </div>
   <a href="#" class="app-teaser app-teaser-bingo" data-action="open-bingo" aria-label="Play Logo Bingo — today's puzzle">
     <span class="app-teaser-ico" data-ico="flame" aria-hidden="true"></span>
@@ -7751,13 +7789,16 @@ window.__phDeferLoad = function(load) {
       <h2 class="cat-side-title">Categories</h2>
       <div class="cat-side-list">
         <button class="cat-pill cat-side-item active" data-action="filter-cat" data-cat="all" type="button"><span class="cat-side-ico" data-cat-ico="all" aria-hidden="true"></span>All</button>
-        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="clubs" type="button"><span class="cat-side-ico" data-cat-ico="clubs" aria-hidden="true"></span>Clubs</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="driver" type="button"><span class="cat-side-ico" data-cat-ico="driver" aria-hidden="true"></span>Drivers</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="fairway" type="button"><span class="cat-side-ico" data-cat-ico="fairway" aria-hidden="true"></span>Fairway Woods</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="hybrid" type="button"><span class="cat-side-ico" data-cat-ico="hybrid" aria-hidden="true"></span>Hybrids</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="irons" type="button"><span class="cat-side-ico" data-cat-ico="irons" aria-hidden="true"></span>Irons</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="wedge" type="button"><span class="cat-side-ico" data-cat-ico="wedge" aria-hidden="true"></span>Wedges</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="putter" type="button"><span class="cat-side-ico" data-cat-ico="putter" aria-hidden="true"></span>Putters</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="bags" type="button"><span class="cat-side-ico" data-cat-ico="bags" aria-hidden="true"></span>Bags</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="shoes" type="button"><span class="cat-side-ico" data-cat-ico="shoes" aria-hidden="true"></span>Shoes</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="apparel" type="button"><span class="cat-side-ico" data-cat-ico="apparel" aria-hidden="true"></span>Apparel</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="accessories" type="button"><span class="cat-side-ico" data-cat-ico="accessories" aria-hidden="true"></span>Accessories</button>
-        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="bags" type="button"><span class="cat-side-ico" data-cat-ico="bags" aria-hidden="true"></span>Bags</button>
-        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="balls" type="button"><span class="cat-side-ico" data-cat-ico="balls" aria-hidden="true"></span>Balls</button>
-        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="headcovers" type="button"><span class="cat-side-ico" data-cat-ico="headcovers" aria-hidden="true"></span>Headcovers</button>
       </div>
     </aside>
     <div class="section reveal" id="homeLatest">
@@ -7808,6 +7849,12 @@ window.__phDeferLoad = function(load) {
         <button class="filter-clear" id="filterSave" type="button" data-action="save-current-search">Save Search</button>
       </div>
       <div class="product-grid" id="productGrid"></div>
+      <!-- Phase 4 (r369): infinite-scroll sentinel. Skeleton cards show while the
+           next page is fetched; hidden when the feed has no more. -->
+      <div class="product-grid feed-sentinel" id="feedSentinel" hidden aria-hidden="true">
+        <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>
+        <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>
+      </div>
       <!-- r349 cold-load Stage B: first-paint feed. Paints the newest active
            listings from the Firestore REST API the moment this element exists —
            no SDK, no auth, ~30 KB — so a phone on a slow link sees product cards
@@ -8340,20 +8387,23 @@ window.__phDeferLoad = function(load) {
 <!-- SEARCH -->
 <div class="search-overlay" id="searchOverlay" data-close-on-backdrop="close-search">
   <div class="search-box">
-    <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" enterkeyhint="search" placeholder="Search clubs, apparel, accessories…" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
+    <div class="search-box-input"><span aria-hidden="true">⌕</span><input type="text" id="searchInput" enterkeyhint="search" placeholder="Search for gear or members" aria-label="Search marketplace" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /></div>
     <!-- r163: NATIVE APP ONLY (body.is-native) — the header's category pills
          live here in the app. Tap = filter the feed + dismiss the overlay. -->
     <div class="search-cat-row" aria-label="Browse by category">
       <span class="search-cat-label">Browse by category</span>
       <div class="search-cat-pills">
         <button class="cat-pill active" data-action="search-cat" data-cat="all" type="button">All</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="driver" type="button">Drivers</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="fairway" type="button">Fairway Woods</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="hybrid" type="button">Hybrids</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="irons" type="button">Irons</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="wedge" type="button">Wedges</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="putter" type="button">Putters</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="bags" type="button">Bags</button>
         <button class="cat-pill" data-action="search-cat" data-cat="shoes" type="button">Shoes</button>
-        <button class="cat-pill" data-action="search-cat" data-cat="clubs" type="button">Clubs</button>
         <button class="cat-pill" data-action="search-cat" data-cat="apparel" type="button">Apparel</button>
         <button class="cat-pill" data-action="search-cat" data-cat="accessories" type="button">Accessories</button>
-        <button class="cat-pill" data-action="search-cat" data-cat="bags" type="button">Bags</button>
-        <button class="cat-pill" data-action="search-cat" data-cat="balls" type="button">Balls</button>
-        <button class="cat-pill" data-action="search-cat" data-cat="headcovers" type="button">Headcovers</button>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:6px;margin:6px 4px 0">
@@ -9407,8 +9457,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r368"></script>
-<script type="module" src="/js/app-auth.js?v=r368"></script>
+<script defer src="/js/app-main.js?v=r369"></script>
+<script type="module" src="/js/app-auth.js?v=r369"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9438,7 +9488,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r368"></script>
+<script type="module" src="/js/bingo.js?v=r369"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
