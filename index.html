@@ -1508,6 +1508,46 @@ window.__phDeferLoad = function(load) {
      reach the bottom (Apple sign-in / privacy link). align-items uses
      "safe center" with a flex-start fallback so taller-than-viewport
      content doesn't clip its top edge in centered flex layouts. */
+
+  /* ═══ Welcome (opening) screen — r364 Phase 1 ═══════════════════════════
+     Logged-out / first-launch opener: two marquee rows of square gear
+     photos, Playfair headline, sign-up + log-in buttons, Skip to browse as a
+     guest. Sits ABOVE the bottom nav and install banner but BELOW #authScreen
+     (500) so the sign-in flow opens over it. Hidden entirely once signed in. */
+  #welcomeScreen { position: fixed; inset: 0; z-index: 480; background: var(--cream); display: none; flex-direction: column; overflow: hidden; }
+  #welcomeScreen.open { display: flex; }
+  body.welcome-open { overflow: hidden; }
+  .welcome-skip { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px; z-index: 2; background: rgba(255,255,255,0.85); border: 1px solid var(--gray-200); color: var(--green-900); font: 600 14px/1 var(--font-body); padding: 10px 16px; border-radius: 50px; cursor: pointer; }
+  .welcome-marquee { flex: 0 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + 64px); display: flex; flex-direction: column; gap: 10px; }
+  .welcome-row { overflow: hidden; width: 100%; }
+  .welcome-track { display: flex; gap: 10px; width: max-content; will-change: transform; }
+  .welcome-row-a .welcome-track { animation: welcomeSlideLeft 48s linear infinite; }
+  .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
+  .welcome-tile { width: 150px; height: 150px; flex: 0 0 150px; border-radius: 14px; overflow: hidden; background: var(--gray-100); }
+  .welcome-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes welcomeSlideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+  @media (prefers-reduced-motion: reduce) { .welcome-track { animation: none !important; } }
+  .welcome-body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; padding: 24px 20px calc(env(safe-area-inset-bottom, 0px) + 28px); max-width: 520px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .welcome-wordmark { font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--green-900); letter-spacing: -0.01em; margin-bottom: 10px; }
+  .welcome-wordmark span { color: var(--gold-500); }
+  .welcome-headline { font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1.12; color: var(--green-900); margin: 0 0 22px; letter-spacing: -0.01em; }
+  .welcome-btn { display: block; width: 100%; border-radius: 50px; padding: 16px 20px; font: 600 16px/1.2 var(--font-body); cursor: pointer; text-align: center; -webkit-tap-highlight-color: transparent; }
+  .welcome-btn-primary { background: var(--green-700); color: var(--white); border: 1.5px solid var(--green-700); margin-bottom: 10px; }
+  .welcome-btn-primary:active { background: var(--green-800); }
+  .welcome-btn-outline { background: transparent; color: var(--green-800); border: 1.5px solid var(--green-700); }
+  .welcome-btn-outline:active { background: var(--green-50); }
+  .welcome-fine { font-size: 12px; color: var(--gray-500); text-align: center; margin: 14px 0 0; }
+  .welcome-fine a { color: var(--green-700); text-decoration: underline; }
+  @media (min-width: 700px) {
+    .welcome-marquee { padding-top: 56px; gap: 14px; }
+    .welcome-track { gap: 14px; }
+    .welcome-tile { width: 200px; height: 200px; flex-basis: 200px; }
+    .welcome-body { justify-content: center; padding-top: 40px; }
+    .welcome-headline { font-size: 44px; }
+  }
+  @media (min-width: 700px) and (min-height: 820px) { .welcome-marquee { padding-top: 96px; } }
+  @media (max-height: 700px) { .welcome-tile { width: 120px; height: 120px; flex-basis: 120px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: flex-start; align-items: safe center; justify-content: center; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; opacity: 1; transition: opacity 0.25s ease; }
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
@@ -5700,6 +5740,23 @@ window.__phDeferLoad = function(load) {
   });
 </script>
 
+
+<!-- Welcome / opening screen (r364 Phase 1). Populated + shown by
+     initWelcomeScreen() in js/app-main.js; photos listed there. -->
+<div id="welcomeScreen" aria-hidden="true" role="dialog" aria-label="Welcome to TeeBox">
+  <button type="button" class="welcome-skip" data-action="welcome-skip">Skip</button>
+  <div class="welcome-marquee" aria-hidden="true">
+    <div class="welcome-row welcome-row-a"><div class="welcome-track" id="welcomeTrackA"></div></div>
+    <div class="welcome-row welcome-row-b"><div class="welcome-track" id="welcomeTrackB"></div></div>
+  </div>
+  <div class="welcome-body">
+    <div class="welcome-wordmark"><span>Tee</span>Box</div>
+    <h1 class="welcome-headline">Golf gear deserves a second round.</h1>
+    <button type="button" class="welcome-btn welcome-btn-primary" data-action="welcome-signup">Sign up for TeeBox</button>
+    <button type="button" class="welcome-btn welcome-btn-outline" data-action="welcome-login">I already have an account</button>
+    <p class="welcome-fine">Golfer-to-golfer. Secured payments, flat 8.5% seller fee.</p>
+  </div>
+</div>
 <!-- AUTH -->
 <div id="authScreen">
   <div class="auth-box">
@@ -5774,7 +5831,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r365</span></div>
+        <span class="auth-build" aria-hidden="true">r366</span></div>
     </div>
   </div>
 </div>
@@ -9231,8 +9288,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r365"></script>
-<script type="module" src="/js/app-auth.js?v=r365"></script>
+<script defer src="/js/app-main.js?v=r366"></script>
+<script type="module" src="/js/app-auth.js?v=r366"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9262,7 +9319,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r365"></script>
+<script type="module" src="/js/bingo.js?v=r366"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
