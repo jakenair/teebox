@@ -169,3 +169,77 @@ test("conversations: update allows only own lastRead/hidden keys; lastMessage* i
   await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageText: "spoofed preview"}));
   await assertFails(updateDoc(doc(db(buyer), "conversations", "C1"), {lastMessageSenderId: "buyer", lastMessageAt: serverTimestamp()}));
 });
+
+test("users/{uid}: owner can save pushPrefs + bingoPushPrefs (Notifications panel); server-only keys still denied", async () => {
+  await seed("users", "alice", {displayName: "Alice"});
+  const alice = testEnv.authenticatedContext("alice", {email_verified: true});
+  // Exactly what savePushPrefs writes: setDoc(..., {merge: true}) with both maps.
+  await assertSucceeds(setDoc(doc(db(alice), "users", "alice"),
+      {pushPrefs: {messages: true, offers: false, quietHours: {start: "21:00", end: "08:00", tz: "America/Chicago"}},
+        bingoPushPrefs: {dailyReminder: true, reminderHour: 8, streakSaver: false}}, {merge: true}));
+  await assertFails(updateDoc(doc(db(alice), "users", "alice"), {emailPrefs: {savedSearchMatches: false}}));
+  await assertFails(updateDoc(doc(db(alice), "users", "alice"), {tier: "pro"}));
+  const bob = testEnv.authenticatedContext("bob", {email_verified: true});
+  await assertFails(setDoc(doc(db(bob), "users", "alice"), {pushPrefs: {messages: false}}, {merge: true}));
+});
+
+test("users/{uid}: unverified email cannot update the user doc at all (incl. pushPrefs) — documented gate", async () => {
+  await seed("users", "carol", {displayName: "Carol"});
+  const carol = testEnv.authenticatedContext("carol", {email_verified: false});
+  await assertFails(setDoc(doc(db(carol), "users", "carol"), {pushPrefs: {messages: false}}, {merge: true}));
+});
+
+// ─── LIST-FIRST (2026-10-19): listing CREATE no longer requires Stripe ───
+// Exactly the fields submitListing writes on create (index.html addDoc).
+function listingCreateDoc(sellerId) {
+  return {
+    sellerId, title: "Vokey SM9 56°", brand: "Titleist", cat: "clubs",
+    ask: 120, condition: "good", desc: "Lightly used", badge: "new",
+    specCategory: "other", specs: {}, photos: [], status: "active",
+    createdAt: serverTimestamp(),
+    expiresAt: new Date(Date.now() + 60 * 86400000),
+    quantity: 1, quantitySold: 0, requiresAuth: false, authReviewState: "na",
+  };
+}
+
+test("listings: verified email + NO Stripe onboarding → create ALLOWED (list-first Gate 1)", async () => {
+  await seed("users", "newseller", {displayName: "New Seller"}); // no stripeChargesEnabled at all
+  const me = testEnv.authenticatedContext("newseller", {email_verified: true});
+  await assertSucceeds(addDoc(collection(db(me), "listings"), listingCreateDoc("newseller")));
+});
+
+test("listings: UNVERIFIED email → create DENIED even though schema is valid", async () => {
+  await seed("users", "unverified", {displayName: "Unverified", stripeChargesEnabled: true});
+  const me = testEnv.authenticatedContext("unverified", {email_verified: false});
+  await assertFails(addDoc(collection(db(me), "listings"), listingCreateDoc("unverified")));
+});
+
+test("listings: phone sign-in counts as verified (existing isEmailVerified semantics)", async () => {
+  const me = testEnv.authenticatedContext("phoneguy", {
+    email_verified: false, firebase: {sign_in_provider: "phone"},
+  });
+  await assertSucceeds(addDoc(collection(db(me), "listings"), listingCreateDoc("phoneguy")));
+});
+
+test("listings: daily cap — counter at 10 inside the window → DENIED; lapsed window → ALLOWED; owner can read counter, not write it", async () => {
+  const me = testEnv.authenticatedContext("busy", {email_verified: true});
+  const inWindow = new Date(Date.now() + 6 * 3600000);
+  await seed("users/busy/rateLimits", "listingCreate", {count: 10, resetAt: inWindow});
+  await assertFails(addDoc(collection(db(me), "listings"), listingCreateDoc("busy")));
+  await seed("users/busy/rateLimits", "listingCreate", {count: 9, resetAt: inWindow});
+  await assertSucceeds(addDoc(collection(db(me), "listings"), listingCreateDoc("busy")));
+  const lapsed = new Date(Date.now() - 60000);
+  await seed("users/busy/rateLimits", "listingCreate", {count: 10, resetAt: lapsed});
+  await assertSucceeds(addDoc(collection(db(me), "listings"), listingCreateDoc("busy")));
+  await assertSucceeds(getDoc(doc(db(me), "users/busy/rateLimits", "listingCreate")));
+  await assertFails(setDoc(doc(db(me), "users/busy/rateLimits", "listingCreate"), {count: 0, resetAt: lapsed}));
+  const other = testEnv.authenticatedContext("nosy", {email_verified: true});
+  await assertFails(getDoc(doc(db(other), "users/busy/rateLimits", "listingCreate")));
+});
+
+test("listings: cannot create a listing for someone else, nor pre-set a hidden/server status", async () => {
+  const me = testEnv.authenticatedContext("mallory", {email_verified: true});
+  await assertFails(addDoc(collection(db(me), "listings"), listingCreateDoc("victim")));
+  await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("mallory"), status: "hidden"}));
+  await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("mallory"), hiddenReason: "x"}));
+});

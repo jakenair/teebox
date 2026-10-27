@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T18:53:29.378Z",
+  "generatedAt": "2026-10-21T21:43:48.147Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
@@ -110,8 +110,8 @@
     {
       "id": "chicago-golf-club",
       "shortName": "Chicago Golf Club",
-      "localHash": "09a102553f97cd02d49006d5630bf644ffc6f828130b53a39ee877cc628716fe",
-      "localBytes": 8162,
+      "localHash": "33ae5e0f8e18488a568de874f293afc25b7f804f3ce39e08a26698e3f4f172c5",
+      "localBytes": 39424,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
@@ -308,8 +308,8 @@
     {
       "id": "quaker-ridge",
       "shortName": "Quaker Ridge",
-      "localHash": "0f06e7f89ee52d950e74a672c7a139f3933073e63e95475963de05a2d033b1c1",
-      "localBytes": 59457,
+      "localHash": "0cffb1fa985f63f62bcbb52715482daa02ea9ad408ed7d3bc887c71ab7d1e20b",
+      "localBytes": 34881,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []

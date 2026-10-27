@@ -3,8 +3,10 @@
 // scripts/backfill-heic.mjs backfill — so the backfill converts bytes exactly
 // the way the live trigger does, with no risk of drift.
 //
-// Decode an uploaded image and produce the 1600px WebP stored as the original,
-// plus the sharp instance used to derive the 400/800px variants.
+// Decode an uploaded image and produce the 2048px WebP stored as the original,
+// plus the sharp instance used to derive the 400/800/1200px variants.
+// (Was 1600px / q82 until 2026-10-19 — phones at 3x stretched the 800px
+// variant; the original now carries enough pixels for a sharp detail view.)
 //   JPEG/PNG/WebP/AVIF decode natively via sharp. Apple HEVC-HEIC (what iPhones
 //   shoot) does NOT: the bundled libvips has libheif but no HEVC decoder, so
 //   sharp throws ("bad seek" / "plugin not built in"). We detect that by TRYING
@@ -21,7 +23,7 @@ async function convertToWebp(inputBuf) {
   const encode = async (raster) => {
     const baseSharp = sharp(raster).rotate(); // honor EXIF orientation
     const webp = await baseSharp.clone()
-      .resize({width: 1600, height: 1600, fit: "inside", withoutEnlargement: true})
+      .resize({width: 2048, height: 2048, fit: "inside", withoutEnlargement: true})
       // NO .withMetadata() — sharp strips metadata by default, and
       // withMetadata() RETAINS it (the opposite of what the old comment here,
       // "match existing EXIF handling", implied). Verified 2026-09-24: a JPEG
@@ -32,7 +34,7 @@ async function convertToWebp(inputBuf) {
       // Orientation is safe: .rotate() above already baked it into the pixels,
       // so there is no orientation tag left to preserve — and re-attaching the
       // original EXIF would re-attach a tag that no longer applies.
-      .webp({quality: 82})
+      .webp({quality: 84})
       .toBuffer();
     return {baseSharp, webp};
   };

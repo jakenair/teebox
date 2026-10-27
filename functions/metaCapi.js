@@ -107,6 +107,19 @@ function hashEmail(raw) {
  * @param {string} raw Phone number.
  * @return {string} SHA-256 hex digest, or "" when nothing usable.
  */
+/**
+ * external_id — our Firebase uid, SHA-256 hashed the way Meta normalises
+ * other identifiers. Opaque either way, but hashing keeps the raw uid out of
+ * Meta's systems (Jake, 2026-10-26: "hashed external_id (Firebase uid)").
+ * @param {string} uid Firebase uid.
+ * @return {string} SHA-256 hex digest, or "" when empty.
+ */
+function hashExternalId(uid) {
+  const v = String(uid || "").trim();
+  if (!v) return "";
+  return crypto.createHash("sha256").update(v, "utf8").digest("hex");
+}
+
 function hashPhone(raw) {
   const digits = String(raw || "").replace(/\D+/g, "").replace(/^0+/, "");
   if (digits.length < 7) return "";
@@ -155,7 +168,7 @@ function buildUserData(order, extra, cfg) {
   if (order.fbc) ud.fbc = String(order.fbc);
   if (order.checkoutIp) ud.client_ip_address = String(order.checkoutIp);
   if (order.checkoutUa) ud.client_user_agent = String(order.checkoutUa);
-  if (order.buyerId) ud.external_id = String(order.buyerId);
+  if (order.buyerId) ud.external_id = hashExternalId(order.buyerId);
   // The buyer's address lives on the order as `receiptEmail` — the value
   // Stripe was given at checkout. There is NO buyerEmail/email field; reading
   // one would hash undefined and silently never match, which is exactly how
@@ -353,7 +366,7 @@ exports.capiRelay = onCall(
       // Identity comes from the verified token, never the body.
       const ud = {};
       if (auth) {
-        ud.external_id = String(auth.uid);
+        ud.external_id = hashExternalId(auth.uid);
         const em = hashEmail(auth.token && auth.token.email);
         if (em) ud.em = em;
         // ph: flag-gated, default off — see buildUserData().
@@ -419,4 +432,4 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, PIXEL_ID, GRAPH_VERSION};
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION};

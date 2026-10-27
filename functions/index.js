@@ -8,6 +8,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
+const disputeReversal = require("./lib/disputeReversal");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
@@ -874,7 +875,7 @@ exports.stripeWebhook = onRequest(
     try {
       switch (event.type) {
         case "payment_intent.succeeded":
-          await handlePaymentSucceeded(event.data.object);
+          await handlePaymentSucceeded(event.data.object, stripeClient);
           break;
         case "payment_intent.payment_failed":
         case "payment_intent.canceled":
@@ -1355,61 +1356,21 @@ async function handleDisputeFundsWithdrawn(dispute, stripeClient) {
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) {
     logger.warn(
-      `funds_withdrawn for unknown order ${dispute.payment_intent}`);
+        `funds_withdrawn for unknown order ${dispute.payment_intent}`);
     return;
   }
-  const order = orderSnap.data();
-
-  let transferId = order.transferId || null;
-  // Backstop: if we didn't capture the transfer id when the PI succeeded
-  // (e.g. older orders, or transfer was created async), pull it from the
-  // PI now via Stripe.
-  if (!transferId) {
-    try {
-      const pi = await stripeClient.paymentIntents.retrieve(
-          dispute.payment_intent, {expand: ["charges.data.transfer"]});
-      const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
-      transferId = ch && ch.transfer
-        ? (typeof ch.transfer === "string" ? ch.transfer : ch.transfer.id)
-        : null;
-    } catch (e) {
-      logger.warn("funds_withdrawn: PI retrieve failed", e.message);
-    }
-  }
-
-  if (!transferId) {
-    logger.error(
-      `funds_withdrawn: no transferId for ${dispute.payment_intent}; ` +
-      "cannot reverse seller payout");
-    await orderRef.set({
-      disputeFundsWithdrawn: true,
-      sellerDebited: false,
-      disputeFundsWithdrawnAt:
-        admin.firestore.FieldValue.serverTimestamp(),
-    }, {merge: true});
-    return;
-  }
-
-  const sellerPayoutCents = Number(order.sellerPayoutCents || 0);
-  try {
-    await stripeClient.transfers.createReversal(transferId, {
-      amount: sellerPayoutCents > 0 ? sellerPayoutCents : undefined,
-      refund_application_fee: true,
-      metadata: {
-        reason: "chargeback",
-        disputeId: dispute.id,
-      },
-    });
-  } catch (revErr) {
-    logger.error("funds_withdrawn: transfer reversal failed", revErr);
-  }
-
-  await orderRef.set({
-    disputeFundsWithdrawn: true,
-    sellerDebited: true,
-    disputeFundsWithdrawnAt:
-      admin.firestore.FieldValue.serverTimestamp(),
-  }, {merge: true});
+  // lib/disputeReversal: resolves the transfer via latest_charge when the
+  // order never captured it, reverses ONLY the seller's share (no fee
+  // refund), and records failure as failure (sellerDebited:false +
+  // reversalError) instead of the old unconditional sellerDebited:true.
+  await disputeReversal.reverseSellerTransferForDispute({
+    dispute,
+    order: orderSnap.data(),
+    orderRef,
+    stripe: stripeClient,
+    logger,
+    FieldValue: admin.firestore.FieldValue,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1587,7 +1548,7 @@ async function handleIdentitySessionUpdate(event) {
   await db.collection("users").doc(uid).set(update, {merge: true});
 }
 
-async function handlePaymentSucceeded(pi) {
+async function handlePaymentSucceeded(pi, stripeClient) {
   const db = admin.firestore();
   const {
     listingId,
@@ -1624,26 +1585,24 @@ async function handlePaymentSucceeded(pi) {
 
   // Capture the destination-charge transferId so charge.dispute.
   // funds_withdrawn can reverse it without a round-trip back to Stripe.
-  // PI shape: pi.charges.data[0].transfer is the Connect transfer object
-  // (or its id string, depending on expand state).
+  // 2026-10-24: PI payloads on the pinned API version carry `latest_charge`
+  // (an id), not `charges.data[]` — lib/disputeReversal.resolveCharge handles
+  // both shapes and fetches the Charge when only the id is present.
   let transferId = null;
-  // Card fingerprint — Stripe's stable per-card hash, shared across
-  // customer/account/PI for the same underlying card number. Used by
-  // banEvasion.js to detect a banned user creating a fresh account and
-  // re-attempting checkout with the same card. May be null on non-card
-  // PMs (wallet, ACH, etc.).
+  // Card fingerprint — Stripe's stable per-card hash, used by banEvasion.js
+  // to detect a banned user re-attempting checkout with the same card.
   let cardFingerprint = null;
   try {
-    const ch = pi && pi.charges && pi.charges.data && pi.charges.data[0];
-    if (ch && ch.transfer) {
-      transferId = typeof ch.transfer === "string"
-        ? ch.transfer
-        : ch.transfer.id || null;
+    const ch = await disputeReversal.resolveCharge(pi, stripeClient);
+    transferId = disputeReversal.transferIdFromCharge(ch);
+    cardFingerprint = disputeReversal.cardFingerprintFromCharge(ch);
+    if (!transferId) {
+      logger.warn(`handlePaymentSucceeded: no transferId resolved for ${pi.id} ` +
+        `(latest_charge=${pi.latest_charge ? "present" : "absent"})`);
     }
-    if (ch && ch.payment_method_details && ch.payment_method_details.card) {
-      cardFingerprint = ch.payment_method_details.card.fingerprint || null;
-    }
-  } catch (_e) { /* tolerate missing fields */ }
+  } catch (e) {
+    logger.warn(`handlePaymentSucceeded: charge resolve failed for ${pi.id}: ${e.message}`);
+  }
 
   const orderRef = db.collection("orders").doc(pi.id);
   const listingRef = listingId
@@ -4364,7 +4323,7 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 // Moved to ./lib/listingPhotoVariants (2026-10-16) so approveFlaggedListing
 // and scripts/backfill-photo-variants.mjs encode variants with the SAME code
 // path as this trigger. Signature unchanged for the call below.
-const {writeListingPhotoVariants} = require("./lib/listingPhotoVariants");
+const {writeListingPhotoVariants, SIZES: PHOTO_VARIANT_SIZES} = require("./lib/listingPhotoVariants");
 const {pruneAtDeletion} = require("./lib/photoPrune");
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
@@ -5668,13 +5627,18 @@ exports.createStripeOnboardingLink = onCall(
     const userSnap = await userRef.get();
     const user = userSnap.exists ? userSnap.data() : {};
 
-    // Pull email + name to pre-fill Stripe's onboarding form.
-    let email; let displayName;
+    // Pull email + name + phone to pre-fill Stripe's onboarding form so the
+    // seller types as little as possible (list-first polish, 2026-10-19).
+    let email; let displayName; let phone;
     try {
       const authUser = await admin.auth().getUser(uid);
-      email = authUser.email || undefined;
+      email = authUser.email || user.email || undefined;
       displayName = authUser.displayName || user.displayName || undefined;
+      phone = toE164US(authUser.phoneNumber || user.phone) || undefined;
     } catch (_e) { /* swallow — Stripe will collect on the form */ }
+    const nameParts = String(displayName || "").trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : undefined;
 
     let accountId = user.stripeAccountId;
     if (!accountId) {
@@ -5690,7 +5654,15 @@ exports.createStripeOnboardingLink = onCall(
         business_profile: {
           mcc: "5941", // sporting goods
           product_description: "Used + new golf gear via the TeeBox marketplace",
-          url: APP_URL,
+          // The seller's public TeeBox storefront, not the bare domain —
+          // Stripe asks for a business URL and this is the truthful one.
+          url: `${APP_URL}/seller/${uid}`,
+        },
+        individual: {
+          ...(email ? {email} : {}),
+          ...(phone ? {phone} : {}),
+          ...(firstName ? {first_name: firstName} : {}),
+          ...(lastName ? {last_name: lastName} : {}),
         },
         metadata: {
           firebaseUid: uid,
@@ -5707,18 +5679,37 @@ exports.createStripeOnboardingLink = onCall(
       }, {merge: true});
     }
 
+    // prepareOnly: pre-create the Connect account in the background right
+    // after a listing is published, so the later "Set up payouts" tap only
+    // has to mint a link (one Stripe call instead of two → faster redirect).
+    if (request.data && request.data.prepareOnly === true) {
+      return {url: null, accountId, prepared: true};
+    }
+
     // Refresh URL is hit if the link expires while the user is filling
     // out the form — sends them back to call us again for a new link.
-    // Return URL is hit on completion.
+    // Return URL is hit on completion. collection_options.fields =
+    // currently_due keeps the form to what Stripe needs to enable charges
+    // today; eventually_due items are collected later via the dashboard.
     const link = await stripeClient.accountLinks.create({
       account: accountId,
       refresh_url: `${APP_URL}/?stripe=refresh`,
       return_url: `${APP_URL}/?stripe=onboarded`,
       type: "account_onboarding",
+      collection_options: {fields: "currently_due"},
     });
     return {url: link.url, accountId};
   },
 );
+
+// US phone → E.164 for Stripe prefill. Anything that isn't a clean 10-digit
+// (or 1+10) number is dropped — a bad prefill is worse than none.
+function toE164US(raw) {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 10) return `+1${d}`;
+  if (d.length === 11 && d[0] === "1") return `+${d}`;
+  return undefined;
+}
 
 exports.getStripeAccountStatus = onCall(
   {secrets: [stripeSecret], ...USER_CALLABLE},
@@ -5773,6 +5764,18 @@ exports.getStripeAccountStatus = onCall(
       stripePayoutsEnabled: !!acct.payouts_enabled,
       stripeDetailsSubmitted: !!acct.details_submitted,
     }).catch(() => {});
+    // LIST-FIRST: the client calls this on the ?stripe=onboarded return and
+    // on every dashboard open, so it's the fastest path to notice a seller
+    // just became charges-ready → relist their auto-hidden listings and tell
+    // waiting buyers. The daily sweep self-heals anything this misses (a
+    // webhook-only flip with no client visit). Best-effort, never throws.
+    if (acct.charges_enabled && user.stripeChargesEnabled !== true) {
+      try {
+        await require("./lib/listFirstCore").onSellerChargesReady(uid);
+      } catch (e) {
+        logger.warn(`onSellerChargesReady failed for ${uid}`, e && e.message);
+      }
+    }
     return {
       connected: true,
       accountId: acct.id,
@@ -8091,6 +8094,16 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
 Object.assign(exports, require("./listingAssist"));
 Object.assign(exports, require("./pushTriggers"));
 Object.assign(exports, require("./likeNotify"));
+Object.assign(exports, require("./passportLikeCount"));
+// LIST-FIRST seller onboarding (2026-10-19): countListingCreate (daily-cap
+// counter the create rule reads), notifySellerInterest (buyer "notify me"),
+// hideUnonboardedListings (7-day auto-hide + self-heal relist). See the
+// file header for why there is no onUpdate trigger here.
+Object.assign(exports, require("./listFirst"));
+// completeAccountSetup (2026-10-19): idempotent server-side finish for new
+// accounts (name, users/profiles docs, verification email) so a client-side
+// timeout during sign-up never leaves a half-made account.
+exports.completeAccountSetup = require("./accountSetup").completeAccountSetup;
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order
@@ -8116,7 +8129,7 @@ Object.assign(exports, require("./subscriptionLifecycle"));
 
 // Daily Pro Seller subscription smoke test (04:00 ET). See
 // SMOKE_TEST_OPS.md for the runbook + secret setup.
-Object.assign(exports, require("./smokeTest"));
+// smokeTest.js removed 2026-10-24 (smokeProUpgrade + Manual deleted; Stripe test key never provisioned).
 
 // Logo Bingo offline-play sync. Receives the local game state from the
 // client after a tap or on reconnect-drain and writes the durable mirror
@@ -8441,7 +8454,8 @@ exports.optimizePassportPhoto = require("firebase-functions/v2/storage")
       await purge(reason);
     });
 
-// Generate 400px + 800px WebP derivatives of a passport photo and record
+// Generate 400/800/1200px WebP derivatives of a passport photo (sizes shared
+// with listings via lib/listingPhotoVariants.SIZES) and record
 // their download URLs on the round doc under photoVariants.<basename>
 // (basename = "<stamp>_<i>", the object filename minus extension — no dots,
 // safe as a Firestore field-path segment). Mirrors writeListingPhotoVariants.
@@ -8455,7 +8469,7 @@ async function writePassportPhotoVariants(bucket, objName, roundRef, baseSharp) 
     return;
   }
   const urls = {};
-  for (const [key, px, q] of [["w400", 400, 78], ["w800", 800, 82]]) {
+  for (const [key, px, q] of PHOTO_VARIANT_SIZES) {
     const buf = await baseSharp.clone()
         .resize({width: px, height: px, fit: "inside", withoutEnlargement: true})
         // No .withMetadata() — it RETAINS EXIF rather than stripping it. See

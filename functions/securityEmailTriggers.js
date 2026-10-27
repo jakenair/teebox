@@ -58,6 +58,7 @@ const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
+const {sendPush} = require("./lib/push");
 
 const {
   sendEmail,
@@ -586,20 +587,43 @@ exports.onListingLive = onDocumentCreated(
         return;
       }
       const seller = {uid: sellerSnap.id, ...sellerSnap.data()};
-      if (!seller.email) {
-        logger.info(`[onListingLive] seller ${sellerId} has no email`);
-        return;
-      }
       const listing = {id: listingId, ...data};
-      const ctx = {user: seller, listing, appUrl: APP_URL};
-      const sendResult = await sendTemplated({
-        category: CATEGORIES.TRANSACTIONAL,
-        templateCategory: "transactional",
-        templateName: "ListingLive",
-        to: seller.email,
-        uid: seller.uid,
-        ctx,
-      });
+      // LIST-FIRST (2026-10-19): sellers can publish before finishing Stripe.
+      // When they haven't, this receipt doubles as nudge (a): "Your listing
+      // is live. Set up payouts so buyers can purchase — ~3 min." The CTA
+      // (?payouts=setup) mints a FRESH account link on arrival. A push goes
+      // out too (category 'orders' — seller-ops, default ON).
+      const payoutsReady = seller.stripeChargesEnabled === true;
+      const setupUrl = `${APP_URL}/?payouts=setup`;
+      const ctx = {user: seller, listing, appUrl: APP_URL, payoutsReady, setupUrl};
+      let sendResult = null;
+      if (seller.email) {
+        sendResult = await sendTemplated({
+          category: CATEGORIES.TRANSACTIONAL,
+          templateCategory: "transactional",
+          templateName: "ListingLive",
+          to: seller.email,
+          uid: seller.uid,
+          ctx,
+        });
+      } else {
+        // Phone-only seller: no email, but the payout push below still goes.
+        logger.info(`[onListingLive] seller ${sellerId} has no email`);
+      }
+      if (!payoutsReady) {
+        try {
+          await sendPush(seller.uid, {
+            title: "Your listing is live",
+            body: "Set up payouts so buyers can purchase — about 3 minutes.",
+            deepLink: "teebox://payouts",
+            imageUrl: (data.photos && data.photos[0]) || "",
+            kind: "payout-setup-nudge",
+            data: {kind: "payout-setup-nudge", listingId},
+          }, "orders", {threadId: "payouts"});
+        } catch (e) {
+          logger.warn(`[onListingLive] payout nudge push failed ${sellerId}`, e && e.message);
+        }
+      }
       // Stamp after send (best-effort) so a transient render/send failure
       // allows a retry. We use the event publishTime as the canonical
       // timestamp — replays of the same event are also caught by the

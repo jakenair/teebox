@@ -149,6 +149,32 @@ async function fetchUserDoc(db, uid) {
   }
 }
 
+// Smallest avatar derivative that is still >= 96px, else the original upload.
+// Mirrors window.avatarVariantUrl in js/app-main.js (variants keyed by the
+// upload basename, then by size label such as w96/w200).
+function pickAvatarUrl(prof) {
+  if (!prof || typeof prof.avatarUrl !== "string" || !/^https:\/\//.test(prof.avatarUrl)) return null;
+  const orig = prof.avatarUrl;
+  const v = prof.avatarVariants;
+  if (v && typeof v === "object") {
+    const m = orig.match(/\/o\/([^?]+)/);
+    if (m) {
+      try {
+        const base = decodeURIComponent(m[1]).split("/").pop().replace(/\.[^.]+$/, "");
+        const sizes = v[base];
+        if (sizes && typeof sizes === "object") {
+          const best = Object.keys(sizes)
+              .map((k) => ({k, px: Number((k.match(/\d+/) || [0])[0])}))
+              .filter((x) => x.px >= 96 && /^https:\/\//.test(String(sizes[x.k])))
+              .sort((a, b) => a.px - b.px)[0];
+          if (best) return String(sizes[best.k]);
+        }
+      } catch (_e) { /* fall through */ }
+    }
+  }
+  return orig;
+}
+
 async function fetchDisplayName(db, uid) {
   // profiles is public-read (per firestore.rules) so this works even
   // when we're returning data about another user to the requester.
@@ -718,11 +744,25 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
     dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`);
   }
   const db = admin.firestore();
-  const snap = await db.collection("gameScores")
-      .where("date", "in", dates)
-      .orderBy("correctCount", "desc")
-      .limit(50)
-      .get();
+  // r355: rank on points (accuracy + per-tile speed, written by the sync
+  // fanout and backfilled for the trailing week). Falls back to the old
+  // correctCount order if the (date, points) index is not ready yet, so the
+  // deploy order cannot blank the board.
+  let snap;
+  try {
+    snap = await db.collection("gameScores")
+        .where("date", "in", dates)
+        .orderBy("points", "desc")
+        .limit(50)
+        .get();
+  } catch (e) {
+    logger.warn("getBingoLeaderboard: points order unavailable, falling back", {code: e && e.code});
+    snap = await db.collection("gameScores")
+        .where("date", "in", dates)
+        .orderBy("correctCount", "desc")
+        .limit(50)
+        .get();
+  }
   const callerUid = (request.auth && request.auth.uid) || null;
   const rows = [];
   const seen = new Set();
@@ -736,21 +776,58 @@ exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
       displayName: r.displayName ? String(r.displayName) : null,
       correctCount: Number(r.correctCount) || 0,
       streak: Number(r.streak) || 0,
+      points: Number.isFinite(r.points) ? Number(r.points) : null,
+      timeSec: Number.isFinite(r.timeSec) ? Number(r.timeSec) : null,
     });
   });
+  // Points first; equal points → more correct → faster board.
+  rows.sort((a, b) => ((b.points || 0) - (a.points || 0)) ||
+      (b.correctCount - a.correctCount) ||
+      ((a.timeSec ?? Infinity) - (b.timeSec ?? Infinity)));
+  // r356: the caller's own standing within the top 50, even when they are
+  // outside the nine rows we return — feeds the "You're #N this week" nudge.
+  // Still no uid in the response.
+  let callerRank = null;
+  if (callerUid) { const i = rows.findIndex((r) => r.uid === callerUid); if (i >= 0) callerRank = i + 1; }
   const top = rows.slice(0, 9);
+  // r355: enrich the top rows with a profile photo. profiles/{uid} is
+  // public-read; prefer the smallest optimizeAvatar variant >= 96px, then the
+  // uploaded original, then the Auth provider photo (Google sign-in). Only the
+  // URL leaves the server, never the uid — same projection rule as A1.
   await Promise.all(top.map(async (r) => {
+    let prof = null;
+    try { const s = await db.doc(`profiles/${r.uid}`).get(); prof = s.exists ? (s.data() || {}) : null; } catch (_e) { prof = null; }
     if (!r.displayName) {
-      try { r.displayName = await fetchDisplayName(db, r.uid); } catch (_e) { /* mask below */ }
+      r.displayName = (prof && prof.displayName) ? String(prof.displayName) : ("Player " + String(r.uid).slice(-4).toUpperCase());
+    }
+    r.photoURL = pickAvatarUrl(prof);
+    if (!r.photoURL) {
+      try { const u = await admin.auth().getUser(r.uid); if (u && typeof u.photoURL === "string" && /^https:\/\//.test(u.photoURL)) r.photoURL = u.photoURL; } catch (_e) { /* no photo */ }
     }
   }));
+  // r356: does the caller have a photo at all (top-9 row if present, else one
+  // profile read)? Drives the "Add a photo" nudge; boolean only.
+  let callerHasPhoto = null;
+  if (callerUid) {
+    const mine = top.find((r) => r.uid === callerUid);
+    if (mine) callerHasPhoto = !!mine.photoURL;
+    else {
+      try { const s = await db.doc(`profiles/${callerUid}`).get(); callerHasPhoto = !!pickAvatarUrl(s.exists ? (s.data() || {}) : null); } catch (_e) { callerHasPhoto = null; }
+      if (callerHasPhoto === false) { try { const u = await admin.auth().getUser(callerUid); if (u && u.photoURL) callerHasPhoto = true; } catch (_e) { /* keep false */ } }
+    }
+  }
   return {
     scope,
+    callerRank,
+    callerHasPhoto,
     rows: top.map((r, i) => ({
       rank: i + 1,
       displayName: r.displayName || ("Player " + r.uid.slice(-4).toUpperCase()),
       correctCount: r.correctCount,
       streak: r.streak,
+      points: r.points,
+      timeSec: r.timeSec,
+      photoURL: r.photoURL || null,
       isCaller: !!(callerUid && r.uid === callerUid),
     })),
   };

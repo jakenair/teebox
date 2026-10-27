@@ -28,6 +28,12 @@ test("buildUserData: no phone → no ph key; missing email → no em key", () =>
   const ud = M.buildUserData({buyerId: "u1"}, {});
   assert.deepEqual(Object.keys(ud), ["external_id"]);
 });
+test("external_id is the SHA-256 of the uid, never the raw uid (2026-10-26)", () => {
+  const ud = M.buildUserData({buyerId: "u1"}, {});
+  assert.equal(ud.external_id, sha("u1"));
+  assert.notEqual(ud.external_id, "u1");
+  assert.equal(M.hashExternalId(""), "");
+});
 test("ph is OFF by default and only sent when config/meta.sendHashedPhone === true", () => {
   const order = {buyerId: "u1", receiptEmail: "a@b.co"};
   assert.ok(!("ph" in M.buildUserData(order, {phone: "+13125551234"})));

@@ -158,7 +158,8 @@ function csvCell(v) {
  */
 function feedRow(l) {
   if (!l || !l.id) return null;
-  if (!["active", "pending", "sold"].includes(l.status)) return null;
+  // 2026-10-26 (Jake): active, in-stock listings only — no sold/pending rows.
+  if (l.status !== "active") return null;
   const photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
   if (!photos.length) return null; // Meta rejects rows without image_link
   const ask = Number(l.ask);
@@ -226,7 +227,7 @@ let _cache = {at: 0, csv: "", rows: 0};
 async function loadListings() {
   const db = admin.firestore();
   const snap = await db.collection("listings")
-      .where("status", "in", ["active", "pending", "sold"])
+      .where("status", "==", "active")
       .orderBy("createdAt", "desc")
       .limit(MAX_ROWS)
       .get();
