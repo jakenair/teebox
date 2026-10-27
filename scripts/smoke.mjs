@@ -340,7 +340,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       await b.locator(".product-card").first().waitFor({state: "visible"}); const loaded = now() - t0;
       await skipWelcome(b);
       const gate = await b.locator("#authScreen").isVisible().catch(() => false);
-      if (!gate) { await b.locator('.bottom-nav-item[data-action="handle-sell"]').click(); await b.locator('#authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]').first().waitFor({state: "visible", timeout: 30000}); const inter = b.locator('[data-action="show-auth-from-prompt-signup"]'); if (await inter.isVisible().catch(() => false)) await inter.click(); }
+      if (!gate) { await b.locator('.bottom-nav-item[data-action="handle-sell"]').click(); await b.locator('#authSheetBackdrop.open, #authScreen #emailInput, [data-action="show-auth-from-prompt-signup"]').first().waitFor({state: "visible", timeout: 30000}); const inter = b.locator('[data-action="show-auth-from-prompt-signup"]'); if (await inter.isVisible().catch(() => false)) await inter.click(); }
       await skipAuthSheet(b); await b.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000});
       const act = (await b.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "")).trim();
       if (!/sign in/i.test(act)) { await b.locator('#authScreen [data-emailmode="signin"]').click(); await b.waitForTimeout(400); }
