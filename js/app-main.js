@@ -8940,12 +8940,11 @@ window.__actions['cm-disconnect'] = async (el) => {
 // auth gate — WKWebView keeps sessionStorage across cold launches). Never on
 // deep links (listing/order/offer/brand/seller/bingo/signin…), never for
 // crawlers, never once signed in. Tiles: /assets/welcome/art-*.webp — single
-// gear items cut out of the TeeBox illustrations and centered on WHITE (Jake,
-// 2026-10-27: no wood/photo backgrounds). Add a tile = art-<name>.webp (600²)
-// + art-<name>-320.webp in assets/welcome and the name below; both rows cycle
-// the same pool in a different order so they never line up.
-const WELCOME_PHOTOS_A = ['art-hat', 'art-flipflops', 'art-flask', 'art-wedge', 'art-wallet-green', 'art-tees', 'art-wallet-gameday', 'art-divot-tool'];
-const WELCOME_PHOTOS_B = ['art-wedge', 'art-wallet-gameday', 'art-flipflops', 'art-divot-tool', 'art-hat', 'art-wallet-green', 'art-flask', 'art-tees'];
+// cartoon gear items with TRANSPARENT backgrounds floating on the cream
+// (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
+// art-<name>-320.webp in assets/welcome and the name below.
+const WELCOME_PHOTOS_A = ['art-seamus-headcover', 'art-oakley-sunglasses', 'art-footjoy-premiere', 'art-gfore-golf-shoes', 'art-maui-jim-sunglasses', 'art-vessel-stand-bag', 'art-titleist-pro-v1', 'art-sun-mountain-bag', 'art-rainbow-flip-flops', 'art-peter-millar-belt', 'art-polo-blue', 'art-callaway-chrome-tour', 'art-beanie-footjoy', 'art-scotty-cameron-putter', 'art-cap-white-crest'];
+const WELCOME_PHOTOS_B = ['art-divot-tool', 'art-vokey-wedge', 'art-vineyard-vines-belt', 'art-adidas-tour360', 'art-garmin-z82', 'art-smathers-branson-belt', 'art-needlepoint-flask', 'art-titleist-cap', 'art-ecco-biom', 'art-titleist-cart-bag', 'art-golf-umbrella', 'art-ping-hoofer', 'art-ball-marker', 'art-headcover-medallion', 'art-golf-towel'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;

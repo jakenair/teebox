@@ -1570,8 +1570,8 @@ window.__phDeferLoad = function(load) {
   .welcome-track { display: flex; gap: 10px; width: max-content; will-change: transform; }
   .welcome-row-a .welcome-track { animation: welcomeSlideLeft 48s linear infinite; }
   .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
-  .welcome-tile { width: 150px; height: 150px; flex: 0 0 150px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid var(--gray-200); box-sizing: border-box; }
-  .welcome-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .welcome-tile { width: 150px; height: 150px; flex: 0 0 150px; background: transparent; }
+  .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
   @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes welcomeSlideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
   @media (prefers-reduced-motion: reduce) { .welcome-track { animation: none !important; } }
@@ -5989,7 +5989,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r371</span></div>
+        <span class="auth-build" aria-hidden="true">r372</span></div>
     </div>
   </div>
 </div>
@@ -9484,8 +9484,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r371"></script>
-<script type="module" src="/js/app-auth.js?v=r371"></script>
+<script defer src="/js/app-main.js?v=r372"></script>
+<script type="module" src="/js/app-auth.js?v=r372"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9515,7 +9515,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r371"></script>
+<script type="module" src="/js/bingo.js?v=r372"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
