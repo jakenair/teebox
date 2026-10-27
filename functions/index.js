@@ -10,6 +10,7 @@ const admin = require("firebase-admin");
 const stripe = require("stripe");
 const disputeReversal = require("./lib/disputeReversal");
 const accountLinking = require("./lib/accountLinking");
+const exchangeFlow = require("./lib/exchangeFlow");
 // Best-effort ops alerting for money-path failures (never throws). Functions
 // that call opsAlert must include OPS_ALERT_WEBHOOK in their secrets array.
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
@@ -2479,26 +2480,16 @@ exports.exchangeIdTokenForCustomToken = onCall(
       }
 
       let uid;
+      // Compatibility gate: App Store builds ≤ 118 never send `intent` and
+      // can only render {customToken} / a non-2xx error. See lib/exchangeFlow.
+      const legacyClient = exchangeFlow.isLegacyClient(request.data);
+      if (legacyClient) logger.info("exchangeIdTokenForCustomToken: legacy client", {providerId});
       try {
-        const decision = await accountLinking.resolveFederatedSignIn({
-          auth: admin.auth(), providerId, verified, callerUid, intent,
+        const out = await exchangeFlow.decideExchange({
+          auth: admin.auth(), providerId, verified, callerUid, intent, legacyClient,
         });
-        if (decision.mode === "needs-link") {
-          // Same email already has an account with another method. The client
-          // signs the user in with that method, then calls back with
-          // intent:"link" (same id token) so the provider attaches to it.
-          return {needsLink: {email: decision.email, methods: decision.methods, unverified: decision.unverified === true}};
-        }
-        if (decision.mode === "relay-choice") return {relayChoice: true};
-        if (decision.mode === "refused") {
-          if (decision.reason === "identity-belongs-to-other-account") {
-            throw new HttpsError("already-exists",
-                "That sign-in method is already its own TeeBox account. Email support@teeboxmarket.com and we will merge them for you.");
-          }
-          throw new HttpsError("failed-precondition", decision.reason);
-        }
-        if (decision.mode === "linked") return {linked: true, uid: decision.uid};
-        uid = decision.uid;
+        if (out.response) return out.response;
+        uid = out.uid;
       } catch (err) {
         // Propagate the explicit "already-exists" pre-takeover error so
         // the client can show the right "sign in with the other method"
