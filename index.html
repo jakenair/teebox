@@ -2778,7 +2778,7 @@ window.__phDeferLoad = function(load) {
   .detail-fav { bottom: 12px; right: 12px; min-height: 34px; font-size: 13px; padding: 0 11px 0 9px; }
   .detail-fav .fav-ico, .detail-fav .fav-ico .ico { width: 18px; height: 18px; }
   @media (hover: hover) { .card-fav:hover { transform: scale(1.06); } }
-  /* Phase 4 (r369): Vinted-style browse cards — tall 4:5 photo, rounded, then
+  /* Phase 4 (r370): Vinted-style browse cards — tall 4:5 photo, rounded, then
      brand / key spec + condition / bold price. Title stays in the DOM for the
      /listing/ link + screen readers but is visually hidden; seller identity,
      ratings, view counts and Buy Now moved to the detail sheet. */
@@ -2792,6 +2792,10 @@ window.__phDeferLoad = function(load) {
   .product-card .product-price-val { font-family: var(--font-body); font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
   .sk-img { aspect-ratio: 4 / 5; }
   .feed-sentinel { margin-top: 12px; min-height: 2px; }
+  .search-members-title { padding: 10px 14px 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-500); border-top: 1px solid var(--gray-100); margin-top: 6px; }
+  .search-member-avatar { border-radius: 50% !important; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--green-100); }
+  .search-member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .search-member-initial { font-weight: 800; color: var(--green-700); font-size: 16px; }
   .feed-sentinel[hidden] { display: none; }
   .feed-sentinel .sk-card { visibility: hidden; }
   .feed-sentinel.loading .sk-card { visibility: visible; }
@@ -5982,7 +5986,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r369</span></div>
+        <span class="auth-build" aria-hidden="true">r370</span></div>
     </div>
   </div>
 </div>
@@ -7849,7 +7853,7 @@ window.__phDeferLoad = function(load) {
         <button class="filter-clear" id="filterSave" type="button" data-action="save-current-search">Save Search</button>
       </div>
       <div class="product-grid" id="productGrid"></div>
-      <!-- Phase 4 (r369): infinite-scroll sentinel. Skeleton cards show while the
+      <!-- Phase 4 (r370): infinite-scroll sentinel. Skeleton cards show while the
            next page is fetched; hidden when the feed has no more. -->
       <div class="product-grid feed-sentinel" id="feedSentinel" hidden aria-hidden="true">
         <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line short"></div><div class="sk sk-line long"></div></div>
@@ -9457,8 +9461,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r369"></script>
-<script type="module" src="/js/app-auth.js?v=r369"></script>
+<script defer src="/js/app-main.js?v=r370"></script>
+<script type="module" src="/js/app-auth.js?v=r370"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9488,7 +9492,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r369"></script>
+<script type="module" src="/js/bingo.js?v=r370"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

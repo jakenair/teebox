@@ -3154,7 +3154,7 @@
       // pass this threshold we'll graduate to cursor-paginated infinite
       // scroll. Bumping this is fine; just remember every doc here is a
       // Firestore read on every page load.
-      // Phase 4 (r369): first page is 60 newest; the feed grows by cursor
+      // Phase 4 (r370): first page is 60 newest; the feed grows by cursor
       // (window.fetchMoreListings, below) as the sentinel scrolls into view.
       const LISTINGS_FETCH_CAP = 60;
       const q = query(
