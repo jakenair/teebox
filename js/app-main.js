@@ -8939,13 +8939,13 @@ window.__actions['cm-disconnect'] = async (el) => {
 // after Skip), native on every cold launch (in-memory dismiss, like the old
 // auth gate — WKWebView keeps sessionStorage across cold launches). Never on
 // deep links (listing/order/offer/brand/seller/bingo/signin…), never for
-// crawlers, never once signed in. Tiles: /assets/welcome/art-*.webp — square
-// crops of the TeeBox gear illustrations (Jake, 2026-10-27: cartoon gear, not
-// listing photos). Add a tile = drop art-<name>.webp (600) + art-<name>-320.webp
-// in assets/welcome and list the name below; both rows cycle the same pool in
-// a different order so they never line up.
-const WELCOME_PHOTOS_A = ['art-flipflops', 'art-hat', 'art-headcover', 'art-wedge', 'art-wallet-green', 'art-shoe-saddle', 'art-tees', 'art-polo-stripe', 'art-gameday-wallet'];
-const WELCOME_PHOTOS_B = ['art-tees', 'art-gameday-wallet', 'art-flipflops', 'art-polo-stripe', 'art-headcover', 'art-wallet-green', 'art-hat', 'art-shoe-saddle', 'art-wedge'];
+// crawlers, never once signed in. Tiles: /assets/welcome/art-*.webp — single
+// gear items cut out of the TeeBox illustrations and centered on WHITE (Jake,
+// 2026-10-27: no wood/photo backgrounds). Add a tile = art-<name>.webp (600²)
+// + art-<name>-320.webp in assets/welcome and the name below; both rows cycle
+// the same pool in a different order so they never line up.
+const WELCOME_PHOTOS_A = ['art-hat', 'art-flipflops', 'art-flask', 'art-wedge', 'art-wallet-green', 'art-tees', 'art-wallet-gameday', 'art-divot-tool'];
+const WELCOME_PHOTOS_B = ['art-wedge', 'art-wallet-gameday', 'art-flipflops', 'art-divot-tool', 'art-hat', 'art-wallet-green', 'art-flask', 'art-tees'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
