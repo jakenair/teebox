@@ -8943,11 +8943,14 @@ window.__actions['cm-disconnect'] = async (el) => {
 // cartoon gear items with TRANSPARENT backgrounds floating on the cream
 // (Jake, 2026-10-27: no boxes). Add a tile = art-<name>.webp (600², alpha) +
 // art-<name>-320.webp in assets/welcome and the name below.
-// 2026-10-27 night: wall emptied on Jake's call ("remove all of that, some of those are not right") until the correct cartoon set arrives. Empty lists = rows stay hidden (.welcome-marquee[hidden]).
-const WELCOME_PHOTOS_A = [];
-const WELCOME_PHOTOS_B = [];
-const WELCOME_PHOTOS_C = [];
-const WELCOME_PHOTOS_D = [];
+// 2026-10-27 night: rebuilt from Jake's 37-item ChatGPT set (masters in
+// ~/Downloads/teebox-cartoons.zip; cutout recipe in .internal-docs/welcome-photos.md).
+// Empty lists = rows stay hidden (.welcome-marquee[hidden]). Four rows, items
+// dealt round-robin in Jake's 01-37 order so each row mixes categories.
+const WELCOME_PHOTOS_A = ['art-footjoy-shoe', 'art-rainbow-sandals', 'art-woven-belt', 'art-stand-bag-black', 'art-plaid-headcover', 'art-turtlebox-speaker', 'art-golf-towel', 'art-duck-wallet', 'art-rlx-pants', 'art-footjoy-beanie'];
+const WELCOME_PHOTOS_B = ['art-flag-belt', 'art-adidas-shoe-white-navy', 'art-vineyard-vines-whale-belt', 'art-titleist-stand-bag', 'art-titleist-ball', 'art-vineyard-vines-quilted-hoodie', 'art-footjoy-glove', 'art-ball-marker', 'art-wooden-tees'];
+const WELCOME_PHOTOS_C = ['art-taylormade-wedge', 'art-new-balance-shoe-gray', 'art-titleist-cap-black', 'art-sun-mountain-stand-bag', 'art-oakley-sunglasses-black', 'art-bushnell-rangefinder', 'art-titleist-umbrella', 'art-puma-shoe-navy', 'art-golf-cart-wallet'];
+const WELCOME_PHOTOS_D = ['art-scotty-cameron-putter', 'art-adidas-shoe-retro', 'art-callaway-cap-white', 'art-nike-stand-bag', 'art-oakley-sunglasses-tortoise', 'art-yeti-soft-cooler', 'art-titleist-divot-tool', 'art-peter-millar-polo', 'art-footjoy-rope-cap'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
