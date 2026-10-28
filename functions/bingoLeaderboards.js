@@ -392,6 +392,22 @@ exports.onBingoWinAggregate = onDocumentWritten(
   },
 );
 
+// YYYY-MM-DD in America/New_York (must match the client's todayUTC()).
+function todayEasternKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const get = (t) => parts.find((p) => p.type === t).value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+// YYYY-MM-DD n calendar days before a YYYY-MM-DD key (pure date arithmetic).
+function daysBeforeKey(dateStr, n) {
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d - n));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
 // Returns YYYY-MM-DD one day before the given date, computed in UTC.
 function prevDateUtc(dateStr) {
   const [y, m, d] = String(dateStr).split("-").map(Number);
@@ -737,12 +753,13 @@ exports.getBingoFriendsBoard = onCall(USER_CALLABLE, async (request) => {
 exports.getBingoLeaderboard = onCall(USER_CALLABLE, async (request) => {
   const scope = (request.data && request.data.scope) === "today" ? "today" : "week";
   const days = scope === "today" ? 1 : 7;
+  // 2026-10-27: the client stamps gameScores.date with the America/New_York
+  // date (js/bingo.js todayUTC(), Eastern since the May launch-time flip), so
+  // "today" must be the Eastern date too. Computing it in UTC made the Today
+  // tab empty from 8 pm ET to midnight ET every day on web and iOS.
   const dates = [];
-  const now = new Date();
-  for (let i = 0; i < days; i++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
-    dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`);
-  }
+  const todayEt = todayEasternKey();
+  for (let i = 0; i < days; i++) dates.push(i === 0 ? todayEt : daysBeforeKey(todayEt, i));
   const db = admin.firestore();
   // r355: rank on points (accuracy + per-tile speed, written by the sync
   // fanout and backfilled for the trailing week). Falls back to the old
