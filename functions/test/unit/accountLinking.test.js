@@ -97,3 +97,29 @@ test("helpers: syntheticUid / isRelayEmail / methodsOf", () => {
   assert.deepEqual(L.methodsOf({uid: "apple_com_1", providerData: []}), ["apple.com"]);
   assert.deepEqual(L.methodsOf({uid: "u", providerData: [{providerId: "password"}, {providerId: "google.com"}]}), ["password", "google.com"]);
 });
+
+// ── Facebook (2.6.1): same resolver, third provider ──────────────────────
+test("facebook: brand-new identity WITH email → account created, facebook.com linked, email verified", async () => {
+  const auth = fakeAuth([]);
+  const r = await L.resolveFederatedSignIn({auth, providerId: "facebook.com", verified: G("fb1", "fb@b.co")});
+  assert.equal(r.mode, "token");
+  const u = auth.users.get(r.uid); assert.equal(u.email, "fb@b.co"); assert.equal(u.emailVerified, true);
+  assert.ok(u.providerData.some((p) => p.providerId === "facebook.com" && p.uid === "fb1"));
+});
+test("facebook: brand-new identity with NO email (phone-only) → account created without an email, not refused", async () => {
+  const auth = fakeAuth([]);
+  const r = await L.resolveFederatedSignIn({auth, providerId: "facebook.com", verified: {sub: "fb2", email: null, emailVerified: false, name: "P"}});
+  assert.equal(r.mode, "token");
+  const u = auth.users.get(r.uid); assert.equal(u.email, undefined);
+  assert.ok(u.providerData.some((p) => p.providerId === "facebook.com" && p.uid === "fb2"));
+});
+test("facebook: email already on a Google account → needs-link listing google.com (no new account)", async () => {
+  const auth = fakeAuth([{uid: "u1", email: "a@b.co", emailVerified: true, providerData: [{providerId: "google.com", uid: "g1"}]}]);
+  const r = await L.resolveFederatedSignIn({auth, providerId: "facebook.com", verified: G("fb3", "a@b.co")});
+  assert.equal(r.mode, "needs-link"); assert.deepEqual(r.methods, ["google.com"]); assert.equal(r.unverified, false);
+  assert.equal(auth.calls.filter((c) => c[0] === "createUser").length, 0);
+});
+test("facebook: returning user (facebook.com already linked) → same uid", async () => {
+  const auth = fakeAuth([{uid: "u9", email: "fb@b.co", emailVerified: true, providerData: [{providerId: "facebook.com", uid: "fb9"}]}]);
+  assert.deepEqual(await L.resolveFederatedSignIn({auth, providerId: "facebook.com", verified: G("fb9", "fb@b.co")}), {mode: "token", uid: "u9"});
+});

@@ -115,5 +115,44 @@ exports.completeAccountSetup = onCall({...USER_CALLABLE, secrets: [RESEND_API_KE
   return out;
 });
 
+// setAccountEmail (callable) — 2.6.1. A Facebook sign-in can arrive with NO
+// email (phone-only Facebook account, or the user declined the email
+// permission). Order/sale/shipping emails need one, so the client prompts
+// right after sign-in and calls this. Only for accounts that have no email
+// yet (changing an existing address stays a support task: it would need
+// re-verification of the old one and touches Stripe/receipts).
+//   data: { email: string }
+//   returns: { ok, verificationEmail }
+// Enumeration protection is ON for this project, so the client SDK's
+// updateEmail is unavailable — this is the admin-side equivalent. The
+// address is stored UNVERIFIED and the branded verification email goes
+// out through sendVerificationEmailOnce; nothing is sent to it until the
+// user clicks that link (emailVerifiedLive gates elsewhere).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+exports.setAccountEmail = onCall({...USER_CALLABLE, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+  const uid = request.auth.uid;
+  const email = String((request.data && request.data.email) || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) throw new HttpsError("invalid-argument", "Enter a valid email address.");
+  const authUser = await admin.auth().getUser(uid);
+  if (authUser.email) {
+    if (authUser.email.toLowerCase() === email) return {ok: true, verificationEmail: await sendVerificationEmailOnce(uid)};
+    throw new HttpsError("failed-precondition", "This account already has an email. Contact support@teeboxmarket.com to change it.");
+  }
+  try {
+    await admin.auth().updateUser(uid, {email, emailVerified: false});
+  } catch (e) {
+    if (e && /email-already-exists/.test(String(e.code))) {
+      throw new HttpsError("already-exists", "That email already belongs to another TeeBox account. Sign in to that account and connect Facebook from Account \u2192 Connected sign-in methods.");
+    }
+    logger.error("[setAccountEmail] updateUser failed", {uid, code: e && e.code, message: e && e.message});
+    throw new HttpsError("internal", "Could not save that email. Try again.");
+  }
+  await admin.firestore().collection("users").doc(uid).set({emailAddedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true}).catch(() => {});
+  const verificationEmail = await sendVerificationEmailOnce(uid);
+  logger.info(`[setAccountEmail] ${uid}`, {verificationEmail});
+  return {ok: true, verificationEmail};
+});
+
 exports.__accountSetupLoaded = true;
 module.exports.sendVerificationEmailOnce = sendVerificationEmailOnce;

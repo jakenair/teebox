@@ -1521,7 +1521,7 @@ window.__phDeferLoad = function(load) {
   .tb-sheet-backdrop { display: none; position: fixed; inset: 0; background: rgba(11,26,14,0.55); align-items: flex-end; justify-content: center; }
   .tb-sheet-backdrop.open { display: flex; }
   #authSheetBackdrop { z-index: 490; }   /* above the welcome (480); the email screen (500) opens over it */
-  #relaySheetBackdrop, #linkSheetBackdrop { z-index: 520; } /* over the auth screen */
+  #relaySheetBackdrop, #linkSheetBackdrop, #emailSheetBackdrop { z-index: 520; } /* over the auth screen */
   .tb-sheet { background: var(--white); width: 100%; max-width: 520px; border-radius: 22px 22px 0 0; padding: 14px 20px calc(env(safe-area-inset-bottom, 0px) + 22px); box-shadow: 0 -8px 40px rgba(0,0,0,0.18); animation: tbSheetUp .22s ease-out; position: relative; }
   @keyframes tbSheetUp { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .tb-sheet { animation: none; } }
@@ -1529,6 +1529,8 @@ window.__phDeferLoad = function(load) {
   .tb-sheet-x { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--gray-100); color: var(--gray-700); font-size: 18px; line-height: 36px; cursor: pointer; }
   .tb-sheet-title { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--green-900); margin: 4px 36px 14px 0; }
   .tb-sheet-msg { font-size: 14px; color: var(--gray-700); line-height: 1.5; margin: 0 0 14px; }
+  .tb-sheet-input { display: block; width: 100%; box-sizing: border-box; min-height: 48px; padding: 12px 14px; border: 1.5px solid var(--gray-300); border-radius: 12px; font: 400 16px/1.2 var(--font-body); color: var(--green-900); background: var(--white); margin: 0 0 8px; }
+  .tb-sheet-input:focus { outline: none; border-color: var(--green-700); }
   .tb-sheet-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 50px; border-radius: 50px; font: 600 15.5px/1.2 var(--font-body); cursor: pointer; margin-bottom: 10px; -webkit-tap-highlight-color: transparent; }
   .tb-sheet-btn svg { width: 20px; height: 20px; flex: 0 0 20px; }
   .tb-sheet-btn.apple { background: #000; color: #fff; border: 1.5px solid #000; }
@@ -5908,6 +5910,22 @@ window.__phDeferLoad = function(load) {
     <button type="button" class="tb-sheet-link" data-action="close-link-sheet">Not now</button>
   </div>
 </div>
+<!-- 2.6.1: Facebook sign-in with no email — ask for one so order/sale emails can reach them -->
+<div class="tb-sheet-backdrop" id="emailSheetBackdrop" data-close-on-backdrop="close-email-sheet" role="dialog" aria-modal="true" aria-labelledby="emailSheetTitle">
+  <div class="tb-sheet">
+    <div class="tb-sheet-handle" aria-hidden="true"></div>
+    <button type="button" class="tb-sheet-x" data-action="close-email-sheet" aria-label="Close">×</button>
+    <div class="tb-sheet-title" id="emailSheetTitle">Add an email for order updates</div>
+    <p class="tb-sheet-msg" id="emailSheetMsg"></p>
+    <div id="emailSheetForm">
+      <input type="email" class="tb-sheet-input" id="emailSheetInput" placeholder="you@example.com" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false">
+      <div class="tb-sheet-error" id="emailSheetError" role="status" aria-live="polite"></div>
+      <button type="button" class="tb-sheet-btn email" data-action="email-sheet-save">Send confirmation link</button>
+      <button type="button" class="tb-sheet-link" data-action="close-email-sheet">Not now</button>
+    </div>
+    <p class="tb-sheet-msg" id="emailSheetDone" hidden></p>
+  </div>
+</div>
 <!-- Phase 2: Apple "Hide My Email" relay — first account or existing one? -->
 <div class="tb-sheet-backdrop" id="relaySheetBackdrop" data-close-on-backdrop="close-relay-sheet" role="dialog" aria-modal="true" aria-labelledby="relaySheetTitle">
   <div class="tb-sheet">
@@ -9566,8 +9584,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r389"></script>
-<script type="module" src="/js/app-auth.js?v=r389"></script>
+<script defer src="/js/app-main.js?v=r390"></script>
+<script type="module" src="/js/app-auth.js?v=r390"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9597,7 +9615,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r389"></script>
+<script type="module" src="/js/bingo.js?v=r390"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

@@ -2427,10 +2427,10 @@ exports.exchangeIdTokenForCustomToken = onCall(
       if (!idToken || typeof idToken !== "string") {
         throw new HttpsError("invalid-argument", "idToken required");
       }
-      if (providerId !== "google.com" && providerId !== "apple.com") {
+      if (providerId !== "google.com" && providerId !== "apple.com" && providerId !== "facebook.com") {
         throw new HttpsError(
             "invalid-argument",
-            "providerId must be google.com or apple.com",
+            "providerId must be google.com, apple.com or facebook.com",
         );
       }
       // Phase 2 (2026-10-26): intent = "signin" (default) | "create" | "link".
@@ -2446,11 +2446,13 @@ exports.exchangeIdTokenForCustomToken = onCall(
       // nonce that was hashed into the id_token. Without it,
       // _verifyAppleIdToken can't verify and we'd be accepting any
       // valid-shape Apple token (incl. replays from another app).
-      if (providerId === "apple.com") {
+      // Facebook (2.6.1, iOS Limited Login): same rule — the OIDC token carries
+      // sha256(rawNonce); lib/facebookToken refuses a token without it.
+      if (providerId === "apple.com" || providerId === "facebook.com") {
         if (typeof rawNonce !== "string" || !rawNonce) {
           throw new HttpsError(
               "invalid-argument",
-              "rawNonce required for Apple sign-in",
+              `rawNonce required for ${providerId === "apple.com" ? "Apple" : "Facebook"} sign-in`,
           );
         }
       }
@@ -2458,6 +2460,8 @@ exports.exchangeIdTokenForCustomToken = onCall(
       try {
         if (providerId === "google.com") {
           verified = await _verifyGoogleIdToken(idToken);
+        } else if (providerId === "facebook.com") {
+          verified = await require("./lib/facebookToken").verifyFacebookIdToken({idToken, rawNonce});
         } else {
           verified = await _verifyAppleIdToken(idToken, rawNonce);
         }
@@ -8070,6 +8074,8 @@ Object.assign(exports, require("./listFirst"));
 // accounts (name, users/profiles docs, verification email) so a client-side
 // timeout during sign-up never leaves a half-made account.
 exports.completeAccountSetup = require("./accountSetup").completeAccountSetup;
+// 2.6.1: Facebook sign-ins can arrive with no email (phone-only / declined).
+exports.setAccountEmail = require("./accountSetup").setAccountEmail;
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order

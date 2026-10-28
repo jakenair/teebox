@@ -8758,10 +8758,22 @@ window.signInWithFacebook = async function signInWithFacebook(btn) {
   try {
     if (tbIsNative()) {
       if (!(window.FBAuthPlugin && window.FBAuthPlugin.signInWithFacebook)) throw Object.assign(new Error('Facebook sign-in is not available in this app version yet.'), { code: 'teebox/not-available' });
-      const r = await window.FBAuthPlugin.signInWithFacebook({ skipNativeAuth: true });
-      const token = r && r.credential && r.credential.accessToken; if (!token) return;
-      const cred = window.FacebookAuthProvider.credential(token);
-      await window.signInWithCredential(window.firebaseAuth, cred);
+      // 2.6.1: LIMITED LOGIN always. The app never shows the App Tracking
+      // Transparency prompt, so the FB SDK can never issue a classic access
+      // token on iOS 14.5+; Limited Login returns an OIDC id token instead and
+      // the plugin hashes a fresh nonce into the request (we get the raw one
+      // back). Same custom-token exchange as native Apple/Google — the JS
+      // SDK's signInWithCredential hangs in WKWebView (see those handlers).
+      const r = await window.FBAuthPlugin.signInWithFacebook({ skipNativeAuth: true, useLimitedLogin: true });
+      const idToken = r && r.credential && r.credential.idToken; const rawNonce = r && r.credential && r.credential.nonce;
+      if (!idToken) return; // user backed out
+      const x = await window.tbNativeExchange('facebook.com', { idToken, rawNonce }, 'signin');
+      if (x && x.needsLink) { window.tbHandleNeedsLink(Object.assign({ kind: 'native', providerId: 'facebook.com', idToken, rawNonce }, x.needsLink)); return; }
+      const customToken = x && x.customToken; if (!customToken) throw new Error('Token exchange returned no customToken');
+      await Promise.race([
+        window.signInWithCustomToken(window.firebaseAuth, customToken),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('signInWithCustomToken timed out after 15s')), 15000)),
+      ]);
       return;
     }
     const provider = new window.FacebookAuthProvider(); provider.addScope('email'); provider.addScope('public_profile');
@@ -8770,7 +8782,12 @@ window.signInWithFacebook = async function signInWithFacebook(btn) {
     const code = (e && e.code) || '';
     if (/cancel|popup-closed/i.test(code + ' ' + (e && e.message))) return;
     if (code === 'auth/account-exists-with-different-credential') { await window.tbHandleAccountExists(e, 'facebook.com'); return; }
-    if (err) err.textContent = code === 'teebox/not-available' ? e.message : 'Could not sign in with Facebook. Try another method.';
+    if (err) err.textContent = code === 'teebox/not-available' ? e.message
+      : code === 'auth/popup-blocked' ? 'Pop-up blocked. Allow pop-ups or use email sign-in.'
+      : code === 'functions/already-exists' ? ((e && e.message) || 'That Facebook account is already connected to another TeeBox account.')
+      : code === 'auth/operation-not-allowed' ? 'Facebook sign-in is not enabled yet. Use email, Google or Apple for now.'
+      : 'Could not sign in with Facebook. Try another method.';
+    console.warn('[auth] facebook sign-in failed:', code, e && e.message);
   } finally { if (btn) btn.disabled = false; }
 };
 
@@ -8957,6 +8974,55 @@ window.__actions['cm-connect-google'] = async () => {
     try { await window.authReload(u); } catch (_e) {} showToast('Google connected.'); window.renderConnectedMethods();
   } catch (e) { cmErr(cmLinkError(e, 'Google')); }
 };
+// ── Add-an-email prompt (2.6.1) ──────────────────────────────────────────
+// A Facebook sign-in can arrive with no email (phone-only Facebook account,
+// or the email permission was declined). Order confirmations, sale alerts and
+// shipping updates all go by email, so ask once per session right after
+// sign-in. Saves via the setAccountEmail callable (enumeration protection is
+// on, so the client SDK's updateEmail is unavailable); the address lands
+// UNVERIFIED and the branded verification email goes out from the server.
+const TB_EMAIL_PROMPT_KEY = 'tb_email_prompt_dismissed';
+function tbEmailPromptDismissed() { try { return sessionStorage.getItem(TB_EMAIL_PROMPT_KEY) === '1' || window.__tbEmailPromptDismissed === true; } catch (_e) { return window.__tbEmailPromptDismissed === true; } }
+window.tbMaybePromptForEmail = function tbMaybePromptForEmail(user) {
+  try {
+    if (!user || user.email || tbEmailPromptDismissed()) return;
+    const viaFacebook = (user.providerData || []).some((p) => p && p.providerId === 'facebook.com');
+    if (!viaFacebook) return;
+    const bd = document.getElementById('emailSheetBackdrop'); if (!bd || bd.classList.contains('open')) return;
+    const inp = document.getElementById('emailSheetInput'), msg = document.getElementById('emailSheetMsg'), err = document.getElementById('emailSheetError'), form = document.getElementById('emailSheetForm'), done = document.getElementById('emailSheetDone');
+    if (inp) inp.value = ''; if (err) err.textContent = ''; if (form) form.hidden = false; if (done) done.hidden = true;
+    if (msg) msg.textContent = 'Facebook didn’t share an email address with us. TeeBox sends order confirmations, sale alerts and shipping updates by email, so add one to make sure they reach you.';
+    bd.classList.add('open');
+    try { window.posthog && window.posthog.capture('email_prompt_shown', { provider: 'facebook.com' }); } catch (_e) {}
+  } catch (_e) {}
+};
+window.__actions['close-email-sheet'] = () => {
+  const bd = document.getElementById('emailSheetBackdrop'); if (bd) bd.classList.remove('open');
+  window.__tbEmailPromptDismissed = true; try { sessionStorage.setItem(TB_EMAIL_PROMPT_KEY, '1'); } catch (_e) {}
+};
+window.__actions['email-sheet-save'] = async (btn) => {
+  const inp = document.getElementById('emailSheetInput'), err = document.getElementById('emailSheetError'), form = document.getElementById('emailSheetForm'), done = document.getElementById('emailSheetDone');
+  const email = ((inp && inp.value) || '').trim().toLowerCase();
+  if (err) err.textContent = '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { if (err) err.textContent = 'Enter a valid email address.'; return; }
+  if (btn) btn.disabled = true;
+  try {
+    const call = window.firebaseHttpsCallable(window.firebaseFns, 'setAccountEmail');
+    const r = await call({ email });
+    const u = window.firebaseAuth && window.firebaseAuth.currentUser; if (u) { try { await window.authReload(u); } catch (_e) {} }
+    if (form) form.hidden = true;
+    if (done) { done.hidden = false; done.textContent = (r && r.data && r.data.verificationEmail === 'sent')
+      ? 'Check your inbox. Tap the link we sent to ' + email + ' to confirm it. Until then, order and sale updates can’t reach you.'
+      : 'Saved ' + email + '. We’ll send a confirmation link shortly; order and sale updates start once you tap it.'; }
+    window.__tbEmailPromptDismissed = true; try { sessionStorage.setItem(TB_EMAIL_PROMPT_KEY, '1'); } catch (_e) {}
+    try { window.posthog && window.posthog.capture('email_prompt_saved', { provider: 'facebook.com' }); } catch (_e) {}
+  } catch (e) {
+    const code = (e && e.code) || '';
+    if (err) err.textContent = /already-exists|failed-precondition|invalid-argument/.test(code) && e.message ? e.message : 'Could not save that email right now. You can add it later from Account settings.';
+    console.warn('[auth] setAccountEmail failed:', code, e && e.message);
+  } finally { if (btn) btn.disabled = false; }
+};
+
 window.__actions['cm-connect-apple'] = async () => {
   const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
   try {
@@ -8973,8 +9039,16 @@ window.__actions['cm-connect-apple'] = async () => {
 window.__actions['cm-connect-facebook'] = async () => {
   const u = window.firebaseAuth.currentUser; if (!u) return; cmErr('');
   try {
-    const prov = new window.FacebookAuthProvider(); prov.addScope('email');
-    await window.linkWithPopup(u, prov);
+    if (tbIsNative()) {
+      // Native: Limited Login id token → exchange with intent 'link' (attaches facebook.com to the caller's uid server-side).
+      const r = await window.FBAuthPlugin.signInWithFacebook({ skipNativeAuth: true, useLimitedLogin: true });
+      const idToken = r && r.credential && r.credential.idToken; const rawNonce = r && r.credential && r.credential.nonce; if (!idToken) return;
+      const x = await window.tbNativeExchange('facebook.com', { idToken, rawNonce }, 'link');
+      if (!x || !x.linked) throw new Error('link failed');
+    } else {
+      const prov = new window.FacebookAuthProvider(); prov.addScope('email');
+      await window.linkWithPopup(u, prov);
+    }
     try { await window.authReload(u); } catch (_e) {} showToast('Facebook connected.'); window.renderConnectedMethods();
   } catch (e) { cmErr(cmLinkError(e, 'Facebook')); }
 };

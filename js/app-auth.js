@@ -443,6 +443,8 @@
       // Phase 2: if this sign-in was the 'sign in with your existing method' step
       // of a link flow, attach the pending provider now.
       if (window.completePendingLink) setTimeout(() => { try { window.completePendingLink(); } catch (_e) {} }, 0);
+      // 2.6.1: Facebook accounts with no email — ask for one (once per session) so order/sale emails can reach them.
+      if (window.tbMaybePromptForEmail) setTimeout(() => { try { window.tbMaybePromptForEmail(user); } catch (_e) {} }, 600);
       // Smooth fade-out before hiding so successful sign-in feels deliberate
       // (web + iOS WKWebView both honor the CSS transition). The 250ms here
       // matches the .auth-screen `transition` rule above.
