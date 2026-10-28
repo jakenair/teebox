@@ -858,6 +858,11 @@
   }
   let __handoffWaiting = false;
   function renderBingoHandoff() {
+    // r383 (Jake, 2026-10-27): the "Fresh on TeeBox" strip under the board is
+    // retired. Remove any instance from an earlier render and stop here.
+    { const old = document.getElementById('bingoHandoff'); if (old) old.remove(); }
+    return;
+    // eslint-disable-next-line no-unreachable
     const body = document.querySelector('.bingo-body');
     if (!body || !isComplete()) return;
     if (!window.__listingsLoaded) {

@@ -296,6 +296,12 @@ window.featuredSellerStats = featuredSellerStats;
 function buildFeaturedSellers() {
   const sec = document.getElementById('featuredSellers');
   const rail = document.getElementById('featuredSellersRail');
+  // r383 (Jake, 2026-10-27): Featured Sellers is retired. Keep the section
+  // hidden; the rule/stats helpers stay for the My Shop progress copy.
+  if (sec) sec.style.display = 'none';
+  if (rail) rail.innerHTML = '';
+  return;
+  // eslint-disable-next-line no-unreachable
   if (!sec || !rail || !window.__listingsLoaded) return;
   const blocked = (window.CURRENT_USER && window.MY_BLOCKED_UIDS) || null;
   const sellers = [...featuredSellerStats().values()]
@@ -344,6 +350,10 @@ function renderSellerInvite() {
   const host = document.getElementById('sellerInvite');
   if (!host) return;
   const hide = () => { host.style.display = 'none'; host.innerHTML = ''; };
+  // r383: Featured Sellers is retired, so the "list 5, get featured" promise
+  // no longer holds — the card stays hidden (code kept for a future rework).
+  return hide();
+  // eslint-disable-next-line no-unreachable
   const u = window.CURRENT_USER;
   if (!u || !window.__listingsLoaded || sellerInviteDismissed()) return hide();
   const mine = featuredSellerStats().get(u.uid);
@@ -4184,9 +4194,9 @@ function renderShopStats() {
     const live = listings.filter(l => (l.status === 'active' || l.status === 'pending')
       && Array.isArray(l.photos) && l.photos.length > 0).length;
     const need = (window.FEATURED_MIN_LISTINGS || 5) - live;
-    if (subEl) subEl.textContent = need > 0
-      ? `${need} more active listing${need === 1 ? '' : 's'} and you’re featured on the home page`
-      : 'Featured on the TeeBox home page';
+    // r383: Featured Sellers retired — plain live count, no featuring promise.
+    void need;
+    if (subEl) subEl.textContent = `${live} live listing${live === 1 ? '' : 's'} on the marketplace`;
   } catch (_e) {}
   _countUpStat('statAvg', Math.round(avgSale), { prefix: '$' });
   _countUpStat('statViews', totalViews);
@@ -9657,6 +9667,7 @@ async function loadWatchlist() {
   }
 }
 
+const __watchSeq = Object.create(null); // r383: per-listing tap sequence (see below)
 async function toggleWatch(productId, desired) {
   // Guest gate — Phase 3: guests get the sign-up sheet (Vinted behaviour).
   if (!window.CURRENT_USER) {
@@ -9666,6 +9677,7 @@ async function toggleWatch(productId, desired) {
     return;
   }
   const id = String(productId);
+  const seq = (__watchSeq[id] = (__watchSeq[id] || 0) + 1);
   const product = (window.PRODUCTS || []).find(p => String(p.id) === id);
   const wasLiked = fav.has(productId) || fav.has(id) || fav.has(Number(id));
   const on = typeof desired === 'boolean' ? desired : !wasLiked;
@@ -9689,6 +9701,8 @@ async function toggleWatch(productId, desired) {
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
     const res = await httpsCallable(getFunctions(), 'setWatch')({ listingId: id, on });
+    // A newer tap on this listing is in flight: let its reply decide the UI.
+    if (__watchSeq[id] !== seq) return;
     const r = (res && res.data) || {};
     const liked = !!r.on;
     if (liked) { fav.add(productId); fav.add(id); } else { fav.delete(productId); fav.delete(id); fav.delete(Number(id)); }
@@ -9709,6 +9723,7 @@ async function toggleWatch(productId, desired) {
       setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-watchlist'); } catch (_e) {} }, 1500);
     }
   } catch (e) {
+    if (__watchSeq[id] !== seq) { console.warn('toggleWatch: stale call failed, newer tap owns the state', e); return; }
     // Roll back the optimistic state.
     if (wasLiked) { fav.add(productId); fav.add(id); } else { fav.delete(productId); fav.delete(id); fav.delete(Number(id)); }
     if (product && prevCount !== null) product.watchlistCount = prevCount;
@@ -12120,7 +12135,10 @@ function ppWireTapLikeOpen(el, { onOpen, onLike, burstEl, ignore }) {
   const onChip = (t) => !!(t && t.closest && t.closest(IGNORE_SEL));
   const burst = () => { if (!burstEl) return; burstEl.classList.remove('go'); void burstEl.offsetWidth; burstEl.classList.add('go'); };
   const doLike = () => { burst(); if (onLike) onLike(); };
-  el.addEventListener('dblclick', (e) => { e.preventDefault(); if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } doLike(); });
+  // r383: a touch double-tap already liked via touchend below; iOS WebKit then
+  // fires a real dblclick too (double-tap zoom is disabled here), which toggled
+  // the like straight back off. suppressClickUntil covers that window.
+  el.addEventListener('dblclick', (e) => { e.preventDefault(); if (Date.now() < suppressClickUntil) return; if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } doLike(); });
   el.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; moved = false; startTarget = e.target; }, { passive: true });
   el.addEventListener('touchmove', (e) => { const t = e.changedTouches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) moved = true; }, { passive: true });
   el.addEventListener('touchend', () => {
@@ -14621,11 +14639,15 @@ SELL_FIELDS.forEach(id => {
 async function hydrateWatchlist() {
   if (!window.CURRENT_USER) return;
   const wl = await loadWatchlist();
-  Object.keys(wl).forEach(id => {
+  const ids = Object.keys(wl);
+  ids.forEach(id => {
     const num = Number(id);
     fav.add(Number.isFinite(num) ? num : id);
   });
-  buildProducts();
+  // r383: paint the hearts in place; rebuilding the grid replayed the card
+  // entrance animation and flashed every heart from empty to filled.
+  if (typeof window.paintFav === 'function' && document.querySelector('.fav-btn[data-product-id]')) ids.forEach(id => window.paintFav(String(id), true, null));
+  else buildProducts();
 }
 window.hydrateWatchlist = hydrateWatchlist;
 

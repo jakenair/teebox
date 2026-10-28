@@ -2783,7 +2783,7 @@ window.__phDeferLoad = function(load) {
   .photo-count-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
   /* Phase 3 (r368): Vinted-style heart on the photo, bottom-right, count inside.
      Both heart icons are in the markup; .liked swaps outline → filled. */
-  .card-fav { position: absolute; bottom: 8px; right: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px 0 7px; border-radius: 50px; border: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.94); color: var(--gray-700); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.18); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); -webkit-tap-highlight-color: transparent; font-family: inherit; }
+  .card-fav { position: absolute; top: auto; width: auto; height: auto; bottom: 8px; right: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px 0 7px; border-radius: 50px; border: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.94); color: var(--gray-700); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.18); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); -webkit-tap-highlight-color: transparent; font-family: inherit; }
   .card-fav .fav-ico { display: inline-flex; width: 16px; height: 16px; }
   .card-fav .fav-ico .ico { width: 16px; height: 16px; stroke-width: 2; }
   .card-fav .fav-ico .ico-fill { display: none; }
@@ -2797,6 +2797,7 @@ window.__phDeferLoad = function(load) {
   .detail-fav { bottom: 12px; right: 12px; min-height: 34px; font-size: 13px; padding: 0 11px 0 9px; }
   .detail-fav .fav-ico, .detail-fav .fav-ico .ico { width: 18px; height: 18px; }
   @media (hover: hover) { .card-fav:hover { transform: scale(1.06); } }
+  .product-card:has(.card-fav:active) { transform: none; } /* r383: only the heart reacts to a heart press */
   /* Phase 4 (r370): Vinted-style browse cards — tall 4:5 photo, rounded, then
      brand / key spec + condition / bold price. Title stays in the DOM for the
      /listing/ link + screen readers but is visually hidden; seller identity,
@@ -2983,6 +2984,12 @@ window.__phDeferLoad = function(load) {
   .trust-item { display: flex; align-items: center; gap: 10px; }
   .trust-icon { font-size: 1.4rem; }
   .trust-text { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+  /* r383 (Jake): in the app the five-item icon grid wrapped awkwardly — render
+     it as one quiet row of small pills, no icons. */
+  body.is-native .trust-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 16px 16px 18px; background: var(--cream); border-top: 1px solid var(--gray-200); border-bottom: 0; }
+  body.is-native .trust-item { gap: 0; border: 1px solid var(--gray-200); background: var(--white); border-radius: 50px; padding: 6px 11px; }
+  body.is-native .trust-icon { display: none; }
+  body.is-native .trust-text { font-size: 12px; font-weight: 600; color: var(--gray-600); white-space: nowrap; }
 
   /* MODALS */
   @keyframes slideUp { from { opacity:0; transform: translateY(24px); } to { opacity:1; transform:none; } }
@@ -5347,7 +5354,10 @@ window.__phDeferLoad = function(load) {
        transforms, so reduced-motion neutralizers are irrelevant here).
        Isolated controls get a blanket ±8px reach; grouped controls
        (range/tab rows) get vertical-only slop so neighbors don't overlap. */
-    body.is-native .fav-btn,
+    /* r383: .fav-btn removed from this list — it is position:absolute on the
+       photo (.card-fav/.detail-fav) and this rule pulled it into the flow in the
+       app (heart beside/below the image, clipped). Its ::after hit-slop below
+       still works because an absolute box anchors its own ::after. */
     body.is-native .bingo-guess-close,
     body.is-native .mobile-nav-drawer-close,
     body.is-native .inbox-close,
@@ -6009,7 +6019,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r382</span></div>
+        <span class="auth-build" aria-hidden="true">r383</span></div>
     </div>
   </div>
 </div>
@@ -9504,8 +9514,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r382"></script>
-<script type="module" src="/js/app-auth.js?v=r382"></script>
+<script defer src="/js/app-main.js?v=r383"></script>
+<script type="module" src="/js/app-auth.js?v=r383"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9535,7 +9545,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r382"></script>
+<script type="module" src="/js/bingo.js?v=r383"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
