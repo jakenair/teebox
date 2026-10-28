@@ -8694,6 +8694,16 @@ window.__actions['sheet-email'] = () => {
   window.closeAuthSheet();
   if (window.showAuthScreen) window.showAuthScreen(window.__pendingAuthReason || '');
   if (window.setEmailMode) window.setEmailMode(window.__authSheetMode === 'login' ? 'signin' : 'signup');
+  // r376 (Jake, 2026-10-27): the email step is a light card over whatever is
+  // behind it (the cartoon welcome wall, or the marketplace) — never the old
+  // dark full-screen gate. #authScreen.email-step hides the duplicate
+  // wordmark/tagline/provider/guest buttons the sheet already offered.
+  const as = document.getElementById('authScreen'); if (as) as.classList.add('email-step');
+};
+window.__actions['auth-back-to-sheet'] = () => {
+  const as = document.getElementById('authScreen');
+  if (as) { as.classList.remove('open', 'email-step'); as.classList.add('hidden'); }
+  window.openAuthSheet(window.__authSheetMode);
 };
 // Welcome buttons + the generic "sign in to continue" prompt open the sheet.
 window.__actions['welcome-signup'] = () => { try { window.posthog && window.posthog.capture('welcome_signup_tap'); } catch (_e) {} window.openAuthSheet('signup'); };
@@ -12633,6 +12643,7 @@ window.showAuthScreen = function showAuthScreen(reason) {
   if (!_authScreen) return;
   _authScreen.classList.remove('hidden');
   _authScreen.classList.remove('fading-out');
+  _authScreen.classList.remove('email-step'); // sheet-email re-adds it after this call
   _authScreen.classList.add('open');
   // Surface the contextual reason inside the auth box so users
   // remember why they're here after the auth gate appears.

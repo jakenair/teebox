@@ -1560,11 +1560,11 @@ window.__phDeferLoad = function(load) {
      photos, Playfair headline, sign-up + log-in buttons, Skip to browse as a
      guest. Sits ABOVE the bottom nav and install banner but BELOW #authScreen
      (500) so the sign-in flow opens over it. Hidden entirely once signed in. */
-  #welcomeScreen { position: fixed; inset: 0; z-index: 480; background: var(--cream); display: none; flex-direction: column; overflow: hidden; }
+  #welcomeScreen { position: fixed; inset: 0; z-index: 480; background: var(--cream); display: none; flex-direction: column; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   #welcomeScreen.open { display: flex; }
   body.welcome-open { overflow: hidden; }
-  .welcome-skip { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px; z-index: 2; background: rgba(255,255,255,0.85); border: 1px solid var(--gray-200); color: var(--green-900); font: 600 13px/1 var(--font-body); padding: 10px 14px; border-radius: 50px; cursor: pointer; white-space: nowrap; max-width: calc(100vw - 32px); }
-  @media (min-width: 700px) { .welcome-skip { font-size: 14px; padding: 10px 16px; } }
+  .welcome-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px; z-index: 2; background: #fff; border: 1.5px solid var(--green-900); color: var(--green-900); font: 700 14px/1 var(--font-body); padding: 12px 18px; border-radius: 50px; cursor: pointer; white-space: nowrap; max-width: calc(100vw - 32px); box-shadow: 0 2px 10px rgba(0,0,0,0.10); }
+  @media (min-width: 700px) { .welcome-skip { font-size: 15px; padding: 13px 20px; top: 18px; right: 20px; } }
   .welcome-marquee { flex: 0 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + 64px); display: flex; flex-direction: column; gap: 6px; }
   .welcome-row { overflow: hidden; width: 100%; }
   .welcome-track { display: flex; gap: 6px; width: max-content; will-change: transform; }
@@ -1603,6 +1603,13 @@ window.__phDeferLoad = function(load) {
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
   #authScreen.hidden { display: none; }
+  /* r376: email step opened from the provider sheet = light card over the page
+     (cartoon welcome wall shows through), not the dark full-screen gate. */
+  #authScreen.email-step { background: rgba(250, 248, 243, 0.66); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #authScreen.email-step .auth-box { box-shadow: 0 18px 50px rgba(0,0,0,0.16); border: 1px solid var(--gray-200); }
+  #authScreen.email-step .auth-logo, #authScreen.email-step .auth-sub, #authScreen.email-step .auth-divider, #authScreen.email-step .auth-google-btn, #authScreen.email-step .auth-apple-btn, #authScreen.email-step .auth-guest-btn, #authScreen.email-step .auth-google-hint { display: none !important; }
+  .auth-back { display: none; }
+  #authScreen.email-step .auth-back { display: block; width: max-content; margin: 0 auto 14px 0; background: none; border: none; color: var(--green-800); font: 600 14px/1 var(--font-body); cursor: pointer; padding: 0; }
   /* AUTH SPLASH — visible by default (in static HTML) so the page never
      paints the anonymous marketplace before Firebase Auth resolves. Torn
      down in BOTH branches of onAuthStateChanged via __dismissAuthSplash().
@@ -5924,6 +5931,7 @@ window.__phDeferLoad = function(load) {
 <!-- AUTH -->
 <div id="authScreen">
   <div class="auth-box">
+    <button type="button" class="auth-back" data-action="auth-back-to-sheet">&larr; Back</button>
     <div class="auth-logo"><span>Tee</span>Box</div>
     <div class="auth-sub">Buy and sell golf gear, golfer to golfer. 8.5% seller fee &middot; Stripe-secured checkout.</div>
     <div id="authEmailMode">
@@ -5995,7 +6003,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r375</span></div>
+        <span class="auth-build" aria-hidden="true">r376</span></div>
     </div>
   </div>
 </div>
@@ -9490,8 +9498,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r375"></script>
-<script type="module" src="/js/app-auth.js?v=r375"></script>
+<script defer src="/js/app-main.js?v=r376"></script>
+<script type="module" src="/js/app-auth.js?v=r376"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9521,7 +9529,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r375"></script>
+<script type="module" src="/js/bingo.js?v=r376"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
