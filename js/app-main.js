@@ -14186,6 +14186,21 @@ function __ovClose(name) {
   if (typeof fn === 'function') { try { fn(); } catch (_e) {} }
   else if (o.el) { const el = document.getElementById(o.el); if (el) el.classList.remove('open'); }
 }
+// r386: the initial document URL is counted by the pixel loader's own PageView
+// (fb-pixel.js). Seed the SPA marker with it so a deep link (?listing=… from an
+// ad) does not fire a second PageView for the same URL when the overlay opens.
+// Tracking params are stripped before comparing: an ad lands on
+// /?listing=ID&fbclid=… and the overlay then pushes /?listing=ID — same page.
+function __tbPvKey(pathname, search) {
+  try {
+    const q = new URLSearchParams(search || '');
+    [...q.keys()].forEach((k) => { if (/^(utm_|fbclid$|gclid$|ttclid$|nocache$|meta_test$|ref$)/.test(k)) q.delete(k); });
+    q.sort();
+    const qs = q.toString();
+    return pathname + (qs ? '?' + qs : '');
+  } catch (_e) { return pathname + (search || ''); }
+}
+try { window.__tbLastPvUrl = __tbPvKey(location.pathname, location.search); } catch (_e) {}
 window.__pushOverlay = function(name, url) {
   try {
     __ovStack.push(name);
@@ -14197,7 +14212,7 @@ window.__pushOverlay = function(name, url) {
     // Guarded two ways: only when the URL genuinely changed, and only once
     // per URL per page load, so back/forward and re-opens do not re-fire.
     try {
-      const here = location.pathname + location.search;
+      const here = __tbPvKey(location.pathname, location.search);
       if (here !== window.__tbLastPvUrl) {
         window.__tbLastPvUrl = here;
         window.__tbSeenPv = window.__tbSeenPv || {};

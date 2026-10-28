@@ -61,6 +61,15 @@ var TEEBOX_META_PIXEL_ID = '4535316483381655';
   try {
     if (typeof window.fbRelayToServer === 'function') window.fbRelayToServer('PageView', pvId, {});
   } catch (_e) { /* measurement never breaks the page */ }
+  // r386: replay events the app fired before this loader booted (fbTrack queues
+  // them in index.html). Same event_id as their server copies.
+  try {
+    var pend = window.__fbqPending || []; window.__fbqPending = [];
+    for (var i = 0; i < pend.length; i++) {
+      var a = pend[i];
+      if (a[3]) window.fbq(a[0], a[1], a[2], a[3]); else window.fbq(a[0], a[1], a[2]);
+    }
+  } catch (_e) { /* never */ }
   };
   // r262b: idle alone fired at ~4.8s on a throttled phone — mid-feed-load —
   // and competed with the product render. On the marketplace page, wait for
