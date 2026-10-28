@@ -8982,13 +8982,21 @@ const WELCOME_PHOTOS_A = ['art-footjoy-shoe', 'art-rainbow-sandals', 'art-woven-
 const WELCOME_PHOTOS_B = ['art-flag-belt', 'art-adidas-shoe-white-navy', 'art-titleist-cap-black', 'art-sun-mountain-stand-bag', 'art-oakley-sunglasses-tortoise', 'art-yeti-soft-cooler', 'art-titleist-divot-tool', 'art-peter-millar-polo', 'art-evans-scholars-cap', 'art-headcover-medallion', 'art-wallet-palmetto'];
 const WELCOME_PHOTOS_C = ['art-taylormade-wedge', 'art-footjoy-premiere', 'art-callaway-cap-white', 'art-plaid-headcover', 'art-turtlebox-camo', 'art-golf-towel', 'art-duck-wallet', 'art-rlx-pants', 'art-footjoy-beanie', 'art-koozie-golf-cart'];
 const WELCOME_PHOTOS_D = ['art-scotty-cameron-putter', 'art-adidas-shoe-retro', 'art-stand-bag-black', 'art-titleist-ball', 'art-hoodie-quilted-hb', 'art-footjoy-glove', 'art-ball-marker', 'art-tees-striped', 'art-putter-mallet', 'art-titleist-gt1-driver'];
+// r385: width of each 320px-tall tile (from the compose step) so the <img> carries
+// width/height attributes — the browser then lays the row out at the right width
+// before the images load, and the fill below measures a true copy width.
+const WELCOME_TILE_W = { 'adidas-shoe-retro': 440, 'adidas-shoe-white-navy': 410, 'ball-marker': 332, 'bushnell-rangefinder': 430, 'callaway-cap-white': 416, 'duck-wallet': 374, 'evans-scholars-cap': 312, 'flag-belt': 392, 'footjoy-beanie': 381, 'footjoy-glove': 269, 'footjoy-premiere': 621, 'footjoy-shoe': 571, 'golf-cart-wallet': 280, 'golf-towel': 305, 'headcover-medallion': 160, 'hoodie-quilted-hb': 275, 'koozie-golf-cart': 272, 'oakley-sunglasses-black': 621, 'oakley-sunglasses-tortoise': 621, 'peter-millar-polo': 331, 'plaid-headcover': 168, 'polo-dotted': 309, 'puma-shoe-navy': 439, 'putter-mallet': 344, 'rainbow-sandals': 374, 'rlx-pants': 323, 'scotty-cameron-putter': 336, 'shoe-bag-ryder-cup': 219, 'stand-bag-black': 311, 'sun-mountain-stand-bag': 309, 'taylormade-wedge': 339, 'tees-striped': 329, 'titleist-ball': 318, 'titleist-cap-black': 414, 'titleist-divot-tool': 190, 'titleist-gt1-driver': 239, 'titleist-stand-bag': 312, 'titleist-umbrella': 372, 'turtlebox-camo': 389, 'wallet-palmetto': 233, 'woven-belt': 468, 'yeti-soft-cooler': 361 };
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
   // All tiles load eagerly: the second copy of each row reuses the same URLs
   // (cached), and lazy tiles inside a translating track would pop in blank
   // mid-loop. Only the first few get fetchpriority=high.
-  return `<div class="welcome-tile"><img src="${b}-320.webp" srcset="${b}-320.webp 320w, ${b}.webp 600w" sizes="(min-width: 700px) 104px, 80px" width="300" height="300" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
+  // r385: tiles are height-normalised (320px tall, width follows the item), so
+  // the row packs with an even 8px gap instead of square boxes with dead air
+  // around narrow items. The 320 file is already 3× a 104px tile.
+  const w = WELCOME_TILE_W[name.replace(/^art-/, '')] || 320;
+  return `<div class="welcome-tile"><img src="${b}-320.webp" width="${w}" height="320" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
 }
 function welcomeShouldShow() {
   try {
@@ -9013,12 +9021,27 @@ window.showWelcome = function showWelcome() {
     // Each track holds the list TWICE so a -50% translate loops seamlessly.
     // One copy must be wider than the viewport or the loop shows a gap, so a
     // short pool is repeated first (tile ≤ 200px + 14px gap).
-    const reps = (names) => { const w = Math.max(window.innerWidth || 0, 390) + 112; const one = names.length * 112; const r = Math.max(1, Math.ceil(w / one)); let out = []; for (let i = 0; i < r; i++) out = out.concat(names); return out; };
-    const fill = (names, eager) => { const one = reps(names); return one.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + one.map((n) => welcomeTileHtml(n, false)).join(''); };
-    a.innerHTML = fill(WELCOME_PHOTOS_A, 4);
-    b.innerHTML = fill(WELCOME_PHOTOS_B, 3);
-    if (c) c.innerHTML = fill(WELCOME_PHOTOS_C, 3);
-    if (d) d.innerHTML = fill(WELCOME_PHOTOS_D, 2);
+    // r385: tiles are variable-width now, so measure instead of guessing: render
+    // one copy, read its width, then repeat it until a copy is at least twice
+    // the viewport (the loop can never expose an empty tail), and finally
+    // double it for the -50% translate. Images have fixed height, so the
+    // width is known synchronously once the <img> has a width attribute or has
+    // loaded; before load we fall back to a 112px pitch.
+    const fill = (track, names, eager) => {
+      if (!track || !names.length) return;
+      const vw = Math.max(window.innerWidth || 0, 390);
+      track.innerHTML = names.map((n, i) => welcomeTileHtml(n, i < eager)).join('');
+      const measured = track.scrollWidth; // accurate pre-load thanks to the width/height attrs
+      const one = measured > names.length * 20 ? measured : names.length * 112;
+      const r = Math.max(1, Math.ceil((vw * 2) / one));
+      let list = []; for (let i = 0; i < r; i++) list = list.concat(names);
+      track.innerHTML = list.map((n, i) => welcomeTileHtml(n, i < eager)).join('') + list.map((n) => welcomeTileHtml(n, false)).join('');
+    };
+    fill(a, WELCOME_PHOTOS_A, 4);
+    fill(b, WELCOME_PHOTOS_B, 3);
+    fill(c, WELCOME_PHOTOS_C, 3);
+    fill(d, WELCOME_PHOTOS_D, 2);
+
     // First-row tiles carry fetchpriority=high (above). No <link rel=preload>:
     // in the Lighthouse A/B the extra preloads delayed the web fonts behind
     // the overlay and cost CLS/TBT for no visible gain.
