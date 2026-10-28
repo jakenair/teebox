@@ -8683,13 +8683,24 @@ window.openAuthSheet = function openAuthSheet(mode, reason) {
   const t = document.getElementById('authSheetTitle'); if (t) t.textContent = window.__authSheetMode === 'login' ? 'Log in to TeeBox' : 'Sign up for TeeBox';
   const err = document.getElementById('authSheetError'); if (err) err.textContent = '';
   const native = tbIsNative();
-  // Apple: native always; web only once the Services ID is configured (flag).
-  const apple = document.getElementById('authSheetApple'); if (apple) apple.hidden = !(native || tbFlag('appleWeb'));
-  // Google: web always; native only once the GoogleSignIn pod ships (flag).
-  const google = document.getElementById('authSheetGoogle'); if (google) google.hidden = native && !tbFlag('nativeGoogle');
-  // Facebook: behind a flag that defaults OFF (needs the Meta app + Firebase provider).
-  const fb = document.getElementById('authSheetFacebook'); if (fb) fb.hidden = !(tbFlag('facebookLogin') && (!native || tbFlag('nativeFacebook')));
-  const div = document.getElementById('authSheetDivider'); if (div) div.hidden = !!(apple && apple.hidden);
+  // r384: two bugs hid native Google in build 121 — the flags doc was only
+  // ever loaded lazily from the sell modal, and signed-out users can't read
+  // config/features under the current rules anyway. So: (1) the Google pod
+  // ships in every iOS build that carries this sheet (2.6.0+), so native Google
+  // is ON unless the flag is an explicit kill-switch `false`; (2) kick the flag
+  // load now and re-apply once it lands, for the web-side Apple/Facebook flags.
+  const apply = () => {
+    const flags = window.FEATURE_FLAGS || {};
+    // Apple: native always; web only once the Services ID is configured (flag).
+    const apple = document.getElementById('authSheetApple'); if (apple) apple.hidden = !(native || flags.appleWeb === true);
+    // Google: web always; native unless explicitly killed.
+    const google = document.getElementById('authSheetGoogle'); if (google) google.hidden = native && flags.nativeGoogle === false;
+    // Facebook: behind a flag that defaults OFF (needs the Meta app + Firebase provider + the FB SDK pod in-app).
+    const fb = document.getElementById('authSheetFacebook'); if (fb) fb.hidden = !(flags.facebookLogin === true && (!native || flags.nativeFacebook === true));
+    const div = document.getElementById('authSheetDivider'); if (div) div.hidden = !!(apple && apple.hidden);
+  };
+  apply();
+  try { if (typeof window.loadFeatureFlags === 'function') window.loadFeatureFlags().then(() => { if (bd.classList.contains('open')) apply(); }); } catch (_e) {}
   bd.classList.add('open');
   try { window.posthog && window.posthog.capture('auth_sheet_open', { mode: window.__authSheetMode, native }); } catch (_e) {}
 };
