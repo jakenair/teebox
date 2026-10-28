@@ -322,6 +322,25 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
 //     and corrupt every ROAS number downstream.
 //   - event names are allowlisted, value is bounded, currency is pinned.
 // ─────────────────────────────────────────────────────────────────────────
+/**
+ * Claim the once-per-uid CompleteRegistration marker. True on the first call
+ * for a uid, false on every later one. One transaction on
+ * capiRelayOnce/{uid}; the doc stores when and with which event_id it fired.
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string} uid
+ * @param {string} eventId
+ * @return {Promise<boolean>}
+ */
+async function claimOnce(db, uid, eventId) {
+  const ref = db.collection("capiRelayOnce").doc(String(uid));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) return false;
+    tx.set(ref, {at: admin.firestore.FieldValue.serverTimestamp(), eventId: String(eventId).slice(0, 200)});
+    return true;
+  });
+}
+
 const CAPI_RELAY_EVENTS = new Set([
   "AddToCart",
   "InitiateCheckout",
@@ -362,6 +381,17 @@ exports.capiRelay = onCall(
       const eventId = String(d.eventId || "").slice(0, 200);
       if (!eventId) {
         throw new HttpsError("invalid-argument", "eventId required for dedup.");
+      }
+      // r387: CompleteRegistration is relayed ONCE per account, server-side.
+      // Old App Store bundles (pre-r346) re-fire it on every launch for as long
+      // as a persisted session never re-authenticates, and no client fix can
+      // reach them; this marker stops every repeat at the door.
+      if (eventName === "CompleteRegistration" && auth) {
+        const first = await claimOnce(admin.firestore(), auth.uid, eventId);
+        if (!first) {
+          logger.info("capiRelay: CompleteRegistration already relayed for this uid, skipped");
+          return {ok: false, skipped: "already-registered"};
+        }
       }
 
       // Identity comes from the verified token, never the body.
@@ -433,4 +463,4 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS};
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce};

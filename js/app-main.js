@@ -8672,6 +8672,17 @@ window.__actions['activity-seg'] = function(el) {
 
 
 
+// r387: remember which uid the last popup CREATED (Firebase's own isNewUser), so
+// the signup detector in app-auth.js fires CompleteRegistration exactly once
+// per new web account instead of guessing from metadata timestamps.
+window.__tbNoteNewUser = function (result) {
+  try {
+    const info = result && window.getAdditionalUserInfo ? window.getAdditionalUserInfo(result) : null;
+    if (info && info.isNewUser && result.user) window.__tbNewUserUid = result.user.uid;
+  } catch (_e) {}
+  return result;
+};
+
 // ═══ Phase 2 — provider sheet, account linking, connected methods ═════════
 // (2026-10-26) One person = one TeeBox account. Server rules live in
 // functions/lib/accountLinking.js; this is the client half.
@@ -8750,7 +8761,7 @@ window.signInWithFacebook = async function signInWithFacebook(btn) {
       return;
     }
     const provider = new window.FacebookAuthProvider(); provider.addScope('email'); provider.addScope('public_profile');
-    await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver);
+    window.__tbNoteNewUser(await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver));
   } catch (e) {
     const code = (e && e.code) || '';
     if (/cancel|popup-closed/i.test(code + ' ' + (e && e.message))) return;
@@ -12900,7 +12911,7 @@ A['sign-in-google']          = async (btn) => {
     // only after onAuthStateChanged has propagated, so the auth screen
     // close happens before this await returns — no need to restore.
     const provider = new window.GoogleAuthProvider();
-    await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver);
+    window.__tbNoteNewUser(await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver));
   } catch (e) {
     const code = (e && e.code) || '';
     let msg = 'Could not sign in with Google. Try again or use email.';
@@ -13009,7 +13020,7 @@ A['sign-in-apple']           = async (btn) => {
     const provider = new window.OAuthProvider('apple.com');
     provider.addScope('email');
     provider.addScope('name');
-    await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver);
+    window.__tbNoteNewUser(await window.signInWithPopup(window.firebaseAuth, provider, window.__popupResolver));
   } catch (e) {
     const code = (e && e.code) || '';
     let msg = 'Could not sign in with Apple. Try again or use email.';

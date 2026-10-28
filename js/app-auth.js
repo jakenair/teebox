@@ -7,7 +7,7 @@
   // NOT imported here — we replaced both with branded Cloud Functions
   // (`sendBrandedPasswordReset` / `sendBrandedVerification`) that ship via
   // Resend from `noreply@mail.teeboxmarket.com` (DKIM/SPF-signed, on-brand HTML).
-  import { getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, updateProfile as fbUpdateProfile, linkWithCredential, linkWithPopup, unlink, fetchSignInMethodsForEmail, EmailAuthProvider, FacebookAuthProvider, reload as fbReload } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getAdditionalUserInfo, getAuth, initializeAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential, signInWithCustomToken, setPersistence, browserLocalPersistence, inMemoryPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, updateProfile as fbUpdateProfile, linkWithCredential, linkWithPopup, unlink, fetchSignInMethodsForEmail, EmailAuthProvider, FacebookAuthProvider, reload as fbReload } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, deleteDoc, orderBy, query, limit, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
@@ -374,9 +374,19 @@
             const youngAccount = !Number.isFinite(createdMs) ||
               (Date.now() - createdMs) < 15 * 60 * 1000;
             const signupKey = 'signup_' + user.uid;
-            const isFirstSession = m.creationTime && m.lastSignInTime &&
-              m.creationTime === m.lastSignInTime && youngAccount &&
-              !(window.fbAlreadyFired && window.fbAlreadyFired(signupKey));
+            // r387: on the WEB the popup result tells us for certain whether the
+            // account was just created (getAdditionalUserInfo(...).isNewUser,
+            // recorded by __tbNoteNewUser in app-main.js). The metadata
+            // heuristic stays for the native custom-token flow only, where no
+            // popup result exists; the server gate (capiRelayOnce) catches any
+            // repeat from there.
+            const nativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+            const isFirstSession = nativeShell
+              ? (m.creationTime && m.lastSignInTime &&
+                 m.creationTime === m.lastSignInTime && youngAccount &&
+                 !(window.fbAlreadyFired && window.fbAlreadyFired(signupKey)))
+              : (window.__tbNewUserUid === user.uid &&
+                 !(window.fbAlreadyFired && window.fbAlreadyFired(signupKey)));
             if (isFirstSession && !window.__teeboxSignupEmitted) {
               window.__teeboxSignupEmitted = true;
               // Method derivation from providerData[0].providerId. Apple
@@ -932,6 +942,7 @@
     window.signInWithCredential = signInWithCredential;
     window.signInWithCustomToken = signInWithCustomToken;
     window.signInWithPopup = signInWithPopup;
+    window.getAdditionalUserInfo = getAdditionalUserInfo; // r387: isNewUser for the signup detector
     // Phase 2 (account linking): the classic-script link flow + the
     // "Connected sign-in methods" panel need these.
     window.linkWithCredential = linkWithCredential;

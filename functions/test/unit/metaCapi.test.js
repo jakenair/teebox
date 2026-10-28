@@ -49,3 +49,19 @@ test("relay allowlist: ListingStarted is relayed (auth-only), Purchase never, an
   for (const e of M.CAPI_ANON_EVENTS) assert.ok(M.CAPI_RELAY_EVENTS.has(e), e + " must also be in the relay set");
   assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "InitiateCheckout", "ListingCreated", "ListingStarted", "PageView", "ViewContent"]);
 });
+
+test("claimOnce: first call per uid claims, every later call is refused (r387 CompleteRegistration gate)", async () => {
+  const store = new Map();
+  const fakeDb = {
+    collection: (c) => ({doc: (id) => ({path: c + "/" + id})}),
+    runTransaction: async (fn) => fn({
+      get: async (ref) => ({exists: store.has(ref.path)}),
+      set: (ref, data) => { store.set(ref.path, data); },
+    }),
+  };
+  assert.equal(await M.claimOnce(fakeDb, "u1", "cr_u1"), true);
+  assert.equal(await M.claimOnce(fakeDb, "u1", "cr_u1"), false);
+  assert.equal(await M.claimOnce(fakeDb, "u1", "cr_u1_again"), false);
+  assert.equal(await M.claimOnce(fakeDb, "u2", "cr_u2"), true);
+  assert.equal(store.get("capiRelayOnce/u1").eventId, "cr_u1");
+});
