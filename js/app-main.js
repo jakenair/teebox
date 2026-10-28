@@ -9017,7 +9017,9 @@ function welcomeTileHtml(name, eager) {
   // the row packs with an even 8px gap instead of square boxes with dead air
   // around narrow items. The 320 file is already 3× a 104px tile.
   const w = WELCOME_TILE_W[name.replace(/^art-/, '')] || 320;
-  return `<div class="welcome-tile"><img src="${b}-320.webp" width="${w}" height="320" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
+  // r389: --w drives the tile's CSS width (see .welcome-tile); the attributes
+  // stay for the aspect ratio and the pre-load measure.
+  return `<div class="welcome-tile" style="--w:${w}"><img src="${b}-320.webp" width="${w}" height="320" alt="" decoding="async"${eager ? ' fetchpriority="high"' : ''}></div>`;
 }
 function welcomeShouldShow() {
   try {

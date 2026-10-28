@@ -1578,9 +1578,18 @@ window.__phDeferLoad = function(load) {
   .welcome-row-b .welcome-track { animation: welcomeSlideRight 54s linear infinite; }
   .welcome-row-c .welcome-track { animation: welcomeSlideLeft 60s linear infinite; }
   .welcome-row-d .welcome-track { animation: welcomeSlideRight 66s linear infinite; }
-  .welcome-tile { height: 80px; width: auto; flex: 0 0 auto; background: transparent; }
-  .welcome-tile img { height: 100%; width: auto; display: block; }
-  .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  /* r389: the tile width is computed from --w (the image's natural width at 320px
+     tall, set inline by welcomeTileHtml) instead of letting the flex item size
+     itself from the <img>. iOS WebKit sized the auto-width tile from the image's
+     NATURAL width (571px for the shoe) and then object-fit shrank the picture
+     into the middle of that box, so the app showed one tile every ~400pt with
+     blank space between (Jake's 2.6.0 screenshots). Explicit width = same layout
+     in every engine, and the pre-load row measure in fill() is exact. */
+  .welcome-tile { --h: 80px; height: var(--h); width: calc(var(--h) * var(--w, 320) / 320); flex: 0 0 auto; background: transparent; }
+  .welcome-tile img { width: 100%; height: 100%; object-fit: contain; display: block; -webkit-user-drag: none; }
+  /* r389: decorative art — no long-press Copy/Look Up callout, no text selection. */
+  #welcomeScreen { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .welcome-marquee { pointer-events: none; }
   @keyframes welcomeSlideLeft  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes welcomeSlideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
   @media (prefers-reduced-motion: reduce) { .welcome-track { animation: none !important; } }
@@ -1600,7 +1609,7 @@ window.__phDeferLoad = function(load) {
   @media (min-width: 700px) {
     .welcome-marquee { padding-top: 56px; gap: 8px; }
     .welcome-track { gap: 8px; }
-    .welcome-tile { height: 104px; }
+    .welcome-tile { --h: 104px; }
     .welcome-body { justify-content: center; padding-top: 40px; }
     .welcome-headline { font-size: 44px; }
   }
@@ -1608,7 +1617,7 @@ window.__phDeferLoad = function(load) {
   /* r385: short-AND-narrow screens only (SE-class phones). This used to match any
      window under 700px tall, so a 1000×625 desktop window got 68px tiles and the
      marquee copy came out narrower than the viewport — the gap Jake saw. */
-  @media (max-height: 700px) and (max-width: 699px) { .welcome-tile { height: 68px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
+  @media (max-height: 700px) and (max-width: 699px) { .welcome-tile { --h: 68px; } .welcome-headline { font-size: 29px; margin-bottom: 16px; } .welcome-marquee { padding-top: calc(env(safe-area-inset-top, 0px) + 56px); } }
   #authScreen { position: fixed; inset: 0; z-index: 500; background: var(--green-900); display: none; align-items: flex-start; align-items: safe center; justify-content: center; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; opacity: 1; transition: opacity 0.25s ease; }
   #authScreen.open { display: flex; }
   #authScreen.fading-out { opacity: 0; pointer-events: none; }
@@ -9557,8 +9566,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r388"></script>
-<script type="module" src="/js/app-auth.js?v=r388"></script>
+<script defer src="/js/app-main.js?v=r389"></script>
+<script type="module" src="/js/app-auth.js?v=r389"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9588,7 +9597,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r388"></script>
+<script type="module" src="/js/bingo.js?v=r389"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
