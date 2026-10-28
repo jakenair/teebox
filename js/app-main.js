@@ -5427,7 +5427,11 @@ function openSellModal() {
   // a Meta standard event. No PII: a category at most, never who.
   try {
     if (!window.__editingListingId) {
-      window.fbTrack && window.fbTrack('ListingStarted', {}, { custom: true });
+      // r386: a per-open eventID so the pixel hit and the CAPI copy (fbTrack
+      // relays it) share one event_id and Meta deduplicates them. Custom event,
+      // no PII, no params.
+      window.fbTrack && window.fbTrack('ListingStarted', {}, { custom: true,
+        eventID: 'ls_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) });
     }
   } catch (_e) {}
   // r260 HOTFIX: #uploadCount was removed in r259 (the count moved into

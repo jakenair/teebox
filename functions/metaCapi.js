@@ -327,6 +327,7 @@ const CAPI_RELAY_EVENTS = new Set([
   "InitiateCheckout",
   "CompleteRegistration",
   "ListingCreated",
+  "ListingStarted", // r386: top of the seller funnel; custom event, auth-only
   "ViewContent",
   "PageView",
 ]);
@@ -432,4 +433,4 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION};
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS};

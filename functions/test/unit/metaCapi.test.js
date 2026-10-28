@@ -40,3 +40,12 @@ test("ph is OFF by default and only sent when config/meta.sendHashedPhone === tr
   assert.ok(!("ph" in M.buildUserData(order, {phone: "+13125551234"}, {sendHashedPhone: "true"})));
   assert.equal(M.buildUserData(order, {phone: "+13125551234"}, {sendHashedPhone: true}).ph, sha("13125551234"));
 });
+
+test("relay allowlist: ListingStarted is relayed (auth-only), Purchase never, anon set is only the two browse events (r386)", () => {
+  assert.ok(M.CAPI_RELAY_EVENTS.has("ListingStarted"));
+  assert.ok(!M.CAPI_ANON_EVENTS.has("ListingStarted"));
+  assert.ok(!M.CAPI_RELAY_EVENTS.has("Purchase"));
+  assert.deepEqual([...M.CAPI_ANON_EVENTS].sort(), ["PageView", "ViewContent"]);
+  for (const e of M.CAPI_ANON_EVENTS) assert.ok(M.CAPI_RELAY_EVENTS.has(e), e + " must also be in the relay set");
+  assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "InitiateCheckout", "ListingCreated", "ListingStarted", "PageView", "ViewContent"]);
+});

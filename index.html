@@ -9107,6 +9107,7 @@ window.metaMatchIds = function metaMatchIds() {
 // onto window.
 const FB_RELAY_EVENTS = new Set([
   'AddToCart', 'InitiateCheckout', 'CompleteRegistration', 'ListingCreated',
+  'ListingStarted', // r386: server copy of the seller-funnel top (auth-only; not in FB_RELAY_ANON)
   'ViewContent', 'PageView',
 ]);
 // Browsing events relay for guests too (capiRelay allows these two without
