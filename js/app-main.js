@@ -8979,8 +8979,9 @@ function welcomeShouldShow() {
     if (location.hash && location.hash.length > 1) return false;
     const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     if (native) return !window.__welcomeDismissedInSession;
-    const until = Number(localStorage.getItem(WELCOME_SNOOZE_KEY) || 0);
-    return !(until && until > Date.now());
+    // r377: Skip hides it for this browser session only (was a 7-day snooze) —
+    // a logged-out visitor sees the welcome again on their next visit.
+    return !sessionStorage.getItem(WELCOME_SNOOZE_KEY);
   } catch (_e) { return false; }
 }
 window.showWelcome = function showWelcome() {
@@ -9008,7 +9009,7 @@ window.hideWelcome = function hideWelcome(reason) {
   const el = document.getElementById('welcomeScreen'); if (!el) return;
   el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); document.body.classList.remove('welcome-open');
   window.__welcomeDismissedInSession = true;
-  if (reason === 'skip') { try { localStorage.setItem(WELCOME_SNOOZE_KEY, String(Date.now() + 7 * 864e5)); } catch (_e) {} }
+  if (reason === 'skip') { try { sessionStorage.setItem(WELCOME_SNOOZE_KEY, '1'); localStorage.removeItem(WELCOME_SNOOZE_KEY); } catch (_e) {} }
 };
 function initWelcomeScreen() {
   if (!welcomeShouldShow()) return;
@@ -12710,7 +12711,9 @@ window.dismissAuthScreen = function dismissAuthScreen() {
   });
 };
 
-A['show-auth']                = () => window.showAuthScreen('');
+// r377 (Jake): the cartoon welcome screen IS the login — header/drawer Sign In
+// opens it (its buttons lead to the provider sheet), never the old dark gate.
+A['show-auth']                = () => { if (window.showWelcome && !window.CURRENT_USER) { window.showWelcome(); return; } window.showAuthScreen(''); };
 A['dismiss-sign-in-prompt']   = () => window.dismissSignInPrompt();
 A['show-auth-from-prompt']    = () => {
   const reason = window.__pendingAuthReason || '';

@@ -36,18 +36,24 @@
 <meta property="og:title" content="TeeBox: The Premier Golf Marketplace" />
 <meta property="og:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, 7-day dispute window, 8.5% seller fee." />
 <meta property="og:url" content="https://teeboxmarket.com/" />
-<meta property="og:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
-<meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-default.png" />
+<meta property="og:image" content="https://teeboxmarket.com/assets/og/og-preview.png" />
+<meta property="og:image:secure_url" content="https://teeboxmarket.com/assets/og/og-preview.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="TeeBox: The Premier Golf Marketplace" />
+<!-- r377: looping 12 s preview video (cartoon gear wall + wordmark); iMessage/LinkPresentation and Slack play og:video mp4 inline, everything else falls back to og:image -->
+<meta property="og:video" content="https://teeboxmarket.com/assets/og/teebox-preview.mp4" />
+<meta property="og:video:secure_url" content="https://teeboxmarket.com/assets/og/teebox-preview.mp4" />
+<meta property="og:video:type" content="video/mp4" />
+<meta property="og:video:width" content="1200" />
+<meta property="og:video:height" content="630" />
 <meta property="og:locale" content="en_US" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@teeboxmarket" />
 <meta name="twitter:title" content="TeeBox: The Premier Golf Marketplace" />
 <meta name="twitter:description" content="The golf marketplace built for golfers. Buy and sell clubs, apparel, and gear member-to-member. Stripe-secured checkout, 7-day dispute window, 8.5% seller fee." />
-<meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-default.png" />
+<meta name="twitter:image" content="https://teeboxmarket.com/assets/og/og-preview.png" />
 <meta name="twitter:image:alt" content="TeeBox: The Premier Golf Marketplace" />
 <!--
   Apple Smart App Banner — shows a native "Open in App Store" banner on iOS Safari.
@@ -6003,7 +6009,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r376</span></div>
+        <span class="auth-build" aria-hidden="true">r377</span></div>
     </div>
   </div>
 </div>
@@ -9498,8 +9504,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r376"></script>
-<script type="module" src="/js/app-auth.js?v=r376"></script>
+<script defer src="/js/app-main.js?v=r377"></script>
+<script type="module" src="/js/app-auth.js?v=r377"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9529,7 +9535,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r376"></script>
+<script type="module" src="/js/bingo.js?v=r377"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
