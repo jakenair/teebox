@@ -1376,7 +1376,9 @@ async function openDetailModal(id) {
   try { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {}
   injectListingJsonLd(p);
   // Meta Pixel: product view (guarded — fbq is web-only; no PII).
-  window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' });
+  // eventID so the CAPI copy (guests included) dedupes against the pixel hit.
+  window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' },
+    { eventID: 'vc_' + String(p.id) + '_' + Date.now().toString(36) });
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -5425,7 +5427,11 @@ function openSellModal() {
   // a Meta standard event. No PII: a category at most, never who.
   try {
     if (!window.__editingListingId) {
-      window.fbTrack && window.fbTrack('ListingStarted', {}, { custom: true });
+      // r386: a per-open eventID so the pixel hit and the CAPI copy (fbTrack
+      // relays it) share one event_id and Meta deduplicates them. Custom event,
+      // no PII, no params.
+      window.fbTrack && window.fbTrack('ListingStarted', {}, { custom: true,
+        eventID: 'ls_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) });
     }
   } catch (_e) {}
   // r260 HOTFIX: #uploadCount was removed in r259 (the count moved into
@@ -14180,6 +14186,21 @@ function __ovClose(name) {
   if (typeof fn === 'function') { try { fn(); } catch (_e) {} }
   else if (o.el) { const el = document.getElementById(o.el); if (el) el.classList.remove('open'); }
 }
+// r386: the initial document URL is counted by the pixel loader's own PageView
+// (fb-pixel.js). Seed the SPA marker with it so a deep link (?listing=… from an
+// ad) does not fire a second PageView for the same URL when the overlay opens.
+// Tracking params are stripped before comparing: an ad lands on
+// /?listing=ID&fbclid=… and the overlay then pushes /?listing=ID — same page.
+function __tbPvKey(pathname, search) {
+  try {
+    const q = new URLSearchParams(search || '');
+    [...q.keys()].forEach((k) => { if (/^(utm_|fbclid$|gclid$|ttclid$|nocache$|meta_test$|ref$)/.test(k)) q.delete(k); });
+    q.sort();
+    const qs = q.toString();
+    return pathname + (qs ? '?' + qs : '');
+  } catch (_e) { return pathname + (search || ''); }
+}
+try { window.__tbLastPvUrl = __tbPvKey(location.pathname, location.search); } catch (_e) {}
 window.__pushOverlay = function(name, url) {
   try {
     __ovStack.push(name);
@@ -14191,13 +14212,14 @@ window.__pushOverlay = function(name, url) {
     // Guarded two ways: only when the URL genuinely changed, and only once
     // per URL per page load, so back/forward and re-opens do not re-fire.
     try {
-      const here = location.pathname + location.search;
+      const here = __tbPvKey(location.pathname, location.search);
       if (here !== window.__tbLastPvUrl) {
         window.__tbLastPvUrl = here;
         window.__tbSeenPv = window.__tbSeenPv || {};
         if (!window.__tbSeenPv[here]) {
           window.__tbSeenPv[here] = true;
-          window.fbTrack && window.fbTrack('PageView');
+          window.fbTrack && window.fbTrack('PageView', {},
+            { eventID: 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) });
         }
       }
     } catch (_e2) { /* analytics must never break navigation */ }

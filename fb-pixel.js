@@ -14,6 +14,15 @@
 // from index.html app code via fbTrack(), which guards on window.fbq
 // (undefined natively, so every call no-ops there too). No PII is ever
 // sent in event params.
+//
+// ── CONFIG ──────────────────────────────────────────────────────────────
+// The Meta Pixel ID. Public by nature (every visitor's browser receives
+// it) and ALREADY LIVE on teeboxmarket.com, so this is the real id, not a
+// placeholder — a placeholder here would blank the live pixel. To point
+// the site at a different pixel change it HERE, in the three <noscript>
+// fallbacks (index.html, bingo.html, scripts/generate-listing-pages.mjs),
+// and set META_PIXEL_ID on the CAPI functions (functions/metaCapi.js).
+var TEEBOX_META_PIXEL_ID = '4535316483381655';
 (function () {
   try {
     // Opt-outs FIRST (CCPA/CPRA "Do Not Sell or Share", privacy.html
@@ -43,8 +52,24 @@
   document,'script','https://connect.facebook.net/en_US/fbevents.js');
   /* eslint-enable */
 
-  window.fbq('init', '4535316483381655');
-  window.fbq('track', 'PageView');
+  window.fbq('init', TEEBOX_META_PIXEL_ID);
+  // PageView carries an event_id so the Conversions API copy (sent by
+  // fbRelayToServer in index.html, when present) dedupes against it. Static
+  // pages (brand/, reads/, listing/) have no relay — pixel only, which is fine.
+  var pvId = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  window.fbq('track', 'PageView', {}, { eventID: pvId });
+  try {
+    if (typeof window.fbRelayToServer === 'function') window.fbRelayToServer('PageView', pvId, {});
+  } catch (_e) { /* measurement never breaks the page */ }
+  // r386: replay events the app fired before this loader booted (fbTrack queues
+  // them in index.html). Same event_id as their server copies.
+  try {
+    var pend = window.__fbqPending || []; window.__fbqPending = [];
+    for (var i = 0; i < pend.length; i++) {
+      var a = pend[i];
+      if (a[3]) window.fbq(a[0], a[1], a[2], a[3]); else window.fbq(a[0], a[1], a[2]);
+    }
+  } catch (_e) { /* never */ }
   };
   // r262b: idle alone fired at ~4.8s on a throttled phone — mid-feed-load —
   // and competed with the product render. On the marketplace page, wait for

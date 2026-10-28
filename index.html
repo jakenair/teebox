@@ -6023,7 +6023,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r385</span></div>
+        <span class="auth-build" aria-hidden="true">r386</span></div>
     </div>
   </div>
 </div>
@@ -9107,11 +9107,22 @@ window.metaMatchIds = function metaMatchIds() {
 // onto window.
 const FB_RELAY_EVENTS = new Set([
   'AddToCart', 'InitiateCheckout', 'CompleteRegistration', 'ListingCreated',
+  'ListingStarted', // r386: server copy of the seller-funnel top (auth-only; not in FB_RELAY_ANON)
+  'ViewContent', 'PageView',
 ]);
+// Browsing events relay for guests too (capiRelay allows these two without
+// auth) — an ad click lands a signed-out visitor on a listing, and that
+// ViewContent is the one retargeting runs on.
+const FB_RELAY_ANON = new Set(['ViewContent', 'PageView']);
 async function fbRelayToServer(name, eventId, params) {
   try {
+    // r386: web only. In the iOS shell there is no pixel, so a relayed event has
+    // no browser twin and lands in Meta as a server-only "website" event — the
+    // exact shape Events Manager flags as not deduplicated. App measurement is
+    // the Meta SDK (App Events) in the next build, not this relay.
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
     if (!FB_RELAY_EVENTS.has(name)) return;
-    if (!window.CURRENT_USER) return;           // capiRelay requires auth
+    if (!window.CURRENT_USER && !FB_RELAY_ANON.has(name)) return; // capiRelay requires auth for the rest
     const ids = (window.metaMatchIds && window.metaMatchIds()) || {};
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
@@ -9122,9 +9133,23 @@ async function fbRelayToServer(name, eventId, params) {
       fbp: ids.fbp || '',
       fbc: ids.fbc || '',
       sourceUrl: (window.location && window.location.href) || '',
+      testEventCode: (window.metaTestEventCode && window.metaTestEventCode()) || '',
     });
   } catch (_e) { /* never break the caller */ }
 }
+window.fbRelayToServer = fbRelayToServer;
+// Events Manager → Test Events: open the site as
+//   https://teeboxmarket.com/?meta_test=TEST12345
+// and every server-side event for the rest of the tab session carries that
+// test_event_code, so it shows up in the Test Events tab instead of
+// production reporting. sessionStorage, so closing the tab ends it.
+window.metaTestEventCode = function () {
+  try {
+    const q = new URLSearchParams(location.search).get('meta_test');
+    if (q && /^[A-Za-z0-9_-]{4,40}$/.test(q)) sessionStorage.setItem('tb_meta_test', q);
+    return sessionStorage.getItem('tb_meta_test') || '';
+  } catch (_e) { return ''; }
+};
 
 window.fbTrack = function (name, params, opts) {
   try {
@@ -9136,9 +9161,23 @@ window.fbTrack = function (name, params, opts) {
     // two legs cannot drift, because every caller that fires the pixel fires
     // the server automatically with the identical event_id.
     if (o.eventID) fbRelayToServer(name, o.eventID, params);
-    if (!window.fbq) { if (o.once) fbMarkFired(o.once); return false; }
     const custom = o.custom === true;
     const send = custom ? 'trackCustom' : 'track';
+    if (!window.fbq) {
+      // r386: the pixel loader (/fb-pixel.js) boots at idle, after the grid
+      // paints — up to ~7s in. Events fired before that (a ?listing= deep link
+      // from an ad opens the detail at boot → ViewContent; an early overlay →
+      // PageView) used to be DROPPED here while the server leg above had
+      // already gone out, so Meta saw server-only ViewContent/PageView with no
+      // browser twin ("not deduplicated"). Queue them; the loader flushes the
+      // queue right after init, same event_id, so the pair dedupes.
+      try {
+        const q = (window.__fbqPending = window.__fbqPending || []);
+        if (q.length < 50) q.push([send, name, params || {}, o.eventID ? { eventID: o.eventID } : null]);
+      } catch (_e) {}
+      if (o.once) fbMarkFired(o.once);
+      return false;
+    }
     if (o.eventID) window.fbq(send, name, params || {}, { eventID: o.eventID });
     else window.fbq(send, name, params || {});
     if (o.once) fbMarkFired(o.once);
@@ -9518,8 +9557,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r385"></script>
-<script type="module" src="/js/app-auth.js?v=r385"></script>
+<script defer src="/js/app-main.js?v=r386"></script>
+<script type="module" src="/js/app-auth.js?v=r386"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9549,7 +9588,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r385"></script>
+<script type="module" src="/js/bingo.js?v=r386"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

@@ -31,13 +31,16 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const crypto = require("crypto");
 const https = require("https");
+const admin = require("firebase-admin");
 
 // Created by the founder in Secret Manager. Until it exists this module is
 // inert by design, so it is safe to deploy before the token is minted.
 const META_CAPI_TOKEN = defineSecret("META_CAPI_TOKEN");
 
-// The pixel already live on teeboxmarket.com (index.html head + fb-pixel.js).
-const PIXEL_ID = "4535316483381655";
+// The pixel already live on teeboxmarket.com (fb-pixel.js TEEBOX_META_PIXEL_ID
+// + the <noscript> fallbacks). Override per deployment with the META_PIXEL_ID
+// env var; the default keeps the live pixel working when none is set.
+const PIXEL_ID = process.env.META_PIXEL_ID || "4535316483381655";
 const GRAPH_VERSION = "v21.0";
 
 const LIGHT = {
@@ -98,6 +101,32 @@ function hashEmail(raw) {
 }
 
 /**
+ * Normalise a phone the way Meta requires before hashing: digits only,
+ * country code included, no "+", no leading zeros. Firebase Auth stores
+ * E.164 ("+13125551234"), so stripping non-digits is the whole job.
+ * @param {string} raw Phone number.
+ * @return {string} SHA-256 hex digest, or "" when nothing usable.
+ */
+/**
+ * external_id — our Firebase uid, SHA-256 hashed the way Meta normalises
+ * other identifiers. Opaque either way, but hashing keeps the raw uid out of
+ * Meta's systems (Jake, 2026-10-26: "hashed external_id (Firebase uid)").
+ * @param {string} uid Firebase uid.
+ * @return {string} SHA-256 hex digest, or "" when empty.
+ */
+function hashExternalId(uid) {
+  const v = String(uid || "").trim();
+  if (!v) return "";
+  return crypto.createHash("sha256").update(v, "utf8").digest("hex");
+}
+
+function hashPhone(raw) {
+  const digits = String(raw || "").replace(/\D+/g, "").replace(/^0+/, "");
+  if (digits.length < 7) return "";
+  return crypto.createHash("sha256").update(digits, "utf8").digest("hex");
+}
+
+/**
  * Identifiers Meta can match on. _fbp and _fbc are cookies Meta's own pixel
  * set in the buyer's browser; the client forwards them through the
  * PaymentIntent so they survive to the webhook. IP and user agent are
@@ -108,8 +137,18 @@ function hashEmail(raw) {
  * matching by the founder ruling of 2026-09-28 and disclosed in
  * privacy.html. It is one-way; Meta cannot recover the address from it.
  *
+ * `ph` (SHA-256 of the buyer's VERIFIED Firebase Auth phone, E.164) is
+ * wired but OFF by default: the 2026-09-28 ruling approved hashed email
+ * only, and privacy.html does not yet disclose phone hashing. The code
+ * path stays so turning it on is a flag flip, not a code change:
+ *   Firestore config/meta { sendHashedPhone: true }
+ * TODO(founder): before flipping, add the clause to privacy.html §CAPI —
+ * "…a one-way hash of your email address and, where you verified one,
+ * your phone number" — then set the flag. Until then `extra.phone` is
+ * ignored even when present.
+ *
  * STILL BANNED, and this is the only place that could leak them: plaintext
- * email, name, phone. Do not add ph, fn, ln or an unhashed em here. If a
+ * email, name, phone. Do not add fn, ln or an unhashed em/ph here. If a
  * future ruling permits more, add it in THIS function and nowhere else, so
  * there is exactly one place to audit what leaves for Meta.
  *
@@ -117,23 +156,57 @@ function hashEmail(raw) {
  * to anyone without our database, and the thing that lets Meta join a
  * browser event to a server event for the same person.
  * @param {object} order The order document.
+ * @param {{phone?: string, email?: string}} [extra] Verified Auth values.
+ * @param {{sendHashedPhone?: boolean}} [cfg] config/meta flags (default off).
  * @return {object} CAPI user_data.
  */
-function buildUserData(order) {
+function buildUserData(order, extra, cfg) {
   const ud = {};
+  const x = extra || {};
+  const c = cfg || {};
   if (order.fbp) ud.fbp = String(order.fbp);
   if (order.fbc) ud.fbc = String(order.fbc);
   if (order.checkoutIp) ud.client_ip_address = String(order.checkoutIp);
   if (order.checkoutUa) ud.client_user_agent = String(order.checkoutUa);
-  if (order.buyerId) ud.external_id = String(order.buyerId);
+  if (order.buyerId) ud.external_id = hashExternalId(order.buyerId);
   // The buyer's address lives on the order as `receiptEmail` — the value
   // Stripe was given at checkout. There is NO buyerEmail/email field; reading
   // one would hash undefined and silently never match, which is exactly how
   // this class of bug hides (the event is accepted by Meta either way).
   // Verified against a live order doc on 2026-10-02.
-  const em = hashEmail(order.receiptEmail || order.buyerEmail || order.email);
+  const em = hashEmail(order.receiptEmail || order.buyerEmail || order.email || x.email);
   if (em) ud.em = em;
+  if (c.sendHashedPhone === true) {
+    const ph = hashPhone(x.phone);
+    if (ph) ud.ph = ph;
+  }
   return ud;
+}
+
+/**
+ * Runtime flags from Firestore config/meta (admin-written via console):
+ *   testEventCode   string  — attached to SERVER-originated events while
+ *                             validating in Events Manager. Delete it after:
+ *                             Meta drops test events from reporting, so a
+ *                             forgotten code hides real sales.
+ *   sendHashedPhone boolean — see buildUserData(); default false.
+ * Cached per instance for 60s so the relay does not pay a read per event.
+ * @return {Promise<{testEventCode: string, sendHashedPhone: boolean}>}
+ */
+let _metaCfg = {at: 0, v: {testEventCode: "", sendHashedPhone: false}};
+async function metaConfig() {
+  if (Date.now() - _metaCfg.at < 60000) return _metaCfg.v;
+  try {
+    const snap = await admin.firestore().collection("config").doc("meta").get();
+    const d = (snap.exists && snap.data()) || {};
+    _metaCfg = {at: Date.now(), v: {
+      testEventCode: d.testEventCode ? String(d.testEventCode).slice(0, 60) : "",
+      sendHashedPhone: d.sendHashedPhone === true,
+    }};
+  } catch (_e) {
+    _metaCfg = {at: Date.now(), v: {testEventCode: "", sendHashedPhone: false}};
+  }
+  return _metaCfg.v;
 }
 
 /**
@@ -167,7 +240,19 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         return;
       }
 
-      const userData = buildUserData(order);
+      // Verified phone (and email as a fallback) from Auth — the order doc
+      // carries neither. Best-effort: a lookup failure just means fewer keys.
+      let extra = {};
+      if (order.buyerId) {
+        try {
+          const u = await admin.auth().getUser(String(order.buyerId));
+          extra = {phone: u.phoneNumber || "", email: u.email || ""};
+        } catch (_e) {
+          extra = {};
+        }
+      }
+      const cfg = await metaConfig();
+      const userData = buildUserData(order, extra, cfg);
       if (!Object.keys(userData).length) {
         // Meta rejects an event with no identifier at all. Better to send
         // nothing than to send junk that drags match quality down.
@@ -185,7 +270,9 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         event_time: Math.floor(Date.now() / 1000),
         event_id: eventId,
         action_source: "website",
-        event_source_url: "https://teeboxmarket.com/",
+        event_source_url: order.listingId ?
+          "https://teeboxmarket.com/listing/" + encodeURIComponent(String(order.listingId)) + "/" :
+          "https://teeboxmarket.com/",
         user_data: userData,
         custom_data: {
           currency: String(order.currency || "usd").toUpperCase(),
@@ -196,6 +283,8 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
           num_items: Number(order.quantity || 1),
         },
       };
+
+      if (cfg.testEventCode) ev.test_event_code = cfg.testEventCode;
 
       const res = await postEvents(token, [ev]);
       if (res.ok) {
@@ -238,14 +327,23 @@ const CAPI_RELAY_EVENTS = new Set([
   "InitiateCheckout",
   "CompleteRegistration",
   "ListingCreated",
+  "ListingStarted", // r386: top of the seller funnel; custom event, auth-only
+  "ViewContent",
+  "PageView",
 ]);
+// Browsing events may come from guests — most ad-driven visitors are not
+// signed in when they look at a listing. These two carry no identity
+// beyond Meta's own cookies + IP/UA, which is all a guest pixel hit has too.
+const CAPI_ANON_EVENTS = new Set(["ViewContent", "PageView"]);
 const CAPI_MAX_VALUE = 100000; // $100k — far above any real listing
 
 exports.capiRelay = onCall(
     {...LIGHT, secrets: [META_CAPI_TOKEN]},
     async (request) => {
       const auth = request.auth;
-      if (!auth) {
+      const d = request.data || {};
+      const eventName = String(d.eventName || "");
+      if (!auth && !CAPI_ANON_EVENTS.has(eventName)) {
         throw new HttpsError("unauthenticated", "Sign-in required.");
       }
       let token = "";
@@ -257,8 +355,6 @@ exports.capiRelay = onCall(
       // Fail quiet, not loud: tracking must never break a user action.
       if (!token) return {ok: false, skipped: "no-token"};
 
-      const d = request.data || {};
-      const eventName = String(d.eventName || "");
       if (!CAPI_RELAY_EVENTS.has(eventName)) {
         // Purchase lands here too, by design.
         throw new HttpsError("invalid-argument", "Unsupported event.");
@@ -269,9 +365,18 @@ exports.capiRelay = onCall(
       }
 
       // Identity comes from the verified token, never the body.
-      const ud = {external_id: String(auth.uid)};
-      const em = hashEmail(auth.token && auth.token.email);
-      if (em) ud.em = em;
+      const ud = {};
+      if (auth) {
+        ud.external_id = hashExternalId(auth.uid);
+        const em = hashEmail(auth.token && auth.token.email);
+        if (em) ud.em = em;
+        // ph: flag-gated, default off — see buildUserData().
+        const cfg = await metaConfig();
+        if (cfg.sendHashedPhone === true) {
+          const ph = hashPhone(auth.token && auth.token.phone_number);
+          if (ph) ud.ph = ph;
+        }
+      }
       if (d.fbp) ud.fbp = String(d.fbp).slice(0, 200);
       if (d.fbc) ud.fbc = String(d.fbc).slice(0, 200);
       const ip = request.rawRequest &&
@@ -299,6 +404,12 @@ exports.capiRelay = onCall(
         custom.num_items = Math.floor(numItems);
       }
 
+      if (!Object.keys(ud).length) {
+        // Meta rejects an event with no identifier at all (a guest with
+        // cookies blocked and no forwarded IP). Nothing useful to send.
+        return {ok: false, skipped: "no-identifier"};
+      }
+
       const evt = {
         event_name: eventName,
         event_time: Math.floor(Date.now() / 1000),
@@ -322,4 +433,4 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, PIXEL_ID, GRAPH_VERSION};
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS};
