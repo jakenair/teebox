@@ -5392,9 +5392,13 @@ async function loadFeatureFlags() {
   if (__featureFlagsPromise) return __featureFlagsPromise;
   __featureFlagsPromise = (async () => {
     try {
-      const { getDoc, doc } =
+      const { getFirestore, getDoc, doc } =
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-      const snap = await getDoc(doc(db, 'config', 'features'));
+      // r388: `db` was never in scope here (app-auth.js keeps its Firestore
+      // handle module-private), so since the r349 /js split this threw
+      // ReferenceError on every call and every web flag read as off. Same
+      // getFirestore() default-app pattern as the rest of this file.
+      const snap = await getDoc(doc(getFirestore(), 'config', 'features'));
       const data = (snap.exists() ? snap.data() : null) || {};
       Object.assign(window.FEATURE_FLAGS, data);
     } catch (e) {
