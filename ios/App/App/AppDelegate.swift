@@ -6,6 +6,7 @@ import FirebaseAuth
 import FirebaseCrashlytics
 import FirebaseAppCheck
 import FirebaseMessaging
+import FBSDKCoreKit
 
 // HIGH-1 Phase 1 — App Check provider factory. Uses App Attest on iOS 14+
 // (project's deployment target floor) and falls back to DeviceCheck just in
@@ -45,6 +46,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // to the raw APNs hex token, which the server's FCM multicast rejects,
         // so no iOS push ever delivered.
         Messaging.messaging().delegate = self
+        // Meta (Facebook) SDK — 2.6.1 (2026-10-28). App Events for app-install
+        // attribution: the SDK auto-logs App Install + App Launch once
+        // initialized (FacebookAutoLogAppEventsEnabled in Info.plist).
+        // Rules (Jake 10-27): this app has NO App Tracking Transparency prompt,
+        // so advertiser-ID (IDFA) collection stays OFF — set here in code as
+        // well as in Info.plist so a plist edit alone can't turn it on.
+        // Attribution is therefore SKAdNetwork-only (aggregated, no per-user
+        // IDFA). Adding ATT later needs Jake's sign-off + privacy.html +
+        // App Privacy labels in the same change.
+        FBSDKCoreKit.Settings.shared.isAdvertiserIDCollectionEnabled = false
+        FBSDKCoreKit.Settings.shared.isAutoLogAppEventsEnabled = true
+        ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
         }
@@ -75,6 +88,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Firebase Auth needs first crack at the URL (reCAPTCHA fallback flow can
         // bounce through Safari → back here).
         if Auth.auth().canHandle(url) {
+            return true
+        }
+        // Meta SDK: fb<appid>:// callbacks (Facebook Login round-trip; harmless
+        // for every other URL — returns false and we fall through to Capacitor).
+        if ApplicationDelegate.shared.application(app, open: url, options: options) {
             return true
         }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)

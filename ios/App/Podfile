@@ -41,6 +41,15 @@ target 'App' do
   # GoogleSignIn 7.1.0 pins GTMSessionFetcher ~> 3.3 (4.5.0 -> 3.5.0); safe
   # here: FirebaseAuth is its only native consumer, no native Storage/Functions pods.
   pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
+  # Meta (Facebook) SDK — 2.6.1 (2026-10-28). Same subspec rule as Google above:
+  # OUTSIDE def capacitor_pods or `npx cap sync` drops it. Pulls FBSDKCoreKit +
+  # FBSDKLoginKit 18.0.0 (iOS 12+). Purpose in this build: App Events
+  # install/activation for Meta app-install attribution (AppDelegate +
+  # Info.plist FacebookAppID/FacebookClientToken). Rules (Jake 10-27): NO ATT
+  # prompt, FacebookAdvertiserIDCollectionEnabled=false (no IDFA ever unless
+  # ATT is added later), LoginKit compiled in but the Facebook button stays
+  # behind config/features facebookLogin + nativeFacebook (both off).
+  pod 'CapacitorFirebaseAuthentication/Facebook', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'FirebaseCrashlytics', '~> 11.7'
   # HIGH-1 Phase 1 — Firebase App Check (App Attest provider on iOS 14+,
   # DeviceCheck fallback for older). Pinned to the same 11.7 line as the

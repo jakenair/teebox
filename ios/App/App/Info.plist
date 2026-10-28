@@ -73,6 +73,52 @@
 				<string>com.googleusercontent.apps.982122063122-1pjjhvrnpcqhfvaumi9hlmvtsgnlm8kb</string>
 			</array>
 		</dict>
+		<!-- Meta SDK callback scheme: fb + FacebookAppID (Facebook Login round-trip). -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb1869309951087087</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Meta (Facebook) SDK — 2.6.1, 2026-10-28. Two uses: (1) App Events —
+	     automatic App Install + App Launch for app-install ad attribution;
+	     (2) Facebook Login via FBSDKLoginKit in LIMITED LOGIN mode (OIDC id token
+	     + nonce, exchanged by exchangeIdTokenForCustomToken) — the only mode that
+	     works without App Tracking Transparency consent, which this app never asks for.
+	     FacebookClientToken is Meta's public client token (ships in every app's
+	     plist; not a secret — Jake, 2026-10-28). The App Secret lives only in the
+	     Firebase console's Facebook provider.
+	     No App Tracking Transparency prompt exists in this app, so advertiser-ID
+	     (IDFA) collection is OFF: attribution is SKAdNetwork-only. Do not flip
+	     FacebookAdvertiserIDCollectionEnabled or add NSUserTrackingUsageDescription
+	     without Jake's sign-off (privacy.html + App Privacy labels must move with it). -->
+	<key>FacebookAppID</key>
+	<string>1869309951087087</string>
+	<key>FacebookClientToken</key>
+	<string>8411978cc7e9cc285715bf2352bb2103</string>
+	<key>FacebookDisplayName</key>
+	<string>TeeBox</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fbapi</string>
+		<string>fb-messenger-share-api</string>
+	</array>
+	<!-- Meta's published SKAdNetwork IDs (developers.facebook.com/docs/SKAdNetwork, read 2026-10-28). -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
 	</array>
 </dict>
 </plist>

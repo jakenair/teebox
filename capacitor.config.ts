@@ -65,7 +65,10 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     FirebaseAuthentication: {
-      providers: ['google.com', 'apple.com'],
+      // facebook.com added 2026-10-28 (2.6.1): only instantiates the plugin's
+      // LoginManager; the button itself stays behind config/features
+      // facebookLogin + nativeFacebook until Jake enables the Firebase provider.
+      providers: ['google.com', 'apple.com', 'facebook.com'],
       // We run our own custom-token exchange (idToken -> exchangeIdToken
       // ForCustomToken -> signInWithCustomToken on the JS SDK inside the
       // WKWebView). skipNativeAuth makes signInWithGoogle/Apple RETURN the
