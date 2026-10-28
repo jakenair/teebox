@@ -1357,6 +1357,13 @@ service cloud.firestore {
     // copy; only admins may write the doc. The Cloud Function
     // bypasses these rules via Admin SDK on first-read seeding.
     // ─────────────────────────────────────────────
+    // r385 (Jake, 2026-10-27): the feature-flag doc is public. It holds only
+    // on/off booleans and the sign-in sheet (shown to signed-OUT visitors)
+    // needs appleWeb/facebookLogin/nativeGoogle before anyone has a token.
+    match /config/features {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     match /config/{configId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
