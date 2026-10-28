@@ -28,7 +28,12 @@ function fetchActiveListings() {
   const body = JSON.stringify({
     structuredQuery: {
       from: [{ collectionId: "listings" }],
-      where: { fieldFilter: { field: { fieldPath: "status" }, op: "EQUAL", value: { stringValue: "active" } } },
+      // r346: sold + pending pages too, so every catalog-feed link (Meta keeps
+      // retired items as "out of stock" rather than dropping them) resolves to
+      // a real page instead of the 404 → ?listing= redirect. Sitemap stays
+      // active-only below.
+      where: { fieldFilter: { field: { fieldPath: "status" }, op: "IN", value: { arrayValue: { values: [
+        { stringValue: "active" }, { stringValue: "pending" }, { stringValue: "sold" } ] } } } },
       limit: 500,
     },
   });
@@ -50,6 +55,7 @@ function fetchActiveListings() {
       cat: v("cat") || "accessories",
       ask: Number(v("ask") || 0),
       condition: v("condition") || "",
+      status: v("status") || "active",
       desc: v("desc") || "",
       photo: photos.length ? photos[0].stringValue : null,
     });
@@ -68,7 +74,7 @@ function listingPage(l) {
     name: l.title, ...(l.brand ? { brand: { "@type": "Brand", name: l.brand } } : {}),
     image: l.photo || undefined, description: (l.desc || "").slice(0, 500) || undefined,
     offers: { "@type": "Offer", price: String(l.ask), priceCurrency: "USD",
-      availability: "https://schema.org/InStock", url },
+      availability: l.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut", url },
   });
   return `<!DOCTYPE html>
 <html lang="en">
@@ -80,6 +86,7 @@ function listingPage(l) {
 <link rel="canonical" href="${url}" />
 <meta name="theme-color" content="#0b1a0e" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<meta name="apple-itunes-app" content="app-id=6763954448, app-argument=${SITE}/?listing=${l.id}" />
 <meta property="og:type" content="product" />
 <meta property="og:site_name" content="TeeBox" />
 <meta property="og:title" content="${name}${brand ? ` — ${brand}` : ""}" />
@@ -118,9 +125,9 @@ function listingPage(l) {
   ${l.photo ? `<img class="photo" src="${img}" alt="${name}" width="600" height="600" />` : ""}
   ${brand ? `<div class="brand">${brand}</div>` : ""}
   <h1>${name}</h1>
-  <div class="price">$${Number(l.ask).toLocaleString()}${l.condition ? `<span class="cond">${esc(l.condition)}</span>` : ""}</div>
+  <div class="price">$${Number(l.ask).toLocaleString()}${l.status !== "active" ? `<span class="cond">Sold</span>` : l.condition ? `<span class="cond">${esc(l.condition)}</span>` : ""}</div>
   ${l.desc ? `<p class="desc">${esc(l.desc.slice(0, 600))}</p>` : ""}
-  <a class="cta" href="/?listing=${l.id}">View &amp; buy on TeeBox &rarr;</a>
+  <a class="cta" href="/?listing=${l.id}">${l.status === "active" ? "View &amp; buy on TeeBox" : "See similar on TeeBox"} &rarr;</a>
   <div class="fine">Stripe-secured checkout &middot; 7-day dispute window &middot; 8.5% seller fee</div>
 </main>
 </body>
@@ -142,6 +149,7 @@ function buildSitemap(listings) {
   }
   urls.push({ loc: `${SITE}/reads/`, cf: "weekly", pr: "0.6" });
   for (const l of listings) {
+    if (l.status && l.status !== "active") continue; // sold/pending pages exist but are not sitemap-worthy
     urls.push({ loc: `${SITE}/listing/${l.id}/`, cf: "daily", pr: "0.9" });
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +

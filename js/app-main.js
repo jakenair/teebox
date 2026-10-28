@@ -1376,7 +1376,9 @@ async function openDetailModal(id) {
   try { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {}
   injectListingJsonLd(p);
   // Meta Pixel: product view (guarded — fbq is web-only; no PII).
-  window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' });
+  // eventID so the CAPI copy (guests included) dedupes against the pixel hit.
+  window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' },
+    { eventID: 'vc_' + String(p.id) + '_' + Date.now().toString(36) });
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -14197,7 +14199,8 @@ window.__pushOverlay = function(name, url) {
         window.__tbSeenPv = window.__tbSeenPv || {};
         if (!window.__tbSeenPv[here]) {
           window.__tbSeenPv[here] = true;
-          window.fbTrack && window.fbTrack('PageView');
+          window.fbTrack && window.fbTrack('PageView', {},
+            { eventID: 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) });
         }
       }
     } catch (_e2) { /* analytics must never break navigation */ }

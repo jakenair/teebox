@@ -9107,11 +9107,16 @@ window.metaMatchIds = function metaMatchIds() {
 // onto window.
 const FB_RELAY_EVENTS = new Set([
   'AddToCart', 'InitiateCheckout', 'CompleteRegistration', 'ListingCreated',
+  'ViewContent', 'PageView',
 ]);
+// Browsing events relay for guests too (capiRelay allows these two without
+// auth) — an ad click lands a signed-out visitor on a listing, and that
+// ViewContent is the one retargeting runs on.
+const FB_RELAY_ANON = new Set(['ViewContent', 'PageView']);
 async function fbRelayToServer(name, eventId, params) {
   try {
     if (!FB_RELAY_EVENTS.has(name)) return;
-    if (!window.CURRENT_USER) return;           // capiRelay requires auth
+    if (!window.CURRENT_USER && !FB_RELAY_ANON.has(name)) return; // capiRelay requires auth for the rest
     const ids = (window.metaMatchIds && window.metaMatchIds()) || {};
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
@@ -9122,9 +9127,23 @@ async function fbRelayToServer(name, eventId, params) {
       fbp: ids.fbp || '',
       fbc: ids.fbc || '',
       sourceUrl: (window.location && window.location.href) || '',
+      testEventCode: (window.metaTestEventCode && window.metaTestEventCode()) || '',
     });
   } catch (_e) { /* never break the caller */ }
 }
+window.fbRelayToServer = fbRelayToServer;
+// Events Manager → Test Events: open the site as
+//   https://teeboxmarket.com/?meta_test=TEST12345
+// and every server-side event for the rest of the tab session carries that
+// test_event_code, so it shows up in the Test Events tab instead of
+// production reporting. sessionStorage, so closing the tab ends it.
+window.metaTestEventCode = function () {
+  try {
+    const q = new URLSearchParams(location.search).get('meta_test');
+    if (q && /^[A-Za-z0-9_-]{4,40}$/.test(q)) sessionStorage.setItem('tb_meta_test', q);
+    return sessionStorage.getItem('tb_meta_test') || '';
+  } catch (_e) { return ''; }
+};
 
 window.fbTrack = function (name, params, opts) {
   try {
