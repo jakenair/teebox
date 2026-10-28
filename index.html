@@ -6009,7 +6009,7 @@ window.__phDeferLoad = function(load) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r379</span></div>
+        <span class="auth-build" aria-hidden="true">r380</span></div>
     </div>
   </div>
 </div>
@@ -9504,8 +9504,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r379"></script>
-<script type="module" src="/js/app-auth.js?v=r379"></script>
+<script defer src="/js/app-main.js?v=r380"></script>
+<script type="module" src="/js/app-auth.js?v=r380"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9535,7 +9535,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r379"></script>
+<script type="module" src="/js/bingo.js?v=r380"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
