@@ -12,6 +12,10 @@ def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
+  # Native Google sign-in (attempt A, 2026-10-26). GoogleSignIn 7.1.0 pins
+  # GTMSessionFetcher ~> 3.3, so this resolves it 4.5.0 -> 3.5.0; that is safe
+  # here: FirebaseAuth (>= 3.4, < 5.0) is its only native consumer, no native FirebaseStorage/Functions pods.
+  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
