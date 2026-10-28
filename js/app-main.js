@@ -8960,7 +8960,7 @@ window.__actions['cm-disconnect'] = async (el) => {
 const WELCOME_PHOTOS_A = ['art-footjoy-shoe', 'art-rainbow-sandals', 'art-woven-belt', 'art-titleist-stand-bag', 'art-oakley-sunglasses-black', 'art-bushnell-rangefinder', 'art-titleist-umbrella', 'art-puma-shoe-navy', 'art-golf-cart-wallet', 'art-polo-dotted'];
 const WELCOME_PHOTOS_B = ['art-flag-belt', 'art-adidas-shoe-white-navy', 'art-titleist-cap-black', 'art-sun-mountain-stand-bag', 'art-oakley-sunglasses-tortoise', 'art-yeti-soft-cooler', 'art-titleist-divot-tool', 'art-peter-millar-polo', 'art-evans-scholars-cap', 'art-headcover-medallion'];
 const WELCOME_PHOTOS_C = ['art-taylormade-wedge', 'art-footjoy-premiere', 'art-callaway-cap-white', 'art-plaid-headcover', 'art-turtlebox-camo', 'art-golf-towel', 'art-duck-wallet', 'art-rlx-pants', 'art-footjoy-beanie', 'art-koozie-golf-cart'];
-const WELCOME_PHOTOS_D = ['art-scotty-cameron-putter', 'art-adidas-shoe-retro', 'art-stand-bag-black', 'art-titleist-ball', 'art-hoodie-quilted-hb', 'art-footjoy-glove', 'art-ball-marker', 'art-wooden-tees', 'art-putter-mallet'];
+const WELCOME_PHOTOS_D = ['art-scotty-cameron-putter', 'art-adidas-shoe-retro', 'art-stand-bag-black', 'art-titleist-ball', 'art-hoodie-quilted-hb', 'art-footjoy-glove', 'art-ball-marker', 'art-wooden-tees', 'art-putter-mallet', 'art-titleist-gt1-driver'];
 const WELCOME_SNOOZE_KEY = 'tb_welcome_snooze';
 function welcomeTileHtml(name, eager) {
   const b = '/assets/welcome/' + name;
