@@ -269,3 +269,28 @@ test("watchers: no client may create, update or delete a watcher doc (setWatch c
   const {deleteDoc} = require("firebase/firestore");
   await assertFails(deleteDoc(doc(alice, "listings/L2/watchers/alice")));
 });
+
+// ── messageReveals (2026-10-29): "Show message anyway" tap log ──────────────
+test("messageReveals: a participant can log a reveal about THEMSELVES; nothing else", async () => {
+  const {addDoc, collection, serverTimestamp, updateDoc, deleteDoc} = require("firebase/firestore");
+  await seed("conversations", "C1", {participants: ["alice", "bob"], buyerId: "alice", sellerId: "bob"});
+  const alice = testEnv.authenticatedContext("alice").firestore();
+  const mallory = testEnv.authenticatedContext("mallory").firestore();
+  const anon = testEnv.unauthenticatedContext().firestore();
+  const row = (uid, extra = {}) => ({uid, messageId: "m1", conversationId: "C1",
+    hosts: ["s55.524178039.cfd"], createdAt: serverTimestamp(), ...extra});
+  const ref = await assertSucceeds(addDoc(collection(alice, "messageReveals"), row("alice")));
+  // about someone else's uid
+  await assertFails(addDoc(collection(alice, "messageReveals"), row("bob")));
+  // not a participant of the conversation
+  await assertFails(addDoc(collection(mallory, "messageReveals"), row("mallory")));
+  // signed out
+  await assertFails(addDoc(collection(anon, "messageReveals"), row("alice")));
+  // client-chosen timestamp / extra fields
+  await assertFails(addDoc(collection(alice, "messageReveals"), row("alice", {createdAt: new Date(0)})));
+  await assertFails(addDoc(collection(alice, "messageReveals"), row("alice", {note: "x"})));
+  // append-only, admin-read only
+  await assertFails(getDoc(doc(alice, "messageReveals", ref.id)));
+  await assertFails(updateDoc(doc(alice, "messageReveals", ref.id), {hosts: []}));
+  await assertFails(deleteDoc(doc(alice, "messageReveals", ref.id)));
+});

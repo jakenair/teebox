@@ -2798,250 +2798,12 @@ exports.incrementListingMessage = onDocumentCreated(
 //   TODO: enable Gemini classifier in v2 for ambiguous SOFT-only hits;
 //   gate by users/{uid}.modLlmCallsToday = {date, n} at 100/day/user.
 // ─────────────────────────────────────────────────────────────
-const MOD_OFF_PLATFORM_REGEXES = [
-  {name: "phone_us", severity: "HARD",
-    re: /(?:\+?1[\s.\-])?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}/},
-  {name: "email", severity: "HARD",
-    re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/},
-  {name: "messaging_url", severity: "HARD",
-    re: /\b(?:wa\.me|t\.me|signal\.me|m\.me|bit\.ly|tinyurl\.com)\/\S+/i},
-  {name: "external_marketplace", severity: "HARD",
-    re: /\b(?:ebay|mercari|grailed|golfwrx|facebook ?marketplace|fb ?marketplace|craigslist|offerup|poshmark|depop)\b/i},
-  {name: "cashtag", severity: "HARD",
-    re: /(?:^|\s)\$[a-zA-Z][a-zA-Z0-9_]{2,15}\b/},
-];
-const MOD_OFF_PLATFORM_KEYWORDS_HARD = [
-  "venmo", "zelle", "cashapp", "cash app", "paypal", "apple pay", "google pay", "gpay",
-  "wire transfer", "western union", "moneygram", "chime",
-  "btc", "bitcoin", "ethereum", "usdc", "crypto",
-  "f&f", "friends and family", "f and f", "no g&s", "no goods and services",
-  "text me at", "call me at", "signal me",
-  "whatsapp", "telegram", "wa.me", "t.me",
-  "outside teebox", "outside the app", "off the app", "off platform", "off-platform",
-  "save the fee", "save fees", "skip the fee", "cut the fee", "no fees",
-  "avoid the fee", "direct deal", "skip the platform", "pay outside", "cash only",
-  "dm me directly", "take this off teebox", "take this off the app",
-];
-const MOD_OFF_PLATFORM_KEYWORDS_SOFT = [
-  "instagram", "ig:", "insta:", "discord",
-  "meet in person", "meet up", "come pick up", "local pickup",
-];
+const {
+  modDetectOffPlatform,
+} = require("./moderation/offPlatform");
+// Detector constants + helpers (MOD_KNOWN_BAD_DOMAINS, modExtractExternalHosts,
+// …) live in moderation/offPlatform.js so they are unit-testable.
 
-// ── Known-bad domains ────────────────────────────────────────────────
-// Hard blocklist. A message referencing any of these is BLOCKED outright
-// (callable path) or QUARANTINED/deleted (trigger backstop) — not merely
-// flagged. Seeded from the 2026-06-25 credential-phishing campaign
-// ("payment didn't go through… confirm via link", s55.form76510.shop).
-// Match is host-exact OR any subdomain (foo.form76510.shop). Admins can
-// extend at runtime via config.messaging.knownBadDomains (string[]).
-const MOD_KNOWN_BAD_DOMAINS = new Set([
-  "form76510.shop",
-  "tr.ee", // 2026-09-18 credential-phish campaign (tr.ee/teeboxmarket)
-]);
-
-// ── Generic external-URL detection (the durable fix) ─────────────────
-// The off-platform regexes only knew a FIXED shortener list, so any novel
-// domain (form76510.shop) sailed through with flagged:null. This extracts
-// every external host (scheme optional, bare host.tld/path included) that
-// is not teeboxmarket.com. The TLD set is broad but bounded so prose like
-// "3.5 in." or "v1.2" doesn't read as a URL.
-// Hostname shape only — the TLD is validated against the real IANA list
-// (moderation/tlds.js) instead of a hand-written allowlist. The old
-// allowlist omitted .ee, which is how the 2026-09-18 tr.ee phishing link
-// reached four sellers completely undetected; it also omitted .ly, making
-// bit.ly invisible. Capture groups: 1=scheme 2=host 3=tld 4=path.
-const MOD_URL_SOURCE =
-  "(?:(https?:\\/\\/)|\\b)((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+" +
-  "([a-z]{2,24}))(\\/[^\\s)<>\"']*)?";
-
-function modExtractExternalHosts(text) {
-  const hosts = [];
-  if (!text) return hosts;
-  const {TLD_SET} = require("./moderation/tlds");
-  const re = new RegExp(MOD_URL_SOURCE, "gi");
-  let m;
-  while ((m = re.exec(String(text))) !== null) {
-    const scheme = m[1];
-    const host = m[2].toLowerCase().replace(/\.$/, "");
-    const tld = m[3].toLowerCase();
-    const path = m[4];
-    // Must be a real TLD, otherwise "v1.2" / "10.5 shoes" read as hosts.
-    if (!TLD_SET.has(tld)) continue;
-    // Sentence run-on guard: "Great condition.Thanks" is prose, not a host.
-    // A bare capitalised word with no scheme and no path is never a URL.
-    if (!scheme && !path && /^[A-Z]/.test(m[3])) continue;
-    if (/(^|\.)teeboxmarket\.com$/.test(host)) continue; // our own domain is fine
-    if (hosts.indexOf(host) === -1) hosts.push(host);
-  }
-  return hosts;
-}
-
-// host matches a known-bad entry exactly, or is a subdomain of one.
-function modHostIsKnownBad(host, extraDomains) {
-  const check = (set) => {
-    for (const bad of set) {
-      if (host === bad || host.endsWith("." + bad)) return true;
-    }
-    return false;
-  };
-  if (check(MOD_KNOWN_BAD_DOMAINS)) return true;
-  if (extraDomains && extraDomains.length && check(extraDomains)) return true;
-  return false;
-}
-
-function modEscapeKw(k) {
-  return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// r173: lazy accessor for contentFilter's normalize — same pipeline the
-// profanity scanner uses (NFKC → confusables → lowercase → leet fold).
-function modNormalizeText(t) {
-  return require("./moderation/contentFilter").normalize(t);
-}
-
-function modDetectOffPlatform(text, extraBadDomains) {
-  if (!text) {
-    return {matched: false, severity: null, knownBad: false,
-      externalHosts: [], types: [], patterns: []};
-  }
-  const s = String(text);
-  const lc = s.toLowerCase();
-  const patterns = [];
-  const types = new Set();
-  let severity = null;
-  for (const p of MOD_OFF_PLATFORM_REGEXES) {
-    const m = s.match(p.re);
-    if (m) {
-      patterns.push({type: "regex", name: p.name, match: m[0].slice(0, 80)});
-      types.add(p.name);
-      if (p.severity === "HARD") severity = "HARD";
-      else if (!severity) severity = "SOFT";
-    }
-  }
-  for (const kw of MOD_OFF_PLATFORM_KEYWORDS_HARD) {
-    if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(lc)) {
-      patterns.push({type: "keyword", name: kw, severity: "HARD"});
-      types.add("kw:" + kw);
-      severity = "HARD";
-    }
-  }
-  if (severity !== "HARD") {
-    for (const kw of MOD_OFF_PLATFORM_KEYWORDS_SOFT) {
-      if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(lc)) {
-        patterns.push({type: "keyword", name: kw, severity: "SOFT"});
-        types.add("kw:" + kw);
-        if (!severity) severity = "SOFT";
-      }
-    }
-  }
-
-  // ── r173: obfuscation folding ─────────────────────────────────────
-  // The raw-text layers above miss trivially disguised contact info. Fold
-  // the text through moderation/contentFilter's normalize() (NFKC →
-  // confusables → lowercase → leet) plus three targeted folds, and rescan.
-  // Consequence of a hit here matches the regular HARD path (interstitial /
-  // hold rules) — these are detectors, not new penalties.
-  try {
-    const norm = modNormalizeText(s);
-    // (a) Leet/confusable keyword pass — catches v3nmo, PayPa1, vеnmo
-    // (Cyrillic е). Two variants because contentFilter's leet map folds
-    // 1→i (right for slurs); payment brands need 1→l too.
-    const normL = lc.replace(/[0134578$@!]/g,
-        (ch) => ({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s",
-          "7": "t", "8": "b", "$": "s", "@": "a", "!": "i"}[ch] || ch));
-    // (b) Separator-tolerant pass — catches "v e n m o", "pay pal",
-    // "z-e-l-l-e". Boundary-anchored letters-with-separators regex (NOT a
-    // squashed substring — that flagged "gazelle" for zelle). Scoped to
-    // keywords whose letters run ≥5 to bound false positives.
-    const SEP = "[\\s.\\-_*+/\\\\|·]*";
-    for (const kw of MOD_OFF_PLATFORM_KEYWORDS_HARD) {
-      const letters = kw.replace(/[^a-z0-9]/gi, "");
-      if (letters.length < 5) continue; // btc/f&f/gpay too FP-prone separated
-      let hit = false;
-      for (const v of [norm, normL]) {
-        if (new RegExp("\\b" + modEscapeKw(kw) + "\\b", "i").test(v)) { hit = true; break; }
-        const sepRe = new RegExp(
-            "\\b" + letters.split("").map((c) => modEscapeKw(c)).join(SEP) + "\\b", "i");
-        if (sepRe.test(v)) { hit = true; break; }
-      }
-      if (hit && !types.has("kw:" + kw)) {
-        patterns.push({type: "keyword", name: kw, severity: "HARD", obfuscated: true});
-        types.add("kw:" + kw);
-        types.add("obfuscated_keyword");
-        severity = "HARD";
-      }
-    }
-    // (b2) Social-handle mentions — SOFT (flag/log, no hard consequence):
-    // "@mikegolf on insta", "IG: mikegolf". The bare-word insta/ig SOFT
-    // keywords below can't match ":"-suffixed forms with \b.
-    if (severity !== "HARD") {
-      if (/(?:^|\s)@[a-z0-9_.]{3,30}\b/i.test(s) ||
-          /\b(?:ig|insta)\s*[:\-]?\s*[a-z0-9_.]{3,30}\b/i.test(lc)) {
-        patterns.push({type: "regex", name: "social_handle", severity: "SOFT"});
-        types.add("social_handle");
-        if (!severity) severity = "SOFT";
-      }
-    }
-    // (c) Spelled-out phone numbers: "five one two five five five ...".
-    const DIGIT_WORDS = {zero: "0", oh: "0", one: "1", two: "2", three: "3",
-      four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9"};
-    const digitFolded = lc.replace(
-        /\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/g,
-        (w) => DIGIT_WORDS[w]);
-    const digitRun = digitFolded.replace(/[^0-9]+/g, " ").split(" ")
-        .filter(Boolean).join("");
-    if (digitRun.length >= 10 && digitRun.length <= 13 &&
-        /\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/.test(lc)) {
-      patterns.push({type: "regex", name: "phone_words", severity: "HARD",
-        match: digitRun.slice(0, 20)});
-      types.add("phone_words");
-      severity = "HARD";
-    }
-    // (d) Spelled-out emails/domains: "mike at gmail dot com",
-    // "mike[at]gmail[dot]com", "sketchy dot com".
-    const SPELLED_EMAIL_RE =
-      /\b[a-z0-9._%+\-]+\s*[([{]?\s*at\s*[)\]}]?\s*[a-z0-9\-]+\s*[([{]?\s*dot\s*[)\]}]?\s*[a-z]{2,10}\b/i;
-    const SPELLED_DOMAIN_RE =
-      /\b[a-z0-9\-]{3,}\s+dot\s+(?:com|net|org|io|co|me|app|shop|link|gg)\b/i;
-    if (SPELLED_EMAIL_RE.test(lc)) {
-      patterns.push({type: "regex", name: "spelled_email", severity: "HARD"});
-      types.add("spelled_email");
-      severity = "HARD";
-    } else if (SPELLED_DOMAIN_RE.test(lc)) {
-      patterns.push({type: "regex", name: "spelled_domain", severity: "HARD"});
-      types.add("spelled_domain");
-      severity = "HARD";
-    }
-  } catch (e) {
-    // Folding layer is additive — a throw must never kill the base scan.
-    logger.warn("modDetectOffPlatform obfuscation layer threw", e);
-  }
-
-  // Generic external-URL layer (the durable phishing fix). ANY link to a
-  // non-teeboxmarket.com host is HARD; a known-bad host additionally sets
-  // `knownBad` so callers can BLOCK/QUARANTINE rather than just interstitial.
-  const externalHosts = modExtractExternalHosts(s);
-  let knownBad = false;
-  if (externalHosts.length) {
-    for (const h of externalHosts) {
-      if (modHostIsKnownBad(h, extraBadDomains)) knownBad = true;
-    }
-    patterns.push({type: "url", name: knownBad ? "known_bad_domain" : "external_url",
-      match: externalHosts.slice(0, 3).join(",").slice(0, 80)});
-    types.add("external_url");
-    if (knownBad) types.add("known_bad_domain");
-    severity = "HARD";
-  }
-
-  return {
-    matched: patterns.length > 0,
-    severity,
-    knownBad,
-    externalHosts,
-    types: Array.from(types),
-    patterns: patterns.slice(0, 12),
-  };
-}
 
 exports.moderateMessage = onDocumentCreated(
   {
@@ -3092,7 +2854,19 @@ exports.moderateMessage = onDocumentCreated(
       // soft-flag + hard-flag UI semantics so seller-buyer exchanges
       // outside the marketplace get warned, not blocked.
       const det = modDetectOffPlatform(text);
-      if (!det.matched) return;
+      // 2026-10-29: fake-payment scam phrases ("payment did not go through",
+      // "confirm via the link", …). Alone they don't hold the message, but
+      // they flag it HARD so the recipient gets the warning card.
+      const scamPhrases =
+        require("./moderation/messageRisk").detectScamPhrases(text);
+      if (!det.matched && !scamPhrases.length) return;
+      if (scamPhrases.length) {
+        det.matched = true;
+        det.severity = "HARD";
+        if (!det.types.includes("scam_phrase")) det.types.push("scam_phrase");
+        det.patterns.push({type: "phrase", name: "scam_phrase",
+          match: scamPhrases.join(",").slice(0, 80)});
+      }
 
       // Known-bad domain → QUARANTINE. This is the backstop for messages
       // written directly to /messages (bypassing the sendMessage callable's
@@ -3214,9 +2988,13 @@ exports.moderateMessage = onDocumentCreated(
       // Patch the message doc so the existing onSnapshot listener picks
       // up the flag and renders the interstitial on the recipient's UI.
       try {
-        await event.data.ref.update({
-          flagged: {severity: det.severity, types: det.types},
-        });
+        // hosts: the link domains, shown in plain text on the recipient's
+        // warning card ("This link goes to <domain>, not TeeBox").
+        const flagged = {severity: det.severity, types: det.types};
+        if (det.externalHosts && det.externalHosts.length) {
+          flagged.hosts = det.externalHosts.slice(0, 5);
+        }
+        await event.data.ref.update({flagged});
       } catch (e) {
         logger.warn("moderateMessage: msg patch failed", e);
       }
@@ -3251,9 +3029,18 @@ exports.onMessageHoldCreated = onDocumentCreated(
       try {
         const h = event.data && event.data.data();
         if (!h) return;
-        await opsAlert("warn", "Chat message held for review", {
+        // Rule 6 (new account starting threads with too many sellers) also
+        // sets users/{uid}.reviewFlag — escalate the headline so the account
+        // gets looked at, not just the one message.
+        const title = h.reviewFlag === true ?
+          "Account auto-flagged for review (new account messaging many sellers)" :
+          "Chat message held for review";
+        await opsAlert("warn", title, {
           holdId: event.params.holdId,
           reason: h.reason || "unknown",
+          reasons: Array.isArray(h.reasons) ? h.reasons.join(",") : null,
+          senderAccountAgeHours: typeof h.senderAccountAgeHours === "number" ?
+            h.senderAccountAgeHours : null,
           sender: h.sender || null,
           recipient: h.recipient || null,
           conversationId: h.conversationId || null,
@@ -5317,9 +5104,20 @@ exports.welcomeOnFirstProfileWrite = onDocumentCreated(
         const created = authRec && authRec.metadata &&
           authRec.metadata.creationTime;
         if (created) {
+          const createdTs = admin.firestore.Timestamp.fromDate(new Date(created));
           await admin.firestore().collection("profiles").doc(uid).set(
-              {createdAt: admin.firestore.Timestamp.fromDate(new Date(created))},
-              {merge: true});
+              {createdAt: createdTs}, {merge: true});
+          // 2026-10-29: also users/{uid}.createdAt, for EVERY provider. This
+          // trigger fires on the first users-doc write whatever created it
+          // (client bootstrap after a Google/Apple/Facebook popup or native
+          // exchange, or completeAccountSetup), so it is the one server-side
+          // signup hook all providers share. Only fills a missing value;
+          // update() so it can never resurrect a deleted doc.
+          const udoc = (event.data && event.data.data && event.data.data()) || {};
+          if (!udoc.createdAt) {
+            await admin.firestore().collection("users").doc(uid)
+                .update({createdAt: createdTs});
+          }
         }
       } catch (e) {
         logger.warn("welcomeOnFirstProfileWrite: createdAt stamp failed", e);
@@ -7551,6 +7349,14 @@ exports.backfillGlobalStats = onCall(
 //      First PII msg is delivered normally (existing interstitial
 //      handles UX); subsequent PII msg to the SAME recipient inside
 //      the window is held.
+//   5. (2026-10-29) A link to any host but teeboxmarket.com / apps.apple.com
+//      is held when the sender is < linkHoldTrustAgeHours old OR has no
+//      completed transaction; .cfd/.top/.xyz/.icu links and links next to a
+//      fake-payment scam phrase are always held. Account age comes from
+//      Firebase Auth (fail closed), not the users doc.
+//   6. (2026-10-29) A sender < newSellerStartAgeHours old may start threads
+//      with at most newSellerStartLimit different sellers per hour; the next
+//      start is held and users/{uid}.reviewFlag is set.
 //
 // Limits live in Firestore at `config/messaging` so we can tune them
 // without redeploying. Read is cached in-memory for 60s per instance
@@ -7573,6 +7379,17 @@ const MESSAGING_CONFIG_DEFAULTS = {
   // Additive blocklist on top of the hardcoded MOD_KNOWN_BAD_DOMAINS. Admins
   // can append new phishing domains here (Firebase console) without a redeploy.
   knownBadDomains: [],
+  // 2026-10-29 anti-phishing hardening (see moderation/messageRisk.js).
+  // Rule 5: a non-exempt link is HELD unless the sender is at least this old
+  // AND has ≥1 completed transaction. Links on highRiskTlds are always held.
+  linkHoldTrustAgeHours: 168,
+  highRiskTlds: ["cfd", "top", "xyz", "icu"],
+  // Rule 6: a sender younger than newSellerStartAgeHours may START threads
+  // with at most newSellerStartLimit different sellers per
+  // newSellerStartWindowHours; later starts are held + the account flagged.
+  newSellerStartAgeHours: 168,
+  newSellerStartWindowHours: 1,
+  newSellerStartLimit: 2,
   enabled: true,
 };
 
@@ -7634,6 +7451,91 @@ function tsToMillis(v) {
   if (v._seconds) return v._seconds * 1000 + Math.floor((v._nanoseconds || 0) / 1e6);
   if (v instanceof Date) return v.getTime();
   return 0;
+}
+
+const {
+  detectScamPhrases,
+  resolveAccountCreatedMs,
+  isCompletedOrder,
+  decideLinkHold,
+  needsTxLookup,
+  decideNewSellerStart,
+} = require("./moderation/messageRisk");
+
+// Account creation time for the sender: Auth metadata.creationTime first,
+// cached onto users/{uid}.createdAt when the doc lacks it; the doc field is
+// only the fallback when Auth is unreachable; both unknown → treated as new.
+async function resolveSenderCreatedMs(senderId, sender, senderRef, now) {
+  let authCreationTime = null;
+  try {
+    const rec = await admin.auth().getUser(senderId);
+    authCreationTime = (rec && rec.metadata && rec.metadata.creationTime) || null;
+  } catch (e) {
+    logger.warn("sendMessage: auth getUser failed, falling back to doc createdAt", e);
+  }
+  const r = resolveAccountCreatedMs({
+    authCreationTime, docCreatedAt: sender.createdAt, now,
+  });
+  if (r.source === "auth" && !tsToMillis(sender.createdAt)) {
+    try {
+      // update(): never creates the doc (that would pre-empt the client's
+      // first-sign-in bootstrap). A missing doc just skips the cache.
+      await senderRef.update({
+        createdAt: admin.firestore.Timestamp.fromMillis(r.ms),
+      });
+    } catch (_e) { /* cache only */ }
+  }
+  if (r.source === "unknown") {
+    logger.warn("sendMessage: sender age unknown — treating as new", {senderId});
+  }
+  return r;
+}
+
+// ≥1 completed order as buyer OR seller (definition: messageRisk
+// isCompletedOrder). Single-field equality queries, no composite index.
+// null on error → decideLinkHold treats it as "none" (fail closed).
+async function senderHasCompletedTx(db, uid) {
+  try {
+    const [asBuyer, asSeller] = await Promise.all([
+      db.collection("orders").where("buyerId", "==", uid).limit(25).get(),
+      db.collection("orders").where("sellerId", "==", uid).limit(25).get(),
+    ]);
+    return [...asBuyer.docs, ...asSeller.docs]
+        .some((d) => isCompletedOrder(d.data()));
+  } catch (e) {
+    logger.warn("sendMessage: completed-order lookup failed (fail closed)", e);
+    return null;
+  }
+}
+
+// Rule 6 bookkeeping. newSellerStarts is a NESTED map {sellerUid: ts},
+// written with update() field paths (uids contain no dots) — set() with a
+// dotted key would create a literal "newSellerStarts.<uid>" field and the
+// rule would silently never fire (2026-09-18 bug class). Stale entries are
+// pruned in the same write. reviewFlag is a nested map written whole.
+async function recordNewSellerStart(senderRef, sellerId, staleKeys, nowTs, reviewFlag) {
+  const FieldValue = admin.firestore.FieldValue;
+  const patch = {[`newSellerStarts.${sellerId}`]: nowTs};
+  for (const k of staleKeys || []) {
+    if (k !== sellerId) patch[`newSellerStarts.${k}`] = FieldValue.delete();
+  }
+  if (reviewFlag) patch.reviewFlag = reviewFlag;
+  try {
+    await senderRef.update(patch);
+  } catch (e) {
+    if (e && (e.code === 5 || e.code === "not-found")) {
+      try {
+        await senderRef.set({
+          newSellerStarts: {[sellerId]: nowTs},
+          ...(reviewFlag ? {reviewFlag} : {}),
+        }, {merge: true});
+      } catch (e2) {
+        logger.error("sendMessage: newSellerStarts seed failed", e2);
+      }
+    } else {
+      logger.error("sendMessage: newSellerStarts update failed", e);
+    }
+  }
 }
 
 exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
@@ -7805,11 +7707,19 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
         {error: "you_blocked_recipient"});
   }
 
+  // ──── Account age (Rules 1, 5, 6) ────
+  // Source of truth is Firebase Auth metadata.creationTime. users/{uid}
+  // .createdAt was missing on every Google/Apple doc and all but one password
+  // doc, so tsToMillis(undefined)=0 silently skipped Rules 1 and 5 for every
+  // sender (2026-10-28 incident: a 90-second-old account's phishing link was
+  // delivered). Unknown age = brand new (fail closed).
+  const senderAge = await resolveSenderCreatedMs(senderId, sender, senderRef, now);
+  const accountAgeMs = Math.max(0, now - senderAge.ms);
+
   // ──── Rule 1: new-account send cap ────
   if (config.enabled !== false) {
-    const createdAtMs = tsToMillis(sender.createdAt);
     const newAccountWindowMs = config.newAccountWindowHours * 3600 * 1000;
-    if (createdAtMs > 0 && (now - createdAtMs) < newAccountWindowMs) {
+    if (accountAgeMs < newAccountWindowMs) {
       // In-line decay: if lastDecayAt is older than the window, reset
       // the counter before checking. Otherwise the user would be
       // limited forever after their first 10 sends.
@@ -7901,28 +7811,73 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     }
   }
 
-  // ──── Rule 5: brand-new account + external link → hold ────
-  // The phishing pattern is a days-old account blasting off-platform links to
-  // sellers (the form76510.shop campaign account was ~2 min old). Established
-  // accounts can still share the occasional link — it's delivered with an
-  // interstitial by the moderateMessage trigger. New accounts get quarantined
-  // to messageHolds for review instead of reaching the seller. Gated by the
-  // same new-account window as Rule 1.
-  let heldByRule5 = false;
-  const hasExternalLink = offDet && Array.isArray(offDet.externalHosts) &&
-    offDet.externalHosts.length > 0;
-  if (config.enabled !== false && hasExternalLink) {
-    const createdAtMs5 = tsToMillis(sender.createdAt);
-    const newWindowMs5 = config.newAccountWindowHours * 3600 * 1000;
-    if (createdAtMs5 > 0 && (now - createdAtMs5) < newWindowMs5) {
-      heldByRule5 = true;
-    }
+  // ──── Rule 5: external link from an untrusted sender → hold ────
+  // A link to any host other than teeboxmarket.com (+ subdomains) or
+  // apps.apple.com is HELD when the sender is under linkHoldTrustAgeHours
+  // (168 h) old OR has zero completed transactions (moderation/messageRisk
+  // isCompletedOrder). Regardless of the sender, a link on a high-risk TLD
+  // (.cfd/.top/.xyz/.icu) or a link alongside a fake-payment scam phrase is
+  // always held. Trusted senders' links are delivered with the
+  // moderateMessage interstitial, as before.
+  const scamPhrases = detectScamPhrases(text);
+  const externalHosts = (offDet && Array.isArray(offDet.externalHosts)) ?
+    offDet.externalHosts : [];
+  let linkHold = {hold: false, reason: null, holdableHosts: []};
+  if (config.enabled !== false && externalHosts.length) {
+    const linkArgs = {
+      externalHosts,
+      scamPhrases,
+      accountAgeMs,
+      trustAgeMs: Number(config.linkHoldTrustAgeHours) * 3600 * 1000,
+      highRiskTlds: config.highRiskTlds,
+    };
+    const hasCompletedTx = needsTxLookup(linkArgs) ?
+      await senderHasCompletedTx(db, senderId) : null;
+    linkHold = decideLinkHold({...linkArgs, hasCompletedTx});
+  }
+  const heldByRule5 = linkHold.hold;
+
+  // ──── Rule 6: new account starting threads with too many sellers ────
+  // A sender under newSellerStartAgeHours old may START conversations with at
+  // most newSellerStartLimit different sellers per rolling
+  // newSellerStartWindowHours. The 3rd+ new seller is held and the account
+  // auto-flagged (users/{uid}.reviewFlag + the hold's ops alert). Replying
+  // in a thread that already has a delivered message never counts.
+  const sellerStart = decideNewSellerStart({
+    accountAgeMs,
+    ageWindowMs: Number(config.newSellerStartAgeHours) * 3600 * 1000,
+    conv,
+    senderId,
+    recipientId,
+    starts: sender.newSellerStarts,
+    now,
+    windowMs: Number(config.newSellerStartWindowHours) * 3600 * 1000,
+    limit: Number(config.newSellerStartLimit),
+  });
+  const heldByRule6 = config.enabled !== false && sellerStart.hold;
+  if (config.enabled !== false && sellerStart.isStart) {
+    // Record every start ATTEMPT (held or delivered) so a burst can't reset
+    // itself. update() with field paths, never set() with dotted keys (see
+    // the 2026-09-18 note above the counter update below).
+    await recordNewSellerStart(senderRef, recipientId, sellerStart.staleKeys,
+        nowTs, heldByRule6 ? {
+          reason: "new_account_seller_burst",
+          at: nowTs,
+          sellersInWindow: sellerStart.freshSellers.length + 1,
+          conversationId,
+        } : null);
   }
 
   // ──── Hold path: write messageHolds/{id}, skip the convo write. ────
-  if (heldByRule3 || heldByRule4 || heldByRule5) {
-    const reason = heldByRule3 ? "duplicate_spam_pattern" :
-      heldByRule4 ? "pii_repeated_recipient" : "new_account_external_link";
+  // Nothing is written to the conversation (no message, no lastMessage bump):
+  // the recipient sees nothing until an admin runs releaseHold().
+  if (heldByRule3 || heldByRule4 || heldByRule5 || heldByRule6) {
+    const reasons = [];
+    if (heldByRule3) reasons.push("duplicate_spam_pattern");
+    if (heldByRule5) reasons.push(linkHold.reason);
+    if (heldByRule6) reasons.push("new_account_seller_burst");
+    if (heldByRule4) reasons.push("pii_repeated_recipient");
+    const reason = reasons[0];
     const holdRef = db.collection("messageHolds").doc();
     try {
       await holdRef.set({
@@ -7931,10 +7886,15 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
         conversationId,
         text,
         reason,
+        reasons,
         hash: heldByRule3 ? hash : null,
         clientFlag: clientFlag || null,
-        offPlatformTypes: heldByRule5 ? offDet.types : null,
-        externalHosts: heldByRule5 ? offDet.externalHosts : null,
+        offPlatformTypes: externalHosts.length ? offDet.types : null,
+        externalHosts: externalHosts.length ? externalHosts : null,
+        scamPhrases: scamPhrases.length ? scamPhrases : null,
+        senderAccountAgeHours: Math.round(accountAgeMs / 360000) / 10,
+        senderAgeSource: senderAge.source,
+        reviewFlag: heldByRule6 ? true : null,
         createdAt: FieldValue.serverTimestamp(),
         // TTL field: a Firestore TTL policy on `expireAt` discards this hold
         // ~HOLD_TTL_DAYS after creation. Discard ≠ delivery (no onDelete

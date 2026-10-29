@@ -1384,6 +1384,35 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────
+    // MESSAGE REVEALS (2026-10-29) — one row per tap on "Show message anyway"
+    // on a flagged chat message, so "did anyone open the phishing card" is
+    // answerable. Append-only audit log: a signed-in user may create a row
+    // only about THEMSELVES (uid == auth.uid), only for a conversation they
+    // are a participant in, with a server timestamp and nothing else. Only
+    // admins read; nobody updates or deletes.
+    // ─────────────────────────────────────────────
+    match /messageReveals/{revealId} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['uid','messageId','conversationId','createdAt'])
+        && request.resource.data.keys().hasOnly(['uid','messageId','conversationId','createdAt','hosts'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.messageId is string
+        && request.resource.data.messageId.size() > 0
+        && request.resource.data.messageId.size() <= 128
+        && request.resource.data.conversationId is string
+        && request.resource.data.conversationId.size() > 0
+        && request.resource.data.conversationId.size() <= 200
+        && (!('hosts' in request.resource.data.keys())
+            || (request.resource.data.hosts is list
+                && request.resource.data.hosts.size() <= 5))
+        && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participants;
+      allow update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
     // PRESENCE — lightweight per-user "what am I looking at right now"
     // doc used by pushOnNewMessage to skip pushes for a recipient who
     // is already in the conversation. Best-effort, not a security tool;

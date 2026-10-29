@@ -43,6 +43,15 @@ async function cleanName(raw, uid) {
   return name;
 }
 
+// users/{uid}.createdAt value: the Auth record's creationTime, falling back
+// to the server clock only if Auth somehow has none.
+function authCreatedAtTs(authUser) {
+  const ct = authUser && authUser.metadata && authUser.metadata.creationTime;
+  const ms = ct ? Date.parse(ct) : NaN;
+  return isNaN(ms) ? admin.firestore.FieldValue.serverTimestamp() :
+    admin.firestore.Timestamp.fromMillis(ms);
+}
+
 // Exported for reuse by other producers; never throws.
 async function sendVerificationEmailOnce(uid) {
   const db = admin.firestore();
@@ -90,13 +99,21 @@ exports.completeAccountSetup = onCall({...USER_CALLABLE, secrets: [RESEND_API_KE
   }
 
   // 2. users/{uid} — create if missing; fill displayName if blank.
+  //    createdAt = Firebase Auth metadata.creationTime (the account's real
+  //    age; sendMessage's new-account rules key off it). Filled whenever it
+  //    is missing, so a doc the client bootstrapped first still gets it.
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();
+  const createdAt = authCreatedAtTs(authUser);
   if (!userSnap.exists) {
-    await userRef.set({...(effectiveName ? {displayName: effectiveName} : {}), createdAt: admin.firestore.FieldValue.serverTimestamp(), accountSetupAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+    await userRef.set({...(effectiveName ? {displayName: effectiveName} : {}), createdAt, accountSetupAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
     out.userDocCreated = true;
-  } else if (effectiveName && !(userSnap.data().displayName || "").trim()) {
-    await userRef.set({displayName: effectiveName}, {merge: true});
+  } else {
+    const ud = userSnap.data() || {};
+    const patch = {};
+    if (effectiveName && !(ud.displayName || "").trim()) patch.displayName = effectiveName;
+    if (!ud.createdAt) patch.createdAt = createdAt;
+    if (Object.keys(patch).length) await userRef.set(patch, {merge: true});
   }
 
   // 3. profiles/{uid} — the public doc every render site reads.

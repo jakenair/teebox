@@ -2644,6 +2644,28 @@ async function syncInboxPreviewOverride(convId, mid, deleting) {
   }
 }
 
+// Link domains for the flagged-message warning card. The server writes
+// flagged.hosts (moderateMessage, 2026-10-29+); older flagged messages don't
+// have it, so fall back to pulling hosts out of the text (scheme URLs and
+// bare host.tld/path forms, the shapes the phishing campaigns used).
+function msgFlagHosts(m) {
+  const out = [];
+  const add = (h) => {
+    h = String(h || '').toLowerCase().replace(/\.$/, '');
+    if (h && out.indexOf(h) === -1 && out.length < 5) out.push(h);
+  };
+  if (m && m.flagged && Array.isArray(m.flagged.hosts)) m.flagged.hosts.forEach(add);
+  if (!out.length && m && m.text) {
+    const t = String(m.text);
+    let r;
+    const reScheme = /\bhttps?:\/\/([a-z0-9.-]+\.[a-z]{2,24})/gi;
+    while ((r = reScheme.exec(t)) !== null) add(r[1]);
+    const reBare = /(?:^|[\s(])((?:[a-z0-9-]+\.)+[a-z]{2,24})\/[^\s]*/gi;
+    while ((r = reBare.exec(t)) !== null) add(r[1]);
+  }
+  return out;
+}
+
 let __chatRawMessages = [];
 function renderMessages(messages) {
   const body = document.getElementById('chatBody');
@@ -2694,10 +2716,24 @@ function renderMessages(messages) {
     const wrapCls = 'msg-wrap ' + wrapAlign + (showInterstitial ? ' msg-hidden' : '');
     const midAttr = attrEsc(m.id);
     const sidAttr = attrEsc(m.senderId);
+    // 2026-10-29: name the actual link domain(s) in plain text, and use the
+    // stronger copy whenever a link leaves teeboxmarket.com or the message
+    // matches the fake-payment scam script (server type 'scam_phrase').
+    const flagHosts = showInterstitial ? msgFlagHosts(m) : [];
+    const offSiteHosts = flagHosts.filter((h) => !/(^|\.)teeboxmarket\.com$/i.test(h));
+    const scamPhrase = showInterstitial && Array.isArray(m.flagged.types) &&
+      m.flagged.types.indexOf('scam_phrase') !== -1;
+    let interstitialBody = 'This message may be moving the deal off TeeBox. <strong>Paying outside the app means no dispute support or refunds from TeeBox.</strong>';
+    if (offSiteHosts.length) {
+      interstitialBody = 'This link goes to <strong>' + offSiteHosts.map(attrEsc).join(', ') +
+        '</strong>, not TeeBox. <strong>TeeBox never asks you to confirm a payment through a link.</strong> Only pay or get paid at TeeBox checkout.';
+    } else if (scamPhrase) {
+      interstitialBody = 'This message reads like a known payment scam. <strong>TeeBox never asks you to confirm a payment through a link or a message.</strong> Real payments only happen at TeeBox checkout.';
+    }
     const interstitial = showInterstitial ? `
-      <div class="msg-interstitial">
+      <div class="msg-interstitial" data-hosts="${attrEsc(offSiteHosts.join(','))}">
         <div class="msg-interstitial-head">${(window.ICONS && window.ICONS.alert) || ''} Heads up</div>
-        <p class="msg-interstitial-body">This message may be moving the deal off TeeBox. <strong>Paying outside the app means no dispute support or refunds from TeeBox.</strong></p>
+        <p class="msg-interstitial-body">${interstitialBody}</p>
         <div class="msg-interstitial-actions">
           <button class="btn-ghost" type="button" data-action="msg-show-anyway">Show message anyway</button>
           <button class="btn-ghost btn-warn" data-action="report-message" data-mid="${midAttr}" data-sender="${sidAttr}">Report this message</button>
@@ -13479,7 +13515,27 @@ A['stripe-connect']          = async () => {
     }
   }
 };
-A['msg-show-anyway']         = (el) => { try { const w = el.closest('.msg-wrap'); if (w) w.classList.remove('msg-hidden'); const i = el.closest('.msg-interstitial'); if (i) i.remove(); } catch (_e) {} };
+A['msg-show-anyway']         = (el) => {
+  let w = null, i = null;
+  try { w = el.closest('.msg-wrap'); i = el.closest('.msg-interstitial'); } catch (_e) {}
+  // 2026-10-29: log the reveal tap (who, which message, which thread, when)
+  // so "did anyone open the phishing link card" is answerable. Rules only
+  // allow a signed-in user to write a row about their own uid. Best-effort.
+  try {
+    const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+    const messageId = w && w.dataset ? String(w.dataset.msgId || '') : '';
+    const conversationId = (typeof currentChat !== 'undefined' && currentChat && currentChat.conversationId) || '';
+    const hosts = i && i.dataset && i.dataset.hosts ? i.dataset.hosts.split(',').filter(Boolean).slice(0, 5) : [];
+    if (uid && messageId && conversationId) {
+      import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js").then(({ getFirestore, addDoc, collection, serverTimestamp }) =>
+        addDoc(collection(getFirestore(), 'messageReveals'), {
+          uid, messageId: messageId.slice(0, 128), conversationId: String(conversationId).slice(0, 200),
+          hosts: hosts.map((h) => String(h).slice(0, 253)), createdAt: serverTimestamp(),
+        })).catch((e) => console.warn('messageReveals log failed', e && e.code || e));
+    }
+  } catch (_e) {}
+  try { if (w) w.classList.remove('msg-hidden'); if (i) i.remove(); } catch (_e) {}
+};
 A['close-inbox']             = () => closeInbox();
 A['close-inbox-and-browse']  = () => { closeInbox(); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
 A['close-watchlist-browse']  = () => { const so = document.getElementById('searchOverlay'); if (so) so.classList.remove('open'); try { (document.getElementById('app-scroll')||window).scrollTo({top: 0, behavior: 'smooth'}); } catch (_e) {} };
