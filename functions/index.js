@@ -1655,6 +1655,10 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       // column always rendered "—". (Launch blocker fix.)
       shipping: pi.shipping || null,
       receiptEmail: pi.receipt_email || null,
+      // Meta CAPI (2026-10-29): Stripe mode of the PaymentIntent. The live
+      // webhook secret already rejects test-mode events, but the Purchase
+      // trigger refuses anything not explicitly live as a second lock.
+      livemode: pi.livemode === true,
       status: "paid",
       fulfillmentStatus: "awaiting_seller_shipment",
       // r294 — Meta CAPI match keys, carried from checkout via PI metadata.

@@ -210,6 +210,79 @@ async function metaConfig() {
 }
 
 /**
+ * Why an order must NOT produce a Purchase event, or "" when it should.
+ *   - not paid: a pending hold is not a conversion.
+ *   - test mode: Stripe test-mode payments never count (Dylan, 2026-10-29).
+ *     Orders written before this field existed have livemode undefined and
+ *     are treated as live (the live webhook secret already filtered them).
+ * @param {object} order
+ * @return {string} reason to skip, or "" to send
+ */
+function purchaseSkipReason(order) {
+  if (!order || order.status !== "paid") return "not-paid";
+  if (order.livemode === false) return "test-mode";
+  return "";
+}
+
+/**
+ * The item price in dollars — what Meta's `value` carries (Dylan, 2026-10-29:
+ * item price, not the buyer's total). Structure-2 orders store itemCents;
+ * older ones only unitPriceCents (× quantity); the oldest only amountCents,
+ * which for them WAS the item price (no buyer-paid shipping yet).
+ * @param {object} order
+ * @return {number}
+ */
+function purchaseValueDollars(order) {
+  const o = order || {};
+  let cents = Number(o.itemCents);
+  if (!Number.isFinite(cents) || cents <= 0) {
+    const unit = Number(o.unitPriceCents);
+    const qty = Math.max(1, Number(o.quantity || 1));
+    cents = Number.isFinite(unit) && unit > 0 ? unit * qty : Number(o.amountCents || 0);
+  }
+  return Math.round(cents) / 100;
+}
+
+/**
+ * Build the standard Meta "Purchase" event for a paid order. Pure: no I/O.
+ * event_id = purchase_<paymentIntentId> (the order doc id IS the PI id, see
+ * handlePaymentSucceeded) and MUST match the browser leg or Meta counts the
+ * sale twice. content_ids = [listingId] = the catalog feed's item `id`
+ * (functions/metaFeed.js uses the listing doc id), so catalog retargeting
+ * and Purchase tie to the same product.
+ * @param {object} p
+ * @param {object} p.order      order document data
+ * @param {string} p.orderId    order doc id (= PaymentIntent id)
+ * @param {object} p.userData   from buildUserData()
+ * @param {{testEventCode?: string}} [p.cfg]
+ * @param {number} [p.now]      epoch seconds (tests)
+ * @return {object} CAPI event
+ */
+function buildPurchaseEvent({order, orderId, userData, cfg, now}) {
+  const o = order || {};
+  const ev = {
+    event_name: "Purchase",
+    event_time: now || Math.floor(Date.now() / 1000),
+    event_id: "purchase_" + orderId,
+    action_source: "website",
+    event_source_url: o.listingId ?
+      "https://teeboxmarket.com/listing/" + encodeURIComponent(String(o.listingId)) + "/" :
+      "https://teeboxmarket.com/",
+    user_data: userData,
+    custom_data: {
+      currency: String(o.currency || "usd").toUpperCase(),
+      value: purchaseValueDollars(o),
+      content_type: "product",
+      content_ids: o.listingId ? [String(o.listingId)] : [],
+      order_id: String(orderId),
+      num_items: Math.max(1, Number(o.quantity || 1)),
+    },
+  };
+  if (cfg && cfg.testEventCode) ev.test_event_code = cfg.testEventCode;
+  return ev;
+}
+
+/**
  * Server-side Purchase, fired from the order Stripe actually created.
  *
  * event_id MUST match the browser's `purchase_<paymentIntentId>` or Meta
@@ -234,9 +307,11 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         return;
       }
 
-      // Only real, paid orders. A pending hold is not a conversion.
-      if (order.status !== "paid") {
-        logger.info("capiPurchase: not paid - skipping", {orderId, status: order.status});
+      // Only real, paid, LIVE-mode orders. A pending hold is not a conversion
+      // and a Stripe test-mode payment never is.
+      const skip = purchaseSkipReason(order);
+      if (skip) {
+        logger.info(`capiPurchase: ${skip} - skipping`, {orderId, status: order.status, livemode: order.livemode});
         return;
       }
 
@@ -260,31 +335,9 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         return;
       }
 
-      // The order doc id IS the payment intent id (see handlePaymentSucceeded),
-      // which is what the browser keyed its event on.
-      const eventId = "purchase_" + orderId;
-      const valueDollars = Number(order.amountCents || 0) / 100;
-
-      const ev = {
-        event_name: "Purchase",
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: eventId,
-        action_source: "website",
-        event_source_url: order.listingId ?
-          "https://teeboxmarket.com/listing/" + encodeURIComponent(String(order.listingId)) + "/" :
-          "https://teeboxmarket.com/",
-        user_data: userData,
-        custom_data: {
-          currency: String(order.currency || "usd").toUpperCase(),
-          value: valueDollars,
-          content_type: "product",
-          content_ids: order.listingId ? [String(order.listingId)] : [],
-          order_id: String(orderId),
-          num_items: Number(order.quantity || 1),
-        },
-      };
-
-      if (cfg.testEventCode) ev.test_event_code = cfg.testEventCode;
+      const ev = buildPurchaseEvent({order, orderId, userData, cfg});
+      const eventId = ev.event_id;
+      const valueDollars = ev.custom_data.value;
 
       const res = await postEvents(token, [ev]);
       if (res.ok) {
@@ -463,4 +516,4 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce};
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce, buildPurchaseEvent, purchaseSkipReason, purchaseValueDollars};

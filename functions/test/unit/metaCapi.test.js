@@ -65,3 +65,33 @@ test("claimOnce: first call per uid claims, every later call is refused (r387 Co
   assert.equal(await M.claimOnce(fakeDb, "u2", "cr_u2"), true);
   assert.equal(store.get("capiRelayOnce/u1").eventId, "cr_u1");
 });
+
+// ── Purchase (standard event) — 2026-10-29 ───────────────────────────────
+const paidOrder = {status: "paid", livemode: true, listingId: "L1", buyerId: "u1", currency: "usd", quantity: 1, itemCents: 12000, shippingCents: 1500, amountCents: 13500, unitPriceCents: 12000};
+test("buildPurchaseEvent: standard Purchase, event_id = purchase_<pi>, content_ids = [listingId], value = ITEM price (not buyer total)", () => {
+  const ev = M.buildPurchaseEvent({order: paidOrder, orderId: "pi_123", userData: {em: "x"}, now: 1700000000});
+  assert.equal(ev.event_name, "Purchase");
+  assert.equal(ev.event_id, "purchase_pi_123");
+  assert.equal(ev.action_source, "website");
+  assert.equal(ev.event_time, 1700000000);
+  assert.deepEqual(ev.custom_data, {currency: "USD", value: 120, content_type: "product", content_ids: ["L1"], order_id: "pi_123", num_items: 1});
+  assert.equal(ev.event_source_url, "https://teeboxmarket.com/listing/L1/");
+  assert.ok(!("test_event_code" in ev));
+});
+test("buildPurchaseEvent: test_event_code attached only when config/meta sets it", () => {
+  const ev = M.buildPurchaseEvent({order: paidOrder, orderId: "pi_1", userData: {}, cfg: {testEventCode: "TEST1"}});
+  assert.equal(ev.test_event_code, "TEST1");
+});
+test("purchaseValueDollars: itemCents → unitPriceCents×qty → amountCents fallbacks", () => {
+  assert.equal(M.purchaseValueDollars({itemCents: 12000, amountCents: 13500}), 120);
+  assert.equal(M.purchaseValueDollars({unitPriceCents: 2500, quantity: 2, amountCents: 6000}), 50);
+  assert.equal(M.purchaseValueDollars({amountCents: 3500}), 35);
+  assert.equal(M.purchaseValueDollars({}), 0);
+});
+test("purchaseSkipReason: paid+live sends; pending, and Stripe TEST-mode never send; legacy orders without livemode still send", () => {
+  assert.equal(M.purchaseSkipReason(paidOrder), "");
+  assert.equal(M.purchaseSkipReason({...paidOrder, status: "pending"}), "not-paid");
+  assert.equal(M.purchaseSkipReason({...paidOrder, livemode: false}), "test-mode");
+  assert.equal(M.purchaseSkipReason({...paidOrder, livemode: undefined}), "");
+  assert.equal(M.purchaseSkipReason(null), "not-paid");
+});
