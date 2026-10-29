@@ -8071,6 +8071,8 @@ Object.assign(exports, require("./listFirst"));
 exports.completeAccountSetup = require("./accountSetup").completeAccountSetup;
 // 2.6.1: Facebook sign-ins can arrive with no email (phone-only / declined).
 exports.setAccountEmail = require("./accountSetup").setAccountEmail;
+// 2026-10-29: ops alerts → email (+ optional Telegram ops chat). SMOKE_ALERT_WEBHOOK points here.
+exports.opsAlertRelay = require("./opsAlertRelay").opsAlertRelay;
 
 // Logo Bingo daily push triggers (morning reminder + 9pm streak saver).
 // Isolated in its own file so deploys can't blast-radius the offer / order
