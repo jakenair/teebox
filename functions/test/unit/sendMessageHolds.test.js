@@ -207,7 +207,8 @@ test("FAIL CLOSED: Auth fails AND no doc createdAt → treated as new, link held
   seed("users/buyer", {displayName: "B"});
   seed("orders/o1", {buyerId: "buyer", sellerId: "x", status: "paid"});
   seedConv("c1", {buyer: "buyer", seller: "s1"});
-  const r = await send("buyer", "c1", "s1", "see https://www.titleist.com/golf-balls");
+  // (titleist.com is allowlisted since 2026-10-30 — use an unlisted host)
+  const r = await send("buyer", "c1", "s1", "see https://www.pingtour.com/golf-balls");
   assert.equal(r.held, true);
   assert.equal(r.reason, "new_account_external_link");
 });
@@ -366,4 +367,156 @@ test("seller-burst cap doesn't apply to accounts older than 7 days", async () =>
   for (const s of ["sA", "sB", "sC", "sD"]) {
     assert.equal((await send("vet", `c_${s}`, s, `Question number ${++i} about this one`)).ok, true);
   }
+});
+
+// ── 5. 2026-10-30 friction tuning: allowlist, plain text, phrases ───
+async function moderate(cid) {
+  const [path] = messagesIn(cid);
+  const mid = path.split("/").pop();
+  await fns.moderateMessage.run({params: {cid, messageId: mid},
+    data: {data: () => store.get(path), ref: docRef(path)}});
+  return store.get(path);
+}
+function newAccount(uid = "n") {
+  authUsers[uid] = {creationTime: ago(60 * 1000)};
+  seed(`users/${uid}`, {});
+}
+
+test("allowlisted links (incl. subdomains) from a brand-new account → delivered, NO card", async () => {
+  for (const url of [
+    "https://www.titleist.com/golf-clubs/drivers/gt2", "https://youtu.be/abc123",
+    "https://m.youtube.com/watch?v=x", "https://imgur.com/a/xyz",
+    "https://ping.com/en-us/clubs/irons/i530", "https://www.instagram.com/golfguy/",
+    "https://www.2ndswing.com/golf-clubs", "https://shop.scottycameron.com/putters"]) {
+    store = new Map(); authUsers = {};
+    newAccount();
+    seedConv("c1", {buyer: "n", seller: "s1"});
+    const r = await send("n", "c1", "s1", "Here you go " + url);
+    assert.equal(r.ok, true, url);
+    const m = await moderate("c1");
+    assert.ok(!m.flagged || m.flagged.severity !== "HARD", "no card for " + url);
+  }
+});
+
+test("suffix tricks are NOT allowlisted: titleist.com.evil.top / evil-titleist.com / userinfo", async () => {
+  const cases = [
+    ["https://titleist.com.evil.top/pay", "high_risk_tld_link"],
+    ["https://evil-titleist.com/pay", "new_account_external_link"],
+    ["https://titleist.com@evil-pay.com/pay", "new_account_external_link"],
+    ["https://titleist.com.evil.net/pay", "new_account_external_link"],
+  ];
+  for (const [url, reason] of cases) {
+    store = new Map(); authUsers = {};
+    newAccount();
+    seedConv("c1", {buyer: "n", seller: "s1"});
+    const r = await send("n", "c1", "s1", "specs " + url);
+    assert.equal(r.reason, reason, url);
+  }
+});
+
+test("config/messaging.linkAllowlist overrides the code default", async () => {
+  // loadMessagingConfig caches per instance (60 s) and this file has already
+  // warmed it, so the override is asserted on the pure resolver that both
+  // sendMessage and moderateMessage call (resolveLinkAllowlist(config)).
+  const {resolveLinkAllowlist, isAllowlistedHost} = require("../../moderation/messageRisk");
+  const list = resolveLinkAllowlist({linkAllowlist: ["pingtour.com"]});
+  assert.equal(isAllowlistedHost("www.pingtour.com", list), true);
+  assert.equal(isAllowlistedHost("titleist.com", list), false, "override replaces the default");
+  assert.equal(isAllowlistedHost("teeboxmarket.com", list), true, "own domain always kept");
+});
+
+test("plain-text domain (no scheme) from a new account → delivered, no card, no hold", async () => {
+  newAccount();
+  seedConv("c1", {buyer: "n", seller: "s1"});
+  const r = await send("n", "c1", "s1", "Same model at rockbottomgolf.com is cheaper");
+  assert.equal(r.ok, true);
+  const m = await moderate("c1");
+  assert.equal(m.flagged.severity, "SOFT");
+  assert.deepEqual(m.flagged.types, ["plain_domain"]);
+  assert.deepEqual(m.flagged.hosts, [], "no hosts → client won't name a domain");
+});
+
+test("plain-text domain on a blocked TLD is held; plain known-bad is blocked", async () => {
+  newAccount();
+  seedConv("c1", {buyer: "n", seller: "s1"});
+  const r = await send("n", "c1", "s1", "go to secure-pay.xyz");
+  assert.equal(r.reason, "high_risk_tld_link");
+  await assert.rejects(send("n", "c1", "s1", "visit s55.524178039.cfd/teeboxmarket"),
+      (e) => e.details && e.details.error === "blocked_link");
+});
+
+test("plain-text domain from a FLAGGED sender counts as a link (offPlatformFlags>0 / reviewFlag)", async () => {
+  for (const userDoc of [{offPlatformFlags: 1}, {reviewFlag: {reason: "x"}}]) {
+    store = new Map(); authUsers = {};
+    authUsers.f = {creationTime: ago(60 * 1000)};
+    seed("users/f", userDoc);
+    seedConv("c1", {buyer: "f", seller: "s1"});
+    const r = await send("f", "c1", "s1", "Same model at rockbottomgolf.com is cheaper");
+    assert.equal(r.reason, "new_account_external_link", JSON.stringify(userDoc));
+  }
+  // …but an allowlisted plain mention from a flagged sender is still fine.
+  store = new Map(); authUsers = {f: {creationTime: ago(60 * 1000)}};
+  seed("users/f", {offPlatformFlags: 3});
+  seedConv("c1", {buyer: "f", seller: "s1"});
+  assert.equal((await send("f", "c1", "s1", "check titleist.com for the specs")).ok, true);
+});
+
+test("scam phrase ALONE → delivered + warning card (not held), even from a new account", async () => {
+  newAccount();
+  seedConv("c1", {buyer: "n", seller: "s1"});
+  const r = await send("n", "c1", "s1", "My payment didn't go through, please confirm the payment");
+  assert.equal(r.ok, true);
+  const m = await moderate("c1");
+  assert.equal(m.flagged.severity, "HARD");
+  assert.ok(m.flagged.types.includes("scam_phrase"));
+});
+
+test("scam phrase + NON-allowlisted link → held, even from a trusted account", async () => {
+  authUsers.vet = {creationTime: ago(400 * 24 * H)};
+  seed("users/vet", {});
+  seed("orders/o1", {buyerId: "x", sellerId: "vet", status: "paid"});
+  seedConv("c1", {buyer: "vet", seller: "s1"});
+  const r = await send("vet", "c1", "s1", "My payment didn't go through, confirm via the link https://secure-pay.example.net/x");
+  assert.equal(r.reason, "scam_phrase_with_link");
+});
+
+test("scam phrase + plain-text domain → held (the phrase promotes the mention to a link)", async () => {
+  newAccount();
+  seedConv("c1", {buyer: "n", seller: "s1"});
+  const r = await send("n", "c1", "s1", "The payment did not go through, confirm it at secure-pay.com/teebox");
+  assert.equal(r.held, true);
+  assert.equal(r.reason, "scam_phrase_with_link");
+});
+
+test("scam phrase + ALLOWLISTED link → delivered + card (phrase card, no hold)", async () => {
+  newAccount();
+  seedConv("c1", {buyer: "n", seller: "s1"});
+  const r = await send("n", "c1", "s1", "My payment didn't go through, see https://www.titleist.com/gt2");
+  assert.equal(r.ok, true);
+  const m = await moderate("c1");
+  assert.equal(m.flagged.severity, "HARD");
+  assert.deepEqual(m.flagged.hosts, [], "card does not name titleist.com");
+});
+
+test("allowlisted links don't tick the Rule 4 repeat-PII cap", async () => {
+  authUsers.vet = {creationTime: ago(400 * 24 * H)};
+  seed("users/vet", {});
+  seedConv("c1", {buyer: "vet", seller: "s1"});
+  assert.equal((await send("vet", "c1", "s1", "https://youtu.be/one")).ok, true);
+  assert.equal((await send("vet", "c1", "s1", "and https://youtu.be/two")).ok, true);
+  assert.equal(store.get("users/vet").piiSentTo, undefined);
+});
+
+test("hold doc records senderFlagged; delivered message uses the shared payload shape", async () => {
+  authUsers.f = {creationTime: ago(60 * 1000)};
+  seed("users/f", {offPlatformFlags: 2});
+  seedConv("c1", {buyer: "f", seller: "s1"});
+  await send("f", "c1", "s1", "https://pay.example.org/x");
+  assert.equal(holds()[0].senderFlagged, true);
+  newAccount("n2");
+  seedConv("c2", {buyer: "n2", seller: "s2"});
+  await send("n2", "c2", "s2", "Is this still available?");
+  const conv = store.get("conversations/c2");
+  assert.equal(conv.lastMessageSenderId, "n2");
+  assert.ok(conv.lastRead && conv.lastRead.n2, "lastRead stamped for the sender");
 });

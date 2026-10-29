@@ -2655,7 +2655,10 @@ function msgFlagHosts(m) {
     if (h && out.indexOf(h) === -1 && out.length < 5) out.push(h);
   };
   if (m && m.flagged && Array.isArray(m.flagged.hosts)) m.flagged.hosts.forEach(add);
-  if (!out.length && m && m.text) {
+  // 2026-10-30: the server now writes ONLY the hosts that counted (never an
+  // allowlisted one like titleist.com), so an empty array is authoritative —
+  // fall back to the text only for flags written before hosts existed.
+  if (!out.length && m && m.text && !(m.flagged && Array.isArray(m.flagged.hosts))) {
     const t = String(m.text);
     let r;
     const reScheme = /\bhttps?:\/\/([a-z0-9.-]+\.[a-z]{2,24})/gi;
@@ -14082,11 +14085,13 @@ function isModerationAdmin() {
 A['close-moderation']        = () => {
   const bd = document.getElementById('moderationBackdrop');
   if (bd) bd.classList.remove('open');
-  // Drop the ?admin=moderation query so a refresh doesn't reopen it.
+  // Drop the ?admin=moderation|holds query so a refresh doesn't reopen it.
   try {
     const u = new URL(window.location.href);
-    if (u.searchParams.get('admin') === 'moderation') {
+    const a = u.searchParams.get('admin');
+    if (a === 'moderation' || a === 'holds') {
       u.searchParams.delete('admin');
+      u.searchParams.delete('hold');
       window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
     }
   } catch (_e) {}
@@ -14107,6 +14112,8 @@ async function openModerationQueue() {
   if (!bd || !body) return;
   // Open with loading state.
   document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  const _modTitle = document.getElementById('moderationTitle');
+  if (_modTitle) _modTitle.textContent = 'Moderation Queue';
   body.innerHTML = '<div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading flagged listings…</div>';
   bd.classList.add('open');
   try {
@@ -14239,6 +14246,136 @@ async function moderationCardAction(el, kind) {
     card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
   }
 }
+// ─── Held chat messages (?admin=holds[&hold=<id>]) ───────────
+// 2026-10-30. The ops alert for every held message links here; the link only
+// OPENS the queue (scrolled to that hold). Approve / Reject call admin-gated
+// callables (adminGate + fresh re-auth ≤5 min, like banUser) — a stale
+// sign-in gets one re-auth prompt, then the action retries. Approve delivers
+// the message into the conversation (releaseHold); Reject discards it.
+let __holdsFocus = null;
+async function adminCallable(name, data) {
+  const { getFunctions, httpsCallable } =
+    await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js');
+  return httpsCallable(getFunctions(), name)(data || {});
+}
+async function adminReauth() {
+  const fa = await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js');
+  const auth = fa.getAuth();
+  const u = auth.currentUser;
+  if (!u) throw new Error('Not signed in');
+  const providers = (u.providerData || []).map(p => p && p.providerId);
+  if (providers.indexOf('google.com') !== -1) {
+    await fa.reauthenticateWithPopup(u, new fa.GoogleAuthProvider());
+  } else if (providers.indexOf('apple.com') !== -1) {
+    await fa.reauthenticateWithPopup(u, new fa.OAuthProvider('apple.com'));
+  } else if (providers.indexOf('password') !== -1) {
+    const pw = window.prompt('Confirm your password to continue');
+    if (!pw) throw new Error('Re-auth cancelled');
+    await fa.reauthenticateWithCredential(u, fa.EmailAuthProvider.credential(u.email, pw));
+  } else {
+    throw new Error('Sign out and back in, then try again.');
+  }
+  await u.getIdToken(true);
+}
+async function adminCallableFresh(name, data) {
+  try {
+    return await adminCallable(name, data);
+  } catch (err) {
+    const d = err && err.details;
+    if (d && d.reauthRequired) {
+      await adminReauth();
+      return await adminCallable(name, data);
+    }
+    throw err;
+  }
+}
+async function openHoldsQueue(focusId) {
+  if (!isModerationAdmin()) {
+    if (window.showToast) window.showToast('Not authorized.', 'error');
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('admin'); u.searchParams.delete('hold');
+      window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+    } catch (_e) {}
+    return;
+  }
+  __holdsFocus = focusId || null;
+  const bd = document.getElementById('moderationBackdrop');
+  const body = document.getElementById('moderationBody');
+  const title = document.getElementById('moderationTitle');
+  if (!bd || !body) return;
+  document.querySelectorAll('.info-backdrop.open').forEach(b => b.classList.remove('open'));
+  if (title) title.textContent = 'Held messages';
+  body.innerHTML = '<div class="moderation-loading" style="text-align:center;padding:48px 16px;color:var(--gold-300);">Loading held messages…</div>';
+  bd.classList.add('open');
+  try {
+    const res = await adminCallable('listMessageHolds', { status: 'pending', limit: 100 });
+    renderHoldsQueue(((res && res.data) || {}).holds || []);
+  } catch (err) {
+    console.error('holds queue load failed:', err);
+    body.innerHTML = '<div class="mod-error">Could not load held messages: ' + escapeHtml(err && err.message || 'unknown error') + '</div>';
+  }
+}
+function renderHoldsQueue(holds) {
+  const body = document.getElementById('moderationBody');
+  if (!body) return;
+  if (!holds.length) {
+    body.innerHTML = '<div class="mod-empty">No held messages. Nice.' +
+      (__holdsFocus ? ' (That hold was already handled or has expired.)' : '') + '</div>';
+    return;
+  }
+  const fmt = (ms) => ms ? new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  body.innerHTML = holds.map(h => {
+    const focus = __holdsFocus && h.holdId === __holdsFocus;
+    const reasons = (h.reasons && h.reasons.length ? h.reasons : [h.reason || 'unknown']).join(', ');
+    const hosts = h.externalHosts && h.externalHosts.length ? ' · links: ' + h.externalHosts.join(', ') : '';
+    const age = typeof h.senderAccountAgeHours === 'number' ? ' · sender age ' + h.senderAccountAgeHours + 'h' : '';
+    return `
+      <div class="mod-card hold-card" data-hold-id="${escapeHtml(h.holdId)}" style="grid-template-columns:1fr;${focus ? 'outline:2px solid var(--gold-300);' : ''}">
+        <div class="mod-info">
+          <div class="mod-meta">From <strong>${escapeHtml(h.senderName || '')}</strong> <code>${escapeHtml(h.sender || '')}</code> → <strong>${escapeHtml(h.recipientName || '')}</strong> <code>${escapeHtml(h.recipient || '')}</code></div>
+          <div class="mod-title" style="font-size:14px;font-weight:500;white-space:pre-wrap;">${escapeHtml(h.text || '')}</div>
+          <div class="mod-reason">held: ${escapeHtml(reasons)}${escapeHtml(hosts)}${escapeHtml(age)}</div>
+          <div class="mod-meta">${escapeHtml(fmt(h.createdAt))} · conversation <code>${escapeHtml(h.conversationId || '')}</code> · hold <code>${escapeHtml(h.holdId)}</code></div>
+          <div class="mod-actions">
+            <button class="mod-btn mod-btn-approve" data-action="hold-approve">Approve + deliver</button>
+            <button class="mod-btn mod-btn-reject" data-action="hold-reject">Reject</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  if (__holdsFocus) {
+    const el = body.querySelector('.hold-card[data-hold-id="' + (window.CSS && CSS.escape ? CSS.escape(__holdsFocus) : __holdsFocus) + '"]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    else if (window.showToast) window.showToast('That hold was already handled or has expired.', 'info');
+  }
+}
+async function holdCardAction(el, kind) {
+  const card = el && el.closest('.hold-card');
+  if (!card) return;
+  const holdId = card.dataset.holdId;
+  if (!holdId) return;
+  if (kind === 'reject' && !window.confirm('Reject this message? It will never be delivered.')) return;
+  card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+  try {
+    await adminCallableFresh(kind === 'approve' ? 'releaseHold' : 'rejectHold', { holdId });
+    if (window.showToast) window.showToast(kind === 'approve' ? 'Approved — delivered.' : 'Rejected.', 'success');
+    card.style.transition = 'opacity 200ms ease';
+    card.style.opacity = '0';
+    setTimeout(() => {
+      card.remove();
+      const body = document.getElementById('moderationBody');
+      if (body && !body.querySelector('.hold-card')) body.innerHTML = '<div class="mod-empty">Queue cleared. Nice.</div>';
+    }, 220);
+  } catch (err) {
+    console.error('hold action failed:', err);
+    if (window.showToast) window.showToast((err && err.message) || 'Something went wrong. Please try again.', 'error');
+    card.querySelectorAll('.mod-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+  }
+}
+A['hold-approve'] = (el) => holdCardAction(el, 'approve');
+A['hold-reject']  = (el) => holdCardAction(el, 'reject');
+window.openHoldsQueue = openHoldsQueue;
 A['mod-approve'] = (el) => moderationCardAction(el, 'approve');
 A['mod-reject']  = (el) => moderationCardAction(el, 'reject');
 A['mod-skip']    = (el) => moderationCardAction(el, 'skip');
@@ -14247,6 +14384,18 @@ window.openModerationQueue = openModerationQueue;
 // (onAuthStateChanged fires async after page load) then open if admin.
 try {
   const _adminSp = new URLSearchParams(window.location.search);
+  if (_adminSp.get('admin') === 'holds') {
+    const _holdId = _adminSp.get('hold');
+    let _hAttempts = 0;
+    const _hPoll = setInterval(() => {
+      _hAttempts++;
+      if (window.CURRENT_USER) { clearInterval(_hPoll); openHoldsQueue(_holdId); return; }
+      if (_hAttempts > 50) {
+        clearInterval(_hPoll);
+        if (window.showToast) window.showToast('Sign in as the admin to review held messages.', 'info');
+      }
+    }, 200);
+  }
   if (_adminSp.get('admin') === 'moderation') {
     let _modAttempts = 0;
     const _modPoll = setInterval(() => {

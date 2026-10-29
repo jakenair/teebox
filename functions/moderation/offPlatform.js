@@ -101,6 +101,44 @@ function modHostIsKnownBad(host, extraDomains) {
   return false;
 }
 
+// ── 2026-10-30: link vs plain-text mention ──────────────────────────
+// A "link" is a URL with an http(s) scheme. The chat UI renders message text
+// escaped with NO auto-linking (js/app-main.js renderMessages), and neither
+// WKWebView (dataDetectorTypes default none) nor Android WebView linkify page
+// text, so a bare "titleist.com" is not clickable anywhere TeeBox renders it.
+// Scheme URLs are parsed with WHATWG URL so userinfo tricks
+// ("https://titleist.com@evil.top/") resolve to the host a browser would
+// actually open, and IDN look-alikes come back as punycode (xn--…), which
+// never matches an allowlist entry.
+const MOD_SCHEME_URL_RE = /\bhttps?:\/\/[^\s<>"'`]+/gi;
+
+function modClassifyHosts(text) {
+  const linkHosts = [];
+  const plainHosts = [];
+  if (!text) return {linkHosts, plainHosts};
+  const s = String(text);
+  const own = (h) => /(^|\.)teeboxmarket\.com$/.test(h);
+  let rest = s;
+  const re = new RegExp(MOD_SCHEME_URL_RE.source, "gi");
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const raw = m[0].replace(/[.,;:!?)\]}]+$/, "");
+    let host = "";
+    try {
+      host = new URL(raw).hostname.toLowerCase().replace(/\.$/, "");
+    } catch (_e) {
+      const hm = /^https?:\/\/([^/?#\s]+)/i.exec(raw);
+      host = hm ? hm[1].toLowerCase().replace(/^.*@/, "").replace(/:\d+$/, "") : "";
+    }
+    if (host && !own(host) && linkHosts.indexOf(host) === -1) linkHosts.push(host);
+    rest = rest.replace(m[0], " ");
+  }
+  for (const h of modExtractExternalHosts(rest)) {
+    if (linkHosts.indexOf(h) === -1 && plainHosts.indexOf(h) === -1) plainHosts.push(h);
+  }
+  return {linkHosts, plainHosts};
+}
+
 function modEscapeKw(k) {
   return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -111,10 +149,21 @@ function modNormalizeText(t) {
   return require("./contentFilter").normalize(t);
 }
 
-function modDetectOffPlatform(text, extraBadDomains) {
+/**
+ * @param {string} text
+ * @param {string[]} [extraBadDomains] config.messaging.knownBadDomains
+ * @param {object} [opts]
+ * @param {string[]} [opts.allowlist]   link allowlist (domain + subdomains);
+ *                                      default messageRisk.DEFAULT_LINK_ALLOWLIST
+ * @param {boolean}  [opts.senderFlagged] messageRisk.isFlaggedSender(user)
+ * @param {string[]} [opts.highRiskTlds]
+ */
+function modDetectOffPlatform(text, extraBadDomains, opts) {
+  const o = opts || {};
   if (!text) {
     return {matched: false, severity: null, knownBad: false,
-      externalHosts: [], types: [], patterns: []};
+      externalHosts: [], linkHosts: [], plainHosts: [], countedHosts: [],
+      allowlistedHosts: [], scamPhrases: [], types: [], patterns: []};
   }
   const s = String(text);
   const lc = s.toLowerCase();
@@ -229,20 +278,55 @@ function modDetectOffPlatform(text, extraBadDomains) {
     logger.warn("modDetectOffPlatform obfuscation layer threw", e);
   }
 
-  // Generic external-URL layer (the durable phishing fix). ANY link to a
-  // non-teeboxmarket.com host is HARD; a known-bad host additionally sets
-  // `knownBad` so callers can BLOCK/QUARANTINE rather than just interstitial.
+  // Generic external-URL layer (the durable phishing fix), 2026-10-30 tuning:
+  //   • allowlisted hosts (config linkAllowlist / DEFAULT_LINK_ALLOWLIST,
+  //     domain + subdomains) never count — no card, no hold, no Rule 4 tick;
+  //   • a scheme link to any other host is HARD (card; sendMessage decides hold);
+  //   • a plain-text mention (no scheme — not clickable in TeeBox) is HARD only
+  //     when it is on a high-risk TLD, known-bad, the sender is flagged
+  //     (reviewFlag / offPlatformFlags > 0), or it sits next to a scam phrase;
+  //     otherwise it is a SOFT "plain_domain" signal (logged, no card).
+  // A known-bad host (any form) sets `knownBad` → callers BLOCK/QUARANTINE.
+  const risk = require("./messageRisk");
+  const allowlist = Array.isArray(o.allowlist) ? o.allowlist : risk.DEFAULT_LINK_ALLOWLIST;
+  const scamPhrases = risk.detectScamPhrases(s);
+  const {linkHosts, plainHosts} = modClassifyHosts(s);
   const externalHosts = modExtractExternalHosts(s);
+  for (const h of [...linkHosts, ...plainHosts]) {
+    if (externalHosts.indexOf(h) === -1) externalHosts.push(h);
+  }
   let knownBad = false;
-  if (externalHosts.length) {
-    for (const h of externalHosts) {
-      if (modHostIsKnownBad(h, extraBadDomains)) knownBad = true;
+  for (const h of externalHosts) {
+    if (modHostIsKnownBad(h, extraBadDomains)) knownBad = true;
+  }
+  const allowlistedHosts = [];
+  const countedHosts = [];
+  const plainUncounted = [];
+  for (const h of linkHosts) {
+    if (risk.isAllowlistedHost(h, allowlist)) allowlistedHosts.push(h);
+    else countedHosts.push(h);
+  }
+  for (const h of plainHosts) {
+    if (risk.isAllowlistedHost(h, allowlist)) { allowlistedHosts.push(h); continue; }
+    if (risk.isHighRiskHost(h, o.highRiskTlds) || modHostIsKnownBad(h, extraBadDomains) ||
+        o.senderFlagged === true || scamPhrases.length) {
+      countedHosts.push(h);
+    } else {
+      plainUncounted.push(h);
     }
+  }
+  if (countedHosts.length || knownBad) {
     patterns.push({type: "url", name: knownBad ? "known_bad_domain" : "external_url",
-      match: externalHosts.slice(0, 3).join(",").slice(0, 80)});
+      match: (countedHosts.length ? countedHosts : externalHosts)
+          .slice(0, 3).join(",").slice(0, 80)});
     types.add("external_url");
     if (knownBad) types.add("known_bad_domain");
     severity = "HARD";
+  } else if (plainUncounted.length) {
+    patterns.push({type: "url", name: "plain_domain", severity: "SOFT",
+      match: plainUncounted.slice(0, 3).join(",").slice(0, 80)});
+    types.add("plain_domain");
+    if (!severity) severity = "SOFT";
   }
 
   return {
@@ -250,6 +334,11 @@ function modDetectOffPlatform(text, extraBadDomains) {
     severity,
     knownBad,
     externalHosts,
+    linkHosts,
+    plainHosts,
+    countedHosts,
+    allowlistedHosts,
+    scamPhrases,
     types: Array.from(types),
     patterns: patterns.slice(0, 12),
   };
@@ -261,7 +350,9 @@ module.exports = {
   MOD_OFF_PLATFORM_KEYWORDS_SOFT,
   MOD_KNOWN_BAD_DOMAINS,
   MOD_URL_SOURCE,
+  MOD_SCHEME_URL_RE,
   modExtractExternalHosts,
+  modClassifyHosts,
   modHostIsKnownBad,
   modDetectOffPlatform,
 };

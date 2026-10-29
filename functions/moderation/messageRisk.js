@@ -7,7 +7,9 @@
 //
 // What lives here:
 //   • detectScamPhrases()      — fake-payment-confirmation script phrases
-//   • isHoldExemptHost()       — hosts a link may point at without a hold
+//   • DEFAULT_LINK_ALLOWLIST / resolveLinkAllowlist / isAllowlistedHost —
+//                                links that are never held and get no card
+//   • isFlaggedSender()        — reviewFlag or offPlatformFlags > 0
 //   • isHighRiskHost()         — .cfd / .top / .xyz / .icu (always held)
 //   • resolveAccountCreatedMs() — account age, Auth first, FAIL CLOSED
 //   • isCompletedOrder()       — what counts as a completed transaction
@@ -55,11 +57,28 @@ function detectScamPhrases(text) {
 }
 
 // ── Hosts ────────────────────────────────────────────────────────────
-// A link to one of these never triggers a hold (the moderateMessage
-// interstitial still applies to anything that isn't teeboxmarket.com).
-// apps.apple.com: sellers share the TeeBox App Store link.
-const HOLD_EXEMPT_DOMAINS = ["teeboxmarket.com"]; // + subdomains
-const HOLD_EXEMPT_HOSTS = ["apps.apple.com"]; // exact host only
+// LINK ALLOWLIST (2026-10-30, Jake's list). A link to one of these domains —
+// the domain itself or any subdomain (www., m., …) — is never held, never
+// shows the warning card, and doesn't count toward the Rule 4 PII cap.
+// Matching is label-exact: "titleist.com.evil.top" and "evil-titleist.com"
+// do NOT match titleist.com.
+// Runtime override: config/messaging.linkAllowlist (string[]) REPLACES this
+// list when present and non-empty; teeboxmarket.com is always included.
+const DEFAULT_LINK_ALLOWLIST = [
+  "teeboxmarket.com",
+  "apps.apple.com",
+  "youtube.com", "youtu.be",
+  "imgur.com",
+  "instagram.com",
+  // Major golf brands / retailers
+  "titleist.com", "callaway.com", "taylormadegolf.com", "ping.com",
+  "cobragolf.com", "mizunogolf.com", "srixon.com", "scottycameron.com",
+  "vokey.com", "footjoy.com", "golfgalaxy.com", "pgatoursuperstore.com",
+  "2ndswing.com", "globalgolf.com",
+];
+// Back-compat names (pre-2026-10-30 tests/importers).
+const HOLD_EXEMPT_DOMAINS = DEFAULT_LINK_ALLOWLIST;
+const HOLD_EXEMPT_HOSTS = [];
 
 // Cheap TLDs that dominate phishing feeds. Any link on one is held
 // regardless of how old or trusted the sender is.
@@ -74,16 +93,38 @@ function hostMatchesDomainList(host, list) {
   const h = normHost(host);
   if (!h || !Array.isArray(list)) return false;
   for (const raw of list) {
-    const d = normHost(raw);
+    const d = normHost(raw).replace(/^\*?\./, "");
     if (d && (h === d || h.endsWith("." + d))) return true;
   }
   return false;
 }
 
+/** Effective allowlist from config/messaging (override) or the code default. */
+function resolveLinkAllowlist(config) {
+  const c = config || {};
+  const list = Array.isArray(c.linkAllowlist) ?
+    c.linkAllowlist.map(normHost).filter((d) => d && d.includes(".")) : [];
+  const out = list.length ? list : DEFAULT_LINK_ALLOWLIST.slice();
+  if (!out.includes("teeboxmarket.com")) out.push("teeboxmarket.com");
+  return out;
+}
+
+function isAllowlistedHost(host, list) {
+  return hostMatchesDomainList(host, Array.isArray(list) ? list : DEFAULT_LINK_ALLOWLIST);
+}
+
 function isHoldExemptHost(host) {
-  const h = normHost(host);
-  return hostMatchesDomainList(h, HOLD_EXEMPT_DOMAINS) ||
-    HOLD_EXEMPT_HOSTS.includes(h);
+  return isAllowlistedHost(host, DEFAULT_LINK_ALLOWLIST);
+}
+
+// ── Flagged sender ───────────────────────────────────────────────────
+// An account is "flagged" when users/{uid}.reviewFlag is set (Rule 6 burst,
+// or an admin) or it has ≥1 server-recorded HARD off-platform message
+// (offPlatformFlags > 0, incremented by moderateMessage / the known-bad
+// block). For a flagged sender, a plain-text domain mention counts as a link.
+function isFlaggedSender(user) {
+  const u = user || {};
+  return !!u.reviewFlag || Number(u.offPlatformFlags || 0) > 0;
 }
 
 function isHighRiskHost(host, tlds) {
@@ -152,7 +193,10 @@ function isCompletedOrder(o) {
 // ── Rule 5 (rewritten): link holds ───────────────────────────────────
 /**
  * @param {object} p
- * @param {string[]} p.externalHosts     every non-teeboxmarket host in the text
+ * @param {string[]} p.externalHosts     hosts that COUNT as links (detector
+ *                                        countedHosts: scheme links + plain
+ *                                        mentions promoted by TLD/flag/phrase)
+ * @param {string[]} [p.allowlist]       resolveLinkAllowlist(config)
  * @param {string[]} p.scamPhrases       detectScamPhrases() result
  * @param {number}   p.accountAgeMs
  * @param {number}   p.trustAgeMs        config (default 168 h)
@@ -164,8 +208,9 @@ function isCompletedOrder(o) {
  *   new_account_external_link > no_transactions_external_link.
  */
 function decideLinkHold({externalHosts, scamPhrases, accountAgeMs, trustAgeMs,
-  hasCompletedTx, highRiskTlds}) {
-  const holdableHosts = (externalHosts || []).filter((h) => !isHoldExemptHost(h));
+  hasCompletedTx, highRiskTlds, allowlist}) {
+  const holdableHosts = (externalHosts || [])
+      .filter((h) => !isAllowlistedHost(h, allowlist));
   if (!holdableHosts.length) return {hold: false, reason: null, holdableHosts};
   if (holdableHosts.some((h) => isHighRiskHost(h, highRiskTlds))) {
     return {hold: true, reason: "high_risk_tld_link", holdableHosts};
@@ -184,9 +229,10 @@ function decideLinkHold({externalHosts, scamPhrases, accountAgeMs, trustAgeMs,
 }
 
 /** True when decideLinkHold needs the (costly) order lookup to decide. */
-function needsTxLookup({externalHosts, scamPhrases, accountAgeMs, trustAgeMs, highRiskTlds}) {
+function needsTxLookup({externalHosts, scamPhrases, accountAgeMs, trustAgeMs, highRiskTlds,
+  allowlist}) {
   const r = decideLinkHold({externalHosts, scamPhrases, accountAgeMs, trustAgeMs,
-    hasCompletedTx: true, highRiskTlds});
+    hasCompletedTx: true, highRiskTlds, allowlist});
   // If it would hold even with a completed transaction, or there is nothing
   // holdable, the lookup can't change the answer.
   return !r.hold && r.holdableHosts.length > 0;
@@ -227,6 +273,10 @@ function decideNewSellerStart({accountAgeMs, ageWindowMs, conv, senderId,
 }
 
 module.exports = {
+  DEFAULT_LINK_ALLOWLIST,
+  resolveLinkAllowlist,
+  isAllowlistedHost,
+  isFlaggedSender,
   SCAM_PHRASES,
   HIGH_RISK_TLDS,
   HOLD_EXEMPT_DOMAINS,

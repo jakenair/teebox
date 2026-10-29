@@ -2853,12 +2853,32 @@ exports.moderateMessage = onDocumentCreated(
       // Layer B — PII / off-platform detector (existing). Keeps the
       // soft-flag + hard-flag UI semantics so seller-buyer exchanges
       // outside the marketplace get warned, not blocked.
-      const det = modDetectOffPlatform(text);
+      // 2026-10-30: same allowlist / high-risk TLDs / blocklist as sendMessage
+      // (config/messaging). Allowlisted links never flag; a plain-text domain
+      // only flags HARD for a flagged sender (or high-risk TLD / scam phrase).
+      const risk = require("./moderation/messageRisk");
+      const mcfg = await loadMessagingConfig();
+      const extraBad = Array.isArray(mcfg.knownBadDomains) ? mcfg.knownBadDomains : [];
+      const detOpts = {allowlist: risk.resolveLinkAllowlist(mcfg),
+        highRiskTlds: mcfg.highRiskTlds};
+      let det = modDetectOffPlatform(text, extraBad, detOpts);
+      const plainUncounted = det.plainHosts.filter((h) =>
+        det.countedHosts.indexOf(h) === -1 && det.allowlistedHosts.indexOf(h) === -1);
+      const senderIdForFlag = msg.senderId || msg.fromUid || null;
+      if (plainUncounted.length && senderIdForFlag) {
+        try {
+          const su = await admin.firestore().collection("users").doc(senderIdForFlag).get();
+          if (su.exists && risk.isFlaggedSender(su.data())) {
+            det = modDetectOffPlatform(text, extraBad, {...detOpts, senderFlagged: true});
+          }
+        } catch (e) {
+          logger.warn("moderateMessage: sender flag lookup failed", e);
+        }
+      }
       // 2026-10-29: fake-payment scam phrases ("payment did not go through",
       // "confirm via the link", …). Alone they don't hold the message, but
       // they flag it HARD so the recipient gets the warning card.
-      const scamPhrases =
-        require("./moderation/messageRisk").detectScamPhrases(text);
+      const scamPhrases = det.scamPhrases;
       if (!det.matched && !scamPhrases.length) return;
       if (scamPhrases.length) {
         det.matched = true;
@@ -2990,10 +3010,10 @@ exports.moderateMessage = onDocumentCreated(
       try {
         // hosts: the link domains, shown in plain text on the recipient's
         // warning card ("This link goes to <domain>, not TeeBox").
-        const flagged = {severity: det.severity, types: det.types};
-        if (det.externalHosts && det.externalHosts.length) {
-          flagged.hosts = det.externalHosts.slice(0, 5);
-        }
+        // Only the hosts that counted (never an allowlisted one); [] tells
+        // the client not to re-derive hosts from the text.
+        const flagged = {severity: det.severity, types: det.types,
+          hosts: (det.countedHosts || []).slice(0, 5)};
         await event.data.ref.update({flagged});
       } catch (e) {
         logger.warn("moderateMessage: msg patch failed", e);
@@ -3009,160 +3029,19 @@ exports.moderateMessage = onDocumentCreated(
 );
 
 // ─────────────────────────────────────────────────────────────
-// MESSAGE-HOLD lifecycle — alert / release / list.
-//
-//   Holds (messageHolds/{id}) are written by sendMessage when a send is
-//   quarantined (duplicate-spam, repeat-PII, or a brand-new account sending
-//   an external link). A hold is NOT a delayed delivery:
-//     • TTL: a Firestore TTL policy on `expireAt` DELETES the doc ~30 days
-//       after creation. There is NO onDelete trigger, so expiry silently
-//       DISCARDS the message — it is never delivered.
-//     • releaseHold(): the ONLY path that delivers a held message, and it is
-//       admin-only + explicit.
-//   onMessageHoldCreated fires a best-effort ops alert per new hold so a human
-//   knows a (possibly legitimate) user is frozen and can review the queue.
+// MESSAGE-HOLD lifecycle — alert / list / approve / reject / daily digest.
+// Lives in ./messageHolds.js (2026-10-30). A hold is a QUARANTINE, not a
+// delay: the TTL on expireAt DISCARDS it (no onDelete trigger); only the
+// admin releaseHold() callable ever delivers a held message.
 // ─────────────────────────────────────────────────────────────
-
-exports.onMessageHoldCreated = onDocumentCreated(
-    {document: "messageHolds/{holdId}", ...LIGHT_TRIGGER, secrets: [OPS_ALERT_WEBHOOK]},
-    async (event) => {
-      try {
-        const h = event.data && event.data.data();
-        if (!h) return;
-        // Rule 6 (new account starting threads with too many sellers) also
-        // sets users/{uid}.reviewFlag — escalate the headline so the account
-        // gets looked at, not just the one message.
-        const title = h.reviewFlag === true ?
-          "Account auto-flagged for review (new account messaging many sellers)" :
-          "Chat message held for review";
-        await opsAlert("warn", title, {
-          holdId: event.params.holdId,
-          reason: h.reason || "unknown",
-          reasons: Array.isArray(h.reasons) ? h.reasons.join(",") : null,
-          senderAccountAgeHours: typeof h.senderAccountAgeHours === "number" ?
-            h.senderAccountAgeHours : null,
-          sender: h.sender || null,
-          recipient: h.recipient || null,
-          conversationId: h.conversationId || null,
-          externalHosts: Array.isArray(h.externalHosts) ?
-            h.externalHosts.join(",") : null,
-          textPreview: String(h.text || "").replace(/\s+/g, " ").slice(0, 160),
-        });
-      } catch (err) {
-        logger.error("onMessageHoldCreated alert failed", err);
-      }
-    },
-);
-
-// releaseHold(holdId, note?) — admin-only. Delivers a held message into its
-// conversation (the single delivery path) and marks the hold released. The
-// re-created message still passes through moderateMessage, so an external link
-// gets the interstitial — release lifts the HOLD, not moderation.
-exports.releaseHold = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
-    async (req) => {
-      adminGate(req);
-      const {holdId, note} = req.data || {};
-      if (!holdId || typeof holdId !== "string") {
-        throw new HttpsError("invalid-argument", "holdId required");
-      }
-      const db = admin.firestore();
-      const FieldValue = admin.firestore.FieldValue;
-      const holdRef = db.collection("messageHolds").doc(holdId);
-      const snap = await holdRef.get();
-      if (!snap.exists) {
-        throw new HttpsError("not-found",
-            "Hold not found (it may have expired and been discarded).");
-      }
-      const hold = snap.data() || {};
-      if (hold.status !== "pending") {
-        throw new HttpsError("failed-precondition",
-            `Hold is '${hold.status || "unknown"}', not pending.`);
-      }
-      const cid = hold.conversationId;
-      const senderId = hold.sender;
-      const text = hold.text;
-      if (!cid || !senderId || !text) {
-        throw new HttpsError("failed-precondition",
-            "Hold is missing conversation/sender/text.");
-      }
-      // Re-verify the conversation still exists and the sender is still a
-      // participant (either could have changed since the hold was written).
-      const convRef = db.collection("conversations").doc(cid);
-      const convSnap = await convRef.get();
-      if (!convSnap.exists) {
-        throw new HttpsError("failed-precondition",
-            "Conversation no longer exists.");
-      }
-      const conv = convSnap.data() || {};
-      const participants = Array.isArray(conv.participants) ?
-        conv.participants : [];
-      if (!participants.includes(senderId)) {
-        throw new HttpsError("failed-precondition",
-            "Sender is no longer a participant of this conversation.");
-      }
-      // Deliver. moderateMessage fires on this create — release lifts the hold,
-      // not moderation (a known-bad link would still be re-quarantined).
-      const msgRef = convRef.collection("messages").doc();
-      await msgRef.set({
-        senderId,
-        text,
-        createdAt: FieldValue.serverTimestamp(),
-        releasedFromHold: true,
-      });
-      try {
-        await convRef.set({
-          lastMessageAt: FieldValue.serverTimestamp(),
-          lastMessageText: String(text).slice(0, 200),
-          lastMessageSenderId: senderId,
-        }, {merge: true});
-      } catch (e) {
-        logger.warn("releaseHold: conv lastMessage bump failed", e);
-      }
-      await holdRef.set({
-        status: "released",
-        releasedAt: FieldValue.serverTimestamp(),
-        releasedBy: req.auth.uid,
-        releaseNote: String(note || "").slice(0, 300),
-        deliveredMessageId: msgRef.id,
-      }, {merge: true});
-      await logAdminAction(req, "release_hold", "messageHold", holdId, note,
-          {conversationId: cid, sender: senderId, messageId: msgRef.id});
-      logger.info(`releaseHold: delivered ${holdId} -> ${cid}/${msgRef.id}`);
-      return {ok: true, delivered: true, messageId: msgRef.id, conversationId: cid};
-    },
-);
-
-// listMessageHolds({status?, limit?}) — admin-only. Returns the hold queue
-// (default: pending) with the fields a reviewer needs. No composite index
-// needed: single-field status equality, sorted newest-first in memory.
-exports.listMessageHolds = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
-    async (req) => {
-      adminGate(req);
-      const status = (req.data && req.data.status) || "pending";
-      const limit = Math.min(Number((req.data && req.data.limit) || 100), 200);
-      const db = admin.firestore();
-      const snap = await db.collection("messageHolds")
-          .where("status", "==", status).limit(limit).get();
-      const toMs = (t) => (t && t.toMillis) ? t.toMillis() : null;
-      const holds = snap.docs.map((d) => {
-        const h = d.data() || {};
-        return {
-          holdId: d.id,
-          reason: h.reason || null,
-          sender: h.sender || null,
-          recipient: h.recipient || null,
-          conversationId: h.conversationId || null,
-          text: h.text || "",
-          externalHosts: Array.isArray(h.externalHosts) ? h.externalHosts : null,
-          createdAt: toMs(h.createdAt),
-          expireAt: toMs(h.expireAt),
-        };
-      }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      return {ok: true, count: holds.length, status, holds};
-    },
-);
+{
+  const mh = require("./messageHolds");
+  exports.onMessageHoldCreated = mh.onMessageHoldCreated;
+  exports.listMessageHolds = mh.listMessageHolds;
+  exports.releaseHold = mh.releaseHold;
+  exports.rejectHold = mh.rejectHold;
+  exports.messageHoldsDailyDigest = mh.messageHoldsDailyDigest;
+}
 
 // ─────────────────────────────────────────────────────────────
 // ADMIN MODERATION ACTIONS — banUser / suspendUser /
@@ -7349,11 +7228,15 @@ exports.backfillGlobalStats = onCall(
 //      First PII msg is delivered normally (existing interstitial
 //      handles UX); subsequent PII msg to the SAME recipient inside
 //      the window is held.
-//   5. (2026-10-29) A link to any host but teeboxmarket.com / apps.apple.com
-//      is held when the sender is < linkHoldTrustAgeHours old OR has no
-//      completed transaction; .cfd/.top/.xyz/.icu links and links next to a
+//   5. (2026-10-29) A link to any host off the link allowlist is held when
+//      the sender is < linkHoldTrustAgeHours old OR has no completed
+//      transaction; .cfd/.top/.xyz/.icu links and links next to a
 //      fake-payment scam phrase are always held. Account age comes from
 //      Firebase Auth (fail closed), not the users doc.
+//      (2026-10-30) Allowlist = config.linkAllowlist or messageRisk
+//      DEFAULT_LINK_ALLOWLIST (domain + subdomains): never held, no card.
+//      Only http(s) links count; a plain-text domain counts only on a
+//      high-risk TLD, for a flagged sender, or next to a scam phrase.
 //   6. (2026-10-29) A sender < newSellerStartAgeHours old may start threads
 //      with at most newSellerStartLimit different sellers per hour; the next
 //      start is held and users/{uid}.reviewFlag is set.
@@ -7455,6 +7338,8 @@ function tsToMillis(v) {
 
 const {
   detectScamPhrases,
+  resolveLinkAllowlist,
+  isFlaggedSender,
   resolveAccountCreatedMs,
   isCompletedOrder,
   decideLinkHold,
@@ -7597,7 +7482,11 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   // the blocklist via config.messaging.knownBadDomains (string[]).
   const extraBadDomains = Array.isArray(config.knownBadDomains) ?
     config.knownBadDomains : [];
-  const offDet = modDetectOffPlatform(text, extraBadDomains);
+  // 2026-10-30: link allowlist (config.linkAllowlist overrides the code
+  // default) — allowlisted links are never held and never flag HARD.
+  const linkAllowlist = resolveLinkAllowlist(config);
+  const detOpts = {allowlist: linkAllowlist, highRiskTlds: config.highRiskTlds};
+  let offDet = modDetectOffPlatform(text, extraBadDomains, detOpts);
   if (offDet.knownBad) {
     // Hard block. Record a BLOCKED audit row, then reject — never delivered.
     try {
@@ -7705,6 +7594,14 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
     throw new HttpsError("failed-precondition",
         "You've blocked this user. Unblock them to send a message.",
         {error: "you_blocked_recipient"});
+  }
+
+  // 2026-10-30: for a FLAGGED sender (reviewFlag / offPlatformFlags > 0) a
+  // plain-text domain mention counts as a link. Re-run the detector with
+  // that context only when it could change the answer.
+  const senderFlagged = isFlaggedSender(sender);
+  if (senderFlagged && offDet.plainHosts.length) {
+    offDet = modDetectOffPlatform(text, extraBadDomains, {...detOpts, senderFlagged: true});
   }
 
   // ──── Account age (Rules 1, 5, 6) ────
@@ -7819,9 +7716,13 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   // (.cfd/.top/.xyz/.icu) or a link alongside a fake-payment scam phrase is
   // always held. Trusted senders' links are delivered with the
   // moderateMessage interstitial, as before.
+  // 2026-10-30: only hosts that COUNT as links (offDet.countedHosts: scheme
+  // links off the allowlist, plus plain-text mentions on a high-risk TLD /
+  // from a flagged sender / next to a scam phrase) are considered. A scam
+  // phrase with no counted link is delivered with the warning card.
   const scamPhrases = detectScamPhrases(text);
-  const externalHosts = (offDet && Array.isArray(offDet.externalHosts)) ?
-    offDet.externalHosts : [];
+  const externalHosts = (offDet && Array.isArray(offDet.countedHosts)) ?
+    offDet.countedHosts : [];
   let linkHold = {hold: false, reason: null, holdableHosts: []};
   if (config.enabled !== false && externalHosts.length) {
     const linkArgs = {
@@ -7830,6 +7731,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
       accountAgeMs,
       trustAgeMs: Number(config.linkHoldTrustAgeHours) * 3600 * 1000,
       highRiskTlds: config.highRiskTlds,
+      allowlist: linkAllowlist,
     };
     const hasCompletedTx = needsTxLookup(linkArgs) ?
       await senderHasCompletedTx(db, senderId) : null;
@@ -7894,6 +7796,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
         scamPhrases: scamPhrases.length ? scamPhrases : null,
         senderAccountAgeHours: Math.round(accountAgeMs / 360000) / 10,
         senderAgeSource: senderAge.source,
+        senderFlagged,
         reviewFlag: heldByRule6 ? true : null,
         createdAt: FieldValue.serverTimestamp(),
         // TTL field: a Firestore TTL policy on `expireAt` discards this hold
@@ -7912,15 +7815,12 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   }
 
   // ──── Deliver: Admin-SDK write into conversations/{cid}/messages ────
-  const messagePayload = {
-    senderId,
-    text,
-    createdAt: FieldValue.serverTimestamp(),
-  };
-  if (clientFlag) messagePayload.clientFlag = clientFlag;
+  // Same payload builder releaseHold (admin approve) uses — messageHolds.js.
   const msgRef = convRef.collection("messages").doc();
+  const [msgWrite, convWrite] = require("./messageHolds").buildDeliveryWrites({
+    convRef, msgRef, senderId, text, clientFlag, FieldValue});
   try {
-    await msgRef.set(messagePayload);
+    await msgWrite.ref.set(msgWrite.data);
   } catch (e) {
     logger.error("sendMessage: message write failed", e);
     throw new HttpsError("internal", "Could not send message.");
@@ -7930,12 +7830,7 @@ exports.sendMessage = onCall(USER_CALLABLE, async (request) => {
   // do this; we own it now so the inbox sort and unread badge stay
   // accurate).
   try {
-    await convRef.set({
-      lastMessageAt: FieldValue.serverTimestamp(),
-      lastMessageText: text.slice(0, 100),
-      lastMessageSenderId: senderId,
-      lastRead: {[senderId]: FieldValue.serverTimestamp()},
-    }, {merge: true});
+    await convWrite.ref.set(convWrite.data, convWrite.opts);
   } catch (e) {
     logger.warn("sendMessage: conv lastMessage bump failed", e);
   }
