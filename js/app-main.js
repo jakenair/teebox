@@ -9156,6 +9156,17 @@ function initWelcomeScreen() {
   if (!welcomeShouldShow()) return;
   window.showWelcome();
 }
+// 2.6.2: keep the native Meta SDK switch in step with the stored Do Not Sell flag
+// (set on the bundled privacy page). Runs once per launch; a no-op on the web.
+(function syncMetaEventsOptOut() {
+  try {
+    if (!tbIsNative()) return;
+    const P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MetaEvents;
+    if (!P || !P.setEnabled) return;
+    let off = false; try { off = localStorage.getItem('tb_dnsps') === '1'; } catch (_e) {}
+    if (off) P.setEnabled({ enabled: false }).catch(() => {});
+  } catch (_e) {}
+})();
 window.__actions['welcome-skip'] = () => { window.hideWelcome('skip'); try { window.posthog && window.posthog.capture('welcome_skip'); } catch (_e) {} };
 // welcome-signup / welcome-login: defined in the Phase 2 block above (open the provider sheet).
 // Boot: decide once the DOM is ready. Auth state may still be resolving —

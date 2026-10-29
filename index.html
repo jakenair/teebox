@@ -8766,7 +8766,13 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
             // return URL can no longer re-fire Purchase and inflate ROAS.
             // Value is paymentIntent.amount, which under Structure 2 is
             // item + buyer-paid shipping, i.e. the real order total.
-            window.fbTrack('Purchase', { content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id },
+            // 2026-10-29: content_ids + ITEM value come from the stash written
+            // at checkout open (sessionStorage, keyed by PI id) so this leg
+            // matches the on-page leg and the server leg exactly.
+            let coMeta = null; try { coMeta = JSON.parse(sessionStorage.getItem('tb_co_' + paymentIntent.id) || 'null'); } catch (_e) {}
+            const pv = (coMeta && Number.isFinite(coMeta.itemCents) && coMeta.itemCents > 0) ? coMeta.itemCents / 100 : (paymentIntent.amount || 0) / 100;
+            window.fbTrack('Purchase', Object.assign({ content_type: 'product', value: pv, currency: 'USD', order_id: paymentIntent.id, num_items: (coMeta && coMeta.qty) || 1 },
+              (coMeta && coMeta.listingId) ? { content_ids: [String(coMeta.listingId)] } : {}),
               { eventID: 'purchase_' + paymentIntent.id, once: 'purchase_' + paymentIntent.id });
             // Batch-2: persistent sheet on the 3DS return too (no listing
             // context after the redirect — amount comes from the intent).
@@ -8921,6 +8927,17 @@ async function mountPaymentElement(product) {
     if (!data.clientSecret) throw new Error('Payment could not be started. Try again.');
 
     checkoutClientSecret = data.clientSecret;
+    // Meta Purchase (2026-10-29): remember what this PaymentIntent is for, so
+    // BOTH browser legs (on-page and the 3DS/wallet redirect, which has no
+    // page state) can send the same content_ids + ITEM value as the server
+    // leg. Keyed by PI id (= the order id = the event_id suffix). sessionStorage
+    // survives the redirect round-trip; nothing personal is stored.
+    try {
+      const piId = String(data.clientSecret).split('_secret_')[0];
+      const meta = { listingId: String(product.id), itemCents: Number.isFinite(Number(data.itemCents)) ? Number(data.itemCents) : null, qty: Number(product.__qty || 1) };
+      window.__tbCheckoutMeta = Object.assign({ piId }, meta);
+      sessionStorage.setItem('tb_co_' + piId, JSON.stringify(meta));
+    } catch (_e) {}
 
     // Tear down any previous Element from a prior checkout open.
     if (paymentElement) {
@@ -9519,7 +9536,12 @@ window.confirmPayment = async function() {
       // r278 item 1: same PI-keyed idempotency as the redirect leg above —
       // the two legs share the key, so whichever lands first wins and the
       // other is a no-op instead of a duplicate.
-      window.fbTrack('Purchase', { content_ids: [String((checkoutProduct && checkoutProduct.id) || '')], content_type: 'product', value: (paymentIntent.amount || 0) / 100, currency: 'USD', order_id: paymentIntent.id },
+      // 2026-10-29: value = ITEM price (Dylan's spec; the buyer total incl.
+      // shipping is what Stripe charged, but Meta's Purchase value tracks the
+      // product). Same stash as the redirect leg, so all three legs agree.
+      const _cm = (window.__tbCheckoutMeta && window.__tbCheckoutMeta.piId === paymentIntent.id) ? window.__tbCheckoutMeta : null;
+      const _pv = (_cm && Number.isFinite(_cm.itemCents) && _cm.itemCents > 0) ? _cm.itemCents / 100 : (paymentIntent.amount || 0) / 100;
+      window.fbTrack('Purchase', { content_ids: [String((_cm && _cm.listingId) || (checkoutProduct && checkoutProduct.id) || '')], content_type: 'product', value: _pv, currency: 'USD', order_id: paymentIntent.id, num_items: (_cm && _cm.qty) || Number((checkoutProduct && checkoutProduct.__qty) || 1) },
         { eventID: 'purchase_' + paymentIntent.id, once: 'purchase_' + paymentIntent.id });
       // Optimistic local update: flip the listing's status in PRODUCTS so the
       // grid + card UI reflects "Sold" / decremented stock right away. The
@@ -9584,8 +9606,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r390"></script>
-<script type="module" src="/js/app-auth.js?v=r390"></script>
+<script defer src="/js/app-main.js?v=r392"></script>
+<script type="module" src="/js/app-auth.js?v=r392"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9615,7 +9637,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r390"></script>
+<script type="module" src="/js/bingo.js?v=r392"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
