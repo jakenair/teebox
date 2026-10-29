@@ -213,6 +213,7 @@ async function metaConfig() {
  * Why an order must NOT produce a Purchase event, or "" when it should.
  *   - not paid: a pending hold is not a conversion.
  *   - test mode: Stripe test-mode payments never count (Dylan, 2026-10-29).
+ *   - opted-out: the buyer had Do Not Sell or Share / GPC on at checkout.
  *     Orders written before this field existed have livemode undefined and
  *     are treated as live (the live webhook secret already filtered them).
  * @param {object} order
@@ -221,6 +222,8 @@ async function metaConfig() {
 function purchaseSkipReason(order) {
   if (!order || order.status !== "paid") return "not-paid";
   if (order.livemode === false) return "test-mode";
+  // Buyer used Do Not Sell or Share / GPC at checkout (carried via PI metadata).
+  if (order.capiOptOut === true) return "opted-out";
   return "";
 }
 

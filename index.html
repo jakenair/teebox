@@ -8915,6 +8915,8 @@ async function mountPaymentElement(product) {
         // trigger has no request context, so the identifiers have to be
         // captured here, at checkout, and carried through the PaymentIntent.
         ...(window.metaMatchIds ? window.metaMatchIds() : {}),
+        // 2026-10-29: opted-out buyers get NO server-side Purchase event either.
+        ...((window.tbMetaOptedOut && window.tbMetaOptedOut()) ? { metaOptOut: true } : {}),
       }),
     });
     if (!res.ok) {
@@ -9166,6 +9168,10 @@ async function fbRelayToServer(name, eventId, params) {
     // the Meta SDK (App Events) in the next build, not this relay.
     if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
     if (!FB_RELAY_EVENTS.has(name)) return;
+    // 2026-10-29: the Do Not Sell or Share switch and GPC stop the SERVER copy
+    // too. Until now only fb-pixel.js honoured them, so an opted-out visitor
+    // still produced CAPI PageView/ViewContent — the policy said otherwise.
+    if (window.tbMetaOptedOut && window.tbMetaOptedOut()) return;
     if (!window.CURRENT_USER && !FB_RELAY_ANON.has(name)) return; // capiRelay requires auth for the rest
     const ids = (window.metaMatchIds && window.metaMatchIds()) || {};
     const { getFunctions, httpsCallable } =
@@ -9182,6 +9188,15 @@ async function fbRelayToServer(name, eventId, params) {
   } catch (_e) { /* never break the caller */ }
 }
 window.fbRelayToServer = fbRelayToServer;
+// One reader for the opt-out state (same sources as fb-pixel.js): the
+// Do Not Sell or Share flag (localStorage + first-party cookie) and GPC.
+window.tbMetaOptedOut = function tbMetaOptedOut() {
+  try {
+    if (navigator.globalPrivacyControl === true || window.__gpc === true) return true;
+    if (localStorage.getItem('tb_dnsps') === '1') return true;
+  } catch (_e) {}
+  return /(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '');
+};
 // Events Manager → Test Events: open the site as
 //   https://teeboxmarket.com/?meta_test=TEST12345
 // and every server-side event for the rest of the tab session carries that
@@ -9606,8 +9621,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r392"></script>
-<script type="module" src="/js/app-auth.js?v=r392"></script>
+<script defer src="/js/app-main.js?v=r393"></script>
+<script type="module" src="/js/app-auth.js?v=r393"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9637,7 +9652,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r392"></script>
+<script type="module" src="/js/bingo.js?v=r393"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

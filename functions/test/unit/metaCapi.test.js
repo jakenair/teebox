@@ -93,5 +93,6 @@ test("purchaseSkipReason: paid+live sends; pending, and Stripe TEST-mode never s
   assert.equal(M.purchaseSkipReason({...paidOrder, status: "pending"}), "not-paid");
   assert.equal(M.purchaseSkipReason({...paidOrder, livemode: false}), "test-mode");
   assert.equal(M.purchaseSkipReason({...paidOrder, livemode: undefined}), "");
+  assert.equal(M.purchaseSkipReason({...paidOrder, capiOptOut: true}), "opted-out");
   assert.equal(M.purchaseSkipReason(null), "not-paid");
 });

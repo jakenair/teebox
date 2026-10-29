@@ -382,11 +382,8 @@ exports.createPaymentIntent = onRequest(
     // the PaymentIntent so the webhook can put them on the order, where the
     // CAPI trigger reads them. Length-capped: metadata values max 500 chars
     // and these are attacker-influencable strings.
-    const capiFbp = String((req.body || {}).fbp || "").slice(0, 200);
-    const capiFbc = String((req.body || {}).fbc || "").slice(0, 200);
-    const capiIp = String(
-        req.headers["x-forwarded-for"] || "").split(",")[0].trim().slice(0, 64);
-    const capiUa = String(req.headers["user-agent"] || "").slice(0, 300);
+    // Meta CAPI carry-along (match keys + opt-out) — metadata only, see lib/capiCarry.js.
+    const capi = require("./lib/capiCarry").capiFromRequest(req.body, req.headers);
     if (!listingId || typeof listingId !== "string" || listingId.length > 128) {
       return res.status(400).json({error: "Missing or invalid listingId"});
     }
@@ -746,10 +743,7 @@ exports.createPaymentIntent = onRequest(
               // can stamp it fulfilled and block a second use.
               ...(validatedOfferId ? {offerId: validatedOfferId} : {}),
               // r294: Meta CAPI match keys (see above).
-              ...(capiFbp ? {capiFbp} : {}),
-              ...(capiFbc ? {capiFbc} : {}),
-              ...(capiIp ? {capiIp} : {}),
-              ...(capiUa ? {capiUa} : {}),
+              ...require("./lib/capiCarry").capiMetadata(capi),
             },
           },
           {idempotencyKey}
@@ -1665,10 +1659,7 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       // capiPurchaseOnOrderCreated reads these; without at least one of them
       // it skips rather than send an unmatchable event. Nulls, not undefined,
       // so the field shape is stable for the trigger.
-      fbp: (pi.metadata && pi.metadata.capiFbp) || null,
-      fbc: (pi.metadata && pi.metadata.capiFbc) || null,
-      checkoutIp: (pi.metadata && pi.metadata.capiIp) || null,
-      checkoutUa: (pi.metadata && pi.metadata.capiUa) || null,
+      ...require("./lib/capiCarry").orderCapiFields(pi.metadata),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
