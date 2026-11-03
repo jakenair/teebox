@@ -101,14 +101,17 @@ function appStoreBadge(x, y) {
 /**
  * The TeeBox wordmark — gold "Tee" + white "Box" — in serif display.
  */
-function wordmark(x, y, fontSize) {
+function wordmark(x, y, fontSize, teeFill = GOLD_500, boxFill = WHITE) {
   return `
     <text x="${x}" y="${y}" font-family="${SERIF}" font-size="${fontSize}"
           font-weight="700" letter-spacing="-2">
-      <tspan fill="${GOLD_500}">Tee</tspan><tspan fill="${WHITE}">Box</tspan>
+      <tspan fill="${teeFill}">Tee</tspan><tspan fill="${boxFill}">Box</tspan>
     </text>
   `;
 }
+// App brand lockup tokens (index.html :root --cream / --gold-500): cream "Tee" + gold "Box".
+const APP_CREAM = '#faf8f3';
+const APP_GOLD_500 = '#c9991e';
 
 /**
  * Default marketplace OG card.
@@ -186,8 +189,8 @@ const BINGO_LOGOS = [
   null, // center tile — TeeBox brand mark on gold (set inline in the loop)
   'bandon-dunes',
   'baltusrol-lower',
-  'seminole',
-  'shinnecock-hills',
+  'pinehurst-no-2',  // 2026-10-29: replaced the two headdress logos (seminole, shinnecock-hills)
+  'harbour-town',
 ];
 
 const BINGO_GRID_X = 720;
@@ -233,15 +236,8 @@ function buildBingoSvg() {
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${bgPlate()}
 
-  <!-- Eyebrow -->
-  <text x="80" y="160" font-family="${SANS}" font-size="20" font-weight="600"
-        fill="${GOLD_300}" letter-spacing="6">DAILY GOLF GAME</text>
-
-  <!-- Wordmark -->
-  ${wordmark(76, 290, 156)}
-
-  <!-- Gold rule -->
-  <rect x="80" y="320" width="280" height="3" fill="url(#goldRule)" />
+  <!-- Wordmark: app brand lockup (cream Tee + gold Box). 2026-10-29: eyebrow + gold rule removed. -->
+  ${wordmark(76, 290, 156, APP_CREAM, APP_GOLD_500)}
 
   <!-- Tagline -->
   <text x="80" y="395" font-family="${SERIF}" font-size="56" font-weight="500"
@@ -260,9 +256,6 @@ function buildBingoSvg() {
   <!-- 3x3 grid backdrop (logos composited separately) -->
   ${tiles}
 
-  <!-- Domain footer -->
-  <text x="${W - 80}" y="588" text-anchor="end" font-family="${SANS}" font-size="18"
-        fill="${CREAM}" fill-opacity="0.55" letter-spacing="2">teeboxmarket.com/?play=bingo</text>
 </svg>`;
 }
 
@@ -314,13 +307,14 @@ async function main() {
 
   // Also write the SVGs alongside the PNGs in case the user wants to tweak.
   writeFileSync(join(OUT_DIR, 'og-default.svg'), defaultSvg);
-  writeFileSync(join(OUT_DIR, 'og-bingo.svg'), bingoSvg);
+  writeFileSync(join(OUT_DIR, 'og-bingo-v2.svg'), bingoSvg);
 
   await renderToPng(defaultSvg, join(OUT_DIR, 'og-default.png'));
 
   // Bingo card: composite real course logos on top of the tile rectangles.
   const bingoComposites = await compositeBingoLogos();
-  await renderToPng(bingoSvg, join(OUT_DIR, 'og-bingo.png'), bingoComposites);
+  // v2 filename busts iMessage/Slack/X caches (they key on the image URL).
+  await renderToPng(bingoSvg, join(OUT_DIR, 'og-bingo-v2.png'), bingoComposites);
 
   console.log('Done. Re-run after edits with: node scripts/generate-og-images.mjs');
 }
