@@ -2851,6 +2851,7 @@ window.tbEvent = function (name, surface) {
        native app already orders #homeLatest first (body.is-native rules). */
     body.web-searchfirst main { display: flex; flex-direction: column; }
     body.web-searchfirst main > * { order: 4; }
+    body.web-searchfirst main > #thanksNovHost { order: -1; }
     body.web-searchfirst main > .hero { order: 0; }
     body.web-searchfirst main > .home-split { order: 1; }
     body.web-searchfirst main > #featuredSellers { order: 2; }
@@ -7733,6 +7734,9 @@ window.tbEvent = function (name, surface) {
 </script>
 
 <main>
+  <!-- r397 thanks_nov: one-time founder thank-you banner (renderThanksNov),
+       above the hero so it is on screen at open. -->
+  <div class="seller-invite" id="thanksNovHost" style="display:none;padding-top:1rem;padding-bottom:1rem;"></div>
   <section class="hero">
     <div class="hero-inner">
       <div>

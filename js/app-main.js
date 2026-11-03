@@ -354,8 +354,11 @@ const THANKS_NOV_KEY = (uid) => 'tb_thanks_nov_v1_' + uid;
 function thanksNovState(uid) {
   try { return localStorage.getItem(THANKS_NOV_KEY(uid)); } catch (_e) { return 'x'; }
 }
-function renderThanksNov(host) {
+function renderThanksNov(_slot) {
+  // Top of home (under the hero), not the old mid-page invite slot.
+  const host = document.getElementById('thanksNovHost');
   const u = window.CURRENT_USER;
+  if (!host) return false;
   if (!u) return false;
   const st = thanksNovState(u.uid);
   let thisSession = false;
@@ -396,7 +399,7 @@ function renderThanksNov(host) {
 function endThanksNov() {
   const u = window.CURRENT_USER;
   try { if (u) { localStorage.setItem(THANKS_NOV_KEY(u.uid), 'done'); sessionStorage.removeItem(THANKS_NOV_KEY(u.uid)); } } catch (_e) {}
-  const host = document.getElementById('sellerInvite');
+  const host = document.getElementById('thanksNovHost');
   if (host) { host.style.display = 'none'; host.innerHTML = ''; }
 }
 window.__actions['thanks-nov-sell'] = function() {
@@ -412,7 +415,7 @@ function renderSellerInvite() {
   const host = document.getElementById('sellerInvite');
   if (!host) return;
   const hide = () => { host.style.display = 'none'; host.innerHTML = ''; };
-  if (renderThanksNov(host)) return;
+  renderThanksNov(host);
   // r383: Featured Sellers is retired, so the "list 5, get featured" promise
   // no longer holds — the card stays hidden (code kept for a future rework).
   return hide();
