@@ -5518,6 +5518,14 @@ function openSellModal() {
     if (_termsRow) _termsRow.style.display =
       (window.__editingListingId || window.IS_VERIFIED_SELLER) ? 'none' : '';
     if (_cb) _cb.checked = false;
+    const _ab = document.getElementById('sellAge18Checkbox');
+    if (_ab) _ab.checked = false;
+    const _qh = document.getElementById('sellQuickHint');
+    let _fromBingo = false;
+    try { _fromBingo = sessionStorage.getItem('tb_listing_source') === 'bingo'; } catch (_e) {}
+    if (_qh) _qh.style.display = (_fromBingo && !window.__editingListingId) ? '' : 'none';
+    // The quick hint already covers "payouts later"; don't stack two notes.
+    window.__sellQuickHintOn = !!(_fromBingo && !window.__editingListingId);
     const _vp = document.getElementById('sellVerifyPrompt');
     if (_vp) _vp.style.display = 'none';
   } catch (_e) { /* non-blocking */ }
@@ -5529,7 +5537,7 @@ function openSellModal() {
     const el = document.getElementById('sellPayoutHeadsUp');
     if (!el) return;
     el.style.display = 'none';
-    if (window.__editingListingId || !window.CURRENT_USER) return;
+    if (window.__editingListingId || !window.CURRENT_USER || window.__sellQuickHintOn) return;
     try {
       const { getFirestore, doc, getDoc } =
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -5732,10 +5740,11 @@ async function aiWriteDescription() {
       const c1 = (e1 && e1.code) || '';
       const m1 = (e1 && e1.message) || '';
       const cb1 = document.getElementById('sellTermsCheckbox');
+      const ab1 = document.getElementById('sellAge18Checkbox');
       if (c1 === 'functions/failed-precondition' &&
-          !/verify your email/i.test(m1) && cb1 && cb1.checked) {
+          !/verify your email/i.test(m1) && cb1 && cb1.checked && ab1 && ab1.checked) {
         const verify = httpsCallable(fns, 'requestSellerVerification');
-        await verify({ termsAgreed: true });
+        await verify({ termsAgreed: true, age18: true });
         window.IS_VERIFIED_SELLER = true;
         result = await fn({ title, brand, category, condition });
       } else {
@@ -13451,8 +13460,35 @@ function showStripeConnecting(on) {
   el.setAttribute('aria-hidden', on ? 'false' : 'true');
 }
 window.showStripeConnecting = showStripeConnecting;
-A['stripe-connect']          = async () => {
+A['close-seller-age']        = () => {
+  const b = document.getElementById('sellerAgeBackdrop');
+  if (b) b.classList.remove('open');
+};
+A['seller-age-confirm']      = () => {
+  const cb = document.getElementById('sellerAgeCheckbox');
+  if (!cb || !cb.checked) return;
+  A['close-seller-age']();
+  A['stripe-connect'](null, null, { age18: true });
+};
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'sellerAgeCheckbox') {
+    const btn = document.getElementById('sellerAgeConfirmBtn');
+    if (btn) btn.disabled = !e.target.checked;
+  }
+});
+function showSellerAgeDialog() {
+  const b = document.getElementById('sellerAgeBackdrop');
+  if (!b) { showToast('Sellers must be 18 or older.', 'error'); return; }
+  const cb = document.getElementById('sellerAgeCheckbox');
+  const btn = document.getElementById('sellerAgeConfirmBtn');
+  if (cb) cb.checked = false;
+  if (btn) btn.disabled = true;
+  b.classList.add('open');
+}
+A['stripe-connect']          = async (_el, _ev, opts) => {
   if (!window.requireAuth('to set up payouts')) return;
+  const age18 = !!(opts && opts.age18);
+  if (!age18) window.tbEvent && window.tbEvent('payout_setup_tapped', (_el && _el.dataset && _el.dataset.surface) || 'payouts_button');
   // Email verification no longer gates Stripe onboarding (founder ruling
   // 2026-09-13) — Stripe's own KYC is the identity gate, so go straight to
   // onboarding. The server no longer rejects on unverified email.
@@ -13480,9 +13516,10 @@ A['stripe-connect']          = async () => {
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
     const fns = getFunctions();
     const fn = httpsCallable(fns, 'createStripeOnboardingLink');
-    const res = await fn();
+    const res = await fn(age18 ? { age18: true } : {});
     const url = res && res.data && res.data.url;
     if (!url) throw new Error('No onboarding URL returned');
+    window.tbEvent && window.tbEvent('stripe_link_opened', 'payouts');
     if (wasAlreadyEnabled) {
       // Fire-and-forget. Producer lives in
       // ./functions/securityEmailTriggers.js.
@@ -13510,7 +13547,9 @@ A['stripe-connect']          = async () => {
     // become-a-seller handler). The common rejection is email-not-verified.
     const code = (e && e.code) || '';
     const msg = (e && e.message) || '';
-    if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
+    if (/age-required/.test(msg)) {
+      showSellerAgeDialog();
+    } else if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
       try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
       showToast('Verify your email to set up payouts — tap the link in your inbox (Resend is on the banner).', 'error');
     } else {

@@ -229,6 +229,17 @@ window.__phDeferLoad = function(load) {
     } catch (_) {}
   }
 })();
+// r396 seller-funnel events (sell_prompt_*, payout_setup_tapped, stripe_*).
+// Only `surface` + `platform` ride along; the person is the uid passed to
+// posthog.identify — never email, name or listing text (founder rule
+// 2026-11-03).
+window.tbEvent = function (name, surface) {
+  try {
+    var C = window.Capacitor;
+    var platform = (C && C.isNativePlatform && C.isNativePlatform()) ? 'ios' : 'web';
+    window.posthog && window.posthog.capture(name, { surface: surface || null, platform: platform });
+  } catch (_) {}
+};
 </script>
 
 <!-- Organization + FAQPage JSON-LD for Google Knowledge Graph + rich results.
@@ -3525,6 +3536,13 @@ window.__phDeferLoad = function(load) {
   .sell-terms-row { margin-bottom: 1rem; }
   .sell-terms-check { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.45; color: var(--gray-700); cursor: pointer; }
   .sell-terms-check input { margin-top: 2px; flex-shrink: 0; }
+  /* r396: .sell-form label/input (display:block, width:100%) outranked the two
+     rules above, so the Seller Terms checkbox rendered centered on its own
+     line above its text. Same rules, scoped high enough to win. */
+  .sell-form .sell-terms-check { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 0;
+    font-size: 13.5px; font-weight: 500; color: var(--gray-700); }
+  .sell-form .sell-terms-check input { width: 18px; height: 18px; padding: 0; margin: 1px 0 0 0;
+    flex-shrink: 0; accent-color: var(--green-700); }
   .link-inline { background: none; border: none; padding: 0; color: var(--green-600); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
   .sell-verify-prompt { background: #fff8ed; border: 1px solid #f3d68a; border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; line-height: 1.45; color: var(--gray-800); }
   .sell-verify-prompt strong { color: var(--gray-900); display: block; margin-bottom: 2px; }
@@ -8233,12 +8251,15 @@ window.__phDeferLoad = function(load) {
            Buy until payouts are set up, and listings auto-pause after 7 days.
            Non-blocking. CTA launches Stripe Connect onboarding. -->
       <div class="sell-payout-headsup" id="sellPayoutHeadsUp" role="status" style="display:none;">
-        <strong>You can publish now.</strong> Buyers can’t purchase until you set up payouts (~3 min) — do it now or right after posting.
-        <button class="btn-stripe-connect" data-action="stripe-connect" type="button">Set up payouts</button>
+        <strong>You can publish now.</strong> Payout setup comes later: we’ll let you know when a buyer wants your item.
       </div>
 
       <!-- IMAGE UPLOAD -->
       <div id="sellDraftPrompt" style="display:none"></div>
+      <!-- r396: shown when the Sell form was opened from the Bingo card. -->
+      <div id="sellQuickHint" class="sell-step-hint" style="display:none;margin:0 0 12px 0;font-size:13.5px;line-height:1.4;color:var(--gray-700);">
+        <strong style="color:var(--green-700);">About two minutes.</strong> Add a photo, tap <strong>Caddie</strong> to write the title and description and suggest a price, then post. Payouts come later, when it sells.
+      </div>
       <!-- r259: STEP 1 · PHOTOS. The drop zone owns the step until the
            first photo lands, then collapses out and the grid takes over
            (main tile 2x, "+ Add" at the end). Count lives in the label. -->
@@ -8406,6 +8427,11 @@ window.__phDeferLoad = function(load) {
            seller; openSellModal toggles it. Acceptance is recorded on publish
            via requestSellerVerification (persists termsAgreed). -->
       <div id="sellTermsRow" class="sell-terms-row" style="display:none;">
+        <p class="sell-age-note" style="margin:0 0 8px 0;font-size:13px;color:var(--gray-700);line-height:1.4;">Sellers must be 18 or older. Under 18? Ask a parent to list it on their account.</p>
+        <label class="sell-terms-check" style="margin-bottom:6px;">
+          <input type="checkbox" id="sellAge18Checkbox" />
+          <span>I'm 18 or older.</span>
+        </label>
         <label class="sell-terms-check">
           <input type="checkbox" id="sellTermsCheckbox" />
           <span>I have read and agree to the <button type="button" class="link-inline" data-action="open-seller-agreement">TeeBox Seller Terms of Service</button>.</span>
@@ -8453,11 +8479,36 @@ window.__phDeferLoad = function(load) {
         </div>
       </div>
       <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
-        Buyers pay securely through TeeBox and Stripe sends the money straight to your bank. Listings without payouts set up are paused after 7 days (not deleted) — finishing setup relists them automatically.
+        Buyers pay securely through TeeBox and Stripe sends the money straight to your bank.
       </p>
       <div class="modal-footer" style="padding:0;margin-top:0;">
         <button class="btn-full ghost" data-action="close-stripe-required">Not now</button>
         <button class="btn-full green" data-action="stripe-connect">Set up payouts</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- r396: 18+ to sell. Shown before any Stripe step for a seller who hasn't
+     confirmed their age yet (A['stripe-connect']). Confirm re-runs the
+     action with age18: true; the server records sellerAge18At. -->
+<div class="sell-modal-backdrop" id="sellerAgeBackdrop" data-close-on-backdrop="close-seller-age">
+  <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="sellerAgeTitle" style="max-width:440px;">
+    <div class="modal-header">
+      <span class="modal-title" id="sellerAgeTitle">Sellers must be 18 or older</span>
+      <button class="modal-close" data-action="close-seller-age" aria-label="Close" data-ico="close"></button>
+    </div>
+    <div class="sell-form">
+      <p style="margin:0 0 14px 0;font-size:14px;color:var(--gray-700);line-height:1.45;">
+        Under 18? Ask a parent to list it on their account.
+      </p>
+      <label class="sell-terms-check" style="margin-bottom:16px;">
+        <input type="checkbox" id="sellerAgeCheckbox" />
+        <span>I'm 18 or older.</span>
+      </label>
+      <div class="modal-footer" style="padding:0;margin-top:0;">
+        <button class="btn-full ghost" data-action="close-seller-age">Cancel</button>
+        <button class="btn-full green" data-action="seller-age-confirm" id="sellerAgeConfirmBtn" disabled>Continue</button>
       </div>
     </div>
   </div>
@@ -8687,23 +8738,43 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
   // miss, documented in the pixel event map.
   try {
     const sp = new URLSearchParams(window.location.search || '');
-    if (sp.get('stripe') !== 'onboarded') return;
+    const stripeParam = sp.get('stripe');
+    if (stripeParam !== 'onboarded' && stripeParam !== 'refresh') return;
     try {
       const u = new URL(window.location.href);
       u.searchParams.delete('stripe');
       window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
     } catch (_e) {}
+    // r396: refresh_url = the account link expired mid-form.
+    if (stripeParam === 'refresh') {
+      window.tbEvent && window.tbEvent('stripe_link_expired', 'stripe_return');
+      setTimeout(() => { try { window.showToast && window.showToast('Your payout setup link expired. Tap Set up payouts to pick up where you left off.'); } catch (_e) {} }, 800);
+      return;
+    }
     let tries = 0;
     const tick = async () => {
       if (!window.CURRENT_USER) { if (++tries < 40) setTimeout(tick, 500); return; }
       try {
         const uid = window.CURRENT_USER.uid;
+        const { getFirestore, doc, getDoc } =
+          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+        // r396: complete vs incomplete via the live Stripe status (the
+        // cached users/{uid} flag can lag the account.updated webhook).
+        let ready = false;
+        try {
+          const { getFunctions, httpsCallable } =
+            await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+          const st = await httpsCallable(getFunctions(), 'getStripeAccountStatus')();
+          ready = !!(st && st.data && st.data.chargesEnabled);
+        } catch (_e) {
+          const s0 = await getDoc(doc(getFirestore(), 'users', uid));
+          ready = s0.exists() && s0.data().stripeChargesEnabled === true;
+        }
+        window.tbEvent && window.tbEvent(ready ? 'stripe_returned_complete' : 'stripe_returned_incomplete', 'stripe_return');
         const key = 'fbq_lead_' + uid;
         let done = null;
         try { done = localStorage.getItem(key); } catch (_e) {}
         if (done) return;
-        const { getFirestore, doc, getDoc } =
-          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
         const snap = await getDoc(doc(getFirestore(), 'users', uid));
         if (snap.exists() && snap.data().stripeChargesEnabled === true) {
           try { localStorage.setItem(key, '1'); } catch (_e) {}
@@ -9621,8 +9692,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r395"></script>
-<script type="module" src="/js/app-auth.js?v=r395"></script>
+<script defer src="/js/app-main.js?v=r396"></script>
+<script type="module" src="/js/app-auth.js?v=r396"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9652,7 +9723,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r395"></script>
+<script type="module" src="/js/bingo.js?v=r396"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

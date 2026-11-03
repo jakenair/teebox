@@ -2063,6 +2063,12 @@ exports.requestSellerVerification = onCall(USER_CALLABLE, async (request) => {
       sellerVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       termsAgreed: true,
       termsAgreedAt: admin.firestore.FieldValue.serverTimestamp(),
+      // 18+ to sell (2026-11-03). Optional here so shipped iOS builds
+      // without the checkbox can still list; createStripeOnboardingLink
+      // enforces it before any Stripe step.
+      ...(data.age18 === true ? {
+        sellerAge18At: admin.firestore.FieldValue.serverTimestamp(),
+      } : {}),
     },
     {merge: true}
   );
@@ -5278,6 +5284,26 @@ exports.createStripeOnboardingLink = onCall(
       displayName = authUser.displayName || user.displayName || undefined;
       phone = toE164US(authUser.phoneNumber || user.phone) || undefined;
     } catch (_e) { /* swallow — Stripe will collect on the form */ }
+    // Test accounts (the prod smoke walk and QA harnesses) never touch live
+    // Stripe. Before 2026-11-03 every smoke listing left an orphaned live
+    // Express account behind (22 deleted that day). No Stripe call at all.
+    if (isTestAccount(email, user)) {
+      return {url: null, accountId: null, skipped: "test-account"};
+    }
+
+    // 18+ to sell (founder ruling 2026-11-03). The seller confirms once,
+    // either on the Sell form (requestSellerVerification) or in the age
+    // dialog before this call (age18: true); recorded on the user doc.
+    if (!user.sellerAge18At) {
+      if (!(request.data && request.data.age18 === true)) {
+        throw new HttpsError("failed-precondition",
+            "age-required: Sellers must be 18 or older.");
+      }
+      await userRef.set({
+        sellerAge18At: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    }
+
     const nameParts = String(displayName || "").trim().split(/\s+/).filter(Boolean);
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : undefined;
@@ -5346,6 +5372,14 @@ exports.createStripeOnboardingLink = onCall(
 
 // US phone → E.164 for Stripe prefill. Anything that isn't a clean 10-digit
 // (or 1+10) number is dropped — a bad prefill is worse than none.
+// Test accounts: smoke/QA email domains, or users/{uid}.isTestAccount set by
+// a harness. Excluded from live Stripe and from every metric.
+const TEST_EMAIL_RE = /@(teeboxtest\.invalid|teeboxqa\.dev)$/i;
+function isTestAccount(email, user) {
+  return TEST_EMAIL_RE.test(String(email || "")) ||
+    !!(user && user.isTestAccount === true);
+}
+
 function toE164US(raw) {
   const d = String(raw || "").replace(/\D/g, "");
   if (d.length === 10) return `+1${d}`;

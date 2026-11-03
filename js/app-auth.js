@@ -351,11 +351,19 @@
     try {
       if (window.posthog) {
         if (user) {
+          // r396: uid only (founder rule 2026-11-03). Email and display name
+          // are no longer sent; the one-time $unset clears what earlier
+          // builds stored on this person. Existing profiles are also
+          // cleared server-side through the PostHog API.
           window.posthog.identify(user.uid, {
-            email: user.email || null,
-            displayName: user.displayName || null,
             emailVerified: !!user.emailVerified,
           });
+          try {
+            if (!localStorage.getItem('tb_ph_pii_unset_v1')) {
+              window.posthog.capture('$set', { $unset: ['email', 'displayName'] });
+              localStorage.setItem('tb_ph_pii_unset_v1', '1');
+            }
+          } catch (_e) {}
           // Discriminate new-user vs returning-user via Firebase's own
           // metadata timestamps. Email-password signup fires its own
           // capture inline before this listener runs and uses
@@ -3350,7 +3358,12 @@
     // which the sell-entry Stripe-required dialog already enforces before
     // this point. No email pre-check here.
     const title = document.getElementById('sellTitle').value.trim();
-    const brand = document.getElementById('sellBrand').value.trim();
+    // r396: listings opened from the Bingo sell card are tagged and, to keep
+    // them a 2-minute job, a blank brand defaults to "Unbranded".
+    let __listingSource = null;
+    try { if (sessionStorage.getItem('tb_listing_source') === 'bingo') __listingSource = 'bingo'; } catch (_e) {}
+    let brand = document.getElementById('sellBrand').value.trim();
+    if (!brand && __listingSource === 'bingo' && !window.__editingListingId) brand = 'Unbranded';
     const cat = document.getElementById('sellCat').value;
     const price = parseFloat(document.getElementById('sellPrice').value);
     const condition = document.getElementById('sellCondition').value;
@@ -3384,13 +3397,18 @@
     } catch (_e) { /* rules remain the real gate */ }
     if (!window.IS_VERIFIED_SELLER) {
       const _tcb = document.getElementById('sellTermsCheckbox');
+      const _acb = document.getElementById('sellAge18Checkbox');
+      if (!_acb || !_acb.checked) {
+        showToast('Sellers must be 18 or older. Under 18? Ask a parent to list it on their account.', 'error');
+        return;
+      }
       if (!_tcb || !_tcb.checked) {
         showToast('Please agree to the Seller Terms to publish.', 'error');
         return;
       }
       try {
         const _verify = httpsCallable(fns, 'requestSellerVerification');
-        await _verify({ termsAgreed: true });
+        await _verify({ termsAgreed: true, age18: true });
         window.IS_VERIFIED_SELLER = true;
       } catch (e) {
         const _m = (e && e.message) || '';
@@ -3439,7 +3457,9 @@
         // marketplace UI to show a "Verification photo included" badge.
         requiresAuth: isHighValue,
         authReviewState: isHighValue ? 'pending' : 'na',
+        ...(__listingSource ? { source: __listingSource } : {}),
       });
+      try { sessionStorage.removeItem('tb_listing_source'); } catch (_e) {}
       const photoUrls = await uploadPhotos(docRef.id);
       if (photoUrls.length > 0) {
         const { updateDoc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
@@ -3506,27 +3526,11 @@
       } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
       showToast("You're live — your listing is on the marketplace now.", 'success');
-      // Seller "finish setup to get paid" nudge. The listing is visible now, but
-      // buyers can't purchase until Stripe Connect charges_enabled. If the seller
-      // isn't ready, prompt them to finish onboarding. Best-effort, non-blocking
-      // — reads their OWN user doc (owner-readable). The actual money gate is
-      // enforced server-side at checkout regardless.
-      (async () => {
-        try {
-          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-          const us = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
-          const chargesReady = us.exists() && us.data().stripeChargesEnabled === true;
-          if (!chargesReady) {
-            // r348: pre-create the Connect account NOW (no link, no redirect)
-            // so the "Set up payouts" tap only has to mint a link. Silent.
-            try {
-              const _prep = httpsCallable(fns, 'createStripeOnboardingLink');
-              _prep({ prepareOnly: true }).catch(() => {});
-            } catch (_e) {}
-            setTimeout(() => { try { showStripeRequiredDialog(); } catch (_e) {} }, 1300);
-          }
-        } catch (_e) { /* non-blocking */ }
-      })();
+      // r396: no payout prompt and no background Connect account after
+      // publish (founder ruling 2026-11-03: list now, set up payouts at the
+      // first sale; don't push payout setup while the platform payout hold
+      // is being confirmed). The r348 prepareOnly pre-create also left an
+      // orphaned live Express account for every lister who never sold.
       loadListings();
       // Contextual push prompt: ask once the seller has their first listing
       // up, framed as "get notified when buyers respond". Cooldown logic

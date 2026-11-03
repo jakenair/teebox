@@ -871,6 +871,7 @@
         window.addEventListener('teebox-listings-loaded', () => {
           __handoffWaiting = false;
           try { renderBingoHandoff(); } catch (_e) {}
+      try { renderBingoSellCard(); } catch (_e) {}
         }, { once: true });
       }
       return;
@@ -917,7 +918,47 @@
   function removeBingoHandoff() {
     const h = document.getElementById('bingoHandoff');
     if (h) h.remove();
+    const s = document.getElementById('bingoSellCard');
+    if (s) s.remove();
   }
+
+  // r396 — Bingo → seller card (founder 2026-11-03: Bingo players are the
+  // growth lever). One card on the results screen of a finished board,
+  // once per day: dismissing hides it until tomorrow's puzzle. Opens the
+  // list-first sell flow tagged source=bingo; no Stripe step.
+  const BINGO_SELL_KEY = 'tb_bingo_sell_card_v1';
+  function bingoSellState() {
+    try { return JSON.parse(localStorage.getItem(BINGO_SELL_KEY) || '{}') || {}; } catch (_e) { return {}; }
+  }
+  function setBingoSellState(patch) {
+    try { localStorage.setItem(BINGO_SELL_KEY, JSON.stringify(Object.assign(bingoSellState(), patch))); } catch (_e) {}
+  }
+  function renderBingoSellCard() {
+    const old = document.getElementById('bingoSellCard');
+    if (!isComplete()) { if (old) old.remove(); return; }
+    if (bingoSellState().dismissed === TODAY) { if (old) old.remove(); return; }
+    if (old) return;
+    const banner = document.getElementById('bingoResultBanner');
+    if (!banner) return;
+    const card = document.createElement('div');
+    card.id = 'bingoSellCard';
+    card.className = 'bingo-handoff';
+    card.innerHTML =
+      '<div class="bh-card bh-sell">' +
+        '<div class="bh-sell-copy"><strong>Clubs collecting dust?</strong>List them in 2 minutes. Snap a photo, set a price, and you’re live.</div>' +
+        '<div class="bh-sell-actions">' +
+          '<button type="button" class="bh-sell-cta" data-action="bingo-sell-start">List an item</button>' +
+          '<button type="button" class="bh-sell-x" data-action="bingo-sell-dismiss">Not now</button>' +
+        '</div>' +
+      '</div>';
+    const panel = document.getElementById('bingoResultsPanel');
+    (panel || banner).insertAdjacentElement('afterend', card);
+    if (bingoSellState().shown !== TODAY) {
+      setBingoSellState({ shown: TODAY });
+      window.tbEvent && window.tbEvent('sell_prompt_shown', 'bingo_results');
+    }
+  }
+  window.renderBingoSellCard = renderBingoSellCard;
   window.renderBingoHandoff = renderBingoHandoff;
 
   function isComplete() {
@@ -1033,6 +1074,7 @@
       }
       // r345: listings row + sell card under the footer.
       try { renderBingoHandoff(); } catch (_e) {}
+      try { renderBingoSellCard(); } catch (_e) {}
       try { updatePhotoNudge(); } catch (_e) {}
       // Reload-of-completed path: kick off the results panel load.
       // loadBingoResults is idempotent and a no-op for anonymous users
@@ -1806,6 +1848,7 @@
       }
       // r345: listings row + sell card under the footer.
       try { renderBingoHandoff(); } catch (_e) {}
+      try { renderBingoSellCard(); } catch (_e) {}
       announceLive(`Puzzle complete. ${score} of 9 correct. Streak ${s.count}.`);
       // Spin up the percentile / friends / streak panel below the banner.
       // The server may not have aggregated this solve yet (race between
@@ -2622,6 +2665,20 @@
     setTimeout(() => {
       try { A['open-detail']({ dataset: { productId: id } }, null); } catch (_e) {}
     }, 60);
+  };
+  A['bingo-sell-start'] = () => {
+    window.tbEvent && window.tbEvent('sell_prompt_tapped', 'bingo_results');
+    // Read by submitListing → listing.source = 'bingo'. Session-scoped so
+    // a later, unrelated listing in another tab isn't mis-attributed.
+    try { sessionStorage.setItem('tb_listing_source', 'bingo'); } catch (_e) {}
+    try { closeBingo(); } catch (_e) {}
+    setTimeout(() => { try { window.handleSellClick && window.handleSellClick({ quick: true }); } catch (_e) {} }, 80);
+  };
+  A['bingo-sell-dismiss'] = () => {
+    window.tbEvent && window.tbEvent('sell_prompt_dismissed', 'bingo_results');
+    setBingoSellState({ dismissed: TODAY });
+    const c = document.getElementById('bingoSellCard');
+    if (c) c.remove();
   };
   A['bingo-handoff-browse'] = () => {
     try { window.posthog && window.posthog.capture('bingo_handoff_browse'); } catch (_e) {}

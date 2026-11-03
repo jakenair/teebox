@@ -205,8 +205,11 @@ service cloud.firestore {
              'sellerId','title','brand','cat','ask','condition',
              'createdAt','status','expiresAt','desc','photos','emoji',
              'badge','volume','change','quantity','quantitySold',
-             'requiresAuth','authReviewState','specCategory','specs'])
+             'requiresAuth','authReviewState','specCategory','specs','source'])
         && d.status == 'active'
+        // r396: acquisition tag set once at create (Bingo sell card). Not in
+        // the update whitelist, so it can't be changed afterwards.
+        && (!('source' in d.keys()) || d.source == 'bingo')
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.brand is string && d.brand.size() > 0 && d.brand.size() <= 60
         && d.cat is string && d.cat.size() > 0 && d.cat.size() <= 40

@@ -139,6 +139,8 @@ async function skipAuthSheet(pg) {
 async function newPage(browser, label) {
   const ctx = await browser.newContext({...devices["iPhone 14"], locale: "en-US", timezoneId: "America/Chicago"});
   const page = await ctx.newPage(); wire(page, label);
+  // r396: smoke traffic never reaches prod PostHog (seller-funnel metrics must exclude test accounts).
+  await ctx.route(/https:\/\/us(-assets)?\.i\.posthog\.com\//, (route) => route.abort());
   await ctx.route((url) => META_BLOCK.some((re) => re.test(url.href)), (route) => { const u = route.request().url(); try { if (/facebook\.com\/tr/.test(u)) { let q = new URL(u).searchParams; if (!q.get("ev")) { const body = route.request().postData() || ""; if (/^--/.test(body)) { q = new URLSearchParams(); const re = /name="([^"]+)"\r?\n\r?\n([\s\S]*?)\r?\n--/g; let m; while ((m = re.exec(body))) q.set(m[1], m[2]); } else { try { q = new URLSearchParams(body); } catch (_) {} } } PIXEL.events.push({ page: label, ev: q.get("ev"), content_ids: q.get("cd[content_ids]"), value: q.get("cd[value]"), currency: q.get("cd[currency]"), eid: q.get("eid") }); } else { PIXEL.blocked.push(u.slice(0, 100)); } } catch (_) {} route.fulfill({ status: 204, body: "" }); });
   const cdp = await ctx.newCDPSession(page); await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", SLOW3G);
   page.setDefaultTimeout(120000);
@@ -285,7 +287,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
         return {...attempts[attempts.length - 1]};
       });
     }
-    { const u = await auth.getUserByEmail(SELLER_EMAIL); sellerUid = u.uid; CREATED_UIDS.add(sellerUid); const ud = await db.doc(`users/${u.uid}`).get(); const pd = await db.doc(`profiles/${u.uid}`).get(); report.notes.push(`post-signup server state: displayName=${JSON.stringify(u.displayName)} usersDoc=${ud.exists} profilesDoc=${pd.exists}`); console.log("  server state:", {displayName: u.displayName, usersDoc: ud.exists, profilesDoc: pd.exists}); }
+    { const u = await auth.getUserByEmail(SELLER_EMAIL); sellerUid = u.uid; CREATED_UIDS.add(sellerUid); await db.doc(`users/${u.uid}`).set({isTestAccount: true}, {merge: true}); const ud = await db.doc(`users/${u.uid}`).get(); const pd = await db.doc(`profiles/${u.uid}`).get(); report.notes.push(`post-signup server state: displayName=${JSON.stringify(u.displayName)} usersDoc=${ud.exists} profilesDoc=${pd.exists}`); console.log("  server state:", {displayName: u.displayName, usersDoc: ud.exists, profilesDoc: pd.exists}); }
     await step(p, "signup: signed-in state", async () => { await p.waitForTimeout(3000); const banner = await p.locator("text=/verify/i").first().textContent({timeout: 5000}).catch(() => ""); return {verifyCopy: (banner || "").trim().slice(0, 100), attempts: attempts.length}; });
     if (MODE === "signup") { report.notes.push("mode=signup: stopped after sign-up"); throw new Error("__stop__"); }
     // Simulate the seller clicking the verification link (admin flip) — the app's "I've verified" path re-checks.
@@ -316,24 +318,24 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       await p.fill("#sellPrice", "25"); await p.fill("#sellDesc", "Automated QA walk listing — will be deleted within minutes.");
       const catVal = await p.locator("#sellCat").inputValue().catch(() => "");
       const terms = p.locator("#sellTermsRow");
-      let termsShown = false; if (await terms.isVisible().catch(() => false)) { termsShown = true; await p.locator("#sellTermsCheckbox").check(); }
+      let termsShown = false; if (await terms.isVisible().catch(() => false)) { termsShown = true; await p.locator("#sellTermsCheckbox").check(); const age = p.locator("#sellAge18Checkbox"); if (await age.isVisible().catch(() => false)) await age.check(); }
       const specErr = await p.locator("#sellSpecFields .field-invalid").count();
       return {cat: catVal, termsShown, specInvalid: specErr};
     });
     await step(p, "list: Post it", async () => {
-      const r = await clickWatch(p, "#submitListingBtn", "#stripeRequiredBackdrop.open", "Post it", 180000);
+      const r = await clickWatch(p, "#submitListingBtn", '.toast:has-text("live")', "Post it", 180000);
       const errs = await p.locator(".field-error-msg").allTextContents().catch(() => []);
       const dlgTitle = await p.locator("#stripeRequiredTitle").textContent().catch(() => "");
       return {publishMs: r.outcomeMs, btnSamples: r.samples, fieldErrors: errs, dialog: (dlgTitle || "").trim()};
     });
     const mine = await db.collection("listings").where("sellerId", "==", sellerUid).get();
-    testListingId = mine.docs[0] && mine.docs[0].id; report.notes.push(`test listing ${testListingId} (${mine.size} created)`);
+    testListingId = mine.docs[0] && mine.docs[0].id; if (testListingId) await db.doc(`listings/${testListingId}`).set({isTest: true}, {merge: true}); report.notes.push(`test listing ${testListingId} (${mine.size} created)`);
     await step(p, "list: dismiss payouts dialog", async () => { const b = p.locator('#stripeRequiredBackdrop [data-action="close-stripe-required"]').last(); if (await b.isVisible().catch(() => false)) await b.click(); await p.waitForTimeout(1500); const top = await p.locator(".product-card").first().getAttribute("data-product-id"); return {feedTopIsTestListing: top === testListingId}; });
 
     } // end MODE !== "pixel"
     // ── Buyer ──
     await auth.createUser({uid: BUYER_UID, email: BUYER_EMAIL, password: PW, emailVerified: true}); CREATED_UIDS.add(BUYER_UID);
-    await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", createdAt: admin.firestore.FieldValue.serverTimestamp()});
+    await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", isTestAccount: true, createdAt: admin.firestore.FieldValue.serverTimestamp()});
     buyer = await newPage(browser, "buyer"); const b = buyer.page;
     await step(b, "buyer: load + sign in", async () => {
       const t0 = now(); await b.goto((process.env.BASE || "https://teeboxmarket.com") + "/?_=b" + TAG, {waitUntil: "domcontentloaded"});
