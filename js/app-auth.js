@@ -3500,9 +3500,12 @@
           content_category: cat,
           value: Math.round(price * 100) / 100,
           currency: 'USD',
+          source: __listingSource || 'direct',
         };
         if (sellerExtId) lcParams.external_id = sellerExtId;
-        window.fbTrack && window.fbTrack('ListingCreated', lcParams,
+        // Meta dataset switch: renamed ListingCreated -> ListItem (custom event)
+        // with source = bingo | direct, so seller campaigns can split by entry point.
+        window.fbTrack && window.fbTrack('ListItem', lcParams,
           { custom: true, once: 'listing_' + docRef.id,
             eventID: 'lc_' + String(docRef.id) });
       } catch (_e) {}

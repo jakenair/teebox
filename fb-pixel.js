@@ -52,6 +52,9 @@ var TEEBOX_META_PIXEL_ID = '4535316483381655';
   document,'script','https://connect.facebook.net/en_US/fbevents.js');
   /* eslint-enable */
 
+  // Automatic events off: they added SubscribedButtonClick and a second
+  // PageView with no server copy and no dedup key. Must precede init.
+  window.fbq('set', 'autoConfig', false, TEEBOX_META_PIXEL_ID);
   window.fbq('init', TEEBOX_META_PIXEL_ID);
   // PageView carries an event_id so the Conversions API copy (sent by
   // fbRelayToServer in index.html, when present) dedupes against it. Static

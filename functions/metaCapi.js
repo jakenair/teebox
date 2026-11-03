@@ -401,7 +401,8 @@ const CAPI_RELAY_EVENTS = new Set([
   "AddToCart",
   "InitiateCheckout",
   "CompleteRegistration",
-  "ListingCreated",
+  "ListingCreated", // pre-switch cached clients; remove after a week
+  "ListItem", // Meta dataset switch: ListingCreated renamed, carries source
   "ListingStarted", // r386: top of the seller funnel; custom event, auth-only
   "ViewContent",
   "PageView",
@@ -480,6 +481,7 @@ exports.capiRelay = onCall(
       }
       if (p.content_type) custom.content_type = String(p.content_type).slice(0, 40);
       if (p.content_category) custom.content_category = String(p.content_category).slice(0, 60);
+      if (p.source === "bingo" || p.source === "direct") custom.source = p.source;
       const val = Number(p.value);
       if (Number.isFinite(val) && val >= 0 && val <= CAPI_MAX_VALUE) {
         custom.value = Math.round(val * 100) / 100;
