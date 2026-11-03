@@ -8613,7 +8613,7 @@ window.tbEvent = function (name, surface) {
       <!-- Stripe Address Element — captures shipping address.
            Required: privacy.html promises we collect shipping addresses,
            and the backend reads pi.shipping in handlePaymentSucceeded. -->
-      <div class="modal-input-row" style="margin-bottom:14px;">
+      <div class="modal-input-row" id="checkoutShipRow" style="margin-bottom:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Ship to</div>
         <div id="address-element" style="min-height:48px;"></div>
       </div>
@@ -9505,6 +9505,7 @@ window.openCheckout = async function(productId, qty, opts) {
   try {
     const piData = await mountPaymentElement(checkoutProduct);
     { const ar = document.getElementById('checkoutAgeRow'); if (ar) ar.style.display = 'none'; }
+    { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = ''; }
     // Mounted — hide the loading skeleton and restore the element's min-height.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
@@ -9522,6 +9523,9 @@ window.openCheckout = async function(productId, qty, opts) {
       const row = document.getElementById('checkoutAgeRow');
       const cb = document.getElementById('checkoutAge18Checkbox');
       if (row) row.style.display = '';
+      // r397: Stripe's address/payment fields only load after the confirm, so
+      // hide the empty "Ship to" block instead of leaving a blank gap.
+      { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = 'none'; }
       if (cb) cb.checked = false;
       window.__buyerAge18 = false;
       setCheckoutError('');

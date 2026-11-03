@@ -346,10 +346,73 @@ function sellerInviteDismissed() {
     return (Date.now() - at) / 86400000 < SELLER_INVITE_DISMISS_DAYS;
   } catch (_e) { return false; }
 }
+// r397 thanks_nov: one-time founder thank-you banner in the (retired) seller
+// invite slot. Eligibility is server-set (users/{uid}.promoThanksNov, written
+// by an admin batch for the campaign audience). Shown on ONE page load per
+// account per browser: it stays up for that session until tapped or dismissed.
+const THANKS_NOV_KEY = (uid) => 'tb_thanks_nov_v1_' + uid;
+function thanksNovState(uid) {
+  try { return localStorage.getItem(THANKS_NOV_KEY(uid)); } catch (_e) { return 'x'; }
+}
+function renderThanksNov(host) {
+  const u = window.CURRENT_USER;
+  if (!u) return false;
+  const st = thanksNovState(u.uid);
+  let thisSession = false;
+  try { thisSession = sessionStorage.getItem(THANKS_NOV_KEY(u.uid)) === '1'; } catch (_e) {}
+  if (st && !thisSession) return false;           // shown on an earlier load, or done
+  if (window.__thanksNovEligible === undefined) {
+    window.__thanksNovEligible = null;            // in flight
+    (async () => {
+      try {
+        const { getFirestore, doc, getDoc } =
+          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+        const s = await getDoc(doc(getFirestore(), 'users', u.uid));
+        window.__thanksNovEligible = !!(s.exists() && s.data().promoThanksNov === true);
+      } catch (_e) { window.__thanksNovEligible = false; }
+      try { renderSellerInvite(); } catch (_e) {}
+    })();
+    return false;
+  }
+  if (window.__thanksNovEligible !== true) return false;
+  host.innerHTML =
+    `<div class="seller-invite-card">`+
+      `<div class="seller-invite-copy">`+
+        `<strong>Thanks for being early.</strong>`+
+        `Got gear you're not using? List it in 2 minutes.`+
+      `</div>`+
+      `<div class="seller-invite-actions">`+
+        `<button type="button" class="bh-sell-cta" data-action="thanks-nov-sell">List an item</button>`+
+        `<button type="button" class="bh-sell-x" data-action="thanks-nov-dismiss">Not now</button>`+
+      `</div>`+
+    `</div>`;
+  host.style.display = '';
+  if (!thisSession) {
+    try { localStorage.setItem(THANKS_NOV_KEY(u.uid), 'shown'); sessionStorage.setItem(THANKS_NOV_KEY(u.uid), '1'); } catch (_e) {}
+    window.tbEvent && window.tbEvent('sell_prompt_shown', 'thanks_nov');
+  }
+  return true;
+}
+function endThanksNov() {
+  const u = window.CURRENT_USER;
+  try { if (u) { localStorage.setItem(THANKS_NOV_KEY(u.uid), 'done'); sessionStorage.removeItem(THANKS_NOV_KEY(u.uid)); } } catch (_e) {}
+  const host = document.getElementById('sellerInvite');
+  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
+}
+window.__actions['thanks-nov-sell'] = function() {
+  window.tbEvent && window.tbEvent('sell_prompt_tapped', 'thanks_nov');
+  endThanksNov();
+  if (typeof handleSellClick === 'function') handleSellClick();
+};
+window.__actions['thanks-nov-dismiss'] = function() {
+  window.tbEvent && window.tbEvent('sell_prompt_dismissed', 'thanks_nov');
+  endThanksNov();
+};
 function renderSellerInvite() {
   const host = document.getElementById('sellerInvite');
   if (!host) return;
   const hide = () => { host.style.display = 'none'; host.innerHTML = ''; };
+  if (renderThanksNov(host)) return;
   // r383: Featured Sellers is retired, so the "list 5, get featured" promise
   // no longer holds — the card stays hidden (code kept for a future rework).
   return hide();

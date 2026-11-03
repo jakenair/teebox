@@ -306,6 +306,7 @@ async function renderTemplate(reactEl) {
  * @param {Array}  [opts.tags]             Resend tags (max 10).
  * @param {Object} [opts.headers]          Extra SMTP headers.
  * @param {string} [opts.replyTo]          Override default reply-to.
+ * @param {string} [opts.from]             Override default From (verified domain only).
  */
 async function sendEmail(opts) {
   const {
@@ -320,6 +321,7 @@ async function sendEmail(opts) {
     tags = [],
     headers = {},
     replyTo,
+    from: fromOverride,
     idempotencyKey: explicitIdempotencyKey,
   } = opts || {};
 
@@ -331,7 +333,9 @@ async function sendEmail(opts) {
   // Pick From/Reply-To per category. Marketing uses a separate sending
   // identity to keep transactional reputation insulated.
   const isMarketingCat = isMarketing(category);
-  const fromAddr = isMarketingCat ? FROM_MARKETING : FROM;
+  // `from` override (founder-signed one-offs, e.g. scripts/outreach-thanks-nov.mjs).
+  // Must be on a Resend-verified domain (mail.teeboxmarket.com).
+  const fromAddr = fromOverride || (isMarketingCat ? FROM_MARKETING : FROM);
   const replyToAddr = replyTo || (isMarketingCat ? REPLY_TO_MARKETING : REPLY_TO);
 
   // Preference + suppression check.
