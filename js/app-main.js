@@ -13471,6 +13471,11 @@ A['seller-age-confirm']      = () => {
   A['stripe-connect'](null, null, { age18: true });
 };
 document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'checkoutAge18Checkbox') {
+    window.__buyerAge18 = !!e.target.checked;
+    const pb = document.getElementById('payBtn') || document.querySelector('#checkoutBackdrop [data-action="retry-checkout"]');
+    if (pb) pb.disabled = !e.target.checked;
+  }
   if (e.target && e.target.id === 'sellerAgeCheckbox') {
     const btn = document.getElementById('sellerAgeConfirmBtn');
     if (btn) btn.disabled = !e.target.checked;

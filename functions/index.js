@@ -392,6 +392,34 @@ exports.createPaymentIntent = onRequest(
     if (qty > 99) qty = 99;
 
     const db = admin.firestore();
+
+    // ── 18+ to buy (founder ruling 2026-11-03) ──
+    // Asked once per account: the buyer ticks "I'm 18 or older" in the
+    // checkout sheet and the client resends with age18:true, which we record.
+    // Clients from r396 on send ageGate:1. A request WITHOUT it is a shipped
+    // iOS build that has no checkbox; while BUYER_AGE_LEGACY_ALLOW is true those
+    // pass (logged) so iOS checkout keeps working until the next app build.
+    try {
+      const ageRef = db.doc(`users/${buyerId}`);
+      const ageSnap = await ageRef.get();
+      if (!(ageSnap.exists && ageSnap.data().buyerAge18At)) {
+        const body = req.body || {};
+        if (body.age18 === true) {
+          await ageRef.set({
+            buyerAge18At: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+        } else if (body.ageGate || !BUYER_AGE_LEGACY_ALLOW) {
+          return res.status(412).json({error: "age-required"});
+        } else {
+          logger.info("createPaymentIntent: legacy client without age gate", {buyerId});
+        }
+      }
+    } catch (ageErr) {
+      logger.error("createPaymentIntent: age check failed — failing closed", ageErr);
+      return res.status(503).json(
+          {error: "Couldn't verify your account right now. Please try again."});
+    }
+
     const listingRef = db.collection("listings").doc(listingId);
 
     // ── Offer-priced checkout (accept-and-pay) ──
@@ -5375,6 +5403,9 @@ exports.createStripeOnboardingLink = onCall(
 // Test accounts: smoke/QA email domains, or users/{uid}.isTestAccount set by
 // a harness. Excluded from live Stripe and from every metric.
 const TEST_EMAIL_RE = /@(teeboxtest\.invalid|teeboxqa\.dev)$/i;
+// Shipped iOS builds (≤ 2.6.x) have no buyer age checkbox. Flip to false once
+// the build with the age step is the minimum supported version.
+const BUYER_AGE_LEGACY_ALLOW = true;
 function isTestAccount(email, user) {
   return TEST_EMAIL_RE.test(String(email || "")) ||
     !!(user && user.isTestAccount === true);

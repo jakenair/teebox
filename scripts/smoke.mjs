@@ -335,7 +335,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     } // end MODE !== "pixel"
     // ── Buyer ──
     await auth.createUser({uid: BUYER_UID, email: BUYER_EMAIL, password: PW, emailVerified: true}); CREATED_UIDS.add(BUYER_UID);
-    await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", isTestAccount: true, createdAt: admin.firestore.FieldValue.serverTimestamp()});
+    await db.doc(`users/${BUYER_UID}`).set({displayName: "PW Walk Buyer", isTestAccount: true, buyerAge18At: admin.firestore.FieldValue.serverTimestamp(), createdAt: admin.firestore.FieldValue.serverTimestamp()});
     buyer = await newPage(browser, "buyer"); const b = buyer.page;
     await step(b, "buyer: load + sign in", async () => {
       const t0 = now(); await b.goto((process.env.BASE || "https://teeboxmarket.com") + "/?_=b" + TAG, {waitUntil: "domcontentloaded"});

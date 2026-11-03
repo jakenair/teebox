@@ -8629,6 +8629,13 @@ window.tbEvent = function (name, surface) {
         </div>
         <div id="payment-element" style="min-height:48px;"></div>
         <div id="card-errors" role="alert" aria-live="polite" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:18px;"></div>
+        <!-- r396: 18+ to buy, asked once per account (server: buyerAge18At). -->
+        <div id="checkoutAgeRow" style="display:none;margin-top:6px;">
+          <label class="sell-terms-check" style="font-size:14px;font-weight:500;color:var(--gray-800);text-transform:none;letter-spacing:normal;margin:0;">
+            <input type="checkbox" id="checkoutAge18Checkbox" style="width:18px;height:18px;margin:1px 0 0 0;flex-shrink:0;accent-color:var(--green-700);" />
+            <span>I'm 18 or older.</span>
+          </label>
+        </div>
       </div>
 
       <!-- PCI / "card details never stored" reassurance -->
@@ -8976,6 +8983,10 @@ async function mountPaymentElement(product) {
         // line — without it the charge stays item-only (stale-client
         // honesty guard) and the platform absorbs the label.
         shippingAware: true,
+        // r396: 18+ to buy. ageGate marks a client that can show the checkbox;
+        // age18 is sent once the buyer has ticked it.
+        ageGate: 1,
+        ...(window.__buyerAge18 ? { age18: true } : {}),
         // Offer-priced checkout: when present the server prices the item
         // from the frozen offer (never listing.ask) and forces qty 1.
         ...(product.__offerId ? { offerId: String(product.__offerId) } : {}),
@@ -9493,6 +9504,7 @@ window.openCheckout = async function(productId, qty, opts) {
   // without having to close + reopen the modal.
   try {
     const piData = await mountPaymentElement(checkoutProduct);
+    { const ar = document.getElementById('checkoutAgeRow'); if (ar) ar.style.display = 'none'; }
     // Mounted — hide the loading skeleton and restore the element's min-height.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
@@ -9505,6 +9517,19 @@ window.openCheckout = async function(productId, qty, opts) {
     // Mount failed — hide the skeleton so the error message is visible.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
+    if (/age-required/.test((err && err.message) || '')) {
+      // r396: first purchase on this account — one-time 18+ confirm.
+      const row = document.getElementById('checkoutAgeRow');
+      const cb = document.getElementById('checkoutAge18Checkbox');
+      if (row) row.style.display = '';
+      if (cb) cb.checked = false;
+      window.__buyerAge18 = false;
+      setCheckoutError('');
+      payBtn.disabled = true;
+      payBtn.textContent = 'Continue';
+      payBtn.dataset.action = 'retry-checkout';
+      return;
+    }
     setCheckoutError(err && err.message || 'Could not start payment. Try again.');
     payBtn.disabled = false;
     payBtn.textContent = 'Try again';
