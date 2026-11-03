@@ -56,7 +56,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // IDFA). Adding ATT later needs Jake's sign-off + privacy.html +
         // App Privacy labels in the same change.
         FBSDKCoreKit.Settings.shared.isAdvertiserIDCollectionEnabled = false
-        FBSDKCoreKit.Settings.shared.isAutoLogAppEventsEnabled = true
+        // 2.6.2: honour the in-app Do Not Sell or Share switch (MetaEventsPlugin persists it)
+        // before the SDK initialises, so an opted-out user never emits the launch event.
+        FBSDKCoreKit.Settings.shared.isAutoLogAppEventsEnabled = !MetaEventsPlugin.optedOut
+        #if DEBUG
+        // Simulator verification only (never in Release): prove the stored opt-out is
+        // read BEFORE the SDK initialises, and make the SDK narrate every app event.
+        NSLog("[MetaEvents] launch: optedOut=%d autoLogAppEvents=%d", MetaEventsPlugin.optedOut ? 1 : 0, FBSDKCoreKit.Settings.shared.isAutoLogAppEventsEnabled ? 1 : 0)
+        FBSDKCoreKit.Settings.shared.enableLoggingBehavior(.appEvents)
+        FBSDKCoreKit.Settings.shared.enableLoggingBehavior(.networkRequests)
+        #endif
         ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
