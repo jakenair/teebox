@@ -9510,6 +9510,7 @@ window.openCheckout = async function(productId, qty, opts) {
     const piData = await mountPaymentElement(checkoutProduct);
     { const ar = document.getElementById('checkoutAgeRow'); if (ar) ar.style.display = 'none'; }
     { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = ''; }
+    { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = ''; }
     // Mounted — hide the loading skeleton and restore the element's min-height.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
@@ -9530,6 +9531,9 @@ window.openCheckout = async function(productId, qty, opts) {
       // r397: Stripe's address/payment fields only load after the confirm, so
       // hide the empty "Ship to" block instead of leaving a blank gap.
       { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = 'none'; }
+      // r398: same for the empty payment slot + error line above the checkbox.
+      if (_payEl0) _payEl0.style.minHeight = '0';
+      { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = 'none'; }
       if (cb) cb.checked = false;
       window.__buyerAge18 = false;
       setCheckoutError('');
@@ -9538,6 +9542,7 @@ window.openCheckout = async function(productId, qty, opts) {
       payBtn.dataset.action = 'retry-checkout';
       return;
     }
+    { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = ''; }
     setCheckoutError(err && err.message || 'Could not start payment. Try again.');
     payBtn.disabled = false;
     payBtn.textContent = 'Try again';
@@ -9725,8 +9730,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r397"></script>
-<script type="module" src="/js/app-auth.js?v=r397"></script>
+<script defer src="/js/app-main.js?v=r398"></script>
+<script type="module" src="/js/app-auth.js?v=r398"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9756,7 +9761,7 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r397"></script>
+<script type="module" src="/js/bingo.js?v=r398"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

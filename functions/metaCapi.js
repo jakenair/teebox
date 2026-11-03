@@ -516,7 +516,11 @@ exports.capiRelay = onCall(
         });
         return {ok: false, status: res.status};
       }
-      logger.info("capiRelay: sent", {eventName, eventId});
+      let received = null;
+      try {
+        received = JSON.parse(res.body).events_received;
+      } catch (_e) { /* body is capped at 500 chars; the count is a bonus */ }
+      logger.info("capiRelay: sent", {eventName, eventId, eventsReceived: received});
       return {ok: true};
     },
 );
