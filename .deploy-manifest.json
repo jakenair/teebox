@@ -38,6 +38,11 @@
     "region": "us-central1",
     "sha": "b28ba424a0efb602548d9fffd07a29050f9adcbc"
   },
+  "capiRelay": {
+    "sha": "687ce947be941b1758bf3c2490ec0e004f2d7de9",
+    "at": "2026-11-03",
+    "region": "us-central1"
+  },
   "checkEmailUsage": {
     "at": "2026-09-29",
     "region": "us-central1",
