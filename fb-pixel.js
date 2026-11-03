@@ -55,6 +55,10 @@ var TEEBOX_META_PIXEL_ID = '4535316483381655';
   // Automatic events off: they added SubscribedButtonClick and a second
   // PageView with no server copy and no dedup key. Must precede init.
   window.fbq('set', 'autoConfig', false, TEEBOX_META_PIXEL_ID);
+  // ...and no automatic PageView on every SPA pushState (eid ob3_plugin-set_*).
+  // Those had no server copy, so they doubled PageView and diluted dedup.
+  // Listing opens are already covered by ViewContent. Must precede init too.
+  window.fbq.disablePushState = true;
   window.fbq('init', TEEBOX_META_PIXEL_ID);
   // PageView carries an event_id so the Conversions API copy (sent by
   // fbRelayToServer in index.html, when present) dedupes against it. Static
