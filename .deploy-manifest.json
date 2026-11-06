@@ -92,9 +92,9 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "at": "2026-10-08",
-    "region": "us-central1",
-    "sha": "791ca64549e465e7485632c031b438756baea9d5"
+    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
+    "at": "2026-11-06",
+    "region": "us-central1"
   },
   "dailyBingoMonitorManual": {
     "at": "2026-09-17",
@@ -159,9 +159,9 @@
     "sha": null
   },
   "generateDailyBingoPuzzle": {
-    "at": "2026-10-08",
-    "region": "us-central1",
-    "sha": "791ca64549e465e7485632c031b438756baea9d5"
+    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
+    "at": "2026-11-06",
+    "region": "us-central1"
   },
   "generateListingDescription": {
     "at": "2026-09-24",
@@ -625,8 +625,9 @@
     "sha": null
   },
   "syncBingoProgress": {
-    "at": "2026-09-17",
-    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560"
+    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
+    "at": "2026-11-06",
+    "region": "us-central1"
   },
   "syncBlockedThreads": {
     "at": "2026-07-22",
