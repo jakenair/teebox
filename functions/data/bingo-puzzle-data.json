@@ -1036,6 +1036,11 @@
       "id": "woking-golf-club",
       "shortName": "Woking",
       "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fwoking-golf-club.png?alt=media"
+    },
+    {
+      "id": "the-gilroy",
+      "shortName": "The Gilroy",
+      "logoUrl": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/course-logos%2Fthe-gilroy.png?alt=media"
     }
   ],
   "courseData": {
@@ -2587,9 +2592,19 @@
       "aliases": [
         "woking"
       ]
+    },
+    "the-gilroy": {
+      "name": "The Gilroy at Old Barnwell",
+      "shortName": "The Gilroy",
+      "aliases": [
+        "the gilroy",
+        "gilroy",
+        "gilroy at old barnwell",
+        "the gilroy at old barnwell"
+      ]
     }
   },
-  "generatedAt": "2026-10-08T18:53:15.975Z",
+  "generatedAt": "2026-11-06T21:27:48.358Z",
   "sourceFiles": [
     "bingo-courses.js",
     "assets/logos/manifest.js"

@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-21T21:43:48.147Z",
+  "generatedAt": "2026-11-06T21:28:37.786Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
-    "total": 207,
-    "pass": 207,
+    "total": 208,
+    "pass": 208,
     "fail": 0
   },
   "entries": [
@@ -1867,6 +1867,15 @@
       "shortName": "Woking",
       "localHash": "35206715432ea930307cdeb714eed4bd8f769a217096f39f3e9a9a99bdef1bf4",
       "localBytes": 11941,
+      "remoteHash": null,
+      "remoteStatus": null,
+      "problems": []
+    },
+    {
+      "id": "the-gilroy",
+      "shortName": "The Gilroy",
+      "localHash": "769cbc7923e196665e2dcb86983b8582fb0c5e2faa5a6243621e43fe6806f8cb",
+      "localBytes": 78482,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []

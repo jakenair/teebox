@@ -191,6 +191,7 @@ export const LOGOS_AVAILABLE = new Set([
   'the-country-club',
   'the-country-club-of-darien',
   'the-creek',
+  'the-gilroy',
   'the-hay',
   'the-park',
   'the-tuxedo-club',

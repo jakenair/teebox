@@ -3848,6 +3848,16 @@ export const COURSES = [
     logo: '',
     logoUrl: '',
   },
+  {
+    id: 'the-gilroy',
+    name: 'The Gilroy at Old Barnwell',
+    shortName: 'The Gilroy',
+    aliases: ['the gilroy', 'gilroy', 'gilroy at old barnwell', 'the gilroy at old barnwell'],
+    location: 'Aiken, South Carolina',
+    architect: 'Brian Schneider & Blake Conant',
+    logo: '',
+    logoUrl: '',
+  },
 ];
 
 // Helper used by the runtime when rendering a tile. Returns either the
