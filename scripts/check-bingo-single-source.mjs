@@ -129,7 +129,7 @@ for (const entry of assetEntries) {
 //     is the synchronous placeholder before async loadTodaysBingoPuzzle
 //     replaces it — that placeholder is fine, but it MUST be followed
 //     within the same module by an await loadTodaysBingoPuzzle() call.
-const indexHtmlPath = resolve(REPO_ROOT, "index.html");
+const indexHtmlPath = resolve(REPO_ROOT, "js", "bingo.js"); // Bingo client moved out of index.html
 const indexSrcRaw = readFileSync(indexHtmlPath, "utf8");
 // Strip JS line comments, JS block comments, and HTML comments so call-site
 // detection ignores the dozens of `// dailySeed()` references in the
@@ -161,8 +161,8 @@ for (const idx of dailySeedCalls) {
 if (mustHaveStaleMarker > 0) {
   note(
       "dailySeed-needs-stale-marker",
-      "index.html",
-      `${mustHaveStaleMarker} dailySeed() call(s) in index.html are not ` +
+      "js/bingo.js",
+      `${mustHaveStaleMarker} dailySeed() call(s) in js/bingo.js are not ` +
       "near a `__bingoPuzzleStale = true` marker. Either wrap the call " +
       "in the offline-fallback block, or remove it — production code " +
       "must fetch dailyPuzzles/{date} from Firestore, not recompute.");
@@ -172,7 +172,7 @@ if (mustHaveStaleMarker > 0) {
 if (!/fetchServerDailyPuzzle/.test(indexSrc)) {
   note(
       "loadTodaysBingoPuzzle-needs-server-fetch",
-      "index.html",
+      "js/bingo.js",
       "fetchServerDailyPuzzle() is missing — the client refactor was " +
       "reverted? See LOGO_BINGO_DIAGNOSIS.md.");
 }
