@@ -1,0 +1,134 @@
+{
+ "united-states": {
+  "file": "united-states.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/us.svg",
+  "code": "us"
+ },
+ "england": {
+  "file": "england.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/gb-eng.svg",
+  "code": "gb-eng"
+ },
+ "australia": {
+  "file": "australia.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/au.svg",
+  "code": "au"
+ },
+ "south-africa": {
+  "file": "south-africa.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/za.svg",
+  "code": "za"
+ },
+ "japan": {
+  "file": "japan.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/jp.svg",
+  "code": "jp"
+ },
+ "spain": {
+  "file": "spain.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/es.svg",
+  "code": "es"
+ },
+ "sweden": {
+  "file": "sweden.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/se.svg",
+  "code": "se"
+ },
+ "south-korea": {
+  "file": "south-korea.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/kr.svg",
+  "code": "kr"
+ },
+ "canada": {
+  "file": "canada.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/ca.svg",
+  "code": "ca"
+ },
+ "scotland": {
+  "file": "scotland.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/gb-sct.svg",
+  "code": "gb-sct"
+ },
+ "ireland": {
+  "file": "ireland.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/ie.svg",
+  "code": "ie"
+ },
+ "northern-ireland": {
+  "file": "northern-ireland.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/gb-nir.svg",
+  "code": "gb-nir"
+ },
+ "new-zealand": {
+  "file": "new-zealand.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/nz.svg",
+  "code": "nz"
+ },
+ "denmark": {
+  "file": "denmark.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/dk.svg",
+  "code": "dk"
+ },
+ "germany": {
+  "file": "germany.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/de.svg",
+  "code": "de"
+ },
+ "argentina": {
+  "file": "argentina.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/ar.svg",
+  "code": "ar"
+ },
+ "france": {
+  "file": "france.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/fr.svg",
+  "code": "fr"
+ },
+ "italy": {
+  "file": "italy.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/it.svg",
+  "code": "it"
+ },
+ "belgium": {
+  "file": "belgium.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/be.svg",
+  "code": "be"
+ },
+ "wales": {
+  "file": "wales.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/gb-wls.svg",
+  "code": "gb-wls"
+ },
+ "norway": {
+  "file": "norway.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/no.svg",
+  "code": "no"
+ },
+ "colombia": {
+  "file": "colombia.svg",
+  "source": "flag-icons 7.2.3 (MIT, github.com/lipis/flag-icons)",
+  "file_url": "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/1x1/co.svg",
+  "code": "co"
+ }
+}

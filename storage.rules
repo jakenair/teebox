@@ -115,6 +115,14 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Sunday Nine player headshots and category marks
+    // (scripts/sunday-nine-photos.mjs, scripts/sunday-nine-logos.mjs).
+    // Public read, content-hashed immutable files; no client writes.
+    match /sunday-nine/{kind}/{fileName} {
+      allow read: if kind in ['players', 'logos'];
+      allow write: if false;
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;

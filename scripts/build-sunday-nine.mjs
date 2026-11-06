@@ -153,6 +153,13 @@ function buildPlayers() {
     ids.add(p.id);
   }
   players.sort((a, b) => a.n.localeCompare(b.n));
+  // Self-hosted headshots (scripts/sunday-nine-photos.mjs). No entry = the
+  // client draws a monogram.
+  const photosPath = resolve(ROOT, "data/sunday-nine/photos.json");
+  if (existsSync(photosPath)) {
+    const photos = JSON.parse(readFileSync(photosPath, "utf8"));
+    for (const p of players) if (photos[p.id]) p.ph = photos[p.id];
+  }
   return players;
 }
 
@@ -194,6 +201,12 @@ function main() {
   writeFileSync(gridsPath, gridsJson);
   writeFileSync(resolve(FN_DATA, "sunday-nine-players.json"), playersJson);
   writeFileSync(resolve(FN_DATA, "sunday-nine-grids.json"), gridsJson);
+  // Category marks (scripts/sunday-nine-logos.mjs): category id -> hosted URL.
+  const logosPath = resolve(ROOT, "data/sunday-nine/logos.json");
+  if (existsSync(logosPath)) {
+    const logos = JSON.parse(readFileSync(logosPath, "utf8"));
+    writeFileSync(resolve(OUT_DIR, "logos.json"), JSON.stringify({version: 1, logos}));
+  }
 
   const unkCount = players.filter((p) => p.unk).length;
   console.log(`[sunday-nine] ${players.length} players (${unkCount} with an unverified field), ` +

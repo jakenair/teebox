@@ -55,14 +55,17 @@ const toast = (m) => { if (window.showToast) window.showToast(m); };
 // ── Data ────────────────────────────────────────────────────────────────
 async function loadData() {
   if (S.data) return S.data;
-  const [pr, gr] = await Promise.all([
+  const [pr, gr, lr] = await Promise.all([
     fetch('/sunday-nine/players.json', { cache: 'no-cache' }),
     fetch('/sunday-nine/grids.json', { cache: 'no-cache' }),
+    fetch('/sunday-nine/logos.json', { cache: 'no-cache' }).catch(() => null),
   ]);
   if (!pr.ok || !gr.ok) throw new Error('sunday-nine data ' + pr.status + '/' + gr.status);
   const players = (await pr.json()).players;
   const pinned = (await gr.json()).grids;
-  S.data = { players, byId: Object.fromEntries(players.map((p) => [p.id, p])), pinned };
+  let logos = {};
+  try { if (lr && lr.ok) logos = (await lr.json()).logos || {}; } catch (_) {}
+  S.data = { players, byId: Object.fromEntries(players.map((p) => [p.id, p])), pinned, logos };
   return S.data;
 }
 
@@ -182,6 +185,31 @@ function result() {
 
 function catLabel(id) { const c = CATEGORY_BY_ID[id]; return c ? c.label : id; }
 
+// Header: official mark (self-hosted) above the text, which is always shown.
+// World No. 1 has no mark of its own, so it gets a plain text badge.
+function catHtml(id, row) {
+  const lg = S.data.logos[id];
+  let mark = '';
+  if (id === 'world1') mark = '<span class="s9-badge" aria-hidden="true">No. 1</span>';
+  else if (lg && lg.u) mark = `<span class="s9-plate ${esc(lg.plate || 'light')}" aria-hidden="true"><img class="s9-logo" src="${esc(lg.u)}" alt="" loading="lazy" decoding="async"></span>`;
+  return `<div class="s9-cat${row ? ' row' : ''}${mark ? ' has-mark' : ''}" role="${row ? 'rowheader' : 'columnheader'}">${mark}<span class="s9-cat-t">${esc(catLabel(id))}</span></div>`;
+}
+
+const NAME_SUFFIX = /^(jr|sr|ii|iii|iv)\.?$/i;
+function initials(name) {
+  const w = String(name).replace(/\./g, '. ').split(/\s+/).filter((x) => x && !NAME_SUFFIX.test(x));
+  if (!w.length) return '';
+  const first = w[0][0];
+  const last = w.length > 1 ? w[w.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
+
+// Photo (self-hosted headshot) or, when there is none, a monogram.
+function faceHtml(p) {
+  if (p && p.ph) return `<img class="s9-face" src="${esc(p.ph)}" srcset="${esc(p.ph)} 256w, ${esc(p.ph.replace('-256.webp', '-512.webp'))} 512w" sizes="(min-width: 560px) 160px, 30vw" alt="" decoding="async">`;
+  return `<span class="s9-mono" aria-hidden="true">${esc(initials(p ? p.n : '?'))}</span>`;
+}
+
 function markHtml(strokes) {
   return `<span class="s9-mark b${strokes}" aria-hidden="true">${strokes}</span>`;
 }
@@ -198,9 +226,9 @@ function render() {
     : (num >= 1 ? 'No. ' + num + ' · ' : 'Preview · ') + prettyDate(S.date);
 
   let html = `<div class="s9-corner" aria-hidden="true">Par 27<small>9 holes</small></div>`;
-  for (let c = 0; c < 3; c++) html += `<div class="s9-cat" role="columnheader">${esc(catLabel(g.cols[c]))}</div>`;
+  for (let c = 0; c < 3; c++) html += catHtml(g.cols[c], false);
   for (let row = 0; row < 3; row++) {
-    html += `<div class="s9-cat row" role="rowheader">${esc(catLabel(g.rows[row]))}</div>`;
+    html += catHtml(g.rows[row], true);
     for (let c = 0; c < 3; c++) {
       const i = row * 3 + c;
       const cell = r.cells[i];
@@ -208,9 +236,10 @@ function render() {
       const label = `Hole ${i + 1}: ${catLabel(g.rows[row])} and ${catLabel(g.cols[c])}`;
       if (cell.pid) {
         const p = S.data.byId[cell.pid];
-        html += `<button class="s9-cell solved" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. ${esc(p ? p.n : '')}, ${E.holeName(strokes)}">
-          <span class="s9-pname">${esc(p ? p.n : cell.pid)}</span>
-          <span class="s9-result">${markHtml(strokes)}${E.holeName(strokes)}</span></button>`;
+        html += `<button class="s9-cell solved${p && p.ph ? ' photo' : ' mono'}" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. ${esc(p ? p.n : '')}, ${E.holeName(strokes)}">
+          ${faceHtml(p)}
+          <span class="s9-corner-mark">${markHtml(strokes)}</span>
+          <span class="s9-pname">${esc(p ? p.n : cell.pid)}</span></button>`;
       } else if (cell.done) {
         html += `<button class="s9-cell missed" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. Double bogey">
           <span class="s9-hole">Hole ${i + 1}</span>
