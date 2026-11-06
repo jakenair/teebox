@@ -633,6 +633,11 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "syncSundayNine": {
+    "sha": "c3458863a0b640d3ed12cf619b06cf02f30a1180",
+    "at": "2026-11-06",
+    "region": "us-central1"
+  },
   "syncWatchlistCount": {
     "at": "2026-07-31",
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
