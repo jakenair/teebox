@@ -9255,7 +9255,7 @@ async function fbRelayToServer(name, eventId, params) {
     if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
     if (!FB_RELAY_EVENTS.has(name)) return;
     // 2026-10-29: the Do Not Sell or Share switch and GPC stop the SERVER copy
-    // too. Until now only fb-pixel.js honoured them, so an opted-out visitor
+    // too. Until now only the pixel loader honoured them, so an opted-out visitor
     // still produced CAPI PageView/ViewContent — the policy said otherwise.
     if (window.tbMetaOptedOut && window.tbMetaOptedOut()) return;
     if (!window.CURRENT_USER && !FB_RELAY_ANON.has(name)) return; // capiRelay requires auth for the rest
@@ -9274,7 +9274,7 @@ async function fbRelayToServer(name, eventId, params) {
   } catch (_e) { /* never break the caller */ }
 }
 window.fbRelayToServer = fbRelayToServer;
-// One reader for the opt-out state (same sources as fb-pixel.js): the
+// One reader for the opt-out state (same sources as the pixel loader): the
 // Do Not Sell or Share flag (localStorage + first-party cookie) and GPC.
 window.tbMetaOptedOut = function tbMetaOptedOut() {
   try {
