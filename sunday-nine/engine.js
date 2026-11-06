@@ -175,7 +175,7 @@ export function checkGrid(grid, players) {
 const GROUP_WEIGHTS = {
   masters: 3, pga: 3, usopen: 3, open: 3, majorcount: 2, players: 3, fedex: 2,
   ryder: 3, presidents: 3, world1: 2, liv: 3, ncaa: 2, usam: 2, olympic: 2,
-  wins: 2, college: 6, country: 6, decade: 4,
+  wins: 2, college: 12, country: 6, decade: 4,
 };
 // A square with more answers than this is too easy; a grid may have a few.
 const EASY_SQUARE = 45;
@@ -197,7 +197,11 @@ function axisAccepts(axis, c) {
   return axis.every((a) => a !== c && (a.group !== c.group || MULTI_GROUPS[c.group]));
 }
 
-const MIN_CATEGORY_SIZE = 8;
+// A category needs this many verified players to be drawn at all (lowered
+// from 8 to 6 on 2026-11-06 to bring in more colleges). It is only a cheap
+// pre-filter: checkGrid still guarantees >= MIN_ANSWERS_PER_SQUARE answers
+// in every square and a 9-different-player solution for every grid.
+const MIN_CATEGORY_SIZE = 6;
 
 // The grid for a date. Pure function of (date, players): same answer on
 // every device and on the server. Built row-first: draw three row

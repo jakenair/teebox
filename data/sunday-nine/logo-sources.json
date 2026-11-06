@@ -607,5 +607,16 @@
   "width": 248,
   "height": 195.84,
   "notes": "V-Sabre (confirmed as the primary athletics logo by brand.virginia.edu/design-assets/athletics). en.wikipedia non-free file, no original source cited. The official brand page shows it only as an 800x800 JPG (https://brand.virginia.edu/sites/uva_brand/files/2023-07/36_Ath_800x800.jpg) with no transparency, so it was not used."
+ },
+ "texas-tech": {
+  "name": "Texas Tech Red Raiders (Double T)",
+  "file": "texas-tech.svg",
+  "format": "svg",
+  "source_site": "commons.wikimedia.org",
+  "page_url": "https://commons.wikimedia.org/wiki/File:Texas_Tech_Athletics_logo.svg",
+  "file_url": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Texas_Tech_Athletics_logo.svg",
+  "official": false,
+  "transparent": true,
+  "notes": "Primary athletics mark; added 2026-11-06 with the Texas Tech category. Unmodified."
  }
 }

@@ -29,7 +29,9 @@ test("every pinned grid: >= 3 answers per square and a 9-different-player soluti
 });
 
 test("pinned grids are what the generator produces (deterministic)", () => {
-  for (const d of Object.keys(S.PINNED).slice(0, 10)) {
+  // 2026-11-08..14 were pinned before the 2026-11-06 college/threshold
+  // change and keep their original grids; later dates are regenerated.
+  for (const d of Object.keys(S.PINNED).filter((x) => x >= "2026-11-15").slice(0, 10)) {
     const g = core.generateGrid(d, PLAYERS);
     assert.deepEqual([g.rows, g.cols], [S.PINNED[d].rows, S.PINNED[d].cols], d);
   }
