@@ -72,7 +72,7 @@ async function loadData() {
 function ensureCss() {
   if (document.getElementById('s9Css')) return;
   const l = document.createElement('link');
-  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=1';
+  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=r401';
   document.head.appendChild(l);
 }
 
@@ -625,6 +625,22 @@ A['s9-share'] = () => share();
 A['s9-sign-in'] = () => { if (window.requireAuth) window.requireAuth('to keep your Sunday Nine streak'); };
 
 window.addEventListener('online', () => { drainQueue().catch(() => {}); });
+
+// Midnight Central rollover while the screen is open: the pre-launch state
+// becomes grid No. 1, a finished (or untouched) round becomes the new day's
+// grid. A round in progress is left alone so it can be finished; it rolls
+// over at the next check after it completes.
+function maybeRollover() {
+  const screen = document.getElementById('s9Screen');
+  if (!screen || !screen.classList.contains('open') || !S.date || S.openCell != null) return;
+  if (E.todayKey() === S.date) return;
+  const prelaunch = !document.getElementById('s9Pre').hidden;
+  if (!prelaunch && !S.preview && S.guesses.length && !result().complete) return;
+  openSundayNine();
+}
+setInterval(maybeRollover, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeRollover(); });
+window.addEventListener('focus', maybeRollover);
 
 // ?play=sunday-nine deep link (teeboxmarket.com/sunday-nine lands here).
 try {
