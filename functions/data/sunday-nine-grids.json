@@ -1,0 +1,1386 @@
+{
+ "version": 1,
+ "epoch": "2026-11-08",
+ "grids": {
+  "2026-11-08": {
+   "rows": [
+    "col-wake-forest",
+    "pga",
+    "fedex"
+   ],
+   "cols": [
+    "usopen",
+    "wins10",
+    "presidents"
+   ],
+   "counts": [
+    3,
+    4,
+    5,
+    17,
+    34,
+    20,
+    9,
+    21,
+    23
+   ]
+  },
+  "2026-11-09": {
+   "rows": [
+    "presidents",
+    "world1",
+    "ncaa"
+   ],
+   "cols": [
+    "liv",
+    "masters",
+    "usopen"
+   ],
+   "counts": [
+    20,
+    17,
+    18,
+    5,
+    13,
+    9,
+    7,
+    4,
+    6
+   ]
+  },
+  "2026-11-10": {
+   "rows": [
+    "multi-major",
+    "usopen",
+    "medal"
+   ],
+   "cols": [
+    "open",
+    "players",
+    "wins10"
+   ],
+   "counts": [
+    30,
+    13,
+    43,
+    14,
+    10,
+    35,
+    3,
+    3,
+    4
+   ]
+  },
+  "2026-11-11": {
+   "rows": [
+    "masters",
+    "open",
+    "dec-2020s"
+   ],
+   "cols": [
+    "ncaa",
+    "presidents",
+    "liv"
+   ],
+   "counts": [
+    4,
+    17,
+    7,
+    4,
+    19,
+    4,
+    4,
+    5,
+    11
+   ]
+  },
+  "2026-11-12": {
+   "rows": [
+    "ryder",
+    "dec-1980s",
+    "dec-1990s"
+   ],
+   "cols": [
+    "world1",
+    "cty-sweden",
+    "multi-major"
+   ],
+   "counts": [
+    19,
+    11,
+    51,
+    4,
+    5,
+    7,
+    4,
+    4,
+    5
+   ]
+  },
+  "2026-11-13": {
+   "rows": [
+    "ryder",
+    "pga",
+    "liv"
+   ],
+   "cols": [
+    "players",
+    "presidents",
+    "fedex"
+   ],
+   "counts": [
+    29,
+    58,
+    27,
+    17,
+    20,
+    10,
+    5,
+    20,
+    3
+   ]
+  },
+  "2026-11-14": {
+   "rows": [
+    "pga",
+    "players",
+    "masters"
+   ],
+   "cols": [
+    "ryder",
+    "usopen",
+    "wins10"
+   ],
+   "counts": [
+    41,
+    17,
+    34,
+    29,
+    10,
+    25,
+    40,
+    18,
+    35
+   ]
+  },
+  "2026-11-15": {
+   "rows": [
+    "pga",
+    "multi-major",
+    "usam"
+   ],
+   "cols": [
+    "players",
+    "ncaa",
+    "presidents"
+   ],
+   "counts": [
+    17,
+    3,
+    20,
+    13,
+    6,
+    21,
+    8,
+    7,
+    10
+   ]
+  },
+  "2026-11-16": {
+   "rows": [
+    "ryder",
+    "cty-south-korea",
+    "masters"
+   ],
+   "cols": [
+    "dec-2010s",
+    "liv",
+    "olympian"
+   ],
+   "counts": [
+    31,
+    18,
+    31,
+    8,
+    3,
+    5,
+    5,
+    7,
+    8
+   ]
+  },
+  "2026-11-17": {
+   "rows": [
+    "liv",
+    "pga",
+    "players"
+   ],
+   "cols": [
+    "presidents",
+    "masters",
+    "usopen"
+   ],
+   "counts": [
+    20,
+    7,
+    6,
+    20,
+    13,
+    17,
+    23,
+    10,
+    10
+   ]
+  },
+  "2026-11-18": {
+   "rows": [
+    "wins20",
+    "ryder",
+    "players"
+   ],
+   "cols": [
+    "usam",
+    "masters",
+    "world1"
+   ],
+   "counts": [
+    6,
+    19,
+    6,
+    19,
+    40,
+    19,
+    8,
+    10,
+    11
+   ]
+  },
+  "2026-11-19": {
+   "rows": [
+    "dec-2020s",
+    "olympian",
+    "pga"
+   ],
+   "cols": [
+    "usam",
+    "liv",
+    "presidents"
+   ],
+   "counts": [
+    6,
+    11,
+    5,
+    4,
+    24,
+    38,
+    5,
+    3,
+    20
+   ]
+  },
+  "2026-11-20": {
+   "rows": [
+    "presidents",
+    "dec-2010s",
+    "dec-2000s"
+   ],
+   "cols": [
+    "olympian",
+    "cty-japan",
+    "open"
+   ],
+   "counts": [
+    38,
+    7,
+    19,
+    54,
+    5,
+    6,
+    24,
+    4,
+    5
+   ]
+  },
+  "2026-11-21": {
+   "rows": [
+    "players",
+    "world1",
+    "multi-major"
+   ],
+   "cols": [
+    "cty-united-states",
+    "dec-1990s",
+    "presidents"
+   ],
+   "counts": [
+    26,
+    8,
+    23,
+    9,
+    4,
+    15,
+    41,
+    5,
+    21
+   ]
+  },
+  "2026-11-22": {
+   "rows": [
+    "usam",
+    "col-texas",
+    "ncaa"
+   ],
+   "cols": [
+    "ryder",
+    "open",
+    "multi-major"
+   ],
+   "counts": [
+    19,
+    6,
+    6,
+    5,
+    3,
+    3,
+    15,
+    4,
+    6
+   ]
+  },
+  "2026-11-23": {
+   "rows": [
+    "usam",
+    "players",
+    "fedex"
+   ],
+   "cols": [
+    "ryder",
+    "usopen",
+    "dec-1990s"
+   ],
+   "counts": [
+    19,
+    7,
+    6,
+    29,
+    10,
+    8,
+    27,
+    9,
+    8
+   ]
+  },
+  "2026-11-24": {
+   "rows": [
+    "dec-1970s",
+    "usopen",
+    "dec-1960s"
+   ],
+   "cols": [
+    "pga",
+    "masters",
+    "players"
+   ],
+   "counts": [
+    6,
+    9,
+    10,
+    17,
+    18,
+    10,
+    7,
+    3,
+    3
+   ]
+  },
+  "2026-11-25": {
+   "rows": [
+    "open",
+    "usopen",
+    "medal"
+   ],
+   "cols": [
+    "wins10",
+    "presidents",
+    "fedex"
+   ],
+   "counts": [
+    27,
+    19,
+    9,
+    35,
+    18,
+    9,
+    4,
+    6,
+    5
+   ]
+  },
+  "2026-11-26": {
+   "rows": [
+    "pga",
+    "cty-united-states",
+    "presidents"
+   ],
+   "cols": [
+    "open",
+    "players",
+    "masters"
+   ],
+   "counts": [
+    16,
+    17,
+    13,
+    29,
+    26,
+    32,
+    19,
+    23,
+    17
+   ]
+  },
+  "2026-11-27": {
+   "rows": [
+    "ryder",
+    "dec-1990s",
+    "dec-1980s"
+   ],
+   "cols": [
+    "cty-sweden",
+    "ncaa",
+    "multi-major"
+   ],
+   "counts": [
+    11,
+    15,
+    51,
+    4,
+    6,
+    5,
+    5,
+    5,
+    7
+   ]
+  },
+  "2026-11-28": {
+   "rows": [
+    "fedex",
+    "usopen",
+    "pga"
+   ],
+   "cols": [
+    "usam",
+    "ryder",
+    "dec-2000s"
+   ],
+   "counts": [
+    6,
+    27,
+    6,
+    7,
+    49,
+    7,
+    5,
+    41,
+    6
+   ]
+  },
+  "2026-11-29": {
+   "rows": [
+    "medal",
+    "open",
+    "usam"
+   ],
+   "cols": [
+    "presidents",
+    "players",
+    "fedex"
+   ],
+   "counts": [
+    6,
+    3,
+    5,
+    19,
+    13,
+    9,
+    10,
+    8,
+    6
+   ]
+  },
+  "2026-11-30": {
+   "rows": [
+    "cty-united-states",
+    "wins10",
+    "masters"
+   ],
+   "cols": [
+    "world1",
+    "col-texas",
+    "presidents"
+   ],
+   "counts": [
+    9,
+    8,
+    78,
+    16,
+    5,
+    34,
+    13,
+    3,
+    17
+   ]
+  },
+  "2026-12-01": {
+   "rows": [
+    "ryder",
+    "presidents",
+    "cty-united-states"
+   ],
+   "cols": [
+    "wins20",
+    "col-georgia",
+    "liv"
+   ],
+   "counts": [
+    25,
+    6,
+    18,
+    8,
+    4,
+    20,
+    24,
+    11,
+    22
+   ]
+  },
+  "2026-12-02": {
+   "rows": [
+    "presidents",
+    "liv",
+    "usam"
+   ],
+   "cols": [
+    "masters",
+    "ncaa",
+    "dec-2010s"
+   ],
+   "counts": [
+    17,
+    10,
+    39,
+    7,
+    7,
+    32,
+    6,
+    7,
+    10
+   ]
+  },
+  "2026-12-03": {
+   "rows": [
+    "usopen",
+    "dec-2010s",
+    "world1"
+   ],
+   "cols": [
+    "ryder",
+    "players",
+    "cty-england"
+   ],
+   "counts": [
+    49,
+    10,
+    3,
+    31,
+    4,
+    13,
+    19,
+    11,
+    4
+   ]
+  },
+  "2026-12-04": {
+   "rows": [
+    "masters",
+    "cty-sweden",
+    "liv"
+   ],
+   "cols": [
+    "ryder",
+    "olympian",
+    "dec-1990s"
+   ],
+   "counts": [
+    40,
+    8,
+    7,
+    11,
+    3,
+    4,
+    18,
+    24,
+    7
+   ]
+  },
+  "2026-12-05": {
+   "rows": [
+    "presidents",
+    "dec-2010s",
+    "olympian"
+   ],
+   "cols": [
+    "open",
+    "cty-new-zealand",
+    "wins10"
+   ],
+   "counts": [
+    19,
+    5,
+    34,
+    6,
+    3,
+    6,
+    8,
+    3,
+    10
+   ]
+  },
+  "2026-12-06": {
+   "rows": [
+    "players",
+    "col-texas",
+    "liv"
+   ],
+   "cols": [
+    "fedex",
+    "ncaa",
+    "masters"
+   ],
+   "counts": [
+    13,
+    5,
+    10,
+    3,
+    3,
+    3,
+    3,
+    7,
+    7
+   ]
+  },
+  "2026-12-07": {
+   "rows": [
+    "ryder",
+    "dec-2000s",
+    "cty-united-states"
+   ],
+   "cols": [
+    "liv",
+    "col-unlv",
+    "col-florida"
+   ],
+   "counts": [
+    18,
+    3,
+    3,
+    21,
+    3,
+    3,
+    22,
+    5,
+    7
+   ]
+  },
+  "2026-12-08": {
+   "rows": [
+    "ryder",
+    "dec-2010s",
+    "dec-1990s"
+   ],
+   "cols": [
+    "masters",
+    "cty-denmark",
+    "ncaa"
+   ],
+   "counts": [
+    40,
+    5,
+    15,
+    5,
+    3,
+    10,
+    7,
+    3,
+    6
+   ]
+  },
+  "2026-12-09": {
+   "rows": [
+    "liv",
+    "usopen",
+    "world1"
+   ],
+   "cols": [
+    "players",
+    "cty-england",
+    "ryder"
+   ],
+   "counts": [
+    5,
+    7,
+    18,
+    10,
+    3,
+    49,
+    11,
+    4,
+    19
+   ]
+  },
+  "2026-12-10": {
+   "rows": [
+    "open",
+    "cty-australia",
+    "col-wake-forest"
+   ],
+   "cols": [
+    "presidents",
+    "wins10",
+    "dec-1970s"
+   ],
+   "counts": [
+    19,
+    27,
+    8,
+    20,
+    4,
+    4,
+    5,
+    4,
+    4
+   ]
+  },
+  "2026-12-11": {
+   "rows": [
+    "liv",
+    "ncaa",
+    "ryder"
+   ],
+   "cols": [
+    "col-arizona-state",
+    "usopen",
+    "players"
+   ],
+   "counts": [
+    7,
+    6,
+    5,
+    4,
+    6,
+    5,
+    4,
+    49,
+    29
+   ]
+  },
+  "2026-12-12": {
+   "rows": [
+    "usopen",
+    "col-florida",
+    "col-texas"
+   ],
+   "cols": [
+    "ryder",
+    "presidents",
+    "cty-united-states"
+   ],
+   "counts": [
+    49,
+    18,
+    44,
+    3,
+    4,
+    7,
+    5,
+    5,
+    8
+   ]
+  },
+  "2026-12-13": {
+   "rows": [
+    "masters",
+    "usopen",
+    "col-wake-forest"
+   ],
+   "cols": [
+    "dec-1970s",
+    "ryder",
+    "presidents"
+   ],
+   "counts": [
+    9,
+    40,
+    17,
+    9,
+    49,
+    18,
+    4,
+    8,
+    5
+   ]
+  },
+  "2026-12-14": {
+   "rows": [
+    "col-georgia-tech",
+    "col-georgia",
+    "usam"
+   ],
+   "cols": [
+    "ryder",
+    "cty-united-states",
+    "presidents"
+   ],
+   "counts": [
+    4,
+    8,
+    3,
+    6,
+    11,
+    4,
+    19,
+    42,
+    10
+   ]
+  },
+  "2026-12-15": {
+   "rows": [
+    "open",
+    "usopen",
+    "wins20"
+   ],
+   "cols": [
+    "multi-major",
+    "ryder",
+    "world1"
+   ],
+   "counts": [
+    30,
+    40,
+    11,
+    36,
+    49,
+    9,
+    24,
+    25,
+    6
+   ]
+  },
+  "2026-12-16": {
+   "rows": [
+    "presidents",
+    "multi-major",
+    "ryder"
+   ],
+   "cols": [
+    "open",
+    "world1",
+    "wins20"
+   ],
+   "counts": [
+    19,
+    15,
+    8,
+    30,
+    16,
+    24,
+    40,
+    19,
+    25
+   ]
+  },
+  "2026-12-17": {
+   "rows": [
+    "world1",
+    "masters",
+    "ncaa"
+   ],
+   "cols": [
+    "multi-major",
+    "dec-1990s",
+    "open"
+   ],
+   "counts": [
+    16,
+    4,
+    11,
+    33,
+    7,
+    17,
+    6,
+    6,
+    4
+   ]
+  },
+  "2026-12-18": {
+   "rows": [
+    "olympian",
+    "players",
+    "cty-south-africa"
+   ],
+   "cols": [
+    "open",
+    "multi-major",
+    "wins10"
+   ],
+   "counts": [
+    8,
+    9,
+    10,
+    13,
+    13,
+    25,
+    4,
+    4,
+    4
+   ]
+  },
+  "2026-12-19": {
+   "rows": [
+    "cty-canada",
+    "usopen",
+    "cty-united-states"
+   ],
+   "cols": [
+    "dec-2010s",
+    "olympian",
+    "presidents"
+   ],
+   "counts": [
+    6,
+    4,
+    7,
+    7,
+    5,
+    18,
+    55,
+    9,
+    78
+   ]
+  },
+  "2026-12-20": {
+   "rows": [
+    "players",
+    "open",
+    "presidents"
+   ],
+   "cols": [
+    "medal",
+    "ncaa",
+    "ryder"
+   ],
+   "counts": [
+    3,
+    5,
+    29,
+    3,
+    4,
+    40,
+    6,
+    10,
+    58
+   ]
+  },
+  "2026-12-21": {
+   "rows": [
+    "ncaa",
+    "dec-2000s",
+    "cty-england"
+   ],
+   "cols": [
+    "liv",
+    "ryder",
+    "usopen"
+   ],
+   "counts": [
+    7,
+    15,
+    6,
+    21,
+    35,
+    7,
+    7,
+    23,
+    3
+   ]
+  },
+  "2026-12-22": {
+   "rows": [
+    "ryder",
+    "wins10",
+    "masters"
+   ],
+   "cols": [
+    "usam",
+    "fedex",
+    "dec-1950s"
+   ],
+   "counts": [
+    19,
+    27,
+    6,
+    11,
+    21,
+    6,
+    6,
+    10,
+    3
+   ]
+  },
+  "2026-12-23": {
+   "rows": [
+    "ryder",
+    "wins10",
+    "open"
+   ],
+   "cols": [
+    "dec-1970s",
+    "medal",
+    "dec-1950s"
+   ],
+   "counts": [
+    34,
+    6,
+    6,
+    17,
+    4,
+    6,
+    8,
+    3,
+    3
+   ]
+  },
+  "2026-12-24": {
+   "rows": [
+    "multi-major",
+    "players",
+    "masters"
+   ],
+   "cols": [
+    "wins10",
+    "world1",
+    "open"
+   ],
+   "counts": [
+    43,
+    16,
+    30,
+    25,
+    11,
+    13,
+    35,
+    13,
+    17
+   ]
+  },
+  "2026-12-25": {
+   "rows": [
+    "players",
+    "open",
+    "presidents"
+   ],
+   "cols": [
+    "pga",
+    "usopen",
+    "dec-2010s"
+   ],
+   "counts": [
+    17,
+    10,
+    4,
+    16,
+    14,
+    6,
+    20,
+    18,
+    39
+   ]
+  },
+  "2026-12-26": {
+   "rows": [
+    "pga",
+    "liv",
+    "cty-south-africa"
+   ],
+   "cols": [
+    "wins10",
+    "presidents",
+    "usopen"
+   ],
+   "counts": [
+    34,
+    20,
+    17,
+    5,
+    20,
+    6,
+    4,
+    11,
+    3
+   ]
+  },
+  "2026-12-27": {
+   "rows": [
+    "open",
+    "wins10",
+    "players"
+   ],
+   "cols": [
+    "medal",
+    "fedex",
+    "presidents"
+   ],
+   "counts": [
+    3,
+    9,
+    19,
+    4,
+    21,
+    34,
+    3,
+    13,
+    23
+   ]
+  },
+  "2026-12-28": {
+   "rows": [
+    "players",
+    "ryder",
+    "masters"
+   ],
+   "cols": [
+    "usam",
+    "pga",
+    "world1"
+   ],
+   "counts": [
+    8,
+    17,
+    11,
+    19,
+    41,
+    19,
+    6,
+    13,
+    13
+   ]
+  },
+  "2026-12-29": {
+   "rows": [
+    "open",
+    "wins20",
+    "world1"
+   ],
+   "cols": [
+    "multi-major",
+    "masters",
+    "players"
+   ],
+   "counts": [
+    30,
+    17,
+    13,
+    24,
+    19,
+    10,
+    16,
+    13,
+    11
+   ]
+  },
+  "2026-12-30": {
+   "rows": [
+    "players",
+    "presidents",
+    "world1"
+   ],
+   "cols": [
+    "open",
+    "liv",
+    "ryder"
+   ],
+   "counts": [
+    13,
+    5,
+    29,
+    19,
+    20,
+    58,
+    11,
+    5,
+    19
+   ]
+  },
+  "2026-12-31": {
+   "rows": [
+    "usam",
+    "olympian",
+    "dec-1970s"
+   ],
+   "cols": [
+    "pga",
+    "masters",
+    "presidents"
+   ],
+   "counts": [
+    5,
+    6,
+    10,
+    8,
+    8,
+    38,
+    6,
+    9,
+    10
+   ]
+  },
+  "2027-01-01": {
+   "rows": [
+    "liv",
+    "ncaa",
+    "dec-1990s"
+   ],
+   "cols": [
+    "usopen",
+    "usam",
+    "col-arizona-state"
+   ],
+   "counts": [
+    6,
+    8,
+    7,
+    6,
+    7,
+    4,
+    6,
+    6,
+    4
+   ]
+  },
+  "2027-01-02": {
+   "rows": [
+    "ryder",
+    "usopen",
+    "dec-1990s"
+   ],
+   "cols": [
+    "open",
+    "multi-major",
+    "liv"
+   ],
+   "counts": [
+    40,
+    51,
+    18,
+    14,
+    36,
+    6,
+    9,
+    5,
+    7
+   ]
+  },
+  "2027-01-03": {
+   "rows": [
+    "liv",
+    "ryder",
+    "dec-1990s"
+   ],
+   "cols": [
+    "ncaa",
+    "col-arizona-state",
+    "usopen"
+   ],
+   "counts": [
+    7,
+    7,
+    6,
+    15,
+    4,
+    49,
+    6,
+    4,
+    6
+   ]
+  },
+  "2027-01-04": {
+   "rows": [
+    "pga",
+    "liv",
+    "world1"
+   ],
+   "cols": [
+    "wins10",
+    "cty-australia",
+    "usopen"
+   ],
+   "counts": [
+    34,
+    4,
+    17,
+    5,
+    5,
+    6,
+    16,
+    3,
+    9
+   ]
+  },
+  "2027-01-05": {
+   "rows": [
+    "masters",
+    "presidents",
+    "col-unlv"
+   ],
+   "cols": [
+    "ryder",
+    "dec-2000s",
+    "dec-2010s"
+   ],
+   "counts": [
+    40,
+    6,
+    5,
+    58,
+    42,
+    39,
+    3,
+    3,
+    3
+   ]
+  },
+  "2027-01-06": {
+   "rows": [
+    "presidents",
+    "ryder",
+    "usopen"
+   ],
+   "cols": [
+    "multi-major",
+    "open",
+    "ncaa"
+   ],
+   "counts": [
+    21,
+    19,
+    10,
+    51,
+    40,
+    15,
+    36,
+    14,
+    6
+   ]
+  }
+ }
+}

@@ -8026,6 +8026,10 @@ Object.assign(exports, require("./subscriptionLifecycle"));
 // model.
 Object.assign(exports, require("./bingoSync"));
 
+// Sunday Nine daily grid game: server re-scores the raw guess log and owns
+// the streak. See ./sundayNine.js.
+Object.assign(exports, require("./sundayNine"));
+
 // Logo Bingo daily-puzzle generator. Scheduled (UTC midnight) writer
 // that produces dailyPuzzles/{YYYY-MM-DD} with the canonical 9 courses
 // + CDN URLs. Single source of truth for both web and iOS clients —

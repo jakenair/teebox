@@ -13287,6 +13287,10 @@ A['continue-as-guest']       = () => {
     window.__pendingDeepLink = null;
     if (typeof window.openBingo === 'function') window.openBingo();
   }
+  if (window.__pendingDeepLink === 'sunday-nine') {
+    window.__pendingDeepLink = null;
+    if (typeof window.openSundayNine === 'function') window.openSundayNine();
+  }
 };
 A['close-verify']            = () => closeVerifyModal();
 A['become-seller']           = () => { if (!window.requireAuth('to become a seller on TeeBox')) return; becomeSeller(); };

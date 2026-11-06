@@ -505,6 +505,10 @@
         window.__pendingDeepLink = null;
         setTimeout(() => { try { window.openBingo && window.openBingo(); } catch {} }, 300);
       }
+      if (window.__pendingDeepLink === 'sunday-nine') {
+        window.__pendingDeepLink = null;
+        setTimeout(() => { try { window.openSundayNine && window.openSundayNine(); } catch {} }, 300);
+      }
       // r345: ?sell=1 — the seller-invite email CTA.
       if (window.__pendingDeepLink === 'sell') {
         window.__pendingDeepLink = null;

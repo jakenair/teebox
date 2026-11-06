@@ -876,7 +876,7 @@ window.tbEvent = function (name, surface) {
      CTAs. Hide it whenever any full-screen overlay is open. :has() degrades
      gracefully — on browsers without support the banner just behaves as before. */
   /* r353: the install banner also covered the Bingo board (tiles 7-9) and the leaderboard. */
-  body:has(#bingoScreen.open, .detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, .sell-modal-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open, #authScreen.open, .signin-prompt-backdrop.open, #nameGateBackdrop.open) .install-banner { display: none !important; }
+  body:has(#bingoScreen.open, #s9Screen.open, .detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, .sell-modal-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open, #authScreen.open, .signin-prompt-backdrop.open, #nameGateBackdrop.open) .install-banner { display: none !important; }
   /* r349 (P1-8): while the post-publish "one more step" dialog (or any sell-modal
      dialog) is open, toasts dock at the TOP so they never cover its buttons. */
   body:has(#stripeRequiredBackdrop.open, #sellModalBackdrop.open) .toast { bottom: auto; top: calc(72px + env(safe-area-inset-top)); animation: none; }
@@ -7467,6 +7467,10 @@ window.tbEvent = function (name, surface) {
         <span class="mobile-nav-link-label">Logo Bingo</span>
         <span class="mobile-nav-link-chev">›</span>
       </a>
+      <a href="#" class="mobile-nav-link" data-action="open-sunday-nine">
+        <span class="mobile-nav-link-label">Sunday Nine</span>
+        <span class="mobile-nav-link-chev">›</span>
+      </a>
       <a href="#" class="mobile-nav-link" data-action="open-passport-feed">
         <span class="mobile-nav-link-label">Passport</span>
         <span class="mobile-nav-link-chev">›</span>
@@ -9762,6 +9766,7 @@ window.confirmPayment = async function() {
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
 <script type="module" src="/js/bingo.js?v=r398"></script>
+<script type="module" src="/js/sunday-nine.js?v=r400"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

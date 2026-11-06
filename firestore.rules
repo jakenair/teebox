@@ -434,6 +434,19 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // Sunday Nine round + stats. Written only by the syncSundayNine
+      // callable, which re-scores the raw guess log server-side; the client
+      // never writes a score, count or streak. Owner-read for cross-device
+      // hydrate.
+      match /sundayNineGames/{date} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+      match /sundayNineStats/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+
       // Server-maintained throttle counters (checkRateLimit in index.js;
       // countListingCreate in listFirst.js). Owner may READ so the client
       // can explain a denied create ("10 listings today — resets at 4:12
@@ -1301,6 +1314,17 @@ service cloud.firestore {
     // Logo Bingo streak (and the currently active leader). Written by
     // onBingoWinAggregate (Admin SDK) only.
     // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // SUNDAY NINE DAILY AGGREGATE — anonymous per-day totals (plays, score
+    // histogram, how often each pro was picked per square). Holds no uid
+    // and no user name by design (Logo Bingo lesson). Written by
+    // syncSundayNine (Admin SDK) only; auth-required read.
+    // ─────────────────────────────────────────────
+    match /sundayNineDaily/{date} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if false;
+    }
+
     match /bingoGlobalStats/{docId} {
       allow read: if request.auth != null;
       allow create, update, delete: if false;
