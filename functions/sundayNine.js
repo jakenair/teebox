@@ -24,6 +24,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const core = require("./lib/sundayNineCore");
+const {adminGate, ADMIN_ALLOWLIST} = require("./lib/adminGate");
 const PLAYERS = require("./data/sunday-nine-players.json").players;
 const PINNED = require("./data/sunday-nine-grids.json").grids;
 
@@ -69,9 +70,18 @@ function publicState(date, grid, guesses, gaveUp, result) {
   };
 }
 
+// Before grid #1 (SUNDAY_NINE_EPOCH) there is no public grid. The admin
+// allowlist (server-side, verified email — currently only the founder) may
+// play grid #1 early as a phone test; that round is stored under the real
+// date with preview: true and never counts toward stats or the aggregate.
+function isPreviewDate(date) {
+  return core.dayDiff(core.SUNDAY_NINE_EPOCH, date) < 0;
+}
+
 // Pure core of the callable, exported for unit tests.
 function scoreSubmission(date, guesses, gaveUp, stored) {
-  const grid = core.gridForDate(date, PLAYERS, PINNED);
+  const gridDate = isPreviewDate(date) ? core.SUNDAY_NINE_EPOCH : date;
+  const grid = core.gridForDate(gridDate, PLAYERS, PINNED);
   if (stored && stored.complete) {
     return {state: stored, changed: false, conflict: false};
   }
@@ -87,7 +97,7 @@ function scoreSubmission(date, guesses, gaveUp, stored) {
   return {state: publicState(date, grid, guesses, gave, result), changed: true, conflict: false};
 }
 
-exports.syncSundayNine = onCall(USER_CALLABLE, async (request) => {
+exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to save your round.");
   const data = request.data || {};
@@ -97,6 +107,14 @@ exports.syncSundayNine = onCall(USER_CALLABLE, async (request) => {
   const age = core.dayDiff(date, today);
   if (age < 0) throw new HttpsError("invalid-argument", "date is in the future");
   if (age > SYNC_MAX_AGE_DAYS) throw new HttpsError("failed-precondition", "round too old to sync");
+  const preview = isPreviewDate(date);
+  if (preview) {
+    try {
+      adminGate(request);
+    } catch (_e) {
+      throw new HttpsError("failed-precondition", "Sunday Nine tees off " + core.SUNDAY_NINE_EPOCH);
+    }
+  }
   const guesses = sanitizeGuesses(data.guesses);
   if (!guesses) throw new HttpsError("invalid-argument", "guesses malformed");
 
@@ -113,13 +131,14 @@ exports.syncSundayNine = onCall(USER_CALLABLE, async (request) => {
     if (!outcome.changed) return;
     const now = admin.firestore.FieldValue.serverTimestamp();
     const doc = {...outcome.state, updatedAt: now};
+    if (preview) doc.preview = true;
     if (!stored) doc.startedAt = now;
     if (outcome.newlyComplete) doc.completedAt = now;
     tx.set(gameRef, doc, {merge: true});
   });
 
   let stats = null;
-  if (outcome.newlyComplete) {
+  if (outcome.newlyComplete && !preview) {
     stats = await updateStats(db, userRef, date, outcome.state);
     await updateDaily(db, date, outcome.state).catch((e) =>
       logger.warn("syncSundayNine: daily aggregate failed", {date, err: e.message}));
@@ -130,7 +149,7 @@ exports.syncSundayNine = onCall(USER_CALLABLE, async (request) => {
   if (outcome.conflict) {
     logger.info("syncSundayNine: non-append log rejected", {uid, date});
   }
-  return {state: outcome.state, stats: stats && publicStats(stats), conflict: outcome.conflict};
+  return {state: outcome.state, stats: stats && publicStats(stats), conflict: outcome.conflict, preview};
 });
 
 function publicStats(s) {
@@ -148,7 +167,9 @@ async function updateStats(db, userRef, date, state) {
   const games = await userRef.collection("sundayNineGames")
       .orderBy(admin.firestore.FieldPath.documentId(), "desc")
       .limit(STREAK_LOOKBACK).get();
-  const finished = games.docs.filter((d) => d.get("complete") === true).map((d) => d.id);
+  const finished = games.docs
+      .filter((d) => d.get("complete") === true && d.get("preview") !== true)
+      .map((d) => d.id);
   const statsRef = userRef.collection("sundayNineStats").doc("summary");
   let out;
   await db.runTransaction(async (tx) => {
@@ -191,4 +212,4 @@ async function updateDaily(db, date, state) {
   await db.collection("sundayNineDaily").doc(date).set(upd, {merge: true});
 }
 
-exports.__test = {scoreSubmission, sanitizeGuesses, PLAYERS, PINNED};
+exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, PLAYERS, PINNED};

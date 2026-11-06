@@ -156,3 +156,10 @@ test("streak, names, dates", () => {
   assert.equal(core.todayKey(new Date("2026-11-09T04:59:00Z")), "2026-11-08");
   assert.equal(core.todayKey(new Date("2026-11-09T06:01:00Z")), "2026-11-09");
 });
+
+test("before grid #1 a round is a preview of grid #1", () => {
+  assert.equal(S.isPreviewDate("2026-11-07"), true);
+  assert.equal(S.isPreviewDate("2026-11-08"), false);
+  const r = S.scoreSubmission("2026-11-06", [], false, null);
+  assert.deepEqual([r.state.rows, r.state.cols], [S.PINNED["2026-11-08"].rows, S.PINNED["2026-11-08"].cols]);
+});

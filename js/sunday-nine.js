@@ -28,6 +28,7 @@ const S = {
   stats: null,         // server stats (signed in)
   daily: null,         // sundayNineDaily/{date} aggregate
   openCell: null,
+  preview: false,      // admin-only early round on grid #1 (server-gated)
   active: 0,
   built: false,
   giveUpArmed: 0,
@@ -94,6 +95,23 @@ function build() {
       <button class="s9-share-top" id="s9ShareTop" data-action="s9-share" type="button" disabled>Share</button>
     </header>
     <div class="s9-body">
+      <div id="s9Pre" hidden>
+        <section class="s9-pre">
+          <div class="s9-pre-eyebrow">Coming Sunday</div>
+          <h2 class="s9-pre-title">First round tees off Sunday</h2>
+          <p class="s9-pre-date" id="s9PreDate"></p>
+        </section>
+        <section class="s9-howto" aria-labelledby="s9HowTitle">
+          <h3 id="s9HowTitle">How to play</h3>
+          <ol>
+            <li>Each square is a hole. Name a pro who fits both its row and its column.</li>
+            <li>Three guesses per hole. Right on the first guess is a birdie (2), the second a par (3), the third a bogey (4). Miss all three for a double bogey (5).</li>
+            <li>Nine holes, par 27. Each player only once. Shoot 18 for a Sunday Red.</li>
+            <li>A new grid every day at midnight Central.</li>
+          </ol>
+        </section>
+      </div>
+      <div id="s9Game">
       <p class="s9-sub">Name a pro who fits <strong>both</strong> the row and the column. Nine holes, par 27. First guess right is a birdie. Three guesses per square, and each player only once.</p>
       <div class="s9-scorebar">
         <div><span class="s9-stat-l">Score</span><span class="s9-stat-v" id="s9ToPar">E</span></div>
@@ -108,6 +126,7 @@ function build() {
       <div class="s9-net" id="s9Net" aria-live="polite"></div>
       <div id="s9Done"></div>
       <div id="s9Answers"></div>
+      </div>
     </div>`;
   document.body.appendChild(el);
 
@@ -174,8 +193,9 @@ function render() {
   // adopted from another device.
   if (r.complete) recordLocalFinish(r);
   const num = E.gridNumber(S.date);
-  document.getElementById('s9Date').textContent =
-    (num >= 1 ? 'No. ' + num + ' · ' : 'Preview · ') + prettyDate(S.date);
+  document.getElementById('s9Date').textContent = S.preview
+    ? 'Grid No. 1 · Admin preview'
+    : (num >= 1 ? 'No. ' + num + ' · ' : 'Preview · ') + prettyDate(S.date);
 
   let html = `<div class="s9-corner" aria-hidden="true">Par 27<small>9 holes</small></div>`;
   for (let c = 0; c < 3; c++) html += `<div class="s9-cat" role="columnheader">${esc(catLabel(g.cols[c]))}</div>`;
@@ -494,6 +514,12 @@ export async function openSundayNine() {
     return;
   }
   const date = E.todayKey();
+  if (E.dayDiff(E.SUNDAY_NINE_EPOCH, date) < 0) {
+    await openPrelaunch(date);
+    return;
+  }
+  showGame(true);
+  S.preview = false;
   if (date !== S.date) {
     S.date = date;
     S.server = null; S.daily = null;
@@ -506,6 +532,43 @@ export async function openSundayNine() {
   // A round started as a guest syncs once the player is signed in.
   if (uid() && S.guesses.length) queueSync(date);
   hydrateFromServer();
+}
+
+function showGame(on) {
+  document.getElementById('s9Game').hidden = !on;
+  document.getElementById('s9Pre').hidden = on;
+  const share = document.getElementById('s9ShareTop');
+  share.style.visibility = on ? '' : 'hidden';
+  if (!on) share.disabled = true;
+}
+
+// Before grid #1 there is nothing to play: show the "tees off Sunday" state.
+// The server decides whether this account may play grid #1 early (admin
+// allowlist); a URL parameter can't unlock it.
+async function openPrelaunch(date) {
+  S.date = date;
+  document.getElementById('s9Date').textContent = 'Starts ' + prettyDate(E.SUNDAY_NINE_EPOCH);
+  document.getElementById('s9PreDate').textContent = 'Grid No. 1 drops ' + prettyDate(E.SUNDAY_NINE_EPOCH) + ' at midnight Central.';
+  showGame(false);
+  if (!uid() || !navigator.onLine) return;
+  const saved = loadLocal(date);
+  try {
+    const { getFunctions, httpsCallable } = await import(FB + 'firebase-functions.js');
+    const res = await httpsCallable(getFunctions(), 'syncSundayNine')({
+      date, guesses: (saved && saved.guesses) || [], gaveUp: !!(saved && saved.gaveUp),
+    });
+    const d = res.data || {};
+    if (!d.preview || !d.state) return;
+    S.preview = true;
+    S.grid = { date, rows: d.state.rows, cols: d.state.cols };
+    S.guesses = d.state.guesses.slice();
+    S.gaveUp = !!d.state.gaveUp;
+    S.server = d.state;
+    if (d.stats) S.stats = d.stats;
+    saveLocal();
+    showGame(true);
+    render();
+  } catch (_) { /* not an admin (or offline): the pre-launch state stands */ }
 }
 
 export function closeSundayNine() {
