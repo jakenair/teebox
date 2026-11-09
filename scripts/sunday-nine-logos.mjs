@@ -63,7 +63,8 @@ const missing = [];
 for (const cat of CATEGORIES) {
   const s = sourceFor(cat);
   if (!s) continue;
-  if (!s.rec) { missing.push(cat.id); continue; }
+  // A record with no file documents a mark we could not source (text label).
+  if (!s.rec || !s.rec.file) { missing.push(cat.id); continue; }
   const file = resolve(CACHE, s.dir, s.rec.file);
   if (!existsSync(file)) { missing.push(cat.id); continue; }
   const buf = readFileSync(file);

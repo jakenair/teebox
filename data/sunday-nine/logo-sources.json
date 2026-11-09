@@ -618,5 +618,35 @@
   "official": false,
   "transparent": true,
   "notes": "Primary athletics mark; added 2026-11-06 with the Texas Tech category. Unmodified."
+ },
+ "minnesota": {
+  "name": "Minnesota Golden Gophers (block M)",
+  "file": "minnesota.svg",
+  "format": "svg",
+  "source_site": "commons.wikimedia.org",
+  "page_url": "https://commons.wikimedia.org/wiki/File:Minnesota_Golden_Gophers_logo.svg",
+  "file_url": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Minnesota_Golden_Gophers_logo.svg",
+  "official": false,
+  "transparent": true,
+  "notes": "Primary athletics mark; added 2026-11-09 with the Minnesota category. Unmodified."
+ },
+ "pepperdine": {
+  "name": "Pepperdine Waves",
+  "file": "pepperdine.svg",
+  "format": "svg",
+  "source_site": "commons.wikimedia.org",
+  "page_url": "https://commons.wikimedia.org/wiki/File:Pepperdine_Waves_logo.svg",
+  "file_url": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Pepperdine_Waves_logo.svg",
+  "official": false,
+  "transparent": true,
+  "notes": "Primary athletics mark; added 2026-11-09 with the Pepperdine category. Unmodified."
+ },
+ "north-texas": {
+  "name": "North Texas Mean Green",
+  "file": null,
+  "format": null,
+  "source_site": null,
+  "official": false,
+  "notes": "No current primary mark on Wikimedia Commons (only a 1995 logo) as of 2026-11-09; category shows its text label. North Texas cannot fill a grid at 6 players (1 partner category), so the mark never renders today."
  }
 }

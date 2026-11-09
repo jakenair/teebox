@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT.
 // Built from sunday-nine/categories.js + sunday-nine/engine.js by
 // scripts/sync-sunday-nine.mjs. Edit the sources, then re-run it.
-// source-sha256: 9bdb6c4e251aa871
+// source-sha256: 6a7afecf3f54fa39
 /* eslint-disable */
 "use strict";
 
@@ -44,7 +44,7 @@ const COLLEGES = [
   "North Carolina", "Auburn", "Texas A&M", "SMU", "Arizona", "Vanderbilt",
   "Ohio State", "California", "Washington", "San Diego State", "Ole Miss",
   "Arkansas", "TCU", "Kent State", "Augusta", "BYU", "Duke", "Virginia",
-  "Texas Tech",
+  "Texas Tech", "North Texas", "Minnesota", "Pepperdine",
 ];
 
 const COUNTRIES = [

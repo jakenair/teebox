@@ -11142,5 +11142,1171 @@
    "faceDetected": true
   },
   "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbraden-thornberry.7282184e81-256.webp?alt=media"
+ },
+ "adam-long": {
+  "name": "Adam Long",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/35449/adam-long",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_35449",
+  "file": "adam-long.png",
+  "fetchedAt": "2026-11-09T22:05:16.615Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 768,
+   "top": 84,
+   "width": 1228,
+   "height": 1228,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fadam-long.7aa6d2699c-256.webp?alt=media"
+ },
+ "alex-prugh": {
+  "name": "Alex Prugh",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/30946/alex-prugh",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_30946",
+  "file": "alex-prugh.png",
+  "fetchedAt": "2026-11-09T22:05:19.070Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 641,
+   "top": 14,
+   "width": 1538,
+   "height": 1538,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Falex-prugh.b7576326cb-256.webp?alt=media"
+ },
+ "andrew-landry": {
+  "name": "Andrew Landry",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/33410/andrew-landry",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_33410",
+  "file": "andrew-landry.png",
+  "fetchedAt": "2026-11-09T22:05:19.483Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 736,
+   "top": 61,
+   "width": 1303,
+   "height": 1303,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fandrew-landry.c63b62a1d3-256.webp?alt=media"
+ },
+ "andrew-magee": {
+  "name": "Andrew Magee",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/01723/andrew-magee",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_01723",
+  "file": "andrew-magee.png",
+  "fetchedAt": "2026-11-09T22:05:22.433Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 577,
+   "top": 35,
+   "width": 1523,
+   "height": 1523,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fandrew-magee.50bb2caaf6-256.webp?alt=media"
+ },
+ "angus-flanagan": {
+  "name": "Angus Flanagan",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/57725/angus-flanagan",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_57725",
+  "file": "angus-flanagan.png",
+  "fetchedAt": "2026-11-09T22:05:25.081Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 730,
+   "top": 108,
+   "width": 1258,
+   "height": 1258,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fangus-flanagan.ce3bd01e7f-256.webp?alt=media"
+ },
+ "art-wall-jr": {
+  "name": "Art Wall Jr.",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "billy-maxwell": {
+  "name": "Billy Maxwell",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/01763/billy-maxwell",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_01763",
+  "file": "billy-maxwell.png",
+  "fetchedAt": "2026-11-09T22:05:26.481Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 660,
+   "top": 54,
+   "width": 1505,
+   "height": 1505,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbilly-maxwell.067696c121-256.webp?alt=media"
+ },
+ "bob-mann": {
+  "name": "Bob Mann",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "brian-bateman": {
+  "name": "Brian Bateman",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/07223/brian-bateman",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_07223",
+  "file": "brian-bateman.png",
+  "fetchedAt": "2026-11-09T22:05:30.307Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 718,
+   "top": 0,
+   "width": 1448,
+   "height": 1448,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbrian-bateman.7a62df8cb2-256.webp?alt=media"
+ },
+ "brock-mackenzie": {
+  "name": "Brock Mackenzie",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/27768/brock-mackenzie",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_27768",
+  "file": "brock-mackenzie.png",
+  "fetchedAt": "2026-11-09T22:05:32.630Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 578,
+   "top": 0,
+   "width": 1608,
+   "height": 1608,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbrock-mackenzie.0cffc52fea-256.webp?alt=media"
+ },
+ "bronson-la-cassie": {
+  "name": "Bronson La'Cassie",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/26956/bronson-la-cassie",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_26956",
+  "file": "bronson-la-cassie.png",
+  "fetchedAt": "2026-11-09T22:05:34.749Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 548,
+   "top": 127,
+   "width": 1433,
+   "height": 1433,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbronson-la-cassie.faf7c0115a-256.webp?alt=media"
+ },
+ "bryan-decorso": {
+  "name": "Bryan DeCorso",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/20038/bryan-decorso",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_20038",
+  "file": "bryan-decorso.png",
+  "fetchedAt": "2026-11-09T22:05:36.603Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 739,
+   "top": 38,
+   "width": 1383,
+   "height": 1383,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fbryan-decorso.351eecefdc-256.webp?alt=media"
+ },
+ "calum-scott": {
+  "name": "Calum Scott",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/63568/calum-scott",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_63568",
+  "file": "calum-scott.png",
+  "fetchedAt": "2026-11-09T22:05:38.748Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 713,
+   "top": 86,
+   "width": 1300,
+   "height": 1300,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fcalum-scott.d8f2def456-256.webp?alt=media"
+ },
+ "cameron-champ": {
+  "name": "Cameron Champ",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/52372/cameron-champ",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_52372",
+  "file": "cameron-champ.png",
+  "fetchedAt": "2026-11-09T22:05:39.114Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 689,
+   "top": 46,
+   "width": 1298,
+   "height": 1298,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fcameron-champ.94e2b4d2a7-256.webp?alt=media"
+ },
+ "charlie-wi": {
+  "name": "Charlie Wi",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/20160/charlie-wi",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_20160",
+  "file": "charlie-wi.png",
+  "fetchedAt": "2026-11-09T22:05:40.067Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 653,
+   "top": 148,
+   "width": 1515,
+   "height": 1515,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fcharlie-wi.9bf76de9cf-256.webp?alt=media"
+ },
+ "chuck-courtney": {
+  "name": "Chuck Courtney",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "connor-graham": {
+  "name": "Connor Graham",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "no profile"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "david-lingmerth": {
+  "name": "David Lingmerth",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/34409/david-lingmerth",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_34409",
+  "file": "david-lingmerth.png",
+  "fetchedAt": "2026-11-09T22:05:42.601Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 744,
+   "top": 58,
+   "width": 1238,
+   "height": 1238,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fdavid-lingmerth.b6f5911d45-256.webp?alt=media"
+ },
+ "davis-riley": {
+  "name": "Davis Riley",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/47995/davis-riley",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_47995",
+  "file": "davis-riley.png",
+  "fetchedAt": "2026-11-09T22:05:43.369Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 764,
+   "top": 125,
+   "width": 1160,
+   "height": 1160,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fdavis-riley.a1a60ac4cf-256.webp?alt=media"
+ },
+ "don-massengale": {
+  "name": "Don Massengale",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "duffy-waldorf": {
+  "name": "Duffy Waldorf",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/02246/duffy-waldorf",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_02246",
+  "file": "duffy-waldorf.png",
+  "fetchedAt": "2026-11-09T22:05:45.756Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 727,
+   "top": 48,
+   "width": 1270,
+   "height": 1270,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fduffy-waldorf.610b68f038-256.webp?alt=media"
+ },
+ "glen-day": {
+  "name": "Glen Day",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/08931/glen-day",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_08931",
+  "file": "glen-day.png",
+  "fetchedAt": "2026-11-09T22:05:48.530Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 768,
+   "top": 178,
+   "width": 1175,
+   "height": 1175,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fglen-day.0bd80285ee-256.webp?alt=media"
+ },
+ "harry-higgs": {
+  "name": "Harry Higgs",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/33597/harry-higgs",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_33597",
+  "file": "harry-higgs.png",
+  "fetchedAt": "2026-11-09T22:05:49.187Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 765,
+   "top": 179,
+   "width": 1180,
+   "height": 1180,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fharry-higgs.705e4711a5-256.webp?alt=media"
+ },
+ "harvie-ward": {
+  "name": "Harvie Ward",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "henrik-norlander": {
+  "name": "Henrik Norlander",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/30163/henrik-norlander",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_30163",
+  "file": "henrik-norlander.png",
+  "fetchedAt": "2026-11-09T22:05:51.034Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 699,
+   "top": 93,
+   "width": 1303,
+   "height": 1303,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fhenrik-norlander.6185e7eb1a-256.webp?alt=media"
+ },
+ "j-j-killeen": {
+  "name": "J.J. Killeen",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/31558/j-j-killeen",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_31558",
+  "file": "j-j-killeen.png",
+  "fetchedAt": "2026-11-09T22:05:53.417Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 718,
+   "top": 13,
+   "width": 1323,
+   "height": 1323,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fj-j-killeen.3bfa7a8aed-256.webp?alt=media"
+ },
+ "james-hahn": {
+  "name": "James Hahn",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/32448/james-hahn",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_32448",
+  "file": "james-hahn.png",
+  "fetchedAt": "2026-11-09T22:05:53.765Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 674,
+   "top": 36,
+   "width": 1370,
+   "height": 1370,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjames-hahn.f69e6a653d-256.webp?alt=media"
+ },
+ "jason-gore": {
+  "name": "Jason Gore",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/22892/jason-gore",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_22892",
+  "file": "jason-gore.png",
+  "fetchedAt": "2026-11-09T22:05:56.659Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 719,
+   "top": 0,
+   "width": 1415,
+   "height": 1415,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjason-gore.d062241407-256.webp?alt=media"
+ },
+ "jeff-mitchell": {
+  "name": "Jeff Mitchell",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "joe-conrad": {
+  "name": "Joe Conrad",
+  "site": null,
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   },
+   {
+    "site": "pgatour.com",
+    "result": "HTTP 404"
+   },
+   {
+    "site": "livgolf.com",
+    "result": "no profile"
+   },
+   {
+    "site": "dpworldtour.com",
+    "result": "site blocks automated access"
+   }
+  ]
+ },
+ "joe-ogilvie": {
+  "name": "Joe Ogilvie",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/21949/joe-ogilvie",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_21949",
+  "file": "joe-ogilvie.png",
+  "fetchedAt": "2026-11-09T22:06:01.075Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 651,
+   "top": 75,
+   "width": 1478,
+   "height": 1478,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjoe-ogilvie.992efee6fd-256.webp?alt=media"
+ },
+ "joel-dahmen": {
+  "name": "Joel Dahmen",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/34076/joel-dahmen",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_34076",
+  "file": "joel-dahmen.png",
+  "fetchedAt": "2026-11-09T22:06:01.268Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 750,
+   "top": 118,
+   "width": 1225,
+   "height": 1225,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjoel-dahmen.b530a5fb44-256.webp?alt=media"
+ },
+ "joel-edwards": {
+  "name": "Joel Edwards",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/01307/joel-edwards",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_01307",
+  "file": "joel-edwards.png",
+  "fetchedAt": "2026-11-09T22:06:04.031Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 719,
+   "top": 96,
+   "width": 1375,
+   "height": 1375,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjoel-edwards.e70837ca9d-256.webp?alt=media"
+ },
+ "joey-sindelar": {
+  "name": "Joey Sindelar",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/02101/joey-sindelar",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_02101",
+  "file": "joey-sindelar.png",
+  "fetchedAt": "2026-11-09T22:06:05.891Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 780,
+   "top": 84,
+   "width": 1315,
+   "height": 1315,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjoey-sindelar.35b4c52dd5-256.webp?alt=media"
+ },
+ "john-augenstein": {
+  "name": "John Augenstein",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/56676/john-augenstein",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_56676",
+  "file": "john-augenstein.png",
+  "fetchedAt": "2026-11-09T22:06:07.894Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 722,
+   "top": 93,
+   "width": 1263,
+   "height": 1263,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjohn-augenstein.e88457fc1e-256.webp?alt=media"
+ },
+ "jon-curran": {
+  "name": "Jon Curran",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/34262/jon-curran",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_34262",
+  "file": "jon-curran.png",
+  "fetchedAt": "2026-11-09T22:06:09.987Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 675,
+   "top": 10,
+   "width": 1548,
+   "height": 1548,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjon-curran.f4acebe9a8-256.webp?alt=media"
+ },
+ "jon-mills": {
+  "name": "Jon Mills",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/25842/jon-mills",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_25842",
+  "file": "jon-mills.png",
+  "fetchedAt": "2026-11-09T22:06:12.179Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 695,
+   "top": 28,
+   "width": 1438,
+   "height": 1438,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjon-mills.77c81ff860-256.webp?alt=media"
+ },
+ "julian-suri": {
+  "name": "Julian Suri",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/45478/julian-suri",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_45478",
+  "file": "julian-suri.png",
+  "fetchedAt": "2026-11-09T22:06:13.887Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 679,
+   "top": 87,
+   "width": 1353,
+   "height": 1353,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fjulian-suri.b2045485ae-256.webp?alt=media"
+ },
+ "mark-wilson": {
+  "name": "Mark Wilson",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/21878/mark-wilson",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_21878",
+  "file": "mark-wilson.png",
+  "fetchedAt": "2026-11-09T22:06:16.022Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 714,
+   "top": 92,
+   "width": 1288,
+   "height": 1288,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fmark-wilson.65f2d8a28b-256.webp?alt=media"
+ },
+ "michael-putnam": {
+  "name": "Michael Putnam",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/28486/michael-putnam",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_28486",
+  "file": "michael-putnam.png",
+  "fetchedAt": "2026-11-09T22:06:18.313Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 681,
+   "top": 37,
+   "width": 1400,
+   "height": 1400,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fmichael-putnam.c10c468f5d-256.webp?alt=media"
+ },
+ "michael-thompson": {
+  "name": "Michael Thompson",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/32150/michael-thompson",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_32150",
+  "file": "michael-thompson.png",
+  "fetchedAt": "2026-11-09T22:06:18.520Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 818,
+   "top": 118,
+   "width": 1130,
+   "height": 1130,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fmichael-thompson.804191e3fd-256.webp?alt=media"
+ },
+ "miller-barber": {
+  "name": "Miller Barber",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/01057/miller-barber",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_01057",
+  "file": "miller-barber.png",
+  "fetchedAt": "2026-11-09T22:06:19.825Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 685,
+   "top": 154,
+   "width": 1330,
+   "height": 1330,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fmiller-barber.def5b41d0d-256.webp?alt=media"
+ },
+ "patton-kizzire": {
+  "name": "Patton Kizzire",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/32757/patton-kizzire",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_32757",
+  "file": "patton-kizzire.png",
+  "fetchedAt": "2026-11-09T22:06:20.807Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 760,
+   "top": 135,
+   "width": 1168,
+   "height": 1168,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fpatton-kizzire.b342d84295-256.webp?alt=media"
+ },
+ "paul-barjon": {
+  "name": "Paul Barjon",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/37212/paul-barjon",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_37212",
+  "file": "paul-barjon.png",
+  "fetchedAt": "2026-11-09T22:06:23.359Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 723,
+   "top": 112,
+   "width": 1258,
+   "height": 1258,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fpaul-barjon.2deded513e-256.webp?alt=media"
+ },
+ "ryan-armour": {
+  "name": "Ryan Armour",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/19803/ryan-armour",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_19803",
+  "file": "ryan-armour.png",
+  "fetchedAt": "2026-11-09T22:06:23.700Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 665,
+   "top": 0,
+   "width": 1400,
+   "height": 1400,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fryan-armour.46fb6d37c5-256.webp?alt=media"
+ },
+ "sandy-scott": {
+  "name": "Sandy Scott",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/52576/sandy-scott",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_52576",
+  "file": "sandy-scott.png",
+  "fetchedAt": "2026-11-09T22:06:24.743Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 732,
+   "top": 51,
+   "width": 1248,
+   "height": 1248,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fsandy-scott.47bf35820b-256.webp?alt=media"
+ },
+ "scott-jamieson": {
+  "name": "Scott Jamieson",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/31138/scott-jamieson",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_31138",
+  "file": "scott-jamieson.png",
+  "fetchedAt": "2026-11-09T22:06:25.883Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 726,
+   "top": 86,
+   "width": 1485,
+   "height": 1485,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fscott-jamieson.26f104d679-256.webp?alt=media"
+ },
+ "smylie-kaufman": {
+  "name": "Smylie Kaufman",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/46440/smylie-kaufman",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_46440",
+  "file": "smylie-kaufman.png",
+  "fetchedAt": "2026-11-09T22:06:26.942Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 647,
+   "top": 20,
+   "width": 1418,
+   "height": 1418,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fsmylie-kaufman.b27f59bf48-256.webp?alt=media"
+ },
+ "steve-wheatcroft": {
+  "name": "Steve Wheatcroft",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/25892/steve-wheatcroft",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_25892",
+  "file": "steve-wheatcroft.png",
+  "fetchedAt": "2026-11-09T22:06:29.723Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 725,
+   "top": 0,
+   "width": 1363,
+   "height": 1363,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fsteve-wheatcroft.11f889db3f-256.webp?alt=media"
+ },
+ "trace-crowe": {
+  "name": "Trace Crowe",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/52514/trace-crowe",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_52514",
+  "file": "trace-crowe.png",
+  "fetchedAt": "2026-11-09T22:06:30.096Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 678,
+   "top": 77,
+   "width": 1318,
+   "height": 1318,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Ftrace-crowe.9a421f8cb4-256.webp?alt=media"
+ },
+ "vance-veazey": {
+  "name": "Vance Veazey",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/12755/vance-veazey",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_12755",
+  "file": "vance-veazey.png",
+  "fetchedAt": "2026-11-09T22:06:33.238Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 629,
+   "top": 25,
+   "width": 1585,
+   "height": 1585,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fvance-veazey.1466750fd1-256.webp?alt=media"
+ },
+ "will-gordon": {
+  "name": "Will Gordon",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/56762/will-gordon",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_56762",
+  "file": "will-gordon.png",
+  "fetchedAt": "2026-11-09T22:06:33.653Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 721,
+   "top": 85,
+   "width": 1255,
+   "height": 1255,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fwill-gordon.679e9d0784-256.webp?alt=media"
+ },
+ "william-mouw": {
+  "name": "William Mouw",
+  "site": "pgatour.com",
+  "page": "https://www.pgatour.com/player/63121/william-mouw",
+  "image": "https://pga-tour-res.cloudinary.com/image/upload/headshots_63121",
+  "file": "william-mouw.png",
+  "fetchedAt": "2026-11-09T22:06:34.583Z",
+  "tried": [
+   {
+    "site": "pga.com",
+    "result": "no profile"
+   }
+  ],
+  "crop": {
+   "left": 753,
+   "top": 100,
+   "width": 1198,
+   "height": 1198,
+   "faceDetected": true
+  },
+  "hosted": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Fplayers%2Fwilliam-mouw.b3bdddc279-256.webp?alt=media"
  }
 }

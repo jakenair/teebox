@@ -27,7 +27,7 @@ import {fileURLToPath} from "node:url";
 import {readSheet} from "./lib/xlsx-lite.mjs";
 import {CATEGORIES, matches, slug} from "../sunday-nine/categories.js";
 import {
-  SUNDAY_NINE_EPOCH, addDays, checkGrid, generateGrid, normName,
+  SUNDAY_NINE_EPOCH, addDays, checkGrid, dayDiff, generateGrid, normName, todayKey,
 } from "../sunday-nine/engine.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,6 +37,10 @@ const OUT_DIR = resolve(ROOT, "sunday-nine");
 const FN_DATA = resolve(ROOT, "functions/data");
 const GRID_DAYS = 60;
 const YELLOW = new Set(["FFFFFF00", "FFFFF1CC", "FFFFF2CC"]);
+
+// Sheet rows left out of the game (founder ruling 2026-11-09): a career
+// amateur with no evidence he played on the college team.
+const EXCLUDE = new Set(["John 'Spider' Miller"]);
 
 // Other spellings people type, from the sheet notes (official-name
 // differences between pgatour.com, owgr.com, livgolf.com and dpworldtour.com).
@@ -98,6 +102,7 @@ function buildPlayers() {
     const cell = (k) => (row[COLS[k]] && row[COLS[k]].v || "").trim();
     const name = cell("name");
     if (!name) continue;
+    if (EXCLUDE.has(name)) continue;
     const unk = new Set();
     for (const [ci, field] of Object.entries(UNK_FIELD)) {
       const c = row[+ci];
@@ -130,6 +135,12 @@ function buildPlayers() {
       ua: yn(cell("usam"), name, "U.S. Amateur"),
     };
     if (p.cup === null) problems.push(`${name}: Ryder/Presidents is "${cell("cup")}" — treated as unknown`);
+    // A blank wins cell is missing data, not zero wins (int() reads "" as 0):
+    // treat it as unknown so a real 10+ winner is never ruled out.
+    if (cell("wins") === "") {
+      unk.add("wins");
+      problems.push(`${name}: PGA Tour wins is blank — treated as unknown`);
+    }
     // Any value we could not parse is unknown, same as a yellow cell.
     for (const [k, field] of [["ncaa", "ncaa"], ["pl", "players"], ["fx", "fedex"], ["cup", "cup"],
       ["w1", "world1"], ["liv", "liv"], ["oly", "olympic"], ["ua", "usam"]]) {
@@ -169,6 +180,19 @@ function main() {
 
   const gridsPath = resolve(OUT_DIR, "grids.json");
   const prev = existsSync(gridsPath) ? JSON.parse(readFileSync(gridsPath, "utf8")) : {grids: {}};
+  // --regen-from=YYYY-MM-DD drops pinned grids on/after that date so they are
+  // generated again from the current data. Only future dates: a grid that is
+  // live or already played must never change.
+  const regenArg = process.argv.find((a) => a.startsWith("--regen-from="));
+  if (regenArg) {
+    const from = regenArg.split("=")[1];
+    if (dayDiff(todayKey(), from) <= 0) {
+      console.error(`[sunday-nine] --regen-from ${from} must be after today (${todayKey()})`);
+      process.exit(1);
+    }
+    for (const d of Object.keys(prev.grids)) if (d >= from) delete prev.grids[d];
+    console.log(`[sunday-nine] regenerating grids from ${from}`);
+  }
   const grids = {};
   const failures = [];
   for (let i = 0; i < GRID_DAYS; i++) {

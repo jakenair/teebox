@@ -37,7 +37,7 @@ const COLLEGES = [
   "North Carolina", "Auburn", "Texas A&M", "SMU", "Arizona", "Vanderbilt",
   "Ohio State", "California", "Washington", "San Diego State", "Ole Miss",
   "Arkansas", "TCU", "Kent State", "Augusta", "BYU", "Duke", "Virginia",
-  "Texas Tech",
+  "Texas Tech", "North Texas", "Minnesota", "Pepperdine",
 ];
 
 const COUNTRIES = [
