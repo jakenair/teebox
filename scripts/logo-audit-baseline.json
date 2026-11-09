@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T21:28:37.786Z",
+  "generatedAt": "2026-11-09T22:25:35.214Z",
   "cdnOrigin": "https://teeboxmarket.com",
   "remote": false,
   "summary": {
@@ -1874,8 +1874,8 @@
     {
       "id": "the-gilroy",
       "shortName": "The Gilroy",
-      "localHash": "769cbc7923e196665e2dcb86983b8582fb0c5e2faa5a6243621e43fe6806f8cb",
-      "localBytes": 78482,
+      "localHash": "c5ec314062c76f2c4f065e13969e5ab99f2c9c8497592479edeea0de5023c152",
+      "localBytes": 41006,
       "remoteHash": null,
       "remoteStatus": null,
       "problems": []
