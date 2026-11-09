@@ -37,8 +37,9 @@ function ListingLive({user = {}, listing = {}, appUrl, payoutsReady = true, setu
         <P muted>
           Until then your listing shows “Seller is finishing setup” instead of
           Buy Now, and we’ll tell you when a buyer asks to be notified.
-          Listings without payouts set up are paused after 7 days (not
-          deleted) — finishing setup relists them automatically.
+          {/* The "paused after 7 days" line was removed 2026-11-09: the
+              hideUnonboardedListings sweep is paused (founder, 2026-11-03).
+              Put it back only if that schedule is resumed. */}
         </P>
         <P muted><a href={listingUrl}>View your listing</a></P>
       </Base>

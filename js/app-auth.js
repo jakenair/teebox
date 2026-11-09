@@ -3533,11 +3533,27 @@
       } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
       showToast("You're live — your listing is on the marketplace now.", 'success');
-      // r396: no payout prompt and no background Connect account after
-      // publish (founder ruling 2026-11-03: list now, set up payouts at the
-      // first sale; don't push payout setup while the platform payout hold
-      // is being confirmed). The r348 prepareOnly pre-create also left an
-      // orphaned live Express account for every lister who never sold.
+      // 2026-11-09 (founder): after publishing, a seller without payouts gets
+      // the "connect payouts now so you get paid when it sells" pop-up
+      // (Set up payouts / Later). Still no background Connect account: the
+      // r348 prepareOnly pre-create left an orphaned live Express account for
+      // every lister who never sold (r396). The flag is a fresh read so an
+      // onboarded seller never sees it.
+      (async () => {
+        let ready = window.STRIPE_CHARGES_ENABLED === true;
+        try {
+          const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+          ready = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
+          window.STRIPE_CHARGES_ENABLED = ready;
+        } catch (_e) { /* fall back to the flag read at sell-open */ }
+        if (ready) return;
+        setTimeout(() => {
+          try {
+            window.showStripeRequiredDialog && window.showStripeRequiredDialog();
+            window.tbEvent && window.tbEvent('payout_prompt_shown', 'post_publish');
+          } catch (_e) {}
+        }, 1300);
+      })();
       loadListings();
       // Contextual push prompt: ask once the seller has their first listing
       // up, framed as "get notified when buyers respond". Cooldown logic

@@ -13592,7 +13592,14 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
     const fns = getFunctions();
     const fn = httpsCallable(fns, 'createStripeOnboardingLink');
     const res = await fn(age18 ? { age18: true } : {});
-    const url = res && res.data && res.data.url;
+    let url = res && res.data && res.data.url;
+    // QA test accounts never touch live Stripe (the server returns
+    // skipped:'test-account'). Send them to a stand-in page through the same
+    // hand-off so the device flow (Safari opens, the seller comes back) can
+    // be tested without creating a live Connect account.
+    if (!url && res && res.data && res.data.skipped === 'test-account') {
+      url = 'https://teeboxmarket.com/support.html?qa=payouts-standin';
+    }
     if (!url) throw new Error('No onboarding URL returned');
     window.tbEvent && window.tbEvent('stripe_link_opened', 'payouts');
     if (wasAlreadyEnabled) {
@@ -13614,6 +13621,26 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
     // because the await above breaks the user-gesture chain. Collapsing
     // both branches to location.href matches Stripe's recommended pattern;
     // return_url handler already detects ?stripe=onboarded on return.
+    const Cap = window.Capacitor;
+    if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      // iOS: Capacitor hands connect.stripe.com to Safari and this web view
+      // never navigates, so nothing would ever clear the full-screen
+      // "Connecting to Stripe…" overlay. Clear it when the seller comes back
+      // to the app (or after a few seconds if Safari never took focus), and
+      // refresh the payout status — the ?stripe=onboarded return lands in
+      // Safari, not here.
+      let cleared = false;
+      const clear = () => {
+        if (cleared) return;
+        cleared = true;
+        document.removeEventListener('visibilitychange', onVis);
+        showStripeConnecting(false);
+        try { renderStripeConnectBanner(); } catch (_e) {}
+      };
+      const onVis = () => { if (!document.hidden) clear(); };
+      document.addEventListener('visibilitychange', onVis);
+      setTimeout(() => { if (!document.hidden) clear(); }, 4000);
+    }
     window.location.href = url;
   } catch (e) {
     showStripeConnecting(false);
