@@ -47,7 +47,7 @@ test("relay allowlist: ListingStarted is relayed (auth-only), Purchase never, an
   assert.ok(!M.CAPI_RELAY_EVENTS.has("Purchase"));
   assert.deepEqual([...M.CAPI_ANON_EVENTS].sort(), ["PageView", "ViewContent"]);
   for (const e of M.CAPI_ANON_EVENTS) assert.ok(M.CAPI_RELAY_EVENTS.has(e), e + " must also be in the relay set");
-  assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "InitiateCheckout", "ListItem", "ListingCreated", "ListingStarted", "PageView", "ViewContent"]);
+  assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "InitiateCheckout", "ListItem", "ListingStarted", "PageView", "ViewContent"]);
 });
 
 test("claimOnce: first call per uid claims, every later call is refused (r387 CompleteRegistration gate)", async () => {

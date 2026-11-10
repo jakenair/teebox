@@ -401,7 +401,6 @@ const CAPI_RELAY_EVENTS = new Set([
   "AddToCart",
   "InitiateCheckout",
   "CompleteRegistration",
-  "ListingCreated", // pre-switch cached clients; remove after a week
   "ListItem", // Meta dataset switch: ListingCreated renamed, carries source
   "ListingStarted", // r386: top of the seller funnel; custom event, auth-only
   "ViewContent",

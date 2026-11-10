@@ -3533,9 +3533,17 @@
       // key, meaningless without our database, and NOT an email, name or
       // phone. It is what lets Meta join this browser event to the matching
       // server event for the same seller.
+      // 2026-11-09 (founder): hashed in the browser too — SHA-256 hex of the
+      // trimmed uid, byte-identical to hashExternalId() in metaCapi.js, so the
+      // raw uid never reaches Meta from either leg.
+      const uidRaw = (window.CURRENT_USER && window.CURRENT_USER.uid) ?
+        String(window.CURRENT_USER.uid).trim() : '';
+      const sha256Hex = async (s) => {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+        return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+      };
+      (uidRaw ? sha256Hex(uidRaw).catch(() => '') : Promise.resolve('')).then((sellerExtId) => {
       try {
-        const sellerExtId = (window.CURRENT_USER && window.CURRENT_USER.uid) ?
-          String(window.CURRENT_USER.uid) : '';
         const lcParams = {
           content_ids: [String(docRef.id)],
           content_type: 'product',
@@ -3551,6 +3559,7 @@
           { custom: true, once: 'listing_' + docRef.id,
             eventID: 'lc_' + String(docRef.id) });
       } catch (_e) {}
+      });
       try {
         if (window.posthog) {
           window.posthog.capture('listing_created', {
