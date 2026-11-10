@@ -72,7 +72,7 @@ async function loadData() {
 function ensureCss() {
   if (document.getElementById('s9Css')) return;
   const l = document.createElement('link');
-  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=r403';
+  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=r405';
   document.head.appendChild(l);
 }
 
