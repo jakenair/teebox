@@ -121,7 +121,7 @@ function build() {
         <div><span class="s9-stat-l">Thru</span><span class="s9-stat-v" id="s9Thru">0</span></div>
         <div><span class="s9-stat-l">Streak</span><span class="s9-stat-v" id="s9Streak">0</span></div>
       </div>
-      <div class="s9-grid text-heads" id="s9Grid" role="grid" aria-label="Sunday Nine grid"></div>
+      <div class="s9-grid light-heads" id="s9Grid" role="grid" aria-label="Sunday Nine grid"></div>
       <div class="s9-footer">
         <p class="s9-msg" id="s9Msg">Tap a square to tee off.</p>
         <button class="s9-giveup" id="s9GiveUp" data-action="s9-give-up" type="button">End round</button>
