@@ -55,16 +55,20 @@ function sanitizeGuesses(raw) {
 const sameGuess = (a, b) => a.cell === b.cell && a.pid === b.pid;
 
 // One-guess rules (core.oneGuess(date)): a square takes exactly one answer.
-// A log with two entries for the same square is rejected outright, so a
-// client can never get a second try by replaying or editing its log.
-function oneGuessViolation(date, guesses) {
-  if (!core.oneGuess(date)) return false;
+// Any later answer for a square that already has one is discarded before the
+// log is scored or stored, so it can never count. The save itself succeeds:
+// a stale three-guess client (an r404 tab left open past the switch) keeps
+// its round and streak instead of having every later sync refused.
+function keepFirstAnswerPerSquare(date, guesses) {
+  if (!core.oneGuess(date)) return {guesses, dropped: 0};
   const seen = new Set();
+  const out = [];
   for (const g of guesses) {
-    if (seen.has(g.cell)) return true;
+    if (seen.has(g.cell)) continue;
     seen.add(g.cell);
+    out.push(g);
   }
-  return false;
+  return {guesses: out, dropped: guesses.length - out.length};
 }
 
 function publicState(date, grid, guesses, gaveUp, result) {
@@ -128,11 +132,10 @@ exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, 
       throw new HttpsError("failed-precondition", "Sunday Nine tees off " + core.SUNDAY_NINE_EPOCH);
     }
   }
-  const guesses = sanitizeGuesses(data.guesses);
-  if (!guesses) throw new HttpsError("invalid-argument", "guesses malformed");
-  if (oneGuessViolation(date, guesses)) {
-    throw new HttpsError("invalid-argument", "one guess per square");
-  }
+  const sanitized = sanitizeGuesses(data.guesses);
+  if (!sanitized) throw new HttpsError("invalid-argument", "guesses malformed");
+  const {guesses, dropped} = keepFirstAnswerPerSquare(date, sanitized);
+  if (dropped) logger.info("syncSundayNine: second answers discarded", {uid, date, dropped});
 
   const db = admin.firestore();
   const userRef = db.collection("users").doc(uid);
@@ -228,4 +231,4 @@ async function updateDaily(db, date, state) {
   await db.collection("sundayNineDaily").doc(date).set(upd, {merge: true});
 }
 
-exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, oneGuessViolation, PLAYERS, PINNED};
+exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, keepFirstAnswerPerSquare, PLAYERS, PINNED};

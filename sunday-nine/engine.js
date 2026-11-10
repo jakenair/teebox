@@ -19,7 +19,7 @@ export const MAX_ATTEMPTS = 3;
 // birdie (2), wrong or unanswered is a double bogey (5). Earlier dates keep
 // the three-guess rules, so rounds already played or in progress never
 // change. Set to the first grid that starts AFTER the release is live.
-export const RULES_V2_FROM = "2026-11-10";
+export const RULES_V2_FROM = "2026-11-11";
 export function oneGuess(date) { return !!date && date >= RULES_V2_FROM; }
 export function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
 export const MIN_ANSWERS_PER_SQUARE = 3;

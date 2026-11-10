@@ -214,12 +214,24 @@ test("one-guess rules: perfect grid is 18 (−9), Sunday Red", () => {
   assert.match(core.shareText(date, r), /Sunday Red 18 \(−9\)\n🟩🟩🟩/);
 });
 
-test("server: a second answer for the same square is rejected on one-guess dates only", () => {
+test("server: a second answer for a square never counts on one-guess dates; the save still succeeds", () => {
   const v2 = core.RULES_V2_FROM;
-  const log = [{cell: 3, pid: "a"}, {cell: 3, pid: "b"}];
-  assert.equal(S.oneGuessViolation(v2, log), true);
-  assert.equal(S.oneGuessViolation(v2, [{cell: 3, pid: "a"}, {cell: 4, pid: "b"}]), false);
+  const log = [{cell: 3, pid: "a"}, {cell: 3, pid: "b"}, {cell: 4, pid: "c"}];
+  const k = S.keepFirstAnswerPerSquare(v2, log);
+  assert.deepEqual(k.guesses, [{cell: 3, pid: "a"}, {cell: 4, pid: "c"}]);
+  assert.equal(k.dropped, 1);
   // Earlier dates keep three guesses per square: rounds in progress don't break.
-  assert.equal(S.oneGuessViolation("2026-11-09", log), false);
-  assert.equal(core.attemptsFor("2026-11-09"), 3);
+  assert.deepEqual(S.keepFirstAnswerPerSquare("2026-11-10", log).guesses, log);
+  assert.equal(core.attemptsFor("2026-11-10"), 3);
+  assert.equal(core.attemptsFor(v2), 1);
+  // A stale three-guess client's round: the wrong first answer stands (locked,
+  // double bogey) even though its second try was the right player.
+  const date = Object.keys(S.PINNED).sort().find((d) => d >= v2);
+  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
+  const a0 = answerFor(grid, 0, new Set());
+  const w0 = wrongFor(grid, 0);
+  const kept = S.keepFirstAnswerPerSquare(date, [{cell: 0, pid: w0.id}, {cell: 0, pid: a0.id}]).guesses;
+  const out = S.scoreSubmission(date, kept, false, null);
+  assert.equal(out.state.cells[0].pid, null);
+  assert.equal(core.strokesFor(out.state.cells[0]), 5);
 });
