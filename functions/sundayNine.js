@@ -54,6 +54,19 @@ function sanitizeGuesses(raw) {
 
 const sameGuess = (a, b) => a.cell === b.cell && a.pid === b.pid;
 
+// One-guess rules (core.oneGuess(date)): a square takes exactly one answer.
+// A log with two entries for the same square is rejected outright, so a
+// client can never get a second try by replaying or editing its log.
+function oneGuessViolation(date, guesses) {
+  if (!core.oneGuess(date)) return false;
+  const seen = new Set();
+  for (const g of guesses) {
+    if (seen.has(g.cell)) return true;
+    seen.add(g.cell);
+  }
+  return false;
+}
+
 function publicState(date, grid, guesses, gaveUp, result) {
   return {
     date,
@@ -117,6 +130,9 @@ exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, 
   }
   const guesses = sanitizeGuesses(data.guesses);
   if (!guesses) throw new HttpsError("invalid-argument", "guesses malformed");
+  if (oneGuessViolation(date, guesses)) {
+    throw new HttpsError("invalid-argument", "one guess per square");
+  }
 
   const db = admin.firestore();
   const userRef = db.collection("users").doc(uid);
@@ -212,4 +228,4 @@ async function updateDaily(db, date, state) {
   await db.collection("sundayNineDaily").doc(date).set(upd, {merge: true});
 }
 
-exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, PLAYERS, PINNED};
+exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, oneGuessViolation, PLAYERS, PINNED};

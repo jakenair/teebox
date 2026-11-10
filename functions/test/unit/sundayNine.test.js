@@ -165,3 +165,61 @@ test("before grid #1 a round is a preview of grid #1", () => {
   const r = S.scoreSubmission("2026-11-06", [], false, null);
   assert.deepEqual([r.state.rows, r.state.cols], [S.PINNED["2026-11-08"].rows, S.PINNED["2026-11-08"].cols]);
 });
+
+test("one-guess rules from RULES_V2_FROM: right = 2, wrong = 5 and locked, second answer ignored", () => {
+  const date = Object.keys(S.PINNED).sort().find((d) => d >= core.RULES_V2_FROM);
+  assert.ok(date, "a pinned grid on/after the switch");
+  assert.equal(core.oneGuess(date), true);
+  assert.equal(core.attemptsFor(date), 1);
+  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
+  const used = new Set();
+  const a0 = answerFor(grid, 0, used); used.add(a0.id);
+  const w1 = wrongFor(grid, 1);
+  const a1 = answerFor(grid, 1, used);
+  const r = core.scoreGame(grid, BY_ID, [
+    {cell: 0, pid: a0.id}, // birdie
+    {cell: 1, pid: w1.id}, // miss: locked
+    {cell: 1, pid: a1.id}, // a second answer on a locked square: ignored
+  ], false);
+  assert.equal(core.strokesFor(r.cells[0]), 2);
+  assert.equal(r.cells[1].done, true);
+  assert.equal(r.cells[1].pid, null);
+  assert.deepEqual(r.cells[1].wrong, [w1.id]);
+  assert.equal(core.strokesFor(r.cells[1]), 5);
+  const g = core.scoreGame(grid, BY_ID, [{cell: 0, pid: a0.id}, {cell: 1, pid: w1.id}], true);
+  assert.equal(g.strokes, 2 + 8 * 5); // unanswered squares are double bogeys too
+  const share = core.shareText(date, g);
+  assert.match(share, /🟩🟥🟥/);
+  assert.ok(!/[⬛⬜🟦]/u.test(share), "one-guess share uses only green and red");
+});
+
+test("one-guess rules: perfect grid is 18 (−9), Sunday Red", () => {
+  const date = Object.keys(S.PINNED).sort().find((d) => d >= core.RULES_V2_FROM);
+  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
+  const lists = [];
+  for (let i = 0; i < 9; i++) lists.push(core.validAnswers(grid, i, PLAYERS));
+  const owner = new Map();
+  const assign = (i, seen) => {
+    for (const p of lists[i]) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      if (!owner.has(p.id) || assign(owner.get(p.id), seen)) { owner.set(p.id, i); return true; }
+    }
+    return false;
+  };
+  for (let i = 0; i < 9; i++) assign(i, new Set());
+  const r = core.scoreGame(grid, BY_ID, [...owner.entries()].map(([pid, cell]) => ({cell, pid})), false);
+  assert.equal(r.strokes, 18);
+  assert.equal(r.sundayRed, true);
+  assert.match(core.shareText(date, r), /Sunday Red 18 \(−9\)\n🟩🟩🟩/);
+});
+
+test("server: a second answer for the same square is rejected on one-guess dates only", () => {
+  const v2 = core.RULES_V2_FROM;
+  const log = [{cell: 3, pid: "a"}, {cell: 3, pid: "b"}];
+  assert.equal(S.oneGuessViolation(v2, log), true);
+  assert.equal(S.oneGuessViolation(v2, [{cell: 3, pid: "a"}, {cell: 4, pid: "b"}]), false);
+  // Earlier dates keep three guesses per square: rounds in progress don't break.
+  assert.equal(S.oneGuessViolation("2026-11-09", log), false);
+  assert.equal(core.attemptsFor("2026-11-09"), 3);
+});

@@ -15,6 +15,13 @@ export const SUNDAY_NINE_TZ = "America/Chicago";
 export const PAR_PER_HOLE = 3;
 export const PAR = 27;
 export const MAX_ATTEMPTS = 3;
+// One guess per square from this grid on (founder, 2026-11-09): right is a
+// birdie (2), wrong or unanswered is a double bogey (5). Earlier dates keep
+// the three-guess rules, so rounds already played or in progress never
+// change. Set to the first grid that starts AFTER the release is live.
+export const RULES_V2_FROM = "2026-11-10";
+export function oneGuess(date) { return !!date && date >= RULES_V2_FROM; }
+export function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
 export const MIN_ANSWERS_PER_SQUARE = 3;
 // Groups with many mutually exclusive values. Two of them may share an axis
 // (two countries as rows is a fine grid), never opposite axes.
@@ -265,6 +272,8 @@ export function gridForDate(date, players, pinned) {
 // Each square is a par-3 hole. Correct on the first guess = birdie (2),
 // second = par (3), third = bogey (4). Three misses, or giving up on the
 // square, = double bogey (5). Nine birdies (18, -9) is a Sunday Red.
+// From RULES_V2_FROM there is one guess per square, so a square is either a
+// birdie (2) or a double bogey (5); the same formula covers both.
 export function strokesFor(cell) {
   if (cell.pid) return cell.tries + 1;
   if (cell.done) return PAR_PER_HOLE + 2;
@@ -276,6 +285,7 @@ export function strokesFor(cell) {
 // never trusted: an unknown player, a player already placed in another
 // square, a repeat guess in the same square, or a guess on a closed square.
 export function scoreGame(grid, playersById, guesses, gaveUp) {
+  const maxTries = attemptsFor(grid && grid.date);
   const cells = [];
   for (let i = 0; i < 9; i++) cells.push({pid: null, tries: 0, wrong: [], done: false});
   const used = new Set();
@@ -295,7 +305,7 @@ export function scoreGame(grid, playersById, guesses, gaveUp) {
       used.add(p.id);
     } else {
       cell.wrong.push(p.id);
-      if (cell.tries >= MAX_ATTEMPTS) cell.done = true;
+      if (cell.tries >= maxTries) cell.done = true;
     }
   }
   if (gaveUp) cells.forEach((c) => { c.done = true; });
@@ -325,8 +335,11 @@ export function holeName(strokes) {
 }
 
 // Wordle-style share text. The only place Sunday Nine uses emoji.
-const SHARE_MARKS = {2: "🟥", 3: "⬜", 4: "🟦", 5: "⬛"};
+const SHARE_MARKS_V1 = {2: "🟥", 3: "⬜", 4: "🟦", 5: "⬛"};
+// One-guess rules: green = birdie, red = miss (founder, 2026-11-09).
+const SHARE_MARKS_V2 = {2: "🟩", 5: "🟥"};
 export function shareText(date, result) {
+  const SHARE_MARKS = oneGuess(date) ? SHARE_MARKS_V2 : SHARE_MARKS_V1;
   const num = gridNumber(date);
   const lines = ["TeeBox Sunday Nine" + (num >= 1 ? " #" + num : "")];
   lines.push(result.sundayRed

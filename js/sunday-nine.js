@@ -108,14 +108,14 @@ function build() {
           <h3 id="s9HowTitle">How to play</h3>
           <ol>
             <li>Each square is a hole. Name a pro who fits both its row and its column.</li>
-            <li>Three guesses per hole. Right on the first guess is a birdie (2), the second a par (3), the third a bogey (4). Miss all three for a double bogey (5).</li>
+            <li>One guess per square: right is a birdie (2), wrong is a double bogey (5).</li>
             <li>Nine holes, par 27. Each player only once. Shoot 18 for a Sunday Red.</li>
             <li>A new grid every day at midnight Central.</li>
           </ol>
         </section>
       </div>
       <div id="s9Game">
-      <p class="s9-sub">Name a pro who fits <strong>both</strong> the row and the column. Nine holes, par 27. First guess right is a birdie. Three guesses per square, and each player only once.</p>
+      <p class="s9-sub" id="s9Sub"></p>
       <div class="s9-scorebar">
         <div><span class="s9-stat-l">Score</span><span class="s9-stat-v" id="s9ToPar">E</span></div>
         <div><span class="s9-stat-l">Thru</span><span class="s9-stat-v" id="s9Thru">0</span></div>
@@ -185,14 +185,21 @@ function result() {
 
 function catLabel(id) { const c = CATEGORY_BY_ID[id]; return c ? c.label : id; }
 
-// Header: official mark (self-hosted) above the text, which is always shown.
-// World No. 1 has no mark of its own, so it gets a plain text badge.
-function catHtml(id, row) {
+// Header: every category gets the same round white medallion (a ball
+// marker) above a centred label — rows and columns alike. Official marks sit
+// inside in their real colours; text-only categories get a monogram.
+const MONOGRAM = { 'multi-major': '2+', world1: 'No.1', wins10: '10+', wins20: '20+', olympian: 'OLY', 'col-north-texas': 'UNT' };
+const MEDAL_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2h3l1 5-2.6 1.4zM16 2h-3l-1 5 2.6 1.4z"/><circle cx="12" cy="15" r="6"/><path d="M12 12.2l.9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2-1.45-1.4 2-.3z" class="s9-medal-star"/></svg>';
+function medallionInner(id) {
   const lg = S.data.logos[id];
-  let mark = '';
-  if (id === 'world1') mark = '<span class="s9-badge" aria-hidden="true">No. 1</span>';
-  else if (lg && lg.u) mark = `<span class="s9-plate ${esc(lg.plate || 'light')}" aria-hidden="true"><img class="s9-logo" src="${esc(lg.u)}" alt="" loading="lazy" decoding="async"></span>`;
-  return `<div class="s9-cat${row ? ' row' : ''}${mark ? ' has-mark' : ''}" role="${row ? 'rowheader' : 'columnheader'}">${mark}<span class="s9-cat-t">${esc(catLabel(id))}</span></div>`;
+  if (lg && lg.u) return `<img class="s9-logo${lg.plate === 'flag' ? ' flag' : ''}" src="${esc(lg.u)}" alt="" loading="lazy" decoding="async">`;
+  if (id === 'medal') return `<span class="s9-medal">${MEDAL_SVG}</span>`;
+  const dec = /^dec-(\d{2})(\d{2})s$/.exec(id);
+  const mono = dec ? '\u2019' + dec[2] + 's' : MONOGRAM[id] || catLabel(id).replace(/^(Played at|From|Won( the)?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase();
+  return `<span class="s9-mono-mark${mono.length > 3 ? ' long' : ''}">${esc(mono)}</span>`;
+}
+function catHtml(id, row) {
+  return `<div class="s9-cat${row ? ' row' : ''}" role="${row ? 'rowheader' : 'columnheader'}"><span class="s9-med" aria-hidden="true">${medallionInner(id)}</span><span class="s9-cat-t">${esc(catLabel(id))}</span></div>`;
 }
 
 const NAME_SUFFIX = /^(jr|sr|ii|iii|iv)\.?$/i;
@@ -213,6 +220,10 @@ function faceHtml(p) {
 function markHtml(strokes) {
   return `<span class="s9-mark b${strokes}" aria-hidden="true">${strokes}</span>`;
 }
+// Small score chip on a finished square: green for under par, red for a miss.
+function scoreChip(strokes) {
+  return `<span class="s9-chip ${strokes <= 2 ? 'good' : strokes >= 5 ? 'bad' : 'even'}" aria-hidden="true">${strokes}</span>`;
+}
 
 function render() {
   const r = result();
@@ -225,6 +236,11 @@ function render() {
     ? 'Grid No. 1 · Admin preview'
     : (num >= 1 ? 'No. ' + num + ' · ' : 'Preview · ') + prettyDate(S.date);
 
+  const one = E.oneGuess(S.date);
+  const sub = document.getElementById('s9Sub');
+  if (sub) sub.innerHTML = one
+    ? 'Name a pro who fits <strong>both</strong> the row and the column. One guess per square: right is a birdie, wrong is a double bogey. Each player only once.'
+    : 'Name a pro who fits <strong>both</strong> the row and the column. Nine holes, par 27. First guess right is a birdie. Three guesses per square, and each player only once.';
   let html = `<div class="s9-corner" aria-hidden="true">Par 27<small>9 holes</small></div>`;
   for (let c = 0; c < 3; c++) html += catHtml(g.cols[c], false);
   for (let row = 0; row < 3; row++) {
@@ -238,17 +254,21 @@ function render() {
         const p = S.data.byId[cell.pid];
         html += `<button class="s9-cell solved${p && p.ph ? ' photo' : ' mono'}" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. ${esc(p ? p.n : '')}, ${E.holeName(strokes)}">
           ${faceHtml(p)}
-          <span class="s9-corner-mark">${markHtml(strokes)}</span>
+          ${scoreChip(strokes)}
           <span class="s9-pname">${esc(p ? p.n : cell.pid)}</span></button>`;
       } else if (cell.done) {
-        html += `<button class="s9-cell missed" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. Double bogey">
+        // A miss: muted red, the guess (if any) crossed out, a double bogey.
+        const g = cell.wrong.length ? S.data.byId[cell.wrong[cell.wrong.length - 1]] : null;
+        html += `<button class="s9-cell missed" data-cell="${i}" type="button" disabled aria-label="${esc(label)}. ${g ? esc(g.n) + ' does not fit. ' : 'No answer. '}Double bogey">
           <span class="s9-hole">Hole ${i + 1}</span>
-          <span class="s9-result">${markHtml(5)}Double bogey</span></button>`;
+          ${g ? `<s class="s9-guessed">${esc(g.n)}</s>` : '<span class="s9-guessed none">No answer</span>'}
+          ${scoreChip(5)}</button>`;
       } else {
+        const max = E.attemptsFor(S.date);
         let dots = '';
-        for (let t = 0; t < E.MAX_ATTEMPTS; t++) dots += `<i class="${t < cell.tries ? 'used' : ''}"></i>`;
-        html += `<button class="s9-cell" data-cell="${i}" type="button" ${r.complete ? 'disabled' : ''} aria-label="${esc(label)}. ${E.MAX_ATTEMPTS - cell.tries} guesses left">
-          <span class="s9-hole">Hole ${i + 1}</span><span class="s9-tries" aria-hidden="true">${dots}</span></button>`;
+        if (max > 1) for (let t = 0; t < max; t++) dots += `<i class="${t < cell.tries ? 'used' : ''}"></i>`;
+        html += `<button class="s9-cell" data-cell="${i}" type="button" ${r.complete ? 'disabled' : ''} aria-label="${esc(label)}. ${max - cell.tries} ${max - cell.tries === 1 ? 'guess' : 'guesses'} left">
+          <span class="s9-hole">Hole ${i + 1}</span>${dots ? `<span class="s9-tries" aria-hidden="true">${dots}</span>` : ''}</button>`;
       }
     }
   }
@@ -340,7 +360,8 @@ function renderAnswers(r) {
       const pct = picks && plays ? Math.round(100 * (picks[p.id] || 0) / plays) : null;
       return `<li class="${p.id === mine ? 'mine' : ''}"><span>${esc(p.n)}</span>${pct !== null ? `<em>${pct}%</em>` : ''}</li>`;
     }).join('');
-    const yours = mine ? esc((S.data.byId[mine] || {}).n || '') : 'No answer';
+    const missed = !mine && r.cells[i].wrong.length ? (S.data.byId[r.cells[i].wrong[r.cells[i].wrong.length - 1]] || {}).n : null;
+    const yours = mine ? esc((S.data.byId[mine] || {}).n || '') : missed ? `<s>${esc(missed)}</s> (not a fit)` : 'No answer';
     html += `<details class="s9-ans"${i === 0 ? ' open' : ''}>
       <summary><span class="s9-ans-q">${esc(rc.label)} + ${esc(cc.label)}<span>Yours: ${yours}</span></span>
       <span class="s9-ans-n">${list.length} answers</span></summary><ul>${items}</ul></details>`;
@@ -357,8 +378,10 @@ function openGuess(i) {
   S.active = 0;
   const [rc, cc] = E.squareCats(S.grid, i);
   document.getElementById('s9SheetQ').innerHTML = `<span>Hole ${i + 1}</span>${esc(rc.label)} + ${esc(cc.label)}`;
-  const left = E.MAX_ATTEMPTS - r.cells[i].tries;
-  document.getElementById('s9Left').textContent = `${left} ${left === 1 ? 'guess' : 'guesses'} left on this hole.`;
+  const left = E.attemptsFor(S.date) - r.cells[i].tries;
+  document.getElementById('s9Left').textContent = E.oneGuess(S.date)
+    ? 'One guess on this hole: right is a birdie, wrong is a double bogey.'
+    : `${left} ${left === 1 ? 'guess' : 'guesses'} left on this hole.`;
   const wrong = r.cells[i].wrong.map((id) => (S.data.byId[id] || {}).n).filter(Boolean);
   document.getElementById('s9Wrong').textContent = wrong.length ? 'Not a fit: ' + wrong.join(', ') : '';
   const input = document.getElementById('s9Input');
@@ -405,7 +428,7 @@ function submitGuess(pid) {
   const name = S.data.byId[pid].n;
   if (cell.pid === pid) toast(`${name}. ${E.holeName(E.strokesFor(cell))}.`);
   else if (cell.done) toast(`${name} doesn't fit. Double bogey.`);
-  else if (cell.tries > before.cells[i].tries) toast(`${name} doesn't fit. ${E.MAX_ATTEMPTS - cell.tries} left.`);
+  else if (cell.tries > before.cells[i].tries) toast(`${name} doesn't fit. ${E.attemptsFor(S.date) - cell.tries} left.`);
   afterChange(r);
 }
 
