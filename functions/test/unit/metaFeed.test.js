@@ -64,3 +64,21 @@ test("status markers stripped from titles (brand-like words survive)", () => {
   assert.equal(F.stripStatusMarkers("Sold Out Golf Co. polo"), "Sold Out Golf Co. polo");
   assert.equal(F.stripStatusMarkers("Unsold lot of balls"), "Unsold lot of balls");
 });
+
+test("QA/test listings are excluded: isTest flag, test seller, and the CSV omits both", () => {
+  assert.equal(F.feedRow(base({isTest: true})), null);
+  const testSellers = new Set(["qaSeller"]);
+  assert.equal(F.feedRow(base({sellerId: "qaSeller"}), testSellers), null);
+  assert.ok(F.feedRow(base({sellerId: "realSeller"}), testSellers), "real seller kept");
+  const {csv, rows, skipped} = F.buildFeedCsv([
+    base({id: "real1", sellerId: "realSeller"}),
+    base({id: "qaFlag", sellerId: "realSeller", isTest: true}),
+    base({id: "qaSeller1", sellerId: "qaSeller"}),
+  ], testSellers);
+  assert.equal(rows, 1);
+  assert.equal(skipped, 2);
+  assert.ok(csv.includes("real1"));
+  assert.ok(!csv.includes("qaFlag") && !csv.includes("qaSeller1"));
+  assert.ok(F.TEST_EMAIL_RE.test("payouts-qa-1109-seller@teeboxqa.dev"));
+  assert.ok(!F.TEST_EMAIL_RE.test("golfer@gmail.com"));
+});

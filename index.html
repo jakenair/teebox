@@ -8786,6 +8786,10 @@ let paymentElementLoading = false; // guard against double-fire on rapid re-clic
           ready = s0.exists() && s0.data().stripeChargesEnabled === true;
         }
         window.tbEvent && window.tbEvent(ready ? 'stripe_returned_complete' : 'stripe_returned_incomplete', 'stripe_return');
+        // The post-publish push pre-prompt is held while the payout pop-up is
+        // up; a web seller who went to Stripe from it lands back here on a
+        // fresh page, so offer it now (cooldown + one-dialog rule inside).
+        setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-listing'); } catch (_e) {} }, 1500);
         const key = 'fbq_lead_' + uid;
         let done = null;
         try { done = localStorage.getItem(key); } catch (_e) {}

@@ -1826,6 +1826,37 @@
   };
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
+  // ── One prompt at a time (2026-11-09) ─────────────────────────────────
+  // Post-publish used to fire the payout pop-up (1.3 s) and this push
+  // pre-prompt (1.5 s) together; on iOS the push sheet covered "Set up
+  // payouts" and swallowed the tap. Rule: a prompt never opens while another
+  // dialog, sheet or the Stripe overlay is open — it waits until the screen
+  // is clear (e.g. the seller taps Later, or comes back from payout setup).
+  // Full screens (listing detail, profile, inbox) are not dialogs.
+  const TB_DIALOG_IDS = ['stripeRequiredBackdrop', 'pushPrePromptBackdrop', 'sellerAgeBackdrop',
+    'stripeConnectingOverlay', 'sellModalBackdrop', 'authSheetBackdrop', 'signInPromptBackdrop',
+    'nameGateBackdrop', 'verifyBackdrop', 'emailSheetBackdrop', 'proUpgradeBackdrop',
+    'orderConfirmBackdrop', 'deleteListingBackdrop', 'deleteAccountBackdrop', 'cropBackdrop',
+    'makeOfferBackdrop', 'counterOfferBackdrop', 'checkoutBackdrop', 'saveSearchNameBackdrop',
+    'linkSheetBackdrop', 'relaySheetBackdrop', 'reportBackdrop', 'pushPrefsBackdrop'];
+  window.tbDialogOpen = function(exceptId) {
+    return TB_DIALOG_IDS.some((id) => {
+      if (id === exceptId) return false;
+      const el = document.getElementById(id);
+      return !!(el && el.classList.contains('open'));
+    });
+  };
+  // Run `show` once no dialog is open (checked every 400 ms, gives up after
+  // `maxMs`). Returns immediately when the screen is already clear.
+  window.tbWhenNoDialog = function(show, maxMs = 10 * 60 * 1000) {
+    const t0 = Date.now();
+    const tick = () => {
+      if (!window.tbDialogOpen()) { try { show(); } catch (_e) {} return; }
+      if (Date.now() - t0 < maxMs) setTimeout(tick, 400);
+    };
+    tick();
+  };
+
   window.maybePromptForPush = async function(context) {
     try {
       if (!window.CURRENT_USER) return;
@@ -1871,6 +1902,13 @@
         if (Date.now() - lastMs < cooldownMs) return;
       }
       if (history.some(h => h.answered === 'yes')) return;
+
+      // Never stack on another dialog: wait for a clear screen, then re-run
+      // (the checks above are cheap and may have changed by then).
+      if (window.tbDialogOpen('pushPrePromptBackdrop')) {
+        window.tbWhenNoDialog(() => window.maybePromptForPush(context));
+        return;
+      }
 
       document.getElementById('pushPrePromptTitle').textContent = copy.title;
       document.getElementById('pushPrePromptBody').textContent = copy.body;
@@ -3546,19 +3584,25 @@
           ready = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
           window.STRIPE_CHARGES_ENABLED = ready;
         } catch (_e) { /* fall back to the flag read at sell-open */ }
-        if (ready) return;
+        // One post-publish prompt at a time. Payouts not connected: the payout
+        // pop-up only; the push pre-prompt ("get buyer alerts") is queued and
+        // shows once the screen is clear — after Later, or back from payout
+        // setup. Payouts connected: the push pre-prompt as before. Cooldown
+        // logic inside maybePromptForPush handles repeat-suppression.
         setTimeout(() => {
           try {
-            window.showStripeRequiredDialog && window.showStripeRequiredDialog();
-            window.tbEvent && window.tbEvent('payout_prompt_shown', 'post_publish');
+            if (!ready) {
+              window.tbWhenNoDialog(() => {
+                window.showStripeRequiredDialog && window.showStripeRequiredDialog();
+                window.tbEvent && window.tbEvent('payout_prompt_shown', 'post_publish');
+              });
+            }
+            // Queued behind the payout pop-up when it shows (tbDialogOpen).
+            setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-listing'); } catch (_e) {} }, 200);
           } catch (_e) {}
         }, 1300);
       })();
       loadListings();
-      // Contextual push prompt: ask once the seller has their first listing
-      // up, framed as "get notified when buyers respond". Cooldown logic
-      // inside maybePromptForPush handles repeat-suppression.
-      setTimeout(() => { try { window.maybePromptForPush && window.maybePromptForPush('first-listing'); } catch (_e) {} }, 1500);
     } catch(e) {
       console.error('[submitListing] failed:', e?.code, e?.message, e);
       const code = e?.code || '';

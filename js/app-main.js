@@ -6003,6 +6003,11 @@ window.closeSellModalDirect = closeSellModalDirect;
 function showStripeRequiredDialog(_status) {
   const backdrop = document.getElementById('stripeRequiredBackdrop');
   if (!backdrop) { showToast('Finish payout setup so buyers can purchase your listings.', 'error'); return; }
+  // Never stack on another dialog (see tbDialogOpen in app-auth.js).
+  if (window.tbDialogOpen && window.tbDialogOpen('stripeRequiredBackdrop')) {
+    window.tbWhenNoDialog(() => backdrop.classList.add('open'));
+    return;
+  }
   backdrop.classList.add('open');
 }
 function closeStripeRequiredDirect() {
