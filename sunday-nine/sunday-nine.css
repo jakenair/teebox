@@ -148,3 +148,11 @@
   .s9-pname { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { .s9-cell { transition: none; } }
+
+/* Text-only headers (founder, 2026-11-09): no logos or markers — the label in
+   the TeeBox display face, white on green, a short gold rule above it. */
+.s9-grid.text-heads .s9-med { display: none; }
+.s9-grid.text-heads .s9-cat { gap: 6px; padding: 8px 5px; }
+.s9-grid.text-heads .s9-cat::before { content: ""; display: block; width: 18px; height: 2px; border-radius: 1px; background: var(--gold-400); flex-shrink: 0; }
+.s9-grid.text-heads .s9-cat-t { font-family: var(--font-display); font-weight: 700; font-size: 13px; line-height: 1.15; letter-spacing: 0.1px; color: var(--white); -webkit-line-clamp: 4; }
+@media (max-width: 380px) { .s9-grid.text-heads .s9-cat-t { font-size: 12px; } }
