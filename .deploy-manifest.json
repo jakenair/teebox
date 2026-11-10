@@ -39,8 +39,8 @@
     "sha": "b28ba424a0efb602548d9fffd07a29050f9adcbc"
   },
   "capiRelay": {
-    "sha": "687ce947be941b1758bf3c2490ec0e004f2d7de9",
-    "at": "2026-11-03",
+    "sha": "f2a88ae28dbd7007e666ec7e0826083f2a037f8d",
+    "at": "2026-11-10",
     "region": "us-central1"
   },
   "checkEmailUsage": {
@@ -240,6 +240,11 @@
     "at": "2026-08-27",
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
+  "metaFeed": {
+    "sha": "f2a88ae28dbd7007e666ec7e0826083f2a037f8d",
+    "at": "2026-11-10",
+    "region": "us-central1"
+  },
   "moderateImage": {
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
@@ -331,10 +336,9 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onListingLive": {
-    "deployedAt": "2026-10-19T21:54:00Z",
-    "region": "us-central1",
-    "revision": "onlistinglive-00008-cot",
-    "sha": "6b5e30d217c14eb337fcd6abbf0ed43cbfd590ca"
+    "sha": "f2a88ae28dbd7007e666ec7e0826083f2a037f8d",
+    "at": "2026-11-10",
+    "region": "us-central1"
   },
   "onListingPriceUpdate": {
     "at": "2026-09-29",
