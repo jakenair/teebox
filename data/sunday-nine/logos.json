@@ -16,8 +16,8 @@
   "plate": "light"
  },
  "players": {
-  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fplayers.b0f094d96d.svg?alt=media",
-  "plate": "dark"
+  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fplayers.3054cadecd.png?alt=media",
+  "plate": "light"
  },
  "fedex": {
   "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Ffedex-cup.73530b38ad.png?alt=media",
@@ -32,8 +32,8 @@
   "plate": "light"
  },
  "liv": {
-  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fliv.fa20aacfcf.svg?alt=media",
-  "plate": "dark"
+  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fliv.72c34b03f5.svg?alt=media",
+  "plate": "light"
  },
  "ncaa": {
   "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fncaa.54991143b4.svg?alt=media",
@@ -168,7 +168,7 @@
   "plate": "light"
  },
  "col-kent-state": {
-  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fkent-state.4e803daa8a.svg?alt=media",
+  "u": "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/sunday-nine%2Flogos%2Fkent-state.a886b94be1.svg?alt=media",
   "plate": "light"
  },
  "col-augusta": {

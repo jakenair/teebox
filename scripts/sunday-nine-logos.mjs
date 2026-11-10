@@ -40,7 +40,7 @@ const EVENT_KEYS = {
   "ncaa": "ncaa", "usam": "us-amateur",
 };
 // Marks that only exist in white: shown on the dark plate.
-const DARK_PLATE = new Set(["players", "liv"]);
+const DARK_PLATE = new Set(); // white tiles since 2026-11-09: every mark is a colour version
 const COLLEGE_KEY_FIX = {"col-texas-aandm": "texas-a-and-m"};
 
 function sourceFor(cat) {

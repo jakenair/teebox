@@ -53,16 +53,14 @@
  },
  "players": {
   "name": "THE PLAYERS Championship",
-  "file": "players.svg",
-  "format": "svg",
-  "source_site": "pgatour.com (PGA TOUR Cloudinary)",
-  "page_url": "https://www.rydercup.com/",
-  "file_url": "https://res.cloudinary.com/pgatour-prod/temp/webTakeover/thePlayers2025/thePlayers_logo.svg",
+  "file": "players-color.png",
+  "format": "png",
+  "source_site": "www.pgatour.com",
+  "page_url": "https://www.pgatour.com/tournaments/2026/the-players-championship/R2026011",
+  "file_url": "https://res.cloudinary.com/pgatour-prod/d_tournaments:logos:r000.png/tournaments/logos/2026/r011.png",
   "official": true,
-  "transparent": true,
-  "width": 710,
-  "height": 185.5,
-  "notes": "Official PGA TOUR-hosted THE PLAYERS logo SVG (Illustrator export), referenced as homeNavIconOverride in the PGA TOUR web platform config embedded in rydercup.com. REVERSE colourway: 'THE PLAYERS' lettering is WHITE (#fff) with gold (#ca7) golfer, intended for dark backgrounds. theplayers.com header only exposes a 200x52 PNG of the same reverse mark. Wikipedia infobox for the event has no logo."
+  "transparent": false,
+  "notes": "Full-colour primary mark (navy wordmark, gold golfer) for the white header tiles (2026-11-09). Official PGA TOUR tournament logo; trimmed of its white padding, pixels unchanged. The previous file was the white-only mark."
  },
  "fedex-cup": {
   "name": "FedExCup",
@@ -103,16 +101,14 @@
  },
  "liv": {
   "name": "LIV Golf",
-  "file": "liv.svg",
+  "file": "liv-green.svg",
   "format": "svg",
-  "source_site": "livgolf.com",
+  "source_site": "www.livgolf.com",
   "page_url": "https://www.livgolf.com/",
-  "file_url": "https://www.livgolf.com/assets/logos/liv-golf-primary.svg",
+  "file_url": "https://www.livgolf.com/assets/logos/liv-golf-primary-green.svg",
   "official": true,
   "transparent": true,
-  "width": 128,
-  "height": 25,
-  "notes": "Official 'liv-golf-primary.svg' used as a CSS mask for the livgolf.com header logo. Single-colour WHITE fill (site colours it via CSS), so it will be invisible on a white background as-is. width/height attrs are 100%; dimensions are the viewBox (128x25, vector)."
+  "notes": "Official primary green mark (#094C24) referenced by livgolf.com's own JS; replaces the white-only header mark for the white tiles (2026-11-09). Unmodified."
  },
  "ncaa": {
   "name": "NCAA",
@@ -545,16 +541,14 @@
  },
  "kent-state": {
   "name": "Kent State Golden Flashes",
-  "file": "kent-state.svg",
+  "file": "kent-state-v2.svg",
   "format": "svg",
-  "source_site": "kentstatesports.com (official athletics site, Sidearm CDN)",
-  "page_url": "https://kentstatesports.com/",
-  "file_url": "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/kentstatesports.com/images/sng_2025/logo_main.svg",
-  "official": true,
+  "source_site": "en.wikipedia.org",
+  "page_url": "https://en.wikipedia.org/wiki/File:Kent_State_athletic_logo.svg",
+  "file_url": "https://upload.wikimedia.org/wikipedia/en/a/a6/Kent_State_athletic_logo.svg",
+  "official": false,
   "transparent": true,
-  "width": 56,
-  "height": 38,
-  "notes": "Primary 'K' with golden flash athletics mark (site header). Vector, so small nominal size is not a limit."
+  "notes": "Four-colour athletics mark from English Wikipedia (fair-use upload crediting Kent State's brand guide; matches the version shown on kent.edu). Not an official download: kent.edu provides athletics logo files on request only. Replaces a 56px raster (2026-11-09)."
  },
  "augusta": {
   "name": "Augusta University Jaguars",
@@ -648,5 +642,44 @@
   "source_site": null,
   "official": false,
   "notes": "No current primary mark on Wikimedia Commons (only a 1995 logo) as of 2026-11-09; category shows its text label. North Texas cannot fill a grid at 6 players (1 partner category), so the mark never renders today."
+ },
+ "players_old": {
+  "name": "THE PLAYERS Championship",
+  "file": "players.svg",
+  "format": "svg",
+  "source_site": "pgatour.com (PGA TOUR Cloudinary)",
+  "page_url": "https://www.rydercup.com/",
+  "file_url": "https://res.cloudinary.com/pgatour-prod/temp/webTakeover/thePlayers2025/thePlayers_logo.svg",
+  "official": true,
+  "transparent": true,
+  "width": 710,
+  "height": 185.5,
+  "notes": "Official PGA TOUR-hosted THE PLAYERS logo SVG (Illustrator export), referenced as homeNavIconOverride in the PGA TOUR web platform config embedded in rydercup.com. REVERSE colourway: 'THE PLAYERS' lettering is WHITE (#fff) with gold (#ca7) golfer, intended for dark backgrounds. theplayers.com header only exposes a 200x52 PNG of the same reverse mark. Wikipedia infobox for the event has no logo."
+ },
+ "liv_old": {
+  "name": "LIV Golf",
+  "file": "liv.svg",
+  "format": "svg",
+  "source_site": "livgolf.com",
+  "page_url": "https://www.livgolf.com/",
+  "file_url": "https://www.livgolf.com/assets/logos/liv-golf-primary.svg",
+  "official": true,
+  "transparent": true,
+  "width": 128,
+  "height": 25,
+  "notes": "Official 'liv-golf-primary.svg' used as a CSS mask for the livgolf.com header logo. Single-colour WHITE fill (site colours it via CSS), so it will be invisible on a white background as-is. width/height attrs are 100%; dimensions are the viewBox (128x25, vector)."
+ },
+ "kent-state_old": {
+  "name": "Kent State Golden Flashes",
+  "file": "kent-state.svg",
+  "format": "svg",
+  "source_site": "kentstatesports.com (official athletics site, Sidearm CDN)",
+  "page_url": "https://kentstatesports.com/",
+  "file_url": "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/kentstatesports.com/images/sng_2025/logo_main.svg",
+  "official": true,
+  "transparent": true,
+  "width": 56,
+  "height": 38,
+  "notes": "Primary 'K' with golden flash athletics mark (site header). Vector, so small nominal size is not a limit."
  }
 }
