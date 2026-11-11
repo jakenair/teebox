@@ -235,3 +235,9 @@ test("server: a second answer for a square never counts on one-guess dates; the 
   assert.equal(out.state.cells[0].pid, null);
   assert.equal(core.strokesFor(out.state.cells[0]), 5);
 });
+
+test("stats lookback: a 120-day id range, auto-indexed (r406 fix for the missing desc index)", () => {
+  const {lookbackStart} = require("../../sundayNine").__test;
+  assert.equal(lookbackStart("2026-11-11"), "2026-07-14");
+  assert.equal(lookbackStart("2026-03-01"), "2025-11-01");
+});

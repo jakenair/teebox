@@ -182,13 +182,24 @@ function publicStats(s) {
 // Streak is recomputed from the finished game docs every time — never
 // incremented from a client claim — so out-of-order offline syncs still
 // land on the right number.
+// Doc ids are YYYY-MM-DD, one game per day, so the last STREAK_LOOKBACK days
+// hold every game the streak can reach. A range on the id ascending uses the
+// automatic index; the previous orderBy(documentId, "desc") needed a composite
+// index that doesn't exist and failed every finished round with a 500 (no
+// stats, no daily aggregate) from launch until r406.
+function lookbackStart(date) {
+  const d = new Date(String(date) + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - STREAK_LOOKBACK);
+  return d.toISOString().slice(0, 10);
+}
 async function updateStats(db, userRef, date, state) {
   const games = await userRef.collection("sundayNineGames")
-      .orderBy(admin.firestore.FieldPath.documentId(), "desc")
-      .limit(STREAK_LOOKBACK).get();
+      .where(admin.firestore.FieldPath.documentId(), ">=", lookbackStart(date))
+      .get();
   const finished = games.docs
       .filter((d) => d.get("complete") === true && d.get("preview") !== true)
-      .map((d) => d.id);
+      .map((d) => d.id)
+      .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
   const statsRef = userRef.collection("sundayNineStats").doc("summary");
   let out;
   await db.runTransaction(async (tx) => {
@@ -231,4 +242,4 @@ async function updateDaily(db, date, state) {
   await db.collection("sundayNineDaily").doc(date).set(upd, {merge: true});
 }
 
-exports.__test = {scoreSubmission, sanitizeGuesses, isPreviewDate, keepFirstAnswerPerSquare, PLAYERS, PINNED};
+exports.__test = {lookbackStart, scoreSubmission, sanitizeGuesses, isPreviewDate, keepFirstAnswerPerSquare, PLAYERS, PINNED};
