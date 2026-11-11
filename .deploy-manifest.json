@@ -139,9 +139,9 @@
     "sha": null
   },
   "expireListings": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "4979d176a82268b70581b3578b32c6429fc902b2",
+    "at": "2026-11-11",
+    "region": "us-central1"
   },
   "expireOldOffers": {
     "at": "2026-05-15",
