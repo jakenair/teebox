@@ -24,6 +24,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SOURCES = ["sunday-nine/categories.js", "sunday-nine/engine.js"];
 const OUT = resolve(ROOT, "functions/lib/sundayNineCore.js");
+// The rule schedule the server scores with: a byte copy of the one the
+// clients fetch, so the server always scores with the rules it tells them.
+const RULES_SRC = resolve(ROOT, "sunday-nine/rules.json");
+const RULES_OUT = resolve(ROOT, "functions/data/sunday-nine-rules.json");
 
 export function sourcesHash(texts) {
   const h = createHash("sha256");
@@ -62,13 +66,24 @@ export function build() {
 function main() {
   const out = build();
   const prev = existsSync(OUT) ? readFileSync(OUT, "utf8") : "";
+  const rules = readFileSync(RULES_SRC, "utf8");
+  JSON.parse(rules); // fail loudly on a broken rules.json
+  const prevRules = existsSync(RULES_OUT) ? readFileSync(RULES_OUT, "utf8") : "";
   if (process.argv.includes("--check")) {
     if (prev !== out) {
       console.error("[sunday-nine] functions/lib/sundayNineCore.js is stale — run node scripts/sync-sunday-nine.mjs");
       process.exit(1);
     }
-    console.log("[sunday-nine] server core current");
+    if (prevRules !== rules) {
+      console.error("[sunday-nine] functions/data/sunday-nine-rules.json differs from sunday-nine/rules.json — run node scripts/sync-sunday-nine.mjs");
+      process.exit(1);
+    }
+    console.log("[sunday-nine] server core and rules current");
     return;
+  }
+  if (prevRules !== rules) {
+    writeFileSync(RULES_OUT, rules);
+    console.log("[sunday-nine] wrote functions/data/sunday-nine-rules.json");
   }
   if (prev === out) {
     console.log("[sunday-nine] functions/lib/sundayNineCore.js already current");

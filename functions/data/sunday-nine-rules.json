@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "note": "Sunday Nine rule set per grid date. The last entry whose 'from' is on or before a date applies. Change a date only BEFORE it starts (midnight Central); a round already started keeps the rules it started with. After editing: node scripts/sync-sunday-nine.mjs, deploy syncSundayNine FIRST, then push the web. Rule ids the clients know: v1 (3 guesses per square), v2 (1 guess per square), v3 (maxMisses for the whole grid).",
+  "schedule": [
+    {"from": "2026-11-08", "rules": "v1"},
+    {"from": "2026-11-13", "rules": "v3", "maxMisses": 3}
+  ]
+}

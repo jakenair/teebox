@@ -27,6 +27,16 @@ const core = require("./lib/sundayNineCore");
 const {adminGate, ADMIN_ALLOWLIST} = require("./lib/adminGate");
 const PLAYERS = require("./data/sunday-nine-players.json").players;
 const PINNED = require("./data/sunday-nine-grids.json").grids;
+// Rule set per date: a copy of /sunday-nine/rules.json (the file clients
+// fetch), written by scripts/sync-sunday-nine.mjs. Falls back to the engine's
+// built-in schedule if it is ever missing or unreadable.
+const RULES_SCHEDULE = (() => {
+  try {
+    return core.parseRulesSchedule(require("./data/sunday-nine-rules.json"));
+  } catch (_e) {
+    return null;
+  }
+})();
 
 const PLAYERS_BY_ID = Object.fromEntries(PLAYERS.map((p) => [p.id, p]));
 const SYNC_MAX_AGE_DAYS = 7;
@@ -71,8 +81,35 @@ function keepFirstAnswerPerSquare(date, guesses) {
   return {guesses: out, dropped: guesses.length - out.length};
 }
 
-function publicState(date, grid, guesses, gaveUp, result) {
+// The rule set a round is scored with. A round already stored keeps the
+// rules it started with (a later schedule edit can never re-score it); a new
+// round takes the schedule's rules for its date. Rounds stored before rule
+// ids existed are v1.
+function rulesForRound(date, stored) {
+  if (stored && stored.guesses) {
+    return core.resolveRules({rules: stored.rules || "v1", maxMisses: stored.maxMisses}) ||
+      core.rulesFor(date, RULES_SCHEDULE);
+  }
+  return core.rulesFor(date, RULES_SCHEDULE);
+}
+
+// Strike-limit rules (v3): the round ends on the miss that uses the last
+// ball (or when all nine are solved). Every guess after that is dropped
+// before the log is scored or stored, so it can never count. The save still
+// succeeds (same spirit as keepFirstAnswerPerSquare): a stale client that
+// kept guessing keeps its round and streak.
+function dropAfterRoundEnd(grid, guesses, rules) {
+  if (!rules.maxMisses) return {guesses, dropped: 0};
+  const r = core.scoreGame(grid, PLAYERS_BY_ID, guesses, false, rules);
+  if (r.endedAt === null || r.endedAt >= guesses.length) return {guesses, dropped: 0};
+  return {guesses: guesses.slice(0, r.endedAt), dropped: guesses.length - r.endedAt};
+}
+
+function publicState(date, grid, guesses, gaveUp, result, rules) {
   return {
+    rules: rules.id,
+    maxMisses: rules.maxMisses,
+    misses: result.misses || 0,
     date,
     rows: grid.rows,
     cols: grid.cols,
@@ -96,22 +133,32 @@ function isPreviewDate(date) {
 }
 
 // Pure core of the callable, exported for unit tests.
+// Under strike-limit rules a reply whose guesses were dropped carries
+// conflict: true, so every client (including r407 and older, which only know
+// that flag) adopts the server's log and shows the round as over.
 function scoreSubmission(date, guesses, gaveUp, stored) {
   const gridDate = isPreviewDate(date) ? core.SUNDAY_NINE_EPOCH : date;
   const grid = core.gridForDate(gridDate, PLAYERS, PINNED);
-  if (stored && stored.complete) {
-    return {state: stored, changed: false, conflict: false};
-  }
+  const rules = rulesForRound(date, stored);
   const prev = (stored && stored.guesses) || [];
   // Append-only: the new log must start with everything already synced.
   const extends_ = guesses.length >= prev.length &&
     prev.every((g, i) => sameGuess(g, guesses[i]));
+  if (stored && stored.complete) {
+    // Frozen. Under v3, guesses sent after the round ended are dropped.
+    const dropped = rules.maxMisses && extends_ ? guesses.length - prev.length : 0;
+    return {state: stored, changed: false, conflict: dropped > 0, dropped};
+  }
   if (!extends_) {
-    return {state: stored, changed: false, conflict: true};
+    return {state: stored, changed: false, conflict: true, dropped: 0};
   }
   const gave = !!gaveUp || !!(stored && stored.gaveUp);
-  const result = core.scoreGame(grid, PLAYERS_BY_ID, guesses, gave);
-  return {state: publicState(date, grid, guesses, gave, result), changed: true, conflict: false};
+  const kept = dropAfterRoundEnd(grid, guesses, rules);
+  const result = core.scoreGame(grid, PLAYERS_BY_ID, kept.guesses, gave, rules);
+  return {
+    state: publicState(date, grid, kept.guesses, gave, result, rules),
+    changed: true, conflict: kept.dropped > 0, dropped: kept.dropped,
+  };
 }
 
 exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, async (request) => {
@@ -165,7 +212,17 @@ exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, 
     const s = await userRef.collection("sundayNineStats").doc("summary").get();
     stats = s.exists ? s.data() : null;
   }
-  if (outcome.conflict) {
+  // The client says which rules it played (r408+). Never trusted for
+  // scoring; logged so a stale client or a rules.json deploy-order slip shows.
+  const clientRules = typeof data.rules === "string" ? data.rules.slice(0, 8) : null;
+  const serverRules = outcome.state && outcome.state.rules;
+  if (serverRules && clientRules !== serverRules && (clientRules || serverRules !== "v1")) {
+    logger.info("syncSundayNine: client rules differ", {uid, date, client: clientRules, server: outcome.state.rules});
+  }
+  if (outcome.dropped) {
+    logger.info("syncSundayNine: guesses after the round ended discarded",
+        {uid, date, dropped: outcome.dropped, rules: outcome.state && outcome.state.rules});
+  } else if (outcome.conflict) {
     logger.info("syncSundayNine: non-append log rejected", {uid, date});
   }
   return {state: outcome.state, stats: stats && publicStats(stats), conflict: outcome.conflict, preview};
@@ -242,4 +299,7 @@ async function updateDaily(db, date, state) {
   await db.collection("sundayNineDaily").doc(date).set(upd, {merge: true});
 }
 
-exports.__test = {lookbackStart, scoreSubmission, sanitizeGuesses, isPreviewDate, keepFirstAnswerPerSquare, PLAYERS, PINNED};
+exports.__test = {
+  lookbackStart, scoreSubmission, sanitizeGuesses, isPreviewDate, keepFirstAnswerPerSquare,
+  rulesForRound, dropAfterRoundEnd, RULES_SCHEDULE, PLAYERS, PINNED,
+};

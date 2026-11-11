@@ -24,6 +24,79 @@ export const MAX_ATTEMPTS = 3;
 export const RULES_V2_FROM = "9999-12-31";
 export function oneGuess(date) { return !!date && date >= RULES_V2_FROM; }
 export function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
+
+// ── Rule sets ───────────────────────────────────────────────────────────
+// v1  three guesses per square, strokes = tries + 1 (birdie/par/bogey),
+//     three misses on a square or giving up = double bogey (5).
+// v2  one guess per square (dormant, see RULES_V2_FROM).
+// v3  three misses for the WHOLE grid (founder, 2026-11-10). Any open square
+//     can be guessed until the player has missed maxMisses times in total;
+//     the miss that uses the last ball ends the round. A solved square is a
+//     birdie (2) however many misses came before it (misses cost balls, not
+//     strokes); every square still open at the end is a double bogey (5).
+//     Sunday Red = all nine solved with no misses (18).
+// The rule set for a date comes from a schedule. The built-in one below is
+// the fallback; the live one is /sunday-nine/rules.json (same shape), which
+// the client fetches (the iOS app from teeboxmarket.com) and the Cloud
+// Function bundles (functions/data/sunday-nine-rules.json, kept identical by
+// scripts/sync-sunday-nine.mjs). The server returns the rule set it scored
+// with, and a started round keeps the rule set it started with.
+export const RULES_V3_FROM = "2026-11-13"; // grid No. 6
+export const V3_MAX_MISSES = 3;
+export const RULE_SETS = {
+  v1: {id: "v1", perSquare: MAX_ATTEMPTS, maxMisses: 0},
+  v2: {id: "v2", perSquare: 1, maxMisses: 0},
+  v3: {id: "v3", perSquare: 0, maxMisses: V3_MAX_MISSES},
+};
+export const RULES_SCHEDULE = [
+  {from: SUNDAY_NINE_EPOCH, rules: "v1"},
+  {from: RULES_V3_FROM, rules: "v3", maxMisses: V3_MAX_MISSES},
+  {from: RULES_V2_FROM, rules: "v2"},
+];
+
+// {rules: "v3", maxMisses: 3} (a schedule entry, a stored round or a server
+// reply) -> a full rule set, or null when the id is unknown to this build.
+export function resolveRules(spec) {
+  if (!spec) return null;
+  const id = typeof spec === "string" ? spec : (spec.rules || spec.id);
+  const base = RULE_SETS[id];
+  if (!base) return null;
+  const out = {id: base.id, perSquare: base.perSquare, maxMisses: base.maxMisses};
+  if (base.maxMisses && spec && typeof spec === "object" && Number.isInteger(spec.maxMisses) &&
+      spec.maxMisses >= 1 && spec.maxMisses <= 9) {
+    out.maxMisses = spec.maxMisses;
+  }
+  return out;
+}
+
+// A rules.json body -> a clean schedule (sorted, known ids only), or null.
+export function parseRulesSchedule(doc) {
+  const list = doc && Array.isArray(doc.schedule) ? doc.schedule : null;
+  if (!list) return null;
+  const out = [];
+  for (const e of list) {
+    if (!e || !isDateKey(e.from) || !resolveRules(e)) continue;
+    const entry = {from: e.from, rules: e.rules};
+    if (Number.isInteger(e.maxMisses)) entry.maxMisses = e.maxMisses;
+    out.push(entry);
+  }
+  if (!out.length) return null;
+  out.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+  return out;
+}
+
+// The rule set for a date: the last schedule entry starting on or before it.
+// Falls back to the built-in schedule when none is given or nothing matches.
+export function rulesFor(date, schedule) {
+  for (const sch of [schedule, RULES_SCHEDULE]) {
+    if (!Array.isArray(sch)) continue;
+    let hit = null;
+    for (const e of sch) if (e && e.from <= (date || "")) hit = e;
+    const r = resolveRules(hit);
+    if (r) return r;
+  }
+  return resolveRules("v1");
+}
 export const MIN_ANSWERS_PER_SQUARE = 3;
 // Groups with many mutually exclusive values. Two of them may share an axis
 // (two countries as rows is a fine grid), never opposite axes.
@@ -271,13 +344,13 @@ export function gridForDate(date, players, pinned) {
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────
-// Each square is a par-3 hole. Correct on the first guess = birdie (2),
-// second = par (3), third = bogey (4). Three misses, or giving up on the
+// Each square is a par-3 hole. v1: correct on the first guess = birdie (2),
+// second = par (3), third = bogey (4); three misses, or giving up on the
 // square, = double bogey (5). Nine birdies (18, -9) is a Sunday Red.
-// From RULES_V2_FROM there is one guess per square, so a square is either a
-// birdie (2) or a double bogey (5); the same formula covers both.
-export function strokesFor(cell) {
-  if (cell.pid) return cell.tries + 1;
+// v2 (one guess per square) is the same formula with one try. v3: a solved
+// square is always a birdie (2), an unsolved one at the end a double bogey.
+export function strokesFor(cell, rules) {
+  if (cell.pid) return rules && rules.maxMisses ? 2 : cell.tries + 1;
   if (cell.done) return PAR_PER_HOLE + 2;
   return null;
 }
@@ -286,14 +359,24 @@ export function strokesFor(cell) {
 // the round (open squares score double bogey). Invalid entries are ignored,
 // never trusted: an unknown player, a player already placed in another
 // square, a repeat guess in the same square, or a guess on a closed square.
-export function scoreGame(grid, playersById, guesses, gaveUp) {
-  const maxTries = attemptsFor(grid && grid.date);
+// rules defaults to rulesFor(grid.date). Under v3 every guess after the round
+// ended (last ball used, or all nine solved) is ignored; endedAt is the
+// number of log entries up to and including the guess that ended it.
+export function scoreGame(grid, playersById, guesses, gaveUp, rules) {
+  const R = resolveRules(rules) || rulesFor(grid && grid.date);
+  const maxTries = R.perSquare || Infinity;
+  const strikeOut = R.maxMisses || 0;
   const cells = [];
   for (let i = 0; i < 9; i++) cells.push({pid: null, tries: 0, wrong: [], done: false});
   const used = new Set();
   const cats = [];
   for (let i = 0; i < 9; i++) cats.push(squareCats(grid, i));
-  for (const g of (guesses || [])) {
+  let misses = 0;
+  let endedAt = null;
+  const log = guesses || [];
+  for (let k = 0; k < log.length; k++) {
+    const g = log[k];
+    if (strikeOut && endedAt !== null) break;
     if (!g || !Number.isInteger(g.cell) || g.cell < 0 || g.cell > 8) continue;
     const cell = cells[g.cell];
     if (cell.done) continue;
@@ -305,26 +388,38 @@ export function scoreGame(grid, playersById, guesses, gaveUp) {
       cell.pid = p.id;
       cell.done = true;
       used.add(p.id);
+      if (strikeOut && cells.every((c) => c.pid)) endedAt = k + 1;
     } else {
       cell.wrong.push(p.id);
+      misses++;
       if (cell.tries >= maxTries) cell.done = true;
+      if (strikeOut && misses >= strikeOut) endedAt = k + 1;
     }
   }
-  if (gaveUp) cells.forEach((c) => { c.done = true; });
+  if (gaveUp || endedAt !== null) cells.forEach((c) => { c.done = true; });
   const complete = cells.every((c) => c.done);
   let strokes = 0;
   let played = 0;
   for (const c of cells) {
-    const s = strokesFor(c);
+    const s = strokesFor(c, R);
     if (s !== null) { strokes += s; played++; }
   }
   const correct = cells.filter((c) => c.pid).length;
-  const sundayRed = complete && cells.every((c) => c.pid && c.tries === 1);
-  return {
+  const sundayRed = complete && (strikeOut
+    ? correct === 9 && misses === 0
+    : cells.every((c) => c.pid && c.tries === 1));
+  const out = {
     cells, complete, strokes, correct, sundayRed,
     // Running score vs par for the holes finished so far.
     toPar: strokes - played * PAR_PER_HOLE,
   };
+  if (strikeOut) {
+    out.rules = R.id;
+    out.maxMisses = strikeOut;
+    out.misses = misses;
+    out.endedAt = endedAt;
+  }
+  return out;
 }
 
 export function formatToPar(n) {
@@ -339,9 +434,11 @@ export function holeName(strokes) {
 // Wordle-style share text. The only place Sunday Nine uses emoji.
 const SHARE_MARKS_V1 = {2: "🟥", 3: "⬜", 4: "🟦", 5: "⬛"};
 // One-guess rules: green = birdie, red = miss (founder, 2026-11-09).
+// v3 uses the same: green = solved, red = left open.
 const SHARE_MARKS_V2 = {2: "🟩", 5: "🟥"};
-export function shareText(date, result) {
-  const SHARE_MARKS = oneGuess(date) ? SHARE_MARKS_V2 : SHARE_MARKS_V1;
+export function shareText(date, result, rules) {
+  const R = resolveRules(rules) || rulesFor(date);
+  const SHARE_MARKS = R.id === "v1" ? SHARE_MARKS_V1 : SHARE_MARKS_V2;
   const num = gridNumber(date);
   const lines = ["TeeBox Sunday Nine" + (num >= 1 ? " #" + num : "")];
   lines.push(result.sundayRed
@@ -349,7 +446,7 @@ export function shareText(date, result) {
     : result.strokes + " (" + formatToPar(result.strokes - PAR) + ")");
   for (let r = 0; r < 3; r++) {
     let row = "";
-    for (let c = 0; c < 3; c++) row += SHARE_MARKS[strokesFor(result.cells[r * 3 + c])] || SHARE_MARKS[5];
+    for (let c = 0; c < 3; c++) row += SHARE_MARKS[strokesFor(result.cells[r * 3 + c], R)] || SHARE_MARKS[5];
     lines.push(row);
   }
   lines.push("teeboxmarket.com/sunday-nine");
