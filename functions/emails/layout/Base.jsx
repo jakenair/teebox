@@ -184,7 +184,7 @@ function Base({preview, uid, category = "transactional", children, hideHeader}) 
                   {prettyCategory(category)} email.{" "}
                   <Link href={unsubUrl} style={styles.footerLink}>Unsubscribe</Link>{" "}
                   or{" "}
-                  <Link href="https://teeboxmarket.com/account?tab=email" style={styles.footerLink}>
+                  <Link href="https://teeboxmarket.com/?prefs=email" style={styles.footerLink}>
                     manage preferences
                   </Link>.
                 </Text>

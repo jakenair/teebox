@@ -31,6 +31,13 @@
       location.replace('/?order=' + encodeURIComponent(m[1]) + (hash ? hash : ''));
       return;
     }
+    // Email footers since May 2026 link /account?tab=email ("manage
+    // preferences"), which never existed: send it to the email-preferences
+    // deep link the app handles (?prefs=email; sign-in first for guests).
+    if (/^\/account\/?$/.test(path)) {
+      location.replace('/?prefs=email');
+      return;
+    }
     // Brand SEO: /brand/<slug> works directly; if it's missing, bounce home.
     if (/^\/brand\//.test(path)) {
       location.replace('/');
