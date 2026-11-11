@@ -32,14 +32,55 @@ const S = {
   active: 0,
   built: false,
   giveUpArmed: 0,
+  rules: null,         // rule set for S.date (engine RULE_SETS shape)
+  flash: null,         // {cell, pid, ball, until}: a v3 miss, shown briefly
 };
+
+// Rule set per date (/sunday-nine/rules.json; see engine.js "Rule sets").
+// Web: same-origin, so a push to main changes it. iOS app: the live file on
+// teeboxmarket.com first (GitHub Pages sends ACAO *; the CSP allows it), then
+// the copy bundled in the app, then the engine's built-in schedule.
+const RULES_REMOTE = 'https://teeboxmarket.com/sunday-nine/rules.json';
+const RULES_TTL_MS = 30 * 60 * 1000;
+function isNative() { const C = window.Capacitor; return !!(C && C.isNativePlatform && C.isNativePlatform()); }
+async function fetchJson(url, ms) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const t = ctl ? setTimeout(() => ctl.abort(), ms) : null;
+  try {
+    const r = await fetch(url, { cache: 'no-cache', signal: ctl ? ctl.signal : undefined });
+    return r.ok ? await r.json() : null;
+  } catch (_) { return null; } finally { clearTimeout(t); }
+}
+async function loadSchedule() {
+  let doc = null;
+  if (isNative()) doc = await fetchJson(RULES_REMOTE, 2500);
+  if (!doc) doc = await fetchJson('/sunday-nine/rules.json', 4000);
+  return E.parseRulesSchedule(doc); // null -> built-in schedule
+}
+// The rules a round plays by: a started round keeps the rules it started
+// with; otherwise the schedule's rules for the date.
+function pickRules(date, saved) {
+  if (saved && saved.rules && saved.guesses && saved.guesses.length) {
+    const r = E.resolveRules({ rules: saved.rules, maxMisses: saved.maxMisses });
+    if (r) return r;
+  }
+  return E.rulesFor(date, S.data && S.data.schedule);
+}
+// The server says which rules it scored this round with; it wins.
+function adoptServerRules(sv) {
+  if (!sv || !sv.rules || sv.date !== S.date) return;
+  const r = E.resolveRules({ rules: sv.rules, maxMisses: sv.maxMisses });
+  if (r) S.rules = r;
+}
+const misses = (n) => n + ' ' + (n === 1 ? 'miss' : 'misses');
 
 // ── Storage (every access guarded: private mode / blocked storage) ─────
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
 
 function saveLocal() {
-  lsSet(LS_GAME + S.date, { guesses: S.guesses, gaveUp: S.gaveUp, grid: { rows: S.grid.rows, cols: S.grid.cols } });
+  const r = S.rules || E.rulesFor(S.date);
+  lsSet(LS_GAME + S.date, { guesses: S.guesses, gaveUp: S.gaveUp, grid: { rows: S.grid.rows, cols: S.grid.cols }, rules: r.id, maxMisses: r.maxMisses });
 }
 function loadLocal(date) { return lsGet(LS_GAME + date, null); }
 
@@ -54,25 +95,33 @@ const toast = (m) => { if (window.showToast) window.showToast(m); };
 
 // ── Data ────────────────────────────────────────────────────────────────
 async function loadData() {
-  if (S.data) return S.data;
-  const [pr, gr, lr] = await Promise.all([
+  if (S.data) {
+    if (Date.now() - S.data.scheduleAt > RULES_TTL_MS) {
+      const sch = await loadSchedule();
+      if (sch) S.data.schedule = sch;
+      S.data.scheduleAt = Date.now();
+    }
+    return S.data;
+  }
+  const [pr, gr, lr, schedule] = await Promise.all([
     fetch('/sunday-nine/players.json', { cache: 'no-cache' }),
     fetch('/sunday-nine/grids.json', { cache: 'no-cache' }),
     fetch('/sunday-nine/logos.json', { cache: 'no-cache' }).catch(() => null),
+    loadSchedule(),
   ]);
   if (!pr.ok || !gr.ok) throw new Error('sunday-nine data ' + pr.status + '/' + gr.status);
   const players = (await pr.json()).players;
   const pinned = (await gr.json()).grids;
   let logos = {};
   try { if (lr && lr.ok) logos = (await lr.json()).logos || {}; } catch (_) {}
-  S.data = { players, byId: Object.fromEntries(players.map((p) => [p.id, p])), pinned, logos };
+  S.data = { players, byId: Object.fromEntries(players.map((p) => [p.id, p])), pinned, logos, schedule, scheduleAt: Date.now() };
   return S.data;
 }
 
 function ensureCss() {
   if (document.getElementById('s9Css')) return;
   const l = document.createElement('link');
-  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=r405';
+  l.id = 's9Css'; l.rel = 'stylesheet'; l.href = '/sunday-nine/sunday-nine.css?v=r408';
   document.head.appendChild(l);
 }
 
@@ -120,6 +169,7 @@ function build() {
         <div><span class="s9-stat-l">Score</span><span class="s9-stat-v" id="s9ToPar">E</span></div>
         <div><span class="s9-stat-l">Thru</span><span class="s9-stat-v" id="s9Thru">0</span></div>
         <div><span class="s9-stat-l">Streak</span><span class="s9-stat-v" id="s9Streak">0</span></div>
+        <div class="s9-strikes" id="s9Strikes" hidden><span class="s9-stat-l">Misses</span><span class="s9-balls" id="s9Balls" role="img"></span></div>
       </div>
       <div class="s9-grid light-heads" id="s9Grid" role="grid" aria-label="Sunday Nine grid"></div>
       <div class="s9-footer">
@@ -173,12 +223,13 @@ function build() {
 }
 
 function result() {
-  const local = E.scoreGame(S.grid, S.data.byId, S.guesses, S.gaveUp);
-  // The server's replay wins when it has seen the same log (it may run on
-  // newer data than a cached players.json).
+  if (!S.rules) S.rules = E.rulesFor(S.date, S.data.schedule);
+  const local = E.scoreGame(S.grid, S.data.byId, S.guesses, S.gaveUp, S.rules);
+  // The server's replay wins when it has seen the same log under the same
+  // rules (it may run on newer data than a cached players.json).
   const sv = S.server;
-  if (sv && sv.date === S.date && sv.guesses && sv.guesses.length === S.guesses.length && !!sv.gaveUp === !!S.gaveUp) {
-    return { cells: sv.cells, complete: sv.complete, strokes: sv.strokes, toPar: sv.toPar, correct: sv.correct, sundayRed: sv.sundayRed };
+  if (sv && sv.date === S.date && (sv.rules || 'v1') === S.rules.id && sv.guesses && sv.guesses.length === S.guesses.length && !!sv.gaveUp === !!S.gaveUp) {
+    return { cells: sv.cells, complete: sv.complete, strokes: sv.strokes, toPar: sv.toPar, correct: sv.correct, sundayRed: sv.sundayRed, misses: sv.misses || 0 };
   }
   return local;
 }
@@ -236,11 +287,30 @@ function render() {
     ? 'Grid No. 1 · Admin preview'
     : (num >= 1 ? 'No. ' + num + ' · ' : 'Preview · ') + prettyDate(S.date);
 
-  const one = E.oneGuess(S.date);
+  const R = S.rules;
+  const strikes = R.maxMisses || 0;
+  const missesLeft = strikes ? Math.max(0, strikes - (r.misses || 0)) : 0;
+  const flash = S.flash && S.flash.until > Date.now() ? S.flash : null;
   const sub = document.getElementById('s9Sub');
-  if (sub) sub.innerHTML = one
+  if (sub) sub.innerHTML = strikes
+    ? `Name a pro who fits <strong>both</strong> the row and the column. You get ${strikes} misses for the whole grid: get a square right for a birdie, and any square left when you're out is a double bogey. Each player only once.`
+    : R.id === 'v2'
     ? 'Name a pro who fits <strong>both</strong> the row and the column. One guess per square: right is a birdie, wrong is a double bogey. Each player only once.'
     : 'Name a pro who fits <strong>both</strong> the row and the column. Nine holes, par 27. First guess right is a birdie. Three guesses per square, and each player only once.';
+  // Strike-limit rules: one golf ball per miss allowed; each miss greys one.
+  const sw = document.getElementById('s9Strikes');
+  sw.hidden = !strikes;
+  sw.parentElement.classList.toggle('with-strikes', !!strikes);
+  if (strikes) {
+    let balls = '';
+    for (let k = 0; k < strikes; k++) {
+      const lost = k >= missesLeft;
+      balls += `<i class="s9-ball${lost ? ' lost' : ''}${lost && flash && flash.ball === k ? ' dropping' : ''}"></i>`;
+    }
+    const bl = document.getElementById('s9Balls');
+    bl.innerHTML = balls;
+    bl.setAttribute('aria-label', `${misses(missesLeft)} left of ${strikes}`);
+  }
   let html = `<div class="s9-corner" aria-hidden="true">Par 27<small>9 holes</small></div>`;
   for (let c = 0; c < 3; c++) html += catHtml(g.cols[c], false);
   for (let row = 0; row < 3; row++) {
@@ -248,7 +318,7 @@ function render() {
     for (let c = 0; c < 3; c++) {
       const i = row * 3 + c;
       const cell = r.cells[i];
-      const strokes = E.strokesFor(cell);
+      const strokes = E.strokesFor(cell, R);
       const label = `Hole ${i + 1}: ${catLabel(g.rows[row])} and ${catLabel(g.cols[c])}`;
       if (cell.pid) {
         const p = S.data.byId[cell.pid];
@@ -263,8 +333,14 @@ function render() {
           <span class="s9-hole">Hole ${i + 1}</span>
           ${g ? `<s class="s9-guessed">${esc(g.n)}</s>` : '<span class="s9-guessed none">No answer</span>'}
           ${scoreChip(5)}</button>`;
+      } else if (strikes) {
+        // Open square under strike-limit rules: no per-square dots. A miss
+        // flashes it red with the guess crossed out, then it is open again.
+        const fl = flash && flash.cell === i ? S.data.byId[flash.pid] : null;
+        html += `<button class="s9-cell${fl ? ' flash' : ''}" data-cell="${i}" type="button" ${r.complete ? 'disabled' : ''} aria-label="${esc(label)}. ${misses(missesLeft)} left for the grid">
+          <span class="s9-hole">Hole ${i + 1}</span>${fl ? `<s class="s9-guessed">${esc(fl.n)}</s>` : ''}</button>`;
       } else {
-        const max = E.attemptsFor(S.date);
+        const max = R.perSquare || E.MAX_ATTEMPTS;
         let dots = '';
         if (max > 1) for (let t = 0; t < max; t++) dots += `<i class="${t < cell.tries ? 'used' : ''}"></i>`;
         html += `<button class="s9-cell" data-cell="${i}" type="button" ${r.complete ? 'disabled' : ''} aria-label="${esc(label)}. ${max - cell.tries} ${max - cell.tries === 1 ? 'guess' : 'guesses'} left">
@@ -285,7 +361,9 @@ function render() {
   gu.style.display = r.complete ? 'none' : '';
   gu.textContent = S.giveUpArmed > Date.now() ? 'Tap again to end' : 'End round';
   document.getElementById('s9Msg').textContent = r.complete
-    ? 'Round complete. New grid at midnight Central.'
+    ? (strikes && !missesLeft ? 'Out of misses. New grid at midnight Central.' : 'Round complete. New grid at midnight Central.')
+    : strikes
+    ? (thru === 0 && !r.misses ? 'Tap a square to tee off.' : `${9 - thru} to play, ${misses(missesLeft)} left.`)
     : thru === 0 ? 'Tap a square to tee off.' : `${9 - thru} to play.`;
   renderDone(r);
   renderAnswers(r);
@@ -326,7 +404,9 @@ function renderDone(r) {
   const toPar = E.formatToPar(r.strokes - E.PAR);
   const eyebrow = r.sundayRed ? 'Sunday Red' : r.strokes < E.PAR ? 'Under par' : r.strokes === E.PAR ? 'Even par' : 'Round complete';
   const sub = r.sundayRed
-    ? 'Nine birdies. A perfect grid.'
+    ? (S.rules.maxMisses ? 'Nine birdies, no misses. A perfect grid.' : 'Nine birdies. A perfect grid.')
+    : S.rules.maxMisses
+    ? `${r.correct} of 9 squares, ${misses(r.misses || 0)}`
     : `${r.correct} of 9 squares, ${r.cells.filter((c) => c.pid && c.tries === 1).length} birdies`;
   const guest = uid() ? '' :
     '<div class="s9-guestnote">Playing as a guest. <button type="button" data-action="s9-sign-in">Sign in</button> to keep your streak on every device.</div>';
@@ -378,8 +458,12 @@ function openGuess(i) {
   S.active = 0;
   const [rc, cc] = E.squareCats(S.grid, i);
   document.getElementById('s9SheetQ').innerHTML = `<span>Hole ${i + 1}</span>${esc(rc.label)} + ${esc(cc.label)}`;
-  const left = E.attemptsFor(S.date) - r.cells[i].tries;
-  document.getElementById('s9Left').textContent = E.oneGuess(S.date)
+  const R = S.rules;
+  const left = (R.perSquare || 0) - r.cells[i].tries;
+  const mLeft = Math.max(0, (R.maxMisses || 0) - (r.misses || 0));
+  document.getElementById('s9Left').textContent = R.maxMisses
+    ? `${misses(mLeft)} left for the grid. Right is a birdie.`
+    : R.id === 'v2'
     ? 'One guess on this hole: right is a birdie, wrong is a double bogey.'
     : `${left} ${left === 1 ? 'guess' : 'guesses'} left on this hole.`;
   const wrong = r.cells[i].wrong.map((id) => (S.data.byId[id] || {}).n).filter(Boolean);
@@ -426,9 +510,20 @@ function submitGuess(pid) {
   const cell = r.cells[i];
   closeGuess();
   const name = S.data.byId[pid].n;
-  if (cell.pid === pid) toast(`${name}. ${E.holeName(E.strokesFor(cell))}.`);
+  const R = S.rules;
+  if (cell.pid === pid) toast(`${name}. ${E.holeName(E.strokesFor(cell, R))}.`);
+  else if (R.maxMisses) {
+    if ((r.misses || 0) > (before.misses || 0)) {
+      const mLeft = Math.max(0, R.maxMisses - r.misses);
+      toast(mLeft ? `${name} doesn't fit. ${misses(mLeft)} left.` : `${name} doesn't fit. Out of misses: round over.`);
+      // Flash the square red with the guess crossed out, grey one ball.
+      const until = Date.now() + 1600;
+      S.flash = { cell: i, pid, ball: mLeft, until };
+      setTimeout(() => { if (S.flash && S.flash.until === until) { S.flash = null; render(); } }, 1650);
+    }
+  }
   else if (cell.done) toast(`${name} doesn't fit. Double bogey.`);
-  else if (cell.tries > before.cells[i].tries) toast(`${name} doesn't fit. ${E.attemptsFor(S.date) - cell.tries} left.`);
+  else if (cell.tries > before.cells[i].tries) toast(`${name} doesn't fit. ${(R.perSquare || E.MAX_ATTEMPTS) - cell.tries} left.`);
   afterChange(r);
 }
 
@@ -453,7 +548,7 @@ function giveUp() {
 async function share() {
   const r = result();
   if (!r.complete) return;
-  const text = E.shareText(S.date, r);
+  const text = E.shareText(S.date, r, S.rules);
   if (typeof window.shareOrFallback === 'function') {
     const how = await window.shareOrFallback({ title: 'TeeBox Sunday Nine', text });
     if (how === 'copied') toast('Copied your card.');
@@ -484,11 +579,13 @@ async function drainQueue() {
       const saved = loadLocal(date);
       if (!saved) { lsSet(LS_QUEUE, lsGet(LS_QUEUE, []).filter((d) => d !== date)); continue; }
       try {
-        const res = await call({ date, guesses: saved.guesses || [], gaveUp: !!saved.gaveUp });
+        const res = await call({ date, guesses: saved.guesses || [], gaveUp: !!saved.gaveUp, rules: saved.rules || null });
         const d = res.data || {};
+        if (date === S.date && d.state) adoptServerRules(d.state);
         if (d.conflict && d.state && date === S.date) {
           // The server holds an earlier log this one doesn't extend (played
-          // on another device). Its round stands.
+          // on another device), or it dropped guesses made after the round
+          // ended. Its round stands.
           S.guesses = d.state.guesses.slice();
           S.gaveUp = !!d.state.gaveUp;
           saveLocal();
@@ -528,6 +625,7 @@ async function hydrateFromServer() {
     if (st.exists()) S.stats = st.data();
     if (g.exists()) {
       const sv = g.data();
+      adoptServerRules(sv);
       // Another device got further (or finished): adopt its log.
       if ((sv.guesses || []).length > S.guesses.length || (sv.complete && !result().complete)) {
         S.guesses = (sv.guesses || []).slice();
@@ -579,6 +677,8 @@ export async function openSundayNine() {
     S.grid = saved && saved.grid ? { date, rows: saved.grid.rows, cols: saved.grid.cols } : E.gridForDate(date, S.data.players, S.data.pinned);
     S.guesses = (saved && saved.guesses) || [];
     S.gaveUp = !!(saved && saved.gaveUp);
+    S.rules = pickRules(date, saved);
+    S.flash = null;
   }
   render();
   // A round started as a guest syncs once the player is signed in.
@@ -616,6 +716,8 @@ async function openPrelaunch(date) {
     S.guesses = d.state.guesses.slice();
     S.gaveUp = !!d.state.gaveUp;
     S.server = d.state;
+    S.rules = E.rulesFor(date, S.data.schedule);
+    adoptServerRules(d.state);
     if (d.stats) S.stats = d.stats;
     saveLocal();
     showGame(true);

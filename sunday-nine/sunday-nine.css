@@ -162,3 +162,40 @@
 .s9-grid.light-heads .s9-medal svg { width: 26px; height: 26px; }
 .s9-grid.light-heads .s9-cat-t { font-family: var(--font-display); font-weight: 700; font-size: 12px; line-height: 1.15; color: var(--green-900); -webkit-line-clamp: 3; }
 @media (max-width: 380px) { .s9-grid.light-heads .s9-cat-t { font-size: 11px; } .s9-grid.light-heads .s9-med { height: 26px; } .s9-grid.light-heads .s9-logo { max-height: 26px; } }
+
+/* v3, three misses for the whole grid: a fourth score-bar slot holds one
+   golf ball per miss allowed. A miss greys the next ball out (right to left)
+   and flashes the square it was made on. */
+.s9-scorebar.with-strikes { grid-template-columns: repeat(4, 1fr); }
+.s9-strikes { display: flex; flex-direction: column; align-items: center; }
+.s9-strikes[hidden] { display: none; }
+.s9-balls { display: flex; align-items: center; justify-content: center; gap: 5px; height: 1.2rem; margin-top: 2px; }
+.s9-ball { position: relative; width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  /* dimples over a lit sphere */
+  background:
+    radial-gradient(circle, rgba(60,70,55,0.20) 0 0.65px, transparent 0.95px) 0 0 / 3px 3px,
+    radial-gradient(circle at 34% 28%, #ffffff 0 22%, #f3f4ef 48%, #d5d9cf 82%, #bcc2b5 100%);
+  box-shadow: inset -1px -1.5px 2px rgba(0,0,0,0.16), 0 0 0 1px var(--gray-300), 0 1px 1.5px rgba(0,0,0,0.18);
+  transition: opacity 0.35s, filter 0.35s, transform 0.35s; }
+.s9-ball.lost { background:
+    radial-gradient(circle, rgba(0,0,0,0.12) 0 0.65px, transparent 0.95px) 0 0 / 3px 3px,
+    var(--gray-300);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); opacity: 0.4; transform: scale(0.86); }
+.s9-ball.dropping { animation: s9-ball-drop 0.6s ease-out; }
+@keyframes s9-ball-drop { 0% { transform: scale(1.25); background: #6e2621; opacity: 1; } 100% { transform: scale(1); } }
+/* A wrong guess on an open square: red for a moment, the guess crossed out,
+   then the square is open again. */
+.s9-cell.flash { animation: s9-miss-flash 1.6s ease-in forwards; gap: 4px; }
+.s9-cell.flash .s9-hole { color: rgba(255,255,255,0.55); }
+.s9-cell.flash .s9-guessed { animation: s9-miss-text 1.6s ease-in forwards; }
+@keyframes s9-miss-flash {
+  0%, 70% { background: #6e2621; border-color: #5a1e1a; color: #f4dcd8; }
+  100% { background: var(--white); border-color: var(--gray-200); color: var(--gray-900); }
+}
+@keyframes s9-miss-text { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-width: 380px) { .s9-ball { width: 13px; height: 13px; } .s9-balls { gap: 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  .s9-ball, .s9-ball.dropping { animation: none; transition: none; }
+  .s9-cell.flash { animation: none; background: #6e2621; border-color: #5a1e1a; color: #f4dcd8; }
+  .s9-cell.flash .s9-guessed { animation: none; }
+}
