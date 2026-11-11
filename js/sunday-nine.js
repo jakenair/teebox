@@ -632,7 +632,8 @@ export function closeSundayNine() {
   (document.getElementById('app-scroll') || document.body).style.overflowY = '';
   try {
     const u = new URL(window.location.href);
-    if (u.searchParams.get('play') === 'sunday-nine') { u.searchParams.delete('play'); history.replaceState({}, '', u.pathname + u.search + u.hash); }
+    // r406: on the web the URL router owns the address bar.
+    if (!window.__tbRouter && u.searchParams.get('play') === 'sunday-nine') { u.searchParams.delete('play'); history.replaceState({}, '', u.pathname + u.search + u.hash); }
   } catch (_) {}
 }
 

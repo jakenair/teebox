@@ -14627,6 +14627,10 @@ const __OV = {
                isOpen: () => !!document.querySelector('.info-backdrop.open') },
 };
 const __ovStack = [];
+// r406: the overlay stack below is the NATIVE app's history model (unchanged).
+// On the web the URL router at the end of this section owns history instead:
+// every view gets its own URL, Back/Forward/reload all work from it.
+const __TB_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 function __ovIsOpen(name) {
   const o = __OV[name]; if (!o) return false;
   if (o.isOpen) return o.isOpen();
@@ -14655,6 +14659,7 @@ function __tbPvKey(pathname, search) {
 }
 try { window.__tbLastPvUrl = __tbPvKey(location.pathname, location.search); } catch (_e) {}
 window.__pushOverlay = function(name, url) {
+  if (!__TB_NATIVE) return; // web: the r406 router records history from the DOM
   try {
     __ovStack.push(name);
     history.pushState({ tb: name }, '', url || null);
@@ -14756,13 +14761,13 @@ window.addEventListener('load', () => {
   }
 });
 
-window.addEventListener('popstate', () => {
+if (__TB_NATIVE) window.addEventListener('popstate', () => {
   const name = __ovStack.pop();
   if (name && __ovIsOpen(name)) __ovClose(name);
   // URL is whatever the history entry says — for detail that returns the
   // address bar from /?listing=<id> to the previous state automatically.
 });
-window.addEventListener('load', () => {
+if (__TB_NATIVE) window.addEventListener('load', () => {
   // Wrap closers for stack/history sync (after ALL registrations exist).
   Object.keys(__OV).forEach((name) => {
     const act = __OV[name].act;
@@ -14795,6 +14800,309 @@ window.addEventListener('load', () => {
     };
   });
 });
+// ─────────────────────────────────────────────────────────────
+// r406: WEB URL ROUTER. Every main view has its own URL; Back/Forward walk
+// them and a reload lands on the same view. Web only: the native app keeps
+// the r156 overlay stack above, unchanged.
+//
+// It never wraps an opener or closer. It watches the view elements' `open`
+// class (MutationObserver), so every route into a view counts, including the
+// ones that bypass the action table, and the history always describes what
+// is actually on screen:
+//   • a view opening → pushState with its URL;
+//   • a view closing by its own X → if the previous entry is exactly the
+//     state we are returning to, history.back() (consume the entry, so Back
+//     doesn't reopen what the user just closed); otherwise pushState;
+//   • Back/Forward → close what the target entry doesn't have and open what
+//     it does (from its saved state, or parsed from the URL);
+//   • reload → the browser keeps history.state, and the URL itself is a deep
+//     link the boot handlers already understand (?listing, ?seller, ?play) or
+//     that the router opens (?view=shop|sell|passport).
+// While a target is being restored (boot, Back/Forward), state changes
+// replace the current entry instead of pushing, until the target is on
+// screen or the user touches something.
+//
+// URL map:  home /   listing /?listing=ID   checkout /?listing=ID&view=checkout
+//   (a reload reopens the listing, not a payment form)   sell /?view=sell
+//   My Shop /?view=shop   Logo Bingo /?play=bingo   Sunday Nine /?play=sunday-nine
+//   Passport /?view=passport   profile /?seller=UID
+// Overlays without a URL of their own (search, inbox, chat, orders, activity,
+// filter sheet, notifications, drawer, info pages) still get a history entry
+// so Back closes them, under the URL of the view beneath.
+// ─────────────────────────────────────────────────────────────
+if (!__TB_NATIVE) (function tbRouter() {
+  const enc = (v) => encodeURIComponent(String(v));
+  const byId = (id) => document.getElementById(id);
+  const isOpenEl = (id) => { const el = byId(id); return !!(el && el.classList.contains('open')); };
+  const act = (name) => () => { const f = A[name]; if (typeof f === 'function') f(); };
+  const LAYERS = {
+    detail:   { el: 'detailBackdrop', arg: () => currentDetailId,
+                url: (a) => '/?listing=' + enc(a),
+                open: (a) => window.openDetailModal && window.openDetailModal(a), close: act('close-detail-direct') },
+    // The listing sheet may close under the checkout, so checkout keeps the
+    // last listing id it saw. Restoring it reopens the LISTING, never a
+    // payment form (no PaymentIntent from a Back/Forward/reload).
+    checkout: { el: 'checkoutBackdrop', arg: () => currentDetailId || lastDetailId,
+                url: (a) => a ? '/?listing=' + enc(a) + '&view=checkout' : null,
+                open: (a) => a && window.openDetailModal && window.openDetailModal(a), close: act('close-checkout-direct') },
+    sell:     { el: 'sellModalBackdrop', url: () => '/?view=sell',
+                open: () => window.handleSellClick && window.handleSellClick(), close: act('close-sell-direct') },
+    shop:     { el: 'shopDashboard', url: () => '/?view=shop', open: act('open-shop-dashboard'), close: act('close-shop-dashboard') },
+    bingo:    { el: 'bingoScreen', url: () => '/?play=bingo', open: () => window.openBingo && window.openBingo(), close: act('close-bingo') },
+    s9:       { el: 's9Screen', url: () => '/?play=sunday-nine', open: () => window.openSundayNine && window.openSundayNine(), close: act('close-sunday-nine') },
+    passport: { el: 'passportFeedScreen', url: () => '/?view=passport', open: () => window.openPassportFeed && window.openPassportFeed(), close: act('close-passport-feed') },
+    profile:  { el: 'profileBackdrop', arg: () => window.__lastProfileUid,
+                url: (a) => a ? '/?seller=' + enc(a) : null,
+                open: (a) => window.openProfile && window.openProfile(a), close: act('close-profile') },
+    search:   { el: 'searchOverlay', close: act('close-search') },
+    inbox:    { el: 'inboxBackdrop', close: act('close-inbox') },
+    chat:     { el: 'chatBackdrop', close: act('close-chat') },
+    orders:   { el: 'ordersBackdrop', close: () => { const e = byId('ordersBackdrop'); if (e) e.classList.remove('open'); } },
+    activity: { el: 'activityBackdrop', close: act('close-activity') },
+    filtersheet: { el: 'filterSheetBackdrop', close: act('close-filter-sheet') },
+    notif:    { el: 'notifPanel', close: act('close-notifications') },
+    drawer:   { el: 'mobileNavDrawer', close: act('close-mobile-nav') },
+    info:     { isOpen: () => !!document.querySelector('.info-backdrop.open:not(#profileBackdrop)'), close: act('close-info') },
+  };
+  const layerOpen = (n) => (LAYERS[n].isOpen ? LAYERS[n].isOpen() : isOpenEl(LAYERS[n].el));
+
+  // Open order: a layer's position is when it last became open.
+  let seq = 0;
+  const openedAt = {};
+  function stamp() {
+    Object.keys(LAYERS).forEach((n) => {
+      const o = layerOpen(n);
+      if (o && !openedAt[n]) openedAt[n] = ++seq;
+      else if (!o && openedAt[n]) delete openedAt[n];
+    });
+  }
+  // A state is a list of "name" or "name:arg" tokens, bottom → top.
+  let lastDetailId = null;
+  function current() {
+    if (currentDetailId) lastDetailId = currentDetailId;
+    stamp();
+    // Bottom → top as the user SEES it: CSS stacking first (Logo Bingo, z 320,
+    // sits over My Shop, z 200, whatever order they opened in), then open order.
+    const z = {};
+    Object.keys(openedAt).forEach((n) => {
+      const el = LAYERS[n].el ? byId(LAYERS[n].el) : document.querySelector('.info-backdrop.open:not(#profileBackdrop)');
+      let v = 0;
+      try { v = parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (_e) {}
+      z[n] = v;
+    });
+    return Object.keys(openedAt).sort((a, b) => (z[a] - z[b]) || (openedAt[a] - openedAt[b])).map((n) => {
+      const a = LAYERS[n].arg && LAYERS[n].arg();
+      return a ? n + ':' + a : n;
+    });
+  }
+  const split = (t) => { const i = t.indexOf(':'); return i < 0 ? [t, ''] : [t.slice(0, i), t.slice(i + 1)]; };
+  function urlFor(tokens) {
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const [n, a] = split(tokens[i]);
+      const u = LAYERS[n] && LAYERS[n].url && LAYERS[n].url(a);
+      if (u) return u;
+    }
+    return '/';
+  }
+  function parse(loc) {
+    const q = new URLSearchParams(loc.search || '');
+    const sp = (loc.pathname.match(/^\/seller\/([A-Za-z0-9_\-]+)\/?$/) || [])[1];
+    if (q.get('listing')) return ['detail:' + q.get('listing')]; // ?view=checkout reopens the listing
+    if (q.get('seller') || sp) return ['profile:' + (q.get('seller') || sp)];
+    if (q.get('play') === 'bingo') return ['bingo'];
+    if (q.get('play') === 'sunday-nine') return ['s9'];
+    const v = q.get('view');
+    if (v === 'shop' || v === 'sell' || v === 'passport') return [v];
+    return [];
+  }
+  const keyOf = (t) => t.join('|');
+
+  // Our own copy of the session's entries (history won't let us read other
+  // entries' state). sessionStorage, so a reload keeps it; a fresh visit resets.
+  const SS = 'tb_router_v1';
+  let entries = [];
+  let idx = 0;
+  try {
+    const st = history.state;
+    if (st && typeof st.tbIdx === 'number') {
+      idx = st.tbIdx;
+      entries = JSON.parse(sessionStorage.getItem(SS) || '[]');
+    }
+  } catch (_e) { entries = []; }
+  const save = () => { try { sessionStorage.setItem(SS, JSON.stringify(entries)); } catch (_e) {} };
+
+  // Other code calls history.replaceState({}, …) to tidy a URL. Keep our
+  // fields on the entry when it does, so Back still knows what it was.
+  const rawReplace = history.replaceState.bind(history);
+  const rawPush = history.pushState.bind(history);
+  history.replaceState = function (state, title, url) {
+    const cur = history.state;
+    if (cur && typeof cur.tbIdx === 'number' && (!state || typeof state.tbIdx !== 'number')) {
+      state = Object.assign({}, state || {}, { tbIdx: cur.tbIdx, tbKey: cur.tbKey });
+    }
+    return rawReplace(state, title, url);
+  };
+
+  // r278 PageView per real URL change, once per URL per page load.
+  function pageView() {
+    try {
+      const here = __tbPvKey(location.pathname, location.search);
+      if (here === window.__tbLastPvUrl) return;
+      window.__tbLastPvUrl = here;
+      window.__tbSeenPv = window.__tbSeenPv || {};
+      if (window.__tbSeenPv[here]) return;
+      window.__tbSeenPv[here] = true;
+      window.fbTrack && window.fbTrack('PageView', {},
+        { eventID: 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) });
+    } catch (_e) { /* analytics must never break navigation */ }
+  }
+  const here = () => location.pathname + location.search;
+  function write(tokens, mode) {
+    const key = keyOf(tokens);
+    const url = urlFor(tokens);
+    try {
+      if (mode === 'push') {
+        idx += 1;
+        rawPush({ tbIdx: idx, tbKey: key }, '', url);
+      } else {
+        rawReplace({ tbIdx: idx, tbKey: key }, '', url === here() ? null : url);
+      }
+      entries[idx] = key;
+      if (mode === 'push') entries.length = idx + 1; // a replace keeps Forward intact
+      save();
+      pageView();
+    } catch (_e) {}
+  }
+
+  // Restoring toward a target (boot / Back / Forward): replace, don't push.
+  let target = null;        // key we're restoring toward, or null
+  let targetUntil = 0;
+  let expectPop = 0;        // pops we triggered ourselves (closing by X)
+  let linkNav = false;      // Home was clicked: a link, so it always gets its own entry
+  function settleTarget(key) {
+    if (target === null) return;
+    if (key === target || Date.now() > targetUntil) target = null;
+  }
+  ['pointerdown', 'keydown'].forEach((t) =>
+    document.addEventListener(t, () => { target = null; }, true));
+
+  let queued = false;
+  function sync() {
+    queued = false;
+    const tokens = current();
+    const key = keyOf(tokens);
+    const st = history.state;
+    const curKey = st && typeof st.tbIdx === 'number' ? st.tbKey : null;
+    if (expectPop > 0) { setTimeout(queue, 50); return; } // our own back() hasn't landed yet
+    // Nothing on screen changed: leave the URL alone (boot params like fbclid,
+    // ?sell=1 or ?preview are read later by their own handlers).
+    if (key === curKey) { settleTarget(key); return; }
+    if (target !== null) { write(tokens, 'replace'); settleTarget(key); return; }
+    const isLink = linkNav; linkNav = false;
+    if (!isLink && idx > 0 && entries[idx - 1] === key) {
+      // Closed by its own X back to exactly the previous state: consume the entry.
+      expectPop += 1;
+      idx -= 1;
+      try { history.back(); } catch (_e) { expectPop -= 1; idx += 1; write(tokens, 'push'); }
+      return;
+    }
+    write(tokens, 'push');
+  }
+  const queue = () => { if (!queued) { queued = true; setTimeout(sync, 0); } };
+
+  function restore(tokens) {
+    const want = new Set(tokens);
+    const now = current();
+    // Close top-down whatever the target doesn't have.
+    for (let i = now.length - 1; i >= 0; i--) {
+      if (!want.has(now[i])) { try { LAYERS[split(now[i])[0]].close(); } catch (_e) {} }
+    }
+    // Open bottom-up whatever it has that isn't open (views with an opener).
+    const have = new Set(current());
+    tokens.forEach((t) => {
+      if (have.has(t)) return;
+      const [n, a] = split(t);
+      const L = LAYERS[n];
+      if (L && L.open) { try { L.open(a || undefined); } catch (_e) {} }
+    });
+  }
+  window.addEventListener('popstate', (ev) => {
+    const st = ev.state;
+    if (st && typeof st.tbIdx === 'number') idx = st.tbIdx;
+    if (expectPop > 0) { expectPop -= 1; return; }
+    const tokens = st && typeof st.tbKey === 'string' ? (st.tbKey ? st.tbKey.split('|') : []) : parse(location);
+    if (!st || typeof st.tbIdx !== 'number') {
+      // An entry we didn't make (a stray "#" link, an old bookmark): adopt it.
+      rawReplace({ tbIdx: idx, tbKey: keyOf(tokens) }, '', null);
+    }
+    target = keyOf(tokens);
+    targetUntil = Date.now() + 8000;
+    restore(tokens);
+    queue();
+  });
+
+  // Boot: stamp the landing entry with what its URL asks for, and treat it as
+  // a restore target (the existing deep-link handlers open listing / seller /
+  // bingo / Sunday Nine; the router opens the views only it knows about).
+  try { window.metaTestEventCode && window.metaTestEventCode(); } catch (_e) {} // keep ?meta_test for the session
+  const boot = parse(location);
+  if (!(history.state && typeof history.state.tbIdx === 'number')) { entries = []; idx = 0; }
+  // The entry records what is ON SCREEN (nothing yet); the URL's view is the
+  // restore target, so its URL is written once that view has actually opened.
+  rawReplace({ tbIdx: idx, tbKey: '' }, '', null);
+  entries[idx] = ''; save();
+  if (boot.length) { target = keyOf(boot); targetUntil = Date.now() + 15000; }
+  const routerOnly = boot.length && /^(shop|sell|passport)$/.test(boot[0]) ? boot[0] : null;
+  if (routerOnly) {
+    // Wait until the welcome screen is past (signed in, or chose guest).
+    let tries = 0;
+    const go = () => {
+      if (window.CURRENT_USER || window.GUEST_MODE) { if (!layerOpen(routerOnly)) LAYERS[routerOnly].open(); return; }
+      if (++tries < 200) setTimeout(go, 300);
+    };
+    window.addEventListener('load', () => setTimeout(go, 400), { once: true });
+  }
+
+  // Watch every layer element's class. Sunday Nine builds its screen on first
+  // open (appended to <body>), so new body children are picked up as they come.
+  const mo = new MutationObserver(queue);
+  const watched = new WeakSet();
+  const watch = (el) => { if (el && !watched.has(el)) { watched.add(el); mo.observe(el, { attributes: true, attributeFilter: ['class'] }); } };
+  const observeAll = () => {
+    Object.keys(LAYERS).forEach((n) => watch(LAYERS[n].el && byId(LAYERS[n].el)));
+    document.querySelectorAll('.info-backdrop').forEach(watch);
+  };
+  observeAll();
+  try { new MutationObserver(() => { observeAll(); queue(); }).observe(document.body, { childList: true }); } catch (_e) {}
+  window.addEventListener('load', () => { observeAll(); stamp(); queue(); }, { once: true });
+
+  // "#" links (nav ribbon, drawer, logo) used to append "#" and leave a dead
+  // history entry behind; the router owns navigation, so they don't navigate.
+  document.addEventListener('click', (ev) => {
+    const a = ev.target && ev.target.closest && ev.target.closest('a[href="#"]');
+    if (a) ev.preventDefault();
+  }, true);
+
+  // Home (logo, bottom-nav Home, drawer Home): close EVERY view, not just
+  // the ones bn-home's own list knows about (Sunday Nine, Passport, info pages…).
+  window.addEventListener('load', () => {
+    const orig = A['bn-home'];
+    if (typeof orig !== 'function') return;
+    A['bn-home'] = function (el, ev) {
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      window.__returnToProfile = false;
+      linkNav = true; target = null;
+      const r = orig.apply(this, arguments);
+      current().slice().reverse().forEach((t) => { const n = split(t)[0]; if (layerOpen(n)) { try { LAYERS[n].close(); } catch (_e) {} } });
+      const p = byId('profileBackdrop'); if (p) { p.classList.remove('nav-behind'); p.classList.remove('open'); }
+      (byId('app-scroll') || document.body).style.overflowY = '';
+      return r;
+    };
+  }, { once: true });
+
+  window.__tbRouter = { current, parse, urlFor, entries: () => entries.slice(), idx: () => idx };
+})();
+
 A['detail-buy-now']          = () => {
   // r348 LIST-FIRST: in "Seller is finishing setup" mode the Buy slot records
   // interest instead of opening checkout (which would 409 server-side anyway).
