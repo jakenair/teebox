@@ -41,7 +41,7 @@
 .s9-medal svg path:not(.s9-medal-star) { fill: var(--green-800); }
 .s9-medal svg circle { fill: var(--gold-500); }
 .s9-medal .s9-medal-star { fill: #fff; }
-.s9-cat-t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; width: 100%; overflow-wrap: break-word; hyphens: manual; }
+.s9-cat-t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; width: 100%; overflow-wrap: normal; word-break: normal; hyphens: manual; }
 .s9-cell { position: relative; aspect-ratio: 1 / 1; min-height: 0; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--white); cursor: pointer; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-family: var(--font-body); color: var(--gray-900); transition: border-color var(--transition), box-shadow var(--transition); -webkit-tap-highlight-color: transparent; }
 .s9-cell:hover { border-color: var(--green-400); }
 .s9-cell:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }

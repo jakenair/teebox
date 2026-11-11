@@ -276,6 +276,25 @@ function scoreChip(strokes) {
   return `<span class="s9-chip ${strokes <= 2 ? 'good' : strokes >= 5 ? 'bad' : 'even'}" aria-hidden="true">${strokes}</span>`;
 }
 
+// A category label never breaks inside a word ("Championshi/p" at 375px):
+// labels wrap only between words, and a label whose longest word is still
+// wider than its tile steps its font down until it fits (floor 8.5px).
+function fitCats() {
+  document.querySelectorAll('#s9Grid .s9-cat-t').forEach((el) => {
+    el.style.fontSize = ''; el.style.overflowWrap = '';
+    let fs = parseFloat(getComputedStyle(el).fontSize) || 12;
+    let guard = 0;
+    while (el.scrollWidth > el.clientWidth + 0.5 && fs > 8.5 && guard++ < 12) {
+      fs -= 0.5;
+      el.style.fontSize = fs + 'px';
+    }
+    // Narrowest phones (320px): still too wide at the floor, so break the word
+    // rather than clip it.
+    if (el.scrollWidth > el.clientWidth + 0.5) el.style.overflowWrap = 'anywhere';
+  });
+}
+window.addEventListener('resize', () => { if (document.getElementById('s9Screen')?.classList.contains('open')) fitCats(); });
+
 function render() {
   const r = result();
   const g = S.grid;
@@ -349,6 +368,8 @@ function render() {
     }
   }
   document.getElementById('s9Grid').innerHTML = html;
+  fitCats();
+  try { document.fonts && document.fonts.ready.then(fitCats); } catch (_) {}
 
   const thru = r.cells.filter((c) => c.done).length;
   const tp = document.getElementById('s9ToPar');
