@@ -2821,6 +2821,10 @@ window.tbEvent = function (name, surface) {
   .product-card.sold .card-fav { display: none; }
   .detail-gallery { position: relative; }
   .detail-fav { bottom: 12px; right: 12px; min-height: 34px; font-size: 13px; padding: 0 11px 0 9px; }
+  /* r406: the gallery is its own stacking layer, so the heart (z 3) stays above
+     the photo but scrolls UNDER the sticky listing top bar (z 1) instead of
+     riding on top of it (Jake, 2026-11-10 screen recording). */
+  #detailGallery { isolation: isolate; }
   .detail-fav .fav-ico, .detail-fav .fav-ico .ico { width: 18px; height: 18px; }
   @media (hover: hover) { .card-fav:hover { transform: scale(1.06); } }
   .product-card:has(.card-fav:active) { transform: none; } /* r383: only the heart reacts to a heart press */
