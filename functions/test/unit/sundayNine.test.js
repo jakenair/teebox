@@ -166,74 +166,22 @@ test("before grid #1 a round is a preview of grid #1", () => {
   assert.deepEqual([r.state.rows, r.state.cols], [S.PINNED["2026-11-08"].rows, S.PINNED["2026-11-08"].cols]);
 });
 
-test("one-guess rules from RULES_V2_FROM: right = 2, wrong = 5 and locked, second answer ignored", () => {
-  const date = Object.keys(S.PINNED).sort().find((d) => d >= core.RULES_V2_FROM);
-  assert.ok(date, "a pinned grid on/after the switch");
-  assert.equal(core.oneGuess(date), true);
-  assert.equal(core.attemptsFor(date), 1);
-  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
-  const used = new Set();
-  const a0 = answerFor(grid, 0, used); used.add(a0.id);
-  const w1 = wrongFor(grid, 1);
-  const a1 = answerFor(grid, 1, used);
-  const r = core.scoreGame(grid, BY_ID, [
-    {cell: 0, pid: a0.id}, // birdie
-    {cell: 1, pid: w1.id}, // miss: locked
-    {cell: 1, pid: a1.id}, // a second answer on a locked square: ignored
-  ], false);
-  assert.equal(core.strokesFor(r.cells[0]), 2);
-  assert.equal(r.cells[1].done, true);
-  assert.equal(r.cells[1].pid, null);
-  assert.deepEqual(r.cells[1].wrong, [w1.id]);
-  assert.equal(core.strokesFor(r.cells[1]), 5);
-  const g = core.scoreGame(grid, BY_ID, [{cell: 0, pid: a0.id}, {cell: 1, pid: w1.id}], true);
-  assert.equal(g.strokes, 2 + 8 * 5); // unanswered squares are double bogeys too
-  const share = core.shareText(date, g);
-  assert.match(share, /🟩🟥🟥/);
-  assert.ok(!/[⬛⬜🟦]/u.test(share), "one-guess share uses only green and red");
-});
-
-test("one-guess rules: perfect grid is 18 (−9), Sunday Red", () => {
-  const date = Object.keys(S.PINNED).sort().find((d) => d >= core.RULES_V2_FROM);
-  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
-  const lists = [];
-  for (let i = 0; i < 9; i++) lists.push(core.validAnswers(grid, i, PLAYERS));
-  const owner = new Map();
-  const assign = (i, seen) => {
-    for (const p of lists[i]) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      if (!owner.has(p.id) || assign(owner.get(p.id), seen)) { owner.set(p.id, i); return true; }
-    }
-    return false;
-  };
-  for (let i = 0; i < 9; i++) assign(i, new Set());
-  const r = core.scoreGame(grid, BY_ID, [...owner.entries()].map(([pid, cell]) => ({cell, pid})), false);
-  assert.equal(r.strokes, 18);
-  assert.equal(r.sundayRed, true);
-  assert.match(core.shareText(date, r), /Sunday Red 18 \(−9\)\n🟩🟩🟩/);
-});
-
-test("server: a second answer for a square never counts on one-guess dates; the save still succeeds", () => {
-  const v2 = core.RULES_V2_FROM;
+test("one-guess is OFF (2026-11-10): No. 4 and later keep 3 guesses per square; server keeps every answer", () => {
+  for (const date of ["2026-11-11", "2026-11-12", "2026-12-25"]) {
+    assert.equal(core.oneGuess(date), false, date);
+    assert.equal(core.attemptsFor(date), 3, date);
+  }
   const log = [{cell: 3, pid: "a"}, {cell: 3, pid: "b"}, {cell: 4, pid: "c"}];
-  const k = S.keepFirstAnswerPerSquare(v2, log);
-  assert.deepEqual(k.guesses, [{cell: 3, pid: "a"}, {cell: 4, pid: "c"}]);
-  assert.equal(k.dropped, 1);
-  // Earlier dates keep three guesses per square: rounds in progress don't break.
-  assert.deepEqual(S.keepFirstAnswerPerSquare("2026-11-10", log).guesses, log);
-  assert.equal(core.attemptsFor("2026-11-10"), 3);
-  assert.equal(core.attemptsFor(v2), 1);
-  // A stale three-guess client's round: the wrong first answer stands (locked,
-  // double bogey) even though its second try was the right player.
-  const date = Object.keys(S.PINNED).sort().find((d) => d >= v2);
-  const grid = core.gridForDate(date, PLAYERS, S.PINNED);
+  const k = S.keepFirstAnswerPerSquare("2026-11-11", log);
+  assert.deepEqual(k.guesses, log);
+  assert.equal(k.dropped, 0);
+  // A wrong first answer then the right one: the square is solved on the 2nd try.
+  const grid = core.gridForDate("2026-11-11", PLAYERS, S.PINNED);
   const a0 = answerFor(grid, 0, new Set());
   const w0 = wrongFor(grid, 0);
-  const kept = S.keepFirstAnswerPerSquare(date, [{cell: 0, pid: w0.id}, {cell: 0, pid: a0.id}]).guesses;
-  const out = S.scoreSubmission(date, kept, false, null);
-  assert.equal(out.state.cells[0].pid, null);
-  assert.equal(core.strokesFor(out.state.cells[0]), 5);
+  const out = S.scoreSubmission("2026-11-11", [{cell: 0, pid: w0.id}, {cell: 0, pid: a0.id}], false, null);
+  assert.equal(out.state.cells[0].pid, a0.id);
+  assert.notEqual(core.strokesFor(out.state.cells[0]), 5);
 });
 
 test("stats lookback: a 120-day id range, auto-indexed (r406 fix for the missing desc index)", () => {

@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT.
 // Built from sunday-nine/categories.js + sunday-nine/engine.js by
 // scripts/sync-sunday-nine.mjs. Edit the sources, then re-run it.
-// source-sha256: 059c51b3ec4be211
+// source-sha256: ee00bc832a090edf
 /* eslint-disable */
 "use strict";
 
@@ -134,7 +134,9 @@ const MAX_ATTEMPTS = 3;
 // birdie (2), wrong or unanswered is a double bogey (5). Earlier dates keep
 // the three-guess rules, so rounds already played or in progress never
 // change. Set to the first grid that starts AFTER the release is live.
-const RULES_V2_FROM = "2026-11-11";
+// Off (Dylan, 2026-11-10): No. 4 and later keep 3 guesses per square until the
+// 3-misses-per-grid rule ships. The one-guess code stays but never activates.
+const RULES_V2_FROM = "9999-12-31";
 function oneGuess(date) { return !!date && date >= RULES_V2_FROM; }
 function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
 const MIN_ANSWERS_PER_SQUARE = 3;
