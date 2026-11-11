@@ -9267,6 +9267,13 @@ window.showWelcome = function showWelcome() {
 };
 window.hideWelcome = function hideWelcome(reason) {
   const el = document.getElementById('welcomeScreen'); if (!el) return;
+  // Opened from a guest's Sell tap: skipping means "not now", so don't
+  // replay the sell intent on some later sign-in; restore the skip label.
+  if (window.__welcomeFromSell) {
+    window.__welcomeFromSell = false;
+    if (reason === 'skip') { window.__pendingAuthIntent = null; window.__pendingAuthReason = ''; }
+    const sk = el.querySelector('.welcome-skip'); if (sk && sk.dataset.label) sk.textContent = sk.dataset.label;
+  }
   el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); document.body.classList.remove('welcome-open');
   window.__welcomeDismissedInSession = true;
   if (reason === 'skip') { try { sessionStorage.setItem(WELCOME_SNOOZE_KEY, '1'); localStorage.removeItem(WELCOME_SNOOZE_KEY); } catch (_e) {} }
@@ -14863,6 +14870,7 @@ if (!__TB_NATIVE) (function tbRouter() {
     notif:    { el: 'notifPanel', close: act('close-notifications') },
     drawer:   { el: 'mobileNavDrawer', close: act('close-mobile-nav') },
     info:     { isOpen: () => !!document.querySelector('.info-backdrop.open:not(#profileBackdrop)'), close: act('close-info') },
+    welcome:  { el: 'welcomeScreen', close: () => window.hideWelcome && window.hideWelcome('skip') },
   };
   const layerOpen = (n) => (LAYERS[n].isOpen ? LAYERS[n].isOpen() : isOpenEl(LAYERS[n].el));
 

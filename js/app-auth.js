@@ -1486,6 +1486,21 @@
     // remember the intent so we resume the seller-verification flow
     // immediately after a successful sign-in.
     if (!window.CURRENT_USER) {
+      // r406 (Jake): a guest tapping Sell gets the full welcome wall (the
+      // cartoon golf gear), not the small sheet. Its Sign up / I already have
+      // an account buttons open the same auth sheet, and the stashed intent
+      // drops them straight into the sell form once signed in. "Not now"
+      // (the skip link) clears the intent.
+      if (typeof window.showWelcome === 'function' && document.getElementById('welcomeScreen')) {
+        window.__pendingAuthIntent = () => window.handleSellClick();
+        window.__pendingAuthReason = 'to start selling on TeeBox';
+        window.__welcomeFromSell = true;
+        const sk = document.querySelector('#welcomeScreen .welcome-skip');
+        if (sk) { if (!sk.dataset.label) sk.dataset.label = sk.textContent; sk.textContent = 'Not now'; }
+        window.showWelcome();
+        try { window.posthog && window.posthog.capture('welcome_from_sell'); } catch (_e) {}
+        return;
+      }
       if (typeof window.requireAuth === 'function') {
         window.requireAuth('to start selling on TeeBox', () => window.handleSellClick());
         return;

@@ -209,7 +209,7 @@ if (EMAIL) {
 
 console.log('blocked requests:', blocked.length, [...new Set(blocked)].join(' , '));
 console.log('logo clicked directly on:', [...new Set(reached)].join(', ') || '-', '| logo covered (Home action used) on:', [...new Set(covered)].join(', ') || '-');
-results.push({label: 'page errors', ok: !errs.filter((e) => !/firestore.googleapis.com|Load failed|ResizeObserver/.test(e)).length, detail: errs.slice(0, 4)});
+results.push({label: 'page errors', ok: !errs.filter((e) => !/firestore.googleapis.com|Load failed|ResizeObserver/.test(e)).length, detail: errs.filter((e) => !/firestore.googleapis.com|Load failed|ResizeObserver/.test(e)).slice(0, 4)});
 for (const r of results) console.log((r.ok ? 'PASS ' : 'FAIL ') + r.label + (r.url !== undefined ? '  ' + r.url + ' [' + r.top + ']' : '') + (r.ok ? '' : '  want ' + (r.want || '') + ' ' + JSON.stringify(r.detail || '')));
 console.log(results.every((r) => r.ok) ? 'ALL PASS' : 'FAILURES: ' + results.filter((r) => !r.ok).length);
 await b.close();
