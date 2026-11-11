@@ -3491,9 +3491,10 @@
     // leaves an orphaned listing doc with photos: [] in Firestore.
     let docRef = null;
     try {
-      // Listings auto-expire 60 days after creation; sellers can renew
-      // from the My Shop dashboard.
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+      // Listings auto-expire 6 months (182 days) after creation; sellers can
+      // renew from the My Shop dashboard. expireListings also tops up any
+      // shorter expiry written by older app builds.
+      const expiresAt = new Date(Date.now() + 182 * 24 * 60 * 60 * 1000);
       docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price,
         condition, desc, badge: 'new',

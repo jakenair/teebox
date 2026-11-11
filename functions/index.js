@@ -1929,9 +1929,12 @@ async function releaseListingOnFailure(pi) {
 
 // ─────────────────────────────────────────────────────────────
 // expireListings (scheduled, daily 03:00 America/Chicago)
-//   Flips active listings whose expiresAt < now to status='expired'.
-//   Sellers can renew from their dashboard.
+//   Tops up 60-day expiries from older app builds to 6 months from
+//   creation, then flips active listings whose expiresAt < now to
+//   status='expired'. Sellers can renew from their dashboard.
 // ─────────────────────────────────────────────────────────────
+const LISTING_LIFETIME_DAYS = 182;
+const LISTING_TOPUP_AHEAD_DAYS = 3;
 exports.expireListings = onSchedule(
   {
     schedule: "every day 03:00",
@@ -1943,6 +1946,38 @@ exports.expireListings = onSchedule(
   async () => {
     const db = admin.firestore();
     const now = admin.firestore.Timestamp.now();
+    // Listings live 6 months from creation (founder, 2026-11-11; was 60
+    // days). Older app builds still write a 60-day expiresAt, so first top
+    // up any active listing due within LISTING_TOPUP_AHEAD_DAYS whose
+    // 6-month mark is later. Done ahead of time because the seller
+    // dashboard treats a past expiresAt as expired before this job runs.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const soon = admin.firestore.Timestamp.fromMillis(
+        now.toMillis() + LISTING_TOPUP_AHEAD_DAYS * DAY_MS);
+    const due = await db
+      .collection("listings")
+      .where("status", "==", "active")
+      .where("expiresAt", "<", soon)
+      .limit(500)
+      .get();
+    let toppedUp = 0;
+    if (!due.empty) {
+      const topUp = db.batch();
+      due.docs.forEach((d) => {
+        const created = d.get("createdAt");
+        const exp = d.get("expiresAt");
+        if (!created || !created.toMillis || !exp || !exp.toMillis) return;
+        const sixMonths = created.toMillis() + LISTING_LIFETIME_DAYS * DAY_MS;
+        if (sixMonths > exp.toMillis() && sixMonths > now.toMillis()) {
+          topUp.update(d.ref, {
+            expiresAt: admin.firestore.Timestamp.fromMillis(sixMonths),
+          });
+          toppedUp++;
+        }
+      });
+      if (toppedUp) await topUp.commit();
+    }
+    if (toppedUp) logger.info(`expireListings: extended ${toppedUp} listing(s) to 6 months`);
     const snap = await db
       .collection("listings")
       .where("status", "==", "active")

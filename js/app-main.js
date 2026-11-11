@@ -6188,7 +6188,7 @@ function filterSearchRender(query) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// RENEWAL — flip an expired listing back to active for another 60 days
+// RENEWAL — flip an expired listing back to active for another 6 months
 // ─────────────────────────────────────────────────────────────
 async function renewListing(listingId) {
   if (!listingId || !window.CURRENT_USER) return;
@@ -6196,13 +6196,13 @@ async function renewListing(listingId) {
     const { getFirestore, doc, updateDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
-    const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 182 * 24 * 60 * 60 * 1000);
     await updateDoc(doc(db, 'listings', listingId), {
       status: 'active',
       expiresAt,
       updatedAt: serverTimestamp(),
     });
-    showToast('Listing renewed for 60 days.');
+    showToast('Listing renewed for 6 months.');
     loadShopData();
   } catch (e) {
     console.error('renewListing failed:', e);
