@@ -13,7 +13,7 @@ const base = (over = {}) => ({
 test("row shape, price format, link, categories", () => {
   const r = F.feedRow(base());
   assert.equal(r.price, "850.00 USD");
-  assert.equal(r.link, "https://teeboxmarket.com/listing/abc123/");
+  assert.equal(r.link, "https://teeboxmarket.com/?listing=abc123");
   assert.equal(r.image_link, IMG);
   assert.equal(r.additional_image_link, IMG + "2");
   assert.equal(r.google_product_category, "1046");

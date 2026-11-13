@@ -184,7 +184,11 @@ function feedRow(l, testSellers) {
     availability: mapAvailability(l),
     condition: mapCondition(l.condition),
     price: ask.toFixed(2) + " USD",
-    link: `${SITE}/listing/${encodeURIComponent(String(l.id))}/`,
+    // /?listing=<id> is index.html, so it is always HTTP 200 and opens the
+    // listing (web router). The static /listing/<id>/ pages only exist for
+    // listings present at the last build, so newer ones 404'd for Meta's
+    // crawler (2026-11-12: 29 of 55).
+    link: `${SITE}/?listing=${encodeURIComponent(String(l.id))}`,
     image_link: photos[0],
     additional_image_link: photos.slice(1, 11).join(","),
     brand,
