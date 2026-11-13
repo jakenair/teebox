@@ -69,6 +69,34 @@ const INSTAGRAM_SVG =
   '<circle cx="12" cy="12" r="4"/>' +
   '<circle class="tbf-dot" cx="17.5" cy="6.5" r="1"/></svg>';
 
+/**
+ * r410 — rows stamped on EVERY page (founder, 2026-11-12):
+ *   Play    — the three web games, so each is one click from any page.
+ *   Journal — the newest article (first entry in reads/index.html, which is
+ *             kept newest-first) plus the index. Re-run this script after
+ *             publishing an article; --check flags pages left stale.
+ */
+function latestArticle() {
+  const idx = fs.readFileSync(path.join(ROOT, 'reads', 'index.html'), 'utf8');
+  const m = idx.match(/<h2><a href="(\/reads\/[a-z0-9-]+\.html)">([^<]+)<\/a><\/h2>/);
+  if (!m) throw new Error('sync-footer: no article found in reads/index.html');
+  return [m[2].trim(), m[1]];
+}
+const GLOBAL_EXTRAS = [
+  {
+    label: 'Play',
+    links: [
+      ['Logo Bingo', '/?play=bingo'],
+      ['Sunday Nine', '/?play=sunday-nine'],
+      ['Passport', '/?view=passport'],
+    ],
+  },
+  {
+    label: 'Journal',
+    links: [latestArticle(), ['All articles', '/reads/']],
+  },
+];
+
 /** Old index.html footer columns with real hrefs (SEO value) — index only. */
 const INDEX_EXTRAS = [
   {
@@ -149,7 +177,7 @@ function renderFooter({ extras = [], note = '', shim = '', inline = false }) {
   out.push(`      <a class="tb-footer-social" href="${INSTAGRAM_URL}" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on Instagram">${INSTAGRAM_SVG}</a>`);
   out.push('    </div>');
   out.push('  </div>');
-  for (const row of extras) {
+  for (const row of [...GLOBAL_EXTRAS, ...extras]) {
     out.push('  <div class="tb-footer-extra">');
     out.push(`    <span class="tb-footer-extra-label">${row.label}</span>`);
     for (const [label, href] of row.links) out.push(`    <a href="${href}">${label}</a>`);

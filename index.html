@@ -7796,17 +7796,15 @@ window.tbEvent = function (name, surface) {
           <span class="hq-name">Sell Now</span>
           <span class="hq-sub">List a club in a couple of minutes</span>
         </button>
-        <!-- r309 — Journal is slot 4 and is an <a>, not a button: it is plain
-             navigation to a static page, so middle-click, open-in-new-tab and
-             crawlers all work. Deliberately NO data-action — the delegated
-             handler (and r291's inert open-journal stub, which just returns)
-             must never see it. The subtitle below is replaced at runtime with
-             the newest article's headline; this copy is the fallback. -->
-        <a class="hq-tile hq-journal" href="/reads/">
-          <span class="hq-ico" data-ico="book" aria-hidden="true"></span>
-          <span class="hq-name">Journal</span>
-          <span class="hq-sub" id="hqJournalSub">Course guides &amp; golf reads</span>
-        </a>
+        <!-- r410 — Sunday Nine takes slot 4 (founder, 2026-11-12). The Journal
+             moved to the site footer ("Journal · <latest article>") on every
+             page. Same tile shape as Logo Bingo: a button on the shared
+             open-sunday-nine action, which also writes /?play=sunday-nine. -->
+        <button class="hq-tile hq-s9" data-action="open-sunday-nine" type="button">
+          <span class="hq-ico" data-ico="golfball" aria-hidden="true"></span>
+          <span class="hq-name">Sunday Nine</span>
+          <span class="hq-sub">Today's nine-square golf grid</span>
+        </button>
       </div>
     </div>
   </section>
@@ -8066,6 +8064,17 @@ window.tbEvent = function (name, surface) {
       <a class="tb-footer-badge" href="https://apps.apple.com/app/id6763954448" target="_blank" rel="noopener noreferrer"><img src="/assets/app-store-badge.svg" alt="Download on the App Store" width="120" height="40" loading="lazy" decoding="async"></a>
       <a class="tb-footer-social" href="https://instagram.com/teeboxmarket" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on Instagram"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="tbf-dot" cx="17.5" cy="6.5" r="1"/></svg></a>
     </div>
+  </div>
+  <div class="tb-footer-extra">
+    <span class="tb-footer-extra-label">Play</span>
+    <a href="/?play=bingo">Logo Bingo</a>
+    <a href="/?play=sunday-nine">Sunday Nine</a>
+    <a href="/?view=passport">Passport</a>
+  </div>
+  <div class="tb-footer-extra">
+    <span class="tb-footer-extra-label">Journal</span>
+    <a href="/reads/golf-club-stock-market.html">The Golf Club Stock Market</a>
+    <a href="/reads/">All articles</a>
   </div>
   <div class="tb-footer-extra">
     <span class="tb-footer-extra-label">Brands</span>
@@ -9742,8 +9751,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r409"></script>
-<script type="module" src="/js/app-auth.js?v=r409"></script>
+<script defer src="/js/app-main.js?v=r410"></script>
+<script type="module" src="/js/app-auth.js?v=r410"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9773,8 +9782,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r409"></script>
-<script type="module" src="/js/sunday-nine.js?v=r409"></script>
+<script type="module" src="/js/bingo.js?v=r410"></script>
+<script type="module" src="/js/sunday-nine.js?v=r410"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

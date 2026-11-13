@@ -207,7 +207,9 @@ function build() {
     if (e.key === 'ArrowDown') { e.preventDefault(); S.active = Math.min(items.length - 1, S.active + 1); renderList(true); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); S.active = Math.max(0, S.active - 1); renderList(true); }
     else if (e.key === 'Enter') { e.preventDefault(); const b = items[S.active]; if (b) submitGuess(b.dataset.pid); }
-    else if (e.key === 'Escape') { closeGuess(); }
+    // Escape is handled once, by the document listener below: it closes the
+    // top layer only (the sheet, else the game). Closing the sheet here too
+    // let the same keypress fall through and close the whole game.
   });
   sheet.querySelector('#s9List').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-pid]');
@@ -218,8 +220,38 @@ function build() {
     if (c && !c.disabled) openGuess(+c.dataset.cell);
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && el.classList.contains('open') && !sheet.classList.contains('open')) closeSundayNine();
+    if (e.key === 'Escape' && el.classList.contains('open')) {
+      if (sheet.classList.contains('open')) closeGuess();
+      else closeSundayNine();
+    }
+    // r410 (desktop keyboard): while the game is open, Tab stays inside it —
+    // inside the guess sheet when that is open — instead of walking the
+    // marketplace hidden behind the full-screen overlay.
+    if (e.key === 'Tab' && el.classList.contains('open')) trapTab(e, sheet.classList.contains('open') ? sheet : el);
   });
+}
+
+const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+function trapTab(e, box) {
+  const items = [...box.querySelectorAll(FOCUSABLE)].filter((x) => x.getClientRects().length && !x.closest('[hidden]'));
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  const inside = box.contains(document.activeElement);
+  if (e.shiftKey && (!inside || document.activeElement === first || document.activeElement === box)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (!inside || document.activeElement === last)) { e.preventDefault(); first.focus(); }
+}
+
+// After a guess the grid re-renders, so put focus back on that square (or the
+// next open one) for keyboard players instead of dropping it on <body>.
+function refocusCell(i) {
+  setTimeout(() => {
+    const grid = document.getElementById('s9Grid');
+    if (!grid || !document.querySelector('#s9Screen.open')) return;
+    const cells = [...grid.querySelectorAll('.s9-cell')];
+    const target = cells.slice(i).concat(cells.slice(0, i)).find((c) => !c.disabled);
+    (target || document.getElementById('s9Screen')).focus({preventScroll: true});
+  }, 0);
 }
 
 function result() {
@@ -501,9 +533,12 @@ function openGuess(i) {
 function closeGuess() {
   const bd = document.getElementById('s9GuessBackdrop');
   if (!bd) return;
+  const wasOpen = bd.classList.contains('open');
+  const cell = S.openCell;
   bd.classList.remove('open');
   bd.setAttribute('aria-hidden', 'true');
   S.openCell = null;
+  if (wasOpen && cell !== null) refocusCell(cell);
 }
 
 function renderList(keepScroll) {
@@ -675,8 +710,16 @@ export async function openSundayNine() {
   ensureCss();
   build();
   const screen = document.getElementById('s9Screen');
+  const wasOpen = screen.classList.contains('open');
   screen.classList.add('open');
   screen.setAttribute('aria-hidden', 'false');
+  // r410: move focus into the game (the screen itself, so no ring shows for
+  // mouse users) and remember the tile/link that opened it for close.
+  if (!wasOpen) {
+    S.returnFocus = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    screen.tabIndex = -1;
+    screen.focus({preventScroll: true});
+  }
   (document.getElementById('app-scroll') || document.body).style.overflowY = 'hidden';
   try {
     await loadData();
@@ -750,9 +793,12 @@ export function closeSundayNine() {
   closeGuess();
   const screen = document.getElementById('s9Screen');
   if (!screen) return;
+  const wasOpen = screen.classList.contains('open');
   screen.classList.remove('open');
   screen.setAttribute('aria-hidden', 'true');
   (document.getElementById('app-scroll') || document.body).style.overflowY = '';
+  if (wasOpen && S.returnFocus && S.returnFocus.isConnected) { try { S.returnFocus.focus({preventScroll: true}); } catch (_) {} }
+  S.returnFocus = null;
   try {
     const u = new URL(window.location.href);
     // r406: on the web the URL router owns the address bar.
