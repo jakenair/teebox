@@ -18,6 +18,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const {sendEmail, CATEGORIES, RESEND_API_KEY, UNSUBSCRIBE_SECRET} = require("./lib/email");
+const {brandedVerifyUrl} = require("./lib/verifyLink");
 
 const USER_CALLABLE = {region: "us-central1", memory: "256MiB", timeoutSeconds: 30, concurrency: 80, maxInstances: 100};
 const APP_URL = "https://teeboxmarket.com";
@@ -64,7 +65,10 @@ async function sendVerificationEmailOnce(uid) {
   const last = snap && snap.exists && snap.data().verificationEmailSentAt;
   if (last && last.toMillis && Date.now() - last.toMillis() < VERIFY_EMAIL_COOLDOWN_MS) return "skipped-recent";
   try {
-    const verificationUrl = await admin.auth().generateEmailVerificationLink(authUser.email, AUTH_ACTION_CODE_SETTINGS);
+    const fbLink = await admin.auth().generateEmailVerificationLink(authUser.email, AUTH_ACTION_CODE_SETTINGS);
+    // r412: send people to teeboxmarket.com/verify-email/ (offers resend on an expired link).
+    let secret = ""; try { secret = UNSUBSCRIBE_SECRET.value(); } catch (_) {}
+    const verificationUrl = brandedVerifyUrl(fbLink, uid, secret);
     const Tpl = loadTemplate("security", "EmailVerification");
     const ctx = {user: {uid, email: authUser.email, firstName: (authUser.displayName || "").split(" ")[0] || "", displayName: authUser.displayName || ""}, verificationUrl};
     const res = await sendEmail({

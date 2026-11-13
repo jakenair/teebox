@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Verify your email: TeeBox</title>
+<meta name="robots" content="noindex, nofollow" />
+<meta name="referrer" content="no-referrer" />
+<meta name="theme-color" content="#0b1a0e" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!-- r412: landing page for TeeBox verification emails. Applies Firebase's
+     one-time code; on an expired or used link it offers "Send a new link"
+     (sendBrandedVerification with the signed `r` token from the email). -->
+<style>
+  :root {
+    --green-900: #0b1a0e; --green-700: #1f4827; --green-600: #2d5e36; --green-500: #3a7444;
+    --gold-400: #d4b26a; --gray-900: #1a1a1a; --gray-700: #4a4a4a; --gray-500: #6b6b6b;
+    --gray-200: #e5e5e5; --gray-100: #f5f5f5; --white: #fff; --red-700: #a12a2a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--gray-900); background: var(--gray-100); line-height: 1.55; font-size: 16px; min-height: 100vh; }
+  header { background: var(--green-900); color: var(--white); text-align: center;
+    padding: calc(env(safe-area-inset-top, 0px) + 1.25rem) 1rem 1.25rem; }
+  header a { color: var(--white); text-decoration: none; font-weight: 800; letter-spacing: .04em; font-size: 1.15rem; }
+  main { max-width: 480px; margin: 2rem auto; padding: 0 16px; }
+  .card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 14px; padding: 28px 22px; text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+  .icon { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center;
+    font-size: 28px; font-weight: 700; }
+  .icon.ok { background: #e6f2e8; color: var(--green-600); }
+  .icon.warn { background: #fbf3e2; color: #8a6420; }
+  .icon.wait { background: var(--gray-100); color: var(--gray-500); }
+  h1 { font-size: 1.35rem; line-height: 1.3; margin-bottom: 8px; }
+  p { color: var(--gray-700); margin-bottom: 10px; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 10px; padding: 13px 16px; margin-top: 12px;
+    font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; }
+  .btn.primary { background: var(--green-600); color: var(--white); }
+  .btn.primary:hover { background: var(--green-500); }
+  .btn.secondary { background: var(--gray-100); color: var(--gray-900); border: 1px solid var(--gray-200); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn:focus-visible { outline: 3px solid var(--gold-400); outline-offset: 2px; }
+  .msg { margin-top: 14px; padding: 12px; border-radius: 10px; font-size: .95rem; display: none; text-align: left; }
+  .msg.show { display: block; }
+  .msg.ok { background: #e6f2e8; color: var(--green-700); }
+  .msg.err { background: #fbeaea; color: var(--red-700); }
+  .small { font-size: .875rem; color: var(--gray-500); margin-top: 16px; }
+  .small a { color: var(--green-600); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><a href="/">TEEBOX</a></header>
+<main>
+  <div class="card" aria-live="polite">
+    <section id="stChecking">
+      <div class="icon wait" aria-hidden="true">…</div>
+      <h1>Verifying your email…</h1>
+      <p>One moment.</p>
+    </section>
+
+    <section id="stOk" hidden>
+      <div class="icon ok" aria-hidden="true">✓</div>
+      <h1>Your email is verified</h1>
+      <p>You're all set. If you're using the TeeBox app, just switch back to it — it picks this up on its own.</p>
+      <a class="btn primary" href="/?launch=auth">Continue to TeeBox</a>
+    </section>
+
+    <section id="stExpired" hidden>
+      <div class="icon warn" aria-hidden="true">!</div>
+      <h1>This link has expired</h1>
+      <p>Verification links only work for a limited time, and only once. If you already tapped this link before, you're verified and there's nothing else to do.</p>
+      <p id="expiredResendLine">Otherwise, we can send you a new one.</p>
+      <button type="button" class="btn primary" id="resendBtn">Send a new link</button>
+      <div class="msg" id="resendMsg" role="status"></div>
+      <a class="btn secondary" href="/?launch=auth">Open TeeBox</a>
+      <p class="small" id="noTokenHelp" hidden>To get a new link, open the TeeBox app (or sign in at <a href="/">teeboxmarket.com</a>) and tap <strong>Resend link</strong> on the "Verify your email" banner, or go to Profile → <strong>Verify your email</strong>.</p>
+    </section>
+
+    <section id="stError" hidden>
+      <div class="icon warn" aria-hidden="true">!</div>
+      <h1>We couldn't verify your email</h1>
+      <p id="errorText">Something went wrong. Check your connection and try again.</p>
+      <button type="button" class="btn primary" id="retryBtn">Try again</button>
+      <a class="btn secondary" href="/?launch=auth">Open TeeBox</a>
+    </section>
+
+    <p class="small">Need help? <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a></p>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+  import { getAuth, applyActionCode } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
+    authDomain: "teebox-market.firebaseapp.com",
+    projectId: "teebox-market",
+    storageBucket: "teebox-market.firebasestorage.app",
+    messagingSenderId: "982122063122",
+    appId: "1:982122063122:web:416617dcacf912c907bfcb",
+  });
+  const auth = getAuth(app);
+  const q = new URLSearchParams(location.search);
+  const oobCode = q.get("oobCode");
+  const resendToken = q.get("r");
+  // Keep the one-time code out of history/screenshots once read.
+  try { history.replaceState(null, "", location.pathname); } catch (_) {}
+
+  const $ = (id) => document.getElementById(id);
+  function show(id) {
+    for (const s of ["stChecking", "stOk", "stExpired", "stError"]) $(s).hidden = s !== id;
+    const h = $(id).querySelector("h1");
+    if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  }
+
+  function showExpired() {
+    show("stExpired");
+    if (!resendToken) {
+      $("resendBtn").hidden = true;
+      $("expiredResendLine").hidden = true;
+      $("noTokenHelp").hidden = false;
+    }
+  }
+
+  async function verify() {
+    show("stChecking");
+    if (!oobCode) { showExpired(); return; }
+    try {
+      await applyActionCode(auth, oobCode);
+      show("stOk");
+    } catch (e) {
+      const code = (e && e.code) || "";
+      if (code === "auth/expired-action-code" || code === "auth/invalid-action-code") {
+        showExpired();
+      } else if (code === "auth/user-disabled" || code === "auth/user-not-found") {
+        $("errorText").textContent = "This account is no longer active. Contact support if you think that's a mistake.";
+        $("retryBtn").hidden = true;
+        show("stError");
+      } else {
+        show("stError");
+      }
+    }
+  }
+
+  let cooldownTimer = null;
+  function startCooldown(sec) {
+    const btn = $("resendBtn");
+    let left = Math.max(1, Math.round(sec));
+    clearInterval(cooldownTimer);
+    btn.disabled = true;
+    const tick = () => {
+      if (left <= 0) { clearInterval(cooldownTimer); btn.disabled = false; btn.textContent = "Send another link"; return; }
+      btn.textContent = `Send another link (${left}s)`;
+      left -= 1;
+    };
+    tick();
+    cooldownTimer = setInterval(tick, 1000);
+  }
+
+  function say(kind, text) {
+    const m = $("resendMsg");
+    m.className = `msg show ${kind}`;
+    m.textContent = text;
+  }
+
+  $("resendBtn").addEventListener("click", async () => {
+    const btn = $("resendBtn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      const fn = httpsCallable(getFunctions(app, "us-central1"), "sendBrandedVerification");
+      const res = await fn({ r: resendToken });
+      const out = (res && res.data) || {};
+      if (out.alreadyVerified) {
+        say("ok", "Good news: your email is already verified. Nothing else to do.");
+        btn.hidden = true;
+        return;
+      }
+      say("ok", `Sent! Check your inbox${out.sentTo ? " at " + out.sentTo : ""} for a new link, and look in spam or Promotions if it isn't there in a minute.`);
+      startCooldown(out.cooldownSec || 60);
+    } catch (e) {
+      const code = (e && e.code) || "";
+      const m = /(\d+)s/.exec(String((e && e.message) || ""));
+      if (code === "functions/resource-exhausted" && e.details && e.details.daily) {
+        say("err", "You've asked for several links today. To protect your inbox, try again tomorrow, or contact support@teeboxmarket.com.");
+        btn.hidden = true;
+      } else if (code === "functions/resource-exhausted") {
+        const wait = (e.details && e.details.retryAfterSec) || (m ? Number(m[1]) : 60);
+        say("err", `We just sent one. You can ask for another in ${wait} seconds.`);
+        startCooldown(wait);
+      } else if (code === "functions/unauthenticated") {
+        say("err", "This link is too old to send a new one from here. Open the TeeBox app and tap Resend link on the \"Verify your email\" banner.");
+        btn.hidden = true;
+      } else {
+        say("err", "We couldn't send a new link right now. Try again in a minute.");
+        btn.disabled = false;
+        btn.textContent = "Send a new link";
+      }
+    }
+  });
+  $("retryBtn").addEventListener("click", verify);
+
+  verify();
+</script>
+</body>
+</html>

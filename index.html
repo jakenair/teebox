@@ -537,6 +537,7 @@ window.tbEvent = function (name, surface) {
   .account-hub-list { display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
   .account-hub-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 500; color: var(--gray-900); text-align: left; transition: background 0.15s ease; width: 100%; }
   .account-hub-item:last-child { border-bottom: 0; }
+  .account-hub-item[hidden] { display: none; }
   .account-hub-item:active { background: var(--gray-100); }
   .account-hub-label { flex: 1; }
   .account-hub-chev { color: var(--gray-400); font-size: 22px; line-height: 1; }
@@ -1807,6 +1808,10 @@ window.tbEvent = function (name, surface) {
   .verify-email-banner .veb-btn.secondary:hover { background: var(--gray-200); }
   .verify-email-banner .veb-close { position: absolute; top: 6px; right: 8px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--gray-400); cursor: pointer; padding: 4px; }
   .verify-email-banner .veb-close:hover { color: var(--gray-700); }
+  /* r412: inline "Sent to …" confirmation + cooling-down Resend buttons. */
+  .verify-email-banner .veb-note { font-size: 13px; line-height: 1.4; color: var(--green-700, #1f4827); background: #e6f2e8; border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: 10px; }
+  .verify-email-banner .veb-note[hidden] { display: none; }
+  [data-action="resend-verification-email"].is-cooling { opacity: .6; pointer-events: none; }
   .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--gray-400); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .auth-google-btn {
@@ -6161,9 +6166,10 @@ window.tbEvent = function (name, surface) {
   <button type="button" class="veb-close" data-action="dismiss-verify-banner" aria-label="Dismiss">×</button>
   <div class="veb-title">Verify your email</div>
   <div class="veb-body">We sent a confirmation link to <strong id="verifyEmailAddr">your inbox</strong>. Verify to set up payouts and keep your notifications on. <strong>Don&rsquo;t see it? Check your spam or Promotions folder</strong> — or tap Resend below.</div>
+  <div class="veb-note" id="verifyEmailNote" role="status" hidden></div>
   <div class="veb-actions">
     <button type="button" class="veb-btn primary" data-action="resend-verification-email">Resend link</button>
-    <button type="button" class="veb-btn secondary" data-action="dismiss-verify-banner">Not now</button>
+    <button type="button" class="veb-btn secondary" data-action="verify-email-recheck">I've verified</button>
   </div>
 </div>
 
@@ -8996,6 +9002,12 @@ function friendlyStripeError(err) {
 
 function setCheckoutError(msg) {
   const el = document.getElementById('card-errors');
+  // r412: the server blocks checkout for unverified emails. Say how to fix
+  // it and bring back the banner (it holds Resend), even if dismissed.
+  if (msg && /verify your email/i.test(msg)) {
+    msg = 'Verify your email to buy. Tap the link we emailed you, or tap Resend link on the banner to get a new one.';
+    try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
+  }
   if (el) el.textContent = msg || '';
 }
 
@@ -9772,8 +9784,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r411"></script>
-<script type="module" src="/js/app-auth.js?v=r411"></script>
+<script defer src="/js/app-main.js?v=r412"></script>
+<script type="module" src="/js/app-auth.js?v=r412"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9803,8 +9815,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r411"></script>
-<script type="module" src="/js/sunday-nine.js?v=r411"></script>
+<script type="module" src="/js/bingo.js?v=r412"></script>
+<script type="module" src="/js/sunday-nine.js?v=r412"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
