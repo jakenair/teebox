@@ -13715,6 +13715,7 @@ A['toggle-shop-menu']        = () => {
   const menu = document.getElementById('shopMenu');
   if (!menu) return;
   const willOpen = !menu.classList.contains('open');
+  if (willOpen && window.__closePlayMenu) window.__closePlayMenu();
   menu.classList.toggle('open');
   const btn = document.getElementById('shopMenuBtn');
   if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
@@ -13732,6 +13733,33 @@ window.__closeShopMenu = () => {
 A['shop-pick']               = (el, ev) => {
   A['filter-cat'](el, ev);
   window.__closeShopMenu();
+};
+// r411: Play dropdown — same pattern as Shop. Opening one header menu closes
+// the other so they never stack.
+A['toggle-play-menu']        = () => {
+  const menu = document.getElementById('playMenu');
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('open');
+  if (willOpen) window.__closeShopMenu();
+  menu.classList.toggle('open');
+  const btn = document.getElementById('playMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+};
+window.__closePlayMenu = () => {
+  const menu = document.getElementById('playMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  menu.classList.remove('open');
+  const btn = document.getElementById('playMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+};
+// Items are real links: a modified click (new tab/window) is left to the
+// browser; a plain click opens the game in place via its existing action.
+A['play-pick']               = (el, ev) => {
+  if (ev && (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button > 0)) return;
+  if (ev) ev.preventDefault();
+  window.__closePlayMenu();
+  const open = A[el.dataset.play];
+  if (typeof open === 'function') open();
 };
 A['toggle-user-menu']        = () => {
   const menu = document.getElementById('userMenu');
@@ -15355,6 +15383,21 @@ document.addEventListener('click', (ev) => {
   const wrap = document.getElementById('shopMenuWrap');
   if (!menu || !wrap || !menu.classList.contains('open')) return;
   if (!wrap.contains(ev.target)) window.__closeShopMenu();
+});
+// r411: same outside-click / Escape behaviour for the Play dropdown.
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('playMenu');
+  const wrap = document.getElementById('playMenuWrap');
+  if (!menu || !wrap || !menu.classList.contains('open')) return;
+  if (!wrap.contains(ev.target)) window.__closePlayMenu();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Escape') return;
+  const menu = document.getElementById('playMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  window.__closePlayMenu();
+  const btn = document.getElementById('playMenuBtn');
+  if (btn) btn.focus();
 });
 document.addEventListener('keydown', (ev) => {
   if (ev.key !== 'Escape') return;
