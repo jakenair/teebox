@@ -64,3 +64,25 @@ test("maskEmail", () => {
   assert.equal(V.maskEmail("louis@gmail.com"), "l***@gmail.com");
   assert.equal(V.maskEmail("bad"), "");
 });
+
+test("daily cap: 5 sends in 24h, the 6th is refused", () => {
+  let sends = [];
+  for (let i = 0; i < 5; i++) {
+    const d = V.dailyCapDecision(sends, NOW + i * 120e3);
+    assert.equal(d.ok, true); sends = d.sends;
+  }
+  const d6 = V.dailyCapDecision(sends, NOW + 11 * 60e3);
+  assert.equal(d6.ok, false);
+  assert.ok(d6.retryAfterSec > 23 * 3600, String(d6.retryAfterSec));
+});
+
+test("daily cap: oldest send ageing past 24h frees a slot", () => {
+  const sends = [0, 1, 2, 3, 4].map((i) => NOW + i * 60e3);
+  assert.equal(V.dailyCapDecision(sends, NOW + 864e5 - 1).ok, false);
+  assert.equal(V.dailyCapDecision(sends, NOW + 864e5 + 1).ok, true);
+});
+
+test("daily cap: junk stored values are ignored", () => {
+  assert.equal(V.dailyCapDecision(["x", null, NaN, NOW + 9e9], NOW).ok, true);
+  assert.equal(V.dailyCapDecision(undefined, NOW).sends.length, 1);
+});

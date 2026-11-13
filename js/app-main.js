@@ -13843,7 +13843,10 @@ A['resend-verification-email'] = async () => {
     showToast(msg, 'success');
   } catch (e) {
     const code = e && e.code;
-    if (code === 'functions/resource-exhausted' || (e && /Too many/.test(String(e.message || '')))) {
+    if (code === 'functions/resource-exhausted' && e.details && e.details.daily) {
+      __startResendCooldown(0);
+      showToast("You've asked for several links today. Try again tomorrow, or email support@teeboxmarket.com.");
+    } else if (code === 'functions/resource-exhausted' || (e && /Too many/.test(String(e.message || '')))) {
       const m = /(\d+)s/.exec(String((e && e.message) || ''));
       const wait = (e && e.details && e.details.retryAfterSec) || (m ? Number(m[1]) : VERIFY_RESEND_COOLDOWN_S);
       __startResendCooldown(wait);

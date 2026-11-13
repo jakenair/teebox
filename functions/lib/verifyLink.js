@@ -81,6 +81,24 @@ function brandedVerifyUrl(firebaseLink, uid, secret, nowMs = Date.now()) {
   return u.toString();
 }
 
+/**
+ * Daily cap on verification emails per account (rolling 24h), on top of the
+ * 60s cooldown. Pure: give it the stored send times, get back the decision
+ * and the list to store.
+ * @return {{ok:boolean, retryAfterSec?:number, sends:number[]}}
+ */
+const VERIFY_DAILY_CAP = 5;
+function dailyCapDecision(prevSends, nowMs = Date.now(), cap = VERIFY_DAILY_CAP) {
+  const DAY = 864e5;
+  const recent = (Array.isArray(prevSends) ? prevSends : [])
+      .map(Number).filter((t) => Number.isFinite(t) && t > nowMs - DAY && t <= nowMs + 60e3)
+      .sort((a, b) => a - b).slice(-cap);
+  if (recent.length >= cap) {
+    return {ok: false, retryAfterSec: Math.max(60, Math.ceil((recent[0] + DAY - nowMs) / 1000)), sends: recent};
+  }
+  return {ok: true, sends: [...recent, nowMs]};
+}
+
 /** j***@gmail.com — enough to recognise, not enough to harvest. */
 function maskEmail(email) {
   const m = /^([^@]+)@(.+)$/.exec(String(email || ""));
@@ -90,5 +108,6 @@ function maskEmail(email) {
 
 module.exports = {
   VERIFY_PAGE, RESEND_TOKEN_TTL_DAYS,
+  VERIFY_DAILY_CAP, dailyCapDecision,
   makeResendToken, readResendToken, brandedVerifyUrl, maskEmail,
 };

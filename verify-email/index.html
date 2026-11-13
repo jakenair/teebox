@@ -184,7 +184,10 @@
     } catch (e) {
       const code = (e && e.code) || "";
       const m = /(\d+)s/.exec(String((e && e.message) || ""));
-      if (code === "functions/resource-exhausted") {
+      if (code === "functions/resource-exhausted" && e.details && e.details.daily) {
+        say("err", "You've asked for several links today. To protect your inbox, try again tomorrow, or contact support@teeboxmarket.com.");
+        btn.hidden = true;
+      } else if (code === "functions/resource-exhausted") {
         const wait = (e.details && e.details.retryAfterSec) || (m ? Number(m[1]) : 60);
         say("err", `We just sent one. You can ask for another in ${wait} seconds.`);
         startCooldown(wait);

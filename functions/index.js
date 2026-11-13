@@ -5299,6 +5299,30 @@ exports.sendBrandedVerification = onCall(
           {retryAfterSec: wait});
     }
 
+    // Daily cap (rolling 24h, VERIFY_DAILY_CAP per account) on top of the
+    // cooldown below, so neither the app button nor the no-sign-in
+    // expired-link page can be used to flood an inbox. Reserved in a
+    // transaction before sending.
+    const capRef = admin.firestore().collection("users").doc(uid)
+        .collection("rateLimits").doc("verifyEmailDaily");
+    const cap = await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(capRef);
+      const d = verifyLink.dailyCapDecision(
+          snap.exists ? snap.get("sends") : [], Date.now());
+      if (d.ok) {
+        tx.set(capRef, {sends: d.sends,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()});
+      }
+      return d;
+    });
+    if (!cap.ok) {
+      logger.warn(`sendBrandedVerification: daily cap uid=${uid}`);
+      const hrs = Math.ceil(cap.retryAfterSec / 3600);
+      throw new HttpsError("resource-exhausted",
+          `Daily limit reached. Try again in about ${hrs} hours.`,
+          {retryAfterSec: cap.retryAfterSec, daily: true});
+    }
+
     let verifyUrl;
     try {
       verifyUrl = verifyLink.brandedVerifyUrl(
