@@ -5232,13 +5232,32 @@ exports.sendBrandedPasswordReset = onCall(
   },
 );
 
+// r412: also callable WITHOUT sign-in from teeboxmarket.com/verify-email/
+// when a link has expired. That page passes the signed `r` token from the
+// email (lib/verifyLink), which names the account; the fresh link still goes
+// only to that account's own address on file. Signed-in callers (the app's
+// Resend buttons) work exactly as before.
+const {UNSUBSCRIBE_SECRET: VERIFY_LINK_SECRET} = require("./lib/email");
+const verifyLink = require("./lib/verifyLink");
+const VERIFY_RESEND_COOLDOWN_MS = 60 * 1000;
+
 exports.sendBrandedVerification = onCall(
-  {...USER_CALLABLE, secrets: [RESEND_KEY]},
+  {...USER_CALLABLE, secrets: [RESEND_KEY, VERIFY_LINK_SECRET]},
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in required.");
+    let linkSecret = "";
+    try {
+      linkSecret = VERIFY_LINK_SECRET.value();
+    } catch (_) { /* unbound in emulator → plain Firebase links */ }
+    let uid = request.auth && request.auth.uid;
+    const viaLink = !uid;
+    if (!uid) {
+      const r = request.data && request.data.r;
+      uid = verifyLink.readResendToken(r, linkSecret);
+      if (!uid) {
+        throw new HttpsError("unauthenticated",
+            "Sign in to the TeeBox app to get a new link.");
+      }
     }
-    const uid = request.auth.uid;
 
     const rl = await checkRateLimit(uid, "verifyEmail", 3);
     if (!rl.ok) {
@@ -5265,10 +5284,27 @@ exports.sendBrandedVerification = onCall(
       return {ok: true, alreadyVerified: true};
     }
 
+    // Shared 60s cooldown with every other verification send (signup,
+    // app Resend, expired-link page): one fresh email a minute, max.
+    const userRef = admin.firestore().collection("users").doc(uid);
+    const lastSnap = await userRef.get().catch(() => null);
+    const last = lastSnap && lastSnap.exists &&
+        lastSnap.get("verificationEmailSentAt");
+    if (last && last.toMillis &&
+        Date.now() - last.toMillis() < VERIFY_RESEND_COOLDOWN_MS) {
+      const wait = Math.ceil((VERIFY_RESEND_COOLDOWN_MS -
+          (Date.now() - last.toMillis())) / 1000);
+      throw new HttpsError("resource-exhausted",
+          `Too many requests. Try again in ${wait}s.`,
+          {retryAfterSec: wait});
+    }
+
     let verifyUrl;
     try {
-      verifyUrl = await admin.auth().generateEmailVerificationLink(
-          authUser.email, AUTH_ACTION_CODE_SETTINGS);
+      verifyUrl = verifyLink.brandedVerifyUrl(
+          await admin.auth().generateEmailVerificationLink(
+              authUser.email, AUTH_ACTION_CODE_SETTINGS),
+          uid, linkSecret);
     } catch (err) {
       logger.error("sendBrandedVerification: generateLink failed", err);
       throw new HttpsError("internal", "Could not generate link.");
@@ -5303,7 +5339,13 @@ exports.sendBrandedVerification = onCall(
       logger.error("sendBrandedVerification: send failed", err);
       throw new HttpsError("internal", "Could not send email.");
     }
-    return {ok: true};
+    await userRef.set({
+      verificationEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true}).catch(() => {});
+    logger.info(`sendBrandedVerification: sent uid=${uid} via=${
+      viaLink ? "expired-link-page" : "signed-in"}`);
+    return {ok: true, sentTo: verifyLink.maskEmail(authUser.email),
+      cooldownSec: VERIFY_RESEND_COOLDOWN_MS / 1000};
   },
 );
 

@@ -2530,7 +2530,7 @@
       const msg = (e && e.message) || '';
       if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
         try { await window.CURRENT_USER.reload(); } catch (_e) {}
-        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
         showToast('Verify your email to become a seller — we sent a link to your inbox (tap Resend on the banner if needed).', 'error');
       } else {
         showToast(msg ? ('Could not become a seller: ' + msg.slice(0, 100)) : 'Could not become a seller. Please try again.', 'error');
@@ -3694,7 +3694,7 @@
         if (capHit) {
           // message already set
         } else if (!emailOk) {
-          try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+          try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
           msg = 'Verify your email to publish — tap Resend on the banner above.';
         } else {
           // Account IS verified — the denial may be a stale token claim

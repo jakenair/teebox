@@ -2988,7 +2988,7 @@ async function sendMessage() {
     } else if ((err && err.details && err.details.error) === 'email_unverified') {
       // r173: messaging now requires a verified email (throwaway-DM guard).
       showToast('Verify your email to send messages — check your inbox for the link.');
-      try { window.maybeShowVerifyBanner && window.CURRENT_USER && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+      try { window.maybeShowVerifyBanner && window.CURRENT_USER && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
     } else if ((err && err.details && err.details.error) === 'you_blocked_recipient') {
       showToast("You've blocked this user. Unblock them to send a message.");
     } else {
@@ -5836,7 +5836,7 @@ async function aiWriteDescription() {
       const emsg = (e && e.message) || '';
       const cb = document.getElementById('sellTermsCheckbox');
       if (/verify your email/i.test(emsg)) {
-        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+        try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
         showToast('Verify your email first — tap the link in your inbox (Resend is on the banner).');
       } else if (cb && !cb.checked) {
         try {
@@ -10828,6 +10828,16 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     ? `<div class="profile-section profile-account-hub">
          <h4>Your account</h4>
          <div class="account-hub-list">
+           ${(window.CURRENT_USER && window.CURRENT_USER.email && !window.CURRENT_USER.emailVerified) ? `
+           <!-- r412: the app had no Resend outside the dismissible banner. -->
+           <button class="account-hub-item verify-row" data-action="resend-verification-email" type="button">
+             <span class="account-hub-label">Resend verification email</span>
+             <span class="account-hub-chev">›</span>
+           </button>
+           <button class="account-hub-item verify-row" data-action="verify-email-recheck" type="button">
+             <span class="account-hub-label">I've verified my email</span>
+             <span class="account-hub-chev">›</span>
+           </button>` : ''}
            <button class="account-hub-item" data-action="open-shop-dashboard" type="button">
              <span class="account-hub-label">My Shop</span>
              <span class="account-hub-chev">›</span>
@@ -13664,7 +13674,7 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
     if (/age-required/.test(msg)) {
       showSellerAgeDialog();
     } else if (/verify your email/i.test(msg) || code.includes('failed-precondition')) {
-      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER); } catch (_e) {}
+      try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
       showToast('Verify your email to set up payouts — tap the link in your inbox (Resend is on the banner).', 'error');
     } else {
       showToast('Could not start Stripe setup. Try again.');
@@ -13760,37 +13770,130 @@ A['recheck-email-verify'] = async () => {
     showToast("Not verified yet — tap the link in your inbox, then try again.", 'error');
   }
 };
+// r412: Resend works from every surface (banner, sell prompt, profile row,
+// web user menu) with one shared 60s cooldown, a visible "Sent" state on the
+// buttons themselves, and the address it went to — not just a toast.
+const VERIFY_RESEND_COOLDOWN_S = 60;
+let __verifyResendUntil = 0;
+let __verifyResendTimer = null;
+function __syncResendButtons() {
+  const left = Math.ceil((__verifyResendUntil - Date.now()) / 1000);
+  document.querySelectorAll('[data-action="resend-verification-email"]').forEach((el) => {
+    if (!el.dataset.label) el.dataset.label = (el.querySelector('.account-hub-label') || el).textContent.trim();
+    const target = el.querySelector('.account-hub-label') || el;
+    if (left > 0) {
+      target.textContent = 'Sent ✓ · resend in ' + left + 's';
+      el.setAttribute('aria-disabled', 'true');
+      el.classList.add('is-cooling');
+    } else {
+      target.textContent = el.dataset.label;
+      el.removeAttribute('aria-disabled');
+      el.classList.remove('is-cooling');
+    }
+  });
+  if (left <= 0 && __verifyResendTimer) { clearInterval(__verifyResendTimer); __verifyResendTimer = null; }
+}
+function __startResendCooldown(sec) {
+  __verifyResendUntil = Date.now() + Math.max(1, sec) * 1000;
+  __syncResendButtons();
+  if (!__verifyResendTimer) __verifyResendTimer = setInterval(__syncResendButtons, 1000);
+}
+function __setVerifyBannerNote(text) {
+  const n = document.getElementById('verifyEmailNote');
+  if (!n) return;
+  n.textContent = text || '';
+  n.hidden = !text;
+}
 A['resend-verification-email'] = async () => {
   // Best-effort resend of the verification link via our branded
   // Cloud Function (Resend-powered, DKIM/SPF-signed for deliverability).
-  // Hidden for non-email users; surfaces a generic toast on success and
-  // a specific message on rate-limit so the user knows to wait.
   try { document.getElementById('userMenu').classList.remove('open'); } catch {}
   if (!window.requireAuth('to resend the verification email')) return;
   const u = window.CURRENT_USER;
   if (!u || !u.email) { showToast('Sign in with email to resend verification.'); return; }
-  if (u.emailVerified) { showToast('Your email is already verified.', 'success'); return; }
+  if (Date.now() < __verifyResendUntil) {
+    showToast('We just sent a link to ' + u.email + '. Give it a minute, and check spam or Promotions.');
+    return;
+  }
+  try { await u.reload(); } catch (_e) {}
+  if (u.emailVerified) {
+    try { await window.__ensureVerifiedClaimFresh(); } catch (_e) {}
+    window.hideVerifyBanner();
+    showToast('Your email is already verified.', 'success');
+    try { window.__refreshVerifyRows && window.__refreshVerifyRows(); } catch (_e) {}
+    return;
+  }
+  // Optimistic: lock every Resend button while the request is in flight.
+  __startResendCooldown(5);
   try {
     const { getFunctions, httpsCallable } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
-    const fns2 = getFunctions();
-    const sendVerify = httpsCallable(fns2, 'sendBrandedVerification');
+    const sendVerify = httpsCallable(getFunctions(), 'sendBrandedVerification');
     const res = await sendVerify();
     const out = (res && res.data) || {};
     if (out.alreadyVerified) {
+      __startResendCooldown(0);
+      window.hideVerifyBanner();
       showToast('Your email is already verified.', 'success');
-    } else {
-      showToast('Verification link sent to ' + u.email + ' — check your inbox, and your spam or Promotions folder.', 'success');
+      return;
     }
+    __startResendCooldown(out.cooldownSec || VERIFY_RESEND_COOLDOWN_S);
+    const msg = 'Sent! Check your inbox at ' + u.email + ' for a new link (and spam or Promotions). Tap it, then come back here.';
+    __setVerifyBannerNote(msg);
+    showToast(msg, 'success');
   } catch (e) {
     const code = e && e.code;
     if (code === 'functions/resource-exhausted' || (e && /Too many/.test(String(e.message || '')))) {
-      showToast('Too many requests. Try again in a few minutes.');
+      const m = /(\d+)s/.exec(String((e && e.message) || ''));
+      const wait = (e && e.details && e.details.retryAfterSec) || (m ? Number(m[1]) : VERIFY_RESEND_COOLDOWN_S);
+      __startResendCooldown(wait);
+      showToast('We just sent a link. You can ask for another in ' + wait + ' seconds.');
     } else {
-      showToast('Could not send verification email. Try again later.');
+      __startResendCooldown(0);
+      showToast('Could not send verification email. Try again in a minute.');
     }
   }
 };
+
+// r412: "I've verified" on the banner / profile row, and the same check
+// automatically whenever the app comes back to the foreground (the user
+// tapped the link in Mail/Safari and switched back). No restart or re-login.
+let __verifyCheckAt = 0;
+window.__recheckEmailVerified = async function (opts) {
+  const u = window.CURRENT_USER;
+  if (!u || !u.email) return false;
+  const banner = document.getElementById('verifyEmailBanner');
+  const wasShowing = !!(banner && banner.classList.contains('show'));
+  if (!u.emailVerified) {
+    if (!(opts && opts.manual) && Date.now() - __verifyCheckAt < 10000) return false;
+    __verifyCheckAt = Date.now();
+    try { await u.reload(); } catch (_e) { return false; }
+    if (!u.emailVerified) return false;
+  } else if (!wasShowing) {
+    return true; // already verified and nothing on screen to clear
+  }
+  try { await window.__ensureVerifiedClaimFresh(); } catch (_e) {}
+  window.hideVerifyBanner();
+  __setVerifyBannerNote('');
+  try { window.__refreshVerifyRows && window.__refreshVerifyRows(); } catch (_e) {}
+  showToast('Email verified ✓ You’re all set.', 'success');
+  return true;
+};
+window.__refreshVerifyRows = function () {
+  const u = window.CURRENT_USER;
+  const verified = !u || !u.email || u.emailVerified;
+  document.querySelectorAll('.verify-row').forEach((el) => { el.hidden = !!verified; });
+};
+A['verify-email-recheck'] = async () => {
+  const ok = await window.__recheckEmailVerified({ manual: true });
+  if (!ok && window.CURRENT_USER && !window.CURRENT_USER.emailVerified) {
+    showToast("Not verified yet. Tap the link in the email we sent, then try again.", 'error');
+  }
+};
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) window.__recheckEmailVerified();
+});
+window.addEventListener('focus', () => { window.__recheckEmailVerified(); });
 
 // ── Email-verification soft prompt (Phase 2) ──────────────────────────
 // Surfaces emailVerified state as a dismissible banner. NEVER gates any
@@ -13798,13 +13901,18 @@ A['resend-verification-email'] = async () => {
 // Resend reuses A['resend-verification-email'] (branded callable + rate
 // limit). Dismissal is per-uid so we don't nag; it stops qualifying once
 // the user verifies (emailVerified flips true on next auth resolution).
-window.maybeShowVerifyBanner = function (user) {
+window.maybeShowVerifyBanner = function (user, opts) {
   const b = document.getElementById('verifyEmailBanner');
   if (!b) return;
   // Only password users with an unverified email qualify: Google/OAuth
   // users are already verified; phone users have no email.
   if (!user || !user.email || user.emailVerified) { b.classList.remove('show'); return; }
-  try { if (localStorage.getItem('teebox_verifyDismissed_' + user.uid) === '1') return; } catch (_) {}
+  // r412: "Not now" hides it on idle visits only. When the user is actually
+  // BLOCKED (opts.force: messaging, checkout, payouts, publish) it comes
+  // back, because it's where Resend lives.
+  if (!(opts && opts.force)) {
+    try { if (localStorage.getItem('teebox_verifyDismissed_' + user.uid) === '1') return; } catch (_) {}
+  }
   const addr = document.getElementById('verifyEmailAddr');
   if (addr) addr.textContent = user.email;
   // Defer so it doesn't fight the auth-screen / splash fade-out.
