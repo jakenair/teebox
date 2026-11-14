@@ -33,14 +33,13 @@
     "sha": null
   },
   "capiPurchaseOnOrderCreated": {
-    "deployedAt": "2026-10-03T00:19:07Z",
-    "note": "created 2026-10-02 via raw gcloud (firebase deploy rejects the whole codebase on a pre-existing concurrency/CPU misconfig in 9 unrelated functions; deploy-fn.sh refuses to CREATE)",
-    "region": "us-central1",
-    "sha": "b28ba424a0efb602548d9fffd07a29050f9adcbc"
+    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
+    "at": "2026-11-14",
+    "region": "us-central1"
   },
   "capiRelay": {
-    "sha": "f2a88ae28dbd7007e666ec7e0826083f2a037f8d",
-    "at": "2026-11-10",
+    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
+    "at": "2026-11-14",
     "region": "us-central1"
   },
   "checkEmailUsage": {
@@ -73,9 +72,10 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "4a40dcccd4eb1189fdc68e1ba5ecb8b3307852fd",
-    "at": "2026-11-03",
-    "region": "us-central1"
+    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
+    "at": "2026-11-14",
+    "region": "us-central1",
+    "note": "raw gcloud with --update-secrets=META_CAPI_TOKEN (deploy-fn.sh cannot add secrets); rev 00038-cev"
   },
   "createShippingLabel": {
     "at": "2026-09-29",
@@ -625,9 +625,9 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "stripeWebhook": {
-    "at": "2026-10-03",
-    "region": "us-central1",
-    "sha": "b28ba424a0efb602548d9fffd07a29050f9adcbc"
+    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
+    "at": "2026-11-14",
+    "region": "us-central1"
   },
   "suggestListingPrice": {
     "at": "2026-09-24",
