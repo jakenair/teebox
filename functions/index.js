@@ -287,7 +287,10 @@ async function checkRateLimit(uid, key, maxPerMinute) {
 // ─────────────────────────────────────────────────────────────
 exports.createPaymentIntent = onRequest(
   {
-    secrets: [stripeSecret, OPS_ALERT_WEBHOOK],
+    // META_CAPI_TOKEN (2026-11-14): server-side InitiateCheckout for web AND
+    // the iOS app — see sendServerInitiateCheckout in metaCapi.js.
+    secrets: [stripeSecret, OPS_ALERT_WEBHOOK,
+      require("./metaCapi")._internal.META_CAPI_TOKEN],
     cors: ALLOWED_ORIGINS,
     // Sizing — this is the critical hot path for revenue. Keep one warm
     // instance to eliminate cold-start checkout drop-off at peak.
@@ -785,7 +788,18 @@ exports.createPaymentIntent = onRequest(
         throw stripeErr;
       }
 
+      // Meta InitiateCheckout, server leg (metaCapi.sendServerInitiateCheckout).
+      // Runs alongside the listing update and is capped at 1.5s so a slow
+      // Meta never delays checkout; it never throws.
+      const icSend = require("./metaCapi")._internal.sendServerInitiateCheckout({
+        authUser, capi, paymentIntent, listingId,
+        itemCents: reservation.priceCents, quantity: reservation.qty,
+      });
       await listingRef.update({pendingPaymentIntentId: paymentIntent.id});
+      const icStatus = await Promise.race([
+        icSend, new Promise((r) => setTimeout(() => r("timeout"), 1500)),
+      ]);
+      if (icStatus !== "sent") logger.info("createPaymentIntent: InitiateCheckout " + icStatus);
 
       // Capture the pre-charge fraud signal (IP only — the card
       // fingerprint isn't available until the charge actually settles).

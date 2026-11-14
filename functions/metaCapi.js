@@ -32,6 +32,7 @@ const {logger} = require("firebase-functions");
 const crypto = require("crypto");
 const https = require("https");
 const admin = require("firebase-admin");
+const metaGate = require("./lib/metaGate");
 
 // Created by the founder in Secret Manager. Until it exists this module is
 // inert by design, so it is safe to deploy before the token is minted.
@@ -193,7 +194,11 @@ function buildUserData(order, extra, cfg) {
  * Cached per instance for 60s so the relay does not pay a read per event.
  * @return {Promise<{testEventCode: string, sendHashedPhone: boolean}>}
  */
-let _metaCfg = {at: 0, v: {testEventCode: "", sendHashedPhone: false}};
+//   internalUids    string[] — accounts whose events never reach production
+//   internalEmails  string[] — same, by email (Gmail dots/+tags ignored)
+//                             (lib/metaGate.js also treats test domains as internal)
+const EMPTY_CFG = {testEventCode: "", sendHashedPhone: false, internalUids: [], internalEmails: []};
+let _metaCfg = {at: 0, v: EMPTY_CFG};
 async function metaConfig() {
   if (Date.now() - _metaCfg.at < 60000) return _metaCfg.v;
   try {
@@ -202,9 +207,11 @@ async function metaConfig() {
     _metaCfg = {at: Date.now(), v: {
       testEventCode: d.testEventCode ? String(d.testEventCode).slice(0, 60) : "",
       sendHashedPhone: d.sendHashedPhone === true,
+      internalUids: Array.isArray(d.internalUids) ? d.internalUids.map(String).slice(0, 200) : [],
+      internalEmails: Array.isArray(d.internalEmails) ? d.internalEmails.map(String).slice(0, 200) : [],
     }};
   } catch (_e) {
-    _metaCfg = {at: Date.now(), v: {testEventCode: "", sendHashedPhone: false}};
+    _metaCfg = {at: Date.now(), v: EMPTY_CFG};
   }
   return _metaCfg.v;
 }
@@ -281,6 +288,9 @@ function buildPurchaseEvent({order, orderId, userData, cfg, now}) {
       num_items: Math.max(1, Number(o.quantity || 1)),
     },
   };
+  // Which client checked out ("ios" | "web"), so app sales are visible in
+  // Events Manager even though both arrive as server events.
+  if (o.checkoutPlatform) ev.custom_data.platform = String(o.checkoutPlatform);
   if (cfg && cfg.testEventCode) ev.test_event_code = cfg.testEventCode;
   return ev;
 }
@@ -321,15 +331,31 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
       // Verified phone (and email as a fallback) from Auth — the order doc
       // carries neither. Best-effort: a lookup failure just means fewer keys.
       let extra = {};
+      let claims = {};
       if (order.buyerId) {
         try {
           const u = await admin.auth().getUser(String(order.buyerId));
           extra = {phone: u.phoneNumber || "", email: u.email || ""};
+          claims = u.customClaims || {};
         } catch (_e) {
           extra = {};
         }
       }
       const cfg = await metaConfig();
+      // 2026-11-14: our own accounts and non-prod runtimes never reach
+      // production reporting (lib/metaGate.js explains why a test code alone
+      // is not enough). A test code from the checkout session or config/meta
+      // sends the event to Test Events instead.
+      const gate = metaGate.gateDecision({
+        internal: metaGate.isInternalAccount(
+            {uid: order.buyerId, email: order.receiptEmail || extra.email, claims}, cfg),
+        nonProd: metaGate.isNonProdRuntime(),
+        testEventCode: metaGate.cleanTestCode(order.capiTestCode) || cfg.testEventCode,
+      });
+      if (!gate.send) {
+        logger.info(`capiPurchase: ${gate.reason} - skipping`, {orderId});
+        return;
+      }
       const userData = buildUserData(order, extra, cfg);
       if (!Object.keys(userData).length) {
         // Meta rejects an event with no identifier at all. Better to send
@@ -338,7 +364,7 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         return;
       }
 
-      const ev = buildPurchaseEvent({order, orderId, userData, cfg});
+      const ev = buildPurchaseEvent({order, orderId, userData, cfg: {testEventCode: gate.testEventCode}});
       const eventId = ev.event_id;
       const valueDollars = ev.custom_data.value;
 
@@ -346,7 +372,8 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
       if (res.ok) {
         logger.info(
             `capiPurchase: sent event_id=${eventId} value=${valueDollars}`,
-            {orderId, matchKeys: Object.keys(userData)});
+            {orderId, matchKeys: Object.keys(userData), gate: gate.reason,
+              platform: order.checkoutPlatform || null});
       } else {
         logger.warn(
             `capiPurchase: Meta rejected ${res.status}`,
@@ -450,6 +477,19 @@ exports.capiRelay = onCall(
         }
       }
 
+      // 2026-11-14: internal accounts / non-prod never reach production.
+      const relayCfg = await metaConfig();
+      const gate = metaGate.gateDecision({
+        internal: !!auth && metaGate.isInternalAccount(
+            {uid: auth.uid, email: auth.token && auth.token.email, claims: auth.token}, relayCfg),
+        nonProd: metaGate.isNonProdRuntime(),
+        testEventCode: metaGate.cleanTestCode(d.testEventCode) || relayCfg.testEventCode,
+      });
+      if (!gate.send) {
+        logger.info("capiRelay: skipped", {eventName, reason: gate.reason});
+        return {ok: false, skipped: gate.reason};
+      }
+
       // Identity comes from the verified token, never the body.
       const ud = {};
       if (auth) {
@@ -506,7 +546,7 @@ exports.capiRelay = onCall(
         custom_data: custom,
       };
       if (d.sourceUrl) evt.event_source_url = String(d.sourceUrl).slice(0, 500);
-      if (d.testEventCode) evt.test_event_code = String(d.testEventCode).slice(0, 60);
+      if (gate.testEventCode) evt.test_event_code = gate.testEventCode;
 
       const res = await postEvents(token, [evt]);
       if (!res.ok) {
@@ -524,4 +564,127 @@ exports.capiRelay = onCall(
     },
 );
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce, buildPurchaseEvent, purchaseSkipReason, purchaseValueDollars};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Server-side InitiateCheckout — fired from createPaymentIntent, the one
+// checkout function BOTH the website and the iOS app call (2026-11-14).
+//
+// Before this, InitiateCheckout's server copy came only from the browser
+// relay, which the iOS shell deliberately skips (no pixel there), so app
+// checkouts produced no InitiateCheckout at all.
+//
+// Dedup, by client:
+//   - iOS app: no pixel, so nothing to dedupe against. event_id =
+//     ic_<paymentIntentId>; a retry inside Stripe's 5-minute idempotency
+//     bucket returns the same PaymentIntent, so the id is stable.
+//   - web that sends icEventId (the id it gave the pixel): sent here with
+//     that id, so Meta collapses the pixel + server pair. Such clients no
+//     longer relay InitiateCheckout themselves.
+//   - web WITHOUT icEventId (the client live before this change): skipped,
+//     because that client still relays it through capiRelay with the pixel's
+//     id. Sending a second copy here would double-count.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Why createPaymentIntent must NOT send InitiateCheckout, or "".
+ * @param {{platform: string, icEventId: string, optOut: boolean, livemode: boolean}} p
+ * @return {string}
+ */
+function initiateCheckoutSkipReason(p) {
+  const x = p || {};
+  if (x.optOut) return "opted-out";
+  if (x.livemode !== true) return "test-mode";
+  if (x.platform !== "ios" && !x.icEventId) return "web-client-relays-it";
+  return "";
+}
+
+/**
+ * Pure builder for the server InitiateCheckout event.
+ * @param {object} p
+ * @return {object} CAPI event
+ */
+function buildInitiateCheckoutEvent(p) {
+  const ev = {
+    event_name: "InitiateCheckout",
+    event_time: p.now || Math.floor(Date.now() / 1000),
+    event_id: p.icEventId || ("ic_" + p.paymentIntentId),
+    action_source: "website",
+    event_source_url: "https://teeboxmarket.com/listing/" +
+      encodeURIComponent(String(p.listingId)) + "/",
+    user_data: p.userData,
+    custom_data: {
+      content_ids: [String(p.listingId)],
+      content_type: "product",
+      value: Math.round(Number(p.itemCents || 0)) / 100,
+      currency: "USD",
+      num_items: Math.max(1, Number(p.quantity || 1)),
+      platform: p.platform || "web",
+    },
+  };
+  if (p.testEventCode) ev.test_event_code = p.testEventCode;
+  return ev;
+}
+
+/**
+ * Send InitiateCheckout for a PaymentIntent createPaymentIntent just made.
+ * Never throws; resolves to a short status for logging. The caller must have
+ * META_CAPI_TOKEN in its secrets.
+ * @param {object} p
+ * @param {object} p.authUser   decoded ID token (uid, email, custom claims)
+ * @param {object} p.capi       lib/capiCarry capiFromRequest() output
+ * @param {{id: string, livemode: boolean}} p.paymentIntent
+ * @param {string} p.listingId
+ * @param {number} p.itemCents  item total (price × qty), no shipping
+ * @param {number} p.quantity
+ * @return {Promise<string>}
+ */
+async function sendServerInitiateCheckout(p) {
+  try {
+    const c = p.capi || {};
+    const skip = initiateCheckoutSkipReason({
+      platform: c.capiPlatform, icEventId: c.capiIcEventId,
+      optOut: c.capiOptOut, livemode: p.paymentIntent && p.paymentIntent.livemode,
+    });
+    if (skip) return "skipped:" + skip;
+    let token = "";
+    try {
+      token = META_CAPI_TOKEN.value() || "";
+    } catch (_e) {
+      token = "";
+    }
+    if (!token) return "skipped:no-token";
+    const cfg = await metaConfig();
+    const au = p.authUser || {};
+    const gate = metaGate.gateDecision({
+      internal: metaGate.isInternalAccount({uid: au.uid, email: au.email, claims: au}, cfg),
+      nonProd: metaGate.isNonProdRuntime(),
+      testEventCode: c.capiTestCode || cfg.testEventCode,
+    });
+    if (!gate.send) return "skipped:" + gate.reason;
+    const ud = {};
+    if (au.uid) ud.external_id = hashExternalId(au.uid);
+    const em = hashEmail(au.email);
+    if (em) ud.em = em;
+    if (c.capiFbp) ud.fbp = c.capiFbp;
+    if (c.capiFbc) ud.fbc = c.capiFbc;
+    if (c.capiIp) ud.client_ip_address = c.capiIp;
+    if (c.capiUa) ud.client_user_agent = c.capiUa;
+    const ev = buildInitiateCheckoutEvent({
+      paymentIntentId: p.paymentIntent.id, icEventId: c.capiIcEventId,
+      listingId: p.listingId, itemCents: p.itemCents, quantity: p.quantity,
+      platform: c.capiPlatform, userData: ud, testEventCode: gate.testEventCode,
+    });
+    const res = await postEvents(token, [ev]);
+    if (!res.ok) {
+      logger.warn("capiInitiateCheckout: Meta rejected", {status: res.status, body: res.body});
+      return "rejected:" + res.status;
+    }
+    logger.info("capiInitiateCheckout: sent", {eventId: ev.event_id, platform: c.capiPlatform, gate: gate.reason});
+    return "sent";
+  } catch (e) {
+    logger.warn("capiInitiateCheckout: error", {err: e && e.message});
+    return "error";
+  }
+}
+
+module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce, buildPurchaseEvent, purchaseSkipReason, purchaseValueDollars, initiateCheckoutSkipReason, buildInitiateCheckoutEvent, sendServerInitiateCheckout, META_CAPI_TOKEN};
