@@ -146,6 +146,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        // Meta SDK (2026-11-14): ad clicks open the app through a teeboxmarket.com
+        // universal link. Meta's Aggregated Event Measurement reads the ad's
+        // campaign id from that link, so the SDK must see it ("The DeepLink URL
+        // from the re-engagement ads should be passed to the iOS SDK"). Return
+        // value ignored: Capacitor still routes the link to the web layer.
+        _ = ApplicationDelegate.shared.application(application, continue: userActivity)
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 

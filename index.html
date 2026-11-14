@@ -182,6 +182,42 @@ window.__phDeferLoad = function(load) {
   window.getDeviceType = getDeviceType;
   window.getUtmFromUrlOrStorage = getUtmFromUrlOrStorage;
 
+  // 2026-11-14 (Meta ads): keep the ad click until checkout.
+  // (1) An ad lands on /?listing=ID&fbclid=…; the overlay router then rewrites
+  //     the URL, and the pixel loader boots at idle (~7s in), so it could miss
+  //     the fbclid and never write _fbc. Write _fbc ourselves, in Meta's own
+  //     format (fb.1.<ms>.<fbclid>), the moment the page parses.
+  // (2) Store utm_* and Meta's campaign/ad-set/ad ids (URL macros) so
+  //     createPaymentIntent can put them on the order. Last ad click wins,
+  //     kept 28 days. Both are skipped for Do Not Sell or Share / GPC.
+  try {
+    var optedOut = navigator.globalPrivacyControl === true ||
+      (function () { try { return localStorage.getItem('tb_dnsps') === '1'; } catch (_) { return false; } })() ||
+      /(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '');
+    var sp0 = new URLSearchParams(window.location.search);
+    if (!optedOut) {
+      var fbclid = sp0.get('fbclid');
+      if (fbclid && /^[A-Za-z0-9_-]{8,500}$/.test(fbclid)) {
+        var cur = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+        if (!cur || cur.split('.').slice(3).join('.') !== fbclid) {
+          var dom = /(^|\.)teeboxmarket\.com$/.test(location.hostname) ? '; domain=.teeboxmarket.com' : '';
+          document.cookie = '_fbc=fb.1.' + Date.now() + '.' + fbclid + '; max-age=7776000; path=/' + dom + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+        }
+      }
+      var AD_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id', 'campaign_id', 'adset_id', 'ad_id'];
+      var got = {}, any = false;
+      AD_KEYS.forEach(function (k) { var v = sp0.get(k); if (v) { got[k] = String(v).slice(0, 120); any = true; } });
+      if (any) localStorage.setItem('tb_ad_attr_v1', JSON.stringify({ t: Date.now(), v: got }));
+    }
+  } catch (_) {}
+  window.tbAdAttribution = function () {
+    try {
+      var r = JSON.parse(localStorage.getItem('tb_ad_attr_v1') || 'null');
+      if (!r || !r.v || Date.now() - Number(r.t || 0) > 28 * 864e5) return {};
+      return r.v;
+    } catch (_) { return {}; }
+  };
+
   // ── posthog-js loader (official snippet, trimmed) ─────────────────
   // Buffers posthog.<method>(...) calls until the real library loads,
   // so call sites elsewhere in index.html don't need to wait or
@@ -9057,6 +9093,12 @@ async function mountPaymentElement(product) {
         ...(window.metaMatchIds ? window.metaMatchIds() : {}),
         // 2026-10-29: opted-out buyers get NO server-side Purchase event either.
         ...((window.tbMetaOptedOut && window.tbMetaOptedOut()) ? { metaOptOut: true } : {}),
+        // 2026-11-14: the server now sends InitiateCheckout from this call
+        // (web + iOS app). icEventId is the id the pixel used, so Meta
+        // dedupes the pair; fbRelayToServer no longer relays it.
+        ...(window.__tbCheckoutEventId ? { icEventId: String(window.__tbCheckoutEventId) } : {}),
+        ...((window.metaTestEventCode && window.metaTestEventCode()) ? { testEventCode: window.metaTestEventCode() } : {}),
+        ...((window.tbMetaOptedOut && window.tbMetaOptedOut()) ? {} : { adAttr: (window.tbAdAttribution && window.tbAdAttribution()) || {} }),
       }),
     });
     if (!res.ok) {
@@ -9308,6 +9350,10 @@ async function fbRelayToServer(name, eventId, params) {
     // the Meta SDK (App Events) in the next build, not this relay.
     if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
     if (!FB_RELAY_EVENTS.has(name)) return;
+    // 2026-11-14: createPaymentIntent sends InitiateCheckout server-side with
+    // the same event id (it reaches the app too). Relaying it as well would
+    // be a second server copy.
+    if (name === 'InitiateCheckout') return;
     // 2026-10-29: the Do Not Sell or Share switch and GPC stop the SERVER copy
     // too. Until now only the pixel loader honoured them, so an opted-out visitor
     // still produced CAPI PageView/ViewContent — the policy said otherwise.
