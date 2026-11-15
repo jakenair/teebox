@@ -246,6 +246,15 @@ function buildFeedCsv(listings, testSellers, now) {
   return {csv: out.join("\r\n") + "\r\n", rows, skipped};
 }
 
+/**
+ * Meta CSV -> TikTok CSV: only the key column's header differs (id -> sku_id).
+ * @param {string} csv from buildFeedCsv
+ * @return {string}
+ */
+function toTikTokCsv(csv) {
+  return String(csv).replace(/^id,/, "sku_id,");
+}
+
 function tokenMatches(given, expected) {
   if (!given || !expected) return false;
   const a = Buffer.from(String(given));
@@ -327,12 +336,16 @@ exports.metaFeed = onRequest(
           _cache = {at: now, csv: built.csv, rows: built.rows};
           logger.info("metaFeed: rebuilt", {rows: built.rows, skipped: built.skipped});
         }
+        // 2026-11-15: &format=tiktok serves the same rows for TikTok Catalog
+        // Manager, whose product key column is sku_id (Meta's is id). Values
+        // are identical, so TikTok event content_id = sku_id = Meta id.
+        const tiktok = req.query && req.query.format === "tiktok";
         res.set("Content-Type", "text/csv; charset=utf-8");
-        res.set("Content-Disposition", "inline; filename=\"meta-feed.csv\"");
+        res.set("Content-Disposition", `inline; filename="${tiktok ? "tiktok" : "meta"}-feed.csv"`);
         res.set("Cache-Control", `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}`);
         res.set("X-TeeBox-Feed-Rows", String(_cache.rows));
         res.set("X-TeeBox-Feed-Generated", new Date(_cache.at).toISOString());
-        res.status(200).send(req.method === "HEAD" ? "" : _cache.csv);
+        res.status(200).send(req.method === "HEAD" ? "" : (tiktok ? toTikTokCsv(_cache.csv) : _cache.csv));
       } catch (err) {
         logger.error("metaFeed: build failed", err);
         res.status(500).type("text/plain").send("Internal error");
@@ -342,5 +355,5 @@ exports.metaFeed = onRequest(
 
 exports._feed = {
   buildFeedCsv, feedRow, TEST_EMAIL_RE, mapCondition, mapAvailability, plainText, csvCell,
-  stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS,
+  stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS, toTikTokCsv,
 };

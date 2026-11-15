@@ -15,6 +15,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DIST = new URL('../dist', import.meta.url).pathname;
+// 2026-11-15: the TikTok Pixel tag (2 lines) is stripped the same way.
+const TT_BLOCK = /<!-- TikTok Pixel[^>]*-->\s*<script defer src="\/tt-pixel\.js"><\/script>\s*/gs;
 const BLOCK = /<!-- Meta Pixel[^>]*-->\s*<script defer src="\/fb-pixel\.js"><\/script>\s*<noscript>.*?<\/noscript>\s*/gs;
 
 let stripped = 0;
@@ -28,11 +30,13 @@ function walk(dir) {
     let s = fs.readFileSync(p, 'utf8');
     const before = s;
     s = s.replace(BLOCK, '');
+    s = s.replace(TT_BLOCK, '');
     // index.html's CSP allowlists the pixel hosts for the web — drop them
     // from the iOS copy so nothing in the native shell could phone home
     // even if pixel code were somehow injected.
     s = s.replace(/ ?https:\/\/connect\.facebook\.net/g, '')
-         .replace(/ ?https:\/\/www\.facebook\.com(?=[ ;'"])/g, '');
+         .replace(/ ?https:\/\/www\.facebook\.com(?=[ ;'"])/g, '')
+         .replace(/ ?https:\/\/analytics\.tiktok\.com| ?https:\/\/\*\.tiktok\.com| ?https:\/\/\*\.tiktokw\.us/g, '');
     if (s !== before) { fs.writeFileSync(p, s); stripped++; }
     // "Pixel-free" = zero LOADING VECTORS. Plain-string mentions of
     // facebook (bot-detection regexes, the moderation wordlist, policy
@@ -47,7 +51,7 @@ function walk(dir) {
     // froze the iOS bundle at r277 for five days, because build:web is the
     // only thing that writes dist/ and it dies here. If this trips, reword
     // the comment — do not loosen the check.
-    if (/fb-pixel\.js|fbevents\.js|facebook\.com\/tr\b|connect\.facebook\.net/i.test(s)) {
+    if (/fb-pixel\.js|fbevents\.js|facebook\.com\/tr\b|connect\.facebook\.net|tt-pixel\.js|analytics\.tiktok\.com|tiktokw\.us/i.test(s)) {
       leftovers.push(p.replace(DIST + '/', ''));
     }
   }
@@ -59,6 +63,7 @@ if (!fs.existsSync(DIST)) {
 // Belt-and-braces: the loader must never ride along even if a future copy
 // step sweeps it in.
 try { fs.unlinkSync(path.join(DIST, 'fb-pixel.js')); } catch (_e) {}
+try { fs.unlinkSync(path.join(DIST, 'tt-pixel.js')); } catch (_e) {}
 walk(DIST);
 if (leftovers.length) {
   console.error('[strip-pixel-for-ios] FACEBOOK REFERENCES REMAIN:', leftovers.join(', '));

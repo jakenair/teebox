@@ -33,6 +33,7 @@ const crypto = require("crypto");
 const https = require("https");
 const admin = require("firebase-admin");
 const metaGate = require("./lib/metaGate");
+const tiktok = require("./tiktokEvents");
 
 // Created by the founder in Secret Manager. Until it exists this module is
 // inert by design, so it is safe to deploy before the token is minted.
@@ -302,7 +303,7 @@ function buildPurchaseEvent({order, orderId, userData, cfg, now}) {
  * counts the sale twice and every ROAS number downstream is wrong.
  */
 exports.capiPurchaseOnOrderCreated = onDocumentCreated(
-    {document: "orders/{orderId}", ...LIGHT, secrets: [META_CAPI_TOKEN]},
+    {document: "orders/{orderId}", ...LIGHT, secrets: [META_CAPI_TOKEN, tiktok.TIKTOK_EVENTS_API_TOKEN]},
     async (event) => {
       const snap = event.data;
       if (!snap) return;
@@ -355,6 +356,19 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
       if (!gate.send) {
         logger.info(`capiPurchase: ${gate.reason} - skipping`, {orderId});
         return;
+      }
+      // 2026-11-15: TikTok Events API Purchase, same event_id as the TikTok
+      // pixel (purchase_<paymentIntentId>). Skipped while a Meta test code is
+      // set (the order is a test). Hashed email + external_id, never phone.
+      if (!gate.testEventCode) {
+        await tiktok.sendTikTokEvent({
+          tag: "capiPurchase", name: "Purchase", eventId: "purchase_" + orderId,
+          contentId: order.listingId, value: purchaseValueDollars(order),
+          price: Number(order.unitPriceCents) > 0 ? Number(order.unitPriceCents) / 100 : undefined,
+          quantity: order.quantity,
+          email: order.receiptEmail || extra.email, uid: order.buyerId,
+          url: order.listingId ? "https://teeboxmarket.com/?listing=" + encodeURIComponent(String(order.listingId)) : "",
+        });
       }
       const userData = buildUserData(order, extra, cfg);
       if (!Object.keys(userData).length) {
@@ -454,7 +468,7 @@ const CAPI_ANON_EVENTS = new Set(["ViewContent", "PageView"]);
 const CAPI_MAX_VALUE = 100000; // $100k — far above any real listing
 
 exports.capiRelay = onCall(
-    {...LIGHT, secrets: [META_CAPI_TOKEN]},
+    {...LIGHT, secrets: [META_CAPI_TOKEN, tiktok.TIKTOK_EVENTS_API_TOKEN]},
     async (request) => {
       const auth = request.auth;
       const d = request.data || {};
@@ -511,6 +525,34 @@ exports.capiRelay = onCall(
         return {ok: false, skipped: "non-prod-host"};
       }
 
+      // 2026-11-15: TikTok Events API copy of the same browser event (same
+      // event_id as the TikTok pixel). Same gate as Meta: internal accounts and
+      // non-prod never reach production; a Meta test code also keeps TikTok
+      // out of production (routed to TikTok's Test Events only with a TikTok
+      // code). Hashed email + external_id only, never phone.
+      let ttSend = Promise.resolve("not-applicable");
+      const tp = d.params || {};
+      const ttTest = tiktok.cleanTikTokTestCode(d.ttTestEventCode);
+      if (tiktok._internal.EVENT_MAP[eventName] && eventName !== "Purchase" &&
+          (!gate.testEventCode || ttTest)) {
+        const rr = request.rawRequest || {};
+        const hh = rr.headers || {};
+        ttSend = tiktok.sendTikTokEvent({
+          tag: "capiRelay", name: eventName, eventId,
+          contentId: Array.isArray(tp.content_ids) ? tp.content_ids[0] : "",
+          value: tp.value, price: tp.price, quantity: tp.num_items,
+          email: auth && auth.token && auth.token.email, uid: auth && auth.uid,
+          ip: rr.ip || hh["x-forwarded-for"], userAgent: hh["user-agent"],
+          ttp: d.ttp, ttclid: d.ttclid, url: d.sourceUrl, testEventCode: ttTest,
+        });
+      }
+      // The web client sends InitiateCheckout here for TikTok only: Meta's
+      // server copy comes from createPaymentIntent.
+      if (d.ttOnly === true) {
+        const st = await ttSend;
+        return {ok: st === "sent", tiktok: st};
+      }
+
       // Identity comes from the verified token, never the body.
       const ud = {};
       if (auth) {
@@ -555,6 +597,7 @@ exports.capiRelay = onCall(
       if (!Object.keys(ud).length) {
         // Meta rejects an event with no identifier at all (a guest with
         // cookies blocked and no forwarded IP). Nothing useful to send.
+        await ttSend; // the TikTok copy may still have an identifier (_ttp)
         return {ok: false, skipped: "no-identifier"};
       }
 
@@ -570,6 +613,7 @@ exports.capiRelay = onCall(
       if (gate.testEventCode) evt.test_event_code = gate.testEventCode;
 
       const res = await postEvents(token, [evt]);
+      await ttSend; // never rejects
       if (!res.ok) {
         logger.error("capiRelay: Meta rejected the event", {
           eventName, eventId, status: res.status, body: res.body,
