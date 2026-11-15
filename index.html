@@ -182,6 +182,29 @@ window.__phDeferLoad = function(load) {
   window.getDeviceType = getDeviceType;
   window.getUtmFromUrlOrStorage = getUtmFromUrlOrStorage;
 
+  // 2026-11-14/15 (Meta ads): keep the ad click's fbclid. An ad lands on
+  // /?listing=ID&fbclid=…; the overlay router then rewrites the URL and the
+  // pixel loader boots at idle (~7s in), so it could miss the fbclid and never
+  // write _fbc. Write _fbc ourselves, in Meta's own format (fb.1.<ms>.<fbclid>),
+  // the moment the page parses. Web + production host only; skipped for
+  // Do Not Sell or Share / GPC and in the native shell. (The utm/campaign
+  // attribution half of feat/meta-ads f549d31 is still held.)
+  try {
+    var optedOut = navigator.globalPrivacyControl === true ||
+      (function () { try { return localStorage.getItem('tb_dnsps') === '1'; } catch (_) { return false; } })() ||
+      /(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '');
+    var native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!optedOut && !native && /^(www\.)?teeboxmarket\.com$/.test(location.hostname)) {
+      var fbclid = new URLSearchParams(window.location.search).get('fbclid');
+      if (fbclid && /^[A-Za-z0-9_-]{8,500}$/.test(fbclid)) {
+        var cur = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+        if (!cur || cur.split('.').slice(3).join('.') !== fbclid) {
+          document.cookie = '_fbc=fb.1.' + Date.now() + '.' + fbclid + '; max-age=7776000; path=/; domain=.teeboxmarket.com; SameSite=Lax; Secure';
+        }
+      }
+    }
+  } catch (_) {}
+
   // ── posthog-js loader (official snippet, trimmed) ─────────────────
   // Buffers posthog.<method>(...) calls until the real library loads,
   // so call sites elsewhere in index.html don't need to wait or
@@ -9857,8 +9880,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r415"></script>
-<script type="module" src="/js/app-auth.js?v=r415"></script>
+<script defer src="/js/app-main.js?v=r416"></script>
+<script type="module" src="/js/app-auth.js?v=r416"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9888,8 +9911,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r415"></script>
-<script type="module" src="/js/sunday-nine.js?v=r415"></script>
+<script type="module" src="/js/bingo.js?v=r416"></script>
+<script type="module" src="/js/sunday-nine.js?v=r416"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
