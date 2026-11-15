@@ -38,8 +38,8 @@
     "region": "us-central1"
   },
   "capiRelay": {
-    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
-    "at": "2026-11-14",
+    "sha": "0264917bd59d9378ccd4b0f63a30f7e97b071f8b",
+    "at": "2026-11-15",
     "region": "us-central1"
   },
   "checkEmailUsage": {
@@ -246,8 +246,8 @@
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "metaFeed": {
-    "sha": "86775b03c8e81f7a595b74c916111fe22de85a22",
-    "at": "2026-11-13",
+    "sha": "0264917bd59d9378ccd4b0f63a30f7e97b071f8b",
+    "at": "2026-11-15",
     "region": "us-central1"
   },
   "moderateImage": {
