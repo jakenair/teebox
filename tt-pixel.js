@@ -9,14 +9,14 @@
 //   - Events come from index.html window.fbTrack(), which mirrors ViewContent,
 //     AddToCart, InitiateCheckout and Purchase here with the SAME event id it
 //     gives Meta, so TikTok dedupes the pixel against the Events API copy.
-//   - Advanced matching: hashed email + hashed external id only (ttq.identify
-//     with SHA-256 values computed in the browser). Never phone.
+//   - Advanced matching: hashed email only (ttq.identify with a SHA-256
+//     value computed in the browser). Never phone.
 //
 // ── CONFIG ──────────────────────────────────────────────────────────────
 // The TikTok pixel code (TikTok Ads Manager → Tools → Events → Web Events).
-// Public by nature. EMPTY = pixel off. Set the same value in
+// Public by nature. EMPTY = pixel off. Keep the same value in
 // functions/tiktokEvents.js (TIKTOK_PIXEL_ID).
-var TEEBOX_TIKTOK_PIXEL_ID = '';
+var TEEBOX_TIKTOK_PIXEL_ID = 'DBSAT0BC77UDGS03KQN0'; // dataset "TeeBox Web"
 (function () {
   try {
     if (!TEEBOX_TIKTOK_PIXEL_ID) return;
@@ -26,6 +26,8 @@ var TEEBOX_TIKTOK_PIXEL_ID = '';
     if (window.Capacitor && window.Capacitor.isNativePlatform &&
         window.Capacitor.isNativePlatform()) return;
     if (!/^https?:$/.test(window.location.protocol)) return;
+    // Production host only (same rule as fb-pixel.js, 2026-11-15).
+    if (!/^(www\.)?teeboxmarket\.com$/.test(window.location.hostname)) return;
   } catch (_e) { return; }
 
   var boot = function () {

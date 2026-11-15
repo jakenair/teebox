@@ -40,6 +40,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 
 const META_FEED_TOKEN = defineSecret("META_FEED_TOKEN");
+const TIKTOK_FEED_TOKEN = defineSecret("TIKTOK_FEED_TOKEN");
 
 const SITE = "https://teeboxmarket.com";
 const CACHE_SECONDS = 600;
@@ -302,55 +303,75 @@ async function loadTestSellers(sellerIds) {
   return out;
 }
 
+/**
+ * One feed HTTP handler per destination. Each has its own token (Secret
+ * Manager), checked in constant time; a wrong or missing token is a 404.
+ * @param {object} p
+ * @param {object} p.secret     defineSecret(...)
+ * @param {string} p.name       log prefix
+ * @param {string} p.filename
+ * @param {function(string): string} [p.transform] csv -> csv
+ * @return {function}
+ */
+function feedHandler({secret, name, filename, transform}) {
+  return async (req, res) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.status(405).send("Method not allowed");
+      return;
+    }
+    let expected = "";
+    try {
+      expected = secret.value() || "";
+    } catch (_e) {
+      expected = "";
+    }
+    if (!tokenMatches(req.query && req.query.token, expected)) {
+      // Deliberately indistinguishable from a missing route.
+      res.status(404).type("text/plain").send("Not found");
+      return;
+    }
+    try {
+      const now = Date.now();
+      if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
+        const listings = await loadListings();
+        const testSellers = await loadTestSellers(listings.map((l) => l.sellerId));
+        const built = buildFeedCsv(listings, testSellers);
+        _cache = {at: now, csv: built.csv, rows: built.rows};
+        logger.info(`${name}: rebuilt`, {rows: built.rows, skipped: built.skipped});
+      }
+      res.set("Content-Type", "text/csv; charset=utf-8");
+      res.set("Content-Disposition", `inline; filename="${filename}"`);
+      res.set("Cache-Control", `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}`);
+      res.set("X-TeeBox-Feed-Rows", String(_cache.rows));
+      res.set("X-TeeBox-Feed-Generated", new Date(_cache.at).toISOString());
+      const body = transform ? transform(_cache.csv) : _cache.csv;
+      res.status(200).send(req.method === "HEAD" ? "" : body);
+    } catch (err) {
+      logger.error(`${name}: build failed`, err);
+      res.status(500).type("text/plain").send("Internal error");
+    }
+  };
+}
+
+const FEED_OPTS = {
+  region: "us-central1",
+  memory: "256MiB",
+  timeoutSeconds: 60,
+  maxInstances: 5,
+  cors: false,
+};
+
 exports.metaFeed = onRequest(
-    {
-      region: "us-central1",
-      memory: "256MiB",
-      timeoutSeconds: 60,
-      maxInstances: 5,
-      cors: false,
-      secrets: [META_FEED_TOKEN],
-    },
-    async (req, res) => {
-      if (req.method !== "GET" && req.method !== "HEAD") {
-        res.status(405).send("Method not allowed");
-        return;
-      }
-      let expected = "";
-      try {
-        expected = META_FEED_TOKEN.value() || "";
-      } catch (_e) {
-        expected = "";
-      }
-      if (!tokenMatches(req.query && req.query.token, expected)) {
-        // Deliberately indistinguishable from a missing route.
-        res.status(404).type("text/plain").send("Not found");
-        return;
-      }
-      try {
-        const now = Date.now();
-        if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
-          const listings = await loadListings();
-          const testSellers = await loadTestSellers(listings.map((l) => l.sellerId));
-          const built = buildFeedCsv(listings, testSellers);
-          _cache = {at: now, csv: built.csv, rows: built.rows};
-          logger.info("metaFeed: rebuilt", {rows: built.rows, skipped: built.skipped});
-        }
-        // 2026-11-15: &format=tiktok serves the same rows for TikTok Catalog
-        // Manager, whose product key column is sku_id (Meta's is id). Values
-        // are identical, so TikTok event content_id = sku_id = Meta id.
-        const tiktok = req.query && req.query.format === "tiktok";
-        res.set("Content-Type", "text/csv; charset=utf-8");
-        res.set("Content-Disposition", `inline; filename="${tiktok ? "tiktok" : "meta"}-feed.csv"`);
-        res.set("Cache-Control", `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}`);
-        res.set("X-TeeBox-Feed-Rows", String(_cache.rows));
-        res.set("X-TeeBox-Feed-Generated", new Date(_cache.at).toISOString());
-        res.status(200).send(req.method === "HEAD" ? "" : (tiktok ? toTikTokCsv(_cache.csv) : _cache.csv));
-      } catch (err) {
-        logger.error("metaFeed: build failed", err);
-        res.status(500).type("text/plain").send("Internal error");
-      }
-    },
+    {...FEED_OPTS, secrets: [META_FEED_TOKEN]},
+    feedHandler({secret: META_FEED_TOKEN, name: "metaFeed", filename: "meta-feed.csv"}),
+);
+
+// 2026-11-15: TikTok Catalog Manager. Same rows and the same out-of-stock
+// rule as metaFeed; only the key column header differs (sku_id), so TikTok
+// event content_id = sku_id = Meta id = listing doc id. Own token.
+exports.tiktokFeed = onRequest(
+    {...FEED_OPTS, secrets: [TIKTOK_FEED_TOKEN]},
+    feedHandler({secret: TIKTOK_FEED_TOKEN, name: "tiktokFeed", filename: "tiktok-feed.csv", transform: toTikTokCsv}),
 );
 
 exports._feed = {

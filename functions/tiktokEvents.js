@@ -15,10 +15,10 @@
 // event_id, so the browser and server legs share the Meta event ids
 // (vc_*, atc_*, ic_*, purchase_<paymentIntentId>).
 //
-// IDENTIFIERS (Dylan/Jake 2026-11-15): hashed email (SHA-256 of the trimmed,
-// lower-cased address) and hashed external_id only. Hashed PHONE IS NEVER
-// SENT — it stays off until the privacy policy covers it. There is no flag
-// for it on purpose.
+// IDENTIFIERS (Jake 2026-11-15): hashed EMAIL ONLY (SHA-256 of the trimmed,
+// lower-cased address), plus the _ttp cookie / ttclid / IP / user agent the
+// pixel itself sees. No external_id. Hashed PHONE IS NEVER SENT — it stays
+// off until the privacy policy covers it. There is no flag for it on purpose.
 //
 // content_id = the listing doc id = the catalog feed's id/sku_id
 // (functions/metaFeed.js), content_type "product".
@@ -32,16 +32,16 @@ const TIKTOK_EVENTS_API_TOKEN = defineSecret("TIKTOK_EVENTS_API_TOKEN");
 // The TikTok pixel code (public, same value as TEEBOX_TIKTOK_PIXEL_ID in
 // /tt-pixel.js). EMPTY = the whole TikTok leg is off. Set it here and in
 // tt-pixel.js in the same change.
-const TIKTOK_PIXEL_ID = process.env.TIKTOK_PIXEL_ID || "";
+const TIKTOK_PIXEL_ID = process.env.TIKTOK_PIXEL_ID || "DBSAT0BC77UDGS03KQN0"; // dataset "TeeBox Web"
 const ENDPOINT_PATH = "/open_api/v1.3/event/track/";
 
-// Our (Meta) event names -> TikTok standard events. TikTok's current docs
-// name the order event "Purchase" (formerly "CompletePayment").
+// Our (Meta) event names -> TikTok events. Jake 2026-11-15: the order event
+// is reported as CompletePayment.
 const EVENT_MAP = {
   ViewContent: "ViewContent",
   AddToCart: "AddToCart",
   InitiateCheckout: "InitiateCheckout",
-  Purchase: "Purchase",
+  Purchase: "CompletePayment",
 };
 const MAX_VALUE = 100000;
 
@@ -69,7 +69,6 @@ function clean(v, n) {
  * @param {number} [p.quantity]
  * @param {string} [p.contentName]
  * @param {string} [p.email]    plaintext; hashed here, never sent raw
- * @param {string} [p.uid]      hashed into external_id
  * @param {string} [p.ip]
  * @param {string} [p.userAgent]
  * @param {string} [p.ttp]      _ttp cookie
@@ -99,7 +98,6 @@ function buildTikTokEvent(p) {
   const user = {};
   const em = hashEmail(x.email);
   if (em) user.email = em;
-  if (x.uid) user.external_id = sha256(String(x.uid));
   if (x.ip) user.ip = clean(String(x.ip).split(",").pop().trim(), 64);
   if (x.userAgent) user.user_agent = clean(x.userAgent, 300);
   if (x.ttp) user.ttp = clean(x.ttp, 200);

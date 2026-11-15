@@ -20,9 +20,9 @@ test("ViewContent: content_id is the listing doc id, content_type product, USD v
   assert.equal(typeof ev.properties.contents[0].content_id, "string");
 });
 
-test("Purchase maps to TikTok Purchase with the shared purchase_<pi> id", () => {
+test("Purchase maps to TikTok CompletePayment with the shared purchase_<pi> id", () => {
   const ev = buildTikTokEvent({name: "Purchase", eventId: "purchase_pi_123", contentId: "L1", value: 55.5, price: 50, quantity: 1, email: "x@y.com"});
-  assert.equal(ev.event, "Purchase");
+  assert.equal(ev.event, "CompletePayment");
   assert.equal(ev.event_id, "purchase_pi_123");
   assert.equal(ev.properties.value, 55.5);
   assert.equal(ev.properties.contents[0].price, 50);
@@ -31,7 +31,7 @@ test("Purchase maps to TikTok Purchase with the shared purchase_<pi> id", () => 
 test("email is SHA-256 of trimmed lower-case; never sent raw; phone is never sent", () => {
   const ev = buildTikTokEvent({name: "AddToCart", eventId: "atc_1", contentId: "L1", email: "  Jake@Example.COM ", phone: "+15555550100", phone_number: "+15555550100", uid: "u1"});
   assert.equal(ev.user.email, sha("jake@example.com"));
-  assert.equal(ev.user.external_id, sha("u1"));
+  assert.equal("external_id" in ev.user, false); // hashed email only
   assert.equal(JSON.stringify(ev).includes("Example"), false);
   assert.equal(JSON.stringify(ev).includes("5555550100"), false);
   assert.equal("phone" in ev.user, false);
@@ -60,8 +60,9 @@ test("body: web source, pixel code, optional test_event_code", () => {
   assert.equal(buildBody(ev, "PIX").event_source, "web");
 });
 
-test("no pixel id configured = the whole leg is off", async () => {
-  assert.equal(await T.sendTikTokEvent({name: "ViewContent", eventId: "vc", contentId: "L1", ttp: "x"}), "no-pixel-id");
+test("pixel id is TeeBox Web; without a token the send is skipped, never throws", async () => {
+  assert.equal(T._internal.TIKTOK_PIXEL_ID, "DBSAT0BC77UDGS03KQN0");
+  assert.equal(await T.sendTikTokEvent({name: "ViewContent", eventId: "vc", contentId: "L1", ttp: "x"}), "no-token");
   assert.equal(T.cleanTikTokTestCode("TEST123"), "TEST123");
   assert.equal(T.cleanTikTokTestCode("bad code!"), "");
 });

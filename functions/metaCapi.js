@@ -357,7 +357,7 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
         logger.info(`capiPurchase: ${gate.reason} - skipping`, {orderId});
         return;
       }
-      // 2026-11-15: TikTok Events API Purchase, same event_id as the TikTok
+      // 2026-11-15: TikTok Events API CompletePayment, same event_id as the TikTok
       // pixel (purchase_<paymentIntentId>). Skipped while a Meta test code is
       // set (the order is a test). Hashed email + external_id, never phone.
       if (!gate.testEventCode) {
@@ -366,7 +366,7 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
           contentId: order.listingId, value: purchaseValueDollars(order),
           price: Number(order.unitPriceCents) > 0 ? Number(order.unitPriceCents) / 100 : undefined,
           quantity: order.quantity,
-          email: order.receiptEmail || extra.email, uid: order.buyerId,
+          email: order.receiptEmail || extra.email,
           url: order.listingId ? "https://teeboxmarket.com/?listing=" + encodeURIComponent(String(order.listingId)) : "",
         });
       }
@@ -529,7 +529,7 @@ exports.capiRelay = onCall(
       // event_id as the TikTok pixel). Same gate as Meta: internal accounts and
       // non-prod never reach production; a Meta test code also keeps TikTok
       // out of production (routed to TikTok's Test Events only with a TikTok
-      // code). Hashed email + external_id only, never phone.
+      // code). Hashed email only, never phone.
       let ttSend = Promise.resolve("not-applicable");
       const tp = d.params || {};
       const ttTest = tiktok.cleanTikTokTestCode(d.ttTestEventCode);
@@ -541,7 +541,7 @@ exports.capiRelay = onCall(
           tag: "capiRelay", name: eventName, eventId,
           contentId: Array.isArray(tp.content_ids) ? tp.content_ids[0] : "",
           value: tp.value, price: tp.price, quantity: tp.num_items,
-          email: auth && auth.token && auth.token.email, uid: auth && auth.uid,
+          email: auth && auth.token && auth.token.email,
           ip: rr.ip || hh["x-forwarded-for"], userAgent: hh["user-agent"],
           ttp: d.ttp, ttclid: d.ttclid, url: d.sourceUrl, testEventCode: ttTest,
         });

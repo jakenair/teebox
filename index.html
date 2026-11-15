@@ -9390,9 +9390,9 @@ window.fbRelayToServer = fbRelayToServer;
 // fbTrack() calls ttMirror() for the four commerce events with the SAME event
 // id it gives Meta; capiRelay / capiPurchaseOnOrderCreated send the TikTok
 // Events API copy with that id, so TikTok dedupes the pair. content_id is the
-// listing doc id = the catalog feed id. Hashed email + hashed uid only
-// (ttq.identify), never phone. Opt-out, GPC and the native shell stop it.
-const TT_EVENTS = { ViewContent: 'ViewContent', AddToCart: 'AddToCart', InitiateCheckout: 'InitiateCheckout', Purchase: 'Purchase' };
+// listing doc id = the catalog feed id. Hashed email only (ttq.identify),
+// never phone. Opt-out, GPC and the native shell stop it.
+const TT_EVENTS = { ViewContent: 'ViewContent', AddToCart: 'AddToCart', InitiateCheckout: 'InitiateCheckout', Purchase: 'CompletePayment' };
 function ttMatchIds() {
   const out = {};
   try {
@@ -9418,9 +9418,8 @@ window.ttIdentify = async function () {
     if (!u || !u.uid || !window.ttq || !window.__ttReady || ttIdentifiedUid === u.uid) return;
     ttIdentifiedUid = u.uid;
     const em = String(u.email || '').trim().toLowerCase();
-    const id = { external_id: await ttSha256(String(u.uid)) };
-    if (em && em.indexOf('@') > 0) id.email = await ttSha256(em);
-    window.ttq.identify(id); // hashed only; no phone_number, by rule
+    if (!em || em.indexOf('@') < 1) return;
+    window.ttq.identify({ email: await ttSha256(em) }); // hashed email only; no phone, no external id
   } catch (_e) {}
 };
 function ttMirror(name, params, eventId) {
