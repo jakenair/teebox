@@ -33,12 +33,12 @@
     "sha": null
   },
   "capiPurchaseOnOrderCreated": {
-    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
-    "at": "2026-11-14",
+    "sha": "1535af925bb741da48a26aea55c3205e0b56881e",
+    "at": "2026-11-15",
     "region": "us-central1"
   },
   "capiRelay": {
-    "sha": "0264917bd59d9378ccd4b0f63a30f7e97b071f8b",
+    "sha": "1535af925bb741da48a26aea55c3205e0b56881e",
     "at": "2026-11-15",
     "region": "us-central1"
   },
@@ -246,7 +246,7 @@
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "metaFeed": {
-    "sha": "0264917bd59d9378ccd4b0f63a30f7e97b071f8b",
+    "sha": "1535af925bb741da48a26aea55c3205e0b56881e",
     "at": "2026-11-15",
     "region": "us-central1"
   },
@@ -662,6 +662,11 @@
     "at": "2026-05-17",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "tiktokFeed": {
+    "sha": "1535af925bb741da48a26aea55c3205e0b56881e",
+    "at": "2026-11-15",
+    "region": "us-central1"
   },
   "updateCheckoutShipping": {
     "at": "2026-09-09",
