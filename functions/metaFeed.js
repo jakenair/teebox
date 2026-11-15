@@ -156,10 +156,35 @@ function csvCell(v) {
  * @param {object} l listing with `.id`
  * @return {object|null} keyed by COLUMNS
  */
-function feedRow(l, testSellers) {
+const SOLD_KEEP_DAYS = 30;
+function millis(v) {
+  if (v && typeof v.toMillis === "function") return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  return typeof v === "number" ? v : 0;
+}
+/**
+ * @param {object} l listing
+ * @param {number} [now] epoch ms (tests)
+ * @return {boolean}
+ */
+function feedEligibleStatus(l, now) {
+  if (l.status === "active" || l.status === "pending") return true;
+  if (l.status === "sold") {
+    const at = millis(l.soldAt);
+    return at > 0 && (now || Date.now()) - at <= SOLD_KEEP_DAYS * 864e5;
+  }
+  return false;
+}
+
+function feedRow(l, testSellers, now) {
   if (!l || !l.id) return null;
-  // 2026-10-26 (Jake): active, in-stock listings only — no sold/pending rows.
-  if (l.status !== "active") return null;
+  // 2026-11-15 (Jake, replaces the 2026-10-26 active-only rule): every
+  // listing a buyer can view stays in the catalog so its ViewContent /
+  // AddToCart / InitiateCheckout / Purchase content_id matches. Active =
+  // "in stock"; pending (reserved at checkout) and sold within the last
+  // SOLD_KEEP_DAYS = "out of stock" (Meta never advertises out-of-stock rows).
+  // Removed (seller/moderation) and deleted listings never appear.
+  if (!feedEligibleStatus(l, now)) return null;
   // 2026-11-09 (Jake): QA/test listings never reach the catalog — neither a
   // listing flagged isTest nor anything from a test seller (flags can lag
   // the listing by seconds; the seller check covers that window).
@@ -205,12 +230,12 @@ function feedRow(l, testSellers) {
  * @param {Array<object>} listings documents with `.id`
  * @return {{csv: string, rows: number, skipped: number}}
  */
-function buildFeedCsv(listings, testSellers) {
+function buildFeedCsv(listings, testSellers, now) {
   const out = [COLUMNS.join(",")];
   let rows = 0;
   let skipped = 0;
   for (const l of listings || []) {
-    const r = feedRow(l, testSellers);
+    const r = feedRow(l, testSellers, now);
     if (!r) {
       skipped++;
       continue;
@@ -240,7 +265,15 @@ async function loadListings() {
       .orderBy("createdAt", "desc")
       .limit(MAX_ROWS)
       .get();
-  return snap.docs.map((d) => ({id: d.id, ...d.data()}));
+  // 2026-11-15: plus reserved and recently sold rows (out of stock). Small
+  // sets; the 30-day sold window is applied in feedEligibleStatus.
+  const [pending, sold] = await Promise.all([
+    db.collection("listings").where("status", "==", "pending").limit(500).get(),
+    db.collection("listings").where("status", "==", "sold").limit(2000).get(),
+  ]);
+  const out = [];
+  for (const s of [snap, pending, sold]) s.docs.forEach((d) => out.push({id: d.id, ...d.data()}));
+  return out;
 }
 
 // Sellers whose listings must never reach the catalog: users flagged
@@ -309,5 +342,5 @@ exports.metaFeed = onRequest(
 
 exports._feed = {
   buildFeedCsv, feedRow, TEST_EMAIL_RE, mapCondition, mapAvailability, plainText, csvCell,
-  stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY,
+  stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS,
 };

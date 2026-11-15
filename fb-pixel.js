@@ -36,6 +36,10 @@ var TEEBOX_META_PIXEL_ID = '4535316483381655';
     if (window.Capacitor && window.Capacitor.isNativePlatform &&
         window.Capacitor.isNativePlatform()) return;
     if (!/^https?:$/.test(window.location.protocol)) return;
+    // 2026-11-15: production host only. localhost, preview servers, test
+    // harnesses and any mirror must never report to the prod pixel (Events
+    // Manager listed 5 websites for this pixel).
+    if (!/^(www\.)?teeboxmarket\.com$/.test(window.location.hostname)) return;
   } catch (_e) { /* guard errors → fail closed (no pixel) */ return; }
 
   // r262 (Phase 2): the loader body runs at idle. fbevents.js + the signals
