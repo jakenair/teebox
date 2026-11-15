@@ -77,3 +77,15 @@ test("TikTok feed: same rows, key column renamed id -> sku_id", () => {
   assert.equal(tt.split("\r\n")[1], meta.split("\r\n")[1]);
   assert.equal(tt.split("\r\n")[1].split(",")[0], "L1");
 });
+
+test("TikTok feed rows lead with the first jpg/png photo; Meta rows unchanged", () => {
+  const F = require("../../metaFeed")._feed;
+  const base = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Fu%2Fl%2F";
+  const l = {id: "C1", status: "active", ask: 235, title: "Cobra fairway", brand: "Cobra", cat: "clubs",
+    photos: [base + "1_0_s-l1600.webp?alt=media", base + "1_1_IMG_1.jpg?alt=media", base + "1_2_IMG_2.png?alt=media"]};
+  assert.ok(F.feedRow(l, new Set()).image_link.includes("s-l1600.webp"));
+  const t = F.feedRow(l, new Set(), undefined, {jpgFirst: true});
+  assert.ok(t.image_link.includes("IMG_1.jpg"));
+  assert.ok(t.additional_image_link.includes("s-l1600.webp"));
+  assert.ok(t.additional_image_link.includes("IMG_2.png"));
+});

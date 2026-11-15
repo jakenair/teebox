@@ -177,7 +177,7 @@ function feedEligibleStatus(l, now) {
   return false;
 }
 
-function feedRow(l, testSellers, now) {
+function feedRow(l, testSellers, now, opts) {
   if (!l || !l.id) return null;
   // 2026-11-15 (Jake, replaces the 2026-10-26 active-only rule): every
   // listing a buyer can view stays in the catalog so its ViewContent /
@@ -191,7 +191,14 @@ function feedRow(l, testSellers, now) {
   // the listing by seconds; the seller check covers that window).
   if (l.isTest === true) return null;
   if (testSellers && l.sellerId && testSellers.has(l.sellerId)) return null;
-  const photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
+  let photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
+  // 2026-11-15 (TikTok): image_link must be a JPG or PNG. Lead with the first
+  // jpg/png photo; a listing with none keeps its order (TikTok may reject it).
+  if (opts && opts.jpgFirst) {
+    const isJpgPng = (u) => /\.(jpe?g|png)$/i.test(decodeURIComponent(String(u).split("?")[0]));
+    const i = photos.findIndex(isJpgPng);
+    if (i > 0) photos = [photos[i]].concat(photos.filter((_, k) => k !== i));
+  }
   if (!photos.length) return null; // Meta rejects rows without image_link
   const ask = Number(l.ask);
   if (!Number.isFinite(ask) || ask <= 0) return null;
@@ -231,12 +238,12 @@ function feedRow(l, testSellers, now) {
  * @param {Array<object>} listings documents with `.id`
  * @return {{csv: string, rows: number, skipped: number}}
  */
-function buildFeedCsv(listings, testSellers, now) {
+function buildFeedCsv(listings, testSellers, now, opts) {
   const out = [COLUMNS.join(",")];
   let rows = 0;
   let skipped = 0;
   for (const l of listings || []) {
-    const r = feedRow(l, testSellers, now);
+    const r = feedRow(l, testSellers, now, opts);
     if (!r) {
       skipped++;
       continue;
@@ -266,7 +273,7 @@ function tokenMatches(given, expected) {
 
 // Per-instance cache. Cloud Functions instances are recycled often enough
 // that this never goes stale past CACHE_SECONDS anyway.
-let _cache = {at: 0, csv: "", rows: 0};
+const _caches = {}; // per feed name: {at, csv, rows}
 
 async function loadListings() {
   const db = admin.firestore();
@@ -313,7 +320,7 @@ async function loadTestSellers(sellerIds) {
  * @param {function(string): string} [p.transform] csv -> csv
  * @return {function}
  */
-function feedHandler({secret, name, filename, transform}) {
+function feedHandler({secret, name, filename, transform, rowOpts}) {
   return async (req, res) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.status(405).send("Method not allowed");
@@ -332,11 +339,13 @@ function feedHandler({secret, name, filename, transform}) {
     }
     try {
       const now = Date.now();
+      const _cache = _caches[name] || {at: 0, csv: "", rows: 0};
       if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
         const listings = await loadListings();
         const testSellers = await loadTestSellers(listings.map((l) => l.sellerId));
-        const built = buildFeedCsv(listings, testSellers);
-        _cache = {at: now, csv: built.csv, rows: built.rows};
+        const built = buildFeedCsv(listings, testSellers, now, rowOpts);
+        Object.assign(_cache, {at: now, csv: built.csv, rows: built.rows});
+        _caches[name] = _cache;
         logger.info(`${name}: rebuilt`, {rows: built.rows, skipped: built.skipped});
       }
       res.set("Content-Type", "text/csv; charset=utf-8");
@@ -371,7 +380,7 @@ exports.metaFeed = onRequest(
 // event content_id = sku_id = Meta id = listing doc id. Own token.
 exports.tiktokFeed = onRequest(
     {...FEED_OPTS, secrets: [TIKTOK_FEED_TOKEN]},
-    feedHandler({secret: TIKTOK_FEED_TOKEN, name: "tiktokFeed", filename: "tiktok-feed.csv", transform: toTikTokCsv}),
+    feedHandler({secret: TIKTOK_FEED_TOKEN, name: "tiktokFeed", filename: "tiktok-feed.csv", transform: toTikTokCsv, rowOpts: {jpgFirst: true}}),
 );
 
 exports._feed = {
