@@ -619,6 +619,11 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "stillAvailableRecheck": {
+    "sha": "abefd4e01ad1377fe2d1c75057d581606d31ea62",
+    "at": "2026-11-15",
+    "region": "us-central1"
+  },
   "stripeConnectWebhook": {
     "at": "2026-09-29",
     "region": "us-central1",
