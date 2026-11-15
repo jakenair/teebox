@@ -67,7 +67,7 @@ function cancelReason({user, gate, entry, activeIds}) {
   return "";
 }
 
-async function run(resend) {
+async function run(resend, dryRun) {
   const db = admin.firestore();
   const ref = db.collection("emailCampaigns").doc(CAMPAIGN);
   const snap = await ref.get();
@@ -100,6 +100,7 @@ async function run(resend) {
     const gate = user && user.email ? await preflightAllowed({uid, to: user.email, category: "weeklyDigest"}) : null;
     const why = cancelReason({user, gate, entry: e, activeIds});
     if (!why) { out.kept++; continue; }
+    if (dryRun) { out.cancelled++; out.reasons[why] = (out.reasons[why] || 0) + 1; continue; }
     const r = await resend.emails.cancel(e.id);
     if (r.error) {
       out.cancelFailed++;
@@ -114,6 +115,7 @@ async function run(resend) {
   const summary = `kept ${out.kept}, cancelled ${out.cancelled}` +
     (Object.keys(out.reasons).length ? ` (${Object.entries(out.reasons).map(([k, v]) => `${k} ${v}`).join(", ")})` : "") +
     (out.cancelFailed ? `, ${out.cancelFailed} cancel FAILED` : "") + ` of ${out.checked}`;
+  if (dryRun) return {dryRun: true, summary};
   updates["recheck"] = {doneAt: admin.firestore.FieldValue.serverTimestamp(), summary, ...out};
   await ref.update(updates);
   return {summary, out};
@@ -126,7 +128,12 @@ exports.stillAvailableRecheck = onRequest(
       try {
         const {Resend} = require("resend");
         resend = new Resend(RESEND_KEY.value());
-        const r = await run(resend);
+        // ?dryRun=1: report what WOULD be cancelled; no cancel, no write, no email, job kept.
+        const r = await run(resend, req.query && req.query.dryRun === "1");
+        if (r.dryRun) {
+          res.status(200).send("DRY RUN (nothing cancelled): " + r.summary);
+          return;
+        }
         if (r.already) {
           logger.info("stillAvailableRecheck: already ran", {summary: r.summary});
           const job = await deleteJob();
