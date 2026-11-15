@@ -89,3 +89,14 @@ test("Purchase carries the checkout platform", () => {
   assert.equal(ev.event_id, "purchase_pi_9");
   assert.equal(ev.custom_data.platform, "ios");
 });
+
+test("capiRelay accepts only production page URLs (2026-11-15)", () => {
+  const {isProdSourceUrl} = require("../../metaCapi")._internal;
+  assert.equal(isProdSourceUrl("https://teeboxmarket.com/?listing=abc"), true);
+  assert.equal(isProdSourceUrl("https://www.teeboxmarket.com/"), true);
+  for (const u of ["http://localhost:8765/", "https://localhost/", "http://127.0.0.1:5000/?listing=x",
+    "https://teebox-market.web.app/", "https://teeboxmarket.com.evil.test/", "https://evil.test/teeboxmarket.com",
+    "http://teeboxmarket.com/", "", undefined, "capacitor://localhost/"]) {
+    assert.equal(isProdSourceUrl(u), false, String(u));
+  }
+});

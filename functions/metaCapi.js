@@ -424,6 +424,20 @@ async function claimOnce(db, uid, eventId) {
   });
 }
 
+/**
+ * True only for https://teeboxmarket.com / www pages.
+ * @param {string} u
+ * @return {boolean}
+ */
+function isProdSourceUrl(u) {
+  try {
+    const x = new URL(String(u || ""));
+    return x.protocol === "https:" && /^(www\.)?teeboxmarket\.com$/.test(x.hostname);
+  } catch (_e) {
+    return false;
+  }
+}
+
 const CAPI_RELAY_EVENTS = new Set([
   "AddToCart",
   "InitiateCheckout",
@@ -488,6 +502,13 @@ exports.capiRelay = onCall(
       if (!gate.send) {
         logger.info("capiRelay: skipped", {eventName, reason: gate.reason});
         return {ok: false, skipped: gate.reason};
+      }
+      // 2026-11-15: only events from the production site. A dev server,
+      // preview or test harness calling the real capiRelay must not report to
+      // the prod pixel (or open a new "website" on it in Events Manager).
+      if (!isProdSourceUrl(d.sourceUrl)) {
+        logger.info("capiRelay: skipped", {eventName, reason: "non-prod-host"});
+        return {ok: false, skipped: "non-prod-host"};
       }
 
       // Identity comes from the verified token, never the body.
@@ -687,4 +708,4 @@ async function sendServerInitiateCheckout(p) {
   }
 }
 
-module.exports._internal = {buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce, buildPurchaseEvent, purchaseSkipReason, purchaseValueDollars, initiateCheckoutSkipReason, buildInitiateCheckoutEvent, sendServerInitiateCheckout, META_CAPI_TOKEN};
+module.exports._internal = {isProdSourceUrl, buildUserData, hashEmail, hashPhone, hashExternalId, PIXEL_ID, GRAPH_VERSION, CAPI_RELAY_EVENTS, CAPI_ANON_EVENTS, claimOnce, buildPurchaseEvent, purchaseSkipReason, purchaseValueDollars, initiateCheckoutSkipReason, buildInitiateCheckoutEvent, sendServerInitiateCheckout, META_CAPI_TOKEN};

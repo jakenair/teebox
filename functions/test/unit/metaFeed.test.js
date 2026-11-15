@@ -82,3 +82,20 @@ test("QA/test listings are excluded: isTest flag, test seller, and the CSV omits
   assert.ok(F.TEST_EMAIL_RE.test("payouts-qa-1109-seller@teeboxqa.dev"));
   assert.ok(!F.TEST_EMAIL_RE.test("golfer@gmail.com"));
 });
+
+test("2026-11-15: pending and sold<=30d stay in the feed as out of stock; removed/old sold/expired never", () => {
+  const NOW = Date.parse("2026-11-15T12:00:00Z");
+  const day = 864e5;
+  const pend = F.feedRow(base({status: "pending"}), new Set(), NOW);
+  assert.equal(pend.availability, "out of stock");
+  const sold = F.feedRow(base({status: "sold", quantitySold: 1, soldAt: {toMillis: () => NOW - 29 * day}}), new Set(), NOW);
+  assert.equal(sold.availability, "out of stock");
+  assert.equal(sold.id, base().id);
+  assert.equal(F.feedRow(base({status: "sold", soldAt: {toMillis: () => NOW - 31 * day}}), new Set(), NOW), null);
+  assert.equal(F.feedRow(base({status: "sold"}), new Set(), NOW), null); // no soldAt
+  assert.equal(F.feedRow(base({status: "removed"}), new Set(), NOW), null);
+  assert.equal(F.feedRow(base({status: "expired"}), new Set(), NOW), null);
+  assert.equal(F.feedRow(base({status: "active"}), new Set(), NOW).availability, "in stock");
+  // test listings stay out whatever their status
+  assert.equal(F.feedRow(base({status: "sold", isTest: true, soldAt: {toMillis: () => NOW}}), new Set(), NOW), null);
+});
