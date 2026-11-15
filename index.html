@@ -6,7 +6,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="facebook-domain-verification" content="elaidn22oy9lu1nsimqjrziu8j2b9z" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://teeboxmarket.com https://www.facebook.com https://*.firebasestorage.app https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com; connect-src 'self' https://teeboxmarket.com https://connect.facebook.net https://www.facebook.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com https://xd-f1cf3d4fdb19408ea770fc6f80817dcb.ecs.us-east-1.on.aws; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://plausible.io https://apis.google.com https://accounts.google.com https://us-assets.i.posthog.com https://analytics.tiktok.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://teeboxmarket.com https://www.facebook.com https://*.firebasestorage.app https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://www.gstatic.com https://q.stripe.com https://images.unsplash.com https://analytics.tiktok.com; connect-src 'self' https://teeboxmarket.com https://connect.facebook.net https://www.facebook.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://*.cloudfunctions.net https://*.run.app https://api.stripe.com https://*.stripe.com https://*.stripe.network https://www.google.com https://www.gstatic.com https://apis.google.com https://accounts.google.com https://apple.com https://appleid.apple.com https://cdn.jsdelivr.net https://plausible.io https://us.i.posthog.com https://us-assets.i.posthog.com https://xd-f1cf3d4fdb19408ea770fc6f80817dcb.ecs.us-east-1.on.aws https://analytics.tiktok.com https://*.tiktok.com https://*.tiktokw.us; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <!-- PWA / mobile -->
 <meta name="theme-color" content="#0b1a0e" />
@@ -5542,6 +5542,8 @@ window.tbEvent = function (name, surface) {
 <!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
 <script defer src="/fb-pixel.js"></script>
 <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=4535316483381655&ev=PageView&noscript=1" /></noscript>
+<!-- TikTok Pixel (web only): loader no-ops in the native shell — see /tt-pixel.js -->
+<script defer src="/tt-pixel.js"></script>
 <link rel="stylesheet" href="/assets/footer.css">
 </head>
 <body class="is-anon">
@@ -9222,6 +9224,8 @@ async function onCheckoutAddressChange(ev) {
   }
 }
 
+// @web-tracking:start — build:web (scripts/strip-pixel-for-ios.mjs) replaces
+// everything up to @web-tracking:end with no-op stubs in the iOS bundle.
 // ── r278: Meta Pixel event helper (CAPI phase 2, browser half) ─────────
 // The pixel loader has always documented a fbTrack() that never existed;
 // every call site hand-rolled `if (window.fbq)`. This is that function, so the
@@ -9324,10 +9328,77 @@ async function fbRelayToServer(name, eventId, params) {
       fbc: ids.fbc || '',
       sourceUrl: (window.location && window.location.href) || '',
       testEventCode: (window.metaTestEventCode && window.metaTestEventCode()) || '',
+      // 2026-11-15: TikTok Events API copy (same event id as the TikTok pixel).
+      ...(window.TEEBOX_TIKTOK_PIXEL_ID ? ttMatchIds() : {}),
     });
   } catch (_e) { /* never break the caller */ }
 }
 window.fbRelayToServer = fbRelayToServer;
+
+// ── 2026-11-15: TikTok Pixel mirror (Dylan) ──────────────────────────────
+// fbTrack() calls ttMirror() for the four commerce events with the SAME event
+// id it gives Meta; capiRelay / capiPurchaseOnOrderCreated send the TikTok
+// Events API copy with that id, so TikTok dedupes the pair. content_id is the
+// listing doc id = the catalog feed id. Hashed email only (ttq.identify),
+// never phone. Opt-out, GPC and the native shell stop it.
+const TT_EVENTS = { ViewContent: 'ViewContent', AddToCart: 'AddToCart', InitiateCheckout: 'InitiateCheckout', Purchase: 'CompletePayment' };
+function ttMatchIds() {
+  const out = {};
+  try {
+    const m = document.cookie.match(/(?:^|; )_ttp=([^;]*)/);
+    if (m) out.ttp = decodeURIComponent(m[1]);
+    const r = JSON.parse(localStorage.getItem('tb_ttclid_v1') || 'null');
+    if (r && r.v && Date.now() - Number(r.t || 0) < 28 * 864e5) out.ttclid = String(r.v);
+    const q = new URLSearchParams(location.search).get('tt_test');
+    if (q && /^[A-Za-z0-9_-]{4,40}$/.test(q)) sessionStorage.setItem('tb_tt_test', q);
+    const tc = sessionStorage.getItem('tb_tt_test');
+    if (tc) out.ttTestEventCode = tc;
+  } catch (_e) {}
+  return out;
+}
+async function ttSha256(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+let ttIdentifiedUid = '';
+window.ttIdentify = async function () {
+  try {
+    const u = window.CURRENT_USER;
+    if (!u || !u.uid || !window.ttq || !window.__ttReady || ttIdentifiedUid === u.uid) return;
+    ttIdentifiedUid = u.uid;
+    const em = String(u.email || '').trim().toLowerCase();
+    if (!em || em.indexOf('@') < 1) return;
+    window.ttq.identify({ email: await ttSha256(em) }); // hashed email only; no phone, no external id
+  } catch (_e) {}
+};
+function ttMirror(name, params, eventId) {
+  try {
+    const ev = TT_EVENTS[name];
+    if (!ev || !window.TEEBOX_TIKTOK_PIXEL_ID) return;
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
+    if (window.tbMetaOptedOut && window.tbMetaOptedOut()) return;
+    const p = params || {};
+    const id = Array.isArray(p.content_ids) && p.content_ids.length ? String(p.content_ids[0]) : '';
+    if (!id) return;
+    const qty = Number(p.num_items) > 0 ? Math.floor(Number(p.num_items)) : 1;
+    const props = { contents: [{ content_id: id, quantity: qty }], content_type: 'product', currency: 'USD' };
+    if (Number.isFinite(Number(p.value))) props.value = Number(p.value);
+    const opt = eventId ? { event_id: String(eventId) } : {};
+    if (window.ttq && window.__ttReady) { window.ttIdentify(); window.ttq.track(ev, props, opt); }
+    else { const q = (window.__ttPending = window.__ttPending || []); if (q.length < 50) q.push([ev, props, opt]); }
+  } catch (_e) { /* never break the caller */ }
+}
+// TikTok click id from an ad landing (?ttclid=), kept 28 days for the Events
+// API copy. Runs while the page parses, before the router rewrites the URL.
+// Skipped for Do Not Sell or Share / GPC and in the native shell.
+(function () {
+  try {
+    if (navigator.globalPrivacyControl === true || localStorage.getItem('tb_dnsps') === '1' || /(^|;\s*)tb_dnsps=1(;|$)/.test(document.cookie || '')) return;
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
+    const v = new URLSearchParams(location.search).get('ttclid');
+    if (v && /^[A-Za-z0-9_.-]{8,500}$/.test(v)) localStorage.setItem('tb_ttclid_v1', JSON.stringify({ t: Date.now(), v }));
+  } catch (_e) {}
+})();
 // One reader for the opt-out state (same sources as the pixel loader): the
 // Do Not Sell or Share flag (localStorage + first-party cookie) and GPC.
 window.tbMetaOptedOut = function tbMetaOptedOut() {
@@ -9354,6 +9425,7 @@ window.fbTrack = function (name, params, opts) {
   try {
     const o = opts || {};
     if (o.once && fbAlreadyFired(o.once)) return false;
+    ttMirror(name, params, o.eventID); // 2026-11-15: TikTok, same event id
     // The server leg runs even when the pixel does not — that is the whole
     // point of CAPI, since the pixel is blocked for a large share of users.
     // Mirroring here, inside fbTrack, is deliberate: it is the only way the
@@ -9383,6 +9455,7 @@ window.fbTrack = function (name, params, opts) {
     return true;
   } catch (_e) { return false; }
 };
+// @web-tracking:end
 
 window.openCheckout = async function(productId, qty, opts) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
@@ -9784,8 +9857,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r413"></script>
-<script type="module" src="/js/app-auth.js?v=r413"></script>
+<script defer src="/js/app-main.js?v=r414"></script>
+<script type="module" src="/js/app-auth.js?v=r414"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9815,8 +9888,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r413"></script>
-<script type="module" src="/js/sunday-nine.js?v=r413"></script>
+<script type="module" src="/js/bingo.js?v=r414"></script>
+<script type="module" src="/js/sunday-nine.js?v=r414"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
