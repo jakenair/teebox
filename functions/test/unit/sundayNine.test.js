@@ -217,12 +217,18 @@ function wrongsFor(grid, i, n, avoid) {
 }
 const gridOf = (date) => core.gridForDate(date, PLAYERS, S.PINNED);
 
-test("rules lookup: built-in schedule, v1 through No. 5, v3 from No. 6", () => {
+test("rules lookup: built-in schedule, v1 through No. 5, v3 No. 6-8, v4 from No. 9", () => {
   for (const d of ["2026-11-08", "2026-11-10", "2026-11-11", V1_LAST]) {
     assert.equal(core.rulesFor(d).id, "v1", d);
     assert.equal(core.rulesFor(d, S.RULES_SCHEDULE).id, "v1", d);
   }
-  for (const d of [V3_DATE, "2026-11-20", "2027-06-01"]) {
+  for (const d of ["2026-11-16", "2026-11-20", "2027-06-01"]) {
+    const v4 = {id: "v4", perSquare: 0, maxMisses: 3, triesCount: true};
+    assert.deepEqual(core.rulesFor(d), v4, d);
+    assert.deepEqual(core.rulesFor(d, S.RULES_SCHEDULE), v4, d);
+  }
+  assert.equal(core.gridNumber("2026-11-16"), 9);
+  for (const d of [V3_DATE, "2026-11-14", "2026-11-15"]) {
     assert.deepEqual(core.rulesFor(d), {id: "v3", perSquare: 0, maxMisses: 3}, d);
     assert.deepEqual(core.rulesFor(d, S.RULES_SCHEDULE), {id: "v3", perSquare: 0, maxMisses: 3}, d);
   }
@@ -440,4 +446,74 @@ test("v3 server: dropAfterRoundEnd is a no-op under v1 and before the end", () =
   const d = S.dropAfterRoundEnd(grid, many, core.rulesFor(V3_DATE));
   assert.equal(d.dropped, 2);
   assert.equal(d.guesses.length, 3);
+});
+
+
+// ── v4: v3's grid-wide misses, every guess on a square counts (from No. 9) ──
+const V4_DATE = "2026-11-16";
+
+test("v4 scoring: solved = tries + 1 (birdie/par/bogey), open at the end = 5, misses still end the round", () => {
+  const grid = gridOf(V4_DATE);
+  const sol = perfectAssignment(grid);
+  const w = wrongsFor(grid, 4, 2, sol);
+  const w0 = wrongsFor(grid, 0, 1, sol);
+  const R = core.rulesFor(V4_DATE);
+  const r = core.scoreGame(grid, BY_ID, [
+    {cell: 4, pid: w[0]}, {cell: 4, pid: w[1]}, {cell: 4, pid: sol[4]}, // two misses then right = bogey 4
+    {cell: 0, pid: sol[0]}, // birdie 2
+  ], false);
+  assert.equal(r.rules, "v4");
+  assert.equal(r.misses, 2);
+  assert.equal(core.strokesFor(r.cells[4], R), 4);
+  assert.equal(core.holeName(core.strokesFor(r.cells[4], R)), "Bogey");
+  assert.equal(core.strokesFor(r.cells[0], R), 2);
+  assert.equal(r.strokes, 6);
+  assert.equal(r.toPar, 0);
+  // One miss then right = par 3.
+  const p = core.scoreGame(grid, BY_ID, [{cell: 0, pid: w0[0]}, {cell: 0, pid: sol[0]}], false);
+  assert.equal(core.strokesFor(p.cells[0], R), 3);
+  // Third miss anywhere ends the round; open squares = double bogey.
+  const w5 = wrongsFor(grid, 5, 1, sol);
+  const out = core.scoreGame(grid, BY_ID, [
+    {cell: 4, pid: w[0]}, {cell: 4, pid: w[1]}, {cell: 4, pid: sol[4]}, {cell: 5, pid: w5[0]}, {cell: 0, pid: sol[0]},
+  ], false);
+  assert.equal(out.complete, true);
+  assert.equal(out.endedAt, 4); // the guess on cell 0 after the third miss is ignored
+  assert.equal(out.cells[0].pid, null);
+  assert.equal(out.strokes, 4 + 8 * 5);
+});
+
+test("v4: Sunday Red = nine solved with no misses (18); misses add a stroke each and are not a Sunday Red", () => {
+  const grid = gridOf(V4_DATE);
+  const sol = perfectAssignment(grid);
+  const clean = sol.map((pid, cell) => ({cell, pid}));
+  const r = core.scoreGame(grid, BY_ID, clean, false);
+  assert.equal(r.strokes, 18);
+  assert.equal(r.sundayRed, true);
+  const w = wrongsFor(grid, 0, 2, sol);
+  const m = core.scoreGame(grid, BY_ID, [{cell: 0, pid: w[0]}, {cell: 0, pid: w[1]}].concat(clean), false);
+  assert.equal(m.misses, 2);
+  assert.equal(m.strokes, 20); // square 0 took three tries = bogey
+  assert.equal(m.sundayRed, false);
+  assert.equal(core.shareText(V4_DATE, m, core.rulesFor(V4_DATE)).split("\n")[1], "20 (−7)");
+});
+
+test("v4: past grids are not rescored, a started round keeps its rules, an app without v4 falls back to v3", () => {
+  // v3 grids keep solved = birdie.
+  const g3 = gridOf(V3_DATE);
+  const sol3 = perfectAssignment(g3);
+  const w3 = wrongsFor(g3, 4, 2, sol3);
+  const r3 = core.scoreGame(g3, BY_ID, [{cell: 4, pid: w3[0]}, {cell: 4, pid: w3[1]}, {cell: 4, pid: sol3[4]}], false);
+  assert.equal(r3.rules, "v3");
+  assert.equal(core.strokesFor(r3.cells[4], core.rulesFor(V3_DATE)), 2);
+  // A round stored as v3 on a v4 date stays v3 on the server.
+  assert.equal(S.rulesForRound(V4_DATE, {rules: "v3", maxMisses: 3, guesses: [{cell: 0, pid: "x"}]}).id, "v3");
+  assert.equal(S.rulesForRound(V4_DATE, null).id, "v4");
+  // The live rules.json carries v4 from 2026-11-16 and the server bundles the same file.
+  const live = core.parseRulesSchedule(require("../../data/sunday-nine-rules.json"));
+  assert.equal(core.rulesFor(V4_DATE, live).id, "v4");
+  assert.equal(core.rulesFor("2026-11-15", live).id, "v3");
+  // A build that does not know v4 drops that entry and plays v3.
+  const oldBuildView = live.filter((e) => e.rules !== "v4");
+  assert.equal(core.rulesFor(V4_DATE, oldBuildView).id, "v3");
 });

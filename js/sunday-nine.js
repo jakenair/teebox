@@ -157,8 +157,9 @@ function build() {
           <h3 id="s9HowTitle">How to play</h3>
           <ol>
             <li>Each square is a hole. Name a pro who fits both its row and its column.</li>
-            <li>One guess per square: right is a birdie (2), wrong is a double bogey (5).</li>
-            <li>Nine holes, par 27. Each player only once. Shoot 18 for a Sunday Red.</li>
+            <li>You get 3 misses for the whole grid. The third miss ends your round.</li>
+            <li>Every guess on a square counts: right on the first guess is a birdie (2), the second is par (3), the third is bogey (4). Any square left open at the end is a double bogey (5).</li>
+            <li>Nine holes, par 27. Each player only once. Nine birdies with no misses (18) is a Sunday Red.</li>
             <li>A new grid every day at midnight Central.</li>
           </ol>
         </section>
@@ -343,7 +344,9 @@ function render() {
   const missesLeft = strikes ? Math.max(0, strikes - (r.misses || 0)) : 0;
   const flash = S.flash && S.flash.until > Date.now() ? S.flash : null;
   const sub = document.getElementById('s9Sub');
-  if (sub) sub.innerHTML = strikes
+  if (sub) sub.innerHTML = strikes && R.triesCount
+    ? `Name a pro who fits <strong>both</strong> the row and the column. You get ${strikes} misses for the whole grid, and every guess counts: first guess right is a birdie, second is par, third is bogey. Any square left when you're out is a double bogey. Each player only once.`
+    : strikes
     ? `Name a pro who fits <strong>both</strong> the row and the column. You get ${strikes} misses for the whole grid: get a square right for a birdie, and any square left when you're out is a double bogey. Each player only once.`
     : R.id === 'v2'
     ? 'Name a pro who fits <strong>both</strong> the row and the column. One guess per square: right is a birdie, wrong is a double bogey. Each player only once.'
@@ -458,6 +461,8 @@ function renderDone(r) {
   const eyebrow = r.sundayRed ? 'Sunday Red' : r.strokes < E.PAR ? 'Under par' : r.strokes === E.PAR ? 'Even par' : 'Round complete';
   const sub = r.sundayRed
     ? (S.rules.maxMisses ? 'Nine birdies, no misses. A perfect grid.' : 'Nine birdies. A perfect grid.')
+    : S.rules.maxMisses && S.rules.triesCount
+    ? `${r.correct} of 9 squares, ${r.cells.filter((c) => c.pid && c.tries === 1).length} birdies, ${misses(r.misses || 0)}`
     : S.rules.maxMisses
     ? `${r.correct} of 9 squares, ${misses(r.misses || 0)}`
     : `${r.correct} of 9 squares, ${r.cells.filter((c) => c.pid && c.tries === 1).length} birdies`;
@@ -514,7 +519,10 @@ function openGuess(i) {
   const R = S.rules;
   const left = (R.perSquare || 0) - r.cells[i].tries;
   const mLeft = Math.max(0, (R.maxMisses || 0) - (r.misses || 0));
-  document.getElementById('s9Left').textContent = R.maxMisses
+  const tries = r.cells[i].tries;
+  document.getElementById('s9Left').textContent = R.maxMisses && R.triesCount
+    ? `${misses(mLeft)} left for the grid. A right answer now is a ${E.holeName(tries + 2).toLowerCase()}.`
+    : R.maxMisses
     ? `${misses(mLeft)} left for the grid. Right is a birdie.`
     : R.id === 'v2'
     ? 'One guess on this hole: right is a birdie, wrong is a double bogey.'

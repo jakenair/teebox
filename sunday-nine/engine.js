@@ -35,6 +35,10 @@ export function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
 //     birdie (2) however many misses came before it (misses cost balls, not
 //     strokes); every square still open at the end is a double bogey (5).
 //     Sunday Red = all nine solved with no misses (18).
+// v4  v3's grid-wide miss limit, but every guess on a square counts
+//     (Jake/Dylan 2026-11-15): solved = tries on that square + 1 (birdie 2,
+//     par 3, bogey 4); an open square at the end is still a double bogey (5).
+//     Sunday Red unchanged (nine solved, no misses). From grid No. 9.
 // The rule set for a date comes from a schedule. The built-in one below is
 // the fallback; the live one is /sunday-nine/rules.json (same shape), which
 // the client fetches (the iOS app from teeboxmarket.com) and the Cloud
@@ -43,14 +47,17 @@ export function attemptsFor(date) { return oneGuess(date) ? 1 : MAX_ATTEMPTS; }
 // with, and a started round keeps the rule set it started with.
 export const RULES_V3_FROM = "2026-11-13"; // grid No. 6
 export const V3_MAX_MISSES = 3;
+export const RULES_V4_FROM = "2026-11-16"; // grid No. 9
 export const RULE_SETS = {
   v1: {id: "v1", perSquare: MAX_ATTEMPTS, maxMisses: 0},
   v2: {id: "v2", perSquare: 1, maxMisses: 0},
   v3: {id: "v3", perSquare: 0, maxMisses: V3_MAX_MISSES},
+  v4: {id: "v4", perSquare: 0, maxMisses: V3_MAX_MISSES, triesCount: true},
 };
 export const RULES_SCHEDULE = [
   {from: SUNDAY_NINE_EPOCH, rules: "v1"},
   {from: RULES_V3_FROM, rules: "v3", maxMisses: V3_MAX_MISSES},
+  {from: RULES_V4_FROM, rules: "v4", maxMisses: V3_MAX_MISSES},
   {from: RULES_V2_FROM, rules: "v2"},
 ];
 
@@ -62,6 +69,7 @@ export function resolveRules(spec) {
   const base = RULE_SETS[id];
   if (!base) return null;
   const out = {id: base.id, perSquare: base.perSquare, maxMisses: base.maxMisses};
+  if (base.triesCount) out.triesCount = true;
   if (base.maxMisses && spec && typeof spec === "object" && Number.isInteger(spec.maxMisses) &&
       spec.maxMisses >= 1 && spec.maxMisses <= 9) {
     out.maxMisses = spec.maxMisses;
@@ -349,8 +357,9 @@ export function gridForDate(date, players, pinned) {
 // square, = double bogey (5). Nine birdies (18, -9) is a Sunday Red.
 // v2 (one guess per square) is the same formula with one try. v3: a solved
 // square is always a birdie (2), an unsolved one at the end a double bogey.
+// v4: v3 with v1's per-square formula (tries + 1) for a solved square.
 export function strokesFor(cell, rules) {
-  if (cell.pid) return rules && rules.maxMisses ? 2 : cell.tries + 1;
+  if (cell.pid) return rules && rules.maxMisses && !rules.triesCount ? 2 : cell.tries + 1;
   if (cell.done) return PAR_PER_HOLE + 2;
   return null;
 }
