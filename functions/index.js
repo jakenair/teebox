@@ -8239,6 +8239,8 @@ Object.assign(exports, require("./shippoIntegration"));
 Object.assign(exports, require("./metaCapi"));
 // Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
 Object.assign(exports, require("./metaFeed"));
+// One-shot pre-send recheck for the 2026-11-16 still-available email (see file).
+Object.assign(exports, require("./stillAvailableRecheck"));
 
 // Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
 // never rewrites the original. See the header of avatarVariants.js.
