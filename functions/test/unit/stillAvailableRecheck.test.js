@@ -16,3 +16,7 @@ test("recheck keeps eligible users and cancels every ineligible case", () => {
   assert.equal(cancelReason({user: U, gate: {allowed: false, reason: "no-marketing-consent"}, entry: {version: "new"}, activeIds: act}), "no-marketing-consent");
   assert.equal(cancelReason({user: U, gate: {allowed: true}, entry: {version: "viewed", items: ["L2"]}, activeIds: act}), "all-items-gone");
 });
+
+test("the marketing gate it reuses is really exported (2026-11-15 dry-run bug)", () => {
+  assert.equal(typeof require("../../lib/email").preflightAllowed, "function");
+});

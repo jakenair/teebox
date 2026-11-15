@@ -125,11 +125,12 @@ exports.stillAvailableRecheck = onRequest(
     {region: "us-central1", memory: "256MiB", timeoutSeconds: 300, maxInstances: 1, secrets: [RESEND_KEY]},
     async (req, res) => {
       let resend = null;
+      const dryRun = req.query && req.query.dryRun === "1";
       try {
         const {Resend} = require("resend");
         resend = new Resend(RESEND_KEY.value());
         // ?dryRun=1: report what WOULD be cancelled; no cancel, no write, no email, job kept.
-        const r = await run(resend, req.query && req.query.dryRun === "1");
+        const r = await run(resend, dryRun);
         if (r.dryRun) {
           res.status(200).send("DRY RUN (nothing cancelled): " + r.summary);
           return;
@@ -155,7 +156,7 @@ exports.stillAvailableRecheck = onRequest(
       } catch (e) {
         logger.error("stillAvailableRecheck: FAILED", {err: e && e.message});
         try {
-          if (resend) {
+          if (resend && !dryRun) {
             await mail(resend, "Still-available recheck FAILED",
                 `The 09:30 recheck failed: ${String(e && e.message).slice(0, 300)}. ` +
                 "Nothing was cancelled after the failure point; the 10:00 emails are still scheduled. " +
