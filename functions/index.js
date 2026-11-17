@@ -4052,7 +4052,12 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
     // in-place update preserves bound secrets only if they were bound before;
     // the first deploy after this change needs
     //   --set-secrets=RESEND_API_KEY=RESEND_API_KEY:latest
-    {memory: "1GiB", region: "us-east1", bucket: "teebox-market.firebasestorage.app",
+    // r417 (2026-11-16): 2GiB + ONE photo per instance + 120s. At 1GiB with
+    // concurrency 80, a 48MP iPhone HEIC (raw from a browser that can't
+    // decode it) peaked at 1061MiB and the container was killed, taking the
+    // listing's other photo down with it — neither was converted.
+    {memory: "2GiB", cpu: 1, concurrency: 1, timeoutSeconds: 120,
+      region: "us-east1", bucket: "teebox-market.firebasestorage.app",
       secrets: [RESEND_KEY]},
     async (event) => {
       const obj = event.data;
