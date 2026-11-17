@@ -720,6 +720,8 @@ exports.abandonedDraftScheduler = onSchedule(
         const userSnap = await db.collection("users").doc(draft.uid).get();
         if (!userSnap.exists) continue;
         const user = {uid: userSnap.id, ...userSnap.data()};
+        // 2026-11-16: users docs carry no email — resolve from Auth (doc fallback).
+        user.email = (await resolveUserEmail(user.uid, user.email, authEmailGetter)).email;
         if (!user.email) continue;
         await sendTemplated({
           category: CATEGORIES.ABANDONED_DRAFT,
@@ -806,6 +808,8 @@ exports.winBackScheduler = onSchedule(
         for (const u of snap.docs) {
           const user = {uid: u.id, ...u.data()};
           if (user[band.flag]) continue;
+          // 2026-11-16: users docs carry no email — resolve from Auth (doc fallback).
+          user.email = (await resolveUserEmail(user.uid, user.email, authEmailGetter)).email;
           if (!user.email) continue;
           await sendTemplated({
             category: CATEGORIES.WIN_BACK,
@@ -842,6 +846,8 @@ exports.weeklyDigestScheduler = onSchedule(
       if (!snap) return;
       for (const u of snap.docs) {
         const user = {uid: u.id, ...u.data()};
+        // 2026-11-16: users docs carry no email — resolve from Auth (doc fallback).
+        user.email = (await resolveUserEmail(user.uid, user.email, authEmailGetter)).email;
         if (!user.email) continue;
         await sendTemplated({
           category: CATEGORIES.WEEKLY_DIGEST,

@@ -42,6 +42,16 @@ const {
 } = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {resolveUserEmail} = require("./lib/emailRecipient");
+// 2026-11-16 (founder): users/{uid} docs carry no email for real accounts
+// (the doc-create rule whitelist excludes it), so every `user.email` read
+// from a users doc was undefined and these sends silently skipped. Resolve
+// from Firebase Auth first, doc as fallback — same as the order emails.
+async function withAuthEmail(user) {
+  const r = await resolveUserEmail(user.uid, user.email, (u) => admin.auth().getUser(u));
+  user.email = r.email;
+  return user;
+}
 const stripe = require("stripe");
 
 const {
@@ -366,9 +376,11 @@ async function handleConnectPayoutFailed(event) {
     return;
   }
   const sellerUid = userDoc.id;
-  const seller = {uid: sellerUid, ...userDoc.data()};
+  const seller = await withAuthEmail({uid: sellerUid, ...userDoc.data()});
   if (!seller.email) {
-    logger.warn(`payout.failed: no email on user ${sellerUid}`);
+    // Worst case for a seller: money didn't arrive and nobody told them.
+    // Logged at ERROR so it surfaces; ops should reach them another way.
+    logger.error(`payout.failed: NO deliverable email for seller ${sellerUid} (payout ${payout.id})`);
     return;
   }
   const amountCents = Number(payout.amount || 0);
@@ -720,7 +732,7 @@ exports.savedSearchMatchSchedulerV2 = onSchedule(
 
         const userSnap = await db.collection("users").doc(s.userId).get();
         if (!userSnap.exists) continue;
-        const user = {uid: userSnap.id, ...userSnap.data()};
+        const user = await withAuthEmail({uid: userSnap.id, ...userSnap.data()});
         if (!user.email) continue;
         // Flatten the structured query into a display string the
         // SavedSearchMatch.jsx template can render via search.query.
@@ -880,7 +892,7 @@ exports.onPriceDropEventEmail = onDocumentCreated(
           db.collection("listings").doc(evt.listingId).get(),
         ]);
         if (!userSnap.exists || !listingSnap.exists) return;
-        const user = {uid: userSnap.id, ...userSnap.data()};
+        const user = await withAuthEmail({uid: userSnap.id, ...userSnap.data()});
         if (!user.email) return;
         const listingRaw = listingSnap.data();
         // Project listing into the shape PriceDrop.jsx expects:

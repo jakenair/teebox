@@ -6353,15 +6353,18 @@ exports.releaseListingHold = onCall(
           logger.warn("releaseListingHold: photo rebuild failed", {holdId, err: e && e.message});
         }
       }
-      try {
-        const ghost = await db.collection("listings").doc(hold.listingId).get();
-        const pv = ghost.exists ? ghost.get("photoVariants") : null;
-        if (pv && typeof pv === "object" && !restored.photoVariants) restored.photoVariants = pv;
-      } catch (_e) { /* variants are an optimisation; photos still render */ }
+      const ghost = await db.collection("listings").doc(hold.listingId).get();
+      const pv = ghost.exists ? ghost.get("photoVariants") : null;
+      if (pv && typeof pv === "object" && !restored.photoVariants) restored.photoVariants = pv;
       if (!Array.isArray(restored.photos) || restored.photos.length === 0) {
         throw new HttpsError("failed-precondition",
             "No photos found for this hold, so the listing would stay hidden. Not released.");
       }
+      // Remove the empty copy first so this is a CREATE: onListingLive (the
+      // seller's "your listing is live" email + push) only fires on create.
+      // Found 2026-11-16: releasing over the ghost was an update, so the
+      // released seller was never told.
+      if (ghost.exists) await db.collection("listings").doc(hold.listingId).delete();
       await db.collection("listings").doc(hold.listingId).set(restored, {merge: false});
       await holdRef.set({
         status: "released",

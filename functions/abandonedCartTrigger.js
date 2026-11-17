@@ -33,6 +33,7 @@
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
+const {resolveUserEmail} = require("./lib/emailRecipient");
 
 const {
   sendEmail,
@@ -191,10 +192,6 @@ exports.abandonedCartScheduler = onSchedule(
         for (const u of snap.docs) {
           scanned += 1;
           const user = {uid: u.id, ...u.data()};
-          if (!user.email) {
-            skippedNoEmail += 1;
-            continue;
-          }
           // Defense in depth — preflight in lib/email.js will catch this,
           // but checking here saves a read+render+log churn.
           if (!user.marketingConsent || user.marketingConsent.granted !== true) {
@@ -233,6 +230,16 @@ exports.abandonedCartScheduler = onSchedule(
           );
           if (purchased) {
             skippedRecentPurchase += 1;
+            continue;
+          }
+
+          // 2026-11-16 (founder): users docs carry no email for real
+          // accounts — resolve from Auth (doc fallback), AFTER the cheap gates
+          // so only users we'd actually email cost an Auth lookup.
+          user.email = (await resolveUserEmail(user.uid, user.email,
+              (x) => admin.auth().getUser(x))).email;
+          if (!user.email) {
+            skippedNoEmail += 1;
             continue;
           }
 
