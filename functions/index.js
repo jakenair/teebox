@@ -8223,6 +8223,8 @@ Object.assign(exports, require("./metaCapi"));
 Object.assign(exports, require("./metaFeed"));
 // r417: client-reported listing post failures → log + throttled ops alert.
 Object.assign(exports, require("./listingFailures"));
+// 2026-11-17: AI price estimate stamped on new listings (For You overpriced rule).
+exports.stampListingPriceEstimate = require("./priceEstimate").stampListingPriceEstimate;
 
 // Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
 // never rewrites the original. See the header of avatarVariants.js.
