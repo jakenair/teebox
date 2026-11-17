@@ -629,6 +629,11 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "stampListingPriceEstimate": {
+    "sha": "1d71b6448378ff276594f56f8af4b02be49fceca",
+    "at": "2026-11-17",
+    "region": "us-central1"
+  },
   "stripeConnectWebhook": {
     "sha": "45eb10f224f7fa2c1a87cb84cb0cd07d0eaefb1d",
     "at": "2026-11-17",
@@ -709,11 +714,5 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
-  },
-  "stampListingPriceEstimate": {
-    "sha": "9e7f32f023ce11c0ef1ebc9671f4328e7e413902",
-    "at": "2026-11-17",
-    "region": "us-central1",
-    "note": "created via raw gcloud (new fn)"
   }
 }
