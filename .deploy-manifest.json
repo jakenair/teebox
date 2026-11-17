@@ -49,7 +49,7 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "completeAccountSetup": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -135,8 +135,9 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "draftListingFromPhotos": {
-    "at": "2026-09-24",
-    "sha": "999897ade538ffbea1f649ac8b31b69475fefc3c"
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "exchangeIdTokenForCustomToken": {
     "at": "2026-05-15",
@@ -271,7 +272,7 @@
     "region": "us-central1"
   },
   "moderateOfferOnCreate": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -281,7 +282,7 @@
     "sha": null
   },
   "moderateProfileOnWrite": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -394,11 +395,11 @@
     "sha": "156486e88a2cbd81ec8d243eb8535751ae2b3672"
   },
   "optimizeListingPhoto": {
-    "at": "2026-10-16",
-    "deployedAt": "2026-10-19T20:26:00Z",
+    "sha": "cf27842",
+    "at": "2026-11-17",
     "region": "us-east1",
-    "revision": "optimizelistingphoto-00020-tej",
-    "sha": "abdeaf622eae4f5b34602997bc61d87b48a124fd"
+    "revision": "optimizelistingphoto-00021-qug",
+    "note": "raw gcloud: --memory=2Gi --cpu=1 --concurrency=1 --timeout=120s"
   },
   "optimizePassportPhoto": {
     "at": "2026-10-01",
@@ -536,9 +537,9 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "releaseListingHold": {
-    "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "reportListingFailure": {
     "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
@@ -681,7 +682,7 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "updateListing": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -691,7 +692,7 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "updateProfile": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
