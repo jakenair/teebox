@@ -246,8 +246,8 @@
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "metaFeed": {
-    "sha": "1535af925bb741da48a26aea55c3205e0b56881e",
-    "at": "2026-11-15",
+    "sha": "4e8af639dc200d81b9c37121caa588fd708df7b8",
+    "at": "2026-11-17",
     "region": "us-central1"
   },
   "moderateImage": {
@@ -669,8 +669,8 @@
     "sha": null
   },
   "tiktokFeed": {
-    "sha": "79c7f32d198dea4a31e75518dbb5c10ac3a1bbe3",
-    "at": "2026-11-15",
+    "sha": "4e8af639dc200d81b9c37121caa588fd708df7b8",
+    "at": "2026-11-17",
     "region": "us-central1"
   },
   "updateCheckoutShipping": {
