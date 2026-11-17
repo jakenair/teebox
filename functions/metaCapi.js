@@ -347,8 +347,13 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
       // production reporting (lib/metaGate.js explains why a test code alone
       // is not enough). A test code from the checkout session or config/meta
       // sends the event to Test Events instead.
+      const tl = require("./lib/testAccounts");
+      const tctx = tl.adminCtx();
+      const qaOrder = (order.listingId && await tl.isTestListingId(String(order.listingId), tctx)) ||
+        await tl.isTestUid(order.buyerId, tctx);
       const gate = metaGate.gateDecision({
-        internal: metaGate.isInternalAccount(
+        // 2026-11-16: an order on a QA listing or by a QA buyer counts as internal.
+        internal: qaOrder || metaGate.isInternalAccount(
             {uid: order.buyerId, email: order.receiptEmail || extra.email, claims}, cfg),
         nonProd: metaGate.isNonProdRuntime(),
         testEventCode: metaGate.cleanTestCode(order.capiTestCode) || cfg.testEventCode,
@@ -523,6 +528,21 @@ exports.capiRelay = onCall(
       if (!isProdSourceUrl(d.sourceUrl)) {
         logger.info("capiRelay: skipped", {eventName, reason: "non-prod-host"});
         return {ok: false, skipped: "non-prod-host"};
+      }
+      // 2026-11-16: events about a QA listing never reach Meta/TikTok
+      // (lib/testAccounts — the shared QA check).
+      {
+        const ids = d.params && Array.isArray(d.params.content_ids) ? d.params.content_ids : [];
+        if (ids.length) {
+          const tl = require("./lib/testAccounts");
+          const tctx = tl.adminCtx();
+          for (const id of ids.slice(0, 5)) {
+            if (await tl.isTestListingId(String(id), tctx)) {
+              logger.info("capiRelay: skipped", {eventName, reason: "test-listing"});
+              return {ok: false, skipped: "test-listing"};
+            }
+          }
+        }
       }
 
       // 2026-11-15: TikTok Events API copy of the same browser event (same
@@ -720,8 +740,10 @@ async function sendServerInitiateCheckout(p) {
     if (!token) return "skipped:no-token";
     const cfg = await metaConfig();
     const au = p.authUser || {};
+    const tl = require("./lib/testAccounts");
+    const qaListing = !!p.listingId && await tl.isTestListingId(String(p.listingId), tl.adminCtx());
     const gate = metaGate.gateDecision({
-      internal: metaGate.isInternalAccount({uid: au.uid, email: au.email, claims: au}, cfg),
+      internal: qaListing || metaGate.isInternalAccount({uid: au.uid, email: au.email, claims: au}, cfg),
       nonProd: metaGate.isNonProdRuntime(),
       testEventCode: c.capiTestCode || cfg.testEventCode,
     });
