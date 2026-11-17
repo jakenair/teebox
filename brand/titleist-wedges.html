@@ -297,8 +297,9 @@
       .cta-band h2 { font-size: 24px; }
     }
       /* Brand logo (founder 2026-11-17): the real mark on a white plate. */
-    .hero .wordmark.wordmark-logo { background: #fff; border: 0; padding: 18px 30px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); font-size: 0; line-height: 0; }
-    .hero .wordmark.wordmark-logo img { display: block; height: auto; width: auto; max-height: 76px; max-width: min(320px, 68vw); margin: 0 auto; }
+    .hero .wordmark.wordmark-logo { background: none; border: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 0; line-height: 0; margin-bottom: 22px; }
+    .hero .wordmark.wordmark-logo img { display: block; height: auto; width: auto; max-height: 84px; max-width: min(380px, 76vw); margin: 0 auto; }
+    .hero h1 .vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
       .brand-disclaimer { max-width: 900px; margin: 28px auto 0; padding: 0 22px 22px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--gray-600); }
   </style>
 <!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
@@ -314,8 +315,8 @@
   </header>
 
   <section class="hero">
-    <div class="wordmark wordmark-logo"><img src="/assets/brand-logos/titleist.png" alt="Titleist logo" width="381" height="101" decoding="async" /></div>
-    <h1>Titleist Vokey Wedges for Sale on TeeBox</h1>
+    <div class="wordmark wordmark-logo"><img src="/assets/brand-logos/titleist-white.png" alt="Titleist logo" width="381" height="101" decoding="async" /></div>
+    <h1><span class="vh">Titleist </span>Vokey Wedges for Sale on TeeBox</h1>
     <p class="tag">SM10, SM9, SM8 — every grind and bounce option, listed by real golfers with verified specs and a flat 8.5% sale fee.</p>
     <div class="hero-ctas">
       <!-- NOTE: category-level filtering (?cat=...) needs server-side support; for now we route to the brand filter or full marketplace. -->
