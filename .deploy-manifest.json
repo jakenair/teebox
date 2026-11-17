@@ -709,5 +709,11 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+  },
+  "stampListingPriceEstimate": {
+    "sha": "9e7f32f023ce11c0ef1ebc9671f4328e7e413902",
+    "at": "2026-11-17",
+    "region": "us-central1",
+    "note": "created via raw gcloud (new fn)"
   }
 }
