@@ -105,6 +105,11 @@ async function onSellerChargesReady(uid) {
   const out = {relisted: 0, expiredInstead: 0, buyersNotified: 0};
   if (!uid) return out;
   const db = admin.firestore();
+  // 2026-11-16: a TEST seller's listings never trigger buyer emails.
+  {
+    const tl = require("./testAccounts");
+    if (await tl.isTestUid(uid, tl.adminCtx())) return {...out, skipped: "test-seller"};
+  }
   const now = admin.firestore.Timestamp.now();
 
   // 1. Relist. Equality-only query → no composite index needed.

@@ -198,7 +198,14 @@ exports.regenerateSitemap = onSchedule(
             .orderBy("createdAt", "desc")
             .limit(MAX_LISTING_URLS)
             .get();
-        listingEntries = snap.docs.map((d) => {
+        // 2026-11-16: QA listings never go in the public sitemap.
+        const tl = require("./lib/testAccounts");
+        const tctx = tl.adminCtx();
+        const realDocs = [];
+        for (const d of snap.docs) {
+          if (!(await tl.isTestListing(d.data() || {}, d.id, tctx))) realDocs.push(d);
+        }
+        listingEntries = realDocs.map((d) => {
           const data = d.data() || {};
           const lastmod = toLastmod(data.updatedAt) || toLastmod(data.createdAt);
           return {

@@ -717,9 +717,13 @@ exports.savedSearchMatchSchedulerV2 = onSchedule(
             logger.warn("V2 listings query failed", e.message);
             return null;
           });
-      const newListings = newListingsSnap ?
-        newListingsSnap.docs.map((d) => ({id: d.id, ...d.data()})) :
-        [];
+      const __testCtx = require("./lib/testAccounts").adminCtx();
+      const newListings = [];
+      for (const d of (newListingsSnap ? newListingsSnap.docs : [])) {
+        // 2026-11-16: QA listings never reach saved-search emails.
+        if (await require("./lib/testAccounts").isTestListing(d.data(), d.id, __testCtx)) continue;
+        newListings.push({id: d.id, ...d.data()});
+      }
 
       for (const doc of searches.docs) {
         const s = doc.data();
@@ -822,6 +826,8 @@ exports.onListingPriceUpdate = onDocumentUpdated(
         if (after.status && after.status !== "active") return;
 
         const listingId = event.params.listingId;
+        // 2026-11-16: QA listings never fan out price drops.
+        if (await require("./lib/testAccounts").isTestListing(after, listingId, require("./lib/testAccounts").adminCtx())) return;
         const db = admin.firestore();
 
         const watchSnap = await db.collectionGroup("watchlist")
@@ -896,6 +902,7 @@ exports.onPriceDropEventEmail = onDocumentCreated(
           db.collection("listings").doc(evt.listingId).get(),
         ]);
         if (!userSnap.exists || !listingSnap.exists) return;
+        if (await require("./lib/testAccounts").isTestListing(listingSnap.data(), listingSnap.id, require("./lib/testAccounts").adminCtx())) return;
         const user = await withAuthEmail({uid: userSnap.id, ...userSnap.data()});
         if (!user.email) return;
         const listingRaw = listingSnap.data();

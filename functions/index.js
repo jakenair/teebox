@@ -3605,68 +3605,20 @@ exports.notifyOnSavedSearchMatch = onDocumentCreated(
     try {
       const listing = event.data && event.data.data();
       if (!listing) return;
-      if (listing.status !== "active") return;
-
       const listingId = event.params.listingId;
-      const db = admin.firestore();
-
-      const searchesSnap = await db
-        .collection("savedSearches")
-        .where("notifyOnNew", "==", true)
-        .limit(SAVED_SEARCH_SCAN_CAP + 1)
-        .get();
-
-      if (searchesSnap.size > SAVED_SEARCH_SCAN_CAP) {
-        logger.warn(
-          `notifyOnSavedSearchMatch: more than ${SAVED_SEARCH_SCAN_CAP} ` +
-            `saved searches with notifyOnNew=true; skipping listing ${listingId}`
-        );
-        return;
-      }
-
-      let matched = 0;
-      const writes = [];
-      const listingTitle = listing.title || "a new listing";
-      const listingPrice = Number.isFinite(Number(listing.ask))
-        ? Number(listing.ask)
-        : null;
-
-      searchesSnap.forEach((doc) => {
-        const search = doc.data();
-        const userId = search.userId;
-        if (!userId) return;
-        // Don't self-notify the seller for their own listing.
-        if (userId === listing.sellerId) return;
-
-        if (!listingMatchesSavedSearch(listing, search.query)) return;
-
-        // Write to users/{uid}/notifications — that's the path the
-        // pushNotificationDispatch trigger listens on. The legacy
-        // top-level notifications/ path was a bug: it created docs
-        // that no dispatcher ever read.
-        const notifRef = db
-          .collection("users").doc(userId)
-          .collection("notifications").doc();
-        writes.push(
-          notifRef.set({
-            userId,
-            kind: "saved-search-match",
-            listingId,
-            listingTitle,
-            listingPrice,
-            searchId: doc.id,
-            searchName: search.name || null,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            read: false,
-          })
-        );
-        matched += 1;
+      // 2026-11-16: body moved to lib/savedSearchFanout.js; TEST listings
+      // (lib/testAccounts) fan out to nobody.
+      const {savedSearchFanout} = require("./lib/savedSearchFanout");
+      const {adminCtx} = require("./lib/testAccounts");
+      const r = await savedSearchFanout({
+        db: admin.firestore(), listing, listingId,
+        matches: listingMatchesSavedSearch, scanCap: SAVED_SEARCH_SCAN_CAP,
+        now: () => admin.firestore.FieldValue.serverTimestamp(),
+        testCtx: adminCtx(), log: logger,
       });
-
-      await Promise.all(writes);
-      if (matched > 0) {
+      if (r.matched > 0) {
         logger.info(
-          `notifyOnSavedSearchMatch: listing ${listingId} matched ${matched} ` +
+          `notifyOnSavedSearchMatch: listing ${listingId} matched ${r.matched} ` +
             `saved search(es)`
         );
       }
@@ -3889,10 +3841,13 @@ exports.notifyOnWatchlistPriceDrop = onSchedule(
         .get();
 
       let notified = 0;
+      const __testCtx = require("./lib/testAccounts").adminCtx();
       for (const doc of listingsSnap.docs) {
         const listing = doc.data();
         const ask = Number(listing.ask || 0);
         if (!ask) continue;
+        // 2026-11-16: QA listings never notify real watchers.
+        if (await require("./lib/testAccounts").isTestListing(listing, doc.id, __testCtx)) continue;
 
         const idxRef = db.collection("pricesIndex").doc(doc.id);
         const idx = await idxRef.get();
@@ -4519,6 +4474,12 @@ exports.pushNotificationDispatch = onDocumentCreated(
         // Fail closed: if we can't read the flag, default to OFF.
         // Better to miss one legacy push than double-send every push.
         return;
+      }
+
+      // 2026-11-16: never push about a QA listing (lib/testAccounts).
+      if (data.listingId) {
+        const tl = require("./lib/testAccounts");
+        if (await tl.isTestListingId(data.listingId, tl.adminCtx())) return;
       }
 
       const tokensSnap = await db.collection("users").doc(uid)

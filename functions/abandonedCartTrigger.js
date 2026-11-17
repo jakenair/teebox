@@ -217,7 +217,13 @@ exports.abandonedCartScheduler = onSchedule(
           const watchlistIds = Object.keys(watchlistMap);
           if (!watchlistIds.length) continue;
 
-          const listings = await resolveWatchlistListings(db, watchlistIds);
+          const __tl = require("./lib/testAccounts");
+          const __tctx = __tl.adminCtx();
+          const listings = [];
+          for (const l of await resolveWatchlistListings(db, watchlistIds)) {
+            // 2026-11-16: QA listings are never advertised to real users.
+            if (!(await __tl.isTestListing(l, l.id, __tctx))) listings.push(l);
+          }
           const totalValue = listings.reduce((s, l) => s + (l.ask || 0), 0);
           if (totalValue < MIN_WATCHLIST_VALUE_USD || !listings.length) {
             skippedLowValue += 1;

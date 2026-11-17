@@ -190,7 +190,7 @@ function feedRow(l, testSellers, now) {
   // 2026-11-09 (Jake): QA/test listings never reach the catalog — neither a
   // listing flagged isTest nor anything from a test seller (flags can lag
   // the listing by seconds; the seller check covers that window).
-  if (l.isTest === true) return null;
+  if (require("./lib/testAccounts").isTestListingDoc(l, l.id)) return null;
   if (testSellers && l.sellerId && testSellers.has(l.sellerId)) return null;
   const photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
   if (!photos.length) return null; // Meta rejects rows without image_link
@@ -278,21 +278,11 @@ async function loadListings() {
   return out;
 }
 
-// Sellers whose listings must never reach the catalog: users flagged
-// isTestAccount, plus the QA email domains the server treats as test
-// accounts (index.js TEST_EMAIL_RE).
-const TEST_EMAIL_RE = /@(teeboxtest\.invalid|teeboxqa\.dev)$/i;
-async function loadTestSellers(sellerIds) {
-  const db = admin.firestore();
-  const out = new Set();
-  const flagged = await db.collection("users").where("isTestAccount", "==", true).select().get();
-  flagged.forEach((d) => out.add(d.id));
-  const ids = [...new Set(sellerIds)].filter((id) => id && !out.has(id));
-  for (let i = 0; i < ids.length; i += 100) {
-    const r = await admin.auth().getUsers(ids.slice(i, i + 100).map((uid) => ({uid})));
-    for (const u of r.users) if (TEST_EMAIL_RE.test(u.email || "")) out.add(u.uid);
-  }
-  return out;
+// Sellers whose listings must never reach the catalog — the shared QA check
+// (lib/testAccounts.js, 2026-11-16).
+async function loadTestSellers() {
+  const tl = require("./lib/testAccounts");
+  return tl.loadTestUids({db: admin.firestore(), auth: admin.auth()});
 }
 
 exports.metaFeed = onRequest(
@@ -324,7 +314,7 @@ exports.metaFeed = onRequest(
         const now = Date.now();
         if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
           const listings = await loadListings();
-          const testSellers = await loadTestSellers(listings.map((l) => l.sellerId));
+          const testSellers = await loadTestSellers();
           const built = buildFeedCsv(listings, testSellers);
           _cache = {at: now, csv: built.csv, rows: built.rows};
           logger.info("metaFeed: rebuilt", {rows: built.rows, skipped: built.skipped});
@@ -343,6 +333,6 @@ exports.metaFeed = onRequest(
 );
 
 exports._feed = {
-  buildFeedCsv, feedRow, TEST_EMAIL_RE, mapCondition, mapAvailability, plainText, csvCell,
+  buildFeedCsv, feedRow, TEST_EMAIL_RE: require("./lib/testAccounts").TEST_EMAIL_RE, mapCondition, mapAvailability, plainText, csvCell,
   stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS,
 };

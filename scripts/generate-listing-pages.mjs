@@ -59,6 +59,8 @@ function fetchActiveListings() {
       desc: v("desc") || "",
       photo: photos.length ? photos[0].stringValue : null,
       specCategory: v("specCategory") || "",
+      sellerId: v("sellerId") || "",
+      isTest: ((f.isTest || {}).booleanValue === true) || ((f.isTestListing || {}).booleanValue === true),
       specs: Object.fromEntries(Object.entries(((f.specs || {}).mapValue || {}).fields || {})
         .map(([k, x]) => [k, x.stringValue ?? x.integerValue ?? x.doubleValue ?? ""])
         .filter(([, x]) => String(x).trim())),
@@ -181,8 +183,25 @@ function buildSitemap(listings) {
     `\n</urlset>\n`;
 }
 
+// 2026-11-16: QA listings never get a public page or sitemap URL. Uses the
+// shared functions/lib/testAccounts.js (flagged users + QA Auth emails + QA
+// ids). If test accounts can't be loaded, generation is skipped (fail-soft,
+// existing pages untouched) rather than risk publishing a QA listing.
+async function loadTestFilter() {
+  const { createRequire } = await import("node:module");
+  const req = createRequire(new URL("../functions/package.json", import.meta.url));
+  const admin = req("firebase-admin");
+  if (!admin.apps.length) admin.initializeApp({ projectId: "teebox-market", credential: admin.credential.applicationDefault() });
+  const ta = req("./lib/testAccounts.js");
+  const uids = await ta.loadTestUids({ db: admin.firestore(), auth: admin.auth() });
+  return (l) => ta.isTestListingDoc(l, l.id) || (l.sellerId && uids.has(l.sellerId));
+}
+
 try {
-  const listings = fetchActiveListings();
+  const isTest = await loadTestFilter();
+  const all = fetchActiveListings();
+  const listings = all.filter((l) => !isTest(l));
+  if (all.length !== listings.length) console.log(`  (skipped ${all.length - listings.length} QA listing(s))`);
   if (!listings.length) throw new Error("zero active listings returned — refusing to wipe pages");
   if (existsSync("listing")) rmSync("listing", { recursive: true });
   for (const l of listings) {
