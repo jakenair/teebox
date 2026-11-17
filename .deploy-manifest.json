@@ -373,8 +373,9 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onPriceDropEventEmail": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "033c40a37cd0b517206024caa86c270ab6e74082",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "onRefundEmail": {
     "at": "2026-09-11",
@@ -537,7 +538,7 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "releaseListingHold": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
+    "sha": "033c40a37cd0b517206024caa86c270ab6e74082",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -628,9 +629,9 @@
     "sha": null
   },
   "stripeConnectWebhook": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "033c40a37cd0b517206024caa86c270ab6e74082",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "stripeWebhook": {
     "at": "2026-10-03",

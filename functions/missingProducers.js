@@ -490,6 +490,10 @@ async function handleConnectExternalAccountLog(event) {
 // Connect-side Stripe webhook. Registers at /stripeConnectWebhook. The
 // operator must point the Connect endpoint to this URL in the Stripe
 // dashboard. Signature verification uses STRIPE_CONNECT_WEBHOOK_SECRET.
+// Test-only handle (not a Cloud Function): lets a local script drive the
+// exact payout.failed handler without forging a Stripe signature.
+exports._connectHandlersForTest = {handleConnectPayoutFailed};
+
 exports.stripeConnectWebhook = onRequest(
     {
       ...WEBHOOK_FN,
