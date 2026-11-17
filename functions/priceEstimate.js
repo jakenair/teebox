@@ -70,7 +70,7 @@ exports.stampListingPriceEstimate = onDocumentCreated(
       timeoutSeconds: 60, concurrency: 40, maxInstances: 20},
     async (event) => {
       const snap = event.data;
-      if (!snap) return;
+      if (!snap) { logger.info("stampListingPriceEstimate: no snapshot"); return; }
       const listing = snap.data() || {};
       if (!listing.sellerId || listing.priceEstimate) return;
       const db = admin.firestore();
@@ -80,7 +80,10 @@ exports.stampListingPriceEstimate = onDocumentCreated(
         const q = await db.collection("aiDraftLogs")
             .where("uid", "==", String(listing.sellerId)).limit(50).get();
         const pick = pickDraft(listing, q.docs.map((d) => ({id: d.id, data: d.data()})), Date.now());
-        if (!pick) return;
+        if (!pick) {
+          logger.info("stampListingPriceEstimate: no matching assist draft", {listingId, drafts: q.size});
+          return;
+        }
         const logRef = db.collection("aiDraftLogs").doc(pick.id);
         await db.runTransaction(async (tx) => {
           const [l, g] = await Promise.all([tx.get(snap.ref), tx.get(logRef)]);
