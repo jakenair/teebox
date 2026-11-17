@@ -332,6 +332,10 @@
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     window.CURRENT_USER = user;
+    // For You (js/feed-rank.js): remember who is signed in on this device so
+    // the boot-time first paint ranks the same way the full load does.
+    window.__authResolved = true;
+    try { window.TBFeedRank && window.TBFeedRank.setUid(user ? user.uid : null); } catch (_e) {}
     // ── Analytics identity tie. Whenever Firebase Auth flips state we
     // mirror it into PostHog so every subsequent posthog.capture()
     // attributes to the right person. On sign-out we call reset() so
@@ -3325,7 +3329,11 @@
       // Firestore read on every page load.
       // Phase 4 (r370): first page is 60 newest; the feed grows by cursor
       // (window.fetchMoreListings, below) as the sentinel scrolls into view.
-      const LISTINGS_FETCH_CAP = 60;
+      // 2026-11-17: 200 to match the boot prefetch (it already fetched 200, so
+      // the first render saw the whole catalog but every re-fetch after auth
+      // dropped to the newest 60). For You ranks the whole active catalog, so
+      // every load needs all of it — ~85 docs today.
+      const LISTINGS_FETCH_CAP = 200;
       const q = query(
         collection(db, 'listings'),
         orderBy('createdAt', 'desc'),

@@ -446,7 +446,8 @@ function renderSellerInvite() {
 window.renderSellerInvite = renderSellerInvite;
 
 // Active filter state. Updated by filter-bar inputs; persisted across renders.
-window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, max: null, conditions: new Set(), brand: null, q: null };
+// 2026-11-17: default sort is "For You" (js/feed-rank.js); Newest stays a choice.
+window.__filter = window.__filter || { cat: 'all', sort: 'foryou', min: null, max: null, conditions: new Set(), brand: null, q: null };
 
 // ── Phase 4 (r370): Vinted-style browse chips ──────────────────────────────
 // One chip key → listing predicate. Club chips read listing.specCategory
@@ -508,28 +509,24 @@ function applyFilters(list) {
   if (f.min != null) out = out.filter(p => Number(p.ask || 0) >= f.min);
   if (f.max != null) out = out.filter(p => Number(p.ask || 0) <= f.max);
   if (f.conditions && f.conditions.size > 0) out = out.filter(p => f.conditions.has(p.condition));
-  switch (f.sort) {
+  // Legacy "Discover" (daily shuffle) is folded into For You's seeded rotation.
+  const sortMode = (f.sort === 'discover') ? 'foryou' : (f.sort || 'newest');
+  window.__feedSortMode = sortMode;
+  switch (sortMode) {
     case 'price-asc':  out.sort((a, b) => Number(a.ask||0) - Number(b.ask||0)); break;
     case 'price-desc': out.sort((a, b) => Number(b.ask||0) - Number(a.ask||0)); break;
     case 'brand':      out.sort((a, b) => String(a.brand||'').localeCompare(String(b.brand||''))); break;
-    case 'discover': {
-      // "Discover" mode — pseudo-random shuffle that's stable for the
-      // current calendar day, then re-shuffles the next day. Lets the
-      // homepage feel fresh without being chaotic on every refresh.
-      // Hash = djb2(listing.id + YYYY-MM-DD) so each listing gets a
-      // deterministic-per-day sort key.
-      const today = new Date();
-      const ymd = today.getFullYear() + '-' +
-        String(today.getMonth() + 1).padStart(2, '0') + '-' +
-        String(today.getDate()).padStart(2, '0');
-      const hash = (s) => {
-        let h = 5381;
-        for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-        return h >>> 0;
-      };
-      out.sort((a, b) => hash(String(a.id) + ymd) - hash(String(b.id) + ymd));
-      break;
+    case 'foryou': {
+      // For You: weighted score + diversity (js/feed-rank.js, tuned in
+      // js/feed-rank-config.js). Hides own / sold-out / reserved listings.
+      // Falls back to Newest if the ranking script didn't load.
+      if (window.TBFeedRank && window.TB_FEED_CONFIG) {
+        try { out = window.TBFeedRank.rankForHome(out, list); break; } catch (e) { console.warn('feed rank failed', e); }
+      }
+      window.__feedSortMode = 'newest';
+      window.__feedRankMissed = true; // feed-rank.js re-renders once it lands
     }
+    // falls through to Newest
     case 'newest':
     default:
       out.sort((a, b) => {
@@ -920,6 +917,8 @@ function buildProducts(filter) {
 
 const FEED_PAGE = 24;
 window.__feedList = []; window.__feedShown = 0; window.__feedFetching = false;
+// For You: impression + click logging on the home grid (js/feed-rank.js).
+try { window.TBFeedRank && window.TBFeedRank.observeGrid && window.TBFeedRank.observeGrid(document.getElementById('productGrid')); } catch (_e) {}
 function hydrateGridCards(root) {
   // Async hydrate verified-seller + Pro pills inside listing cards (Feature #3).
   hydrateVerifiedSellerPills(root);
@@ -1490,6 +1489,8 @@ async function openDetailModal(id) {
       });
     }
   } catch (_e) { /* never block modal open on analytics */ }
+  // For You: this device remembers what kinds of gear the buyer opens.
+  try { window.TBFeedRank && window.TBFeedRank.logSignal('view', p); } catch (_e) {}
   document.getElementById('detailBrand').textContent = p.brand;
   document.getElementById('detailName').textContent = p.name;
   // Detail condition badge — color-code via conditionBadgeMeta to match
@@ -2135,6 +2136,7 @@ async function openChatForListing(listingId) {
     const listingSnap = await getDoc(doc(firestoreDb, 'listings', listingId));
     if (listingSnap.exists()) {
       listing = { id: listingSnap.id, ...listingSnap.data() };
+      try { window.TBFeedRank && window.TBFeedRank.logSignal('message', listing); } catch (_e) {}
     } else {
       // Fall back to hardcoded product list
       const p = (window.PRODUCTS || []).find(pr => String(pr.id) === String(listingId));
@@ -6064,6 +6066,7 @@ function applySearchQuery(q) {
   const input = document.getElementById('searchInput');
   if (input) { try { input.blur(); } catch (_e) {} }
   if (query) {
+    try { window.TBFeedRank && window.TBFeedRank.logSignal('search', { q: query }); } catch (_e) {}
     filterCat(null, 'all');          // sweeps the pills + buildProducts('all')
     const sec = document.getElementById('homeLatest') || document.getElementById('productGrid');
     if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -6336,6 +6339,12 @@ async function saveCurrentSearch() {
       query: String(q).slice(0, 80),
       createdAt: serverTimestamp(),
     });
+    try {
+      if (window.TBFeedRank) {
+        if (f.cat && f.cat !== 'all') window.TBFeedRank.logSignal('savedSearch', { cat: f.cat, specCategory: f.cat, brand: f.brand || null });
+        if (q) window.TBFeedRank.logSignal('search', { q });
+      }
+    } catch (_e) {}
     showToast('Search saved. New matching listings will appear in your saved searches.');
   } catch (e) {
     console.error('saveCurrentSearch failed:', e);
@@ -9985,6 +9994,7 @@ async function toggleWatch(productId, desired) {
     if (product && typeof r.count === 'number') product.watchlistCount = r.count;
     window.paintFav(id, liked, typeof r.count === 'number' ? r.count : null);
     syncDetail(typeof r.count === 'number' ? r.count : undefined, liked);
+    if (liked) { try { const lp = (window.PRODUCTS || []).find(x => String(x.id) === id); if (lp && window.TBFeedRank) window.TBFeedRank.logSignal('favorite', lp); } catch (_e) {} }
     if (liked && r.changed) {
       const askNow = product ? Number(product.ask || 0) : 0;
       // Meta Pixel: wishlist ADD only (removals deliberately untracked).
@@ -15601,8 +15611,8 @@ document.querySelectorAll('#filterCondition .condition-pill').forEach(btn => {
 });
 const fclear = document.getElementById('filterClear');
 if (fclear) fclear.addEventListener('click', () => {
-  window.__filter = { cat: window.__filter.cat, sort: 'newest', min: null, max: null, conditions: new Set() };
-  if (sortSel) sortSel.value = 'newest';
+  window.__filter = { cat: window.__filter.cat, sort: 'foryou', min: null, max: null, conditions: new Set() };
+  if (sortSel) sortSel.value = 'foryou';
   if (fmin) fmin.value = '';
   if (fmax) fmax.value = '';
   document.querySelectorAll('#filterCondition .condition-pill').forEach(b => b.classList.remove('active'));
@@ -15631,6 +15641,11 @@ async function hydrateWatchlist() {
     const num = Number(id);
     fav.add(Number.isFinite(num) ? num : id);
   });
+  // For You: likes made on another device feed this device's profile too
+  // (logSignal dedupes one favorite per listing).
+  try {
+    if (window.TBFeedRank) ids.forEach(id => { const lp = (window.PRODUCTS || []).find(x => String(x.id) === String(id)); if (lp) window.TBFeedRank.logSignal('favorite', lp); });
+  } catch (_e) {}
   // r383: paint the hearts in place; rebuilding the grid replayed the card
   // entrance animation and flashed every heart from empty to filled.
   if (typeof window.paintFav === 'function' && document.querySelector('.fav-btn[data-product-id]')) ids.forEach(id => window.paintFav(String(id), true, null));

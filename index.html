@@ -7973,8 +7973,8 @@ window.tbEvent = function (name, surface) {
         <div class="filter-group filter-group-sort">
           <label>Sort</label>
           <select id="sortMode" aria-label="Sort listings">
+            <option value="foryou">For You</option>
             <option value="newest">Newest</option>
-            <option value="discover">Discover</option>
             <option value="price-asc">Price ↑</option>
             <option value="price-desc">Price ↓</option>
             <option value="brand">Brand A–Z</option>
@@ -8015,6 +8015,11 @@ window.tbEvent = function (name, surface) {
            loadListings() replaces this grid with the full cards when it runs;
            the delegated click handler takes over as soon as app-main.js lands.
            The composite index (status ASC, createdAt DESC) already exists. -->
+      <!-- 2026-11-17 For You: ranking config + engine, loaded before the
+           first-paint feed so the boot cards are already in For You order
+           (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
+      <script async src="/js/feed-rank-config.js?v=r418"></script>
+      <script async src="/js/feed-rank.js?v=r418"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8025,26 +8030,66 @@ window.tbEvent = function (name, surface) {
           var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
           var safeUrl = function (u) { return (typeof u === 'string' && /^https:\/\/(firebasestorage\.googleapis\.com|teebox-market\.firebasestorage\.app)\//.test(u)) ? u : ''; };
           var hidpi = (window.devicePixelRatio || 1) >= 1.5 && !(window.__slowNet && window.__slowNet());
+          // For You ranks the WHOLE active catalog, so fetch all of it but only
+          // the fields the ranker and the card need.
+          // The ranker scripts load async (never block this fetch); if they
+          // aren't in by the time the rows arrive, wait briefly, else paint
+          // newest-first.
+          // Same bytes as the old newest-14 query (~12 KB gzipped for 77
+          // listings): first photo's 400px thumb only — the full loader swaps in
+          // the sharper srcset a moment later.
+          var fields = ['title', 'brand', 'ask', 'photoVariants.`0`.w400', 'createdAt',
+               'sellerId', 'cat', 'specCategory', 'specs.flex', 'watchlistCount', 'quantity', 'quantitySold', 'priceEstimate.mid'];
+          var rank = null;
+          var ranker = function () { return window.TBFeedRank && window.TB_FEED_CONFIG && window.TBFeedRank.rankForHome; };
+          var whenRanker = function (cb) {
+            var t = 0; (function poll() { if (ranker() || t > 1200) return cb(); t += 30; setTimeout(poll, 30); })();
+          };
           var body = JSON.stringify({structuredQuery: {from: [{collectionId: 'listings'}],
-            select: {fields: ['title', 'brand', 'ask', 'photos', 'photoVariants', 'createdAt'].map(function (f) { return {fieldPath: f}; })},
+            select: {fields: fields.map(function (f) { return {fieldPath: f}; })},
             where: {fieldFilter: {field: {fieldPath: 'status'}, op: 'EQUAL', value: {stringValue: 'active'}}},
-            orderBy: [{field: {fieldPath: 'createdAt'}, direction: 'DESCENDING'}], limit: 14}});
+            orderBy: [{field: {fieldPath: 'createdAt'}, direction: 'DESCENDING'}], limit: 300}});
           fetch('https://firestore.googleapis.com/v1/projects/teebox-market/databases/(default)/documents:runQuery', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: body})
             .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (rows) { return new Promise(function (res) { whenRanker(function () { rank = ranker() || null; res(rows); }); }); })
             .then(function (rows) {
               if (window.__listingsLoaded || !grid.isConnected || grid.children.length) return;
               var html = []; var n = 0;
-              (rows || []).forEach(function (row) {
+              rows = (rows || []).filter(function (row) { return row && row.document && row.document.fields; });
+              if (rank) {
+                // Decode just enough of each REST doc for the ranker, rank, and
+                // paint the top 14 in that order. Same seed/profile snapshot as
+                // the full load (frozen per page load in feed-rank.js).
+                var num = function (v) { return v ? Number(v.integerValue != null ? v.integerValue : v.doubleValue) : 0; };
+                var mf = function (v, k) { return v && v.mapValue && v.mapValue.fields && v.mapValue.fields[k]; };
+                var byId = {};
+                var docs = rows.map(function (row) {
+                  var f = row.document.fields; var id = row.document.name.split('/').pop(); byId[id] = row;
+                  var sv = function (k) { return f[k] && f[k].stringValue || ''; };
+                  return {id: id, status: 'active', title: sv('title'), brand: sv('brand'), cat: sv('cat'), specCategory: sv('specCategory'),
+                    sellerId: sv('sellerId'), ask: num(f.ask), watchlistCount: num(f.watchlistCount),
+                    quantity: num(f.quantity) || 1, quantitySold: num(f.quantitySold),
+                    createdAt: f.createdAt && f.createdAt.timestampValue || 0,
+                    specs: {flex: (mf(f.specs, 'flex') || {}).stringValue || ''},
+                    priceEstimate: {mid: num(mf(f.priceEstimate, 'mid'))}};
+                });
+                try { docs = rank(docs, docs); } catch (_e) { /* newest order */ }
+                rows = docs.map(function (x) { return byId[x.id]; });
+              }
+              // Stop at the first card we can't draw (no thumbnail variant) so
+              // the painted prefix is exactly the full loader's order.
+              var stopped = false;
+              rows.forEach(function (row) {
+                if (n >= 14 || stopped) return;
                 var d = row && row.document; if (!d || !d.fields) return;
                 var f = d.fields; var id = d.name.split('/').pop();
                 var str = function (k) { return f[k] && f[k].stringValue || ''; };
                 var photos = (f.photos && f.photos.arrayValue && f.photos.arrayValue.values || []).map(function (v) { return v.stringValue; }).filter(Boolean);
-                if (!photos.length) return;
                 var v0 = f.photoVariants && f.photoVariants.mapValue && f.photoVariants.mapValue.fields && f.photoVariants.mapValue.fields['0'];
                 var vf = v0 && v0.mapValue && v0.mapValue.fields || {};
                 var w4 = safeUrl(vf.w400 && vf.w400.stringValue), w8 = safeUrl(vf.w800 && vf.w800.stringValue);
-                var thumb = w4 || safeUrl(photos[0]);
-                if (!thumb) return;
+                var thumb = w4 || safeUrl(photos[0] || '');
+                if (!thumb) { stopped = true; return; }
                 var srcset = (w4 && w8) ? (esc(w4) + ' 400w, ' + esc(w8) + ' 800w') : '';
                 var sizes = '(max-width: 600px) 46vw, 220px';
                 var ask = f.ask ? Number(f.ask.integerValue != null ? f.ask.integerValue : f.ask.doubleValue) : 0;
@@ -8064,6 +8109,7 @@ window.tbEvent = function (name, surface) {
               if (!n) return;
               grid.innerHTML = html.join('');
               window.__bootPaintedAt = performance.now();
+              window.__bootRanked = !!rank;
               try { performance.mark('tb-boot-paint'); } catch (_e) {}
               // Content is on screen and (r349) the auth gate never auto-opens for
               // guests any more, so there is nothing left for the splash to cover.
@@ -9886,8 +9932,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r417"></script>
-<script type="module" src="/js/app-auth.js?v=r417"></script>
+<script defer src="/js/app-main.js?v=r418"></script>
+<script type="module" src="/js/app-auth.js?v=r418"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9917,8 +9963,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r417"></script>
-<script type="module" src="/js/sunday-nine.js?v=r417"></script>
+<script type="module" src="/js/bingo.js?v=r418"></script>
+<script type="module" src="/js/sunday-nine.js?v=r418"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
