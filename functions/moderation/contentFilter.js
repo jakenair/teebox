@@ -146,6 +146,29 @@ function normalize(input) {
   return s;
 }
 
+// ── normalizeForScan() ──────────────────────────────────────────────
+// normalize(), except a token that is purely a NUMBER or MEASUREMENT
+// (digits plus . , ' " ° / - % # : ( ) and their typographic forms) is NOT
+// leet-folded. Folding numbers turned golf model numbers and specs into
+// words — "Forged 455" and a 45.5" shaft both folded to a bad-words entry
+// and held a real seller's listings 12 times (2026-11-10..13). Any token
+// with a letter or a leet symbol (@ $ ! +) still folds, so a55 / @$$ style
+// evasions are caught exactly as before. Used by the profanity/slur layers
+// only; the exported normalize() (off-platform contact detector) is
+// unchanged, because there digits must fold.
+const NUMERIC_TOKEN = /^[0-9.,'"°\/\-%#:()′″’”]*[0-9][0-9.,'"°\/\-%#:()′″’”]*$/;
+function normalizeForScan(input) {
+  if (input == null) return "";
+  return String(input).split(/(\s+)/).map((part) => {
+    if (!part || /^\s+$/.test(part)) return part;
+    let nfkc = part;
+    try {
+      nfkc = part.normalize("NFKC");
+    } catch (_e) { /* keep part */ }
+    return NUMERIC_TOKEN.test(nfkc) ? nfkc.toLowerCase() : normalize(part);
+  }).join("");
+}
+
 // ── collapsePunctuation() ───────────────────────────────────────────
 // Strip non-alphanumeric characters out of each whitespace-separated
 // token. `f*ck` → `fck`, `b!tch` → `bitch` (after leet fold), `f-ck`
@@ -347,7 +370,7 @@ async function scanContent(text, contentType, uid, request) {
   // message at 500. 8000 gives headroom + DoS protection.
   const trimmed = original.length > 8000 ? original.slice(0, 8000) : original;
 
-  const normalized = normalize(trimmed);
+  const normalized = normalizeForScan(trimmed);
 
   // Layer 1: HARASSMENT_PATTERNS (highest severity short of slurs).
   if (containsHarassmentPattern(normalized)) {
@@ -481,6 +504,7 @@ module.exports = {
   // public surface is scanContent / scanFields.
   __testing: {
     normalize,
+    normalizeForScan,
     collapsePunctuation,
     containsSlurTerm,
     containsHarassmentPattern,

@@ -254,6 +254,44 @@ const HARASSMENT_PHRASE_2 = ["i'm gonna", "kill", "you"].join(" ");
     assert(!r.clean, "expected fullwidth evasion to be caught");
   });
 
+  // ── Group 3b: golf-terms regression list (2026-11-16) ───────────
+  // A seller's listings were held 12 times because "Forged 455" and a
+  // 45.5" shaft length leet-folded into a bad-words entry. Every term
+  // below is ordinary golf language and must stay clean. Add to this list
+  // whenever a real listing is wrongly held.
+  const GOLF_TERMS = [
+    // model numbers
+    "455", "Forged 455", "Callaway Paradym Tungsten Iron, Forged 455, RH Steel Shaft",
+    "P790", "2-iron", "T100", "7W", "i525", "G430", "TSR3", "JPX 923", "ST-MAX 230",
+    "Mizuno ST-MAX 230 Driver 10.5°", "S300", "X100", "Modus3 105", "Speeder 661",
+    // shaft specs
+    "45.5\"", "45.5 in", ".355", ".355 taper", ".370", ".335", ".350", "65g",
+    "X-flex", "5.5 Regular", "6.5", "Project X Denali Red 50g 5.5 Regular",
+    "44.75\"", "1/2\" over", "+1°", "-0.5\"",
+    // golf words
+    "shank", "hooker", "balls", "golf balls", "butt", "butt diameter", "butt-trimmed",
+    "screw", "weight screw included", "wood", "3 wood", "stiff", "tip", "tip-trimmed",
+    "hosel", "skins", "skins game", "hole", "sole", "cavity back", "shaft", "stroke",
+  ];
+  for (const t of GOLF_TERMS) {
+    await check(`allows golf term ${JSON.stringify(t)}`, async () => {
+      const r = await scanContent(t, "listing", "uid1", null);
+      assert(r.clean, `golf term wrongly blocked: ${t}`);
+    });
+  }
+
+  await check("numbers stay unfolded but leet with letters/symbols still folds", async () => {
+    // a55 / @$$ style: built from fragments so no literal sits in the file.
+    const word = ["a", "s", "s"].join("");
+    const viaDigits = "a" + "55";
+    const viaSymbols = "@" + "$$";
+    for (const obf of [word, viaDigits, viaSymbols]) {
+      const r = await scanContent(obf, "message", "uid1", null);
+      assert(!r.clean, "expected letter/symbol leet evasion to be caught");
+    }
+    assert(__testing.normalizeForScan("Forged 455") === "forged 455", "numeric token was folded");
+  });
+
   // ── Group 4: Empty / null / huge inputs ─────────────────────────
   await check("clean on null input", async () => {
     const r = await scanContent(null, "listing", "uid1", null);

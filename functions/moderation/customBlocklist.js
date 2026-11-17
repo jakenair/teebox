@@ -127,6 +127,11 @@ const ALLOWLIST = new Set([
   "rough", "roughest",
   "lie", "lies", "lied", "lying", // club lie angle
   "rip", "ripped", "rips", // descriptive
+  // 2026-11-16 (founder): golf hardware terms that bad-words blocks. A
+  // driver/fairway weight is held by a screw; a shaft's grip end is the
+  // butt (butt diameter, butt-trimmed). Both held real listings.
+  "screw", "screws",
+  "butt", "butts",
 ]);
 
 // ── PROFANITY_SKELETONS ─────────────────────────────────────────────
