@@ -213,10 +213,9 @@
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
   },
   "getStripeAccountStatus": {
-    "deployedAt": "2026-10-19T21:54:00Z",
-    "region": "us-central1",
-    "revision": "getstripeaccountstatus-00011-jer",
-    "sha": "6b5e30d217c14eb337fcd6abbf0ed43cbfd590ca"
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "handleUnsubscribe": {
     "at": "2026-09-29",
@@ -315,13 +314,14 @@
     "sha": null
   },
   "notifyOnSavedSearchMatch": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "notifyOnWatchlistPriceDrop": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "notifySecurityEvent": {
     "at": "2026-09-11",
@@ -348,9 +348,9 @@
     "region": "us-central1"
   },
   "onListingPriceUpdate": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "onMessageHoldCreated": {
     "at": "2026-07-31",
@@ -373,7 +373,7 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onPriceDropEventEmail": {
-    "sha": "033c40a37cd0b517206024caa86c270ab6e74082",
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
     "at": "2026-11-17",
     "region": "us-central1"
   },
@@ -456,8 +456,9 @@
     "sha": null
   },
   "pushNotificationDispatch": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "pushOnNewMessage": {
     "at": "2026-06-19",
@@ -524,9 +525,9 @@
     "sha": null
   },
   "regenerateSitemap": {
-    "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
+    "at": "2026-11-17",
+    "region": "us-central1"
   },
   "releaseExpiredReservations": {
     "at": "2026-07-30",
