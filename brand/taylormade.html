@@ -51,7 +51,7 @@
     a { color: inherit; }
     img { max-width: 100%; display: block; }
     .topbar { background: var(--green-900); color: #fff; padding: calc(env(safe-area-inset-top, 0px) + 14px) max(22px, env(safe-area-inset-right, 0px)) 14px max(22px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(197,162,83,0.25); }
-    .topbar a.brand-link { text-decoration: none; color: #fff; font-family: var(--serif); font-size: 22px; letter-spacing: 0.5px; }
+    .topbar a.brand-link { text-decoration: none; color: #fff; font-family: var(--serif); font-size: 1.6rem; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
     .topbar a.brand-link span { color: var(--gold); }
     .topbar .top-cta { background: var(--gold); color: var(--green-900); font-weight: 700; padding: 8px 16px; border-radius: 999px; text-decoration: none; font-size: 14px; }
     .topbar .top-cta:hover { background: var(--gold-2); }
@@ -102,6 +102,9 @@
     footer a { color: var(--gold); text-decoration: none; margin-right: 14px; }
     footer a:hover { text-decoration: underline; }
     @media (max-width: 600px) { .hero { padding: 50px 18px 40px; } .hero h1 { font-size: 30px; } .hero .wordmark { font-size: 26px; padding: 6px 18px; } .listings-grid { grid-template-columns: repeat(2,1fr); gap: 12px; } .intro h2 { font-size: 22px; } .cta-band h2 { font-size: 24px; } }
+      /* Brand logo (founder 2026-11-17): the real mark on a white plate. */
+    .hero .wordmark.wordmark-logo { background: #fff; border: 0; padding: 18px 30px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); font-size: 0; line-height: 0; }
+    .hero .wordmark.wordmark-logo img { display: block; height: auto; width: auto; max-height: 76px; max-width: min(320px, 68vw); margin: 0 auto; }
   </style>
 <!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
 <script defer src="/fb-pixel.js"></script>
@@ -116,7 +119,7 @@
   </header>
 
   <section class="hero">
-    <div class="wordmark">TaylorMade</div>
+    <div class="wordmark wordmark-logo"><img src="/assets/brand-logos/taylormade.png" alt="TaylorMade logo" width="415" height="81" decoding="async" /></div>
     <h1>TaylorMade for Sale on TeeBox</h1>
     <p class="tag">Qi10 / Stealth drivers, P-Series irons, MG wedges, Spider putters — verified seller listings, refreshed daily.</p>
     <div class="hero-ctas">
