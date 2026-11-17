@@ -443,6 +443,7 @@ async function sendEmail(opts) {
 
 module.exports = {
   sendEmail,
+  preflightAllowed, // read-only marketing gate (stillAvailableRecheck reuses it)
   makeUnsubscribeUrl,
   verifyUnsubscribeToken,
   isTransactional,
