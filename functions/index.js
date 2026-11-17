@@ -6329,8 +6329,35 @@ exports.releaseListingHold = onCall(
         throw new HttpsError("failed-precondition",
             "Hold is missing listing content.");
       }
-      await db.collection("listings").doc(hold.listingId).set(
-          {...hold.content, moderationCleared: true}, {merge: false});
+      // 2026-11-16: the hold snapshot is taken before the client attaches
+      // photos, so content.photos is usually []. Rebuild it from the uploads
+      // in Storage (lib/holdPhotos.js), and keep the photoVariants that
+      // optimizeListingPhoto already wrote onto the (ghost) listing doc.
+      const restored = {...hold.content, moderationCleared: true};
+      let photosRebuilt = 0;
+      if (!Array.isArray(restored.photos) || restored.photos.length === 0) {
+        try {
+          const {photosForHeldListing} = require("./lib/holdPhotos");
+          const urls = await photosForHeldListing(admin.storage().bucket(),
+              hold.sellerId || restored.sellerId, hold.listingId);
+          if (urls.length) {
+            restored.photos = urls;
+            photosRebuilt = urls.length;
+          }
+        } catch (e) {
+          logger.warn("releaseListingHold: photo rebuild failed", {holdId, err: e && e.message});
+        }
+      }
+      try {
+        const ghost = await db.collection("listings").doc(hold.listingId).get();
+        const pv = ghost.exists ? ghost.get("photoVariants") : null;
+        if (pv && typeof pv === "object" && !restored.photoVariants) restored.photoVariants = pv;
+      } catch (_e) { /* variants are an optimisation; photos still render */ }
+      if (!Array.isArray(restored.photos) || restored.photos.length === 0) {
+        throw new HttpsError("failed-precondition",
+            "No photos found for this hold, so the listing would stay hidden. Not released.");
+      }
+      await db.collection("listings").doc(hold.listingId).set(restored, {merge: false});
       await holdRef.set({
         status: "released",
         releasedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -6339,8 +6366,8 @@ exports.releaseListingHold = onCall(
       }, {merge: true});
       await logAdminAction(req, "release_listing_hold", "listingHold", holdId,
           note, {listingId: hold.listingId});
-      logger.info(`releaseListingHold: restored ${hold.listingId} from ${holdId}`);
-      return {ok: true, restored: true, listingId: hold.listingId};
+      logger.info(`releaseListingHold: restored ${hold.listingId} from ${holdId}`, {photosRebuilt});
+      return {ok: true, restored: true, listingId: hold.listingId, photosRebuilt};
     },
 );
 
@@ -6862,7 +6889,7 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // Listing v2 (r257): structured specs. Validate hard — client-supplied.
   const SPEC_CATS = ["driver", "fairway", "hybrid", "iron-set",
     "single-iron", "wedge", "putter", "balls", "bag", "apparel", "shoes",
-    "headcover", "accessories", "other"];
+    "headcover", "accessories", "shaft", "other"];
   let specCategory = null;
   let specs = null;
   if (data.specCategory != null) {
@@ -8225,6 +8252,8 @@ Object.assign(exports, require("./shippoIntegration"));
 Object.assign(exports, require("./metaCapi"));
 // Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
 Object.assign(exports, require("./metaFeed"));
+// r417: client-reported listing post failures → log + throttled ops alert.
+Object.assign(exports, require("./listingFailures"));
 
 // Avatar w96/w256 WebP derivatives. Additive only — no moderation, no purge,
 // never rewrites the original. See the header of avatarVariants.js.

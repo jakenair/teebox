@@ -66,6 +66,7 @@ const GOOGLE_CATEGORY = {
   accessories: "1043", // … > Golf (closest honest parent for mixed accessories)
   apparel: "5322",     // Apparel & Accessories > Clothing > Activewear
   shoes: "187",        // Apparel & Accessories > Shoes
+  shafts: "499780",    // … > Golf Club Parts & Accessories > Golf Club Shafts (r417)
 };
 const PRODUCT_TYPE = {
   clubs: "Golf > Clubs",
@@ -75,6 +76,7 @@ const PRODUCT_TYPE = {
   accessories: "Golf > Accessories",
   apparel: "Golf > Apparel",
   shoes: "Golf > Shoes",
+  shafts: "Golf > Shafts",
 };
 
 /**

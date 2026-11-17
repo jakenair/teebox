@@ -58,7 +58,7 @@ const MAX_IMAGE_B64 = 900 * 1024;
 const SPEC_CATEGORIES = [
   "driver", "fairway", "hybrid", "iron-set", "single-iron", "wedge",
   "putter", "balls", "bag", "apparel", "shoes", "headcover",
-  "accessories", "other",
+  "accessories", "shaft", "other",
 ];
 
 const USER_CALLABLE = {
@@ -186,8 +186,9 @@ exports.draftListingFromPhotos = onCall(
         "which models are popular: brand, model, " +
         "loft, flex, shaftBrand, shaftModel, shaftType, dexterity, " +
         "setComposition, bounce, grind, length, headStyle, grip, size, " +
-        "type, quantity — omit anything uncertain, never guess " +
-        "stampings), \"unreadable\": object (see below), " +
+        "type, quantity, and for a loose SHAFT also clubType, weight " +
+        "(grams, digits only), tipSize, adapter — omit anything uncertain, " +
+        "never guess stampings), \"unreadable\": object (see below), " +
         "\"price\": {\"low\": int USD, \"mid\": int, " +
         "\"high\": int, \"rationale\": string (one line), \"compsUsed\": " +
         "int}. " +

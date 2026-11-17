@@ -59,6 +59,11 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const {sendPush} = require("./lib/push");
+const {resolveUserEmail} = require("./lib/emailRecipient");
+const authEmailGetter = (u) => admin.auth().getUser(u);
+// onListingLive: how long to let moderateListingOnCreate finish (it holds +
+// deletes a flagged listing within a few seconds of create).
+const LIVE_SETTLE_MS = 12000;
 
 const {
   sendEmail,
@@ -581,13 +586,34 @@ exports.onListingLive = onDocumentCreated(
         return;
       }
       const db = admin.firestore();
+      // 2026-11-16: wait out moderateListingOnCreate before announcing. A
+      // held listing is deleted a few seconds after create; announcing it
+      // sent "your listing is live" (push, and email once Auth lookup below
+      // landed) for a listing that never went live, and the stamp below then
+      // RE-CREATED the deleted doc as an empty ghost. The re-read also picks
+      // up the photos the client attaches right after create.
+      await new Promise((r) => setTimeout(r, LIVE_SETTLE_MS));
+      const fresh = await event.data.ref.get();
+      if (!fresh.exists) {
+        logger.info(`[onListingLive] skip ${listingId}: removed before announce (moderation hold or rollback)`);
+        return;
+      }
+      const freshData = fresh.data() || {};
+      if (freshData.listingLiveEmailedAt) {
+        logger.info(`[onListingLive] dedupe ${listingId}`);
+        return;
+      }
       const sellerSnap = await db.collection("users").doc(sellerId).get();
       if (!sellerSnap.exists) {
         logger.warn(`[onListingLive] user ${sellerId} missing`);
         return;
       }
       const seller = {uid: sellerSnap.id, ...sellerSnap.data()};
-      const listing = {id: listingId, ...data};
+      // 2026-11-16 (founder GO): the users doc carries no email for real
+      // accounts; resolve from Auth like the order emails (lib/emailRecipient).
+      const resolved = await resolveUserEmail(sellerId, seller.email, authEmailGetter);
+      seller.email = resolved.email;
+      const listing = {id: listingId, ...freshData};
       // LIST-FIRST (2026-10-19): sellers can publish before finishing Stripe.
       // When they haven't, this receipt doubles as nudge (a): "Your listing
       // is live. Set up payouts so buyers can purchase — ~3 min." The CTA
@@ -616,7 +642,7 @@ exports.onListingLive = onDocumentCreated(
             title: "Your listing is live",
             body: "Set up payouts so buyers can purchase — about 3 minutes.",
             deepLink: "teebox://payouts",
-            imageUrl: (data.photos && data.photos[0]) || "",
+            imageUrl: (freshData.photos && freshData.photos[0]) || "",
             kind: "payout-setup-nudge",
             data: {kind: "payout-setup-nudge", listingId},
           }, "orders", {threadId: "payouts"});
@@ -629,10 +655,10 @@ exports.onListingLive = onDocumentCreated(
       // timestamp — replays of the same event are also caught by the
       // listingLiveEmailedAt guard above.
       try {
-        await event.data.ref.set(
-            {listingLiveEmailedAt: admin.firestore.FieldValue.serverTimestamp()},
-            {merge: true},
-        );
+        // update(), not set-merge: if the listing was removed meanwhile, this
+        // must fail instead of resurrecting it as an empty ghost doc.
+        await event.data.ref.update(
+            {listingLiveEmailedAt: admin.firestore.FieldValue.serverTimestamp()});
       } catch (e) {
         logger.warn(`[onListingLive] stamp failed for ${listingId}`, e.message);
       }
