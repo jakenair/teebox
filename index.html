@@ -5921,6 +5921,7 @@ window.tbEvent = function (name, surface) {
       // Phase 4 browse chips (club types) share the club glyph.
       driver: window.ICONS.golfclub, fairway: window.ICONS.golfclub, hybrid: window.ICONS.golfclub,
       irons: window.ICONS.golfclub, wedge: window.ICONS.golfclub, putter: window.ICONS.golfclub,
+      shafts: window.ICONS.golfclub, shaft: window.ICONS.golfclub,
     })[cat] || window.ICONS.accessory;
   };
 
@@ -7614,6 +7615,7 @@ window.tbEvent = function (name, surface) {
         <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="bags">Bags</a>
         <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="balls">Balls</a>
         <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="headcovers">Headcovers</a>
+        <a href="#" role="menuitem" class="user-menu-item" data-action="shop-pick" data-cat="shafts">Shafts</a>
       </div>
     </div>
     <!-- r411 — Play menu (founder, 2026-11-12): the three web games one click
@@ -7709,6 +7711,7 @@ window.tbEvent = function (name, surface) {
     <button class="cat-pill" data-action="filter-cat" data-cat="irons" type="button">Irons</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="wedge" type="button">Wedges</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="putter" type="button">Putters</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="shafts" type="button">Shafts</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="bags" type="button">Bags</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="shoes" type="button">Shoes</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
@@ -7875,6 +7878,7 @@ window.tbEvent = function (name, surface) {
     <button class="cat-pill" data-action="filter-cat" data-cat="irons" type="button">Irons</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="wedge" type="button">Wedges</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="putter" type="button">Putters</button>
+    <button class="cat-pill" data-action="filter-cat" data-cat="shafts" type="button">Shafts</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="bags" type="button">Bags</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="shoes" type="button">Shoes</button>
     <button class="cat-pill" data-action="filter-cat" data-cat="apparel" type="button">Apparel</button>
@@ -7943,6 +7947,7 @@ window.tbEvent = function (name, surface) {
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="irons" type="button"><span class="cat-side-ico" data-cat-ico="irons" aria-hidden="true"></span>Irons</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="wedge" type="button"><span class="cat-side-ico" data-cat-ico="wedge" aria-hidden="true"></span>Wedges</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="putter" type="button"><span class="cat-side-ico" data-cat-ico="putter" aria-hidden="true"></span>Putters</button>
+        <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="shafts" type="button"><span class="cat-side-ico" data-cat-ico="shafts" aria-hidden="true"></span>Shafts</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="bags" type="button"><span class="cat-side-ico" data-cat-ico="bags" aria-hidden="true"></span>Bags</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="shoes" type="button"><span class="cat-side-ico" data-cat-ico="shoes" aria-hidden="true"></span>Shoes</button>
         <button class="cat-pill cat-side-item" data-action="filter-cat" data-cat="apparel" type="button"><span class="cat-side-ico" data-cat-ico="apparel" aria-hidden="true"></span>Apparel</button>
@@ -8466,7 +8471,7 @@ window.tbEvent = function (name, surface) {
         <label for="sellDesc">Description</label><!-- parent row gated via JS (legacy markup: no clean anchor on the wrapper) -->
         <textarea id="sellDesc" rows="3" placeholder="Describe the item, any flaws, accessories included…" maxlength="2000"></textarea>
       </div>
-      <div class="form-row" id="sellCatRow" style="display:none"><label for="sellCat">Browse category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option></select></div>
+      <div class="form-row" id="sellCatRow" style="display:none"><label for="sellCat">Browse category</label><select id="sellCat"><option value="" disabled selected>Choose a category…</option><option value="clubs">Clubs</option><option value="apparel">Apparel</option><option value="shoes">Shoes</option><option value="accessories">Accessories</option><option value="bags">Bags</option><option value="balls">Balls</option><option value="headcovers">Headcovers</option><option value="shafts">Shafts</option></select></div>
       <div class="sell-step-head sell-gated"><span class="sell-step-label">4 · Price</span></div>
       <div class="form-row-2 sell-gated">
         <div class="form-row"><label for="sellPrice">Price ($)</label><input type="number" id="sellPrice" inputmode="decimal" step="0.01" min="0" placeholder="0.00" /></div>
@@ -8612,6 +8617,7 @@ window.tbEvent = function (name, surface) {
         <button class="cat-pill" data-action="search-cat" data-cat="irons" type="button">Irons</button>
         <button class="cat-pill" data-action="search-cat" data-cat="wedge" type="button">Wedges</button>
         <button class="cat-pill" data-action="search-cat" data-cat="putter" type="button">Putters</button>
+        <button class="cat-pill" data-action="search-cat" data-cat="shafts" type="button">Shafts</button>
         <button class="cat-pill" data-action="search-cat" data-cat="bags" type="button">Bags</button>
         <button class="cat-pill" data-action="search-cat" data-cat="shoes" type="button">Shoes</button>
         <button class="cat-pill" data-action="search-cat" data-cat="apparel" type="button">Apparel</button>
@@ -9880,8 +9886,8 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r416"></script>
-<script type="module" src="/js/app-auth.js?v=r416"></script>
+<script defer src="/js/app-main.js?v=r417"></script>
+<script type="module" src="/js/app-auth.js?v=r417"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -9911,8 +9917,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r416"></script>
-<script type="module" src="/js/sunday-nine.js?v=r416"></script>
+<script type="module" src="/js/bingo.js?v=r417"></script>
+<script type="module" src="/js/sunday-nine.js?v=r417"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

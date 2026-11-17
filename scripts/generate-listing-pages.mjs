@@ -58,12 +58,30 @@ function fetchActiveListings() {
       status: v("status") || "active",
       desc: v("desc") || "",
       photo: photos.length ? photos[0].stringValue : null,
+      specCategory: v("specCategory") || "",
+      specs: Object.fromEntries(Object.entries(((f.specs || {}).mapValue || {}).fields || {})
+        .map(([k, x]) => [k, x.stringValue ?? x.integerValue ?? x.doubleValue ?? ""])
+        .filter(([, x]) => String(x).trim())),
     });
   }
   return listings;
 }
 
+// r417: category + spec rows on the static page (Shafts launch). Category
+// text mirrors functions/metaFeed.js PRODUCT_TYPE; spec labels mirror the
+// sell form (js/app-auth.js SPEC_SCHEMA) for the keys worth showing.
+const CATEGORY_TEXT = {
+  clubs: "Golf > Clubs", bags: "Golf > Bags", balls: "Golf > Balls", headcovers: "Golf > Headcovers",
+  accessories: "Golf > Accessories", apparel: "Golf > Apparel", shoes: "Golf > Shoes", shafts: "Golf > Shafts",
+};
+const SPEC_TEXT = [
+  ["model", "Model"], ["clubType", "Fits"], ["loft", "Loft"], ["flex", "Flex"], ["weight", "Weight (g)"],
+  ["tipSize", "Tip size"], ["length", "Length"], ["adapter", "Adapter"], ["shaftType", "Shaft type"],
+  ["shaftBrand", "Shaft brand"], ["shaftModel", "Shaft model"], ["dexterity", "Dexterity"], ["size", "Size"],
+];
 function listingPage(l) {
+  const category = CATEGORY_TEXT[l.cat] || "";
+  const specRows = SPEC_TEXT.filter(([k]) => l.specs && l.specs[k]).slice(0, 10);
   const name = esc(l.title);
   const brand = esc(l.brand);
   const desc = esc((l.desc || `${l.brand} ${l.title} — used golf gear on TeeBox.`).slice(0, 155));
@@ -72,6 +90,8 @@ function listingPage(l) {
   const jsonld = JSON.stringify({
     "@context": "https://schema.org", "@type": "Product",
     name: l.title, ...(l.brand ? { brand: { "@type": "Brand", name: l.brand } } : {}),
+    ...(category ? { category } : {}),
+    ...(specRows.length ? { additionalProperty: specRows.map(([k, label]) => ({ "@type": "PropertyValue", name: label, value: String(l.specs[k]) })) } : {}),
     image: l.photo || undefined, description: (l.desc || "").slice(0, 500) || undefined,
     offers: { "@type": "Offer", price: String(l.ask), priceCurrency: "USD",
       availability: l.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut", url },
@@ -113,6 +133,9 @@ function listingPage(l) {
   .cond { display:inline-block; background:#eaf5ee; color:var(--green-700); border-radius:50px; padding:3px 12px; font-size:12px; font-weight:600; margin-left:10px; vertical-align:middle; }
   p.desc { margin:1rem 0 1.5rem; color:#3c3c38; }
   .cta { display:block; text-align:center; background:var(--green-600); color:#fff; border-radius:10px; padding:14px; font-weight:800; font-size:16px; text-decoration:none; }
+  dl.specs { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:1rem 0 0; font-size:14px; }
+  dl.specs dt { color:var(--gray-500); font-weight:600; }
+  dl.specs dd { margin:0; }
   .fine { font-size:12px; color:var(--gray-500); text-align:center; margin-top:10px; }
 </style>
 <!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
@@ -126,6 +149,7 @@ function listingPage(l) {
   ${brand ? `<div class="brand">${brand}</div>` : ""}
   <h1>${name}</h1>
   <div class="price">$${Number(l.ask).toLocaleString()}${l.status !== "active" ? `<span class="cond">Sold</span>` : l.condition ? `<span class="cond">${esc(l.condition)}</span>` : ""}</div>
+  ${specRows.length ? `<dl class="specs">${specRows.map(([k, label]) => `<dt>${esc(label)}</dt><dd>${esc(String(l.specs[k]).slice(0, 120))}</dd>`).join("")}</dl>` : ""}
   ${l.desc ? `<p class="desc">${esc(l.desc.slice(0, 600))}</p>` : ""}
   <a class="cta" href="/?listing=${l.id}">${l.status === "active" ? "View &amp; buy on TeeBox" : "See similar on TeeBox"} &rarr;</a>
   <div class="fine">Stripe-secured checkout &middot; 7-day dispute window &middot; 8.5% seller fee</div>

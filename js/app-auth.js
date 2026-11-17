@@ -2611,6 +2611,10 @@
     'single-iron': { label: 'Single iron', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'ironNumber', label: 'Iron #', type: 'select', options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'PW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX ] },
     'wedge':       { label: 'Wedge', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(46, 64, 1, '°'), req: 1 }, { k: 'bounce', label: 'Bounce', type: 'select', options: rng(4, 14, 1, '°').concat('Other') }, { k: 'grind', label: 'Grind', type: 'text' }, ...SH, ...FLEXDEX ] },
     'putter':      { label: 'Putter', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'length', label: 'Length', type: 'select', options: rng(32, 36, 0.5, '"'), req: 1 }, { k: 'headStyle', label: 'Head style', type: 'select', options: ['Blade', 'Mid-mallet', 'Mallet'], req: 1 }, { k: 'grip', label: 'Grip', type: 'text' }, { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 }, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    // r417 (founder, 2026-11-16): shafts as their own category — sellers had
+    // stacks of them and nowhere to list. Brand rides #sellBrand, condition
+    // rides #sellCondition, like every other category.
+    'shaft':       { label: 'Shaft', browse: 'shafts', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'clubType', label: 'Fits (club type)', type: 'select', options: ['Driver', 'Fairway', 'Hybrid', 'Iron', 'Wedge', 'Putter'], req: 1 }, { k: 'flex', label: 'Flex', type: 'select', options: ['L', 'A', 'R', 'S', 'X', 'TX'], req: 1 }, { k: 'weight', label: 'Weight (g)', type: 'text' }, { k: 'tipSize', label: 'Tip size', type: 'select', options: ['.335', '.350', '.355 taper', '.370', 'Other'] }, { k: 'length', label: 'Length', type: 'text' }, { k: 'adapter', label: 'Adapter', type: 'select', options: ['None (raw tip)', 'Titleist', 'TaylorMade', 'Callaway', 'Ping', 'Cobra', 'Mizuno', 'Srixon/Cleveland', 'PXG', 'Other'] }, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Graphite', 'Steel'] } ] },
     'balls':       { label: 'Balls', browse: 'balls', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'quantity', label: 'Ball count', type: 'select', options: ['12', '24', '36', '48', 'Other'], req: 1 } ] },
     'bag':         { label: 'Bag', browse: 'bags', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'bagType', label: 'Type', type: 'select', options: ['Stand', 'Cart', 'Carry', 'Staff', 'Travel'] } ] },
     'apparel':     { label: 'Apparel', browse: 'apparel', fields: [ { k: 'apparelType', label: 'Type', type: 'select', options: ['Polo', 'Quarter-zip', 'Outerwear', 'Pants', 'Shorts', 'Hat', 'Other'], req: 1 }, { k: 'size', label: 'Size', type: 'select', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Other'], req: 1 } ] },
@@ -2792,8 +2796,16 @@
   window.onDragLeave = function() { document.getElementById('uploadZone').classList.remove('dragover'); };
   window.onDrop = function(e) { e.preventDefault(); document.getElementById('uploadZone').classList.remove('dragover'); addFiles(Array.from(e.dataTransfer.files)); };
 
+  // r417: some browsers (Chrome on Windows/Android, Firefox) hand us HEIC
+  // files with an EMPTY type, and the old image/* filter dropped them
+  // silently. Accept by extension too, and say which files were skipped.
+  const isPhotoFile = (f) => !!f && ((f.type || '').startsWith('image/') || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name || ''));
   function addFiles(files) {
-    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    const imageFiles = files.filter(isPhotoFile);
+    const skipped = files.filter(f => !isPhotoFile(f));
+    if (skipped.length) {
+      showToast(`Skipped ${skipped.length === 1 ? `"${String(skipped[0].name || 'file').slice(0, 40)}"` : skipped.length + ' files'}: only photos (JPEG, PNG, WebP, HEIC) can be added.`);
+    }
     const remaining = 10 - selectedFiles.length;
     const toAdd = imageFiles.slice(0, remaining);
     selectedFiles = [...selectedFiles, ...toAdd];
@@ -3135,15 +3147,22 @@
   };
 
   // r349 (P1-9): target ≤ 500 KB per photo so a post-to-live on a phone link
-  // is seconds, not 15 s. Steps: 2048px q0.85 → q0.72 → 1600px q0.8. The server
-  // still re-encodes to WebP + variants, so nothing visible is lost on cards.
+  // is seconds, not 15 s. r417: first step is 2000px long edge @ JPEG 0.8,
+  // then 0.7, then 1600px. The server still re-encodes to WebP + variants, so
+  // nothing visible is lost on cards.
   const UPLOAD_TARGET_BYTES = 500 * 1024;
+  // Must match storage.rules (listings/{uid}/...): the server re-encodes every
+  // original, so this only bounds what an undecodable file (HEIC outside
+  // Safari) may send raw for server-side conversion.
+  const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+  const fmtMB = (n) => (n / (1024 * 1024)).toFixed(n >= 10 * 1024 * 1024 ? 0 : 1) + ' MB';
+  const isHeicFile = (f) => /^image\/hei[cf]/i.test((f && f.type) || '') || /\.(heic|heif)$/i.test((f && f.name) || '');
   async function shrinkForUpload(file) {
     // Skip if already small enough — no point recompressing.
-    if (file.size < UPLOAD_TARGET_BYTES) return file;
+    if (file.size < UPLOAD_TARGET_BYTES && !isHeicFile(file)) return file;
     try {
-      const bmp = await createImageBitmap(file);
-      const steps = [[2048, 0.85], [2048, 0.72], [1600, 0.8], [1280, 0.75]];
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const steps = [[2000, 0.8], [2000, 0.7], [1600, 0.75], [1280, 0.7]];
       let best = null;
       for (const [max, q] of steps) {
         const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
@@ -3168,53 +3187,125 @@
     }
   }
 
-  async function uploadPhotos(listingId) {
+  // r417 (founder, 2026-11-16): a seller could not tell WHY a listing would
+  // not post. Every photo is now prepared (resized/compressed) BEFORE the
+  // listing is created, so a photo that cannot be sent is named — with the
+  // reason — while the form is still intact, instead of a generic failure
+  // after the fact. A PhotoUploadError carries per-photo detail for the
+  // message and for reportListingFailure (server log + ops alert).
+  class PhotoUploadError extends Error {
+    constructor(failures) {
+      const f = failures[0];
+      super(failures.length === 1 ? f.message : `${failures.length} photos couldn't upload. ${f.message}`);
+      this.code = 'tb/photo-upload';
+      this.failures = failures;
+    }
+  }
+  const photoLabel = (i, file) => `Photo ${i + 1}${file && file.name ? ` (${String(file.name).slice(0, 40)})` : ''}`;
+  function storageReason(err) {
+    const c = String((err && err.code) || '');
+    if (c === 'storage/unauthorized') return 'it was rejected by our server (over 25 MB, or not a supported image type)';
+    if (c === 'storage/retry-limit-exceeded' || c === 'storage/canceled' || /network/i.test(String(err && err.message))) return 'the connection dropped while uploading';
+    if (c === 'storage/quota-exceeded') return 'our photo storage is temporarily full';
+    if (c === 'storage/unauthenticated') return 'you were signed out. Sign in and try again';
+    return 'the upload failed' + (c ? ` (${c.replace('storage/', '')})` : '');
+  }
+  async function prepareUploads() {
+    const out = []; const failures = [];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      if (file && file.__existingUrl) { out.push({existing: file.__existingUrl}); continue; }
+      const blob = await shrinkForUpload(file);
+      const heic = isHeicFile(file);
+      // Raw HEIC bytes (browser could not decode) must be labelled HEIC even
+      // when the browser gave the File an empty type.
+      const outType = (blob !== file) ? (blob.type || 'image/jpeg')
+        : (file.type || (heic ? 'image/heic' : 'image/jpeg'));
+      const info = {i, name: String(file.name || '').slice(0, 80), origBytes: file.size, sendBytes: blob.size, type: outType, decoded: blob !== file};
+      if (blob.size >= UPLOAD_MAX_BYTES) {
+        failures.push({...info, reason: 'too_large', message: `${photoLabel(i, file)} is ${fmtMB(blob.size)} and we couldn't shrink it in this browser. The limit is 25 MB. Export it as a JPEG or pick a smaller copy.`});
+      } else if (!/^image\/(jpeg|jpg|png|webp|gif|heic|heif)$/i.test(outType)) {
+        failures.push({...info, reason: 'bad_type', message: `${photoLabel(i, file)} is a ${outType || 'unknown'} file. Use a JPEG, PNG, WebP or HEIC photo.`});
+      }
+      out.push({file, blob, outType, info});
+    }
+    if (failures.length) throw new PhotoUploadError(failures);
+    return out;
+  }
+
+  async function uploadPhotos(listingId, prepared) {
     if (selectedFiles.length === 0) return [];
     const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
     if (!uid) throw new Error('not signed in');
+    const items = prepared || await prepareUploads();
     const progress = document.getElementById('uploadProgress');
     const bar = document.getElementById('uploadProgressBar');
     progress.style.display = 'block';
     let done = 0;
-    const total = selectedFiles.length;
-    // Parallel uploads with client-side compression. Files are shrunk to 1600px
-    // JPEG @ 0.85 quality before upload (was ~12x oversize vs. server output).
-    // Path includes sellerId so storage rules can verify ownership without
-    // a cross-service firestore.get() (which was 403'ing due to consistency lag).
-    // Order is preserved: existing-photo markers ({__existingUrl}) keep
-    // their slot and are NOT re-uploaded — only freshly picked Files
-    // hit Storage. This makes photo reorder/remove on edit cheap and
-    // keeps the seller's chosen MAIN-first ordering intact.
-    const urls = await Promise.all(selectedFiles.map(async (file, i) => {
-      if (file && file.__existingUrl) {
+    const total = items.length;
+    const failures = [];
+    // Parallel uploads of the prepared (resized) blobs. Path includes sellerId
+    // so storage rules can verify ownership without a cross-service
+    // firestore.get(). Order is preserved: existing-photo markers keep their
+    // slot and are NOT re-uploaded — only freshly picked Files hit Storage.
+    const urls = await Promise.all(items.map(async (it, i) => {
+      if (it.existing) {
         done++;
         bar.style.width = `${Math.round(done/total*100)}%`;
-        return file.__existingUrl;
+        return it.existing;
       }
-      const shrunk = await shrinkForUpload(file);
-      // Name the object by its ACTUAL type and set contentType honestly. The
-      // old code force-renamed everything to .jpg, which disguised raw HEIC
-      // bytes as a JPEG (misleading, and the server relies on contentType).
-      // Files reaching here always passed addFiles' image/* filter, so outType
-      // is always image/*.
-      const outType = (shrunk && shrunk.type) || file.type || 'image/jpeg';
+      const {file, blob, outType, info} = it;
+      // Name the object by its ACTUAL type and set contentType honestly (the
+      // server relies on contentType to convert HEIC).
       const extByType = {
         'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
         'image/heic': 'heic', 'image/heif': 'heif', 'image/gif': 'gif'
       };
       const ext = extByType[outType] || 'jpg';
-      const base = (file.name.replace(/\.[^.]+$/, '') || 'photo').replace(/[^A-Za-z0-9._\-]/g, '_');
+      const base = (String(file.name || '').replace(/\.[^.]+$/, '') || 'photo').replace(/[^A-Za-z0-9._\-]/g, '_').slice(0, 60);
       const safeName = `${base}.${ext}`;
-      const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${i}_${safeName}`);
-      await uploadBytes(storageRef, shrunk, { contentType: outType });
-      const url = await getDownloadURL(storageRef);
-      done++;
-      bar.style.width = `${Math.round(done/total*100)}%`;
-      return url;
+      // One retry: a dropped mobile connection is the common transient case.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const storageRef = ref(storage, `listings/${uid}/${listingId}/${Date.now()}_${i}_${safeName}`);
+          await uploadBytes(storageRef, blob, { contentType: outType });
+          const url = await getDownloadURL(storageRef);
+          done++;
+          bar.style.width = `${Math.round(done/total*100)}%`;
+          return url;
+        } catch (err) {
+          const code = String((err && err.code) || '');
+          const retryable = attempt === 0 && code !== 'storage/unauthorized' && code !== 'storage/unauthenticated';
+          if (retryable) continue;
+          failures.push({...info, reason: code || 'upload_error', message: `${photoLabel(i, file)} didn't upload: ${storageReason(err)}.`});
+          return null;
+        }
+      }
+      return null;
     }));
     progress.style.display = 'none';
     bar.style.width = '0%';
+    if (failures.length) throw new PhotoUploadError(failures.sort((a, b) => a.i - b.i));
     return urls;
+  }
+
+  // Best-effort server log of a failed post (reportListingFailure callable →
+  // Cloud Logging + ops alert). Never blocks or throws; old servers without
+  // the function just 404 quietly.
+  function reportListingFailure(stage, err, extra) {
+    try {
+      const failures = (err && err.failures) || null;
+      const payload = {
+        stage: String(stage).slice(0, 40),
+        code: String((err && err.code) || '').slice(0, 80),
+        message: String((err && err.message) || '').slice(0, 300),
+        photos: (failures || []).slice(0, 10).map(f => ({i: f.i, name: f.name, origBytes: f.origBytes, sendBytes: f.sendBytes, type: f.type, decoded: f.decoded, reason: String(f.reason || '').slice(0, 60)})),
+        photoCount: selectedFiles.length,
+        specCategory: (window.getSpecCategory && window.getSpecCategory()) || '',
+        ...(extra || {}),
+      };
+      httpsCallable(fns, 'reportListingFailure')(payload).catch(() => {});
+    } catch (_e) { /* never throws */ }
   }
 
   async function loadListings() {
@@ -3490,7 +3581,12 @@
     // photo-upload step fails. Without this, a 403/network error mid-upload
     // leaves an orphaned listing doc with photos: [] in Firestore.
     let docRef = null;
+    let __stage = 'prepare';
     try {
+      // r417: resize/check every photo BEFORE the listing exists, so a photo
+      // that can't be sent is named while nothing has been created yet.
+      const preparedPhotos = selectedFiles.length ? await prepareUploads() : [];
+      __stage = 'create';
       // Listings auto-expire 6 months (182 days) after creation; sellers can
       // renew from the My Shop dashboard. expireListings also tops up any
       // shorter expiry written by older app builds.
@@ -3518,8 +3614,10 @@
         ...(__listingSource ? { source: __listingSource } : {}),
       });
       try { sessionStorage.removeItem('tb_listing_source'); } catch (_e) {}
-      const photoUrls = await uploadPhotos(docRef.id);
+      __stage = 'upload';
+      const photoUrls = await uploadPhotos(docRef.id, preparedPhotos);
       if (photoUrls.length > 0) {
+        __stage = 'attach';
         const { updateDoc } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
         await updateDoc(docRef, { photos: photoUrls });
       }
@@ -3631,6 +3729,27 @@
     } catch(e) {
       console.error('[submitListing] failed:', e?.code, e?.message, e);
       const code = e?.code || '';
+      // r417: the listing doc vanished between create and attaching photos =
+      // moderateListingOnCreate held it for review (it removes the listing
+      // from the marketplace within seconds). Before this the seller saw the
+      // raw "No document to update: projects/..." error and reposted the same
+      // listing over and over (Justin, 2026-11-10..13).
+      const heldForReview = !!docRef && (__stage === 'attach' || __stage === 'upload') &&
+        (code === 'not-found' || /no document to update/i.test(String(e?.message || '')));
+      reportListingFailure(heldForReview ? 'held' : __stage, e, {listingId: docRef ? docRef.id : ''});
+      if (heldForReview) {
+        selectedFiles = [];
+        renderPreviews();
+        if (typeof clearSellDraft === 'function') clearSellDraft();
+        closeSellModalDirect();
+        showToast("Your listing is being reviewed before it goes live: our filter flagged something in the title or description. We'll check it and you'll get a notification. No need to post it again.");
+        return;
+      }
+      if (code === 'tb/photo-upload') {
+        // Nothing was created (prepare stage) or the orphan is rolled back
+        // below; the form and photos stay so the seller can fix just that photo.
+        try { applySellErrors([['uploadZone', (e.failures || []).map(f => f.message).join(' ') || e.message]]); } catch (_e) {}
+      }
       // Roll back the just-created listing if it exists AND the failure was
       // *not* the listing-creation step itself. addDoc rejections surface as
       // codes prefixed with 'firestore/' or 'permission-denied' before docRef
@@ -3705,6 +3824,8 @@
         }
       } else if (code.includes('unauthenticated')) {
         msg = 'Session expired. Please try again.';
+      } else if (code === 'tb/photo-upload') {
+        msg = e.message + (e.failures && e.failures.length > 1 ? ' See the photo section for details.' : ' Remove or replace that photo and post again.');
       } else if (code.includes('storage/')) {
         msg = 'Photo upload failed. Try a smaller image or fewer photos.';
       } else if (code.includes('app-check')) {
@@ -3902,7 +4023,13 @@
       photoUrls = await uploadPhotos(listingId);
     } catch (e) {
       console.error('[saveListingEdit] photo upload failed:', e?.code, e?.message, e);
-      showToast('Photo upload failed — your listing was not changed. Try again.', 'error');
+      reportListingFailure('edit_upload', e, {listingId: String(listingId || '')});
+      if (e && e.code === 'tb/photo-upload') {
+        try { applySellErrors([['uploadZone', (e.failures || []).map(f => f.message).join(' ') || e.message]]); } catch (_e) {}
+        showToast(e.message + ' Your listing was not changed.', 'error');
+      } else {
+        showToast('Photo upload failed — your listing was not changed. Try again.', 'error');
+      }
       btn.disabled = false; btn.textContent = 'Save changes';
       return;
     }

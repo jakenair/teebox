@@ -454,7 +454,7 @@ window.__filter = window.__filter || { cat: 'all', sort: 'newest', min: null, ma
 // back to a title keyword match. "accessories" also gathers balls + headcovers.
 // Unknown keys (footer links, saved searches from before r369) still match
 // listing.cat, so nothing that used to work stops working.
-window.FEED_CHIPS = [['all', 'All'], ['driver', 'Drivers'], ['fairway', 'Fairway Woods'], ['hybrid', 'Hybrids'], ['irons', 'Irons'], ['wedge', 'Wedges'], ['putter', 'Putters'], ['bags', 'Bags'], ['shoes', 'Shoes'], ['apparel', 'Apparel'], ['accessories', 'Accessories']];
+window.FEED_CHIPS = [['all', 'All'], ['driver', 'Drivers'], ['fairway', 'Fairway Woods'], ['hybrid', 'Hybrids'], ['irons', 'Irons'], ['wedge', 'Wedges'], ['putter', 'Putters'], ['shafts', 'Shafts'], ['bags', 'Bags'], ['shoes', 'Shoes'], ['apparel', 'Apparel'], ['accessories', 'Accessories']];
 const CLUB_WORDS = {
   driver: /\bdrivers?\b/i,
   fairway: /\b(fairway|[3579]\s*-?wood|woods?)\b/i,
@@ -463,6 +463,9 @@ const CLUB_WORDS = {
   wedge: /\bwedges?\b/i,
   putter: /\bputters?\b/i,
 };
+// A title that names a whole club ("…Driver… Steel Shaft") is a club, not a
+// loose shaft, for the legacy title match below.
+const CLUB_TITLE_RE = /\b(drivers?|fairway|hybrids?|irons?|wedges?|putters?|[3579]\s*-?wood|woods?)\b/i;
 window.chipMatches = function chipMatches(p, key) {
   if (!key || key === 'all') return true;
   const sc = String(p.specCategory || '');
@@ -474,6 +477,10 @@ window.chipMatches = function chipMatches(p, key) {
     case 'irons':
       if (sc && sc !== 'other') return sc === 'iron-set' || sc === 'single-iron';
       return p.cat === 'clubs' && CLUB_WORDS.irons.test(title);
+    // r417: Shafts. New listings carry specCategory 'shaft' + cat 'shafts';
+    // older ones listed as Accessories/Other are caught by the title.
+    case 'shafts': return sc === 'shaft' || p.cat === 'shafts' ||
+      ((!sc || sc === 'other' || sc === 'accessories') && /\bshafts?\b/i.test(title) && !CLUB_TITLE_RE.test(title));
     case 'accessories': return p.cat === 'accessories' || p.cat === 'balls' || p.cat === 'headcovers';
     default: return p.cat === key;
   }
@@ -597,7 +604,7 @@ window.paintFav = function paintFav(productId, liked, count) {
 
 // Phase 4 (r370): one muted "key spec · condition" line under the brand, like
 // "Stiff · 10.5° · Very good". Picks the two most useful specs per category.
-const FLEX_WORD = { L: 'Ladies', A: 'Senior', R: 'Regular', S: 'Stiff', X: 'X-Stiff' };
+const FLEX_WORD = { L: 'Ladies', A: 'Senior', R: 'Regular', S: 'Stiff', X: 'X-Stiff', TX: 'Tour X' };
 function cardSpecLine(p) {
   const sp = p.specs || {};
   const v = (k) => { const x = sp[k]; return x == null ? '' : String(x).trim(); };
@@ -615,6 +622,7 @@ function cardSpecLine(p) {
     case 'balls': bits = [/^\d+$/.test(v('quantity')) ? v('quantity') + ' balls' : '']; break;
     case 'headcover': bits = [v('hcType') ? 'Fits ' + v('hcType').toLowerCase() : '']; break;
     case 'accessories': bits = [v('itemType')]; break;
+    case 'shaft': bits = [flex, v('weight') ? v('weight').replace(/\s*g$/i, '') + 'g' : '', v('clubType') ? v('clubType') + ' shaft' : '']; break;
     default: bits = [];
   }
   const cm = window.conditionBadgeMeta ? window.conditionBadgeMeta(p.condition) : null;
@@ -1528,7 +1536,7 @@ async function openDetailModal(id) {
     const entries = Object.entries(p.specs || {}).filter(([, v]) => v != null && String(v).trim() !== '');
     const ownerNoSpecs = window.CURRENT_USER && p.sellerId === window.CURRENT_USER.uid && !p.specCategory;
     if (entries.length) {
-      const order = ['brand', 'model', 'loft', 'ironNumber', 'setFrom', 'setTo', 'bounce', 'grind', 'length', 'headStyle', 'shaftBrand', 'shaftModel', 'shaftType', 'flex', 'dexterity', 'lieLength', 'grip', 'headcover', 'bagType', 'apparelType', 'hcType', 'itemType', 'size', 'quantity'];
+      const order = ['brand', 'model', 'loft', 'ironNumber', 'setFrom', 'setTo', 'bounce', 'grind', 'length', 'headStyle', 'clubType', 'shaftBrand', 'shaftModel', 'shaftType', 'flex', 'weight', 'tipSize', 'adapter', 'dexterity', 'lieLength', 'grip', 'headcover', 'bagType', 'apparelType', 'hcType', 'itemType', 'size', 'quantity'];
       entries.sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
       specHost.innerHTML = '<div class="spec-table">' + entries.map(([k, v]) =>
         `<div class="spec-row"><span class="spec-k">${window.safeText((window.SPEC_LABELS || {})[k] || k)}</span><span class="spec-v">${window.safeText(String(v))}</span></div>`).join('') + '</div>';

@@ -342,8 +342,8 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "onListingLive": {
-    "sha": "f2a88ae28dbd7007e666ec7e0826083f2a037f8d",
-    "at": "2026-11-10",
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
+    "at": "2026-11-17",
     "region": "us-central1"
   },
   "onListingPriceUpdate": {
@@ -539,6 +539,12 @@
     "at": "2026-06-26",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "reportListingFailure": {
+    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
+    "at": "2026-11-17",
+    "region": "us-central1",
+    "note": "created via raw gcloud (new fn)"
   },
   "requestSellerVerification": {
     "sha": "4a40dcccd4eb1189fdc68e1ba5ecb8b3307852fd",
