@@ -270,3 +270,8 @@ body:has(#installBanner:not([hidden])) .tb-footer {
 body.is-native .tb-footer { display: none !important; }
 
 @media print { .tb-footer-apps, .tb-footer-extra { display: none; } }
+
+/* Social icons sit as one tight group (Instagram, TikTok). */
+.tb-footer-social + .tb-footer-social { margin-left: -12px; }
+.tb-footer-social svg path[fill="currentColor"] { stroke: none; }
+.tb-footer-social[aria-label="TeeBox on TikTok"] svg { width: 19px; height: 19px; }
