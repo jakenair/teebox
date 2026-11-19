@@ -294,3 +294,22 @@ test("messageReveals: a participant can log a reveal about THEMSELVES; nothing e
   await assertFails(updateDoc(doc(alice, "messageReveals", ref.id), {hosts: []}));
   await assertFails(deleteDoc(doc(alice, "messageReveals", ref.id)));
 });
+
+// ── r421: view counts are server-owned (recordListingView only) ──────────────
+test("listings: a seller cannot seed or edit viewDays / views7d; view bookkeeping collections are closed", async () => {
+  const me = testEnv.authenticatedContext("seller421", {email_verified: true});
+  await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("seller421"), viewDays: {"20261119": 500}}));
+  await assertFails(addDoc(collection(db(me), "listings"), {...listingCreateDoc("seller421"), views7d: 500}));
+  await seed("listings", "L421", {...listingCreateDoc("seller421"), status: "active"});
+  await assertFails(updateDoc(doc(db(me), "listings", "L421"), {viewDays: {"20261119": 500}}));
+  await assertFails(updateDoc(doc(db(me), "listings", "L421"), {views7d: 500}));
+  await assertFails(updateDoc(doc(db(me), "listings", "L421"), {"viewDays.20261119": 5}));
+  // The legit seller direct-write path still works (renew/updatedAt).
+  await assertSucceeds(updateDoc(doc(db(me), "listings", "L421"), {updatedAt: new Date()}));
+  const anon = testEnv.unauthenticatedContext();
+  for (const c of [me, anon]) {
+    await assertFails(setDoc(doc(db(c), "listingViews", "L421_x"), {listingId: "L421"}));
+    await assertFails(setDoc(doc(db(c), "viewIpLimits", "abc"), {n: 0}));
+    await assertFails(getDoc(doc(db(c), "viewIpLimits", "abc")));
+  }
+});

@@ -418,6 +418,8 @@ window.tbEvent = function (name, surface) {
        the bare cases with ZERO change to the fallback cases. */
     --gold: #d4af37;
     --cream: #faf8f3; --white: #ffffff;
+    /* r421: brand gold / cream (badges, chips). */
+    --brand-gold: #E3BB45; --brand-cream: #F3ECDB;
     /* --gray-50 / --gray-600 were used without fallback (broken hover bgs and
        muted text colors); define them in the ramp. */
     --gray-50: #f9f9f7;
@@ -776,7 +778,7 @@ window.tbEvent = function (name, surface) {
   .tb-spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--gray-200); border-top-color: var(--green-700); animation: tbSpin 0.8s linear infinite; }
   @keyframes tbSpin { to { transform: rotate(360deg); } }
   /* r348: owner-only "paused until payouts" badge on storefront cards. */
-  .hidden-badge { position: absolute; top: 8px; left: 8px; z-index: 2; background: var(--gold-600, #b8860b); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 3px 8px; border-radius: 50px; }
+  .hidden-badge { position: absolute; top: 8px; left: 8px; z-index: 2; background: var(--gold-600); color: var(--white); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; padding: 5px 8px; border-radius: var(--radius-md); }
   .profile-listing.is-hidden .profile-listing-img { opacity: .55; }
 
   /* Info modal (About / Terms / Privacy) */
@@ -2782,7 +2784,30 @@ window.tbEvent = function (name, surface) {
   .product-card .product-img-wrap { flex-shrink: 0; }
   .product-card.sold { opacity: 0.6; }
   .sold-badge { position: absolute; top: 12px; right: 12px; background: #c0392b; color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.5px; z-index: 2; }
-  .stock-badge { position: absolute; top: 12px; left: 12px; background: rgba(31, 72, 39, 0.92); color: var(--gold-300); font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 50px; letter-spacing: 0.4px; text-transform: uppercase; z-index: 2; backdrop-filter: blur(4px); }
+  /* r421 (Part C/D): card corner tags. One top-left stack (seller badge +
+     quantity) so they never overlap, and one bottom-left signal slot
+     (Trending / views, else photo count). Chips use the 4/8 radius scale;
+     the 50px pill is reserved for buttons. */
+  .card-tags { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
+  .product-img-wrap .card-tags > * { position: static; top: auto; left: auto; margin: 0; }
+  .qty-chip { display: inline-flex; align-items: center; font-family: var(--font-body); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; text-transform: none; padding: 5px 8px; border-radius: var(--radius-md); white-space: nowrap; }
+  /* Option B (default, recommended): cream fill, hairline forest outline. */
+  .qty-chip { background: rgba(243, 236, 219, 0.94); background: color-mix(in srgb, var(--brand-cream) 94%, transparent); color: var(--green-800); box-shadow: inset 0 0 0 1px rgba(34, 64, 43, 0.28); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green-700) 28%, transparent); }
+  .qty-chip.detail { margin-left: 8px; vertical-align: middle; background: var(--brand-cream); }
+  /* Option A: quiet forest fill, cream type. Switch both surfaces with one
+     class: <body class="qty-chip-a">. */
+  body.qty-chip-a .qty-chip { background: rgba(18, 32, 22, 0.78); background: color-mix(in srgb, var(--green-900) 78%, transparent); color: var(--brand-cream); box-shadow: none; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  body.qty-chip-a .qty-chip.detail { background: var(--green-800); }
+  .pop-chip { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-body); font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 7px 4px 6px; border-radius: var(--radius-md); white-space: nowrap; background: rgba(18, 32, 22, 0.62); background: color-mix(in srgb, var(--green-950) 62%, transparent); color: var(--white); }
+  .pop-chip svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pop-chip.trending { background: rgba(18, 32, 22, 0.82); background: color-mix(in srgb, var(--green-900) 82%, transparent); color: var(--brand-gold); }
+  .pop-chip.trending span { color: var(--brand-cream); }
+  .card-signal { position: absolute; bottom: 8px; left: 8px; z-index: 1; max-width: calc(100% - 76px); display: inline-flex; }
+  .detail-signals { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+  .detail-signals:empty { display: none; }
+  .detail-signals .pop-chip { background: var(--gray-100); color: var(--gray-700); font-size: 12px; padding: 5px 9px 5px 7px; }
+  .detail-signals .pop-chip.trending { background: var(--gold-50); color: var(--gold-700); }
+  .detail-signals .pop-chip.trending span { color: var(--gold-700); }
   .qty-selector { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; padding: 10px 12px; background: var(--gray-100); border-radius: var(--radius-sm); }
   .qty-selector label { font-size: 12px; font-weight: 600; color: var(--gray-700); }
   .qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); background: var(--white); }
@@ -2829,13 +2854,13 @@ window.tbEvent = function (name, surface) {
   .product-img-wrap { background: var(--gray-100); position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
   .product-img-wrap img:hover { transform: scale(1.04); }
-  .product-badge { position: absolute; top: 10px; left: 10px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.8px; z-index: 1; }
+  .product-badge { position: absolute; top: 10px; left: 10px; font-family: var(--font-body); font-size: 11px; font-weight: 600; line-height: 1; padding: 5px 8px; border-radius: var(--radius-md); letter-spacing: 0; z-index: 1; }
   .badge-new { background: var(--green-100); color: var(--green-700); }
   .badge-hot { background: #fff0e0; color: #b35f00; }
   /* Condition pill — overlay on photo, top-right under the heart.
      Color-coded by condition tier. Detail-view variant ".cond-pill.detail"
      keeps the same colors but flows inline in the header. */
-  .cond-pill { position: absolute; top: 46px; right: 10px; z-index: 1; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 50px; letter-spacing: 0.4px; background: var(--gray-200); color: var(--gray-700); white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .cond-pill { position: absolute; top: 46px; right: 10px; z-index: 1; font-size: 11px; font-weight: 600; line-height: 1; padding: 5px 8px; border-radius: var(--radius-md); letter-spacing: 0; background: var(--gray-200); color: var(--gray-700); white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   /* Detail variant: inline chip in the body next to the price. MUST clear
      the card-corner positioning props (.cond-pill sets position:absolute +
      top:46px + right:10px + z-index:1). Chrome ignores top/right/z-index on
@@ -2855,7 +2880,7 @@ window.tbEvent = function (name, surface) {
   .cond-pill.cond-parts     { background: var(--red-100); color: var(--red-500); }
   .ai-desc-spark { font-size: 13px; line-height: 1; }
   .fav-btn { position: absolute; top: 10px; right: 10px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: var(--transition); color: var(--gray-400); z-index: 1; }
-  .photo-count-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 600; z-index: 1; }
+  .photo-count-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.55); color: var(--white); border-radius: var(--radius-md); padding: 4px 7px; font-size: 11px; font-weight: 600; line-height: 1; z-index: 1; }
   /* Phase 3 (r368): Vinted-style heart on the photo, bottom-right, count inside.
      Both heart icons are in the markup; .liked swaps outline → filled. */
   .card-fav { position: absolute; top: auto; width: auto; height: auto; bottom: 8px; right: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px 0 7px; border-radius: 50px; border: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.94); color: var(--gray-700); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.18); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); -webkit-tap-highlight-color: transparent; font-family: inherit; }
@@ -2914,7 +2939,8 @@ window.tbEvent = function (name, surface) {
   /* Fixed slot: an empty brand row still reserves its line so cards with and
      without a brand eyebrow keep identical structure. */
   .product-brand { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-500); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; min-height: 14px; }
-  .brand-link { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+  .brand-link { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .product-brand .seller-verified-slot, .product-brand .seller-pro-slot { flex: none; display: inline-flex; }
   .brand-link:hover, .brand-link:focus { color: var(--green-700); text-decoration: underline; outline: none; }
   /* Active brand filter chip — sits in the filter row, click to clear */
   .brand-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--green-700); color: var(--white); border: none; border-radius: 50px; padding: 6px 10px 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition); margin-left: 6px; vertical-align: middle; }
@@ -5920,6 +5946,8 @@ window.tbEvent = function (name, surface) {
     // iOS draws as the yellow emoji) in toasts and the off-platform
     // interstitial were the last three. Line-art, so they take currentColor.
     flame:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 01-8 0c0-1.5.6-2.6 1.5-3.5.2 1.4 1 2.2 2 2.5C11 8 10.5 5.5 12 3z"/><path d="M8 11.5C6.5 13 6 14.2 6 16a6 6 0 0012 0c0-1.8-.5-3-2-4.5"/></svg>',
+    // r421: popularity badge (views). Same stroke style as the set.
+    eye:       '<svg class="ico" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>',
     alert:     '<svg class="ico" viewBox="0 0 24 24"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4M12 17.5h.01"/></svg>',
     arrowLeft: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   };
@@ -8254,7 +8282,10 @@ window.tbEvent = function (name, surface) {
         <div class="detail-price-row">
           <div class="detail-price-plain" id="detailAsk"></div>
           <div class="detail-condition" id="detailCondition"></div>
+          <span id="detailQtyChip"></span>
         </div>
+        <!-- r421: earned popularity (Trending / 7-day views). Empty = hidden. -->
+        <div class="detail-signals" id="detailSignals"></div>
         <!-- Structure 2: buyer pays shipping — flat tier shown upfront,
              oversize (clubs, bags) quoted live at checkout. -->
         <div id="detailShipNote" style="font-size:12.5px;color:var(--gray-600);margin:-6px 0 12px;"></div>

@@ -628,6 +628,21 @@ function cardSpecLine(p) {
 }
 window.cardSpecLine = cardSpecLine;
 
+// r421 (Part C): "N available" chip for multi-quantity listings. Hidden at
+// 1 or fewer remaining, on sold/pending listings, and for single-unit items.
+function qtyChipHtml(p, surface) {
+  const total = Math.max(1, Number(p && p.quantity || 1));
+  const sold = Math.max(0, Number(p && p.quantitySold || 0));
+  const remaining = Math.max(0, total - sold);
+  if (total <= 1 || remaining <= 1 || !p || p.status === 'sold' || p.status === 'pending') return '';
+  return `<span class="qty-chip${surface === 'detail' ? ' detail' : ''}">${remaining.toLocaleString()} available</span>`;
+}
+window.qtyChipHtml = qtyChipHtml;
+window.renderDetailSignals = function renderDetailSignals(p) {
+  const el = document.getElementById('detailSignals');
+  if (el) el.innerHTML = window.popularityChipsHtml ? window.popularityChipsHtml(p, 'detail') : '';
+};
+
 function renderProductCardHtml(p, i) {
   const id = window.safeId(p.id);
   // Stagger fade-in (cap at 12 cards so a long list doesn't drag).
@@ -660,19 +675,20 @@ function renderProductCardHtml(p, i) {
   const sellerProSlot = p.sellerId
     ? `<span class="seller-pro-slot" data-seller-id="${window.safeAttr(window.safeId(p.sellerId))}"></span>`
     : '';
-  const totalQty = Math.max(1, Number(p.quantity || 1));
-  const soldQty = Math.max(0, Number(p.quantitySold || 0));
-  const remaining = Math.max(0, totalQty - soldQty);
-  const stockBadge = totalQty > 1 && p.status !== 'sold'
-    ? `<span class="stock-badge">${remaining} in stock</span>`
-    : '';
+  // r421 (Part C): quiet "N available" chip, only while 2+ remain. Driven by
+  // remaining (quantity − quantitySold), so it drops after each sale and
+  // disappears at the last unit; the live listings listener re-renders it.
+  const stockBadge = qtyChipHtml(p, 'card');
   const spec = cardSpecLine(p);
   return `<div class="product-card ${p.status === 'sold' ? 'sold' : ''}" style="animation-delay:${delay}ms" data-action="open-detail" data-product-id="${idAttr}" aria-label="${window.safeAttr(p.name || '')}">`+
     `<div class="product-img-wrap">${soldBadge}`+
       `${mainImg}`+
-      `${badge}`+
-      `${stockBadge}`+
-      `${photoCount}`+
+      // r421: one top-left stack (seller badge + quantity) — they used to be
+      // two absolutely-positioned pills on the same corner, overlapping.
+      `${(badge || stockBadge) ? `<div class="card-tags">${badge}${stockBadge}</div>` : ''}`+
+      // r421 (Part D): bottom-left signal slot — Trending / views when the
+      // listing has earned it, otherwise the photo count, never both.
+      `${(() => { const pop = window.popularityChipsHtml ? window.popularityChipsHtml(p, 'card') : ''; return pop ? `<span class="card-signal">${pop}</span>` : photoCount; })()}`+
       `${window.favButtonHtml ? window.favButtonHtml(p, 'card-fav') : ''}`+
     `</div>`+
     `<div class="product-body">`+
@@ -1459,17 +1475,17 @@ async function openDetailModal(id) {
   // answered every guest open with a 401. Guests skip the call; signed-in
   // non-owners still count. (Counting guest views needs an unauthenticated,
   // IP-rate-limited variant of the callable — a functions change, not done here.)
-  if (typeof p.id === 'string' && p.sellerId
-      && window.CURRENT_USER && window.CURRENT_USER.uid !== p.sellerId) {
-    (async () => {
-      try {
-        const { getFunctions, httpsCallable } =
-          await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
-        const fns = getFunctions();
-        const inc = httpsCallable(fns, 'incrementListingView');
-        await inc({ listingId: String(p.id) });
-      } catch (_e) { /* swallow — view counter is best-effort */ }
-    })();
+  // r421: recordListingView counts guests too (anonymous session id; the
+  // server dedupes per viewer per 24h and rate-limits per IP). Fired 1.2 s
+  // after open, only if the same listing is still open — a quick swipe
+  // through isn't a view. Once per listing per page load. Falls back to the
+  // signed-in-only incrementListingView until the new callable is deployed.
+  if (typeof p.id === 'string' && p.sellerId && window.tbShouldRecordView && window.tbShouldRecordView(p)) {
+    const _vid = String(p.id);
+    setTimeout(() => {
+      if (String(currentDetailId) !== _vid) return;
+      window.tbRecordView(p);
+    }, 1200);
   }
   // Analytics: priority event #3 — `listing_viewed`. Fires EVERY open
   // (not subject to the 24h dedupe that gates the view-counter
@@ -1513,6 +1529,9 @@ async function openDetailModal(id) {
     detailCondEl.style.display = 'none';
   }
   document.getElementById('detailAsk').textContent = '$'+(p.ask||0).toLocaleString();
+  // r421: quantity chip (Part C) + popularity chips (Part D).
+  { const qc = document.getElementById('detailQtyChip'); if (qc) qc.innerHTML = qtyChipHtml(p, 'detail'); }
+  window.renderDetailSignals(p);
   // Structure 2: buyer-paid shipping line under the price. Flat tiers are
   // mirrored from the server map (display only — the charge always comes
   // from the server); clubs/bags get a live carrier quote at checkout.
@@ -1614,9 +1633,36 @@ async function openDetailModal(id) {
     qtyRow.style.display = '';
     qtyInput.max = String(remaining);
     qtyInput.value = '1';
-    qtyRemaining.textContent = `${remaining} in stock`;
+    qtyRemaining.textContent = `${remaining} available`;
   } else {
     qtyRow.style.display = 'none';
+  }
+  // r421 (Part C): the feed is a one-time fetch, so a multi-quantity listing
+  // opened from it can show a stale count after someone else buys a unit.
+  // One fresh read (multi-quantity listings only) re-syncs the chip, the
+  // stepper max and the grid card. The server still enforces stock.
+  if (totalQty > 1 && typeof p.id === 'string') {
+    const _qid = String(p.id);
+    window.__fetchListingForDetail(_qid).then((fresh) => {
+      if (!fresh || String(currentDetailId) !== _qid) return;
+      const before = `${p.quantity}|${p.quantitySold}|${p.status}`;
+      p.quantity = fresh.quantity; p.quantitySold = fresh.quantitySold; p.status = fresh.status;
+      if (fresh.viewDays) p.viewDays = fresh.viewDays;
+      window.renderDetailSignals(p);
+      if (`${p.quantity}|${p.quantitySold}|${p.status}` === before) return;
+      const qc = document.getElementById('detailQtyChip'); if (qc) qc.innerHTML = qtyChipHtml(p, 'detail');
+      const rem = Math.max(0, Math.max(1, Number(p.quantity || 1)) - Math.max(0, Number(p.quantitySold || 0)));
+      if (rem > 0 && p.status !== 'sold') {
+        qtyInput.max = String(rem);
+        if (Number(qtyInput.value) > rem) qtyInput.value = String(rem);
+        qtyRemaining.textContent = `${rem} available`;
+        if (rem <= 1) qtyRow.style.display = 'none';
+      }
+      document.querySelectorAll(`.product-card[data-product-id="${CSS.escape(_qid)}"] .qty-chip`).forEach((el) => {
+        const html = qtyChipHtml(p, 'card');
+        if (html) el.outerHTML = html; else el.remove();
+      });
+    }).catch(() => {});
   }
   // Render seller link if this is a real (Firestore) listing
   const sellerEl = document.getElementById('detailSeller');
@@ -4175,6 +4221,126 @@ function getListingViews(listing) {
 }
 // Exposed for renderProductCard, which builds the stats line via window.*
 window.getListingViews = getListingViews;
+
+// ── Popularity badges (r421) ─────────────────────────────────────────────
+// Source of truth: listings/{id}.viewDays, a server-owned map of UTC-day
+// buckets {"20261119": 5, ...} written only by recordListingView (deduped
+// per viewer per 24h, seller self-views excluded, IP-limited). We sum the
+// last 7 days here, so counts decay with no scheduler. Never invent or pad
+// a number: no viewDays → no badge.
+// Thresholds (tune here). Set 2026-11-19 from prod: distinct SIGNED-IN
+// viewers per active listing over the last 7 days were p50 3, p75 6, p90 9,
+// max 15 (78 listings). Guests start counting with r421, so real 7-day
+// views will run higher than that signed-in floor.
+//   VIEW_BADGE_MIN 10 — about the signed-in p90: "10 views" reads as real
+//     interest; "3 views" would advertise that nobody is looking.
+//   TRENDING_TOP_FRACTION 0.10 + TRENDING_MIN 20 — top ~10% of active
+//     listings by 7-day views, and never under 20 (about 2x today's p90), so
+//     Trending can't fire on tiny numbers in a quiet week.
+window.VIEW_BADGE_MIN = 10;
+window.TRENDING_TOP_FRACTION = 0.10;
+window.TRENDING_MIN = 20;
+function _utcDayKey(ms) {
+  const d = new Date(ms);
+  return String(d.getUTCFullYear()) + String(d.getUTCMonth() + 1).padStart(2, '0') + String(d.getUTCDate()).padStart(2, '0');
+}
+function listingViews7d(p, nowMs) {
+  const vd = p && p.viewDays;
+  if (!vd || typeof vd !== 'object') return 0;
+  const now = nowMs || Date.now();
+  let n = 0;
+  for (let i = 0; i < 7; i++) n += Math.max(0, Number(vd[_utcDayKey(now - i * 864e5)]) || 0);
+  return n;
+}
+window.listingViews7d = listingViews7d;
+// Cutoff for Trending over the loaded ACTIVE real listings. Cached per
+// PRODUCTS array + minute so a grid render doesn't re-sort per card.
+let _trendCache = { arr: null, at: 0, cutoff: Infinity };
+function trendingCutoff() {
+  const arr = window.PRODUCTS || [];
+  const now = Date.now();
+  if (_trendCache.arr === arr && now - _trendCache.at < 60000) return _trendCache.cutoff;
+  const vals = arr.filter((p) => p && typeof p.id === 'string' && (p.status || 'active') === 'active')
+    .map((p) => listingViews7d(p, now)).filter((n) => n > 0).sort((a, b) => b - a);
+  const active = arr.filter((p) => p && typeof p.id === 'string' && (p.status || 'active') === 'active').length;
+  const k = Math.max(1, Math.floor(active * window.TRENDING_TOP_FRACTION));
+  const kth = vals.length >= k ? vals[k - 1] : (vals.length ? vals[vals.length - 1] : Infinity);
+  _trendCache = { arr, at: now, cutoff: Math.max(window.TRENDING_MIN, kth) };
+  return _trendCache.cutoff;
+}
+window.trendingCutoff = trendingCutoff;
+// {trending, views} for a listing; views is null below the badge floor.
+function popularityState(p) {
+  if (!p || typeof p.id !== 'string' || p.status === 'sold') return { trending: false, views: null };
+  const v = listingViews7d(p);
+  return { trending: v > 0 && v >= trendingCutoff(), views: v >= window.VIEW_BADGE_MIN ? v : null };
+}
+window.popularityState = popularityState;
+// Chip markup. surface 'card' shows ONE chip (Trending wins); 'detail' shows
+// both with fuller wording.
+window.popularityChipsHtml = function popularityChipsHtml(p, surface) {
+  const st = popularityState(p);
+  const I = window.ICONS || {};
+  const trend = st.trending ? `<span class="pop-chip trending" aria-label="Trending this week">${I.flame || ''}<span>Trending</span></span>` : '';
+  const views = st.views ? `<span class="pop-chip views" aria-label="${st.views} views in the last 7 days">${I.eye || ''}<span>${st.views.toLocaleString()} views${surface === 'detail' ? ' this week' : ''}</span></span>` : '';
+  if (surface === 'card') return trend || views;
+  return trend + views;
+};
+
+// recordListingView client (r421). Guests carry a random per-browser id in
+// localStorage (tb_anon_v1) so the server can dedupe them; it is not tied to
+// any personal data. Skips bots, headless renders, owners and demo listings.
+const _viewedThisLoad = new Set();
+window.tbShouldRecordView = function tbShouldRecordView(p) {
+  if (!p || typeof p.id !== 'string' || !p.sellerId) return false;
+  if (window.CURRENT_USER && window.CURRENT_USER.uid === p.sellerId) return false;
+  if (_viewedThisLoad.has(p.id)) return false;
+  try {
+    if (navigator.webdriver) return false;
+    if (/bot|crawl|spider|slurp|bingpreview|facebookexternalhit|headless|lighthouse|prerender/i.test(navigator.userAgent || '')) return false;
+    if (document.visibilityState === 'prerender') return false;
+  } catch (_e) {}
+  return true;
+};
+function _anonViewId() {
+  try {
+    let a = localStorage.getItem('tb_anon_v1');
+    if (!a || !/^[A-Za-z0-9_-]{16,64}$/.test(a)) {
+      const b = new Uint8Array(16); crypto.getRandomValues(b);
+      a = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('tb_anon_v1', a);
+    }
+    return a;
+  } catch (_e) { return null; }
+}
+window.tbRecordView = async function tbRecordView(p) {
+  if (!window.tbShouldRecordView(p)) return;
+  _viewedThisLoad.add(p.id);
+  try {
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    const fns = getFunctions();
+    const payload = { listingId: String(p.id) };
+    if (!window.CURRENT_USER) { const a = _anonViewId(); if (!a) return; payload.anonId = a; }
+    let res;
+    try {
+      res = await httpsCallable(fns, 'recordListingView')(payload);
+    } catch (e) {
+      // Pre-deploy fallback: the old signed-in-only counter.
+      if (window.CURRENT_USER && /not-found|internal|unavailable/i.test(String((e && e.code) || ''))) {
+        await httpsCallable(fns, 'incrementListingView')({ listingId: String(p.id) });
+      }
+      return;
+    }
+    // Mirror a counted view into the in-memory listing so the detail badge
+    // reflects it without a refetch. Server is still the only writer.
+    if (res && res.data && res.data.counted) {
+      const k = _utcDayKey(Date.now());
+      p.viewDays = Object.assign({}, p.viewDays || {}, { [k]: (Number((p.viewDays || {})[k]) || 0) + 1 });
+      if (typeof window.renderDetailSignals === 'function' && String(currentDetailId) === String(p.id)) window.renderDetailSignals(p);
+    }
+  } catch (_e) { /* best-effort analytics; never surfaces to the user */ }
+};
 
 // ── Popularity scoring (r300) ────────────────────────────────────────────
 // Ranks a listing by engagement, decayed by age, for the Trending widget.

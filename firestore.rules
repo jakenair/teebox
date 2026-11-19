@@ -262,6 +262,9 @@ service cloud.firestore {
         && !('views_8' in d.keys())
         && !('views_9' in d.keys())
         && !('watchlistCount' in d.keys())
+        // r421: rolling 7-day view buckets (recordListingView only).
+        && !('viewDays' in d.keys())
+        && !('views7d' in d.keys())
         && !('messageCount' in d.keys());
     }
 
