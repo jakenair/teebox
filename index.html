@@ -777,8 +777,15 @@ window.tbEvent = function (name, surface) {
   .btn-stripe-connect:hover { background: var(--green-600); }
   .btn-stripe-connect:active { transform: scale(0.97); }
   /* r348: Connecting-to-Stripe interstitial (see #stripeConnectingOverlay). */
-  #stripeConnectingOverlay { position: fixed; inset: 0; z-index: 1200; background: rgba(255,255,255,0.94); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 700; font-size: 15px; color: var(--gray-800); text-align: center; padding: 24px; }
+  #stripeConnectingOverlay { position: fixed; inset: 0; z-index: 1200; background: var(--white); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 700; font-size: 15px; color: var(--gray-800); text-align: center; padding: 24px; }
   #stripeConnectingOverlay.open { display: flex; }
+  #stripeConnectingCancel[hidden] { display: none; }
+  /* r422: "Almost live" banner (My Shop + own storefront): stack the button
+     under the copy on phones so the text isn't squeezed into a thin column. */
+  @media (max-width: 560px) {
+    .stripe-connect-banner.awaiting-payouts-banner { flex-direction: column; align-items: stretch; gap: 12px; }
+    .stripe-connect-banner.awaiting-payouts-banner .btn-stripe-connect { width: 100%; min-height: 44px; }
+  }
   .tb-spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--gray-200); border-top-color: var(--green-700); animation: tbSpin 0.8s linear infinite; }
   @keyframes tbSpin { to { transform: rotate(360deg); } }
   /* r348: owner-only "paused until payouts" badge on storefront cards. */
@@ -6174,7 +6181,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r421</span></div>
+        <span class="auth-build" aria-hidden="true">r422</span></div>
     </div>
   </div>
 </div>
@@ -8085,8 +8092,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r421"></script>
-      <script async src="/js/feed-rank.js?v=r421"></script>
+      <script async src="/js/feed-rank-config.js?v=r422"></script>
+      <script async src="/js/feed-rank.js?v=r422"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8446,7 +8453,7 @@ window.tbEvent = function (name, surface) {
            Buy until payouts are set up, and listings auto-pause after 7 days.
            Non-blocking. CTA launches Stripe Connect onboarding. -->
       <div class="sell-payout-headsup" id="sellPayoutHeadsUp" role="status" style="display:none;">
-        <strong>You can publish now.</strong> Payout setup comes later: we’ll let you know when a buyer wants your item.
+        <strong>List it now.</strong> It goes live for buyers as soon as you finish payout setup (about 3 minutes). Until then only you can see it.
       </div>
 
       <!-- IMAGE UPLOAD -->
@@ -8663,14 +8670,14 @@ window.tbEvent = function (name, surface) {
 <div class="sell-modal-backdrop" id="stripeRequiredBackdrop" data-close-on-backdrop="close-stripe-required">
   <div class="sell-modal" role="dialog" aria-modal="true" aria-labelledby="stripeRequiredTitle" style="max-width:480px;">
     <div class="modal-header">
-      <span class="modal-title" id="stripeRequiredTitle">You’re live</span>
+      <span class="modal-title" id="stripeRequiredTitle">Almost live</span>
       <button class="modal-close" data-action="close-stripe-required" aria-label="Close" data-ico="close"></button>
     </div>
     <div class="sell-form">
       <div class="stripe-connect-banner cta" style="margin-bottom:14px;">
         <div>
-          <strong>Connect payouts now so you get paid when it sells</strong>
-          <span>Until payouts are connected, buyers see “Seller is finishing setup” instead of Buy Now. It takes about 3 minutes: name, address, bank and a quick ID check.</span>
+          <strong>Finish payout setup to publish your listing</strong>
+          <span>Your listing is saved. Buyers will see it the moment payout setup is done. It takes about 3 minutes: name, address, bank and a quick ID check.</span>
         </div>
       </div>
       <p style="margin:0 0 14px 0;font-size:13.5px;color:var(--gray-700);line-height:1.45;">
@@ -8678,7 +8685,7 @@ window.tbEvent = function (name, surface) {
       </p>
       <div class="modal-footer" style="padding:0;margin-top:0;">
         <button class="btn-full ghost" data-action="close-stripe-required">Later</button>
-        <button class="btn-full green" data-action="stripe-connect">Set up payouts</button>
+        <button class="btn-full green" data-action="stripe-connect">Finish payout setup</button>
       </div>
     </div>
   </div>
@@ -8715,7 +8722,8 @@ window.tbEvent = function (name, surface) {
 <div id="stripeConnectingOverlay" role="status" aria-live="polite" aria-hidden="true">
   <div class="tb-spin" aria-hidden="true"></div>
   <div>Connecting to Stripe…</div>
-  <div style="font-weight:500;font-size:12.5px;color:var(--gray-500);">Secure payout setup · about 3 minutes</div>
+  <div id="stripeConnectingSlow" style="font-weight:500;font-size:12.5px;color:var(--gray-500);">Secure payout setup · about 3 minutes</div>
+  <button type="button" id="stripeConnectingCancel" class="btn-full ghost" style="max-width:200px;margin-top:4px" hidden>Cancel</button>
 </div>
 
 <!-- SEARCH -->
@@ -10061,9 +10069,9 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r421"></script>
-<script defer src="/js/checkout-guest.js?v=r421"></script>
-<script type="module" src="/js/app-auth.js?v=r421"></script>
+<script defer src="/js/app-main.js?v=r422"></script>
+<script defer src="/js/checkout-guest.js?v=r422"></script>
+<script type="module" src="/js/app-auth.js?v=r422"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10093,8 +10101,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r421"></script>
-<script type="module" src="/js/sunday-nine.js?v=r421"></script>
+<script type="module" src="/js/bingo.js?v=r422"></script>
+<script type="module" src="/js/sunday-nine.js?v=r422"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

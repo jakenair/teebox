@@ -1383,9 +1383,24 @@ async function syncConnectAccountStatus(account) {
     stripeRequirementsCount: ((account.requirements || {}).currently_due || []).length,
     stripeAccountUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+  const wasChargesEnabled = (userDoc.data() || {}).stripeChargesEnabled === true;
   await userDoc.ref.update(update);
   logger.info(`Synced Connect status for ${userDoc.id}: ` +
     `charges=${update.stripeChargesEnabled}, payouts=${update.stripePayoutsEnabled}`);
+  // r422 "list now, publish after payouts": the webhook is the path that
+  // fires even when the seller never comes back to the app, so publish their
+  // waiting listings (and relist 7-day-paused ones), stop payout reminders,
+  // tell them it's live, and notify waiting buyers. Same helper the
+  // getStripeAccountStatus callable uses; idempotent. Never fails the
+  // webhook ack. No onUpdate trigger (#34).
+  if (update.stripeChargesEnabled && !wasChargesEnabled) {
+    try {
+      const r = await require("./lib/listFirstCore").onSellerChargesReady(userDoc.id);
+      logger.info(`account.updated → onSellerChargesReady ${userDoc.id}`, r);
+    } catch (e) {
+      logger.warn(`onSellerChargesReady (webhook) failed for ${userDoc.id}`, e && e.message);
+    }
+  }
 }
 
 async function handleDisputeOpened(dispute) {
@@ -5809,7 +5824,11 @@ function toE164US(raw) {
 }
 
 exports.getStripeAccountStatus = onCall(
-  {secrets: [stripeSecret], ...USER_CALLABLE},
+  // r422: RESEND_KEY so the publish path below (onSellerChargesReady) can
+  // email "your listing is live" + waiting buyers when this callable wins the
+  // race with the account.updated webhook. deploy-fn.sh keeps existing
+  // secrets: add it on the Run service with --update-secrets at deploy.
+  {secrets: [stripeSecret, RESEND_KEY], ...USER_CALLABLE},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");

@@ -1441,6 +1441,10 @@ window.__fetchListingForDetail = async function(id) {
     if (!snap.exists()) return null;
     const d = snap.data();
     if (['removed', 'flagged', 'expired'].includes(String(d.status || ''))) return null;
+    // r422: hidden (saved before payouts / 7-day pause) — a shared or deep
+    // link opens it only for its own seller.
+    if (String(d.status || '') === 'hidden' &&
+        !(window.CURRENT_USER && d.sellerId === window.CURRENT_USER.uid)) return null;
     if (!Array.isArray(d.photos) || !d.photos.length) return null;
     return { id: snap.id, name: d.title, ...d };
   } catch (_e) { return null; }
@@ -4469,6 +4473,12 @@ function renderShopStats() {
   _countUpStat('statRevenue', totalRevenue, { prefix: '$' });
   _countUpStat('statSold', itemsSold);
   _countUpStat('statActive', activeListings);
+  // r422: listings saved before payouts aren't for sale yet — say so.
+  try {
+    const waiting = listings.filter(l => l.status === 'hidden' && l.hiddenReason === 'awaiting_payouts').length;
+    const subA = document.querySelector('#statActive + .stat-sub');
+    if (subA) subA.textContent = waiting > 0 ? `${waiting} waiting on payout setup` : 'Currently for sale';
+  } catch (_e) {}
   // r345: the Featured Sellers bar as a progress line in the seller's own
   // numbers. Counted the way the feed counts (live + photographed), not the
   // dashboard's "not sold", so it never promises a card the feed won't show.
@@ -4709,7 +4719,20 @@ function renderShopTables() {
            <button class="renew-btn" style="background:var(--red-500);color:#fff;border:none" data-action="purge-empty-listings">Delete all empty</button>
          </div>`
       : '';
+    // r422: listings saved before payouts. One banner with the button
+    // straight into Stripe onboarding (A['stripe-connect']).
+    const awaitingN = active.filter(l => l.status === 'hidden' && l.hiddenReason === 'awaiting_payouts').length;
+    const awaitingBar = awaitingN > 0
+      ? `<div class="stripe-connect-banner cta awaiting-payouts-banner" style="margin-bottom:12px">
+           <div>
+             <strong>Almost live: finish payout setup to publish</strong>
+             <span>${awaitingN === 1 ? 'Your listing is saved' : `${awaitingN} listings are saved`} but buyers can’t see ${awaitingN === 1 ? 'it' : 'them'} yet. About 3 minutes; ${awaitingN === 1 ? 'it publishes' : 'they publish'} automatically when you’re done.</span>
+           </div>
+           <button class="btn-stripe-connect" data-action="stripe-connect" data-surface="awaiting_banner" type="button">Finish payout setup</button>
+         </div>`
+      : '';
     activeEl.innerHTML = `
+      ${awaitingBar}
       ${purgeBar}
       <table class="dash-table">
         <thead>
@@ -4754,6 +4777,14 @@ function renderShopTables() {
                   label: 'Removed',
                   color: 'var(--gray-500)',
                   title: 'This listing was taken down and isn’t visible to buyers.',
+                };
+              }
+              if (l.status === 'hidden' && l.hiddenReason === 'awaiting_payouts') {
+                return {
+                  label: 'Almost live',
+                  color: 'var(--gold-600)',
+                  title: 'Saved, but buyers can’t see it yet. Finish payout setup ' +
+                    'and it publishes automatically.',
                 };
               }
               if (l.status === 'hidden') {
@@ -5786,6 +5817,9 @@ function openSellModal() {
       const snap = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
       const ready = snap.exists() && snap.data().stripeChargesEnabled === true;
       el.style.display = ready ? 'none' : '';
+      // r422: "go live instantly" isn't true until payouts are set up.
+      const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
+      if (vbar && !ready) vbar.style.display = 'none';
     } catch (_e) { /* leave hidden on any read error */ }
   })();
   // Force create-flow chrome unless we're in edit mode. openEditListing()
@@ -6370,16 +6404,32 @@ function filterSearchRender(query) {
 async function renewListing(listingId) {
   if (!listingId || !window.CURRENT_USER) return;
   try {
-    const { getFirestore, doc, updateDoc, serverTimestamp } =
+    const { getFirestore, doc, getDoc, updateDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
     const expiresAt = new Date(Date.now() + 182 * 24 * 60 * 60 * 1000);
+    // r422: an expired listing renews to active only for a payment-ready
+    // seller (the rules enforce it); otherwise it goes back to "Almost live"
+    // and publishes when payout setup is done.
+    let ready = window.STRIPE_CHARGES_ENABLED === true;
+    let prevStatus = '';
+    try {
+      const [us, ls] = await Promise.all([
+        getDoc(doc(db, 'users', window.CURRENT_USER.uid)),
+        getDoc(doc(db, 'listings', listingId)),
+      ]);
+      ready = !!(us.exists() && us.data().stripeChargesEnabled === true);
+      prevStatus = ls.exists() ? String(ls.data().status || '') : '';
+    } catch (_e) { /* fall back to the cached flag */ }
+    const toAwaiting = !ready && prevStatus === 'expired';
     await updateDoc(doc(db, 'listings', listingId), {
-      status: 'active',
+      ...(toAwaiting ? { status: 'hidden', hiddenReason: 'awaiting_payouts' } : { status: 'active' }),
       expiresAt,
       updatedAt: serverTimestamp(),
     });
-    showToast('Listing renewed for 6 months.');
+    showToast(toAwaiting
+      ? 'Renewed. Finish payout setup to publish it.'
+      : 'Listing renewed for 6 months.');
     loadShopData();
   } catch (e) {
     console.error('renewListing failed:', e);
@@ -10829,7 +10879,8 @@ function renderProfileView(profile, listings, reviews, recentSold) {
     ? `<div class="stripe-connect-banner warn" style="margin-bottom:16px;" role="status">`+
         `<div>`+
           `<strong>Finish payout setup to become a Verified Seller</strong>`+
-          `<span>Your listings are visible, but buyers can't complete a purchase until you connect Stripe — and the gold <strong>Verified Seller</strong> badge buyers look for on a listing is exactly this step, nothing more. About 2 minutes.</span>`+
+          // r422: new listings stay "Almost live" (only you see them) until this is done.
+          `<span>New listings stay private until payouts are set up, then publish automatically. It also earns the gold <strong>Verified Seller</strong> badge buyers look for. About 3 minutes.</span>`+
         `</div>`+
         `<button class="btn-stripe-connect" data-action="stripe-connect" type="button">Get verified</button>`+
       `</div>`
@@ -10907,7 +10958,10 @@ function renderProfileView(profile, listings, reviews, recentSold) {
         const pinIndicator = isPinned ? `<span class="pin-indicator" title="Featured">Featured</span>` : '';
         const expiredBadge = expired ? `<span class="expired-badge">Expired</span>` : '';
         const hiddenCard = l.status === 'hidden';
-        const hiddenBadge = hiddenCard ? `<span class="hidden-badge" title="Paused until payouts are set up">Paused — set up payouts</span>` : '';
+        const awaitingCard = hiddenCard && l.hiddenReason === 'awaiting_payouts';
+        const hiddenBadge = !hiddenCard ? '' : awaitingCard
+          ? `<span class="hidden-badge" title="Saved. Finish payout setup to publish">Almost live</span>`
+          : `<span class="hidden-badge" title="Paused until payouts are set up">Paused — set up payouts</span>`;
         // An expired listing can't be pinned — it isn't purchasable, so
         // featuring it on the profile would advertise a dead link.
         const pinBtn = (isMe && !expired)
@@ -11128,6 +11182,15 @@ function renderProfileView(profile, listings, reviews, recentSold) {
 
     <div class="profile-section">
       <h4>Listings</h4>
+      ${(isMe && active.some(l => l.status === 'hidden' && l.hiddenReason === 'awaiting_payouts'))
+        ? `<div class="stripe-connect-banner cta awaiting-payouts-banner" style="margin-bottom:12px">
+             <div>
+               <strong>Almost live: finish payout setup to publish</strong>
+               <span>Only you can see listings marked Almost live. They publish automatically when payout setup is done.</span>
+             </div>
+             <button class="btn-stripe-connect" data-action="stripe-connect" data-surface="awaiting_storefront" type="button">Finish payout setup</button>
+           </div>`
+        : ''}
       <div class="profile-listings">${listingsHtml}</div>
     </div>
 
@@ -13736,6 +13799,17 @@ function showStripeConnecting(on) {
   el.setAttribute('aria-hidden', on ? 'false' : 'true');
 }
 window.showStripeConnecting = showStripeConnecting;
+// r422: back from Stripe via the browser Back button restores this page from
+// the back/forward cache with the overlay still up and the button disabled.
+window.addEventListener('pageshow', (ev) => {
+  if (!ev.persisted) return;
+  window.__stripeConnectBusy = false;
+  showStripeConnecting(false);
+  document.querySelectorAll('[data-action="stripe-connect"][disabled]').forEach((b) => {
+    b.disabled = false;
+    if (/Connecting to Stripe/.test(b.textContent)) b.textContent = 'Finish payout setup';
+  });
+});
 A['close-seller-age']        = () => {
   const b = document.getElementById('sellerAgeBackdrop');
   if (b) b.classList.remove('open');
@@ -13784,10 +13858,59 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
   // If the Stripe-required gate modal is open, close it so the seller's
   // listing draft is visible underneath when they return from onboarding.
   try { closeStripeRequiredDirect(); } catch (_e) {}
+  // r422: double-tap guard — one link mint at a time.
+  if (window.__stripeConnectBusy) return;
+  // r422: a seller who hasn't confirmed 18+ used to wait out a full
+  // createStripeOnboardingLink round trip (cold preflight ~2 s + ~4 s) just to
+  // be told age-required, then wait again — the "12 s frozen button". Check
+  // the user doc first (one cached read) and show the age dialog straight away.
+  if (!age18) {
+    try {
+      const { getFirestore, doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
+      const us = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
+      if (us.exists() && !us.data().sellerAge18At && us.data().isTestAccount !== true) {
+        showSellerAgeDialog();
+        return;
+      }
+    } catch (_e) { /* fall through: the server still enforces it */ }
+  }
+  window.__stripeConnectBusy = true;
+  // r422: the tapped button says what's happening too (overlay aside), and
+  // comes back if anything fails.
+  const _btn = _el && _el.tagName === 'BUTTON' ? _el : null;
+  const _btnLabel = _btn ? _btn.textContent : '';
+  if (_btn) { _btn.disabled = true; _btn.textContent = 'Connecting to Stripe…'; }
+  const _restoreBtn = () => {
+    window.__stripeConnectBusy = false;
+    if (_btn) { _btn.disabled = false; _btn.textContent = _btnLabel; }
+  };
   // r348: visible interstitial instead of a toast — link minting takes 1–3 s
   // and the tap used to look dead. Cleared on any failure; on success the
   // page navigates away under it.
   showStripeConnecting(true);
+  // r422: honest progress if it runs long, and a way out at 15 s so the
+  // screen is never stuck. Cancel stops the redirect when the link arrives.
+  let _cancelled = false;
+  const _slowEl = document.getElementById('stripeConnectingSlow');
+  const _cancelEl = document.getElementById('stripeConnectingCancel');
+  if (_slowEl) _slowEl.textContent = 'Secure payout setup · about 3 minutes';
+  if (_cancelEl) _cancelEl.hidden = true;
+  const _t1 = setTimeout(() => { if (_slowEl) _slowEl.textContent = 'Still connecting. Stripe can take a few seconds.'; }, 6000);
+  const _t2 = setTimeout(() => {
+    if (_slowEl) _slowEl.textContent = 'This is taking longer than usual.';
+    if (_cancelEl) {
+      _cancelEl.hidden = false;
+      _cancelEl.onclick = () => {
+        _cancelled = true;
+        clearTimeout(_t1); clearTimeout(_t2);
+        showStripeConnecting(false);
+        _restoreBtn();
+        showToast('Payout setup cancelled. Tap it again any time.');
+      };
+    }
+  }, 15000);
+  const _stopTimers = () => { clearTimeout(_t1); clearTimeout(_t2); };
   // If the user already has a payouts-enabled Connect account, this
   // click is a CHANGE (not an initial setup) — fire the payout-method-
   // changed security alert so a hijacker rerouting funds gets caught.
@@ -13815,6 +13938,8 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
       url = 'https://teeboxmarket.com/support.html?qa=payouts-standin';
     }
     if (!url) throw new Error('No onboarding URL returned');
+    _stopTimers();
+    if (_cancelled) return;
     window.tbEvent && window.tbEvent('stripe_link_opened', 'payouts');
     if (wasAlreadyEnabled) {
       // Fire-and-forget. Producer lives in
@@ -13849,6 +13974,7 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
         cleared = true;
         document.removeEventListener('visibilitychange', onVis);
         showStripeConnecting(false);
+        _restoreBtn();
         try { renderStripeConnectBanner(); } catch (_e) {}
       };
       const onVis = () => { if (!document.hidden) clear(); };
@@ -13857,7 +13983,10 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
     }
     window.location.href = url;
   } catch (e) {
+    _stopTimers();
     showStripeConnecting(false);
+    _restoreBtn();
+    if (_cancelled) return;
     console.error('stripe-connect failed:', e);
     // Surface the SPECIFIC reason, never a dead end (mirrors the
     // become-a-seller handler). The common rejection is email-not-verified.

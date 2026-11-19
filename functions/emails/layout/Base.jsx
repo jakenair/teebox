@@ -212,6 +212,7 @@ function prettyCategory(c) {
       winBack: "we-miss-you",
       weeklyDigest: "weekly digest",
       productUpdates: "product update",
+      payoutReminders: "payout-setup reminder",
     }[c] || "marketing"
   );
 }

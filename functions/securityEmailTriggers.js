@@ -58,7 +58,6 @@ const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
-const {sendPush} = require("./lib/push");
 const {resolveUserEmail} = require("./lib/emailRecipient");
 const authEmailGetter = (u) => admin.auth().getUser(u);
 // onListingLive: how long to let moderateListingOnCreate finish (it holds +
@@ -571,7 +570,10 @@ exports.onListingLive = onDocumentCreated(
       // queues / drafts / pre-publish states get filtered out here.
       const status = String(data.status || "active").toLowerCase();
       const isLive = status === "active" || status === "live" || status === "available";
-      if (!isLive) {
+      // r422: a listing saved before payouts (hidden/awaiting_payouts) isn't
+      // live, but it is the moment for payout reminder 1 ("almost live").
+      const isAwaiting = status === "hidden" && data.hiddenReason === "awaiting_payouts";
+      if (!isLive && !isAwaiting) {
         logger.info(`[onListingLive] skip ${listingId} status=${status}`);
         return;
       }
@@ -609,6 +611,27 @@ exports.onListingLive = onDocumentCreated(
         return;
       }
       const seller = {uid: sellerSnap.id, ...sellerSnap.data()};
+      // r422 "list now, publish after payouts": a seller who isn't
+      // charges-enabled has no live listing (the client saved it as
+      // awaiting_payouts, or countListingCreate demoted a legacy "active"
+      // create). Send payout reminder 1 instead of "your listing is live";
+      // the real "live" message goes out when Stripe enables charges
+      // (listFirstCore.onSellerChargesReady). Stamp so a retry is a no-op;
+      // the reminder log is idempotent on its own as well.
+      if (seller.stripeChargesEnabled !== true) {
+        let r = null;
+        try {
+          r = await require("./lib/payoutReminders").runReminderForSeller(sellerId, {trigger: "create"});
+        } catch (e) {
+          logger.warn(`[onListingLive] payout reminder failed ${sellerId}`, e && e.message);
+        }
+        logger.info(`[onListingLive] ${listingId} awaiting payouts; reminder`, r);
+        try {
+          await event.data.ref.update(
+              {listingLiveEmailedAt: admin.firestore.FieldValue.serverTimestamp()});
+        } catch (_e) { /* listing removed meanwhile */ }
+        return r;
+      }
       // 2026-11-16 (founder GO): the users doc carries no email for real
       // accounts; resolve from Auth like the order emails (lib/emailRecipient).
       const resolved = await resolveUserEmail(sellerId, seller.email, authEmailGetter);
@@ -636,20 +659,8 @@ exports.onListingLive = onDocumentCreated(
         // Phone-only seller: no email, but the payout push below still goes.
         logger.info(`[onListingLive] seller ${sellerId} has no email`);
       }
-      if (!payoutsReady) {
-        try {
-          await sendPush(seller.uid, {
-            title: "Your listing is live",
-            body: "Set up payouts so buyers can purchase — about 3 minutes.",
-            deepLink: "teebox://payouts",
-            imageUrl: (freshData.photos && freshData.photos[0]) || "",
-            kind: "payout-setup-nudge",
-            data: {kind: "payout-setup-nudge", listingId},
-          }, "orders", {threadId: "payouts"});
-        } catch (e) {
-          logger.warn(`[onListingLive] payout nudge push failed ${sellerId}`, e && e.message);
-        }
-      }
+      // (r422: the not-payment-ready push nudge moved to payout reminder 1
+      // above; this path now only runs for charges-enabled sellers.)
       // Stamp after send (best-effort) so a transient render/send failure
       // allows a retry. We use the event publishTime as the canonical
       // timestamp — replays of the same event are also caught by the

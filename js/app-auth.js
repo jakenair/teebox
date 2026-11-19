@@ -2523,6 +2523,13 @@
             if (window.openSavedSearches) { window.openSavedSearches(); return; }
             break;
           case 'payouts':
+            // r422: teebox://payouts/setup (payout-setup reminders) goes
+            // straight into Stripe onboarding; plain teebox://payouts keeps
+            // opening the dashboard. Older builds treat both as the latter.
+            if (id === 'setup' && window.__actions && window.__actions['stripe-connect']) {
+              setTimeout(() => { try { window.__actions['stripe-connect'](); } catch (_e) {} }, 300);
+              return;
+            }
             if (window.openShopDashboard) { window.openShopDashboard(); return; }
             break;
           case 'bingo':
@@ -3648,6 +3655,20 @@
       // renew from the My Shop dashboard. expireListings also tops up any
       // shorter expiry written by older app builds.
       const expiresAt = new Date(Date.now() + 182 * 24 * 60 * 60 * 1000);
+      // r422 "list now, publish after payouts": a seller who isn't
+      // payment-ready (no Stripe account, or charges not enabled) saves the
+      // listing as hidden/awaiting_payouts. It stays out of browse, search,
+      // category, other people's view of the storefront, shared links and
+      // the Meta feed, and publishes automatically when Stripe enables
+      // charges (server). Fresh read so a just-onboarded seller goes live.
+      // The rules enforce it: a not-ready seller's 'active' write is demoted
+      // server-side within seconds.
+      let __payReady = window.STRIPE_CHARGES_ENABLED === true;
+      try {
+        const _us = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
+        __payReady = !!(_us.exists() && _us.data().stripeChargesEnabled === true);
+        window.STRIPE_CHARGES_ENABLED = __payReady;
+      } catch (_e) { /* keep the cached flag */ }
       docRef = await addDoc(collection(db, 'listings'), {
         title, brand, cat, ask: price,
         condition, desc, badge: 'new',
@@ -3656,7 +3677,8 @@
         specCategory: window.getSpecCategory ? (window.getSpecCategory() || 'other') : 'other',
         specs: window.collectSpecs ? window.collectSpecs() : {},
         photos: [], sellerId: window.CURRENT_USER.uid,
-        status: 'active', createdAt: serverTimestamp(),
+        ...(__payReady ? { status: 'active' } : { status: 'hidden', hiddenReason: 'awaiting_payouts' }),
+        createdAt: serverTimestamp(),
         expiresAt,
         // Quantity in stock. Most listings are 1 (used unique gear);
         // sellers with bulk inventory (gloves, balls, hats) can list
@@ -3750,7 +3772,11 @@
         }
       } catch (_e) { /* analytics never blocks publish */ }
       closeSellModalDirect();
-      showToast("You're live — your listing is on the marketplace now.", 'success');
+      if (__payReady) {
+        showToast("You're live — your listing is on the marketplace now.", 'success');
+      } else {
+        showToast('Saved. Finish payout setup to publish it.', 'success');
+      }
       // 2026-11-09 (founder): after publishing, a seller without payouts gets
       // the "connect payouts now so you get paid when it sells" pop-up
       // (Set up payouts / Later). Still no background Connect account: the
@@ -3758,12 +3784,8 @@
       // every lister who never sold (r396). The flag is a fresh read so an
       // onboarded seller never sees it.
       (async () => {
-        let ready = window.STRIPE_CHARGES_ENABLED === true;
-        try {
-          const snap = await getDoc(doc(db, 'users', window.CURRENT_USER.uid));
-          ready = !!(snap.exists() && snap.data().stripeChargesEnabled === true);
-          window.STRIPE_CHARGES_ENABLED = ready;
-        } catch (_e) { /* fall back to the flag read at sell-open */ }
+        // r422: readiness was read fresh just before the create.
+        const ready = __payReady;
         // One post-publish prompt at a time. Payouts not connected: the payout
         // pop-up only; the push pre-prompt ("get buyer alerts") is queued and
         // shows once the screen is clear — after Later, or back from payout

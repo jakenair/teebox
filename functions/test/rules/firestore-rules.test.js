@@ -313,3 +313,63 @@ test("listings: a seller cannot seed or edit viewDays / views7d; view bookkeepin
     await assertFails(getDoc(doc(db(c), "viewIpLimits", "abc")));
   }
 });
+
+// ── r422: list now, publish after payouts ────────────────────────────────────
+function awaitingDoc(sellerId) {
+  return {...listingCreateDoc(sellerId), status: "hidden", hiddenReason: "awaiting_payouts"};
+}
+
+test("r422 create: unready seller may save hidden/awaiting_payouts; ready seller may save active; other hidden reasons and stray reasons denied", async () => {
+  await seed("users", "unready", {displayName: "U"});
+  await seed("users", "ready", {displayName: "R", stripeChargesEnabled: true});
+  const u = testEnv.authenticatedContext("unready", {email_verified: true});
+  const r = testEnv.authenticatedContext("ready", {email_verified: true});
+  await assertSucceeds(addDoc(collection(db(u), "listings"), awaitingDoc("unready")));
+  await assertSucceeds(addDoc(collection(db(r), "listings"), listingCreateDoc("ready")));
+  await assertFails(addDoc(collection(db(u), "listings"), {...awaitingDoc("unready"), hiddenReason: "payouts_pending"}));
+  await assertFails(addDoc(collection(db(u), "listings"), {...listingCreateDoc("unready"), hiddenReason: "awaiting_payouts"}));
+  await assertFails(addDoc(collection(db(u), "listings"), {...awaitingDoc("unready"), status: "active"}));
+  // legacyUnreadyActiveCreate() is true today: an old build's plain active
+  // create by an unready seller is still admitted (server demotes it).
+  await assertSucceeds(addDoc(collection(db(u), "listings"), listingCreateDoc("unready")));
+});
+
+test("r422 update: awaiting listing — owner may attach photos only; cannot publish it or change the reason", async () => {
+  await seed("users", "unready2", {displayName: "U"});
+  await seed("listings", "AW1", {...awaitingDoc("unready2"), createdAt: new Date()});
+  const u = testEnv.authenticatedContext("unready2", {email_verified: true});
+  const photo = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2FAW1%2Fa.jpg?alt=media";
+  await assertSucceeds(updateDoc(doc(db(u), "listings", "AW1"), {photos: [photo]}));
+  await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {status: "active"}));
+  await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {status: "active", hiddenReason: null}));
+  await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {hiddenReason: "payouts_pending"}));
+  await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {expiresAt: new Date(Date.now() + 9e9)}));
+  // Even a now-ready seller can't self-publish: publishing is server-only.
+  await seed("users", "unready2", {displayName: "U", stripeChargesEnabled: true});
+  await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {status: "active"}));
+});
+
+test("r422 renew: expired → active needs a payment-ready seller; an unready seller renews to awaiting_payouts", async () => {
+  await seed("users", "unready3", {displayName: "U"});
+  await seed("users", "ready3", {displayName: "R", stripeChargesEnabled: true});
+  const past = new Date(Date.now() - 86400000);
+  const future = new Date(Date.now() + 90 * 86400000);
+  await seed("listings", "EX1", {...listingCreateDoc("unready3"), createdAt: past, status: "expired"});
+  await seed("listings", "EX2", {...listingCreateDoc("ready3"), createdAt: past, status: "expired"});
+  const u = testEnv.authenticatedContext("unready3", {email_verified: true});
+  const r = testEnv.authenticatedContext("ready3", {email_verified: true});
+  await assertFails(updateDoc(doc(db(u), "listings", "EX1"), {status: "active", expiresAt: future}));
+  await assertSucceeds(updateDoc(doc(db(u), "listings", "EX1"),
+      {status: "hidden", hiddenReason: "awaiting_payouts", expiresAt: future}));
+  await assertSucceeds(updateDoc(doc(db(r), "listings", "EX2"), {status: "active", expiresAt: future}));
+  // a 7-day-paused listing stays server-only
+  await seed("listings", "HP1", {...listingCreateDoc("unready3"), createdAt: past, status: "hidden", hiddenReason: "payouts_pending"});
+  await assertFails(updateDoc(doc(db(u), "listings", "HP1"), {photos: []}));
+});
+
+test("r422: payoutReminders log is server-only", async () => {
+  await seed("payoutReminders", "unready4", {anchorMs: 1, count: 1});
+  const u = testEnv.authenticatedContext("unready4", {email_verified: true});
+  await assertFails(getDoc(doc(db(u), "payoutReminders", "unready4")));
+  await assertFails(setDoc(doc(db(u), "payoutReminders", "unready4"), {cancelledAtMs: 1}));
+});

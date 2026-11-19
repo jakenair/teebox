@@ -10,7 +10,7 @@ const {Base, Button, H1, P} = require("../layout/Base");
  * their item is now publicly browsable. Idempotent via
  * listings/{id}.listingLiveEmailedAt timestamp.
  */
-function ListingLive({user = {}, listing = {}, appUrl, payoutsReady = true, setupUrl}) {
+function ListingLive({user = {}, listing = {}, appUrl, payoutsReady = true, setupUrl, moreCount = 0}) {
   const base = appUrl || "https://teeboxmarket.com";
   const title = listing.title || "your item";
   const ask = Number(listing.ask) || 0;
@@ -55,6 +55,7 @@ function ListingLive({user = {}, listing = {}, appUrl, payoutsReady = true, setu
       <P>
         <strong>{title}</strong>{price ? ` — ${price}` : ""} is now live on
         TeeBox and visible to buyers across the marketplace.
+        {Number(moreCount) > 0 ? ` ${Number(moreCount)} more of your listings went live with it.` : ""}
       </P>
       <Button href={listingUrl}>View your listing</Button>
       <P muted>

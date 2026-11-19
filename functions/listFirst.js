@@ -25,7 +25,7 @@ const {notify} = require("./lib/notify");
 const {RESEND_API_KEY, UNSUBSCRIBE_SECRET} = require("./lib/email");
 const {
   APP_URL, PAYOUT_SETUP_URL, RATE_WINDOW_MS, HIDE_AFTER_DAYS,
-  HIDDEN_STATUS, HIDDEN_REASON, SELLER_NUDGE_CAP_PER_DAY,
+  HIDDEN_STATUS, HIDDEN_REASON, AWAITING_REASON, SELLER_NUDGE_CAP_PER_DAY,
   emailFor, lookupUser, onSellerChargesReady, rollingLimitAllowed, hideClockStartMs,
 } = require("./lib/listFirstCore");
 
@@ -79,6 +79,34 @@ exports.countListingCreate = onDocumentCreated(
         });
       } catch (e) {
         logger.error(`countListingCreate failed for ${uid}`, e);
+      }
+      // r422 "list now, publish after payouts": current web clients save a
+      // not-yet-payment-ready seller's listing as hidden/awaiting_payouts
+      // themselves. Older builds (every iOS app already in the App Store)
+      // still write status "active", and the create rule lets them (see
+      // legacyUnreadyActiveCreate in firestore.rules) so listing doesn't break
+      // for those sellers. Demote those here, seconds after create. Buy was
+      // never possible meanwhile: createPaymentIntent 409s for an unready
+      // seller. onCreate only; no onUpdate trigger (#34).
+      if (String(d.status || "active") !== "active") return;
+      try {
+        const us = await db.collection("users").doc(uid).get();
+        if (us.exists && us.data().stripeChargesEnabled === true) return;
+        const lref = event.data.ref;
+        const demoted = await db.runTransaction(async (tx) => {
+          const cur = await tx.get(lref);
+          if (!cur.exists || (cur.data() || {}).status !== "active") return false;
+          tx.update(lref, {
+            status: HIDDEN_STATUS,
+            hiddenReason: AWAITING_REASON,
+            awaitingSince: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return true;
+        });
+        if (demoted) logger.info(`[listFirst] legacy active create → awaiting_payouts ${event.params.listingId} (seller ${uid})`);
+      } catch (e) {
+        logger.error(`[listFirst] awaiting demotion failed ${event.params.listingId}`, e);
       }
     },
 );
@@ -301,5 +329,59 @@ exports.hideUnonboardedListings = onSchedule(
         summary.buyersNotified += r.buyersNotified;
       }
       logger.info("[hideUnonboarded] done", summary);
+    },
+);
+
+// ── payoutSetupReminders (r422) ────────────────────────────────────────
+// Every 30 min: every seller with a listing waiting on payouts
+// (hidden/awaiting_payouts) gets whichever reminder is due (right after save,
+// 24h, 3d, 7d; max 4; quiet hours 21-08 seller-local, Central by default),
+// push first, email when no push lands. Sellers who turn out to be
+// charges-enabled are published instead (self-heal for a missed webhook) and
+// their reminders cancelled. The per-seller log (payoutReminders/{uid}) makes
+// every run idempotent. All logic: lib/payoutReminders.js.
+exports.payoutSetupReminders = onSchedule(
+    {
+      schedule: "every 30 minutes",
+      timeZone: "America/Chicago",
+      region: "us-central1",
+      memory: "512MiB",
+      timeoutSeconds: 300,
+      secrets: EMAIL_SECRETS,
+    },
+    async () => {
+      const db = admin.firestore();
+      const pr = require("./lib/payoutReminders");
+      const summary = {sellers: 0, sent: 0, published: 0, skipped: {}};
+      let snap;
+      try {
+        snap = await db.collection("listings")
+            .where("status", "==", HIDDEN_STATUS)
+            .where("hiddenReason", "==", AWAITING_REASON)
+            .limit(1000).get();
+      } catch (e) {
+        logger.error("[payoutReminders] scan failed", e);
+        return;
+      }
+      const sellers = [...new Set(snap.docs.map((d) => d.data().sellerId).filter(Boolean))];
+      summary.sellers = sellers.length;
+      const userSnaps = sellers.length ?
+        await db.getAll(...sellers.map((id) => db.collection("users").doc(id))) : [];
+      for (const us of userSnaps) {
+        const uid = us.id;
+        try {
+          if (us.exists && us.data().stripeChargesEnabled === true) {
+            const r = await onSellerChargesReady(uid);
+            summary.published += (r && r.published) || 0;
+            continue;
+          }
+          const r = await pr.runReminderForSeller(uid, {trigger: "schedule"});
+          if (r.sent) summary.sent++;
+          else summary.skipped[r.reason] = (summary.skipped[r.reason] || 0) + 1;
+        } catch (e) {
+          logger.warn(`[payoutReminders] seller ${uid} failed`, e && e.message);
+        }
+      }
+      logger.info("[payoutReminders] done", summary);
     },
 );

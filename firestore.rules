@@ -75,6 +75,19 @@ service cloud.firestore {
     // it. Fail-OPEN when the doc is missing or the window has lapsed —
     // the trigger seeds it on the first create.
     function listingDailyCap() { return 10; }
+    // r422: the caller's own users doc says Stripe charges are enabled
+    // (server-written by the account.updated webhook / status callable).
+    function sellerPaymentReady() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid))
+        .data.get('stripeChargesEnabled', false) == true;
+    }
+    // r422: iOS builds already in the App Store create every listing as
+    // 'active'. Refusing those for a not-yet-payment-ready seller would break
+    // listing in the installed app, so they are still admitted and
+    // countListingCreate demotes them to hidden/awaiting_payouts seconds
+    // later (Buy is impossible meanwhile: createPaymentIntent 409s). Flip to
+    // false once the r422+ iOS build is most of the installed base.
+    function legacyUnreadyActiveCreate() { return true; }
     function underListingRateLimit(uid) {
       let rl = /databases/$(database)/documents/users/$(uid)/rateLimits/listingCreate;
       return !exists(rl)
@@ -205,8 +218,17 @@ service cloud.firestore {
              'sellerId','title','brand','cat','ask','condition',
              'createdAt','status','expiresAt','desc','photos','emoji',
              'badge','volume','change','quantity','quantitySold',
-             'requiresAuth','authReviewState','specCategory','specs','source'])
-        && d.status == 'active'
+             'requiresAuth','authReviewState','specCategory','specs','source',
+             'hiddenReason'])
+        // r422 "list now, publish after payouts": a seller who isn't
+        // payment-ready saves status 'hidden' + hiddenReason
+        // 'awaiting_payouts' (kept out of browse/search/storefront by every
+        // client build, old ones included). It publishes when Stripe enables
+        // charges (server only). 'active' needs a payment-ready seller —
+        // except from legacy builds, see legacyUnreadyActiveCreate().
+        && ((d.status == 'active' && !('hiddenReason' in d.keys())
+               && (sellerPaymentReady() || legacyUnreadyActiveCreate()))
+            || (d.status == 'hidden' && d.get('hiddenReason', '') == 'awaiting_payouts'))
         // r396: acquisition tag set once at create (Bingo sell card). Not in
         // the update whitelist, so it can't be changed afterwards.
         && (!('source' in d.keys()) || d.source == 'bingo')
@@ -300,13 +322,26 @@ service cloud.firestore {
     //     below; createdAt isn't in the whitelist so any attempt to
     //     change it fails affectedKeys()).
     function isValidListingUpdate(next, prev) {
-      return (prev.get('status', 'active') == 'active' || prev.get('status', 'active') == 'expired')
+      return (prev.get('status', 'active') == 'active' || prev.get('status', 'active') == 'expired'
+              // r422: the post-create photo attach on a listing saved before
+              // payouts. Status and reason stay put; publishing is server-only.
+              || (prev.get('status', 'active') == 'hidden'
+                  && prev.get('hiddenReason', '') == 'awaiting_payouts'
+                  && next.get('status', 'active') == 'hidden'
+                  && next.diff(prev).affectedKeys().hasOnly(['photos','updatedAt'])))
         && next.sellerId == prev.sellerId
         // Sellers may flip an expired listing back to active when they
-        // touch `expiresAt` (renewal). All other status transitions are
-        // server-only.
+        // touch `expiresAt` (renewal) — r422: only when payment-ready; a
+        // seller who isn't renews it to hidden/awaiting_payouts instead.
+        // All other status transitions are server-only.
         && (next.get('status', 'active') == prev.get('status', 'active')
-            || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'active'))
+            || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'active'
+                && sellerPaymentReady())
+            || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'hidden'
+                && next.get('hiddenReason', '') == 'awaiting_payouts'))
+        // hiddenReason only moves with that expired → awaiting renewal.
+        && (!next.diff(prev).affectedKeys().hasAny(['hiddenReason'])
+            || (prev.get('status', 'active') == 'expired' && next.get('status', 'active') == 'hidden'))
         // 2026-06-04 (#33): narrowed from the previous 16-field
         // whitelist (which mirrored updateListing's editable set) to
         // ONLY operational fields the client actually direct-writes.
@@ -324,7 +359,7 @@ service cloud.firestore {
         // The offers panel + SEO LD-JSON paths render arbitrary URLs;
         // image moderation only runs on objects in OUR bucket.
         && next.diff(prev).affectedKeys().hasOnly(
-             ['status','expiresAt','updatedAt','photos'])
+             ['status','expiresAt','updatedAt','photos','hiddenReason'])
         && (!('expiresAt' in next.keys()) || next.expiresAt is timestamp)
         && (!('updatedAt' in next.keys()) || next.updatedAt is timestamp)
         && (!('photos' in next.keys()) || (

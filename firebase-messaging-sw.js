@@ -34,9 +34,12 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const target = data.listingId
+  // r422: a same-origin path from the server wins (payout reminders send
+  // webUrl "/?payouts=setup", which opens Stripe onboarding).
+  const webUrl = typeof data.webUrl === 'string' && /^\/(?!\/)/.test(data.webUrl) ? data.webUrl : '';
+  const target = webUrl || (data.listingId
     ? `/?listing=${encodeURIComponent(data.listingId)}`
-    : '/';
+    : '/');
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
     for (const c of all) {

@@ -45,6 +45,11 @@ const LIST_FIRST_EPOCH_MS = Date.parse("2026-10-20T09:00:00Z");
 const SELLER_NUDGE_CAP_PER_DAY = 3;
 const HIDDEN_STATUS = "hidden";
 const HIDDEN_REASON = "payouts_pending";
+// r422 "list now, publish after payouts": a listing saved by a seller who
+// isn't charges-enabled yet. Same status ("hidden") as the 7-day pause, so
+// every client build already in the App Store keeps it out of browse,
+// search, category and other people's storefronts; only the reason differs.
+const AWAITING_REASON = "awaiting_payouts";
 
 // Lazy template loader — same tolerant pattern as securityEmailTriggers.
 function loadTemplate(category, name) {
@@ -102,9 +107,17 @@ async function lookupUser(uid) {
 // Relist hidden listings + notify waiting buyers. Idempotent: a second call
 // finds nothing hidden and no un-notified interest. Never throws.
 async function onSellerChargesReady(uid) {
-  const out = {relisted: 0, expiredInstead: 0, buyersNotified: 0};
+  const out = {relisted: 0, expiredInstead: 0, buyersNotified: 0, published: 0};
   if (!uid) return out;
   const db = admin.firestore();
+  // r422: the seller is charges-enabled, so no more payout-setup reminders.
+  // Runs first and for every seller (test accounts too) so cancel-on-onboard
+  // never depends on the relist below.
+  try {
+    await require("./payoutReminders").cancelReminders(uid, "charges-enabled");
+  } catch (e) {
+    logger.warn(`[listFirst] reminder cancel failed for ${uid}`, e && e.message);
+  }
   // 2026-11-16: a TEST seller's listings never trigger buyer emails.
   {
     const tl = require("./testAccounts");
@@ -112,34 +125,84 @@ async function onSellerChargesReady(uid) {
   }
   const now = admin.firestore.Timestamp.now();
 
-  // 1. Relist. Equality-only query → no composite index needed.
+  // 1. Relist. Equality-only queries → no composite index needed.
+  //    (a) the 7-day pause (payouts_pending) and (b) r422 listings saved
+  //    before payouts (awaiting_payouts), which publish for the first time.
+  const published = [];
   try {
-    const hidden = await db.collection("listings")
-        .where("sellerId", "==", uid)
-        .where("status", "==", HIDDEN_STATUS)
-        .where("hiddenReason", "==", HIDDEN_REASON)
-        .limit(200).get();
-    if (!hidden.empty) {
+    const [pausedSnap, awaitingSnap] = await Promise.all([HIDDEN_REASON, AWAITING_REASON].map((r) =>
+      db.collection("listings")
+          .where("sellerId", "==", uid)
+          .where("status", "==", HIDDEN_STATUS)
+          .where("hiddenReason", "==", r)
+          .limit(200).get()));
+    const docs = [...pausedSnap.docs, ...awaitingSnap.docs];
+    if (docs.length) {
       const batch = db.batch();
-      hidden.docs.forEach((d) => {
+      docs.forEach((d) => {
         const l = d.data() || {};
         const expired = l.expiresAt && l.expiresAt.toMillis &&
           l.expiresAt.toMillis() < now.toMillis();
+        const wasAwaiting = l.hiddenReason === AWAITING_REASON;
         batch.update(d.ref, {
           // Past its 60-day life while hidden → hand it to the normal
           // renew flow instead of resurrecting a stale listing.
           status: expired ? "expired" : "active",
           hiddenReason: admin.firestore.FieldValue.delete(),
           hiddenAt: admin.firestore.FieldValue.delete(),
-          relistedAt: admin.firestore.FieldValue.serverTimestamp(),
+          ...(wasAwaiting ? {publishedAt: admin.firestore.FieldValue.serverTimestamp(),
+            listingLiveEmailedAt: admin.firestore.FieldValue.serverTimestamp()} :
+            {relistedAt: admin.firestore.FieldValue.serverTimestamp()}),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        if (expired) out.expiredInstead++; else out.relisted++;
+        if (expired) out.expiredInstead++;
+        else if (wasAwaiting) { out.published++; published.push({id: d.id, ...l}); } else out.relisted++;
       });
       await batch.commit();
     }
   } catch (e) {
     logger.error(`[listFirst] relist failed for ${uid}`, e);
+  }
+
+  // 1b. r422: tell the seller their saved listing(s) are now live.
+  //     dedupeKey keeps the webhook + status callable (which can both land
+  //     within seconds) from double-sending.
+  if (published.length) {
+    try {
+      const seller = await lookupUser(uid);
+      const first = published[0];
+      const t = String(first.title || "Your listing").slice(0, 50);
+      const n = published.length;
+      const title = n === 1 ? "Your listing is live" : `${n} listings are live`;
+      const body = n === 1 ?
+        `${t} is now on TeeBox and buyers can purchase it.` :
+        `${t} and ${n - 1} more are now on TeeBox and buyers can purchase them.`;
+      await notify({
+        recipientUid: uid,
+        dedupeKey: `published:${uid}:${published.map((p) => p.id).sort().join(",")}`.slice(0, 280),
+        dedupeWindowMs: 24 * 60 * 60 * 1000,
+        inApp: {type: "listing_published", title, body, listingId: first.id},
+        push: {
+          payload: {
+            title, body,
+            deepLink: `teebox://listing/${first.id}`,
+            imageUrl: (first.photos && first.photos[0]) || "",
+            kind: "listing-published",
+            data: {listingId: first.id, kind: "listing-published"},
+          },
+          category: "orders",
+          opts: {threadId: "payouts"},
+        },
+        email: emailFor({
+          templateName: "ListingLive",
+          to: seller.email, uid,
+          ctx: {user: seller, listing: first, appUrl: APP_URL, payoutsReady: true,
+            moreCount: n - 1},
+        }),
+      });
+    } catch (e) {
+      logger.warn(`[listFirst] published notify failed for ${uid}`, e && e.message);
+    }
   }
 
   // 2. Tell waiting buyers.
@@ -244,6 +307,6 @@ module.exports = {
   APP_URL, PAYOUT_SETUP_URL,
   LISTING_DAILY_CAP, RATE_WINDOW_MS, HIDE_AFTER_DAYS, LIST_FIRST_EPOCH_MS,
   SELLER_NUDGE_CAP_PER_DAY, rollingLimitAllowed, hideClockStartMs,
-  HIDDEN_STATUS, HIDDEN_REASON,
+  HIDDEN_STATUS, HIDDEN_REASON, AWAITING_REASON,
   emailFor, lookupUser, onSellerChargesReady,
 };

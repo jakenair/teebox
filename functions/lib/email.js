@@ -69,6 +69,10 @@ const CATEGORIES = Object.freeze({
   WIN_BACK: "winBack",
   WEEKLY_DIGEST: "weeklyDigest",
   PRODUCT_UPDATES: "productUpdates",
+  // r422: payout-setup reminders. Not marketing (no consent gate) but not
+  // transactional either, so suppression + emailPrefs opt-out + the
+  // List-Unsubscribe header all apply.
+  PAYOUT_REMINDERS: "payoutReminders",
 });
 
 const TRANSACTIONAL_CATEGORIES = new Set([CATEGORIES.TRANSACTIONAL]);
