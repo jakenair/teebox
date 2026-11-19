@@ -33,8 +33,8 @@
     "sha": null
   },
   "capiPurchaseOnOrderCreated": {
-    "sha": "0d015d3db89ca21039ac791881f6dbaf9eaa7b1c",
-    "at": "2026-11-17",
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
     "region": "us-central1"
   },
   "capiRelay": {
@@ -46,6 +46,11 @@
     "at": "2026-09-29",
     "region": "us-central1",
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+  },
+  "claimGuestOrder": {
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "completeAccountSetup": {
     "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
@@ -72,10 +77,9 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
-    "at": "2026-11-14",
-    "region": "us-central1",
-    "note": "raw gcloud with --update-secrets=META_CAPI_TOKEN (deploy-fn.sh cannot add secrets); rev 00038-cev"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "createShippingLabel": {
     "at": "2026-09-29",
@@ -242,12 +246,13 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "markOrderShipped": {
-    "at": "2026-08-27",
-    "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "metaFeed": {
-    "sha": "0d015d3db89ca21039ac791881f6dbaf9eaa7b1c",
-    "at": "2026-11-17",
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
     "region": "us-central1"
   },
   "moderateImage": {
@@ -339,8 +344,9 @@
     "sha": "4a8c2e335efebf8b7f586e12354ba04864af38b9"
   },
   "onDisputeOpenedEmail": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "onListingLive": {
     "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
@@ -357,16 +363,19 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "onOrderCreatedEmail": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "onOrderLabelEmail": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "onOrderShippingStatusEmail": {
-    "at": "2026-09-11",
-    "sha": "093168145b005e178ef1ab2788bc64c8e1bf3702"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "onPayoutReleasedEmail": {
     "at": "2026-09-11",
@@ -378,8 +387,9 @@
     "region": "us-central1"
   },
   "onRefundEmail": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "onReportCreate": {
     "at": "2026-05-15",
@@ -515,6 +525,11 @@
     "at": "2026-07-31",
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
+  "recordListingView": {
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
+  },
   "redeemReferralCredit": {
     "at": "2026-07-31",
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
@@ -560,8 +575,9 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "reviewRequestScheduler": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "revokeMySession": {
     "at": "2026-05-15",
@@ -634,14 +650,19 @@
     "at": "2026-11-17",
     "region": "us-central1"
   },
+  "stillAvailableRecheck": {
+    "sha": "abefd4e01ad1377fe2d1c75057d581606d31ea62",
+    "at": "2026-11-15",
+    "region": "us-central1"
+  },
   "stripeConnectWebhook": {
     "sha": "45eb10f224f7fa2c1a87cb84cb0cd07d0eaefb1d",
     "at": "2026-11-17",
     "region": "us-central1"
   },
   "stripeWebhook": {
-    "sha": "f549d31f095c5afcf4f4ae09a6927c1c0456e10d",
-    "at": "2026-11-14",
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
     "region": "us-central1"
   },
   "suggestListingPrice": {
@@ -677,6 +698,11 @@
     "at": "2026-05-17",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "tiktokFeed": {
+    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
+    "at": "2026-11-19",
+    "region": "us-central1"
   },
   "updateCheckoutShipping": {
     "at": "2026-09-09",
@@ -714,15 +740,5 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
-  },
-  "stillAvailableRecheck": {
-    "sha": "abefd4e01ad1377fe2d1c75057d581606d31ea62",
-    "at": "2026-11-15",
-    "region": "us-central1"
-  },
-  "tiktokFeed": {
-    "sha": "0d015d3db89ca21039ac791881f6dbaf9eaa7b1c",
-    "at": "2026-11-17",
-    "region": "us-central1"
   }
 }
