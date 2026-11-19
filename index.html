@@ -6181,7 +6181,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r422</span></div>
+        <span class="auth-build" aria-hidden="true">r423</span></div>
     </div>
   </div>
 </div>
@@ -8092,8 +8092,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r422"></script>
-      <script async src="/js/feed-rank.js?v=r422"></script>
+      <script async src="/js/feed-rank-config.js?v=r423"></script>
+      <script async src="/js/feed-rank.js?v=r423"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -10069,9 +10069,9 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r422"></script>
-<script defer src="/js/checkout-guest.js?v=r422"></script>
-<script type="module" src="/js/app-auth.js?v=r422"></script>
+<script defer src="/js/app-main.js?v=r423"></script>
+<script defer src="/js/checkout-guest.js?v=r423"></script>
+<script type="module" src="/js/app-auth.js?v=r423"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10101,8 +10101,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r422"></script>
-<script type="module" src="/js/sunday-nine.js?v=r422"></script>
+<script type="module" src="/js/bingo.js?v=r423"></script>
+<script type="module" src="/js/sunday-nine.js?v=r423"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
