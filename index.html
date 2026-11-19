@@ -1599,6 +1599,7 @@ window.tbEvent = function (name, surface) {
   .guest-iab { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); background: var(--gray-50); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .guest-iab-text { font-size: 12.5px; color: var(--gray-700); flex: 1 1 auto; }
   .guest-iab-btn { border: 1px solid var(--green-700); color: var(--green-700); background: var(--white); border-radius: 50px; padding: 7px 14px; font: 600 13px/1.2 var(--font-body); cursor: pointer; }
+  .guest-iab[hidden], .guest-co-rows[hidden], .tb-sheet-iab[hidden], .guest-iab-sub[hidden] { display: none; }
   .guest-iab-sub { flex-basis: 100%; font-size: 11.5px; color: var(--gray-500); margin: 2px 0 0; line-height: 1.45; }
   .tb-sheet-fine a { color: var(--green-700); }
   .tb-sheet-error { color: var(--red-500, #c0392b); font-size: 13px; min-height: 18px; margin: 0 0 8px; }
@@ -3140,6 +3141,9 @@ window.tbEvent = function (name, surface) {
   .btn-full.green { background: var(--green-600); color: var(--white); }
   .btn-full.green:hover { background: var(--green-500); }
   .btn-full.ghost { background: var(--gray-100); color: var(--gray-700); }
+  /* r421: a disabled Pay/Continue reads as disabled (it carries the reason:
+     "Enter your email", "Confirm you're 18+ to continue", ...). */
+  .btn-full.green:disabled { background: var(--gray-300); color: var(--gray-700); cursor: not-allowed; }
 
   /* Checkout modal: fit the viewport. The base .modal has no max-height +
      overflow:hidden, so the tall checkout content (order summary + Stripe
@@ -6166,7 +6170,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r387</span></div>
+        <span class="auth-build" aria-hidden="true">r421</span></div>
     </div>
   </div>
 </div>
@@ -8077,8 +8081,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r418"></script>
-      <script async src="/js/feed-rank.js?v=r418"></script>
+      <script async src="/js/feed-rank-config.js?v=r421"></script>
+      <script async src="/js/feed-rank.js?v=r421"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -9824,7 +9828,7 @@ window.openCheckout = async function(productId, qty, opts) {
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '0';
     payBtn.disabled = true;
-    payBtn.textContent = 'Pay Now';
+    payBtn.textContent = 'Confirm you\u2019re 18+ to continue';
     window.__ageThenMount = () => window.openCheckout(productId, qty, Object.assign({}, opts || {}, { __afterAge: true }));
     return;
   }
@@ -10053,9 +10057,9 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r418"></script>
+<script defer src="/js/app-main.js?v=r421"></script>
 <script defer src="/js/checkout-guest.js?v=r421"></script>
-<script type="module" src="/js/app-auth.js?v=r418"></script>
+<script type="module" src="/js/app-auth.js?v=r421"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10085,8 +10089,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r418"></script>
-<script type="module" src="/js/sunday-nine.js?v=r418"></script>
+<script type="module" src="/js/bingo.js?v=r421"></script>
+<script type="module" src="/js/sunday-nine.js?v=r421"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

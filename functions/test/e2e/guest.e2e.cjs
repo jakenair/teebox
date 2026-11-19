@@ -314,6 +314,7 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   await shot(A.page, "F-guest-sheet-390-ready");
   await A.page.click("#payBtn");
   await A.page.waitForFunction(() => document.getElementById("orderConfirmBackdrop") && document.getElementById("orderConfirmBackdrop").classList.contains("open"), null, {timeout: 15000});
+  await A.page.waitForTimeout(900);
   await shot(A.page, "F-guest-success-390");
   const gp = S.calls.filter((c) => c.op === "pi.create").slice(-1)[0];
   check("guest pay: PI created at Pay with hold", gp && gp.p.metadata.listingId === "gPolo" && gp.p.amount === 5000, gp && {amount: gp.p.amount});
@@ -363,7 +364,7 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   await B.page.goto(`http://127.0.0.1:${PORT}/?claim=${claimM ? claimM[1] : "x"}`);
   await B.page.waitForFunction(() => window.CURRENT_USER && window.CURRENT_USER.email, null, {timeout: 20000}).catch(() => {});
   const signedAs = await B.page.evaluate(() => window.CURRENT_USER && window.CURRENT_USER.email);
-  await B.page.waitForTimeout(1500);
+  await B.page.waitForTimeout(2600);
   await shot(B.page, "F-claim-new-390");
   console.log("B console:", JSON.stringify(bLog.filter((l) => /claim|error|Error|toast|warn|FAILED|RESP/i.test(l)).slice(0, 10)));
   console.log("B aborted:", JSON.stringify(B.nav.slice(0, 8)));
