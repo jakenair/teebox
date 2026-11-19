@@ -292,8 +292,17 @@ async function loadOrderParties(order) {
     order.sellerId ? db.collection("users").doc(order.sellerId).get() : null,
     order.listingId ? db.collection("listings").doc(order.listingId).get() : null,
   ]);
+  // r421 guest checkout: an unclaimed guest has no users doc. Stand in a
+  // party built from the order so every buyer email (confirmation, label,
+  // out-for-delivery, delivered, refund, dispute, review, shipped) resolves
+  // to order.buyerEmail through resolveUserEmail's guest fallback.
+  const guestBuyer = (!(buyerSnap && buyerSnap.exists) && order.guestCheckout === true &&
+      order.buyerEmail && /^guest_[0-9a-f]{28}$/.test(String(order.buyerId || ""))) ? {
+      uid: order.buyerId, email: order.buyerEmail, isGuest: true,
+      firstName: String(((order.shipping && order.shipping.name) || "").trim().split(/\s+/)[0] || "") || undefined,
+    } : null;
   return {
-    buyer: buyerSnap && buyerSnap.exists ? {uid: buyerSnap.id, ...buyerSnap.data()} : {},
+    buyer: buyerSnap && buyerSnap.exists ? {uid: buyerSnap.id, ...buyerSnap.data()} : (guestBuyer || {}),
     seller: sellerSnap && sellerSnap.exists ? {uid: sellerSnap.id, ...sellerSnap.data()} : {},
     listing: listingSnap && listingSnap.exists ? {id: listingSnap.id, ...listingSnap.data()} : {},
   };
@@ -344,6 +353,25 @@ exports.onOrderCreatedEmail = onDocumentCreated(
       if (!order || !order.buyerId) return;
       const {buyer, seller, listing} = await loadOrderParties(order);
       const ctx = {order, buyer, seller, listing};
+      // r421 guest checkout: one-time claim link (raw token lives only in
+      // this email; Firestore keeps its hash). Tapping it proves the guest
+      // controls the inbox, then claimGuestOrder attaches the order.
+      if (buyer.isGuest) {
+        try {
+          const G = require("./lib/guestCheckout");
+          const t = G.newClaimToken();
+          await admin.firestore().collection("guestClaims").doc(t.id).set({
+            email: String(order.buyerEmail).toLowerCase(),
+            guestBuyerId: order.buyerId,
+            orderId: order.id,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAtMs: Date.now() + G.CLAIM_TTL_MS,
+          });
+          ctx.claimUrl = `https://teeboxmarket.com/?claim=${t.raw}`;
+        } catch (e) {
+          logger.error("onOrderCreatedEmail: guest claim token failed", e.message || e);
+        }
+      }
       // Canonical email source is Firebase Auth (users/{uid} has no email field
       // for real accounts — that was the silent-skip bug). doc email is a
       // legacy/smoke fallback. See lib/emailRecipient.js.

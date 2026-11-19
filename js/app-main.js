@@ -13583,6 +13583,14 @@ A['seller-age-confirm']      = () => {
 document.addEventListener('change', (e) => {
   if (e.target && e.target.id === 'checkoutAge18Checkbox') {
     window.__buyerAge18 = !!e.target.checked;
+    // r421: guest checkout owns its own Pay-button state (checkout-guest.js).
+    if (document.body.classList.contains('guest-checkout')) return;
+    // r421: box shown up front → ticking it loads payment immediately.
+    if (e.target.checked && typeof window.__ageThenMount === 'function') {
+      const go = window.__ageThenMount; window.__ageThenMount = null;
+      go();
+      return;
+    }
     const pb = document.getElementById('payBtn') || document.querySelector('#checkoutBackdrop [data-action="retry-checkout"]');
     if (pb) pb.disabled = !e.target.checked;
   }
@@ -15284,7 +15292,9 @@ A['detail-buy-now']          = () => {
   const pid = currentDetailId;
   // Guest gate. We pass the replay intent so a guest who completes
   // sign-in lands directly back in checkout.
-  if (!window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(pid, qty); })) return;
+  // r421: web guests go straight to guest checkout (openCheckout decides).
+  const guestOk = typeof window.tbGuestCheckoutEligible === 'function' && window.tbGuestCheckoutEligible();
+  if (!guestOk && !window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(pid, qty); })) return;
   closeDetailModalDirect();
   openCheckout(pid, qty);
 };

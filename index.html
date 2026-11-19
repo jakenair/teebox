@@ -91,6 +91,11 @@
                          carry the right release attribution.
 -->
 <script>
+// r421 guest checkout: grab ?claim=<token> before any router touches the URL
+// (js/app-auth.js handleGuestClaim reads window.__tbClaimToken).
+try { window.__tbClaimToken = new URLSearchParams(location.search).get('claim') || null; } catch (_e) {}
+</script>
+<script>
 // r349 cold-load: PostHog's array.js (327 KB raw) was competing with the
 // document + Firestore SDK for a slow link's bandwidth before the first
 // product card. The snippet below still installs the stub immediately (every
@@ -1580,6 +1585,19 @@ window.tbEvent = function (name, surface) {
   .tb-sheet-divider::before, .tb-sheet-divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
   .tb-sheet-link { display: block; width: 100%; background: none; border: none; color: var(--green-700); font: 600 15px/1.2 var(--font-body); text-decoration: underline; padding: 10px; cursor: pointer; }
   .tb-sheet-fine { font-size: 11.5px; color: var(--gray-500); text-align: center; margin: 8px 0 0; line-height: 1.5; }
+  /* r421 in-app-browser block (sign-up sheet) */
+  .tb-sheet-iab { margin: 0 0 6px; }
+  .tb-sheet-iab-msg { font-size: 13.5px; color: var(--gray-700); line-height: 1.5; margin: 0 0 12px; }
+  .tb-sheet-btn.iab { background: var(--green-700); color: var(--white); border: 1px solid var(--green-700); }
+  .tb-sheet-btn.iab svg { width: 20px; height: 20px; }
+  /* r421 guest checkout rows */
+  .guest-co-rows { margin-bottom: 14px; }
+  .guest-co-label { font-size: 12px; font-weight: 700; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .guest-co-note { font-size: 12px; color: var(--gray-500); margin: 6px 0 0; line-height: 1.45; }
+  .guest-iab { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); background: var(--gray-50); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .guest-iab-text { font-size: 12.5px; color: var(--gray-700); flex: 1 1 auto; }
+  .guest-iab-btn { border: 1px solid var(--green-700); color: var(--green-700); background: var(--white); border-radius: 50px; padding: 7px 14px; font: 600 13px/1.2 var(--font-body); cursor: pointer; }
+  .guest-iab-sub { flex-basis: 100%; font-size: 11.5px; color: var(--gray-500); margin: 2px 0 0; line-height: 1.45; }
   .tb-sheet-fine a { color: var(--green-700); }
   .tb-sheet-error { color: var(--red-500, #c0392b); font-size: 13px; min-height: 18px; margin: 0 0 8px; }
   @media (min-width: 700px) { .tb-sheet-backdrop { align-items: center; } .tb-sheet { border-radius: 22px; max-width: 440px; padding: 22px 26px 26px; } .tb-sheet-handle { display: none; } }
@@ -5948,6 +5966,19 @@ window.tbEvent = function (name, surface) {
     <button type="button" class="tb-sheet-x" data-action="close-auth-sheet" aria-label="Close">×</button>
     <div class="tb-sheet-title" id="authSheetTitle">Sign up for TeeBox</div>
     <div class="tb-sheet-error" id="authSheetError" role="status" aria-live="polite"></div>
+    <!-- r421: inside Facebook / Instagram / Messenger / TikTok's built-in
+         browser Google sign-in is blocked by Google, so it's hidden and we
+         offer the real browser with this listing's link + UTMs. -->
+    <div class="tb-sheet-iab" id="authSheetIab" hidden>
+      <p class="tb-sheet-iab-msg" id="authSheetIabMsg"></p>
+      <button type="button" class="tb-sheet-btn iab" data-action="iab-open-browser">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+        <span id="authSheetIabBtnLabel">Open in Safari</span>
+      </button>
+      <button type="button" class="tb-sheet-link" data-action="iab-copy-link">Copy link instead</button>
+      <p class="tb-sheet-fine" id="authSheetIabHint" hidden>If nothing opened: tap the three dots at the top right, then Open in browser. The link is already copied.</p>
+      <div class="tb-sheet-divider">or stay here</div>
+    </div>
     <button type="button" class="tb-sheet-btn apple" id="authSheetApple" data-action="sheet-apple"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.37 12.7c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.6-.75 3-.75s1.79.75 3.01.73c1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.47-3.73zM14.1 5.98c.64-.78 1.07-1.86.95-2.94-.92.04-2.04.61-2.7 1.39-.59.69-1.11 1.8-.97 2.86 1.03.08 2.08-.52 2.72-1.31z"/></svg><span>Continue with Apple</span></button>
     <div class="tb-sheet-divider" id="authSheetDivider">or</div>
     <button type="button" class="tb-sheet-btn google" id="authSheetGoogle" data-action="sheet-google"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg><span>Continue with Google</span></button>
@@ -8739,6 +8770,19 @@ window.tbEvent = function (name, surface) {
       <!-- Stripe Address Element — captures shipping address.
            Required: privacy.html promises we collect shipping addresses,
            and the backend reads pi.shipping in handlePaymentSucceeded. -->
+      <!-- r421 guest checkout (web only): email (Stripe Link-aware) instead of
+           a sign-up wall. Hidden for signed-in buyers and in the iOS app. -->
+      <div class="modal-input-row guest-co-rows" id="guestCoRows" hidden>
+        <div class="guest-co-label">Email</div>
+        <div id="guest-email-element"></div>
+        <p class="guest-co-note">For your receipt and tracking. No account needed.</p>
+        <div class="guest-iab" id="guestIabHint" hidden>
+          <span class="guest-iab-text">Want Apple Pay or Google Pay?</span>
+          <button type="button" class="guest-iab-btn" data-action="iab-open-browser"><span id="guestIabBtnLabel">Open in Safari</span></button>
+          <p class="guest-iab-sub" id="guestIabHint2" hidden>If nothing opened: tap the three dots at the top right, then Open in browser. The link is copied.</p>
+        </div>
+      </div>
+
       <div class="modal-input-row" id="checkoutShipRow" style="margin-bottom:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Ship to</div>
         <div id="address-element" style="min-height:48px;"></div>
@@ -9032,7 +9076,8 @@ async function ensureStripeLoaded() {
 // Warm it once the page is idle so the first Buy Now click is instant.
 // Guests never pay, so only warm for signed-in users; never on native boot.
 try {
-  const __warm = () => { try { if (window.CURRENT_USER) loadStripeJs().catch(() => {}); } catch (_e) {} };
+  // r421: web guests pay too (guest checkout), so warm for them as well.
+  const __warm = () => { try { if (window.CURRENT_USER || (window.tbGuestCheckoutEligible && window.tbGuestCheckoutEligible())) loadStripeJs().catch(() => {}); } catch (_e) {} };
   if (window.__afterFeedPaint) window.__afterFeedPaint(__warm, 8000);
   else (window.requestIdleCallback || ((f) => setTimeout(f, 3000)))(__warm, {timeout: 8000});
 } catch (_e) {}
@@ -9558,7 +9603,13 @@ window.openCheckout = async function(productId, qty, opts) {
   }
   // Guest gate: surface the polished sign-in prompt and remember the
   // user's intent so we can replay openCheckout() after they sign in.
-  if (typeof window.requireAuth === 'function') {
+  // r421: on the website a signed-out buyer checks out as a guest (no sign-up
+  // wall). Offers still need an account. The iOS app never takes this path.
+  const __guestCo = !window.CURRENT_USER && !(opts && opts.offerId) &&
+    typeof window.tbGuestCheckoutEligible === 'function' && window.tbGuestCheckoutEligible();
+  if (__guestCo) {
+    // fall through to the sheet; mountGuestCheckout replaces the PI mount
+  } else if (typeof window.requireAuth === 'function') {
     if (!window.requireAuth('to buy this listing', () => window.openCheckout(productId, qty, opts))) return;
   } else if (!window.CURRENT_USER) {
     showToast('Please sign in to purchase.');
@@ -9686,6 +9737,8 @@ window.openCheckout = async function(productId, qty, opts) {
   // point in the audit). The corresponding `purchase_completed`
   // event is server-side from the Stripe webhook so the funnel is
   // attributable end-to-end.
+  // r421: the age-confirm re-open is the same checkout; don't count it twice.
+  if (!(opts && opts.__afterAge)) {
   try {
     if (window.posthog) {
       window.posthog.capture('checkout_started', {
@@ -9704,13 +9757,49 @@ window.openCheckout = async function(productId, qty, opts) {
   window.__tbCheckoutEventId = 'ic_' + String(p.id) + '_' + Date.now().toString(36);
   window.fbTrack('InitiateCheckout', { content_ids: [String(p.id)], content_type: 'product', value: Math.round(totalDollars * 100) / 100, currency: 'USD', num_items: requestedQty },
     { eventID: window.__tbCheckoutEventId });
+  }
 
   // Mount the Payment Element. If it fails (network, signed-out, seller
   // hasn't connected Stripe), surface the message inline and flip the Pay
   // button into a "Try again" so the buyer has an obvious recovery path
   // without having to close + reopen the modal.
+  if (__guestCo) {
+    try {
+      await window.mountGuestCheckout(checkoutProduct);
+      if (_paySkel) _paySkel.style.display = 'none';
+      if (_payEl0) _payEl0.style.minHeight = '48px';
+    } catch (err) {
+      if (_paySkel) _paySkel.style.display = 'none';
+      if (_payEl0) _payEl0.style.minHeight = '48px';
+      setCheckoutError((err && err.message) || 'Could not start payment. Try again.');
+      payBtn.disabled = false;
+      payBtn.textContent = 'Try again';
+      payBtn.dataset.action = 'retry-checkout';
+    }
+    return;
+  }
+  // r421: first purchase on this account → the 18+ box is shown from the
+  // start (no refusal round-trip). Ticking it loads payment straight away.
+  // Known-confirmed accounts (this device remembers) skip it entirely.
+  let __ageKnown = !!window.__buyerAge18;
+  try { __ageKnown = __ageKnown || localStorage.getItem('tb_age18_' + window.CURRENT_USER.uid) === '1'; } catch (_e) {}
+  if (!__ageKnown && !(await window.tbBuyerAgeOnFile())) {
+    const row = document.getElementById('checkoutAgeRow');
+    const cb = document.getElementById('checkoutAge18Checkbox');
+    if (row) row.style.display = '';
+    if (cb) cb.checked = false;
+    { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = 'none'; }
+    { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = 'none'; }
+    if (_paySkel) _paySkel.style.display = 'none';
+    if (_payEl0) _payEl0.style.minHeight = '0';
+    payBtn.disabled = true;
+    payBtn.textContent = 'Pay Now';
+    window.__ageThenMount = () => window.openCheckout(productId, qty, Object.assign({}, opts || {}, { __afterAge: true }));
+    return;
+  }
   try {
     const piData = await mountPaymentElement(checkoutProduct);
+    try { localStorage.setItem('tb_age18_' + window.CURRENT_USER.uid, '1'); } catch (_e) {}
     { const ar = document.getElementById('checkoutAgeRow'); if (ar) ar.style.display = 'none'; }
     { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = ''; }
     { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = ''; }
@@ -9934,6 +10023,7 @@ window.confirmPayment = async function() {
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
 <script defer src="/js/app-main.js?v=r418"></script>
+<script defer src="/js/checkout-guest.js?v=r421"></script>
 <script type="module" src="/js/app-auth.js?v=r418"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->

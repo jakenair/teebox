@@ -3,7 +3,7 @@ const {
   Base, Button, H1, P, Kicker, ProductRow, Receipt, ReceiptRow, InfoBlock,
 } = require("../layout/Base");
 
-function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
+function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null}) {
   const orderId = order.id || "—";
   const total = formatUsd(order.amountCents);
   // Structure 2: amountCents = item + shipping; break the receipt down.
@@ -57,11 +57,30 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}}) {
         </InfoBlock>
       ) : null}
 
-      <Button href={orderUrl}>View your order</Button>
-      <P muted>
-        Not as described, or it never ships? Open a dispute from the order page —
-        you have 7 days from delivery and we&apos;ll mediate.
-      </P>
+      {claimUrl ? (
+        <>
+          <P>
+            You checked out as a guest. Tap below to save this order to a free
+            TeeBox account so you can track it, message the seller, and open a
+            dispute if anything goes wrong. No password needed.
+          </P>
+          <Button href={claimUrl}>Track your order</Button>
+          <P muted>
+            This link signs you in as {order.buyerEmail || "you"}, so don&apos;t
+            forward this email. Not as described, or it never ships? Open a
+            dispute from the order page within 7 days of delivery and we&apos;ll
+            mediate.
+          </P>
+        </>
+      ) : (
+        <>
+          <Button href={orderUrl}>View your order</Button>
+          <P muted>
+            Not as described, or it never ships? Open a dispute from the order page —
+            you have 7 days from delivery and we&apos;ll mediate.
+          </P>
+        </>
+      )}
     </Base>
   );
 }

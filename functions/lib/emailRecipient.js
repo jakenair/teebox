@@ -29,6 +29,12 @@
  */
 async function resolveUserEmail(uid, docEmail, authGetter) {
   if (!uid) return {email: null, source: "no-uid"};
+  // r421 guest checkout: a guest_<hash> buyer has no Auth user. The caller
+  // passes the order's buyerEmail as docEmail; that IS the address.
+  if (/^guest_[0-9a-f]{28}$/.test(String(uid))) {
+    return docEmail ? {email: String(docEmail), source: "guest"} :
+      {email: null, source: "unresolved"};
+  }
   try {
     const u = await authGetter(uid);
     if (u && u.email) return {email: u.email, source: "auth"};

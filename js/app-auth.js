@@ -1419,6 +1419,55 @@
     }
   };
 
+  // r421: has this account already confirmed 18+ (users/{uid}.buyerAge18At)?
+  // Lets checkout skip the box for returning buyers on a new device. A read
+  // failure answers false (the box shows; ticking it is harmless).
+  window.tbBuyerAgeOnFile = async function() {
+    try {
+      const u = window.CURRENT_USER; if (!u) return false;
+      const snap = await getDoc(doc(db, 'users', u.uid));
+      const ok = !!(snap.exists() && snap.data() && snap.data().buyerAge18At);
+      if (ok) { try { localStorage.setItem('tb_age18_' + u.uid, '1'); } catch (_e) {} }
+      return ok;
+    } catch (_e) { return false; }
+  };
+
+  // r421 guest checkout: /?claim=<token> from the order-confirmation email.
+  // The server attaches the guest order(s) to the account for that email
+  // (creating it if needed) and returns a custom token; we sign in with it
+  // and open Orders. Runs once on load; the param is stripped first.
+  (async function handleGuestClaim() {
+    let token = null;
+    try {
+      const u = new URL(window.location.href);
+      token = window.__tbClaimToken || u.searchParams.get('claim');
+      window.__tbClaimToken = null;
+      if (!token) return;
+      u.searchParams.delete('claim');
+      window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+    } catch (_e) { return; }
+    const toast = (m, k) => { try { window.showToast && window.showToast(m, k); } catch (_e) {} };
+    // Let the page and the restored sign-in settle first: a call fired in
+    // the first milliseconds of page load can stall behind the service
+    // worker taking control.
+    try { if (auth.authStateReady) await auth.authStateReady(); } catch (_e) {}
+    if (document.readyState !== 'complete') await new Promise((r) => window.addEventListener('load', r, { once: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      const res = await httpsCallable(fns, 'claimGuestOrder')({ token });
+      const d = (res && res.data) || {};
+      if (d.customToken) {
+        if (auth.currentUser && auth.currentUser.uid) { try { await fbSignOut(auth); } catch (_e) {} }
+        await signInWithCustomToken(auth, d.customToken);
+      }
+      toast(d.isNewAccount ? 'Your TeeBox account is ready and your order is saved.' : 'Your order is saved to your TeeBox account.', 'success');
+      setTimeout(() => { try { window.__actions && window.__actions['view-my-orders'] && window.__actions['view-my-orders'](); } catch (_e) {} }, 1200);
+    } catch (e) {
+      try { console.warn('[claim] failed:', e && (e.code || ''), e && e.message); } catch (_e) {}
+      toast((e && e.message) || 'That link didn’t work. Sign in with the email you checked out with to see your order.', 'error');
+    }
+  })();
+
   window.signOut = async function() {
     if (!confirm('Sign out?')) return;
     // Tear down any open UI before flipping auth state — otherwise an

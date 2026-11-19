@@ -176,7 +176,10 @@ function buildUserData(order, extra, cfg) {
   // one would hash undefined and silently never match, which is exactly how
   // this class of bug hides (the event is accepted by Meta either way).
   // Verified against a live order doc on 2026-10-02.
-  const em = hashEmail(order.receiptEmail || order.buyerEmail || order.email || x.email);
+  // r421: guest checkout orders never send the buyer's email (founder
+  // ruling). They match on fbp/fbc/ip/ua/external_id only.
+  const em = order.guestCheckout === true ? null :
+    hashEmail(order.receiptEmail || order.buyerEmail || order.email || x.email);
   if (em) ud.em = em;
   if (c.sendHashedPhone === true) {
     const ph = hashPhone(x.phone);
@@ -371,7 +374,7 @@ exports.capiPurchaseOnOrderCreated = onDocumentCreated(
           contentId: order.listingId, value: purchaseValueDollars(order),
           price: Number(order.unitPriceCents) > 0 ? Number(order.unitPriceCents) / 100 : undefined,
           quantity: order.quantity,
-          email: order.receiptEmail || extra.email,
+          email: order.guestCheckout === true ? "" : (order.receiptEmail || extra.email),
           url: order.listingId ? "https://teeboxmarket.com/?listing=" + encodeURIComponent(String(order.listingId)) : "",
         });
       }

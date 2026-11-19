@@ -136,6 +136,33 @@ const {PLATFORM_FEE_PERCENT, PLATFORM_FEE_PERCENT_PRO} = require("./lib/fees");
 // live in shippoIntegration.js next to the live-rate quote engine so the
 // checkout charge and getShippingQuote can never disagree on a price.
 const {FLAT_SHIPPING_CENTS} = require("./shippoIntegration")._internal;
+// r421 guest checkout: same secret name the shippo callables declare; a
+// second defineSecret of one name is the documented way to share it.
+const SHIPPO_KEY_FOR_GUEST = defineSecret("SHIPPO_API_KEY");
+
+/**
+ * r421 guest shipping price. Flat categories need no address. Live-rate
+ * categories (clubs, bags) are quoted from the guest's complete address with
+ * the same engine updateCheckoutShipping uses; without one → pending.
+ * Errors from the quote engine (HttpsError) become HttpError for onRequest.
+ * @return {Promise<{shippingCents:number, method:string, pending:boolean, carrier?:string}>}
+ */
+async function guestShippingQuote(db, listing, shipTo) {
+  const SI = require("./shippoIntegration")._internal;
+  const cat = String((listing && listing.cat) || "").toLowerCase();
+  const flat = FLAT_SHIPPING_CENTS[cat];
+  if (Number.isFinite(flat)) return {shippingCents: flat, method: "flat", pending: false};
+  const toAddr = SI.normalizeAddress(shipTo);
+  if (!toAddr || !SI.addressIsComplete(toAddr)) return {shippingCents: 0, method: "live", pending: true};
+  try {
+    const q = await SI.quoteForListing(db, listing, toAddr);
+    return {shippingCents: q.shippingCents, method: q.method, pending: false, carrier: q.carrier || ""};
+  } catch (e) {
+    const code = e && e.code;
+    const status = code === "unavailable" ? 503 : 412;
+    throw new HttpError(status, (e && e.message) || "Couldn't get a shipping rate right now.");
+  }
+}
 const PENDING_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_ORIGINS = [
   "https://teeboxmarket.com",
@@ -290,7 +317,10 @@ exports.createPaymentIntent = onRequest(
     // META_CAPI_TOKEN (2026-11-14): server-side InitiateCheckout for web AND
     // the iOS app — see sendServerInitiateCheckout in metaCapi.js.
     secrets: [stripeSecret, OPS_ALERT_WEBHOOK,
-      require("./metaCapi")._internal.META_CAPI_TOKEN],
+      require("./metaCapi")._internal.META_CAPI_TOKEN,
+      // r421 guest checkout: live-rate (clubs/bags) guests are quoted from
+      // the address at create time, so this function needs the Shippo key.
+      SHIPPO_KEY_FOR_GUEST],
     cors: ALLOWED_ORIGINS,
     // Sizing — this is the critical hot path for revenue. Keep one warm
     // instance to eliminate cold-start checkout drop-off at peak.
@@ -307,10 +337,29 @@ exports.createPaymentIntent = onRequest(
     }
 
     const authUser = await getAuthedUser(req);
-    if (!authUser) {
+    // ── r421 guest checkout (web only) ──
+    // No ID token + body.guest === true → a guest buyer identified only by
+    // the email they typed. Every listing/seller money gate below still runs.
+    // A request WITH a valid token is always the signed-in path (unchanged).
+    const guestBody = req.body || {};
+    const isGuest = !authUser && guestBody.guest === true;
+    if (!authUser && !isGuest) {
       return res.status(401).json({error: "Not authenticated"});
     }
+    const G = require("./lib/guestCheckout");
+    let guestEmail = null;
+    if (isGuest) {
+      guestEmail = G.normalizeEmail(guestBody.email);
+      // A price-only quote (sheet open, before the email is typed) needs no
+      // email; a real checkout always does.
+      if (!guestEmail && guestBody.quoteOnly !== true) {
+        return res.status(400).json({error: "Enter a valid email address."});
+      }
+    }
     // ── Ban-evasion: layer 1 (direct ban check) ──
+    // Account bans don't apply to guests (no account); the IP layer below
+    // and the post-charge card-fingerprint check still do.
+    if (!isGuest) {
     // Bare-minimum block: deny a checkout from a user the admin queue
     // has banned (users/{uid}.banned == true). Failing open on a
     // Firestore hiccup here would let a banned user back in, but the
@@ -339,6 +388,7 @@ exports.createPaymentIntent = onRequest(
       return res.status(503).json(
           {error: "Couldn't verify your account right now. Please try again."});
     }
+    } // end signed-in ban check
 
     // ── Ban-evasion: layer 2 (IP cross-reference, pre-charge) ──
     // Capture the caller's IP and ask banEvasion.js whether any prior
@@ -350,6 +400,10 @@ exports.createPaymentIntent = onRequest(
     const callerIp = extractClientIp(req);
     if (callerIp) {
       const ipCheck = await checkFingerprintAgainstBanned({ip: callerIp});
+      if (ipCheck.banned && isGuest) {
+        logger.warn("createPaymentIntent: IP-match ban — guest checkout refused", {matchedUid: ipCheck.matchedUid});
+        return res.status(403).json({error: "Account not eligible for purchases"});
+      }
       if (ipCheck.banned) {
         logger.warn(
             "createPaymentIntent: IP-match ban — " +
@@ -367,12 +421,16 @@ exports.createPaymentIntent = onRequest(
         });
       }
     }
-    if (!authUser.email_verified) {
+    if (!isGuest && !authUser.email_verified) {
       return res.status(412).json({
         error: "Please verify your email before continuing.",
       });
     }
-    const buyerId = authUser.uid;
+    const buyerId = isGuest ? (guestEmail ? G.guestBuyerId(guestEmail) : "guest_quote") : authUser.uid;
+    // Meta/TikTok server events: guests get NO email (founder ruling) — the
+    // synthetic id only. Signed-in buyers are unchanged.
+    const capiUser = isGuest ? {uid: buyerId} : authUser;
+    const quoteOnly = isGuest && guestBody.quoteOnly === true;
 
     // `shippingAware: true` marks a Structure-2 client that renders the
     // shipping line in its order summary. Absent (stale/legacy client) the
@@ -402,7 +460,10 @@ exports.createPaymentIntent = onRequest(
     // Clients from r396 on send ageGate:1. A request WITHOUT it is a shipped
     // iOS build that has no checkbox; while BUYER_AGE_LEGACY_ALLOW is true those
     // pass (logged) so iOS checkout keeps working until the next app build.
-    try {
+    if (isGuest && !quoteOnly && guestBody.age18 !== true) {
+      return res.status(412).json({error: "age-required"});
+    }
+    if (!isGuest) try {
       const ageRef = db.doc(`users/${buyerId}`);
       const ageSnap = await ageRef.get();
       if (!(ageSnap.exists && ageSnap.data().buyerAge18At)) {
@@ -438,6 +499,9 @@ exports.createPaymentIntent = onRequest(
     // pre-transaction read is safe. Offers are always single-unit.
     let offerPriceCents = null;
     let validatedOfferId = null;
+    if (isGuest && offerId != null) {
+      return res.status(400).json({error: "Sign in to pay an accepted offer."});
+    }
     if (offerId != null) {
       if (typeof offerId !== "string" || offerId.length > 128) {
         return res.status(400).json({error: "Invalid offerId"});
@@ -482,7 +546,66 @@ exports.createPaymentIntent = onRequest(
       // many listingIds (scraping pricing, locking inventory in pending,
       // burning Stripe API quota). Fail-open inside checkRateLimit so a
       // Firestore blip doesn't break checkout.
-      const rl = await checkRateLimit(buyerId, "createPaymentIntent", 60);
+      // ── r421 guest gates: rate limits, self-purchase, quote-only ──
+      if (isGuest) {
+        const FV = admin.firestore.FieldValue;
+        const ipKey = "ip:" + (callerIp || "unknown");
+        const checks = quoteOnly ?
+          [[ipKey + ":quote", G.GUEST_LIMITS.ipQuote10m]] :
+          [[ipKey + ":create10m", G.GUEST_LIMITS.ipCreate10m],
+            [ipKey + ":createDay", G.GUEST_LIMITS.ipCreateDay],
+            ["email:" + guestEmail + ":createHour", G.GUEST_LIMITS.emailCreateHour]];
+        for (const [k, rule] of checks) {
+          const r = await G.guestRateLimit(db, FV, k, rule);
+          if (!r.ok) {
+            if (r.retryAfterSec) res.set("Retry-After", String(r.retryAfterSec));
+            logger.warn("createPaymentIntent: guest rate limit", {rule: k.replace(/^(ip|email):[^:]+/, "$1:*")});
+            return res.status(429).json({error: "Too many checkout attempts. Please wait a few minutes and try again."});
+          }
+        }
+        const lPre = await listingRef.get();
+        if (!lPre.exists) return res.status(404).json({error: "Listing not found"});
+        const lp = lPre.data() || {};
+        // Self-purchase: the seller's own sign-in email (any +tag / Gmail dot
+        // variant) can't buy their own listing as a guest.
+        let sellerEmail = null;
+        try {
+          sellerEmail = lp.sellerId ? (await admin.auth().getUser(lp.sellerId)).email : null;
+        } catch (_e) {
+          sellerEmail = null;
+        }
+        if (guestEmail && sellerEmail && G.sameIdentity(sellerEmail, guestEmail)) {
+          return res.status(400).json({error: "You cannot buy your own listing"});
+        }
+        if (quoteOnly) {
+          // Price check for the guest sheet. No hold, no PaymentIntent.
+          // Same availability + seller money gate as a real checkout.
+          const st = lp.status || "active";
+          const pu = lp.pendingUntil && lp.pendingUntil.toMillis ? lp.pendingUntil.toMillis() : 0;
+          const avail = Math.max(1, Number(lp.quantity || 1)) - Math.max(0, Number(lp.quantitySold || 0)) -
+            ((pu > 0 && pu < Date.now()) ? 0 : Math.max(0, Number(lp.quantityReserved || 0)));
+          if (!(st === "active" || (st === "pending" && pu < Date.now()))) {
+            return res.status(409).json({error: `Listing is not available (status: ${st})`});
+          }
+          if (qty > avail) {
+            return res.status(409).json({error: `Only ${Math.max(0, avail)} available right now — please try a smaller quantity.`});
+          }
+          const sSnap = await db.collection("users").doc(String(lp.sellerId || "_")).get();
+          const sd = sSnap.exists ? sSnap.data() : {};
+          if (!sd.stripeAccountId || !sd.stripeChargesEnabled) {
+            return res.status(409).json({error: "This seller hasn't finished setting up payouts yet. " +
+              "Please come back in a bit, or message them via the listing."});
+          }
+          const itemCentsQ = Math.round(Number(lp.ask) * 100) * qty;
+          if (!Number.isFinite(itemCentsQ) || itemCentsQ <= 0) return res.status(500).json({error: "Listing has invalid price"});
+          const ship = await guestShippingQuote(db, lp, guestBody.shipTo);
+          return res.json({quoteOnly: true, itemCents: itemCentsQ, shippingCents: ship.shippingCents,
+            shippingPending: ship.pending, shippingMethod: ship.method,
+            amountCents: itemCentsQ + (ship.pending ? 0 : ship.shippingCents)});
+        }
+      }
+
+      const rl = isGuest ? {ok: true} : await checkRateLimit(buyerId, "createPaymentIntent", 60);
       if (!rl.ok) {
         if (rl.retryAfterSec) {
           res.set("Retry-After", String(rl.retryAfterSec));
@@ -657,7 +780,7 @@ exports.createPaymentIntent = onRequest(
         await opsAlert("warn",
             "createPaymentIntent: checkout on a non-charges-ready seller (list-first)",
             {listingId, sellerId: reservation.sellerId || null,
-              buyerUid: authUser.uid});
+              buyerUid: buyerId, guest: isGuest});
         return res.status(409).json({
           error: "This seller hasn't finished setting up payouts yet. " +
             "Please come back in a bit, or message them via the listing.",
@@ -682,7 +805,26 @@ exports.createPaymentIntent = onRequest(
       let shippingCents = 0;
       let shippingMethod = "legacy";
       let shippingPending = false;
-      if (shippingAware === true) {
+      let guestShip = null;
+      if (isGuest) {
+        // Guests are quoted from their address now (no re-price step): the
+        // PaymentIntent is only created when they tap Pay, after the address
+        // is complete. A live-rate item without a quotable address is refused
+        // before any charge exists (and the hold is rolled back).
+        try {
+          guestShip = await guestShippingQuote(db,
+              {cat: reservation.cat, sellerId: reservation.sellerId}, guestBody.shipTo);
+        } catch (qErr) {
+          await rollbackReservation();
+          throw qErr;
+        }
+        if (guestShip.pending) {
+          await rollbackReservation();
+          return res.status(400).json({error: "Enter your full shipping address to get the shipping price."});
+        }
+        shippingCents = guestShip.shippingCents;
+        shippingMethod = guestShip.method;
+      } else if (shippingAware === true) {
         const flatCents = FLAT_SHIPPING_CENTS[listingCat];
         if (Number.isFinite(flatCents)) {
           shippingCents = flatCents;
@@ -699,7 +841,7 @@ exports.createPaymentIntent = onRequest(
         await opsAlert("warn",
             "createPaymentIntent: legacy shipping-unaware checkout — " +
             "item-only charge, platform absorbs this order's label",
-            {listingId, buyerUid: authUser.uid});
+            {listingId, buyerUid: buyerId});
       }
       const totalAmountCents = reservation.priceCents + shippingCents;
 
@@ -730,7 +872,12 @@ exports.createPaymentIntent = onRequest(
           {
             amount: totalAmountCents,
             currency: "usd",
-            automatic_payment_methods: {enabled: true},
+            // Guests pay through a deferred-intent Payment Element created
+            // with paymentMethodTypes card+link (wallets ride on card), so
+            // the PI must list the same types. Signed-in: unchanged.
+            ...(isGuest ?
+              {payment_method_types: ["card", "link"]} :
+              {automatic_payment_methods: {enabled: true}}),
             payment_method_options: {
               card: {request_three_d_secure: "automatic"},
             },
@@ -740,7 +887,7 @@ exports.createPaymentIntent = onRequest(
             // payment record even if the Resend "order confirmed" email
             // fails. authUser is email-verified by this point (see the
             // email_verified gate above), so .email is present + trusted.
-            receipt_email: authUser.email,
+            receipt_email: isGuest ? guestEmail : authUser.email,
             // ── Connect bits ──
             // Fee + shipping both stay with the platform: the destination
             // transfer to the seller = amount − application_fee =
@@ -773,6 +920,11 @@ exports.createPaymentIntent = onRequest(
               // Offer-priced checkout: carry the offer id so the webhook
               // can stamp it fulfilled and block a second use.
               ...(validatedOfferId ? {offerId: validatedOfferId} : {}),
+              // r421 guest checkout: the webhook stores buyerEmail on the
+              // order (guest emails + claim link). Never sent to Meta.
+              ...(isGuest ? {guest: "1", buyerEmail: guestEmail, age18: "1",
+                ...(guestShip && guestShip.carrier ? {shippingCarrier: guestShip.carrier} : {}),
+              } : {}),
               // r294: Meta CAPI match keys (see above).
               ...require("./lib/capiCarry").capiMetadata(capi),
             },
@@ -792,7 +944,7 @@ exports.createPaymentIntent = onRequest(
       // Runs alongside the listing update and is capped at 1.5s so a slow
       // Meta never delays checkout; it never throws.
       const icSend = require("./metaCapi")._internal.sendServerInitiateCheckout({
-        authUser, capi, paymentIntent, listingId,
+        authUser: capiUser, capi, paymentIntent, listingId,
         itemCents: reservation.priceCents, quantity: reservation.qty,
       });
       await listingRef.update({pendingPaymentIntentId: paymentIntent.id});
@@ -1602,7 +1754,12 @@ async function handlePaymentSucceeded(pi, stripeClient) {
     shippingMethod,
     shippingPending,
     offerId,
+    guest,
+    buyerEmail: guestBuyerEmail,
   } = pi.metadata || {};
+  // r421 guest checkout: buyer has no account yet; buyerId is guest_<hash>.
+  const isGuestOrder = guest === "1" &&
+    require("./lib/guestCheckout").isGuestBuyerId(buyerId || "");
   const orderQty = Math.max(1, parseInt(quantity || "1", 10));
   // Structure 2: pi.amount = item + shipping. Item-only value drives the
   // sale rollups (priceHistory, GMV) so shipping never inflates them.
@@ -1691,6 +1848,13 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       // column always rendered "—". (Launch blocker fix.)
       shipping: pi.shipping || null,
       receiptEmail: pi.receipt_email || null,
+      // r421: guests — the address every order email goes to until the
+      // claim link moves the order onto a real account.
+      ...(isGuestOrder ? {
+        guestCheckout: true,
+        buyerEmail: String(guestBuyerEmail || pi.receipt_email || "").toLowerCase() || null,
+        buyerAge18: true,
+      } : {}),
       // Meta CAPI (2026-10-29): Stripe mode of the PaymentIntent. The live
       // webhook secret already rejects test-mode events, but the Purchase
       // trigger refuses anything not explicitly live as a second lock.
@@ -2495,6 +2659,120 @@ async function _verifyAppleIdToken(idToken, rawNonce) {
 
 // _findOrCreateUser REMOVED 2026-10-26 — replaced by lib/accountLinking.resolveFederatedSignIn
 // (one person = one account: needs-link / relay-choice / link intents; see the lib header).
+
+// ─────────────────────────────────────────────────────────────
+// claimGuestOrder (r421 guest checkout)
+//   The one-time link in a guest's order-confirmation email lands on
+//   /?claim=<token>. Tapping it is the proof that the guest controls the
+//   inbox, so ONLY here do we attach guest orders to an account:
+//     - no account for that email → create one (email verified: the link
+//       just proved it), attach, sign in.
+//     - account exists → attach to it and sign in as it. Never before the
+//       tap, never on the strength of a matching email alone.
+//   Single-use (transaction). Expired/used links still attach when the
+//   caller is ALREADY signed in with a verified account on that same email.
+//   Returns a custom token so the web client can signInWithCustomToken.
+// ─────────────────────────────────────────────────────────────
+exports.claimGuestOrder = onCall(
+    {...USER_CALLABLE},
+    async (request) => {
+      const G = require("./lib/guestCheckout");
+      const db = admin.firestore();
+      const ip = extractClientIp(request.rawRequest || {}) || "unknown";
+      const rl = await G.guestRateLimit(db, admin.firestore.FieldValue,
+          "ip:" + ip + ":claim", G.GUEST_LIMITS.ipClaim10m);
+      if (!rl.ok) throw new HttpsError("resource-exhausted", "Too many attempts. Try again in a few minutes.");
+      const docId = G.claimDocId(request.data && request.data.token);
+      if (!docId) throw new HttpsError("invalid-argument", "This link isn't valid.");
+      const ref = db.collection("guestClaims").doc(docId);
+
+      // Single-use: mark used inside a transaction before doing anything.
+      const claim = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const d = snap.exists ? snap.data() : null;
+        const dec = G.claimDecision(d);
+        if (dec.ok) tx.update(ref, {usedAt: admin.firestore.FieldValue.serverTimestamp()});
+        return {d, dec};
+      });
+      const d = claim.d;
+      if (!claim.dec.ok) {
+        // Used/expired link: still fine for someone already signed in with a
+        // VERIFIED account on that exact email (idempotent re-attach).
+        const au = request.auth && request.auth.token;
+        const sameSignedIn = d && au && au.email_verified === true &&
+          G.normalizeEmail(au.email) === G.normalizeEmail(d.email);
+        if (!sameSignedIn) {
+          const msg = claim.dec.code === "not-found" || claim.dec.code === "invalid" ?
+            "This link isn't valid." :
+            "This link has already been used or has expired. Sign in with the email you checked out with to see your order.";
+          throw new HttpsError("failed-precondition", msg, {code: claim.dec.code});
+        }
+      }
+      const email = G.normalizeEmail(d.email);
+      const guestId = d.guestBuyerId;
+
+      // Find or create the account for this (now proven) email.
+      let user = null;
+      let isNewAccount = false;
+      try {
+        user = await admin.auth().getUserByEmail(email);
+      } catch (e) {
+        if (!(e && e.code === "auth/user-not-found")) throw e;
+      }
+      const firstOrder = d.orderId ? await db.collection("orders").doc(String(d.orderId)).get() : null;
+      const shipName = firstOrder && firstOrder.exists && firstOrder.data().shipping && firstOrder.data().shipping.name;
+      if (!user) {
+        user = await admin.auth().createUser({
+          email, emailVerified: true,
+          ...(shipName ? {displayName: String(shipName).slice(0, 60)} : {}),
+        });
+        isNewAccount = true;
+      } else {
+        if (user.disabled) {
+          throw new HttpsError("failed-precondition", "This account is disabled. Contact support@teeboxmarket.com.");
+        }
+        if (!user.emailVerified) await admin.auth().updateUser(user.uid, {emailVerified: true});
+      }
+      const uid = user.uid;
+
+      // Attach every guest order placed with this email (the link proves the
+      // inbox, and every one of them was confirmed to that inbox).
+      const os = await db.collection("orders").where("buyerId", "==", guestId).get();
+      const orderIds = [];
+      let age18 = false;
+      const batch = db.batch();
+      os.docs.forEach((o) => {
+        orderIds.push(o.id);
+        if (o.data().buyerAge18) age18 = true;
+        batch.update(o.ref, {
+          buyerId: uid,
+          claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+          claimedFromGuestId: guestId,
+        });
+      });
+      batch.set(db.doc(`users/${uid}`), {
+        ...(age18 ? {buyerAge18At: admin.firestore.FieldValue.serverTimestamp()} : {}),
+        guestClaimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      batch.set(ref, {claimedUid: uid, claimedOrderIds: orderIds}, {merge: true});
+      await batch.commit();
+
+      // A ban the card-fingerprint check put on the guest id follows the person.
+      try {
+        const gSnap = await db.doc(`users/${guestId}`).get();
+        if (gSnap.exists && gSnap.data().banned === true) {
+          await flagUserBanned({uid, reason: "guest-claim-inherits-ban", matchedUid: guestId, matchedField: "guestBuyerId"});
+        }
+      } catch (e) {
+        logger.warn("claimGuestOrder: ban carry-over check failed", e.message || e);
+      }
+
+      logger.info("claimGuestOrder: attached", {orders: orderIds.length, isNewAccount});
+      const already = request.auth && request.auth.uid === uid;
+      const customToken = already ? null : await admin.auth().createCustomToken(uid);
+      return {ok: true, orderIds, isNewAccount, customToken};
+    },
+);
 
 exports.exchangeIdTokenForCustomToken = onCall(
     {...USER_CALLABLE},

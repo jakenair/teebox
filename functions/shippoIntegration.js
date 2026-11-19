@@ -1056,4 +1056,6 @@ module.exports._internal = {
   // Shared with createPaymentIntent (index.js) so the checkout charge and
   // the quote engine can never disagree on a flat tier.
   FLAT_SHIPPING_CENTS,
+  // r421: guest checkout quotes live-rate items at PaymentIntent create.
+  quoteForListing,
 };

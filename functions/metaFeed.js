@@ -216,7 +216,12 @@ function feedRow(l, testSellers, now, opts) {
     id: String(l.id),
     title,
     description,
-    availability: mapAvailability(l),
+    // 2026-11-19 (Jake, r421): a listing whose seller can't take payment yet
+    // (users/{sellerId}.stripeChargesEnabled false — the same flag the
+    // createPaymentIntent 409 gate reads) stays in the feed per the Nov 15
+    // rule, but as out of stock so Meta/TikTok stop paying for clicks on it.
+    availability: (opts && opts.unbuyableSellers && l.sellerId &&
+        opts.unbuyableSellers.has(l.sellerId)) ? "out of stock" : mapAvailability(l),
     condition: mapCondition(l.condition),
     price: ask.toFixed(2) + " USD",
     // /?listing=<id> is index.html, so it is always HTTP 200 and opens the
@@ -295,6 +300,35 @@ async function loadListings() {
   return out;
 }
 
+/**
+ * Sellers who can't take payment yet: users/{uid}.stripeChargesEnabled is not
+ * true (the createPaymentIntent 409 gate). One batched read of the distinct
+ * sellers of in-stock rows. Fails OPEN (empty set = today's behaviour) on a
+ * read error so a Firestore blip never marks the whole catalog out of stock.
+ * @param {Array<object>} listings
+ * @return {Promise<Set<string>>}
+ */
+async function loadUnbuyableSellers(listings) {
+  const ids = [...new Set((listings || [])
+      .filter((l) => l && l.status === "active" && l.sellerId)
+      .map((l) => String(l.sellerId)))];
+  const out = new Set();
+  if (!ids.length) return out;
+  try {
+    const db = admin.firestore();
+    for (let i = 0; i < ids.length; i += 100) {
+      const snaps = await db.getAll(...ids.slice(i, i + 100).map((id) => db.doc(`users/${id}`)));
+      for (const s of snaps) {
+        if (!(s.exists && s.data() && s.data().stripeChargesEnabled === true)) out.add(s.id);
+      }
+    }
+  } catch (e) {
+    logger.warn("feed: seller payment-readiness read failed, failing open", {error: String(e && e.message || e)});
+    return new Set();
+  }
+  return out;
+}
+
 // Sellers whose listings must never reach the catalog — the shared QA check
 // (lib/testAccounts.js, 2026-11-16): flagged users, QA Auth emails
 // (incl. jakenair+qa…), fixed QA uids.
@@ -336,10 +370,13 @@ function feedHandler({secret, name, filename, transform, rowOpts}) {
       if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
         const listings = await loadListings();
         const testSellers = await loadTestSellers();
-        const built = buildFeedCsv(listings, testSellers, now, rowOpts);
+        const unbuyableSellers = await loadUnbuyableSellers(listings);
+        const built = buildFeedCsv(listings, testSellers, now,
+            Object.assign({}, rowOpts || {}, {unbuyableSellers}));
         Object.assign(_cache, {at: now, csv: built.csv, rows: built.rows});
         _caches[name] = _cache;
-        logger.info(`${name}: rebuilt`, {rows: built.rows, skipped: built.skipped});
+        logger.info(`${name}: rebuilt`, {rows: built.rows, skipped: built.skipped,
+          unbuyableSellers: unbuyableSellers.size});
       }
       res.set("Content-Type", "text/csv; charset=utf-8");
       res.set("Content-Disposition", `inline; filename="${filename}"`);

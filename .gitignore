@@ -132,3 +132,5 @@ reel-blind-ranking/
 perf/results/boot-profile.json
 perf/results/fs-debug.log
 smoke-out/
+functions/test/e2e/firestore.rules
+functions/test/e2e/*-debug.log

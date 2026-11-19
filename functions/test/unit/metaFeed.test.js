@@ -99,3 +99,18 @@ test("2026-11-15: pending and sold<=30d stay in the feed as out of stock; remove
   // test listings stay out whatever their status
   assert.equal(F.feedRow(base({status: "sold", isTest: true, soldAt: {toMillis: () => NOW}}), new Set(), NOW), null);
 });
+
+// r421 (2026-11-19): seller can't take payment → stays in feed, out of stock.
+test("unbuyable seller: row kept, availability out of stock", () => {
+  const unbuyableSellers = new Set(["sellerNoStripe"]);
+  const r = F.feedRow(base({sellerId: "sellerNoStripe"}), null, Date.now(), {unbuyableSellers});
+  assert.ok(r, "row must stay in the feed (Nov 15 rule)");
+  assert.equal(r.availability, "out of stock");
+  const ok = F.feedRow(base({sellerId: "sellerReady"}), null, Date.now(), {unbuyableSellers});
+  assert.equal(ok.availability, "in stock");
+  assert.equal(F.feedRow(base({sellerId: "sellerReady"})).availability, "in stock");
+  const csv = F.buildFeedCsv([base({id: "a1", sellerId: "sellerNoStripe"}), base({id: "a2", sellerId: "sellerReady"})],
+      null, Date.now(), {unbuyableSellers, jpgFirst: true}).csv;
+  assert.match(csv, /\r\na1,[^\r]*out of stock/);
+  assert.match(csv, /\r\na2,[^\r]*in stock/);
+});
