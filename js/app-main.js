@@ -535,6 +535,13 @@ function applyFilters(list) {
         return bt - at;
       });
   }
+  // r425: listings that arrived on the last pull-to-refresh go first (they
+  // carry the existing "New" badge). Stable: everything else keeps its order.
+  const pins = window.__feedPinTop;
+  if (pins && pins.size) {
+    const top = out.filter(p => pins.has(String(p.id)));
+    if (top.length) out = top.concat(out.filter(p => !pins.has(String(p.id))));
+  }
   return out;
 }
 

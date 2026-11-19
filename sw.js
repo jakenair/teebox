@@ -1,6 +1,6 @@
 // TeeBox service worker — app-shell caching + offline fallback.
 // Bump CACHE_VERSION to invalidate the old cache after a deploy.
-const CACHE_VERSION = 'teebox-v1-2026-11-19-r424';
+const CACHE_VERSION = 'teebox-v1-2026-11-19-r425';
 // r354: the split scripts are referenced with ?v=<rev> from index.html so a new
 // page never runs against a stale cached script. Precache the same URLs.
 const REV = (CACHE_VERSION.match(/r\d+$/) || [''])[0];
@@ -18,6 +18,7 @@ const SHELL = [
   '/js/feed-rank.js?v=' + REV,
   '/js/app-main.js?v=' + REV,
   '/js/checkout-guest.js?v=' + REV,
+  '/js/pull-refresh.js?v=' + REV,
   '/js/app-auth.js?v=' + REV,
   '/js/bingo.js?v=' + REV,
   '/js/sunday-nine.js?v=' + REV,

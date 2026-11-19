@@ -331,6 +331,14 @@
     api.metaFor = function (id) { return lastMeta.get(String(id)) || null; };
     api.mode = function () { return lastMode; };
     api.seed = function () { return snap ? snap.seed : null; };
+    // r425 pull-to-refresh: a new rotation for this visit. Fresh seed, and
+    // the frozen snapshot is dropped so the next rankForHome rebuilds it
+    // (same algorithm, same profile inputs, new seeded order).
+    api.reseed = function () {
+      const now = Date.now();
+      LS.set(SEED_KEY, {seed: Math.floor(Math.random() * 1e9).toString(36) + now.toString(36), last: now});
+      snap = null;
+    };
     // Test hook: drop the frozen snapshot (a new "page load").
     api._resetSnapshot = function () { snap = null; };
 
