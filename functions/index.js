@@ -6734,7 +6734,10 @@ async function deleteRemovedListingPhotos(beforeUrls, afterUrls, expectedListing
       .map((u) => String(u))
       .filter((u) => !after.has(u));
   if (removed.length === 0) return;
-  const bucket = admin.storage().bucket();
+  // Named explicitly: callables deployed via the gcloud lane have no default
+  // storageBucket in FIREBASE_CONFIG, so bucket() with no name throws.
+  // Same bucket optimizeListingPhoto writes listing photos into.
+  const bucket = admin.storage().bucket("teebox-market.firebasestorage.app");
   await Promise.allSettled(removed.map(async (url) => {
     const path = storagePathFromDownloadUrl(url);
     if (!path) return;
