@@ -3389,9 +3389,36 @@ window.tbEvent = function (name, surface) {
   .field-invalid { border-color: var(--red-500) !important; }
   .field-invalid:focus { box-shadow: 0 0 0 3px rgba(192,57,43,0.15) !important; }
   .field-error-msg { color: var(--red-500); font-size: 12.5px; font-weight: 600; margin-top: 4px; line-height: 1.4; }
-  /* Sticky on mobile so the CTA + trust strip stay reachable while scrolling. */
+  /* r424: the whole action stack used to be position:sticky on phones. At
+     341px tall it slid up over the title/price/description and then showed a
+     second time inline. It is now plain inline content (shown once); a compact
+     fixed bar (.detail-sticky-bar, below) carries price + Buy Now instead. */
+  .detail-sticky-bar { display: none; }
   @media (max-width: 720px) {
-    .detail-actions { position: sticky; bottom: 0; background: var(--white); padding-top: 12px; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); z-index: 4; }
+    .detail-sticky-bar {
+      display: flex; align-items: center; gap: 12px;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+      height: calc(64px + env(safe-area-inset-bottom)); box-sizing: border-box;
+      padding: 0 1rem env(safe-area-inset-bottom);
+      background: var(--white); border-top: 1px solid var(--gray-200);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 160ms ease, visibility 0s linear 160ms;
+    }
+    .detail-sticky-bar.is-on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 160ms ease, visibility 0s; }
+    .detail-sticky-price { flex: 1 1 auto; min-width: 0; font-family: var(--font-display, var(--font-body)); font-size: 20px; font-weight: 800; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .detail-sticky-bar .btn-buy-now { flex: 0 0 auto; width: auto; min-width: 150px; height: 46px; padding: 0 22px; font-size: 16px; }
+    /* Room for the bar so the last content is never under it. */
+    #detailBackdrop .detail-body { padding-bottom: calc(1.25rem + 64px + env(safe-area-inset-bottom)) !important; }
+    /* Rubber-band: keep the bounce inside the sheet, and paint what the bounce
+       reveals: header green above the top, white below the bottom (the
+       background of a scroll container does not scroll with its content). */
+    #detailBackdrop .detail-modal {
+      overscroll-behavior-y: contain;
+      display: flex; flex-direction: column;
+      background: linear-gradient(to bottom, var(--green-900) 0 50%, var(--white) 50% 100%);
+    }
+    #detailBackdrop .detail-header { flex: 0 0 auto; }
+    #detailBackdrop .detail-body { flex: 1 0 auto; background: var(--white); }
   }
 
   /* SELL MODAL */
@@ -3813,12 +3840,9 @@ window.tbEvent = function (name, surface) {
     .detail-modal { width: 100% !important; max-width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0!important; }
     .detail-header { padding: max(0.55rem, env(safe-area-inset-top)) 1.1rem 0.55rem; }
     .detail-body { padding: 1rem 1rem 1.25rem; }
-    /* Full-bleed the sticky Buy-Now bar with a safe-area inset + a clean top
-       divider so it can never visually merge into the content above it. */
-    .detail-info .detail-actions {
-      margin: 14px -1rem 0; padding: 12px 1rem max(12px, env(safe-area-inset-bottom));
-      border-top: 1px solid var(--gray-200);
-    }
+    /* r424: the inline action stack is ordinary content now (the compact
+       .detail-sticky-bar is the only sticky piece). */
+    .detail-info .detail-actions { margin: 14px 0 0; }
     .detail-actions { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: 1fr 1fr !important; }
     #checkoutBackdrop .modal { max-width: calc(100vw - 1rem); }
@@ -6181,7 +6205,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r423</span></div>
+        <span class="auth-build" aria-hidden="true">r424</span></div>
     </div>
   </div>
 </div>
@@ -8092,8 +8116,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r423"></script>
-      <script async src="/js/feed-rank.js?v=r423"></script>
+      <script async src="/js/feed-rank-config.js?v=r424"></script>
+      <script async src="/js/feed-rank.js?v=r424"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8367,6 +8391,14 @@ window.tbEvent = function (name, surface) {
         <div class="more-like-this-row" id="detailMoreLikeThisRow"></div>
       </div>
     </div>
+  </div>
+  <!-- r424: compact sticky buy bar (phones only, CSS). Price + Buy Now, fixed
+       64px + safe area. Shown only while the inline Buy Now is off screen and
+       buyable; it mirrors that button and taps it, so every guard
+       (auth, 18+, payout-ready, sold/pending) stays in one place. -->
+  <div class="detail-sticky-bar" id="detailStickyBar" aria-hidden="true">
+    <div class="detail-sticky-price" id="detailStickyPrice"></div>
+    <button type="button" class="btn-buy-now" id="detailStickyBuyBtn" data-action="detail-sticky-buy" tabindex="-1">Buy Now</button>
   </div>
 </div>
 
@@ -10069,9 +10101,9 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r423"></script>
-<script defer src="/js/checkout-guest.js?v=r423"></script>
-<script type="module" src="/js/app-auth.js?v=r423"></script>
+<script defer src="/js/app-main.js?v=r424"></script>
+<script defer src="/js/checkout-guest.js?v=r424"></script>
+<script type="module" src="/js/app-auth.js?v=r424"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10101,8 +10133,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r423"></script>
-<script type="module" src="/js/sunday-nine.js?v=r423"></script>
+<script type="module" src="/js/bingo.js?v=r424"></script>
+<script type="module" src="/js/sunday-nine.js?v=r424"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

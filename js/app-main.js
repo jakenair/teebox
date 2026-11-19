@@ -1806,6 +1806,7 @@ async function openDetailModal(id) {
   // "More like this" row — same category, current listing excluded, max 6.
   renderMoreLikeThis(p);
   document.getElementById('detailBackdrop').classList.add('open');
+  if (window.tbDetailStickyBar) window.tbDetailStickyBar.attach();
   // r156: single choke point for detail-overlay history — every entry route
   // (card tap, search, deep link, chat listing card) lands here. The URL
   // reflects the open listing so copy-address-bar IS a share link; Back
@@ -1865,6 +1866,53 @@ function renderMoreLikeThis(currentListing) {
     row.appendChild(btn);
   });
 }
+
+// r424: compact sticky buy bar on the listing sheet (phones; CSS hides it
+// above 720px). One bar, fixed height, never grows. It mirrors the inline
+// Buy Now (label, disabled, hidden) and tapping it taps that button, so the
+// auth / 18+ / payout-ready / sold-pending logic lives in one place. Shown
+// only while the inline Buy Now is scrolled out of view AND buyable.
+window.tbDetailStickyBar = (function () {
+  let io = null, mo = null, inlineVisible = true;
+  const $ = (id) => document.getElementById(id);
+  function buyable(btn) {
+    return !!btn && !btn.disabled && btn.style.display !== 'none' && btn.offsetParent !== null;
+  }
+  function sync() {
+    const bar = $('detailStickyBar'), btn = $('detailBuyNowBtn'), sb = $('detailStickyBuyBtn'), pr = $('detailStickyPrice');
+    if (!bar || !btn || !sb) return;
+    sb.textContent = btn.textContent;
+    if (pr) { const a = $('detailAsk'); pr.textContent = a ? a.textContent : ''; }
+    const on = !inlineVisible && buyable(btn) && $('detailBackdrop').classList.contains('open');
+    bar.classList.toggle('is-on', on);
+    bar.setAttribute('aria-hidden', on ? 'false' : 'true');
+    sb.tabIndex = on ? 0 : -1;
+  }
+  function attach() {
+    const btn = $('detailBuyNowBtn'), root = document.querySelector('#detailBackdrop .detail-modal');
+    if (!btn || !root) return;
+    inlineVisible = true; // fresh open starts at the top; IO corrects on its first callback
+    if (!io && 'IntersectionObserver' in window) {
+      io = new IntersectionObserver((ents) => {
+        ents.forEach((e) => { inlineVisible = e.isIntersecting; });
+        sync();
+      }, { root, threshold: 0 });
+      io.observe(btn);
+    }
+    if (!mo) {
+      mo = new MutationObserver(sync);
+      mo.observe(btn, { attributes: true, attributeFilter: ['disabled', 'style', 'class'], childList: true, characterData: true, subtree: true });
+      const a = $('detailAsk'); if (a) mo.observe(a, { childList: true, characterData: true, subtree: true });
+    }
+    sync();
+  }
+  return { attach, sync };
+})();
+window.__actions = window.__actions || {};
+window.__actions['detail-sticky-buy'] = function () {
+  const btn = document.getElementById('detailBuyNowBtn');
+  if (btn && !btn.disabled) btn.click();
+};
 
 // Legacy no-op kept for backwards compatibility — old gallery exposed
 // setMainPhoto on window; the new IG-style swiper handles its own state.
@@ -1961,8 +2009,16 @@ window.buildIgSwiper = function(container, urls, alt) {
     currentIdx = Math.max(0, Math.min(urls.length - 1, i));
     thumbs.forEach((t, ti) => t.classList.toggle('active', ti === currentIdx));
     // Keep the active thumb in view when the strip scrolls (10-photo case).
+    // r424: scroll ONLY the thumb strip, horizontally. scrollIntoView also
+    // scrolled every ancestor, so a photo swipe followed by a quick vertical
+    // scroll yanked the listing sheet back up to the photos ("snapped to top").
     const at = thumbs[currentIdx];
-    if (at && at.scrollIntoView) { try { at.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch (_e) {} }
+    if (at && thumbsWrap.scrollWidth > thumbsWrap.clientWidth) {
+      const left = thumbsWrap.scrollLeft, w = thumbsWrap.clientWidth;
+      const a = at.offsetLeft - thumbsWrap.offsetLeft, b = a + at.offsetWidth;
+      const to = a < left ? a : (b > left + w ? b - w : null);
+      if (to != null) { try { thumbsWrap.scrollTo({ left: to, behavior: 'smooth' }); } catch (_e) { thumbsWrap.scrollLeft = to; } }
+    }
     if (prevBtn) prevBtn.disabled = currentIdx === 0;
     if (nextBtn) nextBtn.disabled = currentIdx === urls.length - 1;
     container._igIdx = currentIdx;
