@@ -2807,6 +2807,37 @@ exports.incrementListingView = onCall(
 });
 
 // ─────────────────────────────────────────────────────────────
+// recordListingView (callable, r421) — supersedes incrementListingView
+//   for the web client. Guests count (anonymous session id), sellers'
+//   own views don't, 24h dedupe per viewer per listing, per-IP limits.
+//   Also keeps the rolling viewDays map behind the eye / Trending
+//   badges. App Check is NOT required (token minting is failing).
+//   Logic + limits: functions/lib/listingViews.js. Never throws to the
+//   client for an uncounted view; it is best-effort analytics.
+// ─────────────────────────────────────────────────────────────
+exports.recordListingView = onCall(
+    {...USER_CALLABLE, concurrency: 200, timeoutSeconds: 15},
+    async (request) => {
+      const data = request.data || {};
+      const uid = request.auth ? request.auth.uid : null;
+      let ip = null;
+      try { ip = extractClientIp(request.rawRequest); } catch (_e) { ip = null; }
+      try {
+        return await require("./lib/listingViews").recordView({
+          db: admin.firestore(),
+          FieldValue: admin.firestore.FieldValue,
+          listingId: data.listingId,
+          uid,
+          anonId: uid ? null : data.anonId,
+          ip,
+        });
+      } catch (err) {
+        logger.error("recordListingView error", err);
+        return {counted: false, reason: "error"};
+      }
+    });
+
+// ─────────────────────────────────────────────────────────────
 // incrementListingMessage (Firestore trigger)
 //   Counts inbound buyer interest. Bumps
 //   listings/{listingId}.messageCount when a non-seller posts a
