@@ -117,7 +117,24 @@
   // ── Guest checkout ────────────────────────────────────────────────────
   const isNative = () => document.body.classList.contains('is-native') ||
     !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  window.tbGuestCheckoutEligible = () => GUEST_CHECKOUT_ON && !window.CURRENT_USER && !isNative();
+  // Staged rollout (founder, 2026-11-19): on for everyone only when the
+  // public flag config/features.guestCheckout is true (one Firestore write,
+  // no deploy); before that, only in a browser session opened with
+  // ?guestco=1. GUEST_CHECKOUT_ON stays the hard kill switch.
+  const guestFlagOn = () => !!(window.FEATURE_FLAGS && window.FEATURE_FLAGS.guestCheckout === true);
+  const guestTester = () => { try { return sessionStorage.getItem('tb_guestco') === '1'; } catch (_e) { return false; } };
+  // Preload the public flag doc once Firebase is initialized (app-auth.js is
+  // a module that runs after this deferred script; calling getFirestore()
+  // earlier would fail and cache empty flags for the whole session).
+  (function preloadFlags(n) {
+    if (window.firebaseAuth && typeof window.loadFeatureFlags === 'function') {
+      try { window.loadFeatureFlags(); } catch (_e) {}
+      return;
+    }
+    if (n > 0) setTimeout(() => preloadFlags(n - 1), 500);
+  })(40);
+  window.tbGuestCheckoutEligible = () => GUEST_CHECKOUT_ON && (guestFlagOn() || guestTester()) &&
+    !window.CURRENT_USER && !isNative();
 
   let G = null; // per-open guest state
 

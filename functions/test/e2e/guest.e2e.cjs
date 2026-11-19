@@ -286,6 +286,22 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   };
   const shot = (page, n) => page.screenshot({path: path.join(OUT, n + ".png")});
 
+  // 0. Staged rollout: flag off → no guest path; ?guestco=1 → on for that session
+  await db.doc("config/features").set({guestCheckout: false});
+  const Z = await newCtx(M);
+  await boot(Z.page, "?listing=gPolo");
+  await Z.page.waitForSelector("#detailBuyNowBtn", {state: "visible", timeout: 15000});
+  await Z.page.waitForTimeout(1500);
+  check("rollout: flag off + no param → guest checkout NOT offered", !(await Z.page.evaluate(() => window.tbGuestCheckoutEligible())));
+  await Z.page.click("#detailBuyNowBtn");
+  await Z.page.waitForTimeout(1500);
+  check("rollout: flag off → Buy goes to the sign-in sheet (today's flow)", await Z.page.evaluate(() => document.getElementById("authSheetBackdrop").classList.contains("open")));
+  const Zt = await newCtx(M);
+  await boot(Zt.page, "?guestco=1&listing=gPolo");
+  await Zt.page.waitForTimeout(1500);
+  check("rollout: ?guestco=1 → guest checkout on for that session", await Zt.page.evaluate(() => window.tbGuestCheckoutEligible() && sessionStorage.getItem("tb_guestco") === "1"));
+  await db.doc("config/features").set({guestCheckout: true});
+
   // 1. Guest on mobile web: Buy → guest sheet, no sign-up wall, no hold
   const A = await newCtx(M);
   await boot(A.page, "?listing=gPolo&utm_source=facebook&utm_campaign=catalog");
@@ -477,7 +493,7 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   await W.page.fill("#stubEmail", "desk@example.test");
   await shot(W.page, "F-guest-sheet-1280");
 
-  const allErr = [A, B, C, D, E, F, I, IG, W].flatMap((x) => x.errors).filter((m) => !/ResizeObserver|Failed to fetch|NetworkError|net::/.test(m));
+  const allErr = [Z, Zt, A, B, C, D, E, F, I, IG, W].flatMap((x) => x.errors).filter((m) => !/ResizeObserver|Failed to fetch|NetworkError|net::/.test(m));
   check("no page errors", allErr.length === 0, allErr.slice(0, 5));
   await browser.close();
   const failed = results.filter((r) => !r.ok);

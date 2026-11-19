@@ -94,6 +94,10 @@
 // r421 guest checkout: grab ?claim=<token> before any router touches the URL
 // (js/app-auth.js handleGuestClaim reads window.__tbClaimToken).
 try { window.__tbClaimToken = new URLSearchParams(location.search).get('claim') || null; } catch (_e) {}
+// r421 staged rollout: ?guestco=1 turns guest checkout on for THIS browser
+// session only (founder's real-card test) until config/features.guestCheckout
+// is true. Captured before the router rewrites the URL.
+try { if (new URLSearchParams(location.search).get('guestco') === '1') sessionStorage.setItem('tb_guestco', '1'); } catch (_e) {}
 </script>
 <script>
 // r349 cold-load: PostHog's array.js (327 KB raw) was competing with the
