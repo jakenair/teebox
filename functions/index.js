@@ -6743,21 +6743,39 @@ async function deleteRemovedListingPhotos(beforeUrls, afterUrls, expectedListing
     // crafted URL can't GC another listing's photos.
     const seg = path.split("/");
     if (seg.length < 4 || seg[2] !== String(expectedListingId)) return;
-    try {
-      await bucket.file(path).delete({ignoreNotFound: true});
-    } catch (e) {
-      logger.warn("moderation: removed-photo delete failed", {path, err: e && e.message});
+    // The original plus its WebP derivatives (lib/listingPhotoVariants.js
+    // writes `${objName}_${size}.webp`).
+    for (const p of [path, `${path}_w400.webp`, `${path}_w800.webp`, `${path}_w1200.webp`]) {
+      try {
+        await bucket.file(p).delete({ignoreNotFound: true});
+      } catch (e) {
+        logger.warn("listing photo GC: delete failed", {path: p, err: e && e.message});
+      }
     }
   }));
+  logger.info("listing photo GC: removed photos deleted", {listingId: expectedListingId, count: removed.length});
 }
 
-// Editable fields a seller-side listing edit may persist. Mirrors the
-// `updateListing` callable write set and the firestore.rules
-// isValidListingUpdate whitelist — keep all three in sync.
-const LISTING_EDITABLE_FIELDS = [
-  "title", "brand", "cat", "ask", "bid", "condition", "desc",
-  "photos", "quantity", "requiresAuth", "authReviewState",
-];
+// photoVariants is keyed by photo INDEX. When an edit removes or reorders
+// photos, re-key each surviving photo's variants to its new index (matched by
+// storage object path, not position) so cards never show a removed photo or a
+// deleted variant. Variants for a photo that has none yet are left for
+// optimizeListingPhoto to fill.
+function rekeyPhotoVariants(prevVariants, nextPhotos) {
+  const byPath = new Map();
+  for (const v of Object.values(prevVariants || {})) {
+    const any = v && (v.w400 || v.w800 || v.w1200);
+    const vp = any ? storagePathFromDownloadUrl(String(any)) : null;
+    if (vp) byPath.set(vp.replace(/_w(400|800|1200)\.webp$/, ""), v);
+  }
+  const out = {};
+  (nextPhotos || []).forEach((u, j) => {
+    const p = storagePathFromDownloadUrl(String(u));
+    if (p && byPath.has(p)) out[String(j)] = byPath.get(p);
+  });
+  return out;
+}
+
 
 // Listing statuses where a seller edit is FORBIDDEN. A listing that is
 // reserved by a buyer (`pending`) or sold/in-fulfillment must not have
@@ -6786,231 +6804,16 @@ function lockedReasonForStatus(status) {
   }
 }
 
-// ── moderateListingOnUpdate ─────────────────────────────────────────
-// Fires on listings/{id} UPDATE. Two responsibilities:
-//
-//   1. Content moderation. Scans the same freeform fields as
-//      moderateListingOnCreate. If a CHANGED field now violates, we
-//      REVERT every editable field to its change.before value (rather
-//      than deleting the doc, as the create path does). Rationale: an
-//      edit has a known-good prior state — the listing already passed
-//      create-moderation — so destroying it would punish the seller
-//      for a bad edit by nuking a previously-clean listing plus any
-//      buyer bids/conversations bound to it. This mirrors how
-//      moderateProfileOnWrite reverts/clears the offending field
-//      instead of deleting the profile doc. We revert the WHOLE
-//      editable set (not just the offending field) so a multi-field
-//      edit can't half-apply. A `moderationLog` row with
-//      action:"edit_blocked" is written (schema-compatible with
-//      scanContent's own audit rows + the create path).
-//
-//   2. Storage GC. Diffs change.before.photos vs the FINAL committed
-//      photos (post-revert if we reverted, else change.after) and
-//      deletes any orphaned objects from Storage so removed photos
-//      don't leak storage cost.
-exports.moderateListingOnUpdate = onDocumentUpdated(
-    {document: "listings/{listingId}", ...LIGHT_TRIGGER},
-    async (event) => {
-      const beforeSnap = event && event.data && event.data.before;
-      const afterSnap = event && event.data && event.data.after;
-
-      // Fail CLOSED on malformed events. The May 2026 regression was
-      // discovered because a gen2 runtime change started delivering
-      // CloudEvents to the onChangedOperation wrapper as raw Buffers
-      // (event.data falsy), making this handler early-exit silently
-      // on every edit. A silent early-exit looks identical to "no
-      // moderation needed" — that's how content-safety holes hide.
-      // Now: log loudly + write a trigger_malfunction audit row so a
-      // human notices BEFORE buyers see prohibited content. Without
-      // before/after we can't revert (no listingId), but we can ALERT.
-      if (!beforeSnap || !afterSnap) {
-        logger.error(
-            "moderateListingOnUpdate: malformed event — cannot extract before/after",
-            {
-              hasEvent: !!event,
-              hasEventData: !!(event && event.data),
-              hasBefore: !!beforeSnap,
-              hasAfter: !!afterSnap,
-              eventKeys: event ? Object.keys(event).slice(0, 30) : null,
-              eventParams: event && event.params,
-            });
-        try {
-          await admin.firestore().collection("moderationLog").add({
-            uid: null,
-            contentType: "listing",
-            category: null,
-            redactedExcerpt: null,
-            originatingIp: null,
-            action: "trigger_malfunction",
-            listingId: null,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            notes: "moderateListingOnUpdate received an event with no " +
-              "before/after snapshots. Runtime/framework regression " +
-              "suspected. Edit-time moderation is currently bypassed for " +
-              "any direct-write that slips past firestore.rules. " +
-              "Investigate immediately.",
-          });
-        } catch (e) {
-          logger.error(
-              "moderateListingOnUpdate: also failed to write " +
-              "trigger_malfunction audit row", e);
-        }
-        return;
-      }
-      const before = beforeSnap.data() || {};
-      const after = afterSnap.data() || {};
-      const listingId = event.params.listingId;
-      const sellerId = after.sellerId || before.sellerId || null;
-
-      // Final photo set as it stands after this write. Updated to the
-      // reverted set below if we revert, so Storage GC always diffs
-      // against what actually persists.
-      let finalPhotos = after.photos;
-      let reverted = false;
-      let revertFailed = false;
-
-      try {
-        // Only scan fields that actually CHANGED — an unchanged field
-        // already passed its create-time (or a prior edit's) scan, and
-        // re-scanning it on an unrelated counter bump (views/watchers)
-        // would be wasted work. Mirrors moderateProfileOnWrite's
-        // "skip fields that didn't change" optimization.
-        const SCAN_FIELDS = ["title", "brand", "desc", "cat", "condition"];
-        const changed = {};
-        for (const f of SCAN_FIELDS) {
-          if (after[f] !== before[f]) changed[f] = after[f];
-        }
-        if (Object.keys(changed).length > 0) {
-          const result = await scanFields(
-              changed, "listing", sellerId, null);
-          if (!result.clean) {
-            logger.warn(
-                "moderation: reverting listing edit (content violation)",
-                {listingId, sellerId, category: result.category});
-            // Revert every editable field to its before value. Use
-            // delete() sentinel for fields that didn't exist before so
-            // we don't leave a stray empty value behind.
-            const revert = {};
-            for (const f of LISTING_EDITABLE_FIELDS) {
-              if (Object.prototype.hasOwnProperty.call(before, f)) {
-                revert[f] = before[f];
-              } else if (Object.prototype.hasOwnProperty.call(after, f)) {
-                revert[f] = admin.firestore.FieldValue.delete();
-              }
-            }
-            revert.updatedAt =
-              admin.firestore.FieldValue.serverTimestamp();
-            // 3-attempt retry with exponential backoff (500ms, 1000ms,
-            // skipped on final attempt). Worst-case unguarded backoff
-            // would be ~3s (500+1000+1500); the if (attempt < 2) guard
-            // drops the trailing 1500ms so we return faster on terminal
-            // failure. retry: true is NOT set on the trigger config —
-            // we don't want Cloud Functions auto-retrying scan/GC
-            // failures, only the revert write.
-            let revertErr = null;
-            for (let attempt = 0; attempt < 3; attempt++) {
-              try {
-                await afterSnap.ref.update(revert);
-                reverted = true;
-                finalPhotos = before.photos;
-                revertErr = null;
-                break;
-              } catch (e) {
-                revertErr = e;
-                if (attempt < 2) {
-                  await new Promise((r) =>
-                    setTimeout(r, 500 * (attempt + 1)));
-                }
-              }
-            }
-
-            if (reverted) {
-              // Audit row. scanContent already wrote a redacted-excerpt
-              // row for the matched field; this second row is the
-              // edit-path action marker the spec requires. Schema
-              // mirrors contentFilter.writeAuditLog (uid/contentType/
-              // category/redactedExcerpt/originatingIp/timestamp) plus
-              // `action`.
-              try {
-                await admin.firestore().collection("moderationLog").add({
-                  uid: sellerId || null,
-                  contentType: "listing",
-                  category: result.category,
-                  redactedExcerpt: result.redactedExcerpt || null,
-                  originatingIp: null,
-                  action: "edit_blocked",
-                  listingId,
-                  timestamp:
-                    admin.firestore.FieldValue.serverTimestamp(),
-                });
-              } catch (e) {
-                logger.warn(
-                    "moderation: edit_blocked audit write failed");
-              }
-              // Storage GC for orphaned uploads from the failed edit:
-              // the revert restored before.photos, so any photo the
-              // seller had just uploaded (in after.photos but not
-              // before.photos) is now orphaned. Diff after.photos vs
-              // the persisted before.photos to delete them.
-              try {
-                await deleteRemovedListingPhotos(
-                    after.photos, finalPhotos, listingId);
-              } catch (e) {
-                logger.warn(
-                    "moderation: listing photo GC failed");
-              }
-            } else {
-              // Revert exhausted retries. Listing currently holds the
-              // violating content. Write a truthful audit row
-              // (action: "revert_failed") so the listing surfaces in
-              // the moderation queue for manual handling rather than
-              // existing only in logger.error. Skip Storage GC — we
-              // don't know which photos are now orphaned vs valid.
-              revertFailed = true;
-              logger.error(
-                  "moderation: listing revert failed after 3 attempts",
-                  {listingId, sellerId,
-                    err: revertErr && revertErr.message});
-              try {
-                await admin.firestore().collection("moderationLog").add({
-                  uid: sellerId || null,
-                  contentType: "listing",
-                  category: result.category,
-                  redactedExcerpt: result.redactedExcerpt || null,
-                  originatingIp: null,
-                  action: "revert_failed",
-                  listingId,
-                  timestamp:
-                    admin.firestore.FieldValue.serverTimestamp(),
-                });
-              } catch (e) {
-                logger.warn(
-                    "moderation: revert_failed audit write failed");
-              }
-            }
-          }
-        }
-      } catch (e) {
-        logger.error("moderateListingOnUpdate moderation error", e);
-      }
-
-      // Clean-edit Storage GC: delete objects the seller removed
-      // (in before.photos but not in after.photos == finalPhotos).
-      // Skipped on both violation paths — revert-success branch
-      // already GC'd orphans; revert-failure branch intentionally
-      // leaves Storage alone since Firestore state is unreliable.
-      // The revert write itself re-triggers this function, but on that
-      // pass before==after for photos so the diff is empty — no loop.
-      if (!reverted && !revertFailed) {
-        try {
-          await deleteRemovedListingPhotos(
-              before.photos, finalPhotos, listingId);
-        } catch (e) {
-          logger.warn("moderation: listing photo GC failed");
-        }
-      }
-    },
-);
+// ── moderateListingOnUpdate: DELETED 2026-11-19 (founder OK) ─────────
+// The gen2 onUpdate trigger had received malformed events (no before/after)
+// since the May 2026 runtime change, so it never moderated anything; it only
+// logged errors and wrote "trigger_malfunction" rows (2,980, exported to
+// ~/Desktop/teebox-private before removal). Its two duties now live in:
+//   • content moderation: updateListing's synchronous scanFields pre-write
+//     gate + firestore.rules limiting direct writes to operational fields;
+//   • removed-photo Storage GC: updateListing (deleteRemovedListingPhotos,
+//     with photoVariants re-keyed by rekeyPhotoVariants).
+// No onUpdate triggers (#34).
 
 // ─────────────────────────────────────────────────────────────
 // updateListing (callable) — the canonical seller listing-EDIT path.
@@ -7022,7 +6825,7 @@ exports.moderateListingOnUpdate = onDocumentUpdated(
 //     authoritative doc inside the function.
 //   • Server-side content pre-scan rejects a profane edit
 //     synchronously (HttpsError) so the seller gets immediate
-//     feedback; the moderateListingOnUpdate trigger is the async
+//     feedback (the old moderateListingOnUpdate async backstop was deleted 2026-11-19)
 //     backstop for anything that slips the pre-check.
 //   • createdAt / sellerId / id / status / server-owned counters are
 //     never accepted from the client here.
@@ -7246,6 +7049,14 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     requiresAuth: isHighValue,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+  // 2026-11-19: photo bookkeeping moved here from the (deleted)
+  // moderateListingOnUpdate trigger. Only when the photo list changed.
+  const prevPhotos = Array.isArray(cur.photos) ? cur.photos.map(String) : [];
+  const photosChanged = prevPhotos.length !== photos.length ||
+    prevPhotos.some((u, i) => u !== String(photos[i]));
+  if (photosChanged && cur.photoVariants && typeof cur.photoVariants === "object") {
+    update.photoVariants = rekeyPhotoVariants(cur.photoVariants, photos);
+  }
   // Edit-scan degraded (a moderation layer failed open): allow the edit
   // but flag it for human review rather than silently trusting it.
   if (scanDegraded) {
@@ -7269,6 +7080,15 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   } catch (e) {
     logger.error("updateListing write failed", e);
     throw new HttpsError("internal", "Could not save your changes.");
+  }
+  // Storage GC for photos the seller removed (after the write, best-effort;
+  // never fails the edit).
+  if (photosChanged) {
+    try {
+      await deleteRemovedListingPhotos(prevPhotos, photos, listingId);
+    } catch (e) {
+      logger.warn("updateListing: photo GC failed", {listingId, err: e && e.message});
+    }
   }
   if (scanDegraded) {
     logger.error(
