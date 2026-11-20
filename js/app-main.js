@@ -8647,96 +8647,11 @@ window.__ambient = (function () {
   };
 })();
 
-// 3. Install banner: capture beforeinstallprompt and surface our own
-//    button. Hide if already installed (display-mode: standalone) OR
-//    the user already dismissed in this session.
-let __deferredPrompt = null;
-const __installBanner  = document.getElementById('installBanner');
-const __installBtn     = document.getElementById('installBtn');
-const __installDismiss = document.getElementById('installDismiss');
-
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true; // iOS
-}
-
-// Use localStorage so dismissal persists across sessions (sessionStorage cleared
-// on tab close, so the banner came back every visit — annoying when user already
-// said no). Re-prompt only if user hasn't seen it for 30 days.
-function __installDismissedRecently() {
-  try {
-    const t = parseInt(localStorage.getItem('install-dismissed-at') || '0', 10);
-    if (!t) return false;
-    return (Date.now() - t) < 30 * 24 * 60 * 60 * 1000;
-  } catch { return false; }
-}
-function __markInstallDismissed() {
-  try { localStorage.setItem('install-dismissed-at', String(Date.now())); } catch {}
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  __deferredPrompt = e;
-  if (isStandalone() || __installDismissedRecently()) return;
-  // r194 (audit W1+W2): through the ambient queue — idle browse only —
-  // and CONTAINED: it leaves for the session once the user starts
-  // scrolling the feed (no 30-day mark; it may try again next visit).
-  window.__ambient.request('install', {
-    show: () => {
-      if (!__installBanner) return;
-      __installBanner.hidden = false;
-      const sc = document.getElementById('app-scroll') || window;
-      const onScroll = () => {
-        const y = (sc === window) ? window.scrollY : sc.scrollTop;
-        if (y > 500) {
-          sc.removeEventListener('scroll', onScroll);
-          __installBanner.hidden = true;
-          window.__ambient.done('install');
-        }
-      };
-      sc.addEventListener('scroll', onScroll, { passive: true });
-    },
-    hide: () => { if (__installBanner) __installBanner.hidden = true; },
-  });
-});
-
-if (__installBtn) __installBtn.addEventListener('click', async () => {
-  if (!__deferredPrompt) return;
-  __installBanner.hidden = true;
-  __deferredPrompt.prompt();
-  const choice = await __deferredPrompt.userChoice;
-  __deferredPrompt = null;
-  if (choice.outcome !== 'accepted') __markInstallDismissed();
-});
-
-// Install banner X — bulletproof close. Some users reported the X not
-// dismissing on certain browsers; this handler now removes the element
-// outright (not just hidden) so nothing can re-show it within the session.
-function __closeInstallBanner() {
-  if (__installBanner) {
-    __installBanner.hidden = true;
-    __installBanner.style.display = 'none';
-    try { __installBanner.remove(); } catch {}
-  }
-  __markInstallDismissed();
-  try { window.__ambient.done('install'); } catch {}
-}
-if (__installDismiss) {
-  __installDismiss.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    __closeInstallBanner();
-  });
-  // Also handle pointerdown for trackpads/touch where click can be
-  // swallowed by parent listeners on iOS in standalone mode.
-  __installDismiss.addEventListener('pointerdown', (ev) => {
-    ev.stopPropagation();
-  });
-}
-
-window.addEventListener('appinstalled', () => {
-  if (__installBanner) __installBanner.hidden = true;
-});
+// 3. r427: the "Install TeeBox / Add to your home screen" banner is
+//    removed everywhere (Jake 2026-11-20). preventDefault keeps Chrome's own
+//    install mini-infobar from appearing in its place; nothing else listens.
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); });
+try { localStorage.removeItem('install-dismissed-at'); } catch {}
 
 // 4. Online / offline banner
 const __offlineBanner = document.getElementById('offlineBanner');

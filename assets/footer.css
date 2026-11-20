@@ -209,22 +209,10 @@
 .tb-footer-legal a:hover { color: var(--tbf-gold); }
 .tb-footer-sep { padding: 0 6px; }
 
-/* --- fixed bottom chrome must never hide the legal line ---------------- */
-/* index.html's PWA install banner (#installBanner, fixed, z 350, ~72px +
-   12px inset) floats over whatever is at the bottom of the scroll; while it
-   is showing, the footer carries that much extra clearance. */
-body:has(#installBanner:not([hidden])) .tb-footer {
-  padding-bottom: calc(var(--tbf-pad-y) + 84px + env(safe-area-inset-bottom, 0px));
-}
-
 /* --- mobile: clear the fixed bottom tab bar on web -------------------- */
 @media (max-width: 900px) {
   body.has-bottom-nav .tb-footer {
     padding-bottom: calc(var(--tbf-pad-y) + 70px + env(safe-area-inset-bottom, 0px));
-  }
-  body.has-bottom-nav:has(#installBanner:not([hidden])) .tb-footer {
-    /* banner sits 78px above the safe area when the tab bar is present */
-    padding-bottom: calc(var(--tbf-pad-y) + 78px + 84px + env(safe-area-inset-bottom, 0px));
   }
   /* index.html already pads #app-scroll for the tab bar; when the footer is
      the last thing in the scroller it carries that clearance itself, so the

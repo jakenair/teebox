@@ -229,8 +229,6 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
     if (MODE !== "pixel") {
     // ── Sign up (guest taps Sell → auth screen → Create Account) ──
     await step(p, "signup: tap Sell as guest → join prompt", async () => {
-      const install = await p.locator("#installBanner:not([hidden])").isVisible().catch(() => false);
-      if (install) report.notes.push("Install TeeBox banner appears over the bottom of the viewport on the first guest session (covers the lower part of modals).");
       // r349: ONE prompt — the Sell tap opens the auth screen directly (Create Account pane).
       // Older builds showed a "Join TeeBox" interstitial first; handle both.
       // r367: the Sell tap opens the provider sheet ("Sign up for TeeBox") first; "Continue with
@@ -241,7 +239,7 @@ async function setNet(h, profile, label) { await h.cdp.send("Network.emulateNetw
       const interstitial = await p.locator('[data-action="show-auth-from-prompt-signup"]').isVisible().catch(() => false);
       if (interstitial) { report.notes.push("two-step join prompt still present"); await p.locator('[data-action="show-auth-from-prompt-signup"]').click(); await skipAuthSheet(p); await p.locator("#authScreen #emailInput").waitFor({state: "visible", timeout: 30000}); }
       const mode = await p.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "");
-      return {promptMs: r.outcomeMs, twoStep: interstitial, modePreselected: (mode || "").trim(), installBannerShown: install};
+      return {promptMs: r.outcomeMs, twoStep: interstitial, modePreselected: (mode || "").trim()};
     });
     await step(p, "signup: Create Account form", async () => {
       const active = (await p.locator('#authScreen .auth-mode-btn.active').textContent().catch(() => "")).trim();

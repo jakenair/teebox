@@ -899,28 +899,16 @@ window.tbEvent = function (name, surface) {
     .notif-panel-head { padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; }
   }
 
-  /* Install banner + offline indicator */
-  .install-banner { position: fixed; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); background: var(--green-900); color: var(--white); border-radius: var(--radius-lg); box-shadow: 0 12px 36px rgba(0,0,0,0.4); padding: 12px 16px; display: flex; align-items: center; gap: 12px; z-index: 350; animation: slideUp 0.3s cubic-bezier(.4,0,.2,1); }
-  .install-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
-  .install-banner-text strong { font-size: 14px; }
-  .install-banner-text span { font-size: 12.5px; color: rgba(255,255,255,0.7); }
-  .install-banner-btn { background: var(--gold-400); color: var(--green-900); border: none; padding: 8px 18px; border-radius: 50px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
-  .install-banner-btn:hover { background: var(--gold-300); }
-  .install-banner-x { background: rgba(255,255,255,0.12); border: none; color: var(--white); font-size: 22px; line-height: 1; cursor: pointer; width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; }
-  .install-banner-x:hover { background: rgba(255,255,255,0.22); }
-  .install-banner-x:active { transform: scale(0.92); }
-  /* Hide the "Install TeeBox · Add to your home screen" prompt inside the
-     native iOS app — that prompt only makes sense on the website. The body
-     gets `is-native` set when window.Capacitor.isNativePlatform() is true. */
-  body.is-native .install-banner { display: none !important; }
-  /* r141: the install banner is position:fixed z-index:350, which sits ABOVE the
-     detail modal (z-index:250) and was floating over the Buy Now button + checkout
-     CTAs. Hide it whenever any full-screen overlay is open. :has() degrades
-     gracefully — on browsers without support the banner just behaves as before. */
-  /* r353: the install banner also covered the Bingo board (tiles 7-9) and the leaderboard. */
-  body:has(#bingoScreen.open, #s9Screen.open, .detail-backdrop.open, .modal-backdrop.open, .info-backdrop.open, .verify-backdrop.open, .sell-modal-backdrop.open, #chatBackdrop.open, #inboxBackdrop.open, #shopDashboard.open, #notifPanel.open, #authScreen.open, .signin-prompt-backdrop.open, #nameGateBackdrop.open) .install-banner { display: none !important; }
+  /* Offline indicator */
   /* r349 (P1-8): while the post-publish "one more step" dialog (or any sell-modal
      dialog) is open, toasts dock at the TOP so they never cover its buttons. */
+  /* r427: toasts sit ABOVE the bottom tab bar (bar ~70px + safe area; the
+     app's raised Sell circle stands ~5px higher, and it is centred like the
+     toast). Overlays that dock toasts at the top (rule below) still win. */
+  @media (max-width: 900px) {
+    body.has-bottom-nav .toast { bottom: calc(70px + 12px + env(safe-area-inset-bottom)); }
+    body.is-native.has-bottom-nav .toast { bottom: calc(70px + 8px + 12px + env(safe-area-inset-bottom)); }
+  }
   body:has(#stripeRequiredBackdrop.open, #sellModalBackdrop.open) .toast { bottom: auto; top: calc(72px + env(safe-area-inset-top)); animation: none; }
   /* r349 (P1-8): the "Add your name" gate must sit above the verify-email banner. */
   #nameGateBackdrop { z-index: 420; }
@@ -1119,8 +1107,6 @@ window.tbEvent = function (name, surface) {
     body.has-bottom-nav .cat-bar-wrap::before { background: linear-gradient(to right, var(--green-800) 30%, transparent); }
     body.has-bottom-nav .cat-bar-wrap::after { background: linear-gradient(to left, var(--green-900) 30%, transparent); }
     body.has-bottom-nav main { margin-top: calc(var(--cat-bar-h) + var(--top-bar-h, calc(env(safe-area-inset-top) + 64px))); }  /* r334: 52→64, see .cat-bar-wrap */
-    /* Push the install banner up above the bottom-nav so they don't stack */
-    body.has-bottom-nav .install-banner { bottom: calc(78px + env(safe-area-inset-bottom)); }
 
     /* r163: NATIVE APP header simplification — search-first. Gated on
        body.is-native (Capacitor.isNativePlatform) so mobile WEB keeps the
@@ -3770,8 +3756,6 @@ window.tbEvent = function (name, surface) {
     #filterClear { margin-left: auto; }
     /* Detail action buttons: 2x2 grid */
     .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    /* Install banner is a mobile/PWA pattern — hide on desktop */
-    .install-banner { display: none !important; }
     /* Bingo cell-mark always sits above cell-num if they touch */
     .bingo-cell-mark { z-index: 2; }
     .bingo-cell-num { z-index: 1; }
@@ -4966,23 +4950,19 @@ window.tbEvent = function (name, surface) {
   /* 1.1 — bottom tab bar: dark green chrome, gold active, cream inactive,
      Sell as a raised gold circle. Web keeps the white bar untouched. */
   @media (max-width: 900px) {
-    body.is-native .bottom-nav {
-      background: var(--green-900);
-      border-top: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 -4px 18px rgba(0,0,0,0.28);
-    }
-    body.is-native .bottom-nav-item { color: rgba(246,239,225,0.55); font-size: 10px; }
-    body.is-native .bottom-nav-item.active { color: var(--gold-300); }
-    body.is-native .bottom-nav-item.active::before { background: var(--gold-400); }
-    body.is-native .bottom-nav-item.sell,
-    body.is-native .bottom-nav-item.sell.active { color: var(--gold-300); }
+    /* r427 (Jake 2026-11-20): the app tab bar is WHITE like the website's
+       (background, hairline, shadow and tab colours fall through to the web
+       .bottom-nav rules). Icons, labels, order, the 10px labels and the
+       raised gold Sell circle stay exactly as the app had them; the circle's
+       ring is now white to sit on the white bar. */
+    body.is-native .bottom-nav-item { font-size: 10px; }
     body.is-native .bottom-nav-item.sell > span {
       width: 46px; height: 46px; border-radius: 50%;
       background: var(--gold-400); color: var(--green-900);
       display: inline-flex; align-items: center; justify-content: center;
       margin-top: -20px;
-      border: 3px solid var(--green-900);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+      border: 3px solid var(--white);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
     }
     body.is-native .bottom-nav-item.sell .ico { width: 24px; height: 24px; stroke-width: 2.2; }
     body.is-native .bottom-nav-item.sell.active > span { background: var(--gold-300); }
@@ -5301,8 +5281,9 @@ window.tbEvent = function (name, surface) {
        "gold border on default cards". In-app, cards keep the neutral
        gray-200 hairline; gold stays reserved for featured/pinned. The
        ribbon is untouched on web. */
-    body.is-native .product-card.verified-card { outline: none; box-shadow: none; }
-    body.is-native .product-card.verified-card::before { display: none; }
+    /* r427 (Jake 2026-11-20): the gold verified-seller outline is BACK on app
+       cards, same as web. Only the outline; the app card layout below is
+       unchanged. */
     body.is-native .product-body { display: flex; flex-direction: column; }
     body.is-native .product-brand,
     body.is-native .product-rating,
@@ -5466,7 +5447,7 @@ window.tbEvent = function (name, surface) {
      r186 §7: CONTRAST TOKENS · ENTRY-POINT DEDUP · TOUCH TARGETS ·
      DEAD-TAP LABEL (UI-audit section 7). App-only. Constraints honored:
      16px input zoom-guard untouched; [data-feature="offers"] untouched;
-     install-banner rules untouched (audited L746/L751/L2511); no
+     no
      transform-based pressed states (reduced-motion neutralizers stand).
      ══════════════════════════════════════════════════════════════════ */
   /* 7.1 ink tokens — two text tones per background, measured (WCAG):
@@ -5743,16 +5724,6 @@ window.tbEvent = function (name, surface) {
     <span data-ico="user" aria-hidden="true"></span>Profile
   </button>
 </nav>
-
-<!-- INSTALL BANNER (shown when the browser allows install + we're not already installed) -->
-<div id="installBanner" class="install-banner" hidden>
-  <div class="install-banner-text">
-    <strong>Install TeeBox</strong>
-    <span>Add to your home screen for one-tap access.</span>
-  </div>
-  <button id="installBtn" type="button" class="install-banner-btn">Install</button>
-  <button id="installDismiss" type="button" class="install-banner-x" aria-label="Dismiss">×</button>
-</div>
 
 <!-- OFFLINE BANNER (shown when navigator goes offline) -->
 <div id="offlineBanner" class="offline-banner" hidden>You're offline. Some features won't work until you reconnect.</div>
@@ -6205,7 +6176,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r425</span></div>
+        <span class="auth-build" aria-hidden="true">r427</span></div>
     </div>
   </div>
 </div>
@@ -8116,8 +8087,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r425"></script>
-      <script async src="/js/feed-rank.js?v=r425"></script>
+      <script async src="/js/feed-rank-config.js?v=r427"></script>
+      <script async src="/js/feed-rank.js?v=r427"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -10101,10 +10072,10 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r425"></script>
-<script defer src="/js/checkout-guest.js?v=r425"></script>
-<script defer src="/js/pull-refresh.js?v=r425"></script>
-<script type="module" src="/js/app-auth.js?v=r425"></script>
+<script defer src="/js/app-main.js?v=r427"></script>
+<script defer src="/js/checkout-guest.js?v=r427"></script>
+<script defer src="/js/pull-refresh.js?v=r427"></script>
+<script type="module" src="/js/app-auth.js?v=r427"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10134,8 +10105,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r425"></script>
-<script type="module" src="/js/sunday-nine.js?v=r425"></script>
+<script type="module" src="/js/bingo.js?v=r427"></script>
+<script type="module" src="/js/sunday-nine.js?v=r427"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
