@@ -682,6 +682,7 @@ exports.createPaymentIntent = onRequest(
         const newReserved = reservedNow + qty;
         tx.update(listingRef, isLastUnit ? {
           status: "pending",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           pendingBuyer: buyerId,
           pendingUntil: admin.firestore.Timestamp.fromMillis(
             now + PENDING_WINDOW_MS
@@ -692,6 +693,7 @@ exports.createPaymentIntent = onRequest(
           // The Stripe webhook commits the increment to quantitySold and
           // decrements quantityReserved in the same tx; here we just keep
           // the listing active.
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           pendingBuyer: buyerId,
           pendingUntil: admin.firestore.Timestamp.fromMillis(
             now + PENDING_WINDOW_MS
@@ -756,6 +758,7 @@ exports.createPaymentIntent = onRequest(
               pendingUntil: admin.firestore.FieldValue.delete(),
               pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
               quantityReserved: nextReserved,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
             // Only flip status back to active if we were the ones who
             // moved it to pending (last-unit reservation).
@@ -1897,6 +1900,7 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       const nextReserved = Math.max(0, curReserved - orderQty);
       tx.update(listingRef, fullySold ? {
         status: "sold",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         quantitySold: newSold,
         quantityReserved: nextReserved,
         soldAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1908,6 +1912,7 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       } : {
         // Multi-stock: bump sold count, keep listing active for remaining units.
         status: "active",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         quantitySold: newSold,
         quantityReserved: nextReserved,
         pendingBuyer: admin.firestore.FieldValue.delete(),
@@ -2096,6 +2101,7 @@ async function releaseListingOnFailure(pi) {
     if (isPending && matchesThisPI) {
       tx.update(listingRef, {
         status: "active",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         quantityReserved: nextReserved,
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
@@ -2106,6 +2112,7 @@ async function releaseListingOnFailure(pi) {
       // Multi-stock listing stayed active — just unwind the reservation.
       tx.update(listingRef, {
         quantityReserved: nextReserved,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
@@ -2115,6 +2122,7 @@ async function releaseListingOnFailure(pi) {
       // count > 0. Best-effort decrement so we don't leak units.
       tx.update(listingRef, {
         quantityReserved: nextReserved,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
   });
@@ -2185,6 +2193,7 @@ exports.expireListings = onSchedule(
     snap.docs.forEach((d) => {
       batch.update(d.ref, {
         status: "expired",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         expiredAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
@@ -3733,6 +3742,7 @@ exports.releaseExpiredReservations = onSchedule(
       if (ms > 0 && ms < now) {
         batch.update(d.ref, {
           status: "active",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           pendingBuyer: admin.firestore.FieldValue.delete(),
           pendingUntil: admin.firestore.FieldValue.delete(),
           pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
