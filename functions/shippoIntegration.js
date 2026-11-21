@@ -10,7 +10,10 @@
  *   3. Resolves the to-address from orders/{orderId}.shippingAddress
  *      (Stripe AddressElement persisted by stripeWebhook).
  *   4. Posts to Shippo /shipments with async:false → gets rates[].
- *   5. Picks a rate (cheapest USPS <70lb / cheapest UPS Ground >=70lb).
+ *   5. Picks a rate (cheapest overall <70lb / cheapest UPS Ground >=70lb),
+ *      re-rated fresh for the order's quoted box (shippingParcelKey); a
+ *      higher-than-collected rate is still bought and logged
+ *      (shippingLabelDeltas) — founder, 2026-11-21.
  *   6. Posts to Shippo /transactions with that rate → gets {label_url,
  *      tracking_number, label_file_type}.
  *   7. Writes labelUrl, trackingNumber, carrier, shippingLabelPurchasedAt
@@ -35,8 +38,6 @@
  *   {ok: false, reason: "label-purchase-failed", message, details}
  *                                                              transaction failed
  *   {ok: false, reason: "shippo-down", message}               Shippo 5xx / network error
- *   {ok: false, reason: "label-exceeds-collected", message}   live-rate label >
- *                                                              buyer-paid shipping
  *   {ok: true, labelUrl, trackingNumber, carrier, rateAmount, env}
  *
  * Cost (Structure 2, founder ruling 2026-09-04): the label is prepaid by
@@ -63,26 +64,14 @@ const SHIPPO_API_KEY = defineSecret("SHIPPO_API_KEY");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const {OPS_ALERT_WEBHOOK} = require("./opsAlert");
 
-// r181: category→parcel map. Before this, EVERY label was quoted from
-// DEFAULT_PARCEL (12×8×4, 2lb) regardless of item — a 48" club or a stand
-// bag physically can't ship as quoted, and a mis-declared parcel draws an
-// uncapped carrier dimensional adjustment billed to the label purchaser
-// (us) after the fact. Keyed off listing.cat at label time via the
-// existing overrides.parcel hook; true per-item dims are the parked
-// spec-fields work. All dims inches, weights lb.
-const CATEGORY_PARCELS = {
-  apparel: {length: "12", width: "10", height: "1", weight: "1"},
-  accessories: {length: "12", width: "10", height: "4", weight: "2"},
-  headcovers: {length: "12", width: "10", height: "4", weight: "1"},
-  shoes: {length: "14", width: "10", height: "5", weight: "3"},
-  balls: {length: "12", width: "8", height: "4", weight: "3"},
-  clubs: {length: "48", width: "6", height: "6", weight: "5"},
-  bags: {length: "38", width: "14", height: "12", weight: "12"},
-};
-function parcelForCategory(cat) {
-  const p = CATEGORY_PARCELS[String(cat || "").toLowerCase()];
-  return p ? {...p, distance_unit: "in", mass_unit: "lb"} : null;
-}
+// Parcels (2026-11-21, founder approval): clubs ship in one of three boxes
+// the seller picks (single / partial / full), every other category keeps
+// one box. A mis-declared parcel draws an uncapped carrier adjustment
+// billed to us 30-60 days later, so the SAME parcel is used for the
+// checkout quote and the label (orders keep shippingParcelKey).
+// Definitions + the classifier live in lib/shippingParcels.js.
+const SP = require("./lib/shippingParcels");
+const {sendEmail, RESEND_API_KEY} = require("./lib/email");
 
 // ─── Structure 2 (buyer-paid shipping) — flat tiers + live-rate categories ──
 // Founder ruling 2026-09-04: buyer pays shipping (Mercari model). HYBRID
@@ -100,16 +89,18 @@ const FLAT_SHIPPING_CENTS = {
   // clubs, bags → live rate (not listed)
 };
 
-// Returns {cents, method:'flat'|'live', carrier, service} or {error}.
-// Flat categories are resolved with zero Shippo calls; live categories
-// rate-shop with pickRate (cheapest overall <70lb).
-async function quoteShippingCents(apiKey, category, fromAddress, toAddress) {
-  const cat = String(category || "").toLowerCase();
+// Returns {cents, method:'flat'|'live', carrier, service, parcelKey} or
+// {error}. Flat categories are resolved with zero Shippo calls; live
+// categories rate-shop with pickRate (cheapest overall <70lb). The parcel
+// (dims AND weight) comes from the listing: clubs by box type.
+// `cents` is the carrier rate only; protection is added by the caller.
+async function quoteShippingCents(apiKey, listing, fromAddress, toAddress, cfg) {
+  const cat = String((listing && listing.cat) || "").toLowerCase();
+  const {key: parcelKey, parcel} = SP.parcelForListing(listing);
   const flat = FLAT_SHIPPING_CENTS[cat];
   if (Number.isFinite(flat)) {
-    return {cents: flat, method: "flat", carrier: null, service: null};
+    return {cents: flat, method: "flat", carrier: null, service: null, parcelKey};
   }
-  const parcel = parcelForCategory(cat) || DEFAULT_PARCEL;
   const shipmentRes = await shippoFetch(apiKey, "/shipments/", {
     address_from: shippoAddress(fromAddress),
     address_to: shippoAddress(toAddress),
@@ -120,13 +111,15 @@ async function quoteShippingCents(apiKey, category, fromAddress, toAddress) {
       !shipmentRes.body || !Array.isArray(shipmentRes.body.rates)) {
     return {error: "rate-unavailable"};
   }
-  const rate = pickRate(shipmentRes.body.rates, Number(parcel.weight));
+  const rate = pickRate(SP.filterCarriers(shipmentRes.body.rates, cfg), Number(parcel.weight));
   if (!rate) return {error: "no-rate"};
   return {
     cents: Math.round(Number(rate.amount) * 100),
     method: "live",
     carrier: rate.provider || null,
     service: (rate.servicelevel && rate.servicelevel.name) || null,
+    estimatedDays: Number.isFinite(Number(rate.estimated_days)) ? Number(rate.estimated_days) : null,
+    parcelKey,
   };
 }
 
@@ -140,17 +133,8 @@ const USER_CALLABLE = {
 
 // ─── Constants ────────────────────────────────────────────────────────
 const SHIPPO_BASE = "https://api.goshippo.com";
-// Default parcel: 12 × 8 × 4 inches, 2 lb. Reasonable for a single golf
-// glove / single shaft component / small accessory. Sellers will be able
-// to override per-listing in a future iteration; v1 uses this for all.
-const DEFAULT_PARCEL = {
-  length: "12",
-  width: "8",
-  height: "4",
-  distance_unit: "in",
-  weight: "2",
-  mass_unit: "lb",
-};
+// Default parcel: 12 × 8 × 4 inches, 2 lb (unknown category).
+const DEFAULT_PARCEL = SP.parcelForKey("default");
 // Heavy threshold — above this, default carrier picker prefers UPS Ground
 // because USPS Priority Mail caps at 70lb and gets expensive past 50lb.
 const HEAVY_LB = 70;
@@ -350,12 +334,66 @@ function addressIsComplete(a) {
   return !!(a && a.street1 && a.city && a.state && a.zip);
 }
 
+// ─── Label delta (quoted vs actual) ──────────────────────────────────
+// quoted = what the buyer paid for the shipping line (carrier rate +
+// protection); actual = the label we bought (Shippo folds the insurance
+// fee into the rate amount). One doc per order; written on every label so
+// the collection doubles as a quote-accuracy log.
+function labelDeltaDoc({orderId, order, rate, parcelKey, env, carrier}) {
+  const quotedCents = Math.round(Number(order.shippingCents) || 0);
+  const actualCents = Math.round(Number(rate.amount || 0) * 100);
+  return {
+    orderId,
+    sellerId: order.sellerId || null,
+    listingId: order.listingId || null,
+    shippingMethod: order.shippingMethod || "legacy",
+    parcelKey: parcelKey || null,
+    quotedCents,
+    quotedCarrierCents: Number.isFinite(Number(order.shippingCarrierCents)) ?
+      Math.round(Number(order.shippingCarrierCents)) : null,
+    protectionCents: Math.round(Number(order.shippingProtectionCents) || 0),
+    actualCents,
+    deltaCents: actualCents - quotedCents,
+    carrier: carrier || null,
+    service: (rate.servicelevel && rate.servicelevel.token) || null,
+    env,
+  };
+}
+
+async function recordLabelDelta(db, args) {
+  const doc = labelDeltaDoc(args);
+  await db.collection("shippingLabelDeltas").doc(args.orderId).set({
+    ...doc, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  const cfg = await SP.getShippingConfig(db);
+  if (doc.deltaCents <= cfg.labelDeltaAlertCents) return {doc, emailed: false};
+  const usd = (c) => `$${(c / 100).toFixed(2)}`;
+  const lines = [
+    `Order ${doc.orderId}: the label cost ${usd(doc.actualCents)}; the buyer paid ${usd(doc.quotedCents)} for shipping` +
+      (doc.protectionCents ? ` (incl. ${usd(doc.protectionCents)} protection)` : "") + `.`,
+    `Difference: ${usd(doc.deltaCents)} (TeeBox's Shippo account pays it; nothing was taken from the seller).`,
+    `Box: ${SP.boxName(doc.parcelKey)} (${doc.parcelKey || "unknown"}). Carrier: ${doc.carrier || "?"} ${doc.service || ""}. Mode: ${doc.env}.`,
+    `Seller: ${doc.sellerId || "?"}. Listing: ${doc.listingId || "?"}.`,
+  ];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;"}[ch]));
+  await sendEmail({
+    to: cfg.opsEmail,
+    subject: `Label ${usd(doc.deltaCents)} over buyer shipping`,
+    text: lines.join("\n"),
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#14301a">${lines.map((l) => `<p style="margin:0 0 10px">${esc(l)}</p>`).join("")}</div>`,
+    category: "transactional",
+    template: "LabelDeltaAlert",
+    idempotencyKey: `label-delta-${doc.orderId}`,
+  });
+  return {doc, emailed: true};
+}
+
 // ─── Main callable ────────────────────────────────────────────────────
 
 exports.createShippingLabel = onCall(
     // STRIPE_SECRET_KEY dropped from this binding with Structure 1's
     // payout-deduction retirement — the label flow makes no Stripe calls.
-    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, OPS_ALERT_WEBHOOK]},
+    {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, OPS_ALERT_WEBHOOK, RESEND_API_KEY]},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Sign in required.");
@@ -363,10 +401,12 @@ exports.createShippingLabel = onCall(
       const uid = request.auth.uid;
       const data = request.data || {};
       const {orderId} = data;
+      // No client parcel override any more (2026-11-21): the label must
+      // use the box the buyer was quoted for, and the client never sent
+      // one. A seller-measured box is a later, server-validated step.
       const overrides = {
         fromAddress: data.fromAddress || null,
         toAddress: data.toAddress || null,
-        parcel: data.parcel || null,
       };
 
       if (!orderId) {
@@ -510,27 +550,44 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // ─── Parcel (r181: explicit override > category map > default) ─
-      // Category comes from the listing the order references; a deleted
-      // listing (or unknown cat) falls back to DEFAULT_PARCEL as before.
-      let catParcel = null;
-      try {
-        if (order.listingId) {
-          const lSnap = await admin.firestore()
-              .collection("listings").doc(String(order.listingId)).get();
-          if (lSnap.exists) catParcel = parcelForCategory(lSnap.data().cat);
+      // ─── Parcel: the box the buyer was quoted for ─────────────────
+      // Orders since 2026-11-21 carry shippingParcelKey from checkout.
+      // Older orders: derive it from the listing (clubs by box type); a
+      // deleted listing falls back to DEFAULT_PARCEL as before.
+      let parcelKey = order.shippingParcelKey || null;
+      let parcel = parcelKey ? SP.parcelForKey(parcelKey) : null;
+      if (!parcel) {
+        try {
+          if (order.listingId) {
+            const lSnap = await db.collection("listings")
+                .doc(String(order.listingId)).get();
+            if (lSnap.exists) {
+              ({key: parcelKey, parcel} = SP.parcelForListing(lSnap.data()));
+            }
+          }
+        } catch (e) {
+          logger.warn("createShippingLabel: listing lookup failed " +
+              "(using default parcel)", {orderId, err: e.message});
         }
-      } catch (e) {
-        logger.warn("createShippingLabel: listing cat lookup failed " +
-            "(using default parcel)", {orderId, err: e.message});
       }
-      const parcel = overrides.parcel || catParcel || DEFAULT_PARCEL;
+      if (!parcel) {
+        parcelKey = "default";
+        parcel = DEFAULT_PARCEL;
+      }
 
-      // ─── Step 1: Create shipment + get rates ───────────────────────
+      // Shipping protection: insure at the item price when the buyer paid
+      // for it at checkout (protectionCents > 0 on the order).
+      const insurance = Number(order.shippingProtectionCents) > 0 ?
+        SP.shippoInsurance(order.insuredValueCents || order.itemCents) : null;
+
+      // ─── Step 1: Fresh rates for that parcel ───────────────────────
+      // A checkout rate isn't guaranteed for 1-3 days (Shippo support,
+      // 2026-11-21), so the label is always re-rated here.
       const shipmentBody = {
         address_from: shippoAddress(fromAddress),
         address_to: shippoAddress(toAddress),
         parcels: [parcel],
+        ...(insurance ? {extra: {insurance}} : {}),
         async: false,
       };
       const shipmentRes = await shippoFetch(
@@ -596,7 +653,9 @@ exports.createShippingLabel = onCall(
       // candidate list and fall through to the next CARRIER whenever a
       // purchase fails for a carrier-setup reason.
       const parcelWeightLb = Number(parcel.weight || 0);
-      const candidates = pickRateCandidates(rates, parcelWeightLb);
+      // Same purchasable-carrier list the checkout quote used.
+      const candidates = pickRateCandidates(
+          SP.filterCarriers(rates, await SP.getShippingConfig(db)), parcelWeightLb);
       if (!candidates.length) {
         logger.warn(
             "createShippingLabel: pickRateCandidates returned nothing",
@@ -610,53 +669,21 @@ exports.createShippingLabel = onCall(
         };
       }
 
-      // Structure 2 guard (founder ruling 2026-09-04) — buyer-paid
-      // shipping: the label is prepaid by the shipping the buyer paid at
-      // checkout (retained by the platform via application_fee_amount) —
-      // nothing is deducted from the seller's payout, no quote→confirm
-      // round-trip. Structure 1's confirmDeduct flow, proceeds guard, and
-      // transfer-reversal recovery are retired (an old client still sending
-      // confirmDeduct:true is harmlessly ignored). Guard: a live-rate order
-      // collected the EXACT carrier rate at checkout — if today's rate
-      // exceeds what was collected (carrier repriced between purchase and
-      // print), refuse and alert instead of silently eating the difference.
-      // Flat-tier overage is absorbed by design (tiers priced above
-      // worst-case lanes), and a legacy order with no shippingCents buys
-      // unguarded: deducting nothing from the seller is the safe failure.
-      const collectedShippingCents = Number(order.shippingCents);
-      const guardApplies = order.shippingMethod === "live" &&
-          Number.isFinite(collectedShippingCents);
-      const affordable = guardApplies ?
-          candidates.filter(
-              (r) => Math.round(Number(r.amount || 0) * 100) <=
-                  collectedShippingCents) :
-          candidates;
-      if (!affordable.length) {
-        // Candidates are cheapest-first, so if none fits, the cheapest
-        // available rate is the honest number to report and alert on.
-        const cheapestUsd = Number(candidates[0].amount || 0);
-        const {opsAlert} = require("./opsAlert");
-        await opsAlert("error",
-            `Label $${cheapestUsd.toFixed(2)} exceeds buyer-paid shipping ` +
-            `$${(collectedShippingCents / 100).toFixed(2)} on order ` +
-            `${orderId} — purchase refused; needs a founder decision.`);
-        return {
-          ok: false,
-          reason: "label-exceeds-collected",
-          message: "Today's carrier rate came back higher than the " +
-            "shipping collected for this order, so we didn't buy the " +
-            "label. Contact support and we'll sort it out together.",
-          rateAmount: cheapestUsd,
-          collectedShipping: Math.round(collectedShippingCents) / 100,
-        };
-      }
+      // Structure 2 (founder ruling 2026-09-04): the label is prepaid by
+      // the shipping the buyer paid at checkout (retained by the platform
+      // via application_fee_amount); nothing is deducted from the seller.
+      // 2026-11-21 (founder): never block the order on a price change.
+      // Buy the cheapest valid rate even when it costs more than the buyer
+      // paid; the difference is logged (shippingLabelDeltas) and emailed
+      // when over the alert threshold. The old label-exceeds-collected
+      // refusal is retired.
 
       // ─── Step 3: Buy label (fall through carriers on setup errors) ─
       // Bounded so a broadly misconfigured Shippo account can't turn one
       // click into ten upstream calls. A failed transaction buys nothing,
       // so retrying a different carrier costs only latency.
       const MAX_LABEL_ATTEMPTS = 4;
-      const attempts = affordable.slice(0, MAX_LABEL_ATTEMPTS);
+      const attempts = candidates.slice(0, MAX_LABEL_ATTEMPTS);
       let rate = null;
       let txn = null;
       const setupFailures = [];
@@ -805,12 +832,27 @@ exports.createShippingLabel = onCall(
         // Structure 2: funded by the buyer's shipping payment — no payout
         // deduction, no labelDeductCents, no transfer reversal.
         labelFundedBy: "buyer_shipping",
+        // Reconciliation keys (shippingAdjustments matches Shippo invoice
+        // rows on these) + the box the label declared.
+        shippoTransactionId: txn.object_id || null,
+        shippoShipmentId: (shipmentRes.body && shipmentRes.body.object_id) || null,
+        shippingParcelKey: parcelKey,
+        labelParcel: {length: parcel.length, width: parcel.width,
+          height: parcel.height, weight: parcel.weight},
+        labelInsuredCents: insurance ? Math.round(Number(insurance.amount) * 100) : 0,
       }, {merge: true});
 
       logger.info(
           `createShippingLabel: ${orderId} bought ` +
           `${carrier} ${rate.servicelevel && rate.servicelevel.name} ` +
           `for $${rate.amount} (env=${env})`);
+
+      // Quoted vs actual. Never blocks or undoes the label.
+      try {
+        await recordLabelDelta(db, {orderId, order, rate, parcelKey, env, carrier});
+      } catch (e) {
+        logger.error("createShippingLabel: delta log failed", {orderId, err: e.message});
+      }
 
       return {
         ok: true,
@@ -835,16 +877,44 @@ exports.createShippingLabel = onCall(
 // One resolver behind BOTH getShippingQuote (pre-payment display) and
 // updateCheckoutShipping (the PI re-price) so the number the buyer sees
 // and the number the buyer is charged can never disagree.
-// Throws HttpsError; returns {shippingCents, method, carrier, service,
-// category}.
-async function quoteForListing(db, listing, toAddr) {
+// Throws HttpsError; returns {shippingCents, carrierCents, protectionCents,
+// insuredCents, parcelKey, method, carrier, service, category}.
+//   shippingCents = carrierCents + protectionCents: the buyer's whole
+//   shipping line, which is what PI amount/application_fee add. The split
+//   is kept beside it everywhere (PI metadata, order) so checkout, receipts
+//   and the label delta can show and compare the parts.
+// itemCents = the order's item total (unit price x qty); protection
+// applies when it is over the config/shipping threshold.
+async function quoteForListing(db, listing, toAddr, itemCents) {
+  const q = await carrierQuoteForListing(db, listing, toAddr);
+  return withProtection(q, itemCents, await SP.getShippingConfig(db));
+}
+
+function withProtection(q, itemCents, cfg) {
+  const {protectionCents, insuredCents} = SP.protectionFor(itemCents, cfg);
+  return {...q, carrierCents: q.shippingCents, protectionCents, insuredCents,
+    shippingCents: q.shippingCents + protectionCents};
+}
+
+// Flat price (no address needed) for a flat-tier listing, with protection.
+// Returns null for live-rate categories.
+async function flatQuoteForListing(db, listing, itemCents) {
+  const cat = String((listing && listing.cat) || "").toLowerCase();
+  const flat = FLAT_SHIPPING_CENTS[cat];
+  if (!Number.isFinite(flat)) return null;
+  return withProtection({shippingCents: flat, method: "flat", carrier: null, service: null,
+    category: cat, parcelKey: SP.parcelForListing(listing).key}, itemCents, await SP.getShippingConfig(db));
+}
+
+async function carrierQuoteForListing(db, listing, toAddr) {
   const cat = String(listing.cat || "").toLowerCase();
 
   // Flat categories: no seller address / Shippo call needed.
   const flat = FLAT_SHIPPING_CENTS[cat];
   if (Number.isFinite(flat)) {
     return {shippingCents: flat, method: "flat",
-      carrier: null, service: null, category: cat};
+      carrier: null, service: null, category: cat,
+      parcelKey: SP.parcelForListing(listing).key};
   }
 
   // Live-rate categories (clubs, bags): need the seller's ship-from.
@@ -868,14 +938,33 @@ async function quoteForListing(db, listing, toAddr) {
         "failed-precondition",
         "Live shipping quotes aren't available right now.");
   }
-  const q = await quoteShippingCents(apiKey, cat, fromAddr, toAddr);
+  const q = await quoteShippingCents(apiKey, listing, fromAddr, toAddr, await SP.getShippingConfig(db));
   if (q.error) {
     throw new HttpsError(
         "unavailable",
         "Couldn't get a shipping rate right now. Please try again.");
   }
   return {shippingCents: q.cents, method: q.method,
-    carrier: q.carrier, service: q.service, category: cat};
+    carrier: q.carrier, service: q.service, category: cat,
+    parcelKey: q.parcelKey, estimatedDays: q.estimatedDays == null ? null : q.estimatedDays};
+}
+
+// Item total for a listing at a quantity (getShippingQuote has no PI yet).
+function listingItemCents(listing, qty) {
+  const unit = Math.round(Number(listing && listing.ask) * 100);
+  const n = Math.min(99, Math.max(1, parseInt(qty || 1, 10) || 1));
+  return Number.isFinite(unit) && unit > 0 ? unit * n : 0;
+}
+
+// PI metadata for a quote (merged per key by Stripe on update).
+function shippingMetadata(q) {
+  return {
+    shippingCents: String(q.shippingCents),
+    shippingCarrierCents: String(q.carrierCents),
+    shippingProtectionCents: String(q.protectionCents),
+    insuredValueCents: String(q.insuredCents),
+    shippingParcelKey: q.parcelKey || "",
+  };
 }
 
 // ─── Callable: getShippingQuote (Structure 2) ──────────────────────────
@@ -889,7 +978,7 @@ exports.getShippingQuote = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Sign in required.");
       }
-      const {listingId, toAddress} = request.data || {};
+      const {listingId, toAddress, quantity} = request.data || {};
       if (!listingId || typeof listingId !== "string") {
         throw new HttpsError("invalid-argument", "listingId required.");
       }
@@ -904,7 +993,8 @@ exports.getShippingQuote = onCall(
       if (!lSnap.exists) {
         throw new HttpsError("not-found", "Listing not found.");
       }
-      return await quoteForListing(db, lSnap.data() || {}, toAddr);
+      const listing = lSnap.data() || {};
+      return await quoteForListing(db, listing, toAddr, listingItemCents(listing, quantity));
     },
 );
 
@@ -973,7 +1063,7 @@ exports.updateCheckoutShipping = onCall(
       if (!lSnap.exists) {
         throw new HttpsError("not-found", "Listing not found.");
       }
-      const q = await quoteForListing(db, lSnap.data() || {}, toAddr);
+      const q = await quoteForListing(db, lSnap.data() || {}, toAddr, itemCents);
 
       const amountCents = itemCents + q.shippingCents;
       await stripeClient.paymentIntents.update(paymentIntentId, {
@@ -996,7 +1086,7 @@ exports.updateCheckoutShipping = onCall(
         // Metadata updates merge per-key; empty string deletes the key,
         // clearing the shippingPending flag the webhook alerts on.
         metadata: {
-          shippingCents: String(q.shippingCents),
+          ...shippingMetadata(q),
           shippingMethod: q.method,
           shippingCarrier: q.carrier || "",
           shippingService: q.service || "",
@@ -1013,6 +1103,8 @@ exports.updateCheckoutShipping = onCall(
         ok: true,
         itemCents,
         shippingCents: q.shippingCents,
+        carrierCents: q.carrierCents,
+        protectionCents: q.protectionCents,
         amountCents,
         method: q.method,
         carrier: q.carrier,
@@ -1058,4 +1150,12 @@ module.exports._internal = {
   FLAT_SHIPPING_CENTS,
   // r421: guest checkout quotes live-rate items at PaymentIntent create.
   quoteForListing,
+  // 2026-11-21: flat price + protection for createPaymentIntent; metadata
+  // shape shared with updateCheckoutShipping.
+  flatQuoteForListing,
+  withProtection,
+  shippingMetadata,
+  listingItemCents,
+  labelDeltaDoc,
+  quoteShippingCents,
 };

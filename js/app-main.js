@@ -1569,8 +1569,11 @@ async function openDetailModal(id) {
     if (entries.length) {
       const order = ['brand', 'model', 'loft', 'ironNumber', 'setFrom', 'setTo', 'bounce', 'grind', 'length', 'headStyle', 'clubType', 'shaftBrand', 'shaftModel', 'shaftType', 'flex', 'weight', 'tipSize', 'adapter', 'dexterity', 'lieLength', 'grip', 'headcover', 'bagType', 'apparelType', 'hcType', 'itemType', 'size', 'quantity'];
       entries.sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+      // shipBox is stored as a key (single/partial/full); show its words.
+      const specVal = (k, v) => (k === 'shipBox' && window.SHIP_BOXES && window.SHIP_BOXES[v])
+        ? window.SHIP_BOXES[v].name + ' (' + window.SHIP_BOXES[v].sub + ')' : String(v);
       specHost.innerHTML = '<div class="spec-table">' + entries.map(([k, v]) =>
-        `<div class="spec-row"><span class="spec-k">${window.safeText((window.SPEC_LABELS || {})[k] || k)}</span><span class="spec-v">${window.safeText(String(v))}</span></div>`).join('') + '</div>';
+        `<div class="spec-row"><span class="spec-k">${window.safeText((window.SPEC_LABELS || {})[k] || k)}</span><span class="spec-v">${window.safeText(specVal(k, v))}</span></div>`).join('') + '</div>';
     } else if (ownerNoSpecs) {
       specHost.innerHTML = '<div class="spec-nudge">Complete your specs — buyers filter by them. Tap <strong>Edit listing</strong> above, pick a category, and fill in the details.</div>';
     } else {
@@ -4981,6 +4984,11 @@ function renderShopTables() {
                    <div>${escapeHtml([a.city, a.state, a.postal_code].filter(Boolean).join(', '))}</div>
                  </div>`
               : '<span style="color:var(--gray-400);font-size:12px">—</span>';
+            // 2026-11-21: which box the label assumes (orders carry
+            // shippingParcelKey; older club orders fall back to the
+            // listing's picker value). Shown until the order ships.
+            const boxHint = (!o.refunded && (stage === 'awaiting_seller_shipment' || !stage))
+              ? soldBoxHint(o, listing) : '';
             // Real product thumbnail (w400 webp variant → original photo),
             // falling back to the category placeholder for listings with no
             // usable image. The listing doc (with photos/photoVariants) is
@@ -5004,7 +5012,7 @@ function renderShopTables() {
                 <td data-label="Ship to">${shipCell}</td>
                 <td data-label="Sale price" style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
                 <td data-label="Status" class="dash-status">${stageLabel}</td>
-                <td class="sold-actions-cell"><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div></td>
+                <td class="sold-actions-cell"><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div>${boxHint}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -7089,6 +7097,33 @@ async function confirmShip() {
   }
 }
 window.confirmShip = confirmShip;
+
+// ─────────────────────────────────────────────────────────────
+// 2026-11-21: "pack within this box" hint on the Sold tab. Mirrors
+// functions/lib/shippingParcels.js (CLUB_BOXES + CATEGORY_PARCELS).
+const SHIP_PARCEL_HINTS = {
+  bags: { name: 'Bag box', dims: '38 × 14 × 12 in, up to 12 lb' },
+  shoes: { name: 'Shoe box', dims: '14 × 10 × 5 in, up to 3 lb' },
+  apparel: { name: 'Apparel mailer', dims: '12 × 10 × 1 in, up to 1 lb' },
+  accessories: { name: 'Accessories box', dims: '12 × 10 × 4 in, up to 2 lb' },
+  headcovers: { name: 'Headcover box', dims: '12 × 10 × 4 in, up to 1 lb' },
+  balls: { name: 'Ball box', dims: '12 × 8 × 4 in, up to 3 lb' },
+};
+function soldBoxHint(o, listing) {
+  let key = o && o.shippingParcelKey;
+  const l = listing || {};
+  if (!key) {
+    if (l.cat === 'clubs') key = (l.specs && l.specs.shipBox) ? 'clubs:' + l.specs.shipBox : '';
+    else key = l.cat || '';
+  }
+  let b = null;
+  if (String(key).startsWith('clubs:')) {
+    const c = (window.SHIP_BOXES || {})[String(key).slice(6)];
+    if (c) b = { name: c.name + ' (' + c.sub + ')', dims: c.dims };
+  } else b = SHIP_PARCEL_HINTS[key] || null;
+  if (!b) return '';
+  return `<div class="sold-box-hint">Label assumes: <strong>${escapeHtml(b.name)}</strong>, ${escapeHtml(b.dims)}. Pack within it, and measure the final packed box before drop-off.</div>`;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Shippo — Print Shipping Label flow

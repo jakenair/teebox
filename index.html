@@ -3436,6 +3436,15 @@ window.tbEvent = function (name, surface) {
   .spec-cat-pill { border: 1.5px solid var(--gray-200); background: var(--white); color: var(--gray-700); border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
   .spec-cat-pill.active { background: var(--green-600); border-color: var(--green-600); color: #fff; }
   .spec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* 2026-11-21: club "What's in the box" picker (sets the shipping box). */
+  .ship-box-picker { display: grid; gap: 8px; }
+  .form-row .ship-box-opt { display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--gray-200); background: var(--white); border-radius: var(--radius-md); padding: 10px 12px; cursor: pointer; margin: 0; text-align: left; }
+  .form-row .ship-box-opt input[type="radio"] { width: 16px; height: 16px; min-height: 0; margin: 2px 0 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--green-600); flex-shrink: 0; }
+  .ship-box-opt.selected { border-color: var(--green-600); background: var(--green-50); }
+  .ship-box-name { display: block; font-size: 13.5px; font-weight: 600; color: var(--gray-900); }
+  .ship-box-sub { display: block; font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .ship-box-help { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+  .sold-box-hint { font-size: 11.5px; color: var(--gray-500); margin-top: 6px; max-width: 220px; line-height: 1.35; }
   /* ── r259 Caddie card — white, subtle green outline, no gradients ── */
   .caddie-card { background: var(--white); border: 1px solid #cfe0d4; border-radius: var(--radius-lg); padding: 14px 16px; margin: 0 0 14px; }
   /* ── r276: the Caddie character ─────────────────────────────────────
@@ -8791,9 +8800,12 @@ window.tbEvent = function (name, surface) {
              show "—" until the address is complete and
              updateCheckoutShipping returns the carrier rate. -->
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
-          <span>Shipping</span>
+          <span id="checkoutShipLabel">Shipping</span>
           <span id="checkoutShipPrice">—</span>
         </div>
+        <!-- 2026-11-21: items over $100 ship insured; the line becomes
+             "Shipping & protection" and this row shows the split. -->
+        <div id="checkoutShipBreakdown" style="display:none;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--gray-500);margin:-6px 0 10px 10px;"></div>
         <hr style="border:none;border-top:1px solid var(--gray-200);margin:8px 0 10px;" />
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span style="font-size:13px;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;">What you'll pay</span>
@@ -9330,15 +9342,38 @@ function renderCheckoutTotals(d) {
     // buyer's address. Pay stays disabled until the re-price lands.
     checkoutShipState = { pending: true, quoted: false, paymentIntentId: d.paymentIntentId || null, itemCents: d.itemCents, quoteSeq: 0 };
     if (shipEl) shipEl.textContent = '—';
+    renderShipBreakdown(null, fmtC);
     if (totalEl && Number.isFinite(d.itemCents)) totalEl.textContent = fmtC(d.itemCents) + ' + shipping';
     if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Enter address for shipping'; }
     return;
   }
   checkoutShipState = { pending: false, quoted: true };
   if (shipEl) shipEl.textContent = (Number(d.shippingCents) > 0) ? fmtC(d.shippingCents) : 'Free';
+  renderShipBreakdown(d, fmtC);
   if (totalEl && Number.isFinite(d.amountCents)) totalEl.textContent = fmtC(d.amountCents);
   if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay ' + fmtC(d.amountCents); }
 }
+
+// "Shipping & protection" label + split row (server numbers only).
+function renderShipBreakdown(d, fmtC) {
+  const label = document.getElementById('checkoutShipLabel');
+  const row = document.getElementById('checkoutShipBreakdown');
+  const prot = Number(d && d.protectionCents) || 0;
+  if (label) label.textContent = prot > 0 ? 'Shipping & protection' : 'Shipping';
+  if (!row) return;
+  if (prot > 0) {
+    const carrier = Number.isFinite(Number(d.carrierCents)) ? Number(d.carrierCents) : (Number(d.shippingCents) - prot);
+    row.textContent = '';
+    const a = document.createElement('span'); a.textContent = 'Shipping ' + fmtC(carrier);
+    const b = document.createElement('span'); b.textContent = 'Protection ' + fmtC(prot);
+    row.append(a, b);
+    row.style.display = 'flex';
+  } else {
+    row.textContent = '';
+    row.style.display = 'none';
+  }
+}
+window.renderShipBreakdown = renderShipBreakdown; // guest checkout (js/checkout-guest.js)
 
 // AddressElement change handler — live-rate re-price. Calls
 // updateCheckoutShipping (plain-block callable pattern: local
@@ -9380,6 +9415,8 @@ async function onCheckoutAddressChange(ev) {
       amountCents: d.amountCents,
       itemCents: d.itemCents,
       shippingCents: d.shippingCents,
+      carrierCents: d.carrierCents,
+      protectionCents: d.protectionCents,
       shippingPending: false,
     });
   } catch (e) {

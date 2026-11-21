@@ -166,6 +166,7 @@
     const q = G.quote || {};
     const shipEl = $('checkoutShipPrice');
     if (shipEl) shipEl.textContent = q.shippingPending ? (G.addrComplete ? 'Calculating…' : 'Enter address') : fmtC(q.shippingCents || 0);
+    if (window.renderShipBreakdown) window.renderShipBreakdown(q.shippingPending ? null : q, fmtC);
     const totalEl = $('checkoutTotal');
     if (totalEl && Number.isFinite(q.itemCents)) totalEl.textContent = fmtC(q.itemCents + (q.shippingPending ? 0 : (q.shippingCents || 0)));
     updatePayButton();
@@ -312,7 +313,7 @@
       const expected = (G.quote && Number.isFinite(G.quote.itemCents)) ? G.quote.itemCents + (G.quote.shippingCents || 0) : null;
       if (expected != null && d.amountCents !== expected) {
         // Price moved between quote and Pay (e.g. carrier rate). Show it; buyer taps again.
-        G.quote = Object.assign({}, G.quote, { itemCents: d.itemCents, shippingCents: d.shippingCents, shippingPending: false, amountCents: d.amountCents });
+        G.quote = Object.assign({}, G.quote, { itemCents: d.itemCents, shippingCents: d.shippingCents, carrierCents: d.carrierCents, protectionCents: d.protectionCents, shippingPending: false, amountCents: d.amountCents });
         try { G.elements.update({ amount: d.amountCents }); } catch (_e) {}
         renderGuestTotals();
         return fail('The total changed to ' + fmtC(d.amountCents) + '. Tap Pay to confirm.');

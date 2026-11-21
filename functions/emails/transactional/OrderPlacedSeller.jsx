@@ -27,6 +27,8 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
   const ctaHref = shippoEnabled ? dashboardUrl : helpUrl;
   const ctaLabel = shippoEnabled ? "Print prepaid label" : "How to ship your item";
   const buyerCity = (order.shipping && order.shipping.address && order.shipping.address.city) || null;
+  // 2026-11-21: tell the seller which box the label assumes.
+  const box = shipBoxFor(order, listing);
 
   return (
     <Base
@@ -73,6 +75,14 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
         )}
       </NextStep>
 
+      {box ? (
+        <P>
+          <strong>Your label assumes: {box.name}</strong> ({box.dims}). Pack
+          within that size and weight. Measure the final packed box before you
+          drop it off; a bigger or heavier box costs more to ship.
+        </P>
+      ) : null}
+
       <Button href={ctaHref}>{ctaLabel}</Button>
       <P muted>
         A handwritten thank-you in the box is how repeat buyers happen — the
@@ -80,6 +90,20 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
       </P>
     </Base>
   );
+}
+
+// The box the order was quoted with (orders since 2026-11-21 carry
+// shippingParcelKey); older orders fall back to the listing.
+function shipBoxFor(order, listing) {
+  try {
+    const SP = require("../../lib/shippingParcels");
+    const key = order.shippingParcelKey ||
+      (listing && listing.cat ? SP.parcelForListing(listing).key : null);
+    const p = key ? SP.parcelForKey(key) : null;
+    return p ? {name: SP.boxName(key), dims: SP.describeParcel(p)} : null;
+  } catch (_e) {
+    return null;
+  }
 }
 
 function numOr(n) { return Number.isFinite(n) ? n : 0; }

@@ -2668,14 +2668,23 @@
     { k: 'flex', label: 'Flex', type: 'select', options: FLEXES, req: 1 },
     { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 },
   ];
+  // 2026-11-21: which shipping box a club listing uses. Required; the server
+  // (functions/lib/shippingParcels.js CLUB_BOXES) quotes the buyer and buys the
+  // label for this exact size, so the two tables must match.
+  window.SHIP_BOXES = {
+    single:  { name: 'Single club or small bundle', sub: '1-3 clubs', dims: '48 × 8 × 8 in, up to 7 lb' },
+    partial: { name: 'Partial set', sub: '4-7 clubs', dims: '48 × 10 × 8 in, up to 12 lb' },
+    full:    { name: 'Full set or oversized', sub: '8+ clubs', dims: '48 × 14 × 10 in, up to 22 lb' },
+  };
+  const SHIP_BOX = { k: 'shipBox', label: 'What\'s in the box', type: 'box', req: 1 };
   window.SPEC_SCHEMA = {
-    'driver':      { label: 'Driver', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(7, 13, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
-    'fairway':     { label: 'Fairway', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(13, 21, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
-    'hybrid':      { label: 'Hybrid', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(16, 28, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
-    'iron-set':    { label: 'Iron set', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'setFrom', label: 'Set from', type: 'select', options: ['2', '3', '4', '5', '6', '7'], req: 1 }, { k: 'setTo', label: 'Set to', type: 'select', options: ['9', 'PW', 'AW', 'GW', 'SW', 'LW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX, { k: 'lieLength', label: 'Lie/length', type: 'select', options: ['Standard', 'Adjusted (see description)'] }, { k: 'grip', label: 'Grip', type: 'text' } ] },
-    'single-iron': { label: 'Single iron', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'ironNumber', label: 'Iron #', type: 'select', options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'PW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX ] },
-    'wedge':       { label: 'Wedge', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(46, 64, 1, '°'), req: 1 }, { k: 'bounce', label: 'Bounce', type: 'select', options: rng(4, 14, 1, '°').concat('Other') }, { k: 'grind', label: 'Grind', type: 'text' }, ...SH, ...FLEXDEX ] },
-    'putter':      { label: 'Putter', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'length', label: 'Length', type: 'select', options: rng(32, 36, 0.5, '"'), req: 1 }, { k: 'headStyle', label: 'Head style', type: 'select', options: ['Blade', 'Mid-mallet', 'Mallet'], req: 1 }, { k: 'grip', label: 'Grip', type: 'text' }, { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 }, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN } ] },
+    'driver':      { label: 'Driver', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(7, 13, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN }, SHIP_BOX ] },
+    'fairway':     { label: 'Fairway', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(13, 21, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN }, SHIP_BOX ] },
+    'hybrid':      { label: 'Hybrid', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(16, 28, 0.5, '°').concat('Other'), req: 1 }, ...SH, ...FLEXDEX, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN }, SHIP_BOX ] },
+    'iron-set':    { label: 'Iron set', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'setFrom', label: 'Set from', type: 'select', options: ['2', '3', '4', '5', '6', '7'], req: 1 }, { k: 'setTo', label: 'Set to', type: 'select', options: ['9', 'PW', 'AW', 'GW', 'SW', 'LW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX, { k: 'lieLength', label: 'Lie/length', type: 'select', options: ['Standard', 'Adjusted (see description)'] }, { k: 'grip', label: 'Grip', type: 'text' }, SHIP_BOX ] },
+    'single-iron': { label: 'Single iron', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'ironNumber', label: 'Iron #', type: 'select', options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'PW'], req: 1 }, ...SH, { k: 'shaftType', label: 'Shaft type', type: 'select', options: ['Steel', 'Graphite'] }, ...FLEXDEX, SHIP_BOX ] },
+    'wedge':       { label: 'Wedge', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'loft', label: 'Loft', type: 'select', options: rng(46, 64, 1, '°'), req: 1 }, { k: 'bounce', label: 'Bounce', type: 'select', options: rng(4, 14, 1, '°').concat('Other') }, { k: 'grind', label: 'Grind', type: 'text' }, ...SH, ...FLEXDEX, SHIP_BOX ] },
+    'putter':      { label: 'Putter', browse: 'clubs', fields: [ { k: 'model', label: 'Model', type: 'text', req: 1 }, { k: 'length', label: 'Length', type: 'select', options: rng(32, 36, 0.5, '"'), req: 1 }, { k: 'headStyle', label: 'Head style', type: 'select', options: ['Blade', 'Mid-mallet', 'Mallet'], req: 1 }, { k: 'grip', label: 'Grip', type: 'text' }, { k: 'dexterity', label: 'Dexterity', type: 'select', options: DEX, req: 1 }, { k: 'headcover', label: 'Headcover included', type: 'select', options: YN }, SHIP_BOX ] },
     // r417 (founder, 2026-11-16): shafts as their own category — sellers had
     // stacks of them and nowhere to list. Brand rides #sellBrand, condition
     // rides #sellCondition, like every other category.
@@ -2740,6 +2749,7 @@
       if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === v)) return;
       el.value = v;
     });
+    if (window.syncShipBoxPicker) window.syncShipBoxPicker();
   };
   let __stepOpen = {photos: false, cat: false}; // Edit-pinned steps (r259)
   window.expandSellStep = function (step) {
@@ -2758,8 +2768,9 @@
     const cat = window.SPEC_SCHEMA[__specCategory];
     if (!cat || !cat.fields.length) { wrap.innerHTML = ''; return; }
     let html = '';
-    for (let i = 0; i < cat.fields.length; i += 2) {
-      const pair = cat.fields.slice(i, i + 2).map(f => {
+    const flds = cat.fields.filter(f => f.type !== 'box');
+    for (let i = 0; i < flds.length; i += 2) {
+      const pair = flds.slice(i, i + 2).map(f => {
         const id = 'spec_' + f.k;
         const reqStar = f.req ? ' *' : '';
         if (f.type === 'select') {
@@ -2769,8 +2780,37 @@
       }).join('');
       html += `<div class="spec-two-col">${pair}</div>`;
     }
+    cat.fields.filter(f => f.type === 'box').forEach(f => { html += renderShipBoxField(f); });
     wrap.innerHTML = html;
+    window.syncShipBoxPicker();
   }
+  // Radio cards backed by a hidden #spec_shipBox, so collectSpecs, the
+  // required check, the memo and edit-hydrate all treat it like any field.
+  function renderShipBoxField(f) {
+    const id = 'spec_' + f.k;
+    const opts = Object.entries(window.SHIP_BOXES).map(([v, b]) =>
+      `<label class="ship-box-opt" data-ship-box="${v}"><input type="radio" name="shipBoxPick" value="${v}" data-action="pick-ship-box"><span><span class="ship-box-name">${b.name} (${b.sub})</span><span class="ship-box-sub">Ships in a ${b.dims} box</span></span></label>`).join('');
+    return `<div class="form-row"><label id="${id}_label">${f.label}${f.req ? ' *' : ''}</label>` +
+      `<input type="hidden" id="${id}" name="${id}" data-tb-field="${id}" />` +
+      `<div class="ship-box-picker" role="radiogroup" aria-labelledby="${id}_label">${opts}</div>` +
+      `<div class="ship-box-help">Pick the box you'll ship in. The buyer pays shipping for this size, and the label is made for it.</div></div>`;
+  }
+  window.syncShipBoxPicker = function () {
+    const hid = document.getElementById('spec_shipBox');
+    const v = hid ? hid.value : '';
+    document.querySelectorAll('#sellSpecFields .ship-box-opt').forEach(el => {
+      const on = el.dataset.shipBox === v;
+      el.classList.toggle('selected', on);
+      const r = el.querySelector('input'); if (r) r.checked = on;
+    });
+  };
+  document.addEventListener('change', (e) => {
+    const r = e.target;
+    if (!r || r.name !== 'shipBoxPick') return;
+    const hid = document.getElementById('spec_shipBox');
+    if (hid) hid.value = r.value;
+    window.syncShipBoxPicker();
+  });
   window.setSpecCategory = function (k, opts) {
     if (!window.SPEC_SCHEMA[k]) return;
     snapshotSpecs();
@@ -2875,6 +2915,7 @@
         const el = document.getElementById('spec_' + key);
         if (el) el.value = String(val);
       });
+      window.syncShipBoxPicker();
     } else { window.resetSpecState(); }
   };
   renderSpecCatPills();

@@ -397,10 +397,14 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   // 4. Claim (existing account): order NOT attached on trust; attached after tap
   const r4 = await cpi({guest: true, listingId: "gDriver", email: "Existing.Buyer@example.test", age18: true, shippingAware: true,
     shipTo: {name: "Existing Buyer", address: {line1: "9 Oak Ave", city: "Denver", state: "CO", postal_code: "80202", country: "US"}}}, {"x-test-ip": "198.51.100.44"});
-  check("live-rate guest: priced from address at create (300 + 14.20)", r4.status === 200 && r4.body.amountCents === 31420 && !r4.body.shippingPending, r4.body);
+  // 2026-11-21: $300 item > $100 → shipping protection 1.25% = $3.75 rides the shipping line.
+  check("live-rate guest: priced from address at create (300 + 14.20 + 3.75 protection)", r4.status === 200 && r4.body.amountCents === 31795 &&
+    r4.body.carrierCents === 1420 && r4.body.protectionCents === 375 && r4.body.shippingCents === 1795 && !r4.body.shippingPending, r4.body);
   await realFetch(`http://127.0.0.1:${PORT}/__stub/confirm`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pi: r4.body.paymentIntentId})});
   const o4 = (await db.doc("orders/" + r4.body.paymentIntentId).get()).data();
   check("existing email: order stays on the guest id until the tap", o4 && G.isGuestBuyerId(o4.buyerId) && o4.buyerId !== existing.uid, o4 && o4.buyerId);
+  check("order keeps the shipping split + quoted box", o4 && o4.shippingCarrierCents === 1420 && o4.shippingProtectionCents === 375 &&
+    o4.insuredValueCents === 30000 && o4.shippingParcelKey === "clubs:single", o4 && {c: o4.shippingCarrierCents, p: o4.shippingProtectionCents, k: o4.shippingParcelKey});
   MAIL.length = 0;
   await triggerCreated(fns.onOrderCreatedEmail, {orderId: r4.body.paymentIntentId}, o4);
   const m4 = MAIL.find((m) => [].concat(m.to).includes("existing.buyer@example.test"));

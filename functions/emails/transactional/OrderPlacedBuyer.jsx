@@ -14,6 +14,13 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null
   const shipCents = Number.isFinite(order.shippingCents)
     ? order.shippingCents : 0;
   const shippingLine = shipCents > 0 ? formatUsd(shipCents) : "Included";
+  // 2026-11-21: shippingCents includes shipping protection on items over
+  // $100 (insured at the item price). Show the line as
+  // "Shipping & protection" with the split under it.
+  const protCents = Number.isFinite(order.shippingProtectionCents)
+    ? order.shippingProtectionCents : 0;
+  const carrierCents = Number.isFinite(order.shippingCarrierCents)
+    ? order.shippingCarrierCents : shipCents - protCents;
   const title = listing.title || "your item";
   const orderUrl = `https://teeboxmarket.com/orders/${orderId}`;
   const ship = order.shipping || {};
@@ -43,7 +50,18 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null
 
       <Receipt>
         <ReceiptRow label="Item" value={item} />
-        <ReceiptRow label="Shipping" value={shippingLine} />
+        {protCents > 0 ? (
+          <>
+            <ReceiptRow label="Shipping & protection" value={shippingLine} />
+            <ReceiptRow label={"\u00a0\u00a0Shipping"} value={formatUsd(carrierCents)} />
+            <ReceiptRow
+              label={`\u00a0\u00a0Protection (insured to ${formatUsd(order.insuredValueCents || itemVal)})`}
+              value={formatUsd(protCents)}
+            />
+          </>
+        ) : (
+          <ReceiptRow label="Shipping" value={shippingLine} />
+        )}
         <ReceiptRow label="Total paid" value={total} strong />
       </Receipt>
 

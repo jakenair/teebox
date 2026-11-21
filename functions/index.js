@@ -145,18 +145,19 @@ const SHIPPO_KEY_FOR_GUEST = defineSecret("SHIPPO_API_KEY");
  * categories (clubs, bags) are quoted from the guest's complete address with
  * the same engine updateCheckoutShipping uses; without one → pending.
  * Errors from the quote engine (HttpsError) become HttpError for onRequest.
- * @return {Promise<{shippingCents:number, method:string, pending:boolean, carrier?:string}>}
+ * 2026-11-21: shippingCents includes shipping protection (items over the
+ * config/shipping threshold); q carries the carrier/protection split.
+ * @return {Promise<{shippingCents:number, method:string, pending:boolean, carrier?:string, q?:Object}>}
  */
-async function guestShippingQuote(db, listing, shipTo) {
+async function guestShippingQuote(db, listing, shipTo, itemCents) {
   const SI = require("./shippoIntegration")._internal;
-  const cat = String((listing && listing.cat) || "").toLowerCase();
-  const flat = FLAT_SHIPPING_CENTS[cat];
-  if (Number.isFinite(flat)) return {shippingCents: flat, method: "flat", pending: false};
+  const flatQ = await SI.flatQuoteForListing(db, listing, itemCents);
+  if (flatQ) return {shippingCents: flatQ.shippingCents, method: "flat", pending: false, q: flatQ};
   const toAddr = SI.normalizeAddress(shipTo);
   if (!toAddr || !SI.addressIsComplete(toAddr)) return {shippingCents: 0, method: "live", pending: true};
   try {
-    const q = await SI.quoteForListing(db, listing, toAddr);
-    return {shippingCents: q.shippingCents, method: q.method, pending: false, carrier: q.carrier || ""};
+    const q = await SI.quoteForListing(db, listing, toAddr, itemCents);
+    return {shippingCents: q.shippingCents, method: q.method, pending: false, carrier: q.carrier || "", q};
   } catch (e) {
     const code = e && e.code;
     const status = code === "unavailable" ? 503 : 412;
@@ -598,8 +599,9 @@ exports.createPaymentIntent = onRequest(
           }
           const itemCentsQ = Math.round(Number(lp.ask) * 100) * qty;
           if (!Number.isFinite(itemCentsQ) || itemCentsQ <= 0) return res.status(500).json({error: "Listing has invalid price"});
-          const ship = await guestShippingQuote(db, lp, guestBody.shipTo);
+          const ship = await guestShippingQuote(db, lp, guestBody.shipTo, itemCentsQ);
           return res.json({quoteOnly: true, itemCents: itemCentsQ, shippingCents: ship.shippingCents,
+            carrierCents: ship.q ? ship.q.carrierCents : 0, protectionCents: ship.q ? ship.q.protectionCents : 0,
             shippingPending: ship.pending, shippingMethod: ship.method,
             amountCents: itemCentsQ + (ship.pending ? 0 : ship.shippingCents)});
         }
@@ -710,6 +712,11 @@ exports.createPaymentIntent = onRequest(
           sellerId: listing.sellerId,
           title: listing.title || "Listing",
           cat: listing.cat || "",
+          // 2026-11-21: what the box classifier reads (clubs ship in one of
+          // three boxes; see lib/shippingParcels.js).
+          shipListing: {cat: listing.cat || "", specs: listing.specs || {},
+            specCategory: listing.specCategory || "", title: listing.title || "",
+            desc: listing.desc || "", sellerId: listing.sellerId},
         };
       });
 
@@ -809,14 +816,18 @@ exports.createPaymentIntent = onRequest(
       let shippingMethod = "legacy";
       let shippingPending = false;
       let guestShip = null;
+      // 2026-11-21: the quote (carrier + protection split, box key) behind
+      // shippingCents, carried into PI metadata and the order.
+      let shipQ = null;
+      const shipListing = reservation.shipListing ||
+        {cat: reservation.cat, sellerId: reservation.sellerId};
       if (isGuest) {
         // Guests are quoted from their address now (no re-price step): the
         // PaymentIntent is only created when they tap Pay, after the address
         // is complete. A live-rate item without a quotable address is refused
         // before any charge exists (and the hold is rolled back).
         try {
-          guestShip = await guestShippingQuote(db,
-              {cat: reservation.cat, sellerId: reservation.sellerId}, guestBody.shipTo);
+          guestShip = await guestShippingQuote(db, shipListing, guestBody.shipTo, reservation.priceCents);
         } catch (qErr) {
           await rollbackReservation();
           throw qErr;
@@ -827,11 +838,15 @@ exports.createPaymentIntent = onRequest(
         }
         shippingCents = guestShip.shippingCents;
         shippingMethod = guestShip.method;
+        shipQ = guestShip.q || null;
       } else if (shippingAware === true) {
-        const flatCents = FLAT_SHIPPING_CENTS[listingCat];
-        if (Number.isFinite(flatCents)) {
-          shippingCents = flatCents;
+        const flatQ = Number.isFinite(FLAT_SHIPPING_CENTS[listingCat]) ?
+          await require("./shippoIntegration")._internal.flatQuoteForListing(db, shipListing, reservation.priceCents) :
+          null;
+        if (flatQ) {
+          shippingCents = flatQ.shippingCents;
           shippingMethod = "flat";
+          shipQ = flatQ;
         } else {
           shippingMethod = "live";
           shippingPending = true;
@@ -918,6 +933,9 @@ exports.createPaymentIntent = onRequest(
               // slips through anyway).
               itemCents: String(reservation.priceCents),
               shippingCents: String(shippingCents),
+              // Carrier/protection split + quoted box (2026-11-21). A
+              // live-rate PI gets these from updateCheckoutShipping.
+              ...(shipQ ? require("./shippoIntegration")._internal.shippingMetadata(shipQ) : {}),
               shippingMethod,
               ...(shippingPending ? {shippingPending: "1"} : {}),
               // Offer-priced checkout: carry the offer id so the webhook
@@ -974,6 +992,8 @@ exports.createPaymentIntent = onRequest(
         amountCents: totalAmountCents,
         itemCents: reservation.priceCents,
         shippingCents,
+        carrierCents: shipQ ? shipQ.carrierCents : (shippingPending ? 0 : shippingCents),
+        protectionCents: shipQ ? shipQ.protectionCents : 0,
         shippingMethod,
         shippingPending,
         paymentIntentId: paymentIntent.id,
@@ -1771,6 +1791,10 @@ async function handlePaymentSucceeded(pi, stripeClient) {
     shippingCents,
     shippingMethod,
     shippingPending,
+    shippingCarrierCents,
+    shippingProtectionCents,
+    insuredValueCents,
+    shippingParcelKey,
     offerId,
     guest,
     buyerEmail: guestBuyerEmail,
@@ -1856,6 +1880,15 @@ async function handlePaymentSucceeded(pi, stripeClient) {
       itemCents: orderItemCents,
       shippingCents: orderShippingCents,
       shippingMethod: shippingMethod || "legacy",
+      // 2026-11-21: shippingCents = carrier + protection. The split and
+      // the quoted box drive the receipt breakdown and the label (same
+      // box, insured at insuredValueCents). Absent on older PIs.
+      ...(shippingCarrierCents !== undefined ? {
+        shippingCarrierCents: Number(shippingCarrierCents) || 0,
+        shippingProtectionCents: Number(shippingProtectionCents) || 0,
+        insuredValueCents: Number(insuredValueCents) || 0,
+      } : {}),
+      ...(shippingParcelKey ? {shippingParcelKey: String(shippingParcelKey)} : {}),
       unitPriceCents: Number(unitPriceCents) || orderItemCents,
       platformFeeCents: Number(platformFeeCents) || 0,
       sellerPayoutCents: Number(sellerPayoutCents) || 0,
@@ -8393,6 +8426,9 @@ Object.assign(exports, require("./sitemapRegenerator"));
 // See SHIPPING_LABELS_DEPLOY.md for the integration checklist when v1.1
 // is ready to ship real labels.
 Object.assign(exports, require("./shippoIntegration"));
+// 2026-11-21: carrier-adjustment import (daily) + weekly digest. Track only;
+// nothing is ever deducted. NOT deployed until founder GO.
+Object.assign(exports, require("./shippingAdjustments"));
 Object.assign(exports, require("./metaCapi"));
 // Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
 Object.assign(exports, require("./metaFeed"));
