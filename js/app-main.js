@@ -5851,11 +5851,17 @@ function openSellModal() {
   try {
     const _termsRow = document.getElementById('sellTermsRow');
     const _cb = document.getElementById('sellTermsCheckbox');
-    if (_termsRow) _termsRow.style.display =
-      (window.__editingListingId || window.IS_VERIFIED_SELLER) ? 'none' : '';
-    if (_cb) _cb.checked = false;
+    // r428 (founder ruling 2026-11-20): 18+ and the Seller Terms are confirmed
+    // ONCE per account, by the seller's own hand, and stored server-side. A
+    // seller who already confirmed sees both boxes pre-checked (locked); one
+    // who hasn't ticks them here. Listing tools can't tick them for anyone
+    // (submitListing only accepts real, trusted ticks).
+    const _c = window.SELLER_CONSENT || {};
+    if (_termsRow) _termsRow.style.display = window.__editingListingId ? 'none' : '';
     const _ab = document.getElementById('sellAge18Checkbox');
-    if (_ab) _ab.checked = false;
+    window.__consentTicks = { sellAge18Checkbox: false, sellTermsCheckbox: false };
+    if (_cb) { _cb.checked = !!_c.termsOk; _cb.disabled = !!_c.termsOk; }
+    if (_ab) { _ab.checked = !!_c.ageOk; _ab.disabled = !!_c.ageOk; }
     const _qh = document.getElementById('sellQuickHint');
     let _fromBingo = false;
     try { _fromBingo = sessionStorage.getItem('tb_listing_source') === 'bingo'; } catch (_e) {}
@@ -5972,8 +5978,43 @@ function openSellModal() {
       }
     });
   }
+  // r428: ?sell=1&cat=<key> (e.g. cat=driver) picks the category on open, so
+  // crosslisting tools can land on the right spec fields. Consumed once.
+  try {
+    const _ck = window.__sellCatParam;
+    window.__sellCatParam = null;
+    if (_ck && !window.__editingListingId && window.SPEC_SCHEMA && window.SPEC_SCHEMA[_ck] && window.setSpecCategory) {
+      window.setSpecCategory(_ck, { silent: true });
+    }
+  } catch (_e) {}
+  // r428: form-ready marker for automation (crosslisting extensions):
+  // #sellModalBackdrop[data-tb-ready="1"] plus a 'tb:sell-ready' event.
+  try {
+    const _bd = document.getElementById('sellModalBackdrop');
+    if (_bd) {
+      _bd.dataset.tbReady = '1';
+      _bd.dataset.tbMode = window.__editingListingId ? 'edit' : 'create';
+      document.dispatchEvent(new CustomEvent('tb:sell-ready', { detail: {
+        mode: _bd.dataset.tbMode,
+        category: (window.getSpecCategory && window.getSpecCategory()) || '',
+        consentConfirmed: !!(window.SELLER_CONSENT && window.SELLER_CONSENT.ok),
+      } }));
+    }
+  } catch (_e) {}
 }
 window.openSellModal = openSellModal;
+// r428: only a real person's tick counts as consent. The CLICK that toggles
+// the box is what tells: a tap/click/Space from a person is isTrusted, while
+// el.click() / dispatchEvent from a script or extension is not. (The change
+// event that follows a scripted click can still be trusted, so it can't be
+// used.) Setting .checked directly fires nothing and never counts.
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t || (t.id !== 'sellAge18Checkbox' && t.id !== 'sellTermsCheckbox')) return;
+  window.__consentTicks = window.__consentTicks || {};
+  // Read the state after the toggle has applied.
+  setTimeout(() => { window.__consentTicks[t.id] = !!(e.isTrusted && t.checked); }, 0);
+}, true);
 
 async function suggestPrice() {
   const titleEl = document.getElementById('sellTitle');
@@ -6081,10 +6122,12 @@ async function aiWriteDescription() {
       const cb1 = document.getElementById('sellTermsCheckbox');
       const ab1 = document.getElementById('sellAge18Checkbox');
       if (c1 === 'functions/failed-precondition' &&
-          !/verify your email/i.test(m1) && cb1 && cb1.checked && ab1 && ab1.checked) {
+          !/verify your email/i.test(m1) && cb1 && cb1.checked && ab1 && ab1.checked &&
+          window.consentTicksOk && window.consentTicksOk()) {
         const verify = httpsCallable(fns, 'requestSellerVerification');
         await verify({ termsAgreed: true, age18: true });
         window.IS_VERIFIED_SELLER = true;
+        window.markSellerConsent && window.markSellerConsent();
         result = await fn({ title, brand, category, condition });
       } else {
         throw e1;
@@ -6260,6 +6303,7 @@ function closeSellModalDirect() {
     }
   } catch (_e) { /* never trap the user in the modal on an error */ }
   document.getElementById('sellModalBackdrop').classList.remove('open');
+  try { delete document.getElementById('sellModalBackdrop').dataset.tbReady; } catch (_e) {}
   // Always reset edit-mode chrome/state so the next "Sell Now" opens
   // a clean create form.
   try { if (typeof window.exitSellEditMode === 'function') window.exitSellEditMode(); } catch (_e) {}
@@ -9563,6 +9607,9 @@ if (__checkoutQ === 'pro_success') {
 if (__launch || __action || __brandQ || __listingQ || __orderQ || __sellerQ || __sellerPath) {
   setTimeout(() => {
     if (__launch === 'sell' || __action === 'sell') {
+      // r428: optional &cat=<spec key>, picked when the form opens.
+      const _cat = (__params.get('cat') || '').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 20);
+      if (_cat) window.__sellCatParam = _cat;
       window.handleSellClick && window.handleSellClick();
     }
     if (__orderQ) {

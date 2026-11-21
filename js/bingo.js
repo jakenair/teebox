@@ -2584,6 +2584,9 @@
     // handleSellClick (it owns the Stripe-onboarding gate); otherwise stash
     // it like the others and replay after sign-in.
     if (sp.get('sell') === '1') {
+      // r428: optional &cat=<spec key> (driver, putter, apparel, …) picked on open.
+      const _cat = (sp.get('cat') || '').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 20);
+      if (_cat) window.__sellCatParam = _cat;
       if (window.CURRENT_USER) {
         setTimeout(() => { try { window.handleSellClick && window.handleSellClick(); } catch (_) {} }, 400);
       } else {

@@ -681,6 +681,7 @@
       else console.error('[boot] __maybeDismissSplash missing (anon branch) — splash dismissal path lost; earlier script error is the root cause');
       try { window.hideVerifyBanner && window.hideVerifyBanner(); } catch (_e) {}
       window.IS_VERIFIED_SELLER = false;
+      window.SELLER_CONSENT = null;
       window.CURRENT_PROFILE_NAME = '';
       // Reset the in-memory shop snapshot so a previous user's listings
       // can't briefly flash for the next signed-in user / guest.
@@ -808,6 +809,7 @@
       const snap = await getDoc(doc(db, 'users', uid));
       const data = snap.exists() ? snap.data() : null;
       window.IS_VERIFIED_SELLER = !!(data && data.sellerVerified === true);
+      window.setSellerConsentFrom && window.setSellerConsentFrom(data);
       window.CURRENT_PROFILE_NAME = (data && data.displayName) ? String(data.displayName) : '';
       // Bootstrap the users/{uid} doc on first sign-in (any provider —
       // email, Google, Apple). Schema is locked to the rules whitelist:
@@ -855,6 +857,7 @@
     } catch (e) {
       console.warn('checkSellerStatus failed:', e && e.code || e);
       window.IS_VERIFIED_SELLER = false;
+      window.SELLER_CONSENT = null;
       window.CURRENT_PROFILE_NAME = '';
     }
   }
@@ -1496,6 +1499,7 @@
     window.GUEST_MODE = true;
     window.CURRENT_USER = null;
     window.IS_VERIFIED_SELLER = false;
+    window.SELLER_CONSENT = null;
     window.CURRENT_PROFILE_NAME = '';
     // Wipe the user-scoped in-memory shop snapshot. If we don't, the next
     // person to sign in on this device sees a flash of the previous user's
@@ -2573,6 +2577,7 @@
       const verify = httpsCallable(fns, 'requestSellerVerification');
       await verify({ termsAgreed: true });
       window.IS_VERIFIED_SELLER = true;
+      { const _c = window.SELLER_CONSENT || {}; window.SELLER_CONSENT = { termsOk: true, ageOk: !!_c.ageOk, ok: !!_c.ageOk }; }
       document.getElementById('verifyBackdrop').classList.remove('open');
       showToast('You are now a verified TeeBox seller.');
       // Route through handleSellClick (not openSellModal directly) so the
@@ -2683,8 +2688,59 @@
     'accessories': { label: 'Accessories', browse: 'accessories', fields: [ { k: 'itemType', label: 'What is it?', type: 'text', req: 1 } ] },
     'other':       { label: 'Other', browse: '', fields: [] },
   };
+  // r428: once-per-account seller consent, mirrored from the server rule
+  // (functions/lib/sellerConsent.js). sellerVerified, sellerAge18At and
+  // sellerTermsVersion are server-written only.
+  const SELLER_TERMS_REQUIRE_FROM = '2026-11-17';
+  window.setSellerConsentFrom = function (data) {
+    const d = data || {};
+    const v = typeof d.sellerTermsVersion === 'string' ? d.sellerTermsVersion : '';
+    const termsOk = d.sellerVerified === true && !(v && v < SELLER_TERMS_REQUIRE_FROM);
+    const ageOk = !!d.sellerAge18At;
+    window.SELLER_CONSENT = { termsOk, ageOk, ok: termsOk && ageOk };
+    // Loaded after the form opened (deep link): lock what's confirmed now.
+    const bd = document.getElementById('sellModalBackdrop');
+    if (bd && bd.classList.contains('open') && !window.__editingListingId) {
+      const cb = document.getElementById('sellTermsCheckbox');
+      const ab = document.getElementById('sellAge18Checkbox');
+      if (cb && termsOk) { cb.checked = true; cb.disabled = true; }
+      if (ab && ageOk) { ab.checked = true; ab.disabled = true; }
+    }
+  };
+  window.markSellerConsent = function () {
+    window.SELLER_CONSENT = { termsOk: true, ageOk: true, ok: true };
+  };
+  // Each box is either already confirmed on the account (locked) or ticked
+  // by a real person in this session.
+  window.consentTicksOk = function () {
+    const t = window.__consentTicks || {};
+    return ['sellAge18Checkbox', 'sellTermsCheckbox'].every((id) => {
+      const el = document.getElementById(id);
+      return !!el && el.checked && (el.disabled || t[id] === true);
+    });
+  };
   window.SPEC_LABELS = (() => { const m = { brand: 'Brand', condition: 'Condition' }; Object.values(window.SPEC_SCHEMA).forEach(c => c.fields.forEach(f => { m[f.k] = f.label; })); return m; })();
   let __specCategory = '';
+  // r428: spec values typed so far, by key, kept across a category re-pick
+  // (re-rendering the fields used to wipe them; crosslisting extensions
+  // that fill specs before the category lost everything). Cleared on reset.
+  let __specMemo = {};
+  const snapshotSpecs = () => {
+    document.querySelectorAll('#sellSpecFields [id^="spec_"]').forEach(el => {
+      // Only remember filled values: a field the new category can't hold
+      // (e.g. a 10.5° loft under Fairway) stays remembered for the way back.
+      const v = String(el.value || '').trim();
+      if (v) __specMemo[el.id.slice(5)] = v;
+    });
+  };
+  const restoreSpecs = () => {
+    Object.entries(__specMemo).forEach(([key, v]) => {
+      const el = document.getElementById('spec_' + key);
+      if (!el || el.value) return;
+      if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === v)) return;
+      el.value = v;
+    });
+  };
   let __stepOpen = {photos: false, cat: false}; // Edit-pinned steps (r259)
   window.expandSellStep = function (step) {
     if (step in __stepOpen) __stepOpen[step] = true;
@@ -2694,7 +2750,7 @@
     const el = document.getElementById('sellSpecCatPills');
     if (!el) return;
     el.innerHTML = Object.entries(window.SPEC_SCHEMA).map(([k, c]) =>
-      `<button type="button" class="spec-cat-pill${k === __specCategory ? ' active' : ''}" data-action="pick-spec-cat" data-speccat="${k}">${c.label}</button>`).join('');
+      `<button type="button" class="spec-cat-pill${k === __specCategory ? ' active' : ''}" data-action="pick-spec-cat" data-speccat="${k}" data-tb-value="${k}">${c.label}</button>`).join('');
   }
   function renderSpecFields() {
     const wrap = document.getElementById('sellSpecFields');
@@ -2707,9 +2763,9 @@
         const id = 'spec_' + f.k;
         const reqStar = f.req ? ' *' : '';
         if (f.type === 'select') {
-          return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><select id="${id}"><option value="">${f.req ? 'Choose…' : '—'}</option>${f.options.map(o => `<option>${o}</option>`).join('')}</select></div>`;
+          return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><select id="${id}" name="${id}" data-tb-field="${id}"><option value="">${f.req ? 'Choose…' : '—'}</option>${f.options.map(o => `<option>${o}</option>`).join('')}</select></div>`;
         }
-        return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><input type="text" id="${id}" maxlength="120" /></div>`;
+        return `<div class="form-row"><label for="${id}">${f.label}${reqStar}</label><input type="text" id="${id}" name="${id}" data-tb-field="${id}" maxlength="120" /></div>`;
       }).join('');
       html += `<div class="spec-two-col">${pair}</div>`;
     }
@@ -2717,9 +2773,11 @@
   }
   window.setSpecCategory = function (k, opts) {
     if (!window.SPEC_SCHEMA[k]) return;
+    snapshotSpecs();
     __specCategory = k;
     renderSpecCatPills();
     renderSpecFields();
+    restoreSpecs();
     // Auto-drive the browse category; "Other" exposes the legacy select.
     const catRow = document.getElementById('sellCatRow');
     const catSel = document.getElementById('sellCat');
@@ -2758,6 +2816,7 @@
   };
   window.resetSpecState = function () {
     __specCategory = '';
+    __specMemo = {};
     __stepOpen = {photos: false, cat: false};
     renderSpecCatPills(); renderSpecFields();
     if (window.caddieReset) window.caddieReset();
@@ -3607,7 +3666,7 @@
       if (!_phone && !_u.emailVerified) { showSellVerifyPrompt(); return; }
       await window.__ensureVerifiedClaimFresh();
     } catch (_e) { /* rules remain the real gate */ }
-    if (!window.IS_VERIFIED_SELLER) {
+    if (!(window.SELLER_CONSENT && window.SELLER_CONSENT.ok)) {
       const _tcb = document.getElementById('sellTermsCheckbox');
       const _acb = document.getElementById('sellAge18Checkbox');
       if (!_acb || !_acb.checked) {
@@ -3618,10 +3677,18 @@
         showToast('Please agree to the Seller Terms to publish.', 'error');
         return;
       }
+      // r428: a listing tool ticked the boxes (no real tap). Consent has to
+      // come from the seller, once, in TeeBox.
+      if (!window.consentTicksOk()) {
+        showToast('Tick "I\'m 18 or older" and the Seller Terms box yourself. Listing tools can\'t confirm for you.', 'error');
+        try { const _row = document.getElementById('sellTermsRow'); if (_row) _row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
+        return;
+      }
       try {
         const _verify = httpsCallable(fns, 'requestSellerVerification');
         await _verify({ termsAgreed: true, age18: true });
         window.IS_VERIFIED_SELLER = true;
+        window.markSellerConsent();
       } catch (e) {
         const _m = (e && e.message) || '';
         if (/verify your email/i.test(_m)) { showSellVerifyPrompt(); return; }
