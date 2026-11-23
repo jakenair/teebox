@@ -698,6 +698,11 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "tiktokCatalog": {
+    "sha": "78b2eb2009b7d32fbfb8ca863fb21f1626482bdb",
+    "at": "2026-11-23",
+    "region": "us-central1"
+  },
   "tiktokFeed": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
     "at": "2026-11-19",
