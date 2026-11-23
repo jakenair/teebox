@@ -250,8 +250,8 @@
     "region": "us-central1"
   },
   "metaFeed": {
-    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
-    "at": "2026-11-19",
+    "sha": "3d72918ceafec1af6e219b63045c93d84b8f2434",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "moderateImage": {
@@ -699,13 +699,13 @@
     "sha": null
   },
   "tiktokCatalog": {
-    "sha": "78b2eb2009b7d32fbfb8ca863fb21f1626482bdb",
+    "sha": "3d72918ceafec1af6e219b63045c93d84b8f2434",
     "at": "2026-11-23",
     "region": "us-central1"
   },
   "tiktokFeed": {
-    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
-    "at": "2026-11-19",
+    "sha": "3d72918ceafec1af6e219b63045c93d84b8f2434",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "updateCheckoutShipping": {
