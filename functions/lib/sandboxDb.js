@@ -14,7 +14,7 @@
 
 const PREFIX = "sandbox_";
 const COLLECTIONS = ["listings", "users", "apiPartners", "apiConnections", "apiKeys", "apiIdempotency",
-  "apiAudit", "apiRate", "listingApiOrigin"];
+  "apiAudit", "apiRate", "listingApiOrigin", "apiConsents"];
 
 class SandboxIsolationError extends Error {}
 

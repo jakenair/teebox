@@ -92,7 +92,9 @@ function saveKey(kind, id, key) {
       const [uid] = rest;
       if (!uid) throw new Error("usage: test-connection <partnerId> <sandboxSellerId>");
       if (!(await db.doc(`users/${uid}`).get()).exists) throw new Error(`no sandbox seller ${uid} (run seed-sandbox.cjs)`);
-      const r = await keys.createConnection(d, {uid, partnerId});
+      const {CONSENT} = require("../lib/sellerApiConsent");
+      const r = await keys.createConnection(d, {uid, partnerId, method: "sandbox_test_key",
+        consent: {accepted: true, version: CONSENT.version, surface: "admin_script"}});
       console.log(`connection ${r.connectionId} for ${uid}; key saved to ${saveKey("connection", partnerId, r.key)}`);
       break;
     }

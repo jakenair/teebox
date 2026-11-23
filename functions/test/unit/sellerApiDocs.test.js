@@ -82,7 +82,7 @@ test("curl examples use real routes, and their create bodies pass validation", (
 test("every error code the API can return is documented with its status, and no others", () => {
   const inCode = new Set([...src.matchAll(/ApiError\((\d{3}), "([a-z_]+)"/g)].map((m) => `${m[1]} ${m[2]}`));
   // thrown only by the signed-in callables, never by the REST API
-  for (const c of ["404 partner_not_found", "404 connection_not_found"]) assert.ok(inCode.delete(c), c);
+  for (const c of ["404 partner_not_found", "404 connection_not_found", "400 consent_required"]) assert.ok(inCode.delete(c), c);
   inCode.add("403 live_not_open"); // thrown by sellerApi.js when it picks the environment
   inCode.add("500 internal");
   assert.deepEqual(errors.map((e) => `${e.status} ${e.code}`).sort(), [...inCode].sort());
