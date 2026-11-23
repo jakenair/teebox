@@ -111,7 +111,8 @@ function planApproval(listing) {
     if (deletedByModeration) prune = prunePhotoByPath(l, offending);
   }
 
-  const isTerminal = TERMINAL_STATUSES.has(l.status);
+  // A rejected authenticity review is undone only by decideAuthReview.
+  const isTerminal = TERMINAL_STATUSES.has(l.status) || l.authReviewState === "rejected";
   const alreadyActive = l.status === "active";
   const hasFlags = !!flags;
 

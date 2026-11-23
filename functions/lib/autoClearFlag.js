@@ -94,6 +94,8 @@ async function clearAutoFlagIfClean(deps, args) {
     if (!snap.exists) return false;
     const data = snap.data() || {};
     if (data.status !== "flagged") return false;
+    // 2026-11-23: a clean photo never undoes a rejected authenticity review.
+    if (data.authReviewState === "rejected") return false;
 
     const mf = data.moderationFlags || {};
     if (!isAutoRaisedFlag(mf)) {

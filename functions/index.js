@@ -7082,7 +7082,9 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // reset by an unrelated edit. New high-value → pending review;
   // dropped below threshold → na.
   const wasHighValue = !!cur.requiresAuth;
-  if (isHighValue && !wasHighValue) {
+  if (cur.authReviewState === "rejected") {
+    // An edit (or a lower price) never clears a rejected review.
+  } else if (isHighValue && !wasHighValue) {
     update.authReviewState = "pending";
   } else if (!isHighValue && wasHighValue) {
     update.authReviewState = "na";
@@ -8352,6 +8354,8 @@ Object.assign(exports, require("./emailPauseToggle"));
 // r346: idempotent flagged-listing approval (prunes deleted photos, backfills
 // variants) + the monthly photo-gap audit. See the file headers.
 Object.assign(exports, require("./moderationApprove"));
+// Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
+Object.assign(exports, require("./authReviewAdmin"));
 Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));

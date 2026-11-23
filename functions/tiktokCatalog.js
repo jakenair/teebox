@@ -121,23 +121,20 @@ function tiktokRow(l, ctx) {
   if (!r) {
     if (!F.feedEligibleStatus(l, ctx.now)) return {skip: `status ${l.status}`};
     if (!(Number(l.ask) > 0)) return {skip: "no price"};
+    if (!require("./lib/authReview").authReviewPassed(l)) return {skip: "authenticity review not passed"};
     if (!Array.isArray(l.photos) || !l.photos.length) return {skip: "no photo"};
     return {skip: "test listing or unusable photo"};
   }
   const photos = l.photos.filter((u) => listingObjectPath(u, ctx.bucketName))
       .slice(0, 1 + MAX_EXTRA_IMAGES).map((u) => imageUrl(l.id, u));
   if (!photos.length) return {skip: "no usable photo"};
-  // A high-value listing still waiting on its authenticity review is not
-  // approved, so it stays in the catalog (its id must keep matching pixel
-  // events) but is never advertised.
-  const unapproved = l.requiresAuth === true && l.authReviewState !== "approved";
   const brand = cleanText(r.brand) || "Unbranded";
   const title = cleanText(r.title).slice(0, TITLE_MAX).toWellFormed().trim() || "Golf gear";
   return {row: {
     sku_id: r.id,
     title,
     description: cleanText(r.description) || `${title} on TeeBox, the golfer-to-golfer marketplace.`,
-    availability: unapproved ? "out of stock" : r.availability,
+    availability: r.availability,
     condition: r.condition,
     price: r.price,
     link: r.link,
@@ -235,6 +232,7 @@ async function serveImage(route, res) {
   const l = snap.exists ? {id: snap.id, ...snap.data()} : null;
   // Same rows as the CSV: nothing removed, expired, hidden or test.
   if (!l || !F.feedEligibleStatus(l) ||
+      !require("./lib/authReview").authReviewPassed(l) ||
       require("./lib/testAccounts").isTestListingDoc(l, l.id)) return notFound(res);
   const bucket = admin.storage().bucket(BUCKET);
   const url = (Array.isArray(l.photos) ? l.photos : []).find((u) => photoHash(u) === route.hash);
