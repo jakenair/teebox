@@ -131,6 +131,12 @@
     "at": "2026-11-23",
     "region": "us-central1"
   },
+  "deleteListing": {
+    "sha": "064de28",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud, deletelisting-00001-kov"
+  },
   "deleteUserAccount": {
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
@@ -680,8 +686,8 @@
     "region": "us-central1"
   },
   "stripeWebhook": {
-    "sha": "3a2d04b32c9868524a8b24b07c308e65475f86a3",
-    "at": "2026-11-21",
+    "sha": "064de2879a0794d2bff662d2a58586d04db1024a",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "suggestListingPrice": {
