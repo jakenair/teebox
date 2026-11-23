@@ -136,3 +136,16 @@ test("authenticity review: an edit never clears a rejection", () => {
   assert.equal(f({authReviewState: "approved", requiresAuth: true}, true, ["photos"]), "pending");
   assert.equal(f({authReviewState: "rejected", requiresAuth: true}, true, ["photos"]), null);
 });
+
+test("auth: suspended sellers, and keys made before the sessions were reset", () => {
+  const K = require("../../lib/sellerApiKeys");
+  const now = 1e12; const t = (n) => ({toMillis: () => n});
+  assert.equal(K.isSuspended({suspended: true, suspendedUntil: t(now + 1)}, now), true);
+  assert.equal(K.isSuspended({suspended: true}, now), true);
+  assert.equal(K.isSuspended({suspended: true, suspendedUntil: t(now - 1)}, now), false);
+  assert.equal(K.isSuspended({}, now), false);
+  const reset = new Date(now).toUTCString();
+  assert.equal(K.predatesSessionReset({createdAt: t(now - 1000)}, {tokensValidAfterTime: reset}), true);
+  assert.equal(K.predatesSessionReset({createdAt: t(now + 1000)}, {tokensValidAfterTime: reset}), false);
+  assert.equal(K.predatesSessionReset({createdAt: t(now)}, {}), false);
+});

@@ -24,6 +24,8 @@ const {sandboxDeps} = require("./lib/sellerApiSandbox");
 const {fetchPhoto, storeListingPhoto} = require("./lib/photoFetch");
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
 
+const {defineSecret} = require("firebase-functions/params");
+const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const REGION = "us-central1";
 
 async function scanText(fields, uid) {
@@ -103,7 +105,8 @@ exports.sellerApi = onRequest(
 
 function toHttps(e) {
   if (e instanceof keys.ApiError) {
-    const code = e.status === 404 ? "not-found" : e.status === 403 ? "permission-denied" : "failed-precondition";
+    const code = e.status === 404 ? "not-found" : e.status === 403 ? "permission-denied" :
+      e.status === 429 ? "resource-exhausted" : "failed-precondition";
     return new HttpsError(code, e.message);
   }
   logger.error("seller api callable: unexpected error", e);
@@ -113,6 +116,18 @@ function toHttps(e) {
 function signedIn(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   return req.auth.uid;
+}
+
+const REAUTH_SECONDS = 300;
+
+async function emailToolConnected(uid, r) {
+  const {resolveUserEmail} = require("./lib/emailRecipient");
+  const {email} = await resolveUserEmail(uid, null, (u) => admin.auth().getUser(u));
+  if (!email) return;
+  const Tpl = require("./emails-build/transactional/ToolConnected");
+  const ctx = {partnerName: r.partnerName, keyLast4: String(r.key).slice(-4)};
+  await require("./lib/email").sendEmail({to: email, uid, subject: Tpl.subject(ctx), react: Tpl(ctx),
+    category: "transactional", template: "ToolConnected", idempotencyKey: `tool-connected-${r.connectionId}`});
 }
 
 const CALLABLE = {region: REGION, memory: "256MiB", timeoutSeconds: 30};
@@ -126,14 +141,26 @@ exports.listApiPartners = onCall(CALLABLE, async (req) => {
   } catch (e) { throw toHttps(e); }
 });
 
-exports.createApiConnection = onCall(CALLABLE, async (req) => {
+exports.createApiConnection = onCall({...CALLABLE, secrets: [RESEND_API_KEY]}, async (req) => {
   const uid = signedIn(req);
+  // A key outlives the session that made it, so making one needs a sign-in
+  // from the last 5 minutes (the same window as admin actions).
+  const authTime = Number(req.auth.token && req.auth.token.auth_time) || 0;
+  if (!(authTime > 0 && Date.now() / 1000 - authTime <= REAUTH_SECONDS)) {
+    throw new HttpsError("failed-precondition", "Confirm it's you before connecting a tool.", {reauthRequired: true});
+  }
   if (!config.liveEnabled()) throw new HttpsError("failed-precondition", "Connected tools aren't open yet.");
-  const d = {db: admin.firestore(), FieldValue: admin.firestore.FieldValue, cfg: config.resolve("live")};
+  const d = {db: admin.firestore(), FieldValue: admin.firestore.FieldValue, Timestamp: admin.firestore.Timestamp, cfg: config.resolve("live")};
   try {
     const r = await keys.createConnection(d, {uid, partnerId: String((req.data || {}).partnerId || ""),
       consent: (req.data || {}).consent, method: "connected_tools_screen"});
     logger.info("createApiConnection", {uid, partnerId: r.partnerId, connectionId: r.connectionId, replaced: r.replaced});
+    // Tell the account owner, so a connection they didn't make is noticed.
+    try {
+      await emailToolConnected(uid, r);
+    } catch (e) {
+      logger.error("createApiConnection: owner email failed", {uid, error: String(e && e.message || e)});
+    }
     return r; // the key is returned this once and never stored
   } catch (e) { throw toHttps(e); }
 });

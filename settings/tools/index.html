@@ -52,7 +52,7 @@
 </main>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, OAuthProvider, EmailAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithCredential } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js';
 const app = initializeApp({
     apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
@@ -67,6 +67,23 @@ const $ = (id) => document.getElementById(id);
 const el = (tag, props, ...kids) => { const n = Object.assign(document.createElement(tag), props || {}); kids.forEach((k) => k && n.append(k)); return n; };
 const note = (text, bad) => { $('note').textContent = text || ''; $('note').className = bad ? 'note bad' : 'note'; };
 const call = async (name, data) => (await httpsCallable(fns, name)(data || {})).data;
+async function reauth() {
+  const u = auth.currentUser, ids = u.providerData.map((p) => p.providerId);
+  if (ids.includes('google.com')) await reauthenticateWithPopup(u, new GoogleAuthProvider());
+  else if (ids.includes('apple.com')) await reauthenticateWithPopup(u, new OAuthProvider('apple.com'));
+  else {
+    const pw = window.prompt('Confirm your password to connect this tool');
+    if (!pw) throw new Error('Cancelled.');
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, pw));
+  }
+  await u.getIdToken(true);
+}
+async function callFresh(name, data) {
+  try { return await call(name, data); } catch (e) {
+    if (e && e.details && e.details.reauthRequired) { await reauth(); return call(name, data); }
+    throw e;
+  }
+}
 const day = (ms) => ms ? new Date(ms).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'never';
 let agreed = null;
 function connectedCard(c) {
@@ -89,7 +106,7 @@ function connectCard(p, already) {
   b.onclick = async () => {
     b.disabled = true;
     try {
-      const r = await call('createApiConnection', { partnerId: p.partnerId, consent: { accepted: true, version: agreed.version, surface: 'web' } });
+      const r = await callFresh('createApiConnection', { partnerId: p.partnerId, consent: { accepted: true, version: agreed.version, surface: 'web' } });
       await load(r); note('');
     } catch (e) { note(e.message || 'Could not connect. Please try again.', true); b.disabled = !box.checked; }
   };

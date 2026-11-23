@@ -350,6 +350,46 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   const o2 = await api("GET", "/v1/me", {pk: rot.key, ck: c1.key});
   check("8e rotating the partner key: old key refused, new key works with existing connections", o1.status === 401 && o2.status === 200, {o1: o1.body});
   const P = {pk: rot.key, ck: c1.key};
+  // ── auth review 2026-11-23: M9, L4, L5
+  {
+    const u = "authz1"; const tool = await keys.createPartner(d, {partnerId: "authz-tool", name: "Authz Tool"});
+    await admin.auth().createUser({uid: u, email: "authz1@example.test", emailVerified: true});
+    await db.doc("users/" + u).set({sellerVerified: true});
+    const par = await Promise.all([1, 2, 3].map(() => keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE})));
+    const act = await db.collection("apiConnections").where("uid", "==", u).where("status", "==", "active").get();
+    const kd = await db.collection("apiKeys").where("uid", "==", u).get();
+    check("11a three parallel connects leave exactly one working key", act.size === 1 && kd.size === 1, [act.size, kd.size]);
+    const alive = par.find((x) => x.connectionId === act.docs[0].id);
+    const tryAuth = async (k) => { try { await keys.authenticate(d, {pk: tool.key, ck: k || alive.key}); return "ok"; } catch (e) { return e.code; } };
+    check("11b that key works", await tryAuth() === "ok", await tryAuth());
+    for (const x of par) if (x !== alive) check("11b the losing key is dead", await tryAuth(x.key) === "invalid_connection_key");
+    await db.doc("users/" + u).update({suspended: true, suspendedUntil: TS.fromMillis(Date.now() + 6e4)});
+    check("11c suspended seller refused", await tryAuth() === "seller_disabled", await tryAuth());
+    let cc = null; try { await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE}); } catch (e) { cc = e.code; }
+    check("11c and can't connect a tool", cc === "seller_disabled", cc);
+    await db.doc("users/" + u).update({suspendedUntil: TS.fromMillis(Date.now() - 1)});
+    check("11c works again when the suspension ends", await tryAuth() === "ok");
+    await new Promise((r) => setTimeout(r, 1500));
+    await admin.auth().updateUser(u, {password: "a new password 1!"});
+    check("11d password reset kills the connection key", await tryAuth() === "connection_revoked", await tryAuth());
+    await new Promise((r) => setTimeout(r, 1500));
+    const re1 = await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE});
+    check("11d connecting again after the reset works", await tryAuth(re1.key) === "ok", await tryAuth(re1.key));
+    await new Promise((r) => setTimeout(r, 1500));
+    await admin.auth().revokeRefreshTokens(u);
+    check("11d sign-out-everywhere (ban, recovery) kills it too", await tryAuth(re1.key) === "connection_revoked");
+    let lim = null; let made = 0;
+    for (let k = 0; k < 12; k++) { try { await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE}); made++; } catch (e) { lim = e.code; break; } }
+    check("11e capped per day", lim === "too_many_connections" && made <= keys.CONNECTS_PER_DAY, [lim, made]);
+    for (const bad of ["../x", "a/b", "", "A".repeat(60), null]) { let c = null; try { await keys.createConnection(d, {uid: u, partnerId: bad, ...AGREE}); } catch (e) { c = e.code; } check("11f odd partner id refused: " + JSON.stringify(bad).slice(0, 12), c === "partner_not_found", c); }
+    const api2 = require("../../sellerApi");
+    process.env.RESEND_API_KEY = "re_stub";
+    const callIt = async (tok) => { try { await api2.createApiConnection.run({auth: {uid: u, token: tok}, data: {partnerId: tool.partnerId, consent: AGREE.consent}, rawRequest: {}}); return "ok"; } catch (e) { return [e.code, e.details && e.details.reauthRequired, e.message]; } };
+    const now = Math.floor(Date.now() / 1000);
+    for (const tok of [{}, {auth_time: now - 301}, {auth_time: "x"}]) check("11g connecting needs a recent sign-in: " + JSON.stringify(tok).slice(0, 14), (await callIt(tok))[1] === true, await callIt(tok));
+    const fresh = await callIt({auth_time: now - 10});
+    check("11g a fresh sign-in gets past that check (then the daily cap)", Array.isArray(fresh) && fresh[0] === "resource-exhausted", fresh);
+  }
   const again = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId, ...AGREE});
   const log = (await db.collection("apiConsents").where("uid", "==", s1).where("partnerId", "==", acme.partnerId).get()).docs.map((x) => x.data());
   const gr = log.find((x) => x.event === "granted" && x.connectionId === again.connectionId);

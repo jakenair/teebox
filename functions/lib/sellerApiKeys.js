@@ -50,6 +50,27 @@ function keyMode(key) {
   return m ? m[1] : null;
 }
 
+const ms = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : 0);
+
+/** Suspended right now (admin suspendUser). Pure. */
+function isSuspended(user, nowMs) {
+  if (!user || user.suspended !== true) return false;
+  const until = ms(user.suspendedUntil);
+  return until === 0 || until > nowMs;
+}
+
+/**
+ * Was this connection made before the seller's sessions were last reset?
+ * Firebase moves tokensValidAfterTime on a password change or reset, and on
+ * every server-side sign-out (ban, account recovery), so a key made during a
+ * takeover dies with the sessions. Pure.
+ */
+function predatesSessionReset(connection, authUser) {
+  const reset = authUser && authUser.tokensValidAfterTime ? Date.parse(authUser.tokensValidAfterTime) : 0;
+  const made = ms(connection && connection.createdAt);
+  return reset > 0 && made > 0 && made < reset;
+}
+
 function header(headers, name) {
   const h = headers || {};
   const v = h[name] !== undefined ? h[name] : h[name.toLowerCase()];
@@ -82,7 +103,7 @@ function readKeys(headers) {
  * the handle for the keys' own environment.
  * @return {Promise<{partnerId, partner, connectionId, connection, uid, user}>}
  */
-async function authenticate({db, auth, cfg}, {pk, ck}) {
+async function authenticate({db, auth, cfg, nowMs}, {pk, ck}) {
   if (keyMode(pk) !== cfg.mode || keyMode(ck) !== cfg.mode) {
     throw new ApiError(401, "wrong_environment", "These keys belong to the other environment.");
   }
@@ -113,9 +134,14 @@ async function authenticate({db, auth, cfg}, {pk, ck}) {
     throw new ApiError(401, "seller_not_found", "The seller's TeeBox account no longer exists.");
   }
   if (authUser.disabled) throw new ApiError(403, "seller_disabled", "The seller's TeeBox account is disabled.");
+  if (predatesSessionReset(connection, authUser)) {
+    throw new ApiError(401, "connection_revoked", "The seller secured their account after connecting this tool. Ask them to connect it again in TeeBox.");
+  }
   const uSnap = await db.doc(`users/${uid}`).get();
   const user = uSnap.exists ? (uSnap.data() || {}) : {};
-  if (user.banned === true) throw new ApiError(403, "seller_disabled", "The seller's TeeBox account can't list items.");
+  if (user.banned === true || isSuspended(user, nowMs ? nowMs() : Date.now())) {
+    throw new ApiError(403, "seller_disabled", "The seller's TeeBox account can't list items.");
+  }
 
   return {partnerId: pRef.partnerId, partner, connectionId: cRef.connectionId, connection, uid, user, authUser};
 }
@@ -164,47 +190,67 @@ async function setPartnerStatus({db, FieldValue}, {partnerId, status, reason}) {
   return {partnerId, status};
 }
 
+const CONNECTS_PER_DAY = 10; // per seller per tool
+
 /**
  * A seller connects a tool: one connection key for one active partner.
- * Called from the createApiConnection callable (signed-in seller).
+ * Called from the createApiConnection callable (signed-in seller). One
+ * transaction on the seller's slot for this tool, so parallel calls can't
+ * leave two working keys; capped per day.
  */
-async function createConnection({db, FieldValue, cfg}, {uid, partnerId, consent, method}) {
+async function createConnection({db, FieldValue, Timestamp, cfg, nowMs}, {uid, partnerId, consent, method}) {
   let agreed;
   try { agreed = checkConsent(consent, method); } catch (_e) {
     throw new ApiError(400, "consent_required", "Review what this tool can do and agree before connecting it.");
   }
-  const pSnap = await db.doc(`apiPartners/${String(partnerId || "")}`).get();
-  if (!pSnap.exists || pSnap.data().status !== "active") throw new ApiError(404, "partner_not_found", "That tool isn't available to connect.");
-  const existing = await db.collection("apiConnections")
-      .where("uid", "==", uid).where("partnerId", "==", partnerId).where("status", "==", "active").get();
+  const pid = String(partnerId || "");
+  if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(pid)) throw new ApiError(404, "partner_not_found", "That tool isn't available to connect.");
+  const now = nowMs ? nowMs() : Date.now();
   const key = newKey(cfg.connectionPrefix);
   const h = hashKey(key);
   const ref = db.collection("apiConnections").doc();
-  const batch = db.batch();
-  // One live connection per seller per tool: connecting again replaces the old key.
-  existing.forEach((d) => {
-    batch.update(d.ref, {status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "replaced"});
-    batch.delete(db.doc(`apiKeys/${d.data().keyHash}`));
-    batch.set(db.collection("apiConsents").doc(), {event: "revoked", uid, partnerId, partnerName: d.data().partnerName || partnerId,
-      connectionId: d.id, method: "replaced_by_new_connection", at: FieldValue.serverTimestamp()});
+  const slotRef = db.doc(`apiConnectionSlots/${uid}_${pid}`);
+  const out = await db.runTransaction(async (tx) => {
+    const [pSnap, slotSnap, uSnap] = await Promise.all([
+      tx.get(db.doc(`apiPartners/${pid}`)), tx.get(slotRef), tx.get(db.doc(`users/${uid}`))]);
+    if (!pSnap.exists || pSnap.data().status !== "active") throw new ApiError(404, "partner_not_found", "That tool isn't available to connect.");
+    const user = uSnap.exists ? uSnap.data() : {};
+    if (user.banned === true || isSuspended(user, now)) throw new ApiError(403, "seller_disabled", "This account can't connect tools.");
+    const slot = slotSnap.exists ? slotSnap.data() : {};
+    const fresh = !(now - (Number(slot.windowStart) || 0) < 864e5);
+    const count = fresh ? 0 : Number(slot.count) || 0;
+    if (count >= CONNECTS_PER_DAY) throw new ApiError(429, "too_many_connections", "You've connected this tool too many times today. Try again tomorrow.");
+    const oldRef = slot.connectionId ? db.doc(`apiConnections/${slot.connectionId}`) : null;
+    const old = oldRef ? await tx.get(oldRef) : null;
+    const replaces = !!(old && old.exists && old.data().status === "active");
+    const partnerName = pSnap.data().name || pid;
+    // One live connection per seller per tool: connecting again replaces the old key.
+    if (replaces) {
+      tx.update(oldRef, {status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "replaced"});
+      tx.delete(db.doc(`apiKeys/${old.data().keyHash}`));
+      tx.set(db.collection("apiConsents").doc(), {event: "revoked", uid, partnerId: pid, partnerName: old.data().partnerName || pid,
+        connectionId: oldRef.id, method: "replaced_by_new_connection", at: FieldValue.serverTimestamp()});
+    }
+    tx.set(ref, {uid, partnerId: pid, partnerName, status: "active",
+      mode: cfg.mode, keyHash: h, keyLast4: last4(key), createdAt: FieldValue.serverTimestamp(),
+      consent: {...agreed, at: FieldValue.serverTimestamp()}});
+    // When and how the seller authorized this tool. Same transaction as the
+    // key: one can't exist without the other.
+    tx.set(db.collection("apiConsents").doc(), {event: "granted", uid, partnerId: pid, partnerName, connectionId: ref.id,
+      ...agreed, at: FieldValue.serverTimestamp()});
+    tx.set(db.doc(`apiKeys/${h}`), {kind: "connection", connectionId: ref.id, partnerId: pid, uid,
+      createdAt: FieldValue.serverTimestamp()});
+    tx.set(slotRef, {connectionId: ref.id, count: count + 1, windowStart: fresh ? now : slot.windowStart,
+      updatedAt: FieldValue.serverTimestamp()});
+    return {partnerName, replaced: replaces ? 1 : 0};
   });
-  const partnerName = pSnap.data().name || partnerId;
-  batch.set(ref, {uid, partnerId, partnerName, status: "active",
-    mode: cfg.mode, keyHash: h, keyLast4: last4(key), createdAt: FieldValue.serverTimestamp(),
-    consent: {...agreed, at: FieldValue.serverTimestamp()}});
-  // When and how the seller authorized this tool. Same batch as the key: one
-  // can't exist without the other.
-  batch.set(db.collection("apiConsents").doc(), {event: "granted", uid, partnerId, partnerName, connectionId: ref.id,
-    ...agreed, at: FieldValue.serverTimestamp()});
-  batch.set(db.doc(`apiKeys/${h}`), {kind: "connection", connectionId: ref.id, partnerId, uid,
-    createdAt: FieldValue.serverTimestamp()});
-  await batch.commit();
-  return {connectionId: ref.id, partnerId, partnerName: pSnap.data().name || partnerId, key, replaced: existing.size};
+  return {connectionId: ref.id, partnerId: pid, partnerName: out.partnerName, key, replaced: out.replaced};
 }
 
 /** A seller disconnects a tool. Only the owner can revoke. */
 async function revokeConnection({db, FieldValue}, {uid, connectionId, method}) {
-  const ref = db.doc(`apiConnections/${String(connectionId || "")}`);
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(connectionId || ""))) throw new ApiError(404, "connection_not_found", "No such connection.");
+  const ref = db.doc(`apiConnections/${connectionId}`);
   const snap = await ref.get();
   if (!snap.exists || snap.data().uid !== uid) throw new ApiError(404, "connection_not_found", "No such connection.");
   if (snap.data().status === "revoked") return {connectionId, status: "revoked"};
@@ -240,5 +286,5 @@ async function listPartners({db}) {
 module.exports = {
   ApiError, readKeys, authenticate, createPartner, rotatePartnerKey, setPartnerStatus,
   createConnection, revokeConnection, listConnections, listPartners,
-  newKey, hashKey, keyMode, randomToken, header, KEY_RE,
+  newKey, hashKey, keyMode, randomToken, header, KEY_RE, isSuspended, predatesSessionReset, CONNECTS_PER_DAY,
 };

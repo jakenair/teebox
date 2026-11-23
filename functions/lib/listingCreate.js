@@ -62,7 +62,9 @@ async function assertSellerCanList({db, auth, uid}) {
   }
   const snap = await db.doc(`users/${uid}`).get();
   const user = snap.exists ? (snap.data() || {}) : {};
-  if (user.banned === true) throw new ListingCreateError("permission-denied", "This account can't list items.");
+  if (user.banned === true || require("./sellerApiKeys").isSuspended(user, Date.now())) {
+    throw new ListingCreateError("permission-denied", "This account can't list items.");
+  }
   // r428: tools never tick the 18+ / Seller Terms boxes. The seller confirms
   // both once in TeeBox (lib/sellerConsent); without that, refuse clearly.
   const consent = sellerConsentStatus(user);
