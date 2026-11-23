@@ -27,6 +27,7 @@ const {
   APP_URL, PAYOUT_SETUP_URL, RATE_WINDOW_MS, HIDE_AFTER_DAYS,
   HIDDEN_STATUS, HIDDEN_REASON, AWAITING_REASON, SELLER_NUDGE_CAP_PER_DAY,
   emailFor, lookupUser, onSellerChargesReady, rollingLimitAllowed, hideClockStartMs,
+  countsTowardFormLimit,
 } = require("./lib/listFirstCore");
 
 const USER_CALLABLE = {
@@ -57,7 +58,9 @@ exports.countListingCreate = onDocumentCreated(
       const db = admin.firestore();
       const ref = db.collection("users").doc(uid)
           .collection("rateLimits").doc("listingCreate");
-      try {
+      // CSV and API listings have their own daily cap (lib/listingCreate);
+      // they never use up the Sell form's.
+      if (countsTowardFormLimit(d)) try {
         await db.runTransaction(async (tx) => {
           const snap = await tx.get(ref);
           const now = Date.now();
