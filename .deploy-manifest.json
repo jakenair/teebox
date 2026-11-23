@@ -605,6 +605,12 @@
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
+  "sellerApi": {
+    "sha": "e019553",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud: 1GiB cpu 1 concurrency 20 t120 max 10; sandbox only"
+  },
   "sendBrandedPasswordReset": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
@@ -707,7 +713,7 @@
     "sha": null
   },
   "tiktokCatalog": {
-    "sha": "3d72918ceafec1af6e219b63045c93d84b8f2434",
+    "sha": "e0195532c0bc4753442e8cf27506ffb7b8b51174",
     "at": "2026-11-23",
     "region": "us-central1"
   },
