@@ -169,7 +169,7 @@ function buildListingDoc(value, {uid, source, FieldValue, Timestamp, nowMs, paym
 }
 
 // Photos must live in OUR bucket. Live: teebox-market only (= the rules'
-// allPhotosInBucket). In the sandbox project (and the emulator) that
+// allOwnPhotos). In the sandbox project (and the emulator) that
 // project's own bucket is accepted too, so the same code runs there.
 const BUCKETS = [...new Set(["teebox-market", require("./sellerApiConfig").projectId() || "teebox-market"])]
     .map((b) => (b + ".firebasestorage.app").replace(/[.]/g, "\\."));
@@ -182,7 +182,7 @@ const STORAGE_URL_RE = new RegExp("^https://(firebasestorage\\.googleapis\\.com/
  * be "csv"/"api" here (server-only values); the rules allow only "bingo".
  * @return {string[]} the names of failed checks ([] = passes)
  */
-function rulesCreateCheck(d, {allowServerSource = true} = {}) {
+function rulesCreateCheck(d, {allowServerSource = true, listingId = null} = {}) {
   const f = [];
   const keys = Object.keys(d || {});
   for (const k of CREATE_REQUIRED) if (!keys.includes(k)) f.push("missing:" + k);
@@ -198,7 +198,9 @@ function rulesCreateCheck(d, {allowServerSource = true} = {}) {
   if (!(typeof d.ask === "number" && d.ask >= PRICE_FLOOR && d.ask < PRICE_MAX)) f.push("ask");
   if ("desc" in d && !(typeof d.desc === "string" && d.desc.length <= 4000)) f.push("desc");
   if ("photos" in d && !(Array.isArray(d.photos) && d.photos.length <= MAX_PHOTOS &&
-      d.photos.every((u) => typeof u === "string" && STORAGE_URL_RE.test(u)))) f.push("photos");
+      d.photos.every((u) => typeof u === "string" && STORAGE_URL_RE.test(u) &&
+        // the rules also require this listing's own folder
+        (!listingId || u.includes(`/o/listings%2F${d.sellerId}%2F${listingId}%2F`))))) f.push("photos");
   if ("specCategory" in d && !(typeof d.specCategory === "string" && d.specCategory.length <= 20)) f.push("specCategory");
   if ("specs" in d && !(d.specs && typeof d.specs === "object" && !Array.isArray(d.specs) && Object.keys(d.specs).length <= MAX_SPECS)) f.push("specs");
   if ("emoji" in d && !(typeof d.emoji === "string" && d.emoji.length <= 16)) f.push("emoji");

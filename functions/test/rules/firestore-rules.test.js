@@ -338,7 +338,7 @@ test("r422 update: awaiting listing — owner may attach photos only; cannot pub
   await seed("users", "unready2", {displayName: "U"});
   await seed("listings", "AW1", {...awaitingDoc("unready2"), createdAt: new Date()});
   const u = testEnv.authenticatedContext("unready2", {email_verified: true});
-  const photo = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2FAW1%2Fa.jpg?alt=media";
+  const photo = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Funready2%2FAW1%2F1_0_a.jpg?alt=media";
   await assertSucceeds(updateDoc(doc(db(u), "listings", "AW1"), {photos: [photo]}));
   await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {status: "active"}));
   await assertFails(updateDoc(doc(db(u), "listings", "AW1"), {status: "active", hiddenReason: null}));
@@ -394,10 +394,11 @@ test("approved review: the owner can't swap photos with a direct write; pending 
   await seed("listings", "RV1", {...mine, authReviewState: "approved"});
   await seed("listings", "RV2", {...mine, authReviewState: "pending"});
   const me = testEnv.authenticatedContext("rev1", {email_verified: true});
-  const photos = {photos: [STORAGE_URL], updatedAt: serverTimestamp()};
-  await assertFails(updateDoc(doc(db(me), "listings", "RV1"), photos));
+  const own = (lid) => `https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Frev1%2F${lid}%2F1_0_a.jpg?alt=media&token=t`;
+  const photos = (lid) => ({photos: [own(lid)], updatedAt: serverTimestamp()});
+  await assertFails(updateDoc(doc(db(me), "listings", "RV1"), photos("RV1")));
   await assertSucceeds(updateDoc(doc(db(me), "listings", "RV1"), {updatedAt: serverTimestamp()}));
-  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV2"), photos));
+  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV2"), photos("RV2")));
 });
 
 test("seller delete: refused while a buyer's checkout holds the listing, allowed otherwise", async () => {
@@ -419,4 +420,24 @@ test("seller delete: refused while a buyer's checkout holds the listing, allowed
   await seed("listings", "DG9", {...mine, status: "pending", pendingUntil: later});
   await assertFails(deleteDoc(doc(db(testEnv.authenticatedContext("someoneelse")), "listings", "DG9")));
   await assertSucceeds(deleteDoc(doc(db(testEnv.authenticatedContext("boss", {admin: true})), "listings", "DG9")));
+});
+
+test("listing photos must be in that listing's own folder (create and photo attach)", async () => {
+  const B = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/";
+  const q = "?alt=media&token=t";
+  const mine = {...listingCreateDoc("ph1"), status: "hidden", hiddenReason: "awaiting_payouts"};
+  await seed("listings", "PH1", mine);
+  const me = testEnv.authenticatedContext("ph1", {email_verified: true});
+  const attach = (urls) => updateDoc(doc(db(me), "listings", "PH1"), {photos: urls, updatedAt: serverTimestamp()});
+  await assertSucceeds(attach([B + "listings%2Fph1%2FPH1%2F1_0_a.jpg" + q, B + "listings%2Fph1%2FPH1%2F1_1_my%20photo%20(2)%C3%A9.jpg" + q]));
+  for (const bad of [
+    B + "listings%2Fph1%2FOTHER%2F1_0_a.jpg" + q, // another listing's folder
+    B + "listings%2Fsomeone%2FPH1%2F1_0_a.jpg" + q, // another seller
+    B + "avatars%2Fph1%2F1.jpg" + q, B + "passport%2Fph1%2Fx%2F1.jpg" + q, B + "feed-cache%2Ftiktok%2FPH1%2Fx.jpg" + q,
+    B + "listings%2Fph1%2FPH1%2F..%2FOTHER%2Fa.jpg" + q, B + "listings%2Fph1%2FPH1%2F..%2fOTHER%2fa.jpg" + q,
+    "https://teebox-market.firebasestorage.app/x.jpg", "https://evil.example/x.jpg",
+    "https://firebasestorage.googleapis.com/v0/b/other-bucket/o/listings%2Fph1%2FPH1%2F1.jpg" + q,
+  ]) await assertFails(attach([B + "listings%2Fph1%2FPH1%2F1_0_a.jpg" + q, bad]));
+  const create = {...listingCreateDoc("ph1"), status: "hidden", hiddenReason: "awaiting_payouts", photos: [B + "avatars%2Fph1%2F1.jpg" + q]};
+  await assertFails(setDoc(doc(db(me), "listings", "PH2"), create));
 });

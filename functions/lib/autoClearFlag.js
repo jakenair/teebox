@@ -108,9 +108,30 @@ async function clearAutoFlagIfClean(deps, args) {
       return false;
     }
 
+    // 2026-11-23: the photo that was flagged must itself have passed or be
+    // gone, and every photo still on the listing must have passed. One clean
+    // photo used to release a listing with an unscanned one still on it.
+    const {objectPathFromUrl, unscannedPhotos} = require("./photoPrune");
+    const onListing = (Array.isArray(data.photos) ? data.photos : []).map((u) => objectPathFromUrl(u));
+    const offending = String(mf.offendingPath || "");
+    const offendingStill = offending && offending !== objPath && onListing.includes(offending);
+    const waiting = unscannedPhotos(data, objPath);
+    if (offendingStill || waiting.length) {
+      log.info("autoClearFlag: still has a photo that hasn't passed", {listingId, waiting: waiting.length, offendingStill: !!offendingStill});
+      return false;
+    }
+    if (!onListing.length) return false;
+
+    // Back to exactly what it was. Older flags didn't record it: a listing
+    // with a hidden reason was hidden. A lapsed checkout hold is not restored.
+    const {inCheckout} = require("./checkoutHold");
+    let back = data.flaggedFrom || (data.hiddenReason ? "hidden" : "active");
+    if (back === "pending" && !inCheckout(data, Date.now())) back = "active";
+
     const previousReason = String(mf.reason || "(unknown)");
     await ref.update({
-      status: "active",
+      status: back,
+      flaggedFrom: FieldValue.delete(),
       moderationFlags: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -138,8 +159,8 @@ async function clearAutoFlagIfClean(deps, args) {
         status: "resolved",
         resolvedAt: FieldValue.serverTimestamp(),
         resolutionNote:
-          `Auto-cleared: re-scan of ${objPath} passed the same thresholds ` +
-          `that raised "${previousReason}".`,
+          `Auto-cleared: every photo has passed the thresholds ` +
+          `that raised "${previousReason}" (last: ${objPath || "photo removed"}).`,
       }, {merge: true});
     } catch (e) {
       log.error("autoClearFlag: flaggedListings update failed", listingId, e);

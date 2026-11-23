@@ -11,6 +11,7 @@ const {clearAutoFlagIfClean} = require("../../lib/autoClearFlag");
 const FV = {delete: () => 0, serverTimestamp: () => 0};
 const quiet = {info() {}, warn() {}, error() {}};
 async function rescan(doc) {
+  if (!doc.photos) doc.photos = ["https://x/o/p?alt=media"];
   let wrote = null;
   const ref = {get: async () => ({exists: true, data: () => doc}), update: async (u) => { wrote = u; }, delete: async () => {}};
   const db = {collection: () => ({doc: () => ref, add: async () => {}})};
@@ -26,7 +27,7 @@ test("a bad photo never moves a removed or sold listing to flagged", () => {
     assert.ok(r.update.moderationFlags);
   }
   for (const status of ["active", "hidden", "expired", "flagged", "pending", undefined]) {
-    assert.equal(P.flagStatus({status}).status, "flagged", String(status));
+    assert.deepEqual(P.flagStatus({status}), status === "flagged" ? {status} : {status: "flagged", flaggedFrom: status || "active"}, String(status));
   }
 });
 

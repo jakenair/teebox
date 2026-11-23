@@ -4373,11 +4373,12 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       if (!obj || !obj.name) return;
       // Only process listing photos.
       if (!obj.name.startsWith("listings/")) return;
-      // Don't re-process our own generated thumbnail variants.
-      if (/_w(?:400|800)\.webp$/i.test(obj.name)) return;
       // Skip non-images and already-WebP files.
       const contentType = obj.contentType || "";
       if (!contentType.startsWith("image/")) return;
+      // Our own output (the re-encoded original and its resized copies). Only
+      // the server can set this mark: storage.rules refuse it from clients. A
+      // file's NAME proves nothing, so it is not trusted (2026-11-23).
       if (obj.metadata && obj.metadata.optimized === "true") return;
       const bucket = admin.storage().bucket(obj.bucket);
       const file = bucket.file(obj.name);
@@ -6935,7 +6936,16 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // that the offers panel + SEO LD-JSON render unconditionally. Reject
   // any URL outside the bucket prefix. The firestore.rules side
   // (allPhotosInBucket) enforces the same invariant on direct writes.
-  if (photos.some((u) => !isInBucketStorageUrl(u))) {
+  // New photos must be in this listing's own folder (see isOwnPhoto in
+  // firestore.rules): the scanner flags the listing named in the path.
+  const ownPrefix = `listings/${uid}/${listingId}/`;
+  const {objectPathFromUrl} = require("./lib/photoPrune");
+  const already = new Set((Array.isArray(cur.photos) ? cur.photos : []).map(String));
+  const isOwn = (u) => {
+    const p = objectPathFromUrl(u) || "";
+    return p.startsWith(ownPrefix) && !p.slice(ownPrefix.length).includes("/") && !/_w\d+\.webp$/i.test(p);
+  };
+  if (photos.some((u) => !isInBucketStorageUrl(u) || !(already.has(u) || isOwn(u)))) {
     throw new HttpsError(
         "invalid-argument",
         "All photos must be uploaded through the listing form.",
@@ -7108,6 +7118,13 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   } catch (e) {
     logger.error("updateListing write failed", e);
     throw new HttpsError("internal", "Could not save your changes.");
+  }
+  // Removing the photo that failed its check may be all a flagged listing
+  // needed; there is no new upload to trigger a re-scan in that case.
+  if (photosChanged && status === "flagged") {
+    await clearAutoFlagIfClean({db, FieldValue: admin.firestore.FieldValue, logger},
+        {listingId, sellerId: uid, objPath: "", annotation: null})
+        .catch((e) => logger.warn("updateListing: flag re-check failed", {listingId, error: String(e && e.message || e)}));
   }
   if (update.authReviewState === "pending" && reopened.length) {
     try {

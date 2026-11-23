@@ -124,12 +124,12 @@ service cloud.firestore {
         && request.resource.data.sellerId == request.auth.uid
         && isEmailVerified()
         && underListingRateLimit(request.auth.uid)
-        && isValidListingCreate(request.resource.data);
+        && isValidListingCreate(request.resource.data, listingId);
 
       allow update: if request.auth != null
         && appCheckOk()
         && resource.data.sellerId == request.auth.uid
-        && isValidListingUpdate(request.resource.data, resource.data);
+        && isValidListingUpdate(request.resource.data, resource.data, listingId);
 
       // Admin moderation update — admin emails can flip status and
       // clear/replace moderationFlags on any listing. Limited to
@@ -164,19 +164,28 @@ service cloud.firestore {
         && (u.matches('^https://firebasestorage\\.googleapis\\.com/v0/b/teebox-market\\.firebasestorage\\.app/.*')
             || u.matches('^https://teebox-market\\.firebasestorage\\.app/.*'));
     }
+    // A listing's photos live in its own folder: listings/{seller}/{listing}/.
+    // The scanner flags the listing named in the path, so a photo kept in any
+    // other folder would be checked against the wrong listing, or (avatars,
+    // passport) not checked as a listing photo at all (2026-11-23).
+    function isOwnPhoto(u, sellerId, listingId) {
+      return u is string
+        && u.matches('^https://firebasestorage[.]googleapis[.]com/v0/b/teebox-market[.]firebasestorage[.]app/o/listings%2F'
+                     + sellerId + '%2F' + listingId + '%2F([^/?#%]|%[013-9A-Fa-f][0-9A-Fa-f]|%2[0-9A-Ea-e])+[?].*');
+    }
     // CEL has no list iteration; max photos is 10 so enumerate. Each
     // arm short-circuits via the size guard when the array is shorter.
-    function allPhotosInBucket(arr) {
-      return (arr.size() < 1  || isStorageUrl(arr[0]))
-          && (arr.size() < 2  || isStorageUrl(arr[1]))
-          && (arr.size() < 3  || isStorageUrl(arr[2]))
-          && (arr.size() < 4  || isStorageUrl(arr[3]))
-          && (arr.size() < 5  || isStorageUrl(arr[4]))
-          && (arr.size() < 6  || isStorageUrl(arr[5]))
-          && (arr.size() < 7  || isStorageUrl(arr[6]))
-          && (arr.size() < 8  || isStorageUrl(arr[7]))
-          && (arr.size() < 9  || isStorageUrl(arr[8]))
-          && (arr.size() < 10 || isStorageUrl(arr[9]));
+    function allOwnPhotos(arr, sellerId, listingId) {
+      return (arr.size() < 1  || isOwnPhoto(arr[0], sellerId, listingId))
+          && (arr.size() < 2  || isOwnPhoto(arr[1], sellerId, listingId))
+          && (arr.size() < 3  || isOwnPhoto(arr[2], sellerId, listingId))
+          && (arr.size() < 4  || isOwnPhoto(arr[3], sellerId, listingId))
+          && (arr.size() < 5  || isOwnPhoto(arr[4], sellerId, listingId))
+          && (arr.size() < 6  || isOwnPhoto(arr[5], sellerId, listingId))
+          && (arr.size() < 7  || isOwnPhoto(arr[6], sellerId, listingId))
+          && (arr.size() < 8  || isOwnPhoto(arr[7], sellerId, listingId))
+          && (arr.size() < 9  || isOwnPhoto(arr[8], sellerId, listingId))
+          && (arr.size() < 10  || isOwnPhoto(arr[9], sellerId, listingId));
     }
 
     // Price floor (Structure 2, founder ruling 2026-09-08). Under
@@ -190,7 +199,7 @@ service cloud.firestore {
     function categoryFloor(cat) {
       return 5;
     }
-    function isValidListingCreate(d) {
+    function isValidListingCreate(d, listingId) {
       return d.keys().hasAll(['sellerId','title','brand','cat','ask','condition','createdAt','status','expiresAt'])
         // Defense-in-depth field whitelist. Anything not in this list is
         // rejected — prevents a malicious client from stuffing arbitrary
@@ -224,7 +233,7 @@ service cloud.firestore {
         && (!('photos' in d.keys()) || (
               d.photos is list
               && d.photos.size() <= 10
-              && allPhotosInBucket(d.photos)))
+              && allOwnPhotos(d.photos, d.sellerId, listingId)))
         && (!('specCategory' in d.keys()) || (d.specCategory is string && d.specCategory.size() <= 20))
         && (!('specs' in d.keys()) || (d.specs is map && d.specs.size() <= 30))
         && (!('emoji' in d.keys()) || (d.emoji is string && d.emoji.size() <= 16))
@@ -297,7 +306,7 @@ service cloud.firestore {
     //     status (renew), expiresAt (renew), updatedAt (timestamp),
     //     or photos (the post-create-upload patch in submitListing).
     //   • Image moderation: photos URLs are constrained to OUR
-    //     Storage bucket via allPhotosInBucket. Cloud Vision SafeSearch
+    //     Storage bucket via allOwnPhotos. Cloud Vision SafeSearch
     //     runs on every uploaded object via the optimizeListingPhoto
     //     Storage trigger; this rule guarantees photos[] can only
     //     reference SafeSearched objects.
@@ -313,7 +322,7 @@ service cloud.firestore {
         && (d.get('pendingUntil', null) == null || d.pendingUntil > request.time);
     }
 
-    function isValidListingUpdate(next, prev) {
+    function isValidListingUpdate(next, prev, listingId) {
       return (prev.get('status', 'active') == 'active' || prev.get('status', 'active') == 'expired'
               // r422: the post-create photo attach on a listing saved before
               // payouts. Status and reason stay put; publishing is server-only.
@@ -345,7 +354,7 @@ service cloud.firestore {
         // renew; updatedAt is the timestamp bump; photos is the
         // post-create-upload patch in submitListing's flow.
         //
-        // photos uses allPhotosInBucket() to enforce the in-bucket
+        // photos uses allOwnPhotos() to enforce the own-folder
         // invariant — without it a direct write could point photos
         // at https://attacker.com/x.jpg and bypass SafeSearch entirely.
         // The offers panel + SEO LD-JSON paths render arbitrary URLs;
@@ -362,7 +371,7 @@ service cloud.firestore {
         && (!('photos' in next.keys()) || (
               next.photos is list
               && next.photos.size() <= 10
-              && allPhotosInBucket(next.photos)));
+              && allOwnPhotos(next.photos, next.sellerId, listingId)));
     }
 
     // ─────────────────────────────────────────────

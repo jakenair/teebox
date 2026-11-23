@@ -48,6 +48,7 @@ const FIXTURES = [
   ["cat 41 chars", (d) => ({...d, cat: "c".repeat(41)})],
   ["condition 41 chars", (d) => ({...d, condition: "c".repeat(41)})],
   ["desc 4001 chars", (d) => ({...d, desc: "d".repeat(4001)})],
+  ["another listing's photo", (d) => ({...d, photos: [BUCKET.replace("%2FL%2F", "%2FOTHER%2F")]})],
   ["foreign photo URL", (d) => ({...d, photos: ["https://evil.example/x.jpg"]})],
   ["11 photos", (d) => ({...d, photos: Array(11).fill(BUCKET)})],
   ["quantity 0", (d) => ({...d, quantity: 0})],
@@ -65,10 +66,12 @@ const FIXTURES = [
 for (const [name, mutate] of FIXTURES) {
   test(`parity: ${name}`, async () => {
     const d = mutate(valid());
-    const serverOk = S.rulesCreateCheck(d, {allowServerSource: false}).length === 0;
+    const id = "L" + Math.random().toString(36).slice(2);
+    if (d.photos) d.photos = d.photos.map((u) => u.replace("%2FL%2F", `%2F${id}%2F`));
+    const serverOk = S.rulesCreateCheck(d, {allowServerSource: false, listingId: id}).length === 0;
     const ctx = env.authenticatedContext("u1", {email_verified: true});
     let rulesOk = true;
-    try { await setDoc(doc(ctx.firestore(), "listings", "L" + Math.random().toString(36).slice(2)), d); } catch (_e) { rulesOk = false; }
+    try { await setDoc(doc(ctx.firestore(), "listings", id), d); } catch (_e) { rulesOk = false; }
     assert.equal(serverOk, rulesOk, `server check says ${serverOk ? "allow" : "deny"} (${S.rulesCreateCheck(d, {allowServerSource: false}).join(",")}), rules say ${rulesOk ? "allow" : "deny"}`);
   });
 }

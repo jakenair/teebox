@@ -29,6 +29,8 @@ const quiet = {info: () => {}, error: () => {}, warn: () => {}};
 
 /** Minimal Firestore double: records every write for assertion. */
 function fakeDb(listing) {
+  // Default: the one photo on the listing is the one that just passed.
+  if (listing && !listing.photos) listing.photos = ["https://firebasestorage.googleapis.com/v0/b/b/o/listings%2FS1%2FL1%2Fphoto_0.jpg?alt=media"];
   const writes = {updates: [], adds: [], sets: []};
   return {
     writes,

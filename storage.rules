@@ -18,6 +18,15 @@ service firebase.storage {
         && request.auth.token.get('admin', false) == true;
     }
 
+    // Only the server may write resized copies (…_w400.webp) or the
+    // "optimized" mark: the scanners skip what they wrote themselves, so a
+    // client that could write either would put up an image nobody scanned
+    // (2026-11-23).
+    function notServerMade() {
+      return !request.resource.name.matches('(?i).*_w[0-9]+[.]webp')
+        && (request.resource.metadata == null || !('optimized' in request.resource.metadata));
+    }
+
     // Listing photos — path encodes sellerId so we don't need a cross-service
     // firestore.get() to check ownership. The old shape /listings/{listingId}
     // hit a consistency lag where rules couldn't see the just-created listing
@@ -35,6 +44,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && appCheckOk()
         && request.auth.uid == sellerId
+        && notServerMade()
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
 
@@ -52,6 +62,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        && notServerMade()
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
       allow delete: if request.auth != null && request.auth.uid == userId;
@@ -67,6 +78,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        && notServerMade()
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
       allow delete: if request.auth != null && request.auth.uid == userId;

@@ -178,12 +178,31 @@ function pruneAtDeletion(listing, objPath, trip) {
  * removed or sold listing but never moves its status. "flagged" has a
  * self-heal back to "active", so writing it here would put an admin takedown
  * (or a sold item) back on sale after one bad photo and one clean one.
+ * Otherwise it remembers what the listing was (flaggedFrom), so a clean
+ * re-scan puts back exactly that: a listing waiting for payouts stays hidden.
  * @param {object} listing
- * @return {{status: (string|undefined)}}
+ * @return {{status: (string|undefined), flaggedFrom: (string|undefined)}}
  */
 function flagStatus(listing) {
-  const st = listing && listing.status;
-  return st === "removed" || st === "sold" ? {} : {status: "flagged"};
+  const st = (listing && listing.status) || "active";
+  if (st === "removed" || st === "sold") return {};
+  return st === "flagged" ? {status: "flagged"} : {status: "flagged", flaggedFrom: st};
+}
+
+/**
+ * Photos with no proof of a clean scan. The proof is the server's own resized
+ * copy recorded for that exact file: the scanner writes it only after the
+ * photo passes, and no client can write photoVariants or the copies.
+ * @param {object} listing
+ * @param {string} [passedPath] a file that passed just now
+ * @return {string[]} object paths (or the raw URL when it has none)
+ */
+function unscannedPhotos(listing, passedPath) {
+  const photos = Array.isArray(listing && listing.photos) ? listing.photos : [];
+  const variants = Object.values((listing && listing.photoVariants) || {});
+  const proven = new Set(variants.map((v) => String(objectPathFromUrl(v && v.w400) || "").replace(/_w400\.webp$/, "")));
+  return photos.map((u) => objectPathFromUrl(u) || String(u))
+      .filter((p) => p !== passedPath && !proven.has(p));
 }
 
 module.exports = {
@@ -192,6 +211,7 @@ module.exports = {
   variantGaps,
   planApproval,
   flagStatus,
+  unscannedPhotos,
   pruneAtDeletion,
   TERMINAL_STATUSES,
 };
