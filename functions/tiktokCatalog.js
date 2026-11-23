@@ -18,7 +18,14 @@
  * ?alt=media&token= URL even when the object is named .jpg. TikTok takes JPG
  * or PNG only. This route serves a real JPEG, at least 500px on each side, at
  * a URL that ends in .jpg. <hash> comes from the photo's URL, so a replaced
- * photo gets a new address and each address can be cached hard.
+ * photo gets a new address and each address can be cached hard. The address
+ * also carries the stored object's generation, so a file overwritten in place
+ * gets a new one too.
+ *
+ * CONVERTED IMAGES ARE STORED (2026-11-23): the first request for an address
+ * converts the photo and saves the JPEG under feed-cache/tiktok/; every later
+ * request reads it. The listing is still checked on every request, so a
+ * removed listing stops being served. storage.rules deny clients that path.
  *
  * Built from the live listings on each fetch (10 minute cache), so it never
  * needs a schedule of its own. Row rules are metaFeed's feedRow, unchanged.
@@ -33,6 +40,8 @@ const {_feed: F} = require("./metaFeed");
 const IMG_BASE = "https://teebox-market.web.app/feeds/tiktok/img";
 // Named: a gcloud-created function has no storageBucket in FIREBASE_CONFIG.
 const BUCKET = "teebox-market.firebasestorage.app";
+const CACHE_PREFIX = "feed-cache/tiktok/";
+const STALE_CACHE_DAYS = 2; // a stored JPEG no address points at is removed after this
 const CACHE_SECONDS = 600;
 const MAX_ROWS = 5000;
 const TITLE_MAX = 150;
@@ -106,14 +115,23 @@ function listingObjectPath(url, bucketName) {
   }
 }
 
-function imageUrl(listingId, photoUrl) {
-  return `${IMG_BASE}/${encodeURIComponent(String(listingId))}/${photoHash(photoUrl)}.jpg`;
+/** "<hash>" or "<hash>-<generation>": the version part of an image address. */
+function imageKey(photoUrl, generation) {
+  return photoHash(photoUrl) + (generation ? `-${generation}` : "");
 }
+
+function imageUrl(listingId, photoUrl, generation) {
+  return `${IMG_BASE}/${encodeURIComponent(String(listingId))}/${imageKey(photoUrl, generation)}.jpg`;
+}
+
+const cachePath = (listingId, photoUrl, generation) =>
+  `${CACHE_PREFIX}${listingId}/${imageKey(photoUrl, generation)}.jpg`;
 
 /**
  * One TikTok row, or {skip: reason}.
  * @param {object} l listing with `.id`
- * @param {object} ctx {testSellers, unbuyableSellers, now, bucketName}
+ * @param {object} ctx {testSellers, unbuyableSellers, now, bucketName,
+ *   generations?: Map<objectPath, generation>}
  * @return {object}
  */
 function tiktokRow(l, ctx) {
@@ -126,7 +144,8 @@ function tiktokRow(l, ctx) {
     return {skip: "test listing or unusable photo"};
   }
   const photos = l.photos.filter((u) => listingObjectPath(u, ctx.bucketName))
-      .slice(0, 1 + MAX_EXTRA_IMAGES).map((u) => imageUrl(l.id, u));
+      .slice(0, 1 + MAX_EXTRA_IMAGES)
+      .map((u) => imageUrl(l.id, u, ctx.generations && ctx.generations.get(listingObjectPath(u, ctx.bucketName))));
   if (!photos.length) return {skip: "no usable photo"};
   const brand = cleanText(r.brand) || "Unbranded";
   const title = cleanText(r.title).slice(0, TITLE_MAX).toWellFormed().trim() || "Golf gear";
@@ -196,20 +215,51 @@ async function toFeedJpeg(buf) {
 function parsePath(p) {
   const s = String(p || "").replace(/^\/tiktokCatalog(?=\/)/, "");
   if (s === "/feeds/tiktok.csv") return {kind: "csv"};
-  const m = s.match(/^\/feeds\/tiktok\/img\/([A-Za-z0-9_-]{1,64})\/([0-9a-f]{16})\.jpg$/);
-  return m ? {kind: "img", listingId: m[1], hash: m[2]} : null;
+  const m = s.match(/^\/feeds\/tiktok\/img\/([A-Za-z0-9_-]{1,64})\/([0-9a-f]{16})(?:-(\d{1,20}))?\.jpg$/);
+  return m ? {kind: "img", listingId: m[1], hash: m[2], generation: m[3] || ""} : null;
 }
 
 let _cache = {at: 0, csv: "", rows: 0};
+
+/** objectPath -> generation for listing photos; empty on error (plain addresses). */
+async function loadGenerations() {
+  try {
+    const [files] = await admin.storage().bucket(BUCKET).getFiles({prefix: "listings/"});
+    return new Map(files.map((f) => [f.name, String(f.metadata.generation || "")]));
+  } catch (e) {
+    logger.warn("tiktokCatalog: generations unavailable", {error: String(e && e.message || e)});
+    return new Map();
+  }
+}
+
+/** Stored JPEGs no row points at any more, older than STALE_CACHE_DAYS. Pure. */
+function staleCacheFiles(files, csv, now) {
+  return files.filter((f) => f.name.startsWith(CACHE_PREFIX) &&
+    now - f.createdMs > STALE_CACHE_DAYS * 864e5 &&
+    !csv.includes(`/${f.name.slice(CACHE_PREFIX.length)}`)).map((f) => f.name);
+}
+
+async function sweepCache(csv, now) {
+  try {
+    const bucket = admin.storage().bucket(BUCKET);
+    const [files] = await bucket.getFiles({prefix: CACHE_PREFIX});
+    const stale = staleCacheFiles(files.map((f) => ({name: f.name, createdMs: Date.parse(f.metadata.timeCreated) || now})), csv, now).slice(0, 200);
+    await Promise.all(stale.map((n) => bucket.file(n).delete({ignoreNotFound: true})));
+    if (stale.length) logger.info("tiktokCatalog: removed unused stored images", {count: stale.length});
+  } catch (e) {
+    logger.warn("tiktokCatalog: cache sweep failed", {error: String(e && e.message || e)});
+  }
+}
 
 async function serveCsv(req, res) {
   const now = Date.now();
   if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
     const listings = await F.loadListings();
-    const [testSellers, unbuyableSellers] = await Promise.all([
-      F.loadTestSellers(), F.loadUnbuyableSellers(listings)]);
+    const [testSellers, unbuyableSellers, generations] = await Promise.all([
+      F.loadTestSellers(), F.loadUnbuyableSellers(listings), loadGenerations()]);
     const built = buildTikTokCsv(listings, {
-      testSellers, unbuyableSellers, now, bucketName: BUCKET});
+      testSellers, unbuyableSellers, now, bucketName: BUCKET, generations});
+    await sweepCache(built.csv, now);
     _cache = {at: now, csv: built.csv, rows: built.rows};
     logger.info("tiktokCatalog: rebuilt", {rows: built.rows, skipped: built.skipped,
       unbuyableSellers: unbuyableSellers.size});
@@ -243,17 +293,37 @@ async function serveImage(route, res) {
   const url = (Array.isArray(l.photos) ? l.photos : []).find((u) => photoHash(u) === route.hash);
   const objectPath = url && listingObjectPath(url, bucket.name);
   if (!objectPath) return notFound(res);
-  let buf;
+  // The photo's own version decides what is stored and read; an old address
+  // gets today's photo, cached only briefly.
+  let generation;
   try {
-    [buf] = await bucket.file(objectPath).download();
+    const [meta] = await bucket.file(objectPath).getMetadata();
+    generation = String(meta.generation || "");
   } catch (e) {
     if (e && e.code === 404) return notFound(res);
     throw e;
   }
-  const jpg = await toFeedJpeg(buf);
+  const stored = bucket.file(cachePath(l.id, url, generation));
+  let jpg = null;
+  try {
+    [jpg] = await stored.download();
+  } catch (e) {
+    if (!e || e.code !== 404) logger.warn("tiktokCatalog: stored image read failed", {error: String(e && e.message || e)});
+  }
+  const fromStore = !!jpg;
+  if (!jpg) {
+    const [buf] = await bucket.file(objectPath, {generation}).download();
+    jpg = await toFeedJpeg(buf);
+    try {
+      await stored.save(jpg, {resumable: false, contentType: "image/jpeg"});
+    } catch (e) {
+      logger.warn("tiktokCatalog: storing image failed", {error: String(e && e.message || e)});
+    }
+  }
   res.set("Content-Type", "image/jpeg");
-  // One day at the edge, so a listing that is removed stops being served.
-  res.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  res.set("X-TeeBox-Image", fromStore ? "stored" : "converted");
+  res.set("Cache-Control", route.generation === generation ?
+    "public, max-age=86400, s-maxage=604800" : "public, max-age=3600, s-maxage=3600");
   res.status(200).send(jpg);
 }
 
@@ -281,5 +351,5 @@ exports.tiktokCatalog = onRequest(
 
 exports._tiktok = {
   COLUMNS, REQUIRED, IMG_BASE, buildTikTokCsv, tiktokRow, cleanText, quoted, photoHash,
-  listingObjectPath, imageUrl, toFeedJpeg, parsePath,
+  listingObjectPath, imageUrl, imageKey, cachePath, staleCacheFiles, toFeedJpeg, parsePath,
 };

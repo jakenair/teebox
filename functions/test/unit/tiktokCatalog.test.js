@@ -84,6 +84,9 @@ test("image route only reads listings/ objects in our bucket", () => {
 test("paths: feed, image, function-URL prefix, junk", () => {
   assert.deepEqual(T.parsePath("/feeds/tiktok.csv"), {kind: "csv"});
   assert.deepEqual(T.parsePath("/tiktokCatalog/feeds/tiktok.csv"), {kind: "csv"});
+  assert.deepEqual(T.parsePath("/feeds/tiktok/img/abc/0123456789abcdef-1795449876191495.jpg"),
+      {kind: "img", listingId: "abc", hash: "0123456789abcdef", generation: "1795449876191495"});
+  assert.equal(T.parsePath("/feeds/tiktok/img/abc/0123456789abcdef.jpg").generation, "");
   assert.equal(T.parsePath("/feeds/tiktok/img/abc/0123456789abcdef.jpg").kind, "img");
   for (const p of ["/", "/feeds/meta.csv", "/feeds/tiktok/img/../x.jpg", "/feeds/tiktok/img/a/zz.jpg"]) {
     assert.equal(T.parsePath(p), null, p);
@@ -96,4 +99,27 @@ test("toFeedJpeg: WebP in, JPEG out, 500-1200px, nothing cropped", async () => {
     const m = await sharp(await T.toFeedJpeg(await mk(w, h))).metadata();
     assert.deepEqual([m.format, m.width, m.height], ["jpeg", ew, eh]);
   }
+});
+
+test("a replaced photo, or the same file overwritten in place, gets a new address and a new stored file", () => {
+  const p = T.listingObjectPath(photo(1), B);
+  const link = (g) => row({}, {generations: new Map([[p, g]])}).image_link;
+  assert.match(link("111"), /\/[0-9a-f]{16}-111\.jpg$/);
+  assert.notEqual(link("111"), link("222"));
+  assert.notEqual(T.cachePath("a", photo(1), "1"), T.cachePath("a", photo(1), "2"));
+  assert.notEqual(T.cachePath("a", photo(1), "1"), T.cachePath("a", photo(2), "1"));
+  assert.ok(T.cachePath("a", photo(1), "1").startsWith("feed-cache/tiktok/a/"));
+});
+
+test("stored images: only unused ones older than 2 days are removed, never anything outside the cache", () => {
+  const now = Date.now();
+  const used = T.cachePath("a", photo(1), "1");
+  const csv = `"${T.imageUrl("a", photo(1), "1")}"`;
+  const old = now - 3 * 864e5;
+  assert.deepEqual(T.staleCacheFiles([
+    {name: used, createdMs: old},
+    {name: "feed-cache/tiktok/gone/x.jpg", createdMs: old},
+    {name: "feed-cache/tiktok/new/y.jpg", createdMs: now - 3600e3},
+    {name: "listings/u1/abc/1.jpg", createdMs: old},
+  ], csv, now), ["feed-cache/tiktok/gone/x.jpg"]);
 });
