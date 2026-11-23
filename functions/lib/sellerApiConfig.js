@@ -66,8 +66,12 @@ const LIMITS = {
   partnerRequestsPerMinute: 1200, // per partner key, all its sellers together
   listPageMax: 100,
   listPageDefault: 50,
+  partnerRateShards: 10, // the partner counter is split so one document isn't written 20 times a second
+  maxBodyBytes: 256 * 1024,
   photoUrlsMax: 10,
   idempotencyHours: 24,
+  idempotencyLockMs: 180000, // longer than the function's own timeout
+  photoPhaseMs: 45000, // downloading one request's photos, all together
   auditDays: 90,
 };
 

@@ -33,11 +33,14 @@
   {"status": 409, "code": "listing_under_review", "fix": "TeeBox is reviewing it. Try again later."},
   {"status": 409, "code": "listing_not_active", "fix": "Sandbox sell only: the listing must be active."},
   {"status": 409, "code": "request_in_progress", "fix": "The first request with this Idempotency-Key is still running. Retry in a few seconds."},
+  {"status": 413, "code": "payload_too_large", "fix": "Send a smaller body; see Limits."},
+  {"status": 415, "code": "unsupported_media_type", "fix": "Send JSON with Content-Type: application/json."},
   {"status": 422, "code": "validation_failed", "fix": "Fix each field in error.errors."},
   {"status": 422, "code": "photo_fetch_failed", "fix": "Fix the URLs in error.photo_errors. Nothing was created or changed."},
   {"status": 422, "code": "content_violation", "fix": "The text breaks TeeBox's listing rules. Change it."},
   {"status": 422, "code": "idempotency_key_reused", "fix": "Use a new key for a different request body."},
   {"status": 429, "code": "rate_limited", "fix": "Wait for the Retry-After seconds."},
-  {"status": 429, "code": "daily_limit_reached", "fix": "Wait until error.resets_at."},
-  {"status": 500, "code": "internal", "fix": "Retry. Contact TeeBox with the request_id if it keeps happening."}
+  {"status": 429, "code": "daily_limit_reached", "fix": "Wait until error.resets_at. The message says which limit."},
+  {"status": 500, "code": "internal", "fix": "Retry. Contact TeeBox with the request_id if it keeps happening."},
+  {"status": 503, "code": "busy", "fix": "Wait for the Retry-After seconds, then send the same request again."}
 ]

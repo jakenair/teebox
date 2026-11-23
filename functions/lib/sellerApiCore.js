@@ -33,6 +33,8 @@ const schema = require("./listingSchema");
 const {reviewChanges} = require("./authReview");
 const lc = require("./listingCreate");
 const {CONFIRM_MESSAGE} = require("./sellerConsent");
+const {inCheckout, heldUnits} = require("./checkoutHold");
+const {sellerMessage} = require("./photoFetch");
 const keys = require("./sellerApiKeys");
 const {LIMITS} = require("./sellerApiConfig");
 
@@ -44,6 +46,8 @@ const API_STATUSES = ["active", "reserved", "sold", "expired", "ended", "awaitin
 const ms = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : (typeof t === "number" ? t : null));
 const iso = (t) => { const m = ms(t); return m == null ? null : new Date(m).toISOString(); };
 const sha = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
+const clock = (deps) => (deps.nowMs ? deps.nowMs() : Date.now());
+const short = (s, n = 60) => { const t = String(s); return t.length > n ? t.slice(0, n) + "..." : t; };
 
 // ── Serialisation ──────────────────────────────────────────────────────────
 
@@ -64,10 +68,10 @@ function apiStatus(l) {
 
 function changedMs(l) { return Math.max(ms(l.updatedAt) || 0, ms(l.createdAt) || 0); }
 
-function serializeListing(id, l, cfg, origin) {
+function serializeListing(id, l, cfg, origin, nowMs) {
   const total = Math.max(1, Number(l.quantity) || 1);
   const sold = Math.max(0, Number(l.quantitySold) || 0);
-  const reserved = Math.max(0, Number(l.quantityReserved) || 0);
+  const reserved = heldUnits(l, nowMs || Date.now());
   const status = apiStatus(l);
   const specs = {...(l.specs || {})};
   delete specs.brand; // stored twice by the Sell form; brand is its own field here
@@ -128,17 +132,45 @@ const CREATE_FIELDS = ["title", "brand", "category", "browse_category", "conditi
 const PATCH_FIELDS = ["title", "brand", "category", "browse_category", "condition", "price", "quantity",
   "quantity_available", "description", "specs", "photo_urls"];
 
+const TEXT_FIELDS = ["title", "brand", "category", "browse_category", "condition", "description"];
+const badField = (field, message) => new ApiError(422, "validation_failed", message, {errors: [{field, message}]});
+
+/**
+ * Before anything else: refuse a body that is too big or isn't JSON. The
+ * platform has already parsed it, so this stops our own work, not the parse.
+ */
+function checkRequest(req) {
+  const declared = Number(keys.header(req.headers, "content-length")) || 0;
+  const size = Math.max(declared, Number(req.bodyBytes) || 0);
+  if (size > LIMITS.maxBodyBytes) {
+    throw new ApiError(413, "payload_too_large", `The request body can't be more than ${LIMITS.maxBodyBytes / 1024} KB.`);
+  }
+  const raw = Buffer.isBuffer(req.body) || (typeof req.body === "string" && req.body !== "");
+  const json = /^application\/([a-z0-9.+-]+\+)?json\s*(;|$)/i.test(keys.header(req.headers, "content-type").trim());
+  if (req.method !== "GET" && (raw || (size > 0 && !json))) {
+    throw new ApiError(415, "unsupported_media_type", "Send the body as JSON with Content-Type: application/json.");
+  }
+}
+
 function checkBody(body, allowed) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new ApiError(400, "invalid_json", "Send a JSON object with Content-Type: application/json.");
   }
-  const unknown = Object.keys(body).filter((k) => !allowed.includes(k));
+  const unknown = Object.keys(body).filter((k) => !allowed.includes(k)).slice(0, 10).map((k) => short(k, 40));
   if (unknown.length) {
     throw new ApiError(400, "unknown_field", `Unknown field${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}.`,
         {fields: unknown});
   }
+  for (const k of TEXT_FIELDS) {
+    if (body[k] != null && typeof body[k] !== "string") throw badField(k, `${k} must be text.`);
+  }
+  if (body.price != null && typeof body.price !== "number" && typeof body.price !== "string") throw badField("price", "price must be a number.");
+  if (body.quantity != null && typeof body.quantity !== "number" && typeof body.quantity !== "string") throw badField("quantity", "quantity must be a whole number.");
   if (body.specs != null && (typeof body.specs !== "object" || Array.isArray(body.specs))) {
-    throw new ApiError(422, "validation_failed", "specs must be an object of field key to value.", {errors: [{field: "specs", message: "specs must be an object"}]});
+    throw badField("specs", "specs must be an object of field key to value.");
+  }
+  for (const [k, v] of Object.entries(body.specs || {})) {
+    if (v != null && typeof v !== "string" && typeof v !== "number") throw badField("specs." + short(k, 40), "Each spec must be text.");
   }
   if (body.photo_urls != null) {
     if (!Array.isArray(body.photo_urls) || body.photo_urls.some((u) => typeof u !== "string" || u.length > 2048)) {
@@ -150,7 +182,7 @@ function checkBody(body, allowed) {
   }
 }
 
-const numStr = (v) => (v == null ? "" : typeof v === "number" ? String(v) : String(v));
+const numStr = (v) => (v == null ? "" : String(v).slice(0, 40));
 
 function toSchemaInput(b, photoCount) {
   return {
@@ -185,23 +217,69 @@ function sellerError(e) {
 
 // ── Photos ─────────────────────────────────────────────────────────────────
 
-/** Fetch every URL first (no listing yet). Returns buffers + per-URL errors. */
+/**
+ * Fetch every URL first (no listing yet). Returns buffers + per-URL errors.
+ * The same picture sent twice counts once.
+ */
 async function prefetchPhotos(deps, urls) {
   const out = new Array(urls.length).fill(null);
   const errors = [];
+  const fail = (index, message) => errors.push({index, url: urls[index].slice(0, 200), message});
+  const stopAt = Date.now() + LIMITS.photoPhaseMs;
   let next = 0;
   const worker = async () => {
     while (next < urls.length) {
       const i = next++;
+      if (Date.now() > stopAt) { fail(i, "the photos took too long to download"); continue; }
       try {
         out[i] = await deps.fetchPhoto(urls[i]);
-      } catch (e) {
-        errors.push({index: i, url: urls[i].slice(0, 200), message: String(e && e.message || e)});
-      }
+      } catch (e) { fail(i, sellerMessage(e)); }
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
+  const seen = new Map();
+  out.forEach((p, i) => {
+    if (!p) return;
+    const id = p.buffer ? crypto.createHash("sha256").update(p.buffer).digest("hex") : p.url;
+    if (seen.has(id)) { out[i] = null; fail(i, `same photo as photo_urls[${seen.get(id)}]`); } else seen.set(id, i);
+  });
   return {photos: out.filter(Boolean), errors: errors.sort((a, b) => a.index - b.index)};
+}
+
+/** Run with one of this instance's few photo slots, so photos can't fill its memory. */
+async function withPhotoSlot(deps, fn) {
+  if (!deps.photoSlot) return fn();
+  try {
+    return await deps.photoSlot(fn);
+  } catch (e) {
+    if (!e || !e.slotsFull) throw e;
+    throw new ApiError(503, "busy", "TeeBox is busy with other photos. Retry in 30 seconds.", {retry_after: 30, headers: {"Retry-After": "30"}});
+  }
+}
+
+/** Count photo downloads before making them. They are never given back. */
+async function reservePhotos(deps, ctx, n) {
+  if (!n) return;
+  const cap = lc.photoCapFor(ctx.user);
+  const q = await lc.reserveBulkQuota({db: deps.db, Timestamp: deps.Timestamp, uid: ctx.uid, want: n, cap,
+    nowMs: clock(deps), counter: "apiPhotoDownloads", whole: true});
+  if (q.granted < n) {
+    throw new ApiError(429, "daily_limit_reached", `This seller has reached their daily limit of ${cap} photo downloads. ` +
+      `Try again after ${new Date(q.resetAt).toISOString()}.`, {daily_limit: cap, resets_at: new Date(q.resetAt).toISOString()});
+  }
+}
+
+async function storePhotos(deps, ctx, listingId, photos, photoErrors) {
+  const stored = [];
+  for (let i = 0; i < photos.length; i++) {
+    try {
+      stored.push(await deps.storePhoto({uid: ctx.uid, listingId, index: i, ...photos[i]}));
+    } catch (e) {
+      if (deps.logError) deps.logError("sellerApi: photo upload failed", e);
+      photoErrors.push({index: i, url: null, message: "the photo could not be saved"});
+    }
+  }
+  return stored;
 }
 
 function minPhotos(price) { return Number(price) >= schema.HIGH_VALUE ? schema.MIN_PHOTOS_HIGH_VALUE : 1; }
@@ -236,20 +314,31 @@ function rekeyPhotoVariants(prev, nextPhotos) {
 
 async function rateLimit(deps, ctx) {
   const {db, Timestamp} = deps;
-  const now = deps.nowMs ? deps.nowMs() : Date.now();
+  const now = clock(deps);
   const minute = Math.floor(now / 60000);
   const cRef = db.doc(`apiRate/c_${ctx.connectionId}_${minute}`);
-  const pRef = db.doc(`apiRate/p_${ctx.partnerId}_${minute}`);
   const expireAt = Timestamp.fromMillis((minute + 10) * 60000);
+  const limited = (scope, limit) => ({ok: false, scope, limit, used: limit});
+  // The partner counter is split into shards so busy partners don't queue on
+  // one document. Start at a random shard and try the rest before refusing,
+  // so the total is still exact.
+  const shards = LIMITS.partnerRateShards;
+  const perShard = Math.floor(LIMITS.partnerRequestsPerMinute / shards);
+  const start = Math.floor((deps.random || Math.random)() * shards);
   const r = await db.runTransaction(async (tx) => {
-    const [c, p] = await Promise.all([tx.get(cRef), tx.get(pRef)]);
+    const c = await tx.get(cRef);
     const cn = c.exists ? Number(c.data().n) || 0 : 0;
-    const pn = p.exists ? Number(p.data().n) || 0 : 0;
-    if (cn >= LIMITS.requestsPerMinute) return {ok: false, scope: "connection", limit: LIMITS.requestsPerMinute, used: cn};
-    if (pn >= LIMITS.partnerRequestsPerMinute) return {ok: false, scope: "partner", limit: LIMITS.partnerRequestsPerMinute, used: pn};
-    tx.set(cRef, {n: cn + 1, expireAt});
-    tx.set(pRef, {n: pn + 1, expireAt});
-    return {ok: true, limit: LIMITS.requestsPerMinute, used: cn + 1};
+    if (cn >= LIMITS.requestsPerMinute) return limited("connection", LIMITS.requestsPerMinute);
+    for (let i = 0; i < shards; i++) {
+      const pRef = db.doc(`apiRate/p_${ctx.partnerId}_${minute}_${(start + i) % shards}`);
+      const p = await tx.get(pRef);
+      const pn = p.exists ? Number(p.data().n) || 0 : 0;
+      if (pn >= perShard) continue;
+      tx.set(cRef, {n: cn + 1, expireAt});
+      tx.set(pRef, {n: pn + 1, expireAt});
+      return {ok: true, limit: LIMITS.requestsPerMinute, used: cn + 1};
+    }
+    return limited("partner", LIMITS.partnerRequestsPerMinute);
   });
   const resetSec = Math.max(1, Math.ceil(((minute + 1) * 60000 - now) / 1000));
   const headers = {"RateLimit-Limit": String(r.limit), "RateLimit-Remaining": String(Math.max(0, r.limit - r.used)),
@@ -270,44 +359,55 @@ async function idempotencyBegin(deps, ctx, key, body) {
   if (!key) return null;
   if (!IDEM_RE.test(key)) throw new ApiError(400, "invalid_idempotency_key", "Idempotency-Key must be 1-255 printable characters.");
   const {db, Timestamp} = deps;
-  const now = deps.nowMs ? deps.nowMs() : Date.now();
+  const now = clock(deps);
   const ref = db.doc(`apiIdempotency/${sha(ctx.connectionId + "\n" + key)}`);
   const bodyHash = sha(JSON.stringify(body || {}));
   return db.runTransaction(async (tx) => {
     const s = await tx.get(ref);
-    if (s.exists) {
-      const d = s.data();
+    const d = s.exists ? s.data() : null;
+    // An expired key is gone, whether or not the database has deleted it yet.
+    const live = !!d && !(ms(d.expireAt) && ms(d.expireAt) <= now);
+    if (live) {
       if (d.bodyHash !== bodyHash) {
         throw new ApiError(422, "idempotency_key_reused", "This Idempotency-Key was already used with a different request body.");
       }
       if (d.state === "done") return {replay: {status: d.status, body: JSON.parse(d.response)}};
-      if (now - (ms(d.startedAt) || 0) < 120000) {
+      if (d.state !== "failed" && now - (ms(d.startedAt) || 0) < LIMITS.idempotencyLockMs) {
         throw new ApiError(409, "request_in_progress", "A request with this Idempotency-Key is still being processed. Retry in a few seconds.");
       }
     }
-    tx.set(ref, {state: "processing", bodyHash, startedAt: Timestamp.fromMillis(now),
-      expireAt: Timestamp.fromMillis(now + LIMITS.idempotencyHours * 3600000)});
-    return {ref, bodyHash};
+    // A create that got as far as making its listing resumes it, never repeats it.
+    const listingId = live && d.listingId ? d.listingId : null;
+    const claim = crypto.randomBytes(9).toString("base64url");
+    tx.set(ref, {state: "processing", bodyHash, claim, startedAt: Timestamp.fromMillis(now),
+      expireAt: Timestamp.fromMillis(now + LIMITS.idempotencyHours * 3600000), ...(listingId ? {listingId} : {})});
+    return {ref, bodyHash, claim, listingId};
   });
 }
 
 async function idempotencyEnd(deps, idem, status, body) {
   if (!idem || !idem.ref) return;
-  if (status >= 500) { await idem.ref.delete().catch(() => {}); return; }
-  await idem.ref.set({state: "done", status, response: JSON.stringify(body)}, {merge: true});
+  await deps.db.runTransaction(async (tx) => {
+    const s = await tx.get(idem.ref);
+    if (!s.exists || s.data().claim !== idem.claim) return; // a later retry owns the key now
+    if (idem.listingId && status >= 400) {
+      tx.set(idem.ref, {state: "failed", listingId: idem.listingId}, {merge: true});
+    } else if (status >= 500) tx.delete(idem.ref);
+    else tx.set(idem.ref, {state: "done", status, response: JSON.stringify(body)}, {merge: true});
+  });
 }
 
 async function audit(deps, entry) {
   try {
     const {db, Timestamp} = deps;
-    const now = deps.nowMs ? deps.nowMs() : Date.now();
+    const now = clock(deps);
     await db.collection("apiAudit").add({...entry, at: Timestamp.fromMillis(now),
       expireAt: Timestamp.fromMillis(now + LIMITS.auditDays * 86400000)});
   } catch (_e) { /* audit is best-effort; never fails a request */ }
 }
 
 async function touchConnection(deps, ctx) {
-  const now = deps.nowMs ? deps.nowMs() : Date.now();
+  const now = clock(deps);
   if (now - (ms(ctx.connection.lastUsedAt) || 0) < 10 * 60000) return;
   try {
     await deps.db.doc(`apiConnections/${ctx.connectionId}`).update({lastUsedAt: deps.Timestamp.fromMillis(now)});
@@ -330,6 +430,9 @@ async function loadOwnListing(deps, ctx, id, tx) {
   return {ref, data: snap.data() || {}};
 }
 
+const stillRunning = () => new ApiError(409, "request_in_progress",
+    "A request with this Idempotency-Key is still being processed. Retry in a few seconds.");
+
 async function originOf(deps, ctx, id) {
   const s = await deps.db.doc(`listingApiOrigin/${id}`).get();
   return s.exists && s.data().partnerId === ctx.partnerId ? s.data() : null;
@@ -345,7 +448,7 @@ async function getMe(deps, ctx) {
   const q = await deps.db.doc(`users/${ctx.uid}/rateLimits/bulkListingCreate`).get();
   const qd = q.exists ? q.data() : {};
   const resetMs = ms(qd.resetAt) || 0;
-  const now = deps.nowMs ? deps.nowMs() : Date.now();
+  const now = clock(deps);
   const used = resetMs > now ? Number(qd.count) || 0 : 0;
   return {status: 200, body: {
     environment: deps.cfg.mode === "live" ? "live" : "sandbox",
@@ -360,7 +463,17 @@ async function getMe(deps, ctx) {
   }};
 }
 
-async function createListing(deps, ctx, body) {
+const scanFieldsOf = (value) => ({title: value.title, brand: value.brand, desc: value.desc,
+  cat: value.cat, condition: value.condition, ...schema.specScanFields(value.specs)});
+
+/** A listing TeeBox took for review while it was being created. */
+function heldListing(deps, ctx, id, value) {
+  return serializeListing(id, {status: "hidden", hiddenReason: "moderation_hold", title: value.title, brand: value.brand,
+    cat: value.cat, specCategory: value.specCategory, condition: value.condition, ask: value.ask, desc: value.desc,
+    specs: value.specs, quantity: value.quantity, source: "api", createdAt: clock(deps)}, deps.cfg, {partnerId: ctx.partnerId});
+}
+
+async function createListing(deps, ctx, body, idem) {
   checkBody(body, CREATE_FIELDS);
   const urls = (body.photo_urls || []).map((u) => u.trim());
   const v = schema.validateListingInput(toSchemaInput(body, urls.length));
@@ -369,52 +482,80 @@ async function createListing(deps, ctx, body) {
   let seller;
   try { seller = await lc.assertSellerCanList({db: deps.db, auth: deps.auth, uid: ctx.uid}); } catch (e) { throw sellerError(e); }
 
-  const scan = await deps.scanText({title: v.value.title, brand: v.value.brand, desc: v.value.desc,
-    cat: v.value.cat, condition: v.value.condition}, ctx.uid);
+  const scan = await deps.scanText(scanFieldsOf(v.value), ctx.uid);
   if (scan && scan.clean === false) {
     throw new ApiError(422, "content_violation", "This listing's text breaks the TeeBox listing rules. Nothing was created.",
         {category: scan.category || null});
   }
+  return withPhotoSlot(deps, () => createWithPhotos(deps, ctx, v.value, urls, seller, idem));
+}
 
-  const pre = await prefetchPhotos(deps, urls);
-  const need = minPhotos(v.value.ask);
-  if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
-
+async function createWithPhotos(deps, ctx, value, urls, seller, idem) {
   const {db, FieldValue, Timestamp} = deps;
-  const q = await lc.reserveBulkQuota({db, Timestamp, uid: ctx.uid, want: 1, cap: seller.cap,
-    nowMs: deps.nowMs ? deps.nowMs() : undefined});
-  if (q.granted < 1) {
-    throw new ApiError(429, "daily_limit_reached",
-        `This seller has reached their daily limit of ${seller.cap} new listings (shared with CSV upload). ` +
-        `Try again after ${new Date(q.resetAt).toISOString()}.`, {daily_limit: seller.cap, resets_at: new Date(q.resetAt).toISOString()});
-  }
+  const created = (id, l, photoErrors) => ({status: 201, listingId: id, body: {
+    listing: l && l.sellerId === ctx.uid ? serializeListing(id, l, deps.cfg, {partnerId: ctx.partnerId}) : heldListing(deps, ctx, id, value),
+    photo_errors: photoErrors}});
+  const read = async (id) => { const s = await db.doc(`listings/${id}`).get(); return s.exists ? s.data() || {} : null; };
 
-  let listingId;
-  try {
-    listingId = await lc.createListingDoc({db, FieldValue, Timestamp, uid: ctx.uid, value: v.value, source: "api",
-      paymentReady: seller.paymentReady, nowMs: deps.nowMs ? deps.nowMs() : undefined});
-  } catch (e) {
-    await lc.releaseBulkQuota({db, uid: ctx.uid, n: 1});
-    throw sellerError(e);
+  // A retry of a create that already made its listing carries on with it.
+  let listingId = idem && idem.listingId ? idem.listingId : null;
+  if (listingId) {
+    const l = await read(listingId);
+    const began = (await db.doc(`listingApiOrigin/${listingId}`).get()).exists;
+    if (!l && !began) { listingId = null; idem.listingId = null; } // it was never saved
+    else if (!l || l.sellerId !== ctx.uid || (Array.isArray(l.photos) && l.photos.length) ||
+        !["active", "hidden", "flagged"].includes(l.status)) return created(listingId, l, []);
   }
-  // Which partner created this listing (founder ruling 2026-11-20). Its own
-  // document, so the listing itself stays field-for-field the Sell form's.
-  await db.doc(`listingApiOrigin/${listingId}`).set({partnerId: ctx.partnerId, connectionId: ctx.connectionId,
-    uid: ctx.uid, createdAt: FieldValue.serverTimestamp()});
+  const resumed = !!listingId;
 
-  const stored = [];
-  const photoErrors = [...pre.errors];
-  for (let i = 0; i < pre.photos.length; i++) {
-    try {
-      stored.push(await deps.storePhoto({uid: ctx.uid, listingId, index: i, ...pre.photos[i]}));
-    } catch (e) {
-      photoErrors.push({index: i, url: null, message: "upload failed: " + String(e && e.message || e)});
+  // Both daily limits come before any download.
+  if (!resumed) {
+    const q = await lc.reserveBulkQuota({db, Timestamp, uid: ctx.uid, want: 1, cap: seller.cap, nowMs: clock(deps)});
+    if (q.granted < 1) {
+      throw new ApiError(429, "daily_limit_reached",
+          `This seller has reached their daily limit of ${seller.cap} new listings (shared with CSV upload). ` +
+          `Try again after ${new Date(q.resetAt).toISOString()}.`, {daily_limit: seller.cap, resets_at: new Date(q.resetAt).toISOString()});
     }
   }
-  await lc.attachListingPhotos({db, FieldValue, uid: ctx.uid, listingId, urls: stored, isPhotoUrl: deps.isPhotoUrl});
-  const snap = await db.doc(`listings/${listingId}`).get();
-  return {status: 201, listingId, body: {listing: serializeListing(listingId, snap.data() || {}, deps.cfg, {partnerId: ctx.partnerId}),
-    photo_errors: photoErrors}};
+  let pre;
+  try {
+    await reservePhotos(deps, ctx, urls.length);
+    pre = await prefetchPhotos(deps, urls);
+    const need = minPhotos(value.ask);
+    if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+    if (!resumed) {
+      // The listing, which partner made it (founder ruling 2026-11-20; its own
+      // document, so the listing stays field-for-field the Sell form's) and
+      // the idempotency record land together or not at all.
+      listingId = await lc.createListingDoc({db, FieldValue, Timestamp, uid: ctx.uid, value, source: "api",
+        paymentReady: seller.paymentReady, nowMs: clock(deps), withTx: async (tx, id) => {
+          if (idem) {
+            const s = await tx.get(idem.ref);
+            if (!s.exists || s.data().claim !== idem.claim) throw stillRunning();
+          }
+          tx.set(db.doc(`listingApiOrigin/${id}`), {partnerId: ctx.partnerId, connectionId: ctx.connectionId,
+            uid: ctx.uid, createdAt: FieldValue.serverTimestamp()});
+          if (idem) { idem.listingId = id; tx.update(idem.ref, {listingId: id}); }
+        }});
+    }
+  } catch (e) {
+    if (!resumed) await lc.releaseBulkQuota({db, uid: ctx.uid, n: 1});
+    throw sellerError(e);
+  }
+
+  const photoErrors = [...pre.errors];
+  try {
+    const stored = await storePhotos(deps, ctx, listingId, pre.photos, photoErrors);
+    await lc.attachListingPhotos({db, FieldValue, uid: ctx.uid, listingId, urls: stored, isPhotoUrl: deps.isPhotoUrl,
+      ...(resumed ? {paymentReady: seller.paymentReady} : {})});
+  } catch (e) {
+    // Never leave it for sale without photos; a retry with the same key finishes it.
+    try { await lc.hideIfPhotoless({db, FieldValue, uid: ctx.uid, listingId}); } catch (e2) {
+      if (deps.logError) deps.logError("sellerApi: could not hide a photo-less listing", e2);
+    }
+    throw e;
+  }
+  return created(listingId, await read(listingId), photoErrors);
 }
 
 async function getListing(deps, ctx, id) {
@@ -422,14 +563,30 @@ async function getListing(deps, ctx, id) {
   return {status: 200, listingId: id, body: {listing: serializeListing(id, data, deps.cfg, await originOf(deps, ctx, id))}};
 }
 
+// Times the database can hold.
+const MIN_MS = -62135596800000;
+const MAX_MS = 253402300799999;
+const isTime = (n) => Number.isInteger(n) && n >= MIN_MS && n <= MAX_MS;
+
 function decodeCursor(c) {
   try {
-    const j = JSON.parse(Buffer.from(String(c), "base64url").toString("utf8"));
-    const ok = (p) => p === null || (Array.isArray(p) && typeof p[0] === "number" && typeof p[1] === "string" && ID_RE.test(p[1]));
-    if (j && typeof j.s === "number" && ok(j.a) && ok(j.b)) return j;
+    const j = JSON.parse(Buffer.from(String(c).slice(0, 2000), "base64url").toString("utf8"));
+    // A position is [milliseconds, listing id] plus, when there are any, the
+    // nanoseconds past that millisecond.
+    const ok = (p) => p === null || (Array.isArray(p) && isTime(p[0]) && typeof p[1] === "string" && ID_RE.test(p[1]) &&
+      (p.length === 2 || (p.length === 3 && Number.isInteger(p[2]) && p[2] >= 0 && p[2] < 1e6)));
+    if (j && isTime(j.s) && ok(j.a) && ok(j.b)) return j;
   } catch (_e) { /* fall through */ }
   throw new ApiError(400, "invalid_cursor", "That cursor isn't valid. Start again without a cursor.");
 }
+/** Nanoseconds past the millisecond. */
+const subMs = (t) => (t && Number.isInteger(t.nanoseconds) ? t.nanoseconds % 1e6 : 0);
+function cursorTime(Timestamp, [m, , ns]) {
+  if (!ns) return Timestamp.fromMillis(m);
+  const sec = Math.floor(m / 1000);
+  return new Timestamp(sec, (m - sec * 1000) * 1e6 + ns);
+}
+const position = (x) => (x.ns ? [x.k, x.id, x.ns] : [x.k, x.id]);
 const encodeCursor = (c) => Buffer.from(JSON.stringify(c), "utf8").toString("base64url");
 
 /**
@@ -449,7 +606,7 @@ async function listListings(deps, ctx, query) {
   if (query.status) {
     statuses = String(query.status).split(",").map((s) => s.trim()).filter(Boolean);
     const bad = statuses.filter((s) => !API_STATUSES.includes(s));
-    if (bad.length) throw new ApiError(400, "invalid_status", `Unknown status: ${bad.join(", ")}. Use: ${API_STATUSES.join(", ")}.`);
+    if (bad.length) throw new ApiError(400, "invalid_status", `Unknown status: ${short(bad.join(", "))}. Use: ${API_STATUSES.join(", ")}.`);
   }
   let cur;
   if (query.cursor) {
@@ -459,7 +616,7 @@ async function listListings(deps, ctx, query) {
     let since = 0;
     if (raw != null && raw !== "") {
       since = Date.parse(String(raw));
-      if (!Number.isFinite(since)) throw new ApiError(400, "invalid_updated_since", "updated_since must be an ISO 8601 time, e.g. 2026-12-01T00:00:00Z.");
+      if (!isTime(since)) throw new ApiError(400, "invalid_updated_since", "updated_since must be an ISO 8601 time, e.g. 2026-12-01T00:00:00Z.");
     }
     cur = {s: since, a: null, b: null};
   }
@@ -467,13 +624,13 @@ async function listListings(deps, ctx, query) {
   const page = limit + 1;
   const base = () => db.collection("listings").where("sellerId", "==", ctx.uid);
   let qa = base().where("updatedAt", ">=", Timestamp.fromMillis(cur.s)).orderBy("updatedAt").orderBy("__name__");
-  if (cur.a) qa = qa.startAfter(Timestamp.fromMillis(cur.a[0]), cur.a[1]);
+  if (cur.a) qa = qa.startAfter(cursorTime(Timestamp, cur.a), cur.a[1]);
   let qb = base().where("createdAt", ">=", Timestamp.fromMillis(cur.s)).orderBy("createdAt").orderBy("__name__");
-  if (cur.b) qb = qb.startAfter(Timestamp.fromMillis(cur.b[0]), cur.b[1]);
+  if (cur.b) qb = qb.startAfter(cursorTime(Timestamp, cur.b), cur.b[1]);
   const [sa, sb] = await Promise.all([qa.limit(page).get(), qb.limit(page).get()]);
 
-  const A = sa.docs.map((d) => ({id: d.id, l: d.data(), k: ms(d.data().updatedAt)}));
-  const B = sb.docs.map((d) => ({id: d.id, l: d.data(), k: ms(d.data().createdAt), skip: ms(d.data().updatedAt) != null}));
+  const A = sa.docs.map((d) => ({id: d.id, l: d.data(), k: ms(d.data().updatedAt), ns: subMs(d.data().updatedAt)}));
+  const B = sb.docs.map((d) => ({id: d.id, l: d.data(), k: ms(d.data().createdAt), ns: subMs(d.data().createdAt), skip: ms(d.data().updatedAt) != null}));
   const aMore = A.length === page; const bMore = B.length === page;
   if (aMore) A.pop();
   if (bMore) B.pop();
@@ -481,7 +638,7 @@ async function listListings(deps, ctx, query) {
   const out = [];
   let ia = 0; let ib = 0;
   let posA = cur.a; let posB = cur.b;
-  const before = (x, y) => x.k < y.k || (x.k === y.k && x.id < y.id);
+  const before = (x, y) => x.k < y.k || (x.k === y.k && (x.ns < y.ns || (x.ns === y.ns && x.id < y.id)));
   while (out.length < limit) {
     const ha = ia < A.length ? A[ia] : null;
     const hb = ib < B.length ? B[ib] : null;
@@ -490,10 +647,10 @@ async function listListings(deps, ctx, query) {
     if (!hb && bMore) break;
     if (!ha && !hb) break;
     if (ha && (!hb || before(ha, hb))) {
-      ia++; posA = [ha.k, ha.id];
+      ia++; posA = position(ha);
       out.push(ha);
     } else {
-      ib++; posB = [hb.k, hb.id];
+      ib++; posB = position(hb);
       if (!hb.skip) out.push(hb); // has updatedAt: stream A reports it
     }
   }
@@ -525,123 +682,158 @@ function authReviewAfterEdit(cur, isHighValue, changed) {
   return null;
 }
 
+/** What the edit asks the total quantity to become, or null. Throws if it can't. */
+function patchedQuantity(cur, body, nowMs) {
+  const taken = Math.max(0, Number(cur.quantitySold) || 0) + heldUnits(cur, nowMs);
+  const bad = (field, message) => validationError([{field, message}]);
+  let quantity = null;
+  if (body.quantity_available != null) {
+    const a = body.quantity_available;
+    if (!Number.isInteger(a) || a < 0) throw bad("quantity_available", "quantity_available must be a whole number, 0 or more.");
+    if (a === 0) {
+      throw new ApiError(400, "use_end", "To mark a listing sold out, send quantity_available: 0 on its own, or POST /v1/listings/{id}/end.");
+    }
+    quantity = taken + a;
+  } else if (body.quantity != null) {
+    quantity = body.quantity;
+    if (!Number.isInteger(quantity) || quantity < 1) throw bad("quantity", "quantity must be a whole number from 1 to 99.");
+    if (quantity < taken) throw bad("quantity", `quantity can't be below the ${taken} already sold or in checkout.`);
+  }
+  if (quantity > 99) throw bad(body.quantity_available != null ? "quantity_available" : "quantity", "Total quantity can't be more than 99.");
+  return quantity;
+}
+
+/** The whole listing as it would be after the edit, checked. Throws if it breaks a rule. */
+function patchedValue(cur, body, photoCount) {
+  const curSpecs = {...(cur.specs || {})}; delete curSpecs.brand;
+  const pick = (k, v) => (body[k] != null ? body[k] : v);
+  const v = schema.validateListingInput(toSchemaInput({
+    title: pick("title", cur.title),
+    brand: pick("brand", cur.brand),
+    category: pick("category", cur.specCategory),
+    browse_category: pick("browse_category", cur.cat),
+    condition: pick("condition", cur.condition),
+    price: pick("price", cur.ask),
+    description: pick("description", cur.desc || ""),
+    // Changing category starts its specs fresh; otherwise given keys overlay current ones.
+    specs: body.category != null && body.category !== cur.specCategory ? (body.specs || {}) : {...curSpecs, ...(body.specs || {})},
+    quantity: 1,
+  }, photoCount));
+  if (!v.ok) throw validationError(v.errors);
+  return v.value;
+}
+
+/** Only the fields the edit sent (plus what follows from them). */
+function patchedFields(body, value) {
+  const has = (...ks) => ks.some((k) => body[k] != null);
+  return {
+    ...(has("title") ? {title: value.title} : {}),
+    ...(has("brand") ? {brand: value.brand} : {}),
+    ...(has("condition") ? {condition: value.condition} : {}),
+    ...(has("description") ? {desc: value.desc} : {}),
+    ...(has("price") ? {ask: value.ask, bid: Math.round(value.ask * 0.9)} : {}),
+    ...(has("category", "browse_category") ? {cat: value.cat} : {}),
+    ...(has("category") ? {specCategory: value.specCategory} : {}),
+    ...(has("category", "specs", "brand") ? {specs: value.specs} : {}),
+  };
+}
+
+const photosOf = (l) => (Array.isArray(l.photos) ? l.photos : []);
+
 async function patchListing(deps, ctx, id, body) {
   checkBody(body, PATCH_FIELDS);
   if (!Object.keys(body).length) throw new ApiError(400, "empty_update", "Send at least one field to change.");
   if (body.quantity != null && body.quantity_available != null) {
     throw new ApiError(400, "conflicting_fields", "Send quantity or quantity_available, not both.");
   }
-  const {db, FieldValue} = deps;
-  const first = await loadOwnListing(deps, ctx, id);
-  const cur0 = first.data;
-  guardEditable(cur0);
+  const cur0 = (await loadOwnListing(deps, ctx, id)).data;
 
   // Sold out elsewhere: quantity_available 0 ends the listing.
   if (body.quantity_available === 0 && Object.keys(body).length === 1) {
+    if (cur0.status !== "pending") guardEditable(cur0); // a lapsed hold can be ended; endListing checks
     return endListing(deps, ctx, id, "sold_elsewhere");
   }
-
-  const curSpecs = {...(cur0.specs || {})}; delete curSpecs.brand;
-  const merged = {
-    title: body.title != null ? body.title : cur0.title,
-    brand: body.brand != null ? body.brand : cur0.brand,
-    category: body.category != null ? body.category : cur0.specCategory,
-    browse_category: body.browse_category != null ? body.browse_category : cur0.cat,
-    condition: body.condition != null ? body.condition : cur0.condition,
-    price: body.price != null ? body.price : cur0.ask,
-    description: body.description != null ? body.description : (cur0.desc || ""),
-    // Changing category starts its specs fresh; otherwise given keys overlay current ones.
-    specs: body.category != null && body.category !== cur0.specCategory ? (body.specs || {}) : {...curSpecs, ...(body.specs || {})},
-  };
+  guardEditable(cur0);
+  // Everything that can be refused is refused before any download. The same
+  // checks run again inside the transaction, on the listing as it is then.
+  patchedQuantity(cur0, body, clock(deps));
   const newUrls = body.photo_urls != null ? body.photo_urls.map((u) => u.trim()) : null;
-  const photoCount = newUrls ? newUrls.length : (Array.isArray(cur0.photos) ? cur0.photos.length : 0);
-  const v = schema.validateListingInput(toSchemaInput({...merged, quantity: 1}, photoCount));
-  if (!v.ok) throw validationError(v.errors);
+  const value0 = patchedValue(cur0, body, newUrls ? newUrls.length : photosOf(cur0).length);
 
-  const textChanged = ["title", "brand", "description", "condition", "category", "browse_category"].some((k) => body[k] != null);
   let degraded = false;
-  if (textChanged) {
-    const scan = await deps.scanText({title: v.value.title, brand: v.value.brand, desc: v.value.desc,
-      cat: v.value.cat, condition: v.value.condition}, ctx.uid);
+  if ([...TEXT_FIELDS, "specs"].some((k) => body[k] != null)) {
+    const scan = await deps.scanText(scanFieldsOf(value0), ctx.uid);
     if (scan && scan.clean === false) {
       throw new ApiError(422, "content_violation", "This text breaks the TeeBox listing rules. Nothing was changed.", {category: scan.category || null});
     }
     degraded = !!(scan && scan.degraded);
   }
+  const save = () => savePatch(deps, ctx, id, body, newUrls, minPhotos(value0.ask), degraded);
+  return newUrls ? withPhotoSlot(deps, save) : save();
+}
 
+async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
+  const {db, FieldValue} = deps;
   let stored = null; let photoErrors = [];
-  if (newUrls) {
-    const pre = await prefetchPhotos(deps, newUrls);
-    const need = minPhotos(v.value.ask);
-    if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
-    photoErrors = pre.errors;
-    stored = [];
-    for (let i = 0; i < pre.photos.length; i++) {
-      try { stored.push(await deps.storePhoto({uid: ctx.uid, listingId: id, index: i, ...pre.photos[i]})); } catch (e) {
-        photoErrors.push({index: i, url: null, message: "upload failed: " + String(e && e.message || e)});
-      }
-    }
-    if (stored.length < need) throw photoShortError(need, stored.length, photoErrors);
-  } else if (photoCount < minPhotos(v.value.ask)) {
-    throw validationError([{field: "photos", message: `Listings at $${schema.HIGH_VALUE} or more need at least ${schema.MIN_PHOTOS_HIGH_VALUE} photos. Send photo_urls with the new price.`}]);
-  }
-
   let prevPhotos = [];
   let reopened = [];
   let reopenedListing = null;
-  await db.runTransaction(async (tx) => {
-    const {ref, data: cur} = await loadOwnListing(deps, ctx, id, tx);
-    guardEditable(cur); // re-checked inside the transaction: a checkout may have started
-    const sold = Math.max(0, Number(cur.quantitySold) || 0);
-    const reserved = Math.max(0, Number(cur.quantityReserved) || 0);
-    let quantity = Math.max(1, Number(cur.quantity) || 1);
-    if (body.quantity_available != null) {
-      const a = body.quantity_available;
-      if (!Number.isInteger(a) || a < 0) throw validationError([{field: "quantity_available", message: "quantity_available must be a whole number, 0 or more."}]);
-      if (a === 0) {
-        throw new ApiError(400, "use_end", "To mark a listing sold out, send quantity_available: 0 on its own, or POST /v1/listings/{id}/end.");
+  try {
+    if (newUrls) {
+      await reservePhotos(deps, ctx, newUrls.length);
+      const pre = await prefetchPhotos(deps, newUrls);
+      if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+      photoErrors = [...pre.errors];
+      stored = await storePhotos(deps, ctx, id, pre.photos, photoErrors);
+      if (stored.length < need) throw photoShortError(need, stored.length, photoErrors);
+    }
+    await db.runTransaction(async (tx) => {
+      const {ref, data: cur} = await loadOwnListing(deps, ctx, id, tx);
+      guardEditable(cur); // re-checked inside the transaction: a checkout may have started
+      const quantity = patchedQuantity(cur, body, clock(deps));
+      prevPhotos = photosOf(cur);
+      const value = patchedValue(cur, body, (stored || prevPhotos).length);
+      const isHighValue = value.ask >= schema.HIGH_VALUE;
+      const update = {
+        ...patchedFields(body, value),
+        ...(stored ? {photos: stored} : {}),
+        ...(quantity != null ? {quantity} : {}),
+        requiresAuth: isHighValue, updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (stored && cur.photoVariants && typeof cur.photoVariants === "object") {
+        update.photoVariants = rekeyPhotoVariants(cur.photoVariants, stored);
       }
-      quantity = sold + reserved + a;
-    } else if (body.quantity != null) {
-      quantity = body.quantity;
-      if (!Number.isInteger(quantity) || quantity < 1) throw validationError([{field: "quantity", message: "quantity must be a whole number from 1 to 99."}]);
-      if (quantity < sold + reserved) {
-        throw validationError([{field: "quantity", message: `quantity can't be below the ${sold + reserved} already sold or in checkout.`}]);
+      reopened = isHighValue ? reviewChanges(cur, {...cur, ...update}) : [];
+      const review = authReviewAfterEdit(cur, isHighValue, reopened);
+      if (review) update.authReviewState = review;
+      reopenedListing = null;
+      if (reopened.length) {
+        update.authReviewReason = "Changed after approval: " + reopened.join(", ");
+        update.authReviewReopenedAt = FieldValue.serverTimestamp();
+        reopenedListing = {id, sellerId: cur.sellerId, title: value.title, status: cur.status, decisionN: Number(cur.authReviewDecisionN) || 0};
       }
+      if (degraded) {
+        update.needsReview = true; update.needsReviewReason = "edit_scan_degraded";
+        update.needsReviewAt = FieldValue.serverTimestamp();
+      }
+      // A listing hidden only for missing photos comes back once it has them
+      // (and its seller is payment-ready; otherwise it waits for payouts).
+      if (stored && cur.status === "hidden" && cur.hiddenReason === "photos_missing") {
+        if (ctx.user.stripeChargesEnabled === true) { update.status = "active"; update.hiddenReason = FieldValue.delete(); } else update.hiddenReason = "awaiting_payouts";
+      }
+      tx.update(ref, update);
+    });
+  } catch (e) {
+    // Nothing was saved, so the files just uploaded belong to nobody. Keep any
+    // the listing does reference, in case the save went through after all.
+    if (stored && stored.length && deps.deleteRemovedPhotos) {
+      try {
+        const s = await db.doc(`listings/${id}`).get();
+        await deps.deleteRemovedPhotos(stored, s.exists ? photosOf(s.data() || {}) : [], id);
+      } catch (e2) { if (deps.logError) deps.logError("sellerApi: upload cleanup failed", e2); }
     }
-    if (quantity > 99) throw validationError([{field: body.quantity_available != null ? "quantity_available" : "quantity", message: "Total quantity can't be more than 99."}]);
-
-    const photos = stored || (Array.isArray(cur.photos) ? cur.photos : []);
-    prevPhotos = Array.isArray(cur.photos) ? cur.photos : [];
-    const isHighValue = v.value.ask >= schema.HIGH_VALUE;
-    const update = {
-      title: v.value.title, brand: v.value.brand, cat: v.value.cat, ask: v.value.ask,
-      bid: Math.round(v.value.ask * 0.9), condition: v.value.condition, desc: v.value.desc,
-      specCategory: v.value.specCategory, specs: v.value.specs, photos, quantity,
-      requiresAuth: isHighValue, updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (stored && cur.photoVariants && typeof cur.photoVariants === "object") {
-      update.photoVariants = rekeyPhotoVariants(cur.photoVariants, photos);
-    }
-    reopened = isHighValue ? reviewChanges(cur, update) : [];
-    const review = authReviewAfterEdit(cur, isHighValue, reopened);
-    if (review) update.authReviewState = review;
-    if (reopened.length) {
-      update.authReviewReason = "Changed after approval: " + reopened.join(", ");
-      update.authReviewReopenedAt = FieldValue.serverTimestamp();
-      reopenedListing = {id, sellerId: cur.sellerId, title: update.title, status: cur.status, decisionN: Number(cur.authReviewDecisionN) || 0};
-    }
-    if (degraded) {
-      update.needsReview = true; update.needsReviewReason = "edit_scan_degraded";
-      update.needsReviewAt = FieldValue.serverTimestamp();
-    }
-    // A listing hidden only for missing photos comes back once it has them
-    // (and its seller is payment-ready; otherwise it waits for payouts).
-    if (stored && cur.status === "hidden" && cur.hiddenReason === "photos_missing") {
-      if (ctx.user.stripeChargesEnabled === true) { update.status = "active"; update.hiddenReason = FieldValue.delete(); } else update.hiddenReason = "awaiting_payouts";
-    }
-    tx.update(ref, update);
-  });
+    throw e;
+  }
   if (reopenedListing && deps.notifyReviewReopened) { // live only; the sandbox sends nothing
     try { await deps.notifyReviewReopened(reopenedListing, reopened.join(", ")); } catch (e) { deps.logError("review email failed", e); }
   }
@@ -659,7 +851,9 @@ function guardEditable(l) {
   if (LOCKED.includes(s)) throw new ApiError(409, "listing_sold", "This listing has sold and can't be changed.");
   if (s === "removed") throw new ApiError(409, "listing_ended", "This listing has ended and can't be changed.");
   if (s === "expired") throw new ApiError(409, "listing_expired", "This listing has expired. The seller can renew it in TeeBox.");
-  if (s === "hidden" && !["awaiting_payouts", "photos_missing"].includes(l.hiddenReason)) {
+  // "flagged" (a photo that failed its check), other hidden reasons, and any
+  // status this file doesn't know: TeeBox is looking at it.
+  if (s !== "active" && !(s === "hidden" && ["awaiting_payouts", "photos_missing"].includes(l.hiddenReason))) {
     throw new ApiError(409, "listing_under_review", "This listing is under review by TeeBox and can't be changed right now.");
   }
 }
@@ -671,10 +865,11 @@ async function endListing(deps, ctx, id, reason) {
     const {ref, data: l} = await loadOwnListing(deps, ctx, id, tx);
     const s = l.status || "active";
     if (s === "removed") { already = true; return; }
-    if (s === "pending" || (Number(l.quantityReserved) || 0) > 0) {
+    // A hold whose window has lapsed no longer counts, same as deleteListing.
+    if (inCheckout(l, clock(deps))) {
       throw new ApiError(409, "checkout_in_progress", "A buyer is checking out this listing right now, so it can't be ended. Retry in a few minutes.");
     }
-    if (LOCKED.includes(s)) throw new ApiError(409, "listing_sold", "This listing has already sold.");
+    if (s !== "pending" && LOCKED.includes(s)) throw new ApiError(409, "listing_sold", "This listing has already sold.");
     tx.update(ref, {status: "removed", removedReason: reason === "sold_elsewhere" ? "seller_sold_elsewhere" : "seller_ended",
       removedAt: FieldValue.serverTimestamp(), removedVia: "api", removedByPartner: ctx.partnerId,
       updatedAt: FieldValue.serverTimestamp()});
@@ -751,8 +946,9 @@ async function handle(env, req) {
   const r = route(req.method, req.path);
   let ctx = null; let idem = null; let result;
   try {
+    checkRequest(req);
     if (!r) throw new ApiError(404, "not_found", "No such endpoint. See https://teeboxmarket.com/developers.");
-    if (r.name === "method_not_allowed") throw new ApiError(405, "method_not_allowed", `${req.method} isn't supported on ${req.path}.`);
+    if (r.name === "method_not_allowed") throw new ApiError(405, "method_not_allowed", `${short(req.method, 10)} isn't supported on ${short(req.path, 100)}.`);
     const k = keys.readKeys(req.headers);
     deps = env.forMode(k.mode);
     ctx = await keys.authenticate(deps, k);
@@ -773,7 +969,7 @@ async function handle(env, req) {
           headers["Idempotent-Replayed"] = "true";
           idem = null;
         } else {
-          result = await createListing(deps, ctx, req.body);
+          result = await createListing(deps, ctx, req.body, idem);
           await idempotencyEnd(deps, idem, result.status, result.body);
         }
         break;
@@ -790,6 +986,8 @@ async function handle(env, req) {
   }
   post: {
     if (!ctx) break post;
+    // A rate-limited request costs as little as we can make it.
+    if (result.body && result.body.error && result.body.error.code === "rate_limited") break post;
     const done = Date.now();
     const mutating = req.method !== "GET";
     await audit(deps, {partnerId: ctx.partnerId, connectionId: ctx.connectionId, uid: ctx.uid, requestId,

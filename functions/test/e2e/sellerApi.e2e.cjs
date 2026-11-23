@@ -34,7 +34,9 @@ photoFetch.fetchPhoto = async (url, opts) => {
   const u = new URL(url);
   if (u.hostname !== "img.test") return realFetchPhoto(url, opts);
   if (/broken/.test(u.pathname)) throw new Error("the link returned HTTP 404");
-  const buffer = await sharp({create: {width: 800, height: 600, channels: 3, background: "#2d6a4f"}}).jpeg().toBuffer();
+  // A different picture per URL: the same one sent twice counts once.
+  const hash = require("crypto").createHash("sha256").update(u.pathname).digest();
+  const buffer = await sharp({create: {width: 800, height: 600, channels: 3, background: {r: hash[0], g: hash[1], b: hash[2]}}}).jpeg().toBuffer();
   return {buffer, contentType: "image/jpeg", ext: "jpg"};
 };
 
@@ -117,6 +119,11 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   check("1f unknown endpoint -> 404 not_found", r.status === 404 && r.body.error.code === "not_found", r.body);
   r = await api("DELETE", "/v1/listings", A1);
   check("1g wrong method -> 405", r.status === 405, r.body);
+
+  r = await api("POST", "/v1/listings", {...A1, body: {title: "x".repeat(300 * 1024)}});
+  check("1h a body over 256 KB -> 413", r.status === 413 && r.body.error.code === "payload_too_large", r.body);
+  r = await api("POST", "/v1/listings", {...A1, body: DRIVER(), headers: {"Content-Type": "text/plain"}});
+  check("1i a body that isn't JSON -> 415", r.status === 415 && r.body.error.code === "unsupported_media_type", r.body);
 
   // ── B. /me and /categories ────────────────────────────────────────────────
   r = await api("GET", "/v1/me", A1);
@@ -269,6 +276,19 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {title: "Renamed putter"}});
   const reop = (await rej.get()).data();
   check("5z2 approved review: kept on a price drop, reopened on a title change", stillOk === "approved" && reop.authReviewState === "pending" && /title/.test(reop.authReviewReason || ""), {stillOk, s: reop.authReviewState});
+  await rej.update({status: "flagged"});
+  r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 340}});
+  check("5z3 a flagged listing can't be edited -> 409 listing_under_review", r.status === 409 && r.body.error.code === "listing_under_review", r.body);
+  await rej.update({status: "active", quantity: 3, quantityReserved: 2, pendingUntil: TS.fromMillis(Date.now() - 60000)});
+  r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {quantity_available: 1}});
+  check("5z4 units held by a lapsed checkout are free again", r.status === 200 && r.body.listing.quantity === 1 && r.body.listing.quantity_available === 1, r.body);
+  const bulk = await api("POST", "/v1/listings", {...A1, body: DRIVER({title: "Same photo twice", photo_urls: ["https://img.test/dup.jpg", "https://img.test/dup.jpg"]})});
+  check("5z5 the same picture twice counts once", bulk.status === 201 && bulk.body.listing.photos.length === 1 && bulk.body.photo_errors.length === 1, bulk.body);
+  await db.doc("listings/" + bulk.body.listing.id).delete();
+  const filesOf = async (id) => (await admin.storage().bucket(cfg.bucket).getFiles({prefix: `listings/${s1}/${id}/`}))[0].length;
+  const nFiles = await filesOf(L1.id);
+  r = await api("PATCH", "/v1/listings/" + L1.id, {...A1, body: {photo_urls: ["https://img.test/z1.jpg", "https://img.test/z2.jpg"], quantity: 0}});
+  check("5z6 a refused photo edit leaves no files behind", r.status === 422 && await filesOf(L1.id) === nFiles, {r: r.body, nFiles});
   await rej.delete();
 
   // ── F. End ────────────────────────────────────────────────────────────────

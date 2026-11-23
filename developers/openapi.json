@@ -502,6 +502,26 @@
               }
             }
           },
+          "413": {
+            "description": "Codes: payload_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Codes: unsupported_media_type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Codes: validation_failed, photo_fetch_failed, content_violation, idempotency_key_reused",
             "content": {
@@ -524,6 +544,16 @@
           },
           "500": {
             "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Codes: busy",
             "content": {
               "application/json": {
                 "schema": {
@@ -722,6 +752,26 @@
               }
             }
           },
+          "413": {
+            "description": "Codes: payload_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Codes: unsupported_media_type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Codes: validation_failed, photo_fetch_failed, content_violation, idempotency_key_reused",
             "content": {
@@ -744,6 +794,16 @@
           },
           "500": {
             "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Codes: busy",
             "content": {
               "application/json": {
                 "schema": {
@@ -823,6 +883,26 @@
           },
           "409": {
             "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Codes: payload_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Codes: unsupported_media_type",
             "content": {
               "application/json": {
                 "schema": {
@@ -947,6 +1027,26 @@
           },
           "409": {
             "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Codes: payload_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Codes: unsupported_media_type",
             "content": {
               "application/json": {
                 "schema": {
@@ -1369,13 +1469,16 @@
                   "listing_under_review",
                   "listing_not_active",
                   "request_in_progress",
+                  "payload_too_large",
+                  "unsupported_media_type",
                   "validation_failed",
                   "photo_fetch_failed",
                   "content_violation",
                   "idempotency_key_reused",
                   "rate_limited",
                   "daily_limit_reached",
-                  "internal"
+                  "internal",
+                  "busy"
                 ]
               },
               "message": {
