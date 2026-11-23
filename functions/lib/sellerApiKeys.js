@@ -71,6 +71,25 @@ function predatesSessionReset(connection, authUser) {
   return reset > 0 && made > 0 && made < reset;
 }
 
+/**
+ * Record that a connection died with a session reset: marked revoked, its key
+ * removed, logged with the consents. Once only.
+ * @return {Promise<object|null>} what to tell the owner, or null if already done
+ */
+async function revokeAfterReset({db, FieldValue}, connectionId) {
+  const ref = db.doc(`apiConnections/${connectionId}`);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists || snap.data().status !== "active") return null;
+    const c = snap.data();
+    tx.update(ref, {status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "session_reset"});
+    tx.delete(db.doc(`apiKeys/${c.keyHash}`));
+    tx.set(db.collection("apiConsents").doc(), {event: "revoked", uid: c.uid, partnerId: c.partnerId,
+      partnerName: c.partnerName || c.partnerId, connectionId, method: "session_reset", at: FieldValue.serverTimestamp()});
+    return {connectionId, uid: c.uid, partnerName: c.partnerName || c.partnerId, keyLast4: c.keyLast4};
+  });
+}
+
 function header(headers, name) {
   const h = headers || {};
   const v = h[name] !== undefined ? h[name] : h[name.toLowerCase()];
@@ -103,7 +122,7 @@ function readKeys(headers) {
  * the handle for the keys' own environment.
  * @return {Promise<{partnerId, partner, connectionId, connection, uid, user}>}
  */
-async function authenticate({db, auth, cfg, nowMs}, {pk, ck}) {
+async function authenticate({db, auth, cfg, nowMs, FieldValue, notifyDisconnected}, {pk, ck}) {
   if (keyMode(pk) !== cfg.mode || keyMode(ck) !== cfg.mode) {
     throw new ApiError(401, "wrong_environment", "These keys belong to the other environment.");
   }
@@ -135,6 +154,10 @@ async function authenticate({db, auth, cfg, nowMs}, {pk, ck}) {
   }
   if (authUser.disabled) throw new ApiError(403, "seller_disabled", "The seller's TeeBox account is disabled.");
   if (predatesSessionReset(connection, authUser)) {
+    if (FieldValue) {
+      const gone = await revokeAfterReset({db, FieldValue}, cRef.connectionId);
+      if (gone && notifyDisconnected) await Promise.resolve(notifyDisconnected(gone)).catch(() => {});
+    }
     throw new ApiError(401, "connection_revoked", "The seller secured their account after connecting this tool. Ask them to connect it again in TeeBox.");
   }
   const uSnap = await db.doc(`users/${uid}`).get();
@@ -291,8 +314,19 @@ async function revokeConnection({db, FieldValue}, {uid, connectionId, method}) {
 }
 
 /** The seller's connections, for Profile > Connected tools. Never returns keys. */
-async function listConnections({db}, {uid}) {
-  const snap = await db.collection("apiConnections").where("uid", "==", uid).get();
+async function listConnections({db, auth, FieldValue, notifyDisconnected}, {uid}) {
+  const q = db.collection("apiConnections").where("uid", "==", uid);
+  let snap = await q.get();
+  // A key that died with a session reset must not look connected.
+  if (auth && FieldValue) {
+    const authUser = await auth.getUser(uid);
+    const dead = snap.docs.filter((d) => d.data().status === "active" && predatesSessionReset(d.data(), authUser));
+    for (const d of dead) {
+      const gone = await revokeAfterReset({db, FieldValue}, d.id);
+      if (gone && notifyDisconnected) await Promise.resolve(notifyDisconnected(gone)).catch(() => {});
+    }
+    if (dead.length) snap = await q.get();
+  }
   return snap.docs.map((d) => {
     const c = d.data();
     const ms = (t) => (t && t.toMillis ? t.toMillis() : null);
@@ -312,5 +346,5 @@ async function listPartners({db}) {
 module.exports = {
   ApiError, readKeys, authenticate, recheck, createPartner, rotatePartnerKey, setPartnerStatus,
   createConnection, revokeConnection, listConnections, listPartners,
-  newKey, hashKey, keyMode, randomToken, header, KEY_RE, isSuspended, predatesSessionReset, CONNECTS_PER_DAY,
+  newKey, hashKey, keyMode, randomToken, header, KEY_RE, isSuspended, predatesSessionReset, revokeAfterReset, CONNECTS_PER_DAY,
 };

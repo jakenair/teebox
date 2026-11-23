@@ -74,6 +74,7 @@ function liveDeps() {
         }
       }
     },
+    notifyDisconnected: emailToolDisconnected,
     notifyReviewReopened: (l, what) => require("./lib/authReviewEmail").sendReviewEmail(l, "reopen", what),
     logError,
   };
@@ -101,7 +102,7 @@ const environments = {
 // worst JSON body measured takes about 1.3 GB. Memory and concurrency are set
 // so an instance survives two of those at once; maxInstances caps the cost.
 exports.sellerApi = onRequest(
-    {region: REGION, memory: "4GiB", cpu: 2, timeoutSeconds: 120, concurrency: 2, maxInstances: 20, cors: false},
+    {secrets: [RESEND_API_KEY], region: REGION, memory: "4GiB", cpu: 2, timeoutSeconds: 120, concurrency: 2, maxInstances: 20, cors: false},
     async (req, res) => {
       const out = await core.handle(environments, {
         method: req.method, path: req.path, query: req.query || {}, headers: req.headers || {},
@@ -129,15 +130,20 @@ function signedIn(req) {
 
 const REAUTH_SECONDS = 300;
 
-async function emailToolConnected(uid, r) {
+/** Owner emails. `template` is the template name; ctx also feeds the subject. */
+async function emailOwner(uid, template, ctx, idempotencyKey) {
   const {resolveUserEmail} = require("./lib/emailRecipient");
   const {email} = await resolveUserEmail(uid, null, (u) => admin.auth().getUser(u));
   if (!email) return;
-  const Tpl = require("./emails-build/transactional/ToolConnected");
-  const ctx = {partnerName: r.partnerName, keyLast4: String(r.key).slice(-4)};
+  const Tpl = require(`./emails-build/transactional/${template}`);
   await require("./lib/email").sendEmail({to: email, uid, subject: Tpl.subject(ctx), react: Tpl(ctx),
-    category: "transactional", template: "ToolConnected", idempotencyKey: `tool-connected-${r.connectionId}`});
+    category: "transactional", template, idempotencyKey});
 }
+const emailToolConnected = (uid, r) => emailOwner(uid, "ToolConnected",
+    {partnerName: r.partnerName, keyLast4: String(r.key).slice(-4)}, `tool-connected-${r.connectionId}`);
+const emailToolDisconnected = (c) => emailOwner(c.uid, "ToolDisconnected",
+    {partnerName: c.partnerName, keyLast4: c.keyLast4}, `tool-disconnected-${c.connectionId}`)
+    .catch((e) => logger.error("sellerApi: disconnect email failed", {uid: c.uid, error: String(e && e.message || e)}));
 
 const CALLABLE = {region: REGION, memory: "256MiB", timeoutSeconds: 30};
 
@@ -174,9 +180,10 @@ exports.createApiConnection = onCall({...CALLABLE, secrets: [RESEND_API_KEY]}, a
   } catch (e) { throw toHttps(e); }
 });
 
-exports.listApiConnections = onCall(CALLABLE, async (req) => {
+exports.listApiConnections = onCall({...CALLABLE, secrets: [RESEND_API_KEY]}, async (req) => {
   const uid = signedIn(req);
-  try { return {connections: await keys.listConnections({db: admin.firestore()}, {uid})}; } catch (e) { throw toHttps(e); }
+  try { return {connections: await keys.listConnections({db: admin.firestore(), auth: admin.auth(),
+    FieldValue: admin.firestore.FieldValue, notifyDisconnected: emailToolDisconnected}, {uid})}; } catch (e) { throw toHttps(e); }
 });
 
 exports.revokeApiConnection = onCall(CALLABLE, async (req) => {

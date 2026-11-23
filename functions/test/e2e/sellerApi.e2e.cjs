@@ -391,13 +391,27 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
     check("11c works again when the suspension ends", await tryAuth() === "ok");
     await new Promise((r) => setTimeout(r, 1500));
     await admin.auth().updateUser(u, {password: "a new password 1!"});
-    check("11d password reset kills the connection key", await tryAuth() === "connection_revoked", await tryAuth());
+    {
+      const told = [];
+      const full = {...d, auth: admin.auth(), FieldValue: admin.firestore.FieldValue, notifyDisconnected: async (x) => told.push(x)};
+      const go = async () => { try { await keys.authenticate(full, {pk: tool.key, ck: alive.key}); return "ok"; } catch (e) { return e.code; } };
+      check("11d password reset kills the connection key", await go() === "connection_revoked");
+      check("11d marked revoked, key removed, owner told once", (await db.doc("apiConnections/" + alive.connectionId).get()).data().revokedReason === "session_reset" &&
+        (await db.collection("apiKeys").where("uid", "==", u).get()).empty && told.length === 1 && told[0].partnerName === "Authz Tool", told);
+      await go(); await keys.listConnections(full, {uid: u});
+      check("11d no second email", told.length === 1, told.length);
+      check("11d logged with the consents", (await db.collection("apiConsents").where("connectionId", "==", alive.connectionId).where("method", "==", "session_reset").get()).size === 1);
+    }
     await new Promise((r) => setTimeout(r, 1500));
     const re1 = await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE});
     check("11d connecting again after the reset works", await tryAuth(re1.key) === "ok", await tryAuth(re1.key));
     await new Promise((r) => setTimeout(r, 1500));
     await admin.auth().revokeRefreshTokens(u);
-    check("11d sign-out-everywhere (ban, recovery) kills it too", await tryAuth(re1.key) === "connection_revoked");
+    {
+      const told = []; const list = await keys.listConnections({db, auth: admin.auth(), FieldValue: admin.firestore.FieldValue, notifyDisconnected: async (x) => told.push(x)}, {uid: u});
+      check("11d the Connected tools screen doesn't show a dead key as connected", list.every((x) => x.status !== "active") && told.length === 1, [list.map((x) => x.status), told.length]);
+    }
+    { const c = await tryAuth(re1.key); check("11d sign-out-everywhere (ban, recovery) kills it too", ["connection_revoked", "invalid_connection_key"].includes(c), c); }
     let lim = null; let made = 0;
     for (let k = 0; k < 12; k++) { try { await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE}); made++; } catch (e) { lim = e.code; break; } }
     check("11e capped per day", lim === "too_many_connections" && made <= keys.CONNECTS_PER_DAY, [lim, made]);
