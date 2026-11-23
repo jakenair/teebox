@@ -719,9 +719,10 @@
     "region": "us-central1"
   },
   "tiktokCatalog": {
-    "sha": "e0195532c0bc4753442e8cf27506ffb7b8b51174",
+    "sha": "6c50d71",
     "at": "2026-11-23",
-    "region": "us-central1"
+    "region": "us-central1",
+    "note": "raw gcloud: 2Gi cpu 2 concurrency 16 max 30"
   },
   "tiktokFeed": {
     "sha": "3d72918ceafec1af6e219b63045c93d84b8f2434",
