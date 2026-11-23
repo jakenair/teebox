@@ -93,10 +93,16 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   const s1 = await mkSeller("ready", {...CONSENTED, stripeChargesEnabled: true});
   const s2 = await mkSeller("nopayouts", {...CONSENTED});
   const s3 = await mkSeller("noconsent", {});
-  const c1 = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId});
-  const c2 = await keys.createConnection(d, {uid: s2, partnerId: acme.partnerId});
-  const c3 = await keys.createConnection(d, {uid: s3, partnerId: acme.partnerId});
-  const c1o = await keys.createConnection(d, {uid: s1, partnerId: other.partnerId});
+  const AGREE = {method: "connected_tools_screen", consent: {accepted: true, version: require("../../lib/sellerApiConsent").CONSENT.version, surface: "web"}};
+  for (const bad of [undefined, {}, {accepted: "yes"}, {accepted: true, version: "old"}]) {
+    let code = null; try { await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId, consent: bad}); } catch (e) { code = e.code; }
+    check("2c no key without consent: " + JSON.stringify(bad), code === "consent_required", code);
+  }
+  check("2c and nothing was written", (await db.collection("apiConsents").get()).empty && (await db.collection("apiConnections").get()).empty);
+  const c1 = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId, ...AGREE});
+  const c2 = await keys.createConnection(d, {uid: s2, partnerId: acme.partnerId, ...AGREE});
+  const c3 = await keys.createConnection(d, {uid: s3, partnerId: acme.partnerId, ...AGREE});
+  const c1o = await keys.createConnection(d, {uid: s1, partnerId: other.partnerId, ...AGREE});
   const A1 = {pk: acme.key, ck: c1.key};
   check("0a keys have the live prefixes", acme.key.startsWith("pk_live_") && c1.key.startsWith("sk_conn_live_") && keys.KEY_RE.test(acme.key));
   const stored = (await db.doc(`apiPartners/${acme.partnerId}`).get()).data();
@@ -344,7 +350,13 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   const o2 = await api("GET", "/v1/me", {pk: rot.key, ck: c1.key});
   check("8e rotating the partner key: old key refused, new key works with existing connections", o1.status === 401 && o2.status === 200, {o1: o1.body});
   const P = {pk: rot.key, ck: c1.key};
-  const again = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId});
+  const again = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId, ...AGREE});
+  const log = (await db.collection("apiConsents").where("uid", "==", s1).where("partnerId", "==", acme.partnerId).get()).docs.map((x) => x.data());
+  const gr = log.find((x) => x.event === "granted" && x.connectionId === again.connectionId);
+  check("9c consent recorded: when, how, what version", gr && gr.at && gr.method === "connected_tools_screen" && gr.surface === "web" && gr.consentVersion && gr.consentHash.length === 32, gr);
+  check("9c replacing a connection records the old one's revoke", log.some((x) => x.event === "revoked" && x.method === "replaced_by_new_connection"), log.map((x) => x.event));
+  const mineList = await keys.listConnections(d, {uid: s1});
+  check("9c the seller's list shows how it was authorized, never a key", mineList.some((x) => x.authorizedHow === "connected_tools_screen") && !JSON.stringify(mineList).includes("sk_conn_"), mineList[0]);
   r = await api("GET", "/v1/me", P);
   const r2 = await api("GET", "/v1/me", {pk: rot.key, ck: again.key});
   check("8f connecting the same tool again replaces the old connection key", r.status === 401 && r2.status === 200 && again.replaced === 1, r.body);
@@ -389,8 +401,8 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   const sp = await keys.createPartner(sd, {partnerId: "sand-tool", name: "Sand Tool"});
   await sdb.doc("users/sbA").set({displayName: "Sandbox Shop", sellerVerified: true, sellerAge18At: 1, stripeChargesEnabled: true});
   await sdb.doc("users/sbB").set({displayName: "Other Shop", sellerVerified: true, sellerAge18At: 1, stripeChargesEnabled: true});
-  const sc = await keys.createConnection(sd, {uid: "sbA", partnerId: "sand-tool"});
-  const scB = await keys.createConnection(sd, {uid: "sbB", partnerId: "sand-tool"});
+  const sc = await keys.createConnection(sd, {uid: "sbA", partnerId: "sand-tool", ...AGREE});
+  const scB = await keys.createConnection(sd, {uid: "sbB", partnerId: "sand-tool", ...AGREE});
   const S = {pk: sp.key, ck: sc.key}; const SB = {pk: sp.key, ck: scB.key};
   check("11a sandbox keys have the test prefixes", sp.key.startsWith("pk_test_") && sc.key.startsWith("sk_conn_test_"));
   r = await api("GET", "/v1/me", S);

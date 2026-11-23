@@ -10,6 +10,7 @@
 // Storage (server-only collections; firestore.rules deny all client access):
 //   apiPartners/{partnerId}       name, status active|disabled, mode, keyHash, keyLast4
 //   apiConnections/{connectionId} uid, partnerId, status active|revoked, keyHash, keyLast4
+//   apiConsents/{id}              append-only record of every grant and revoke (lib/sellerApiConsent.js)
 //   apiKeys/{sha256(key)}         {kind: "partner", partnerId} | {kind: "connection", connectionId, partnerId, uid}
 // Only the SHA-256 of a key is stored; the key itself is shown once.
 //
@@ -18,6 +19,7 @@
 // request (both are read fresh on every request, never cached).
 
 const crypto = require("node:crypto");
+const {checkConsent} = require("./sellerApiConsent");
 
 const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const KEY_RE = /^(pk_(live|test)_|sk_conn_(live|test)_)[0-9A-Za-z]{43}$/;
@@ -166,7 +168,11 @@ async function setPartnerStatus({db, FieldValue}, {partnerId, status, reason}) {
  * A seller connects a tool: one connection key for one active partner.
  * Called from the createApiConnection callable (signed-in seller).
  */
-async function createConnection({db, FieldValue, cfg}, {uid, partnerId}) {
+async function createConnection({db, FieldValue, cfg}, {uid, partnerId, consent, method}) {
+  let agreed;
+  try { agreed = checkConsent(consent, method); } catch (_e) {
+    throw new ApiError(400, "consent_required", "Review what this tool can do and agree before connecting it.");
+  }
   const pSnap = await db.doc(`apiPartners/${String(partnerId || "")}`).get();
   if (!pSnap.exists || pSnap.data().status !== "active") throw new ApiError(404, "partner_not_found", "That tool isn't available to connect.");
   const existing = await db.collection("apiConnections")
@@ -179,9 +185,17 @@ async function createConnection({db, FieldValue, cfg}, {uid, partnerId}) {
   existing.forEach((d) => {
     batch.update(d.ref, {status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "replaced"});
     batch.delete(db.doc(`apiKeys/${d.data().keyHash}`));
+    batch.set(db.collection("apiConsents").doc(), {event: "revoked", uid, partnerId, partnerName: d.data().partnerName || partnerId,
+      connectionId: d.id, method: "replaced_by_new_connection", at: FieldValue.serverTimestamp()});
   });
-  batch.set(ref, {uid, partnerId, partnerName: pSnap.data().name || partnerId, status: "active",
-    mode: cfg.mode, keyHash: h, keyLast4: last4(key), createdAt: FieldValue.serverTimestamp()});
+  const partnerName = pSnap.data().name || partnerId;
+  batch.set(ref, {uid, partnerId, partnerName, status: "active",
+    mode: cfg.mode, keyHash: h, keyLast4: last4(key), createdAt: FieldValue.serverTimestamp(),
+    consent: {...agreed, at: FieldValue.serverTimestamp()}});
+  // When and how the seller authorized this tool. Same batch as the key: one
+  // can't exist without the other.
+  batch.set(db.collection("apiConsents").doc(), {event: "granted", uid, partnerId, partnerName, connectionId: ref.id,
+    ...agreed, at: FieldValue.serverTimestamp()});
   batch.set(db.doc(`apiKeys/${h}`), {kind: "connection", connectionId: ref.id, partnerId, uid,
     createdAt: FieldValue.serverTimestamp()});
   await batch.commit();
@@ -189,7 +203,7 @@ async function createConnection({db, FieldValue, cfg}, {uid, partnerId}) {
 }
 
 /** A seller disconnects a tool. Only the owner can revoke. */
-async function revokeConnection({db, FieldValue}, {uid, connectionId}) {
+async function revokeConnection({db, FieldValue}, {uid, connectionId, method}) {
   const ref = db.doc(`apiConnections/${String(connectionId || "")}`);
   const snap = await ref.get();
   if (!snap.exists || snap.data().uid !== uid) throw new ApiError(404, "connection_not_found", "No such connection.");
@@ -197,6 +211,9 @@ async function revokeConnection({db, FieldValue}, {uid, connectionId}) {
   const batch = db.batch();
   batch.update(ref, {status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "seller"});
   batch.delete(db.doc(`apiKeys/${snap.data().keyHash}`));
+  batch.set(db.collection("apiConsents").doc(), {event: "revoked", uid, partnerId: snap.data().partnerId,
+    partnerName: snap.data().partnerName || snap.data().partnerId, connectionId: ref.id,
+    method: String(method || "connected_tools_screen").slice(0, 40), at: FieldValue.serverTimestamp()});
   await batch.commit();
   return {connectionId, status: "revoked"};
 }
@@ -208,7 +225,8 @@ async function listConnections({db}, {uid}) {
     const c = d.data();
     const ms = (t) => (t && t.toMillis ? t.toMillis() : null);
     return {connectionId: d.id, partnerId: c.partnerId, partnerName: c.partnerName, status: c.status,
-      keyLast4: c.keyLast4, createdAt: ms(c.createdAt), lastUsedAt: ms(c.lastUsedAt), revokedAt: ms(c.revokedAt)};
+      keyLast4: c.keyLast4, createdAt: ms(c.createdAt), lastUsedAt: ms(c.lastUsedAt), revokedAt: ms(c.revokedAt),
+      authorizedHow: (c.consent && c.consent.method) || null, authorizedOn: (c.consent && c.consent.surface) || null};
   }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 

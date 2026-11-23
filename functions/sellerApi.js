@@ -119,7 +119,11 @@ const CALLABLE = {region: REGION, memory: "256MiB", timeoutSeconds: 30};
 
 exports.listApiPartners = onCall(CALLABLE, async (req) => {
   signedIn(req);
-  try { return {partners: await keys.listPartners({db: admin.firestore()})}; } catch (e) { throw toHttps(e); }
+  const {CONSENT} = require("./lib/sellerApiConsent");
+  try {
+    return {open: config.liveEnabled(), partners: await keys.listPartners({db: admin.firestore()}),
+      consent: {version: CONSENT.version, allows: CONSENT.allows, never: CONSENT.never}};
+  } catch (e) { throw toHttps(e); }
 });
 
 exports.createApiConnection = onCall(CALLABLE, async (req) => {
@@ -127,7 +131,8 @@ exports.createApiConnection = onCall(CALLABLE, async (req) => {
   if (!config.liveEnabled()) throw new HttpsError("failed-precondition", "Connected tools aren't open yet.");
   const d = {db: admin.firestore(), FieldValue: admin.firestore.FieldValue, cfg: config.resolve("live")};
   try {
-    const r = await keys.createConnection(d, {uid, partnerId: String((req.data || {}).partnerId || "")});
+    const r = await keys.createConnection(d, {uid, partnerId: String((req.data || {}).partnerId || ""),
+      consent: (req.data || {}).consent, method: "connected_tools_screen"});
     logger.info("createApiConnection", {uid, partnerId: r.partnerId, connectionId: r.connectionId, replaced: r.replaced});
     return r; // the key is returned this once and never stored
   } catch (e) { throw toHttps(e); }
