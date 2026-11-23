@@ -28,15 +28,8 @@ const geminiSecret = defineSecret("GEMINI_API_KEY");
 // sendEmail wrapper — caused a TDZ when stripeWebhook tried to bind it.
 const RESEND_KEY = defineSecret("RESEND_API_KEY");
 
-// Admin allowlist — comma-separated emails stored in a Firebase Secret
-// so we can rotate / expand admins without a code deploy. Bound to every
-// callable that calls isAdminEmail() / adminGate(). Set via:
-//   firebase functions:secrets:set ADMIN_ALLOWLIST --project=teebox-market
-//     --data-file=- < <(printf 'jakenair23@gmail.com')
-// firestore.rules and storage.rules still keep a hardcoded literal as
-// defense-in-depth (rules can't read secrets); the Cloud Function path
-// is the canonical source.
-const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
+// Admin checks: the admin:true custom claim, in lib/adminGate.js.
+const {adminGate, isAdminAuth} = require("./lib/adminGate");
 
 // ── Analytics helper (PostHog product analytics) ─────────────────────
 // captureServerEvent fires snake_case product events from server-side
@@ -178,34 +171,6 @@ class HttpError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-// Admin email allowlist — sourced from the ADMIN_ALLOWLIST secret
-// (comma-separated). Parsed once at module scope per cold start, then
-// reused. Every callable that uses isAdminEmail()/adminGate() must
-// declare ADMIN_ALLOWLIST in its `secrets:` array. firestore.rules /
-// storage.rules keep a hardcoded list as defense-in-depth because
-// Firestore/Storage rules cannot read Firebase Secrets — the Cloud
-// Function path is the canonical source.
-let _adminList = null;
-function getAdminList() {
-  if (_adminList) return _adminList;
-  let raw = "";
-  try {
-    raw = ADMIN_ALLOWLIST.value() || "";
-  } catch (_e) {
-    raw = "";
-  }
-  _adminList = raw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-  return _adminList;
-}
-
-function isAdminEmail(email) {
-  if (!email) return false;
-  return getAdminList().includes(String(email).toLowerCase());
 }
 
 // Step-up reauth gate for DESTRUCTIVE admin actions (banUser,
@@ -3464,27 +3429,13 @@ exports.moderateMessage = onDocumentCreated(
 //   takeDownListing / onReportCreate.
 //
 //   adminGate() — single source of truth for who can call the
-//   privileged onCall functions. Backed by the ADMIN_ALLOWLIST
-//   Firebase Secret (parsed once per cold start by getAdminList()
-//   above). Every callable using adminGate() must bind ADMIN_ALLOWLIST
-//   in its `secrets:` array. The firestore.rules / storage.rules
-//   isAdmin() helpers keep a hardcoded literal as defense-in-depth.
+//   privileged onCall functions: the admin:true custom claim
+//   (lib/adminGate.js). firestore.rules / storage.rules check the same claim.
 //
 //   Every admin action writes to adminActions/{auto} with admin uid,
 //   email, target ref, reason, and a serverTimestamp — the runbook
 //   relies on this audit log for "who removed listing X" forensics.
 // ─────────────────────────────────────────────────────────────
-function adminGate(req) {
-  if (!req.auth) {
-    throw new HttpsError("unauthenticated", "Sign in required");
-  }
-  const email = (req.auth.token && req.auth.token.email) || "";
-  const verified = !!(req.auth.token && req.auth.token.email_verified);
-  if (!verified || !isAdminEmail(email)) {
-    throw new HttpsError("permission-denied", "Admin only");
-  }
-}
-
 async function logAdminAction(req, action, targetType, targetId, reason, metadata) {
   try {
     await admin.firestore().collection("adminActions").add({
@@ -3503,7 +3454,7 @@ async function logAdminAction(req, action, targetType, targetId, reason, metadat
 }
 
 exports.banUser = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -3542,7 +3493,7 @@ exports.banUser = onCall(
 });
 
 exports.suspendUser = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -3566,7 +3517,7 @@ exports.suspendUser = onCall(
 });
 
 exports.takeDownListing = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -4308,12 +4259,8 @@ function describeSafeSearchTrip(annotation) {
 // 2026-10-01 incident write-up.
 const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 
-// Hardcoded admin UID list. Email gate (jakenair23@gmail.com) is
-// resolved on first flagged-listing notification — see
-// notifyAdminOfFlaggedListing below — so we don't need to hardcode
-// the UID here. We mirror flagged listings to a top-level
-// `flaggedListings` collection that the admin queue UI queries
-// directly (avoiding cross-user notification clutter).
+// We mirror flagged listings to a top-level `flaggedListings` collection
+// that the admin queue UI queries directly.
 
 // Generate 400px + 800px WebP derivatives of a listing photo and record their
 // download URLs on the listing doc under photoVariants[index]. Grid/list/thumb
@@ -4327,7 +4274,7 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 // and scripts/backfill-photo-variants.mjs encode variants with the SAME code
 // path as this trigger. Signature unchanged for the call below.
 const {writeListingPhotoVariants, SIZES: PHOTO_VARIANT_SIZES} = require("./lib/listingPhotoVariants");
-const {pruneAtDeletion} = require("./lib/photoPrune");
+const {pruneAtDeletion, flagStatus} = require("./lib/photoPrune");
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
 // and scripts/backfill-heic.mjs share ONE implementation (no drift). It decodes
@@ -4432,7 +4379,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           if (snap.exists) {
             listingData = snap.data();
             await listingRef.update({
-              status: "flagged",
+              ...flagStatus(listingData),
               moderationFlags: {
                 reason,
                 source: AUTO_FLAG_SOURCE,
@@ -4523,7 +4470,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           if (snap.exists) {
             listingData = snap.data();
             await listingRef.update({
-              status: "flagged",
+              ...flagStatus(listingData),
               moderationFlags: {
                 reason,
                 source: AUTO_FLAG_SOURCE,
@@ -6160,9 +6107,8 @@ exports.createBillingPortalSession = onCall(
 // ─────────────────────────────────────────────────────────────
 exports.refundOrder = onCall(
   // posthogSecret attached so `refund_issued` server-event can fire
-  // after the Stripe refund + Firestore mirror succeed. ADMIN_ALLOWLIST
-  // is bound so isAdminEmail() can resolve the admin branch.
-  {secrets: [stripeSecret, posthogSecret, ADMIN_ALLOWLIST, OPS_ALERT_WEBHOOK]},
+  // after the Stripe refund + Firestore mirror succeed.
+  {secrets: [stripeSecret, posthogSecret, OPS_ALERT_WEBHOOK]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -6182,14 +6128,14 @@ exports.refundOrder = onCall(
       throw new HttpsError("not-found", "Order not found");
     }
     const pre = preSnap.data();
-    // Allow the seller OR a platform admin (email allowlist mirrors
+    // Allow the seller OR a platform admin (admin claim; mirrors
     // firestore.rules:24-30 isAdmin) to issue refunds. Before this gate,
     // the only escape hatch for support refunds was opening the Stripe
     // Dashboard directly — which bypassed our `refunds/{id}` mirror and
     // therefore skipped the RefundIssued email to the buyer.
     const callerEmail = (request.auth.token && request.auth.token.email) || null;
     const isCallerSeller = pre.sellerId === request.auth.uid;
-    const isCallerAdmin = isAdminEmail(callerEmail);
+    const isCallerAdmin = isAdminAuth(request.auth);
     if (!isCallerSeller && !isCallerAdmin) {
       throw new HttpsError(
         "permission-denied",
@@ -6624,7 +6570,7 @@ exports.moderateListingOnCreate = onDocumentCreated(
 // TTL expiry just discards). Sets moderationCleared so the re-create doesn't
 // loop back through moderateListingOnCreate. Mirrors releaseHold for messages.
 exports.releaseListingHold = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       const {holdId, note} = req.data || {};
@@ -7082,8 +7028,16 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // reset by an unrelated edit. New high-value → pending review;
   // dropped below threshold → na.
   const wasHighValue = !!cur.requiresAuth;
+  const {reviewChanges} = require("./lib/authReview");
+  const reopened = isHighValue ? reviewChanges(cur, {title, brand, photos}) : [];
   if (cur.authReviewState === "rejected") {
     // An edit (or a lower price) never clears a rejected review.
+  } else if (reopened.length) {
+    // 2026-11-23 (Jake): what was approved is no longer what is listed. Both
+    // ad feeds drop it on their next rebuild; the listing stays for sale.
+    update.authReviewState = "pending";
+    update.authReviewReopenedAt = admin.firestore.FieldValue.serverTimestamp();
+    update.authReviewReason = "Changed after approval: " + reopened.join(", ");
   } else if (isHighValue && !wasHighValue) {
     update.authReviewState = "pending";
   } else if (!isHighValue && wasHighValue) {
@@ -7095,6 +7049,15 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   } catch (e) {
     logger.error("updateListing write failed", e);
     throw new HttpsError("internal", "Could not save your changes.");
+  }
+  if (update.authReviewState === "pending" && reopened.length) {
+    try {
+      await require("./lib/authReviewEmail").sendReviewEmail(
+          {id: listingId, sellerId: uid, title, status, decisionN: Number(cur.authReviewDecisionN) || 0},
+          "reopen", reopened.join(", "));
+    } catch (e) {
+      logger.error("updateListing: review email failed", {listingId, error: String(e && e.message || e)});
+    }
   }
   // Storage GC for photos the seller removed (after the write, best-effort;
   // never fails the edit).
@@ -7471,7 +7434,7 @@ exports.moderateOfferOnCreate = onDocumentCreated(
 //   single-doc read.
 //
 //   USER ACTION: after `firebase deploy --only functions:backfillGlobalStats`
-//   call this once from the browser as the admin (jakenair23@gmail.com):
+//   call this once from the browser as an admin:
 //
 //     firebase.functions().httpsCallable('backfillGlobalStats')()
 //
@@ -7483,18 +7446,12 @@ exports.backfillGlobalStats = onCall(
       ...USER_CALLABLE,
       timeoutSeconds: 300,
       memory: "512MiB",
-      secrets: [ADMIN_ALLOWLIST],
     },
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in");
       }
-      const email = request.auth.token && request.auth.token.email;
-      const verified = request.auth.token &&
-        request.auth.token.email_verified === true;
-      if (!verified || !isAdminEmail(email)) {
-        throw new HttpsError("permission-denied", "Admin only");
-      }
+      adminGate(request);
       // Destructive bulk write — require a fresh re-auth within 5 min.
       requireFreshAdminAuth(request);
 

@@ -165,7 +165,7 @@ function pruneAtDeletion(listing, objPath, trip) {
     removedPhotoUrl: p.removedUrl,   // null if the URL was not in photos[]
     photoDeleted: true,
   };
-  const update = {status: "flagged", moderationFlags: flags};
+  const update = {...flagStatus(listing), moderationFlags: flags};
   if (p.changed) {
     update.photos = p.photos;
     update.photoVariants = p.photoVariants;
@@ -173,11 +173,25 @@ function pruneAtDeletion(listing, objPath, trip) {
   return {update, empty, removedUrl: p.removedUrl};
 }
 
+/**
+ * Takedowns are sticky (2026-11-23): photo moderation may record a flag on a
+ * removed or sold listing but never moves its status. "flagged" has a
+ * self-heal back to "active", so writing it here would put an admin takedown
+ * (or a sold item) back on sale after one bad photo and one clean one.
+ * @param {object} listing
+ * @return {{status: (string|undefined)}}
+ */
+function flagStatus(listing) {
+  const st = listing && listing.status;
+  return st === "removed" || st === "sold" ? {} : {status: "flagged"};
+}
+
 module.exports = {
   objectPathFromUrl,
   prunePhotoByPath,
   variantGaps,
   planApproval,
+  flagStatus,
   pruneAtDeletion,
   TERMINAL_STATUSES,
 };

@@ -28,7 +28,7 @@ const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
-const {adminGate, requireFreshAdminAuth, ADMIN_ALLOWLIST} = require("./lib/adminGate");
+const {adminGate, requireFreshAdminAuth} = require("./lib/adminGate");
 const {opsAlert, OPS_ALERT_WEBHOOK} = require("./opsAlert");
 
 const ADMIN_HOLDS_URL = "https://teeboxmarket.com/?admin=holds";
@@ -157,7 +157,7 @@ exports.onMessageHoldCreated = onDocumentCreated(
 
 // ── Admin: list ─────────────────────────────────────────────────────
 exports.listMessageHolds = onCall(
-    {...FN, secrets: [ADMIN_ALLOWLIST]},
+    {...FN},
     async (req) => {
       adminGate(req);
       const d = req.data || {};
@@ -230,7 +230,7 @@ function holdIdFrom(req) {
 
 // ── Admin: approve (deliver) ────────────────────────────────────────
 exports.releaseHold = onCall(
-    {...FN, secrets: [ADMIN_ALLOWLIST]},
+    {...FN},
     async (req) => {
       adminGate(req);
       requireFreshAdminAuth(req);
@@ -291,7 +291,7 @@ exports.releaseHold = onCall(
 
 // ── Admin: reject ───────────────────────────────────────────────────
 exports.rejectHold = onCall(
-    {...FN, secrets: [ADMIN_ALLOWLIST]},
+    {...FN},
     async (req) => {
       adminGate(req);
       requireFreshAdminAuth(req);

@@ -26,30 +26,12 @@ service cloud.firestore {
       return true;
     }
 
-    // Admin email allowlist — DEFENSE-IN-DEPTH backstop.
-    //
-    // The canonical admin allowlist now lives in the ADMIN_ALLOWLIST
-    // Firebase Secret, read by the Cloud Function callables (banUser,
-    // suspendUser, takeDownListing, refundOrder admin path,
-    // backfillGlobalStats — see isAdminEmail()/adminGate() in
-    // functions/index.js). Firestore rules CANNOT read Firebase
-    // Secrets, so we keep a hardcoded literal here as a second line of
-    // defense. When admins are added/removed, update both:
-    //   1. ADMIN_ALLOWLIST secret (firebase functions:secrets:set)
-    //   2. The literal in this file + storage.rules
-    // Future iteration: move to Firebase custom claims
-    // (request.auth.token.admin == true) to eliminate this duplication.
-    //
-    // Email is on the JWT — Firebase Auth populates
-    // request.auth.token.email when the provider supplies one
-    // (Google, email/password, Apple-with-email). Phone-only sign-ins
-    // have no email so this check naturally excludes them.
+    // Admin = the custom claim admin:true (2026-11-23). Only the Admin SDK
+    // can set it (functions/scripts/set-admin-claim.cjs); the functions
+    // check the same claim in lib/adminGate.js.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in [
-          'jakenair23@gmail.com'
-        ];
+        && request.auth.token.get('admin', false) == true;
     }
 
     // Email-verified gate. Used to block write-heavy actions (listing
@@ -362,6 +344,11 @@ service cloud.firestore {
              ['status','expiresAt','updatedAt','photos','hiddenReason'])
         && (!('expiresAt' in next.keys()) || next.expiresAt is timestamp)
         && (!('updatedAt' in next.keys()) || next.updatedAt is timestamp)
+        // 2026-11-23: an approved authenticity review covers these photos, so
+        // they change only through updateListing, which sends the listing
+        // back to review.
+        && (!next.diff(prev).affectedKeys().hasAny(['photos'])
+            || prev.get('authReviewState', 'na') != 'approved')
         && (!('photos' in next.keys()) || (
               next.photos is list
               && next.photos.size() <= 10

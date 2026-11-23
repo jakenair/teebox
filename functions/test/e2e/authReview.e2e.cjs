@@ -3,20 +3,19 @@
 // Run: firebase emulators:exec --only firestore --project=demo-teebox "node test/e2e/authReview.e2e.cjs"
 if (!process.env.FIRESTORE_EMULATOR_HOST) { console.error("emulator only"); process.exit(2); }
 process.env.GCLOUD_PROJECT = "demo-teebox";
-process.env.ADMIN_ALLOWLIST = "admin@example.test";
 const assert = require("node:assert/strict");
 const admin = require("firebase-admin");
-admin.initializeApp({projectId: "demo-teebox"});
+admin.initializeApp();
 const db = admin.firestore();
 const sent = [];
 const path = require("node:path");
-const stub = (p, exp) => { const f = require.resolve(path.join("../..", p)); require.cache[f] = {id: f, filename: f, loaded: true, exports: exp}; };
+const stub = (p, exp) => { const f = require.resolve(path.join("../..", p)); const real = require(f); require.cache[f].exports = {...real, ...exp}; };
 stub("lib/email", {sendEmail: async (m) => { sent.push(m); return {ok: true}; }});
 stub("lib/emailRecipient", {resolveUserEmail: async (uid) => ({email: uid === "noemail" ? null : `${uid}@example.test`})});
 const {decideAuthReview, listAuthReviews} = require("../../authReviewAdmin");
 const {_feed: F} = require("../../metaFeed");
 const now = () => Math.floor(Date.now() / 1000);
-const auth = (o) => ({uid: "adm", token: {email: "admin@example.test", email_verified: true, auth_time: now(), ...o}});
+const auth = (o) => ({uid: "adm", token: {admin: true, email: "admin@example.test", auth_time: now(), ...o}});
 const run = (fn, data, a) => fn.run({auth: a === undefined ? auth() : a, data, rawRequest: {}});
 const fails = async (p, code) => { try { await p; } catch (e) { assert.equal(e.code, code, e.message); return e; } throw new Error("expected " + code); };
 const L = (o) => ({title: "Putter", brand: "B", cat: "clubs", ask: 400, sellerId: "s1", status: "active", requiresAuth: true,
@@ -28,11 +27,11 @@ let n = 0; const ok = (m) => { n++; console.log("ok", n, m); };
     listE5: {authReviewState: "approved"}, listF6: {status: "sold"}, listG7: {sellerId: "noemail"}})) await db.doc("listings/" + id).set(L(o));
   const get = async (id) => (await db.doc("listings/" + id).get()).data();
   await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, null), "unauthenticated"); ok("signed out refused");
-  await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, auth({email: "x@example.test"})), "permission-denied"); ok("non-admin refused");
-  await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, auth({email_verified: false})), "permission-denied"); ok("unverified email refused");
+  await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, auth({admin: undefined})), "permission-denied"); ok("non-admin refused");
+  await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, auth({admin: "true"})), "permission-denied"); ok("a string claim is refused");
   const e = await fails(run(decideAuthReview, {listingId: "listA1", decision: "approve"}, auth({auth_time: now() - 900})), "failed-precondition");
   assert.equal(e.details.reauthRequired, true); ok("stale sign-in asks for re-auth");
-  await fails(run(listAuthReviews, {}, auth({email: "x@example.test"})), "permission-denied"); ok("list is admin only");
+  await fails(run(listAuthReviews, {}, auth({admin: undefined})), "permission-denied"); ok("list is admin only");
   assert.deepEqual((await run(listAuthReviews, {})).items.map((i) => i.listingId).sort(), ["listA1", "listB2", "listC3", "listG7"]); ok("queue = undecided, live ones only");
   assert.equal(F.feedRow({id: "listA1", ...await get("listA1")}), null); ok("not in the feed while pending");
   let r = await run(decideAuthReview, {listingId: "listA1", decision: "approve"});
@@ -55,5 +54,26 @@ let n = 0; const ok = (m) => { n++; console.log("ok", n, m); };
   await fails(run(decideAuthReview, {listingId: "nothere", decision: "approve"}), "not-found"); ok("missing listing");
   r = await run(decideAuthReview, {listingId: "listG7", decision: "approve"}); assert.equal(r.emailed, false); assert.equal((await get("listG7")).authReviewState, "approved"); ok("no seller email: decision still saved, reported");
   assert.equal((await db.collection("adminActions").get()).size, 4); ok("every decision logged");
+  // updateListing: an edit to an approved listing reopens its review.
+  const {updateListing} = require("../../index");
+  const B = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Fs1%2FlistU1%2F";
+  const ph = [1, 2, 3, 4].map((i) => `${B}${i}.jpg?alt=media&token=t`);
+  const U = {title: "Scotty Cameron Newport", brand: "Scotty Cameron", cat: "clubs", condition: "Very Good", desc: "Clean putter with headcover.", photos: ph, ask: 400, quantity: 1};
+  const approved = () => db.doc("listings/listU1").set(L({...U, authReviewState: "approved", authReviewDecisionN: 1, quantitySold: 0}));
+  const edit = (o) => updateListing.run({auth: {uid: "s1", token: {email_verified: true}}, data: {listingId: "listU1", ...U, ...o}, rawRequest: {}});
+  await approved(); const before = sent.length;
+  await edit({ask: 350}); await edit({desc: "Clean putter, headcover and box included."}); await edit({quantity: 2});
+  assert.equal((await get("listU1")).authReviewState, "approved"); assert.equal(sent.length, before); ok("price drop, description, quantity: still approved, no email");
+  for (const [what, o] of [["title", {title: "Scotty Cameron Newport 2"}], ["brand", {brand: "Titleist"}], ["photos", {photos: [...ph.slice(0, 3), B + "9.jpg?alt=media&token=t"]}]]) {
+    await approved(); const s0 = sent.length;
+    await edit(o); l = await get("listU1");
+    assert.equal(l.authReviewState, "pending", what); assert.equal(l.status, "active");
+    assert.equal(F.feedRow({id: "listU1", ...l}), null);
+    assert.equal(sent.length, s0 + 1); assert.match(sent[s0].subject, /^Back in review: /);
+    assert.ok((await render(sent[s0].react)).includes(what));
+    ok(`${what} change: back to review, out of the feeds, seller emailed`);
+    await edit({...o, title: "Another title here"}); assert.equal(sent.length, s0 + 1);
+  }
+  ok("further edits while pending send nothing");
   console.log(`PASS ${n}`); process.exit(0);
 })().catch((err) => { console.error("FAIL", err); process.exit(1); });

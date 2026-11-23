@@ -10,7 +10,6 @@ const assert = require("node:assert/strict");
 const path = require("path");
 const admin = require("firebase-admin");
 
-process.env.ADMIN_ALLOWLIST = "boss@teeboxmarket.com";
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "demo-teebox";
 
 // ── opsAlert stub (captures instead of POSTing) ─────────────────────
@@ -83,7 +82,7 @@ Object.defineProperty(admin, "firestore", {value: fsFn, configurable: true, writ
 const mh = require("../../messageHolds");
 const T = mh._test;
 const NOW_S = Math.floor(Date.now() / 1000);
-const ADMIN = {uid: "admin1", token: {email: "boss@teeboxmarket.com", email_verified: true, auth_time: NOW_S - 30}};
+const ADMIN = {uid: "admin1", token: {admin: true, email: "boss@teeboxmarket.com", auth_time: NOW_S - 30}};
 const STALE = {uid: "admin1", token: {...ADMIN.token, auth_time: NOW_S - 3600}};
 const USER = {uid: "u1", token: {email: "rando@x.com", email_verified: true, auth_time: NOW_S}};
 const call = (fn, auth, data) => fn.run({auth, data, rawRequest: {headers: {}}});

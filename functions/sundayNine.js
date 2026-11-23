@@ -24,7 +24,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const core = require("./lib/sundayNineCore");
-const {adminGate, ADMIN_ALLOWLIST} = require("./lib/adminGate");
+const {adminGate} = require("./lib/adminGate");
 const PLAYERS = require("./data/sunday-nine-players.json").players;
 const PINNED = require("./data/sunday-nine-grids.json").grids;
 // Rule set per date: a copy of /sunday-nine/rules.json (the file clients
@@ -161,7 +161,7 @@ function scoreSubmission(date, guesses, gaveUp, stored) {
   };
 }
 
-exports.syncSundayNine = onCall({...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]}, async (request) => {
+exports.syncSundayNine = onCall({...USER_CALLABLE}, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to save your round.");
   const data = request.data || {};

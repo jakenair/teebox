@@ -96,6 +96,9 @@ async function clearAutoFlagIfClean(deps, args) {
     if (data.status !== "flagged") return false;
     // 2026-11-23: a clean photo never undoes a rejected authenticity review.
     if (data.authReviewState === "rejected") return false;
+    // Takedowns are sticky: a listing that was ever removed is restored only
+    // by an admin (the flag may have been written over the takedown).
+    if (data.removedAt || data.removedReason) return false;
 
     const mf = data.moderationFlags || {};
     if (!isAutoRaisedFlag(mf)) {

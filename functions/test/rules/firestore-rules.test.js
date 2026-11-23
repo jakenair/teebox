@@ -373,3 +373,29 @@ test("r422: payoutReminders log is server-only", async () => {
   await assertFails(getDoc(doc(db(u), "payoutReminders", "unready4")));
   await assertFails(setDoc(doc(db(u), "payoutReminders", "unready4"), {cancelledAtMs: 1}));
 });
+
+// ─────────────────────────────────────────────────────────────
+// 2026-11-23 — admin is the admin:true custom claim; an approved
+// authenticity review locks direct photo writes.
+// ─────────────────────────────────────────────────────────────
+test("admin reads need the admin claim; a verified email is not enough", async () => {
+  await seed("flaggedListings", "F1", {listingId: "F1"});
+  const claim = testEnv.authenticatedContext("boss", {admin: true});
+  const email = testEnv.authenticatedContext("boss2", {email: "owner@example.test", email_verified: true});
+  const str = testEnv.authenticatedContext("boss3", {admin: "true"});
+  await assertSucceeds(getDoc(doc(db(claim), "flaggedListings", "F1")));
+  for (const c of [email, str, testEnv.authenticatedContext("x"), testEnv.unauthenticatedContext()]) {
+    await assertFails(getDoc(doc(db(c), "flaggedListings", "F1")));
+  }
+});
+
+test("approved review: the owner can't swap photos with a direct write; pending still can", async () => {
+  const mine = {...listingCreateDoc("rev1"), requiresAuth: true, ask: 400};
+  await seed("listings", "RV1", {...mine, authReviewState: "approved"});
+  await seed("listings", "RV2", {...mine, authReviewState: "pending"});
+  const me = testEnv.authenticatedContext("rev1", {email_verified: true});
+  const photos = {photos: [STORAGE_URL], updatedAt: serverTimestamp()};
+  await assertFails(updateDoc(doc(db(me), "listings", "RV1"), photos));
+  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV1"), {updatedAt: serverTimestamp()}));
+  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV2"), photos));
+});

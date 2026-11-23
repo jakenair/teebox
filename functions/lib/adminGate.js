@@ -1,37 +1,23 @@
 /**
- * functions/lib/adminGate.js — the admin allowlist check for standalone
- * callable modules. Same semantics as adminGate()/isAdminEmail() in index.js
- * (ADMIN_ALLOWLIST secret, comma-separated, verified email required); lives
- * here so new modules stop re-pasting it. Every callable using it must bind
- * ADMIN_ALLOWLIST in its `secrets:` array.
+ * functions/lib/adminGate.js — the ONE admin check for every callable.
+ *
+ * Admin = the custom claim admin:true on the caller's ID token (2026-11-23,
+ * replaces the old email allowlist). Only the Admin SDK can set it:
+ * functions/scripts/set-admin-claim.cjs. firestore.rules and storage.rules
+ * check the same claim. An email address never grants anything.
  */
 "use strict";
 const {HttpsError} = require("firebase-functions/v2/https");
-const {defineSecret} = require("firebase-functions/params");
 
-const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
-
-let _list = null;
-function adminEmails() {
-  if (_list) return _list;
-  let raw = "";
-  try {
-    raw = ADMIN_ALLOWLIST.value() || "";
-  } catch (_e) {
-    raw = "";
-  }
-  _list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return _list;
+/** @param {object} auth request.auth @return {boolean} */
+function isAdminAuth(auth) {
+  return !!(auth && auth.token && auth.token.admin === true);
 }
 
-/** Throws HttpsError unless the caller is a verified allowlisted admin. */
+/** Throws HttpsError unless the caller carries the admin claim. */
 function adminGate(req) {
   if (!req || !req.auth) throw new HttpsError("unauthenticated", "Sign in required");
-  const email = (req.auth.token && req.auth.token.email) || "";
-  const verified = !!(req.auth.token && req.auth.token.email_verified);
-  if (!verified || !adminEmails().includes(String(email).toLowerCase())) {
-    throw new HttpsError("permission-denied", "Admin only");
-  }
+  if (!isAdminAuth(req.auth)) throw new HttpsError("permission-denied", "Admin only");
 }
 
 // Step-up re-auth for destructive/delivering admin actions — same semantics
@@ -48,4 +34,4 @@ function requireFreshAdminAuth(req, nowSecs) {
   }
 }
 
-module.exports = {adminGate, requireFreshAdminAuth, ADMIN_ALLOWLIST};
+module.exports = {adminGate, isAdminAuth, requireFreshAdminAuth};

@@ -64,4 +64,23 @@ function planDecision(l, decision, reason) {
   return {update};
 }
 
-module.exports = {HIGH_VALUE_USD, needsAuthReview, authReviewPassed, planDecision};
+/**
+ * What a seller's edit changed that an approval covered: photos, title or
+ * brand. Empty unless the listing needs review and is approved now. Price,
+ * description, quantity and photo ORDER don't count.
+ * @param {object} cur listing before the edit
+ * @param {{title: string, brand: string, photos: string[]}} next
+ * @return {string[]}
+ */
+function reviewChanges(cur, next) {
+  if (!needsAuthReview(cur) || cur.authReviewState !== "approved") return [];
+  const t = (v) => String(v == null ? "" : v).trim();
+  const set = (a) => JSON.stringify([...new Set((Array.isArray(a) ? a : []).map(String))].sort());
+  const out = [];
+  if (set(cur.photos) !== set(next.photos)) out.push("photos");
+  if (t(cur.title) !== t(next.title)) out.push("title");
+  if (t(cur.brand) !== t(next.brand)) out.push("brand");
+  return out;
+}
+
+module.exports = {HIGH_VALUE_USD, needsAuthReview, authReviewPassed, planDecision, reviewChanges};

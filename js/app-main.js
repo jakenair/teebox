@@ -14710,15 +14710,20 @@ function openInfo(id) {
 }
 
 // ─── Admin moderation queue (?admin=moderation) ───────────────
-// Hardcoded email gate — kept in sync with firestore.rules and
-// storage.rules isAdmin(). Anyone else who hits the deep link
-// gets a "Not authorized" toast and the URL is cleared.
-const MODERATION_ADMIN_EMAILS = new Set(['jakenair23@gmail.com']);
-function isModerationAdmin() {
-  const u = window.CURRENT_USER;
-  if (!u || !u.email) return false;
-  if (!u.emailVerified) return false;
-  return MODERATION_ADMIN_EMAILS.has(String(u.email).toLowerCase());
+// Shown only to accounts with the admin:true custom claim. This is just the
+// UI: every admin function and the Firestore / Storage rules check the same
+// claim themselves. Anyone else who hits the deep link gets a
+// "Not authorized" toast and the URL is cleared.
+async function isModerationAdmin() {
+  try {
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js');
+    const u = getAuth().currentUser;
+    if (!u) return false;
+    let r = await u.getIdTokenResult();
+    // A token issued before the claim was set doesn't carry it yet.
+    if (!r.claims.admin) r = await u.getIdTokenResult(true);
+    return r.claims.admin === true;
+  } catch (_e) { return false; }
 }
 A['close-moderation']        = () => {
   const bd = document.getElementById('moderationBackdrop');
@@ -14735,7 +14740,7 @@ A['close-moderation']        = () => {
   } catch (_e) {}
 };
 async function openModerationQueue() {
-  if (!isModerationAdmin()) {
+  if (!(await isModerationAdmin())) {
     if (window.showToast) window.showToast('Not authorized.', 'error');
     // Strip the query param so non-admins don't see the modal.
     try {
@@ -14928,7 +14933,7 @@ async function adminCallableFresh(name, data) {
   }
 }
 async function openHoldsQueue(focusId) {
-  if (!isModerationAdmin()) {
+  if (!(await isModerationAdmin())) {
     if (window.showToast) window.showToast('Not authorized.', 'error');
     try {
       const u = new URL(window.location.href);

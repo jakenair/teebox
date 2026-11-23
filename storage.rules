@@ -10,21 +10,12 @@ service firebase.storage {
       return true;
     }
 
-    // Admin allowlist — DEFENSE-IN-DEPTH backstop. Canonical source is
-    // now the ADMIN_ALLOWLIST Firebase Secret consumed by Cloud
-    // Function callables (see isAdminEmail()/adminGate() in
-    // functions/index.js). Storage rules cannot read secrets, so this
-    // hardcoded literal stays here as a second line of defense. Keep
-    // in sync with firestore.rules isAdmin() and the secret value.
-    // Used by the moderation queue's "Reject + delete" path so admin
-    // can purge a flagged listing's photos directly from the client
-    // without needing a callable function.
+    // Admin = the custom claim admin:true (2026-11-23), same as
+    // firestore.rules. Used by the moderation queue's "Reject + delete" path
+    // so an admin can purge a flagged listing's photos from the client.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in [
-          'jakenair23@gmail.com'
-        ];
+        && request.auth.token.get('admin', false) == true;
     }
 
     // Listing photos — path encodes sellerId so we don't need a cross-service

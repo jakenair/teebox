@@ -35,7 +35,7 @@ const admin = require("firebase-admin");
 const {sendEmail, CATEGORIES, RESEND_API_KEY, UNSUBSCRIBE_SECRET} =
   require("./lib/email");
 
-const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
+const {adminGate} = require("./lib/adminGate");
 
 const FN = {
   region: "us-central1",
@@ -55,30 +55,6 @@ const REPLY_TO = "support@teeboxmarket.com";
 
 const TEST_EMAIL_RE =
   /teeboxtest|teeboxmarket\.invalid|teeboxtest\.invalid|modtest-|smoke-test/i;
-
-// Same parse as index.js getAdminList — duplicated rather than imported
-// because index.js does not export it and requiring index.js from a sibling
-// module would load every function at cold start.
-let _adminList = null;
-function adminEmails() {
-  if (_adminList) return _adminList;
-  let raw = "";
-  try {
-    raw = ADMIN_ALLOWLIST.value() || "";
-  } catch (_e) {
-    raw = "";
-  }
-  _adminList = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return _adminList;
-}
-function adminGate(req) {
-  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in required");
-  const email = (req.auth.token && req.auth.token.email) || "";
-  const verified = !!(req.auth.token && req.auth.token.email_verified);
-  if (!verified || !adminEmails().includes(String(email).toLowerCase())) {
-    throw new HttpsError("permission-denied", "Admin only");
-  }
-}
 
 function toMs(v) {
   if (!v) return 0;
@@ -144,7 +120,7 @@ async function listAllUsers() {
 }
 
 exports.runSellerInviteCampaign = onCall(
-    {...FN, secrets: [ADMIN_ALLOWLIST, RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
+    {...FN, secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET]},
     async (req) => {
       adminGate(req);
       const data = req.data || {};

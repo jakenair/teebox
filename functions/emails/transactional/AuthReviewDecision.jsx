@@ -18,6 +18,23 @@ function AuthReviewDecision({listingId = "", title = "your listing", decision = 
       </Base>
     );
   }
+  if (decision === "reopen") {
+    return (
+      <Base preview="Your edit sent this listing back for a quick review." category="transactional">
+        <Kicker>Back in review</Kicker>
+        <H1>We are checking your listing again</H1>
+        <P>
+          You changed the {reason} on <strong>{title}</strong>. Listings at $300
+          and up are reviewed again when the photos, title or brand change.
+        </P>
+        <P>
+          It is still for sale. We just leave it out of our ads until the review
+          is done, and we will email you when it is. Nothing is needed from you.
+        </P>
+        <Button href={url}>View your listing</Button>
+      </Base>
+    );
+  }
   return (
     <Base preview="Your listing did not pass our authenticity review." category="transactional">
       <Kicker>Review complete</Kicker>
@@ -36,6 +53,8 @@ function AuthReviewDecision({listingId = "", title = "your listing", decision = 
 }
 
 module.exports = AuthReviewDecision;
-module.exports.subject = ({title, decision} = {}) => decision === "approve" ?
-  `Approved: ${title || "your TeeBox listing"}` :
-  `Not approved: ${title || "your TeeBox listing"}`;
+module.exports.subject = ({title, decision} = {}) => {
+  const t = title || "your TeeBox listing";
+  if (decision === "approve") return `Approved: ${t}`;
+  return decision === "reopen" ? `Back in review: ${t}` : `Not approved: ${t}`;
+};

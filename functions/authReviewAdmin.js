@@ -1,6 +1,6 @@
 /**
  * functions/authReviewAdmin.js — admin decisions on high-value listings
- * (2026-11-23). Two admin-only callables behind ?admin=authreview:
+ * (2026-11-23). Two admin-only callables behind /admin/review/:
  *
  *   listAuthReviews()                                  → {items: [...]}
  *   decideAuthReview({listingId, decision, reason?})   → {ok, noop?, emailed}
@@ -15,32 +15,13 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
-const {adminGate, requireFreshAdminAuth, ADMIN_ALLOWLIST} = require("./lib/adminGate");
+const {adminGate, requireFreshAdminAuth} = require("./lib/adminGate");
 const {needsAuthReview, planDecision} = require("./lib/authReview");
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const FN = {region: "us-central1", memory: "256MiB", timeoutSeconds: 60, maxInstances: 5};
 
-async function notifySeller(listing, decision, reason) {
-  const {resolveUserEmail} = require("./lib/emailRecipient");
-  const {email} = await resolveUserEmail(listing.sellerId, null, (u) => admin.auth().getUser(u));
-  if (!email) return false;
-  const Tpl = require("./emails-build/transactional/AuthReviewDecision");
-  const ctx = {listingId: listing.id, title: listing.title || "your listing", decision, reason,
-    live: listing.status === "active"};
-  await require("./lib/email").sendEmail({
-    to: email,
-    uid: listing.sellerId,
-    subject: Tpl.subject(ctx),
-    react: Tpl(ctx),
-    category: "transactional",
-    template: "AuthReviewDecision",
-    idempotencyKey: `auth-review-${listing.id}-${decision}-${listing.decisionN}`,
-  });
-  return true;
-}
-
-exports.listAuthReviews = onCall({...FN, secrets: [ADMIN_ALLOWLIST]}, async (req) => {
+exports.listAuthReviews = onCall({...FN}, async (req) => {
   adminGate(req);
   const db = admin.firestore();
   const snap = await db.collection("listings").where("ask", ">=", 300).limit(500).get();
@@ -54,8 +35,8 @@ exports.listAuthReviews = onCall({...FN, secrets: [ADMIN_ALLOWLIST]}, async (req
   const ids = [...new Set(rows.map((l) => String(l.sellerId || "")).filter(Boolean))];
   const names = {};
   if (ids.length) {
-    const ps = await db.getAll(...ids.map((id) => db.doc(`publicProfiles/${id}`)));
-    for (const p of ps) names[p.id] = p.exists ? (p.data().displayName || p.data().handle || "") : "";
+    const us = await db.getAll(...ids.map((id) => db.doc(`users/${id}`)));
+    for (const u of us) names[u.id] = u.exists ? String(u.data().displayName || "") : "";
   }
   return {items: rows.map((l) => ({
     listingId: l.id, title: l.title || "", brand: l.brand || "", ask: Number(l.ask) || 0,
@@ -65,7 +46,7 @@ exports.listAuthReviews = onCall({...FN, secrets: [ADMIN_ALLOWLIST]}, async (req
   }))};
 });
 
-exports.decideAuthReview = onCall({...FN, secrets: [ADMIN_ALLOWLIST, RESEND_API_KEY]}, async (req) => {
+exports.decideAuthReview = onCall({...FN, secrets: [RESEND_API_KEY]}, async (req) => {
   adminGate(req);
   requireFreshAdminAuth(req);
   const d = req.data || {};
@@ -101,7 +82,7 @@ exports.decideAuthReview = onCall({...FN, secrets: [ADMIN_ALLOWLIST, RESEND_API_
   if (!after) return {ok: true, noop: true, emailed: false};
   let emailed = false;
   try {
-    emailed = await notifySeller(after, decision, reason);
+    emailed = await require("./lib/authReviewEmail").sendReviewEmail(after, decision, reason);
   } catch (e) {
     logger.error("decideAuthReview: seller email failed", {listingId, error: String(e && e.message || e)});
   }
