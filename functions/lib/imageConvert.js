@@ -56,4 +56,58 @@ async function convertToWebp(inputBuf) {
   }
 }
 
-module.exports = {convertToWebp};
+// Biggest photo an import may hold: 60 megapixels (a 48MP phone fits).
+const MAX_IMPORT_PIXELS = 60e6;
+
+/** Largest width x height a HEIC file declares (its "ispe" boxes), or 0. */
+function heicPixels(buf) {
+  const head = buf.subarray(0, 256 * 1024);
+  let max = 0;
+  for (let i = head.indexOf("ispe"); i >= 0; i = head.indexOf("ispe", i + 4)) {
+    if (i + 16 > head.length) break;
+    max = Math.max(max, head.readUInt32BE(i + 8) * head.readUInt32BE(i + 12));
+  }
+  return max;
+}
+
+let decodeQueue = Promise.resolve();
+
+/**
+ * Would convertToWebp be able to read this file? Runs the same decode (without
+ * the encode), one photo at a time per instance because a HEIC decode is
+ * large. Used before an imported photo is stored, so a file the safety
+ * scanner can't read never reaches a listing.
+ * @param {Buffer} buf
+ * @return {Promise<string|null>} why not (for the seller), or null
+ */
+function checkDecodes(buf) {
+  const run = decodeQueue.then(() => decodeProblem(buf));
+  decodeQueue = run.catch(() => {});
+  return run;
+}
+
+async function decodeProblem(buf) {
+  const sharp = require("sharp");
+  const tooBig = "the photo has too many pixels (60 megapixels at most)";
+  try {
+    const m = await sharp(buf).metadata();
+    if ((m.width || 0) * (m.height || 0) > MAX_IMPORT_PIXELS) return tooBig;
+  } catch (_e) { /* not sharp-readable: the decode below decides */ }
+  try {
+    await sharp(buf).rotate()
+        .resize({width: 2048, height: 2048, fit: "inside", withoutEnlargement: true}).raw().toBuffer();
+    return null;
+  } catch (_e) { /* maybe HEIC */ }
+  const px = heicPixels(buf);
+  if (px > MAX_IMPORT_PIXELS) return tooBig;
+  if (px > 0) {
+    try {
+      const jpeg = await require("heic-convert")({buffer: buf, format: "JPEG", quality: 1});
+      await sharp(jpeg).rotate().resize({width: 64}).raw().toBuffer();
+      return null;
+    } catch (_e) { /* falls through */ }
+  }
+  return "the file is damaged or isn't a photo we can read";
+}
+
+module.exports = {convertToWebp, checkDecodes, heicPixels, MAX_IMPORT_PIXELS};
