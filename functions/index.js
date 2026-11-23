@@ -8394,9 +8394,10 @@ Object.assign(exports, require("./moderationApprove"));
 Object.assign(exports, require("./authReviewAdmin"));
 // Seller delete, refused while a buyer is checking out. See deleteListing.js.
 Object.assign(exports, require("./deleteListing"));
-// Seller API v1, SANDBOX ONLY (live keys refused; sellerApiConfig.LIVE_API_ENABLED).
-// The seller-facing callables in sellerApi.js are not exported until live opens.
-exports.sellerApi = require("./sellerApi").sellerApi;
+// Seller API v1. Sandbox only until sellerApiConfig.LIVE_API_ENABLED. The
+// Connected tools callables list and revoke connections; they refuse to make
+// new ones until then.
+Object.assign(exports, require("./sellerApi"));
 Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));

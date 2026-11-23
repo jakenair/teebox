@@ -11115,6 +11115,11 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">Connected sign-in methods</span>
              <span class="account-hub-chev">›</span>
            </button>
+           ${(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? '' : `
+           <button class="account-hub-item" data-action="open-connected-tools" type="button">
+             <span class="account-hub-label">Connected tools</span>
+             <span class="account-hub-chev">›</span>
+           </button>`}
            <button class="account-hub-item" data-action="open-shipping-settings" type="button">
              <span class="account-hub-label">Shipping</span>
              <span class="account-hub-chev">›</span>
@@ -15048,7 +15053,9 @@ try {
 // closes the drawer on link tap (open-about gets away with it because the info
 // backdrop sits above it; the dashboard does not).
 A['open-shop-dashboard']     = () => { A['close-mobile-nav'](); if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
-A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
+// Web only (the page isn't in the app bundle; the row is hidden there too).
+A['open-connected-tools']    = () => { window.location.href = '/settings/tools/'; };
+A['open-inbox']              =() => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
 A['open-modal-buy']          = () => {
