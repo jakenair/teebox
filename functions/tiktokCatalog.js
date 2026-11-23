@@ -31,6 +31,8 @@ const crypto = require("crypto");
 const {_feed: F} = require("./metaFeed");
 
 const IMG_BASE = "https://teebox-market.web.app/feeds/tiktok/img";
+// Named: a gcloud-created function has no storageBucket in FIREBASE_CONFIG.
+const BUCKET = "teebox-market.firebasestorage.app";
 const CACHE_SECONDS = 600;
 const MAX_ROWS = 5000;
 const TITLE_MAX = 150;
@@ -210,7 +212,7 @@ async function serveCsv(req, res) {
     const [testSellers, unbuyableSellers] = await Promise.all([
       F.loadTestSellers(), F.loadUnbuyableSellers(listings)]);
     const built = buildTikTokCsv(listings, {
-      testSellers, unbuyableSellers, now, bucketName: admin.storage().bucket().name});
+      testSellers, unbuyableSellers, now, bucketName: BUCKET});
     _cache = {at: now, csv: built.csv, rows: built.rows};
     logger.info("tiktokCatalog: rebuilt", {rows: built.rows, skipped: built.skipped,
       unbuyableSellers: unbuyableSellers.size});
@@ -234,7 +236,7 @@ async function serveImage(route, res) {
   // Same rows as the CSV: nothing removed, expired, hidden or test.
   if (!l || !F.feedEligibleStatus(l) ||
       require("./lib/testAccounts").isTestListingDoc(l, l.id)) return notFound(res);
-  const bucket = admin.storage().bucket();
+  const bucket = admin.storage().bucket(BUCKET);
   const url = (Array.isArray(l.photos) ? l.photos : []).find((u) => photoHash(u) === route.hash);
   const objectPath = url && listingObjectPath(url, bucket.name);
   if (!objectPath) return notFound(res);
