@@ -39,8 +39,34 @@ const CREATE_WHITELIST = [
 ];
 const CREATE_REQUIRED = ["sellerId", "title", "brand", "cat", "ask", "condition", "createdAt", "status", "expiresAt"];
 
-const str = (v) => (v == null ? "" : String(v)).trim();
+// Only plain values are text: an object or list is never turned into some.
+const str = (v) => (v == null || typeof v === "object" || typeof v === "function" ? "" : String(v)).trim();
+const short = (s) => (s.length > 40 ? s.slice(0, 40) + "..." : s);
 const norm = (v) => str(v).toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Why a piece of text can't be stored or shown, or null. Control characters,
+ * characters that flip the reading direction, broken Unicode, and (for a
+ * title or brand) text with nothing visible in it.
+ */
+function textProblem(s, {visible = false} = {}) {
+  if (!s.isWellFormed()) return "has a character that can't be saved.";
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/.test(s)) return "has a hidden control character. Remove it.";
+  if (visible && s && !/[\p{L}\p{N}\p{P}\p{S}]/u.test(s.replace(/[\u115F\u1160\u3164\uFFA0\u2800]/g, ""))) return "has no visible text.";
+  return null;
+}
+
+/** A listing's spec values as content-filter fields. */
+function specScanFields(specs) {
+  const out = {};
+  for (const [k, v] of Object.entries(specs && typeof specs === "object" ? specs : {}).slice(0, MAX_SPECS + 1)) {
+    let s = "";
+    try { s = String(v == null ? "" : v); } catch (_e) { /* not text */ }
+    if (s.trim()) out["spec_" + k] = s;
+  }
+  return out;
+}
 
 /** Match a user-typed value to one of a select's options (case/spacing/unit tolerant). */
 function matchOption(value, options) {
@@ -74,14 +100,19 @@ function validateListingInput(input) {
   if (!brand) err("brand", "Add the brand (or \"Unbranded\").");
   else if (brand.length > 60) err("brand", "Brand is too long (max 60 characters).");
 
+  const titleBad = textProblem(title, {visible: true});
+  if (titleBad) err("title", "Title " + titleBad);
+  const brandBad = textProblem(brand, {visible: true});
+  if (brandBad) err("brand", "Brand " + brandBad);
+
   const condition = matchOption(i.condition, SPECS.conditions);
   if (!str(i.condition)) err("condition", "Pick a condition.");
   else if (!condition) err("condition", `Condition must be one of: ${SPECS.conditions.join(", ")}.`);
 
   const specKey = norm(i.category).replace(/ /g, "-");
-  const spec = SPECS.categories[specKey];
+  const spec = Object.hasOwn(SPECS.categories, specKey) ? SPECS.categories[specKey] : undefined;
   if (!specKey) err("category", "Pick what you're selling (e.g. driver, putter, apparel).");
-  else if (!spec) err("category", `Unknown category "${str(i.category)}". Use one of: ${Object.keys(SPECS.categories).join(", ")}.`);
+  else if (!spec) err("category", `Unknown category "${short(str(i.category))}". Use one of: ${Object.keys(SPECS.categories).join(", ")}.`);
 
   // Browse category: implied by the spec category, except "other".
   let cat = spec && spec.browse ? spec.browse : norm(i.cat);
@@ -106,11 +137,13 @@ function validateListingInput(input) {
 
   const desc = str(i.description);
   if (desc.length > 4000) err("description", "Description is too long (max 4,000 characters).");
+  const descBad = textProblem(desc);
+  if (descBad) err("description", "Description " + descBad);
 
   const specs = {};
   if (spec) {
     const given = i.specs && typeof i.specs === "object" ? i.specs : {};
-    const lower = {};
+    const lower = Object.create(null);
     for (const [k, v] of Object.entries(given)) lower[norm(k)] = v;
     for (const f of spec.fields) {
       const raw = str(lower[norm(f.k)] !== undefined ? lower[norm(f.k)] : lower[norm(f.label)]);
@@ -123,7 +156,9 @@ function validateListingInput(input) {
         if (!m) { err("spec:" + f.k, `${f.label} must be one of: ${(f.options || []).join(", ")}.`); continue; }
         specs[f.k] = m;
       } else {
-        specs[f.k] = raw.slice(0, 120);
+        const bad = textProblem(raw);
+        if (bad) { err("spec:" + f.k, `${f.label} ${bad}`); continue; }
+        specs[f.k] = raw.slice(0, 120).toWellFormed();
       }
     }
     if (brand) specs.brand = brand.slice(0, 60); // the Sell form stores brand in specs too
@@ -215,6 +250,6 @@ function rulesCreateCheck(d, {allowServerSource = true, listingId = null} = {}) 
 }
 
 module.exports = {
-  validateListingInput, buildListingDoc, rulesCreateCheck, matchOption,
+  validateListingInput, buildListingDoc, rulesCreateCheck, matchOption, textProblem, specScanFields,
   SPECS, PRICE_FLOOR, HIGH_VALUE, MIN_PHOTOS_HIGH_VALUE, MAX_PHOTOS, CREATE_WHITELIST, STORAGE_URL_RE,
 };

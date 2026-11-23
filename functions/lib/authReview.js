@@ -65,11 +65,26 @@ function planDecision(l, decision, reason) {
 }
 
 /**
- * What a seller's edit changed that an approval covered: photos, title or
- * brand. Empty unless the listing needs review and is approved now. Price,
- * description, quantity and photo ORDER don't count.
+ * A listing's specs as one comparable string. Key order, empty values and the
+ * shipping box size don't count; nor does the copy of the brand the Sell form
+ * keeps in specs (the brand is compared on its own).
+ */
+function specsKey(l) {
+  const t = (v) => String(v == null ? "" : v).trim();
+  const s = l.specs && typeof l.specs === "object" ? l.specs : {};
+  return JSON.stringify(Object.keys(s).sort()
+      .filter((k) => k !== "shipBox" && t(s[k]) && !(k === "brand" && t(s[k]) === t(l.brand)))
+      .map((k) => [k, t(s[k])]));
+}
+
+/**
+ * What a seller's edit changed that an approval covered: photos, title,
+ * brand, category, specs or condition. Empty unless the listing needs review
+ * and is approved now. Price, description, quantity and photo ORDER don't
+ * count. A field missing from `next` was not edited.
  * @param {object} cur listing before the edit
- * @param {{title: string, brand: string, photos: string[]}} next
+ * @param {{title: string, brand: string, photos: string[], cat: (string|undefined), specCategory: (string|undefined),
+ *   specs: (object|undefined), condition: (string|undefined)}} next
  * @return {string[]}
  */
 function reviewChanges(cur, next) {
@@ -80,6 +95,10 @@ function reviewChanges(cur, next) {
   if (set(cur.photos) !== set(next.photos)) out.push("photos");
   if (t(cur.title) !== t(next.title)) out.push("title");
   if (t(cur.brand) !== t(next.brand)) out.push("brand");
+  const changed = (k) => next[k] !== undefined && t(cur[k]) !== t(next[k]);
+  if (changed("cat") || changed("specCategory")) out.push("category");
+  if (next.specs !== undefined && specsKey(cur) !== specsKey(next)) out.push("specs");
+  if (changed("condition")) out.push("condition");
   return out;
 }
 

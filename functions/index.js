@@ -6574,7 +6574,8 @@ exports.moderateListingOnCreate = onDocumentCreated(
       try {
         result = await _scan(
             {title: d.title, brand: d.brand, desc: d.desc,
-              cat: d.cat, condition: d.condition},
+              cat: d.cat, condition: d.condition,
+              ...require("./lib/listingSchema").specScanFields(d.specs)},
             "listing", sellerId, null);
       } catch (e) {
         // scanFields is internally fail-open, but if it ever THROWS, treat it
@@ -7008,7 +7009,8 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   let modResult;
   try {
     modResult = await scanFields(
-        {title, brand, desc, cat, condition},
+        {title, brand, desc, cat, condition,
+          ...require("./lib/listingSchema").specScanFields(data.specs)},
         "listing", uid, request);
   } catch (e) {
     logger.error(
@@ -7098,7 +7100,8 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // dropped below threshold → na.
   const wasHighValue = !!cur.requiresAuth;
   const {reviewChanges} = require("./lib/authReview");
-  const reopened = isHighValue ? reviewChanges(cur, {title, brand, photos}) : [];
+  const reopened = isHighValue ? reviewChanges(cur, {title, brand, photos, cat, condition,
+    ...(specCategory != null ? {specCategory} : {}), ...(specs != null ? {specs} : {})}) : [];
   if (cur.authReviewState === "rejected") {
     // An edit (or a lower price) never clears a rejected review.
   } else if (reopened.length) {
