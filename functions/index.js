@@ -8313,6 +8313,9 @@ Object.assign(exports, require("./emailPauseToggle"));
 Object.assign(exports, require("./moderationApprove"));
 // Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
 Object.assign(exports, require("./authReviewAdmin"));
+// Seller API v1, SANDBOX ONLY (live keys refused; sellerApiConfig.LIVE_API_ENABLED).
+// The seller-facing callables in sellerApi.js are not exported until live opens.
+exports.sellerApi = require("./sellerApi").sellerApi;
 Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));

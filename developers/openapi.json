@@ -1,0 +1,1407 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TeeBox Seller API",
+    "version": "1.0.0",
+    "description": "List, update and end a seller's items on TeeBox. Neither environment is open yet. No payment, payout, refund or order endpoints exist."
+  },
+  "servers": [
+    {
+      "url": "https://us-central1-teebox-market.cloudfunctions.net/sellerApi",
+      "description": "Sandbox (open; test keys on request)"
+    },
+    {
+      "url": "https://api.teeboxmarket.com",
+      "description": "Live (not open yet)"
+    }
+  ],
+  "security": [
+    {
+      "partnerKey": [],
+      "connectionKey": []
+    }
+  ],
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "me",
+        "summary": "Who this connection is",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "environment": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "sandbox"
+                      ]
+                    },
+                    "partner": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "seller": {
+                      "type": "object",
+                      "properties": {
+                        "display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "can_list": {
+                          "type": "boolean"
+                        },
+                        "cannot_list_reason": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "payouts_ready": {
+                          "type": "boolean"
+                        },
+                        "daily_listing_limit": {
+                          "type": "integer"
+                        },
+                        "listings_created_today": {
+                          "type": "integer"
+                        },
+                        "daily_limit_resets_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories": {
+      "get": {
+        "operationId": "categories",
+        "summary": "Categories, spec fields and listing rules",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conditions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "browse_categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "browse_category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "requires_browse_category": {
+                            "type": "boolean"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "select",
+                                    "text"
+                                  ]
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "rules": {
+                      "type": "object"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings": {
+      "get": {
+        "operationId": "list",
+        "summary": "List the seller's listings, oldest change first",
+        "parameters": [
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Comma-separated: active, reserved, sold, expired, ended, awaiting_payouts, needs_photos, under_review",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Listing"
+                      }
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Codes: invalid_json, unknown_field, empty_update, conflicting_fields, use_end, invalid_limit, invalid_status, invalid_updated_since, invalid_cursor, invalid_idempotency_key, seller_cannot_list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create",
+        "summary": "Create a listing",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    },
+                    "photo_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {
+                            "type": "integer"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Codes: invalid_json, unknown_field, empty_update, conflicting_fields, use_end, invalid_limit, invalid_status, invalid_updated_since, invalid_cursor, invalid_idempotency_key, seller_cannot_list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Codes: validation_failed, photo_fetch_failed, content_violation, idempotency_key_reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "get",
+        "summary": "Get one listing",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Codes: not_found, listing_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patch",
+        "summary": "Edit a listing or sync its quantity",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    },
+                    "photo_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {
+                            "type": "integer"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Codes: invalid_json, unknown_field, empty_update, conflicting_fields, use_end, invalid_limit, invalid_status, invalid_updated_since, invalid_cursor, invalid_idempotency_key, seller_cannot_list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Codes: not_found, listing_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Codes: validation_failed, photo_fetch_failed, content_violation, idempotency_key_reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listings/{id}/end": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "end",
+        "summary": "End a listing",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    },
+                    "already_ended": {
+                      "type": "boolean"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Codes: not_found, listing_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandbox/listings/{id}/sell": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "sandbox_sell",
+        "summary": "Sandbox only: mark units sold",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Codes: invalid_json, unknown_field, empty_update, conflicting_fields, use_end, invalid_limit, invalid_status, invalid_updated_since, invalid_cursor, invalid_idempotency_key, seller_cannot_list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Codes: missing_partner_key, missing_connection_key, invalid_partner_key, invalid_connection_key, connection_revoked, wrong_environment, seller_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Codes: partner_disabled, connection_partner_mismatch, seller_disabled, seller_consent_required, seller_email_unverified, live_not_open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Codes: not_found, listing_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Codes: checkout_in_progress, listing_sold, listing_ended, listing_expired, listing_under_review, listing_not_active, request_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Codes: validation_failed, photo_fetch_failed, content_violation, idempotency_key_reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Codes: rate_limited, daily_limit_reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Codes: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "partnerKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-TeeBox-Partner-Key"
+      },
+      "connectionKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The seller's connection key."
+      }
+    },
+    "schemas": {
+      "Listing": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Public page. null in the sandbox."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reserved",
+              "sold",
+              "expired",
+              "ended",
+              "awaiting_payouts",
+              "needs_photos",
+              "under_review"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "browse_category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "New with Tags",
+              "Like New",
+              "Very Good",
+              "Good",
+              "Fair"
+            ]
+          },
+          "price": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "const": "USD"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Total units, including sold ones."
+          },
+          "quantity_sold": {
+            "type": "integer"
+          },
+          "quantity_available": {
+            "type": "integer",
+            "description": "0 unless status is active."
+          },
+          "description": {
+            "type": "string"
+          },
+          "specs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sold_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_via": {
+            "type": "string",
+            "enum": [
+              "api",
+              "csv",
+              "teebox"
+            ]
+          },
+          "created_by_you": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListingCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "brand": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "driver",
+              "fairway",
+              "hybrid",
+              "iron-set",
+              "single-iron",
+              "wedge",
+              "putter",
+              "shaft",
+              "balls",
+              "bag",
+              "apparel",
+              "shoes",
+              "headcover",
+              "accessories",
+              "other"
+            ]
+          },
+          "browse_category": {
+            "type": "string",
+            "enum": [
+              "clubs",
+              "apparel",
+              "shoes",
+              "accessories",
+              "bags",
+              "balls",
+              "headcovers",
+              "shafts"
+            ],
+            "description": "Only for category other."
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "New with Tags",
+              "Like New",
+              "Very Good",
+              "Good",
+              "Fair"
+            ]
+          },
+          "price": {
+            "type": "number",
+            "minimum": 5,
+            "description": "US dollars, at most 2 decimals."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "specs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "photo_urls": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "brand",
+          "category",
+          "condition",
+          "price",
+          "photo_urls"
+        ]
+      },
+      "ListingUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "brand": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "driver",
+              "fairway",
+              "hybrid",
+              "iron-set",
+              "single-iron",
+              "wedge",
+              "putter",
+              "shaft",
+              "balls",
+              "bag",
+              "apparel",
+              "shoes",
+              "headcover",
+              "accessories",
+              "other"
+            ]
+          },
+          "browse_category": {
+            "type": "string",
+            "enum": [
+              "clubs",
+              "apparel",
+              "shoes",
+              "accessories",
+              "bags",
+              "balls",
+              "headcovers",
+              "shafts"
+            ],
+            "description": "Only for category other."
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "New with Tags",
+              "Like New",
+              "Very Good",
+              "Good",
+              "Fair"
+            ]
+          },
+          "price": {
+            "type": "number",
+            "minimum": 5,
+            "description": "US dollars, at most 2 decimals."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "quantity_available": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Units still for sale. 0 on its own ends the listing."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "specs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "photo_urls": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_json",
+                  "unknown_field",
+                  "empty_update",
+                  "conflicting_fields",
+                  "use_end",
+                  "invalid_limit",
+                  "invalid_status",
+                  "invalid_updated_since",
+                  "invalid_cursor",
+                  "invalid_idempotency_key",
+                  "seller_cannot_list",
+                  "missing_partner_key",
+                  "missing_connection_key",
+                  "invalid_partner_key",
+                  "invalid_connection_key",
+                  "connection_revoked",
+                  "wrong_environment",
+                  "seller_not_found",
+                  "partner_disabled",
+                  "connection_partner_mismatch",
+                  "seller_disabled",
+                  "seller_consent_required",
+                  "seller_email_unverified",
+                  "live_not_open",
+                  "not_found",
+                  "listing_not_found",
+                  "method_not_allowed",
+                  "checkout_in_progress",
+                  "listing_sold",
+                  "listing_ended",
+                  "listing_expired",
+                  "listing_under_review",
+                  "listing_not_active",
+                  "request_in_progress",
+                  "validation_failed",
+                  "photo_fetch_failed",
+                  "content_violation",
+                  "idempotency_key_reused",
+                  "rate_limited",
+                  "daily_limit_reached",
+                  "internal"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

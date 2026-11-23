@@ -1,0 +1,873 @@
+{
+  "generatedBy": "scripts/gen-listing-specs.mjs",
+  "source": [
+    "js/app-auth.js (window.SPEC_SCHEMA)",
+    "index.html (#sellCondition, #sellCat)"
+  ],
+  "conditions": [
+    "New with Tags",
+    "Like New",
+    "Very Good",
+    "Good",
+    "Fair"
+  ],
+  "browseCats": [
+    "clubs",
+    "apparel",
+    "shoes",
+    "accessories",
+    "bags",
+    "balls",
+    "headcovers",
+    "shafts"
+  ],
+  "categories": {
+    "driver": {
+      "label": "Driver",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "loft",
+          "label": "Loft",
+          "type": "select",
+          "options": [
+            "7°",
+            "7.5°",
+            "8°",
+            "8.5°",
+            "9°",
+            "9.5°",
+            "10°",
+            "10.5°",
+            "11°",
+            "11.5°",
+            "12°",
+            "12.5°",
+            "13°",
+            "Other"
+          ],
+          "req": true
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        },
+        {
+          "k": "headcover",
+          "label": "Headcover included",
+          "type": "select",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "fairway": {
+      "label": "Fairway",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "loft",
+          "label": "Loft",
+          "type": "select",
+          "options": [
+            "13°",
+            "13.5°",
+            "14°",
+            "14.5°",
+            "15°",
+            "15.5°",
+            "16°",
+            "16.5°",
+            "17°",
+            "17.5°",
+            "18°",
+            "18.5°",
+            "19°",
+            "19.5°",
+            "20°",
+            "20.5°",
+            "21°",
+            "Other"
+          ],
+          "req": true
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        },
+        {
+          "k": "headcover",
+          "label": "Headcover included",
+          "type": "select",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "hybrid": {
+      "label": "Hybrid",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "loft",
+          "label": "Loft",
+          "type": "select",
+          "options": [
+            "16°",
+            "16.5°",
+            "17°",
+            "17.5°",
+            "18°",
+            "18.5°",
+            "19°",
+            "19.5°",
+            "20°",
+            "20.5°",
+            "21°",
+            "21.5°",
+            "22°",
+            "22.5°",
+            "23°",
+            "23.5°",
+            "24°",
+            "24.5°",
+            "25°",
+            "25.5°",
+            "26°",
+            "26.5°",
+            "27°",
+            "27.5°",
+            "28°",
+            "Other"
+          ],
+          "req": true
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        },
+        {
+          "k": "headcover",
+          "label": "Headcover included",
+          "type": "select",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "iron-set": {
+      "label": "Iron set",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "setFrom",
+          "label": "Set from",
+          "type": "select",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "req": true
+        },
+        {
+          "k": "setTo",
+          "label": "Set to",
+          "type": "select",
+          "options": [
+            "9",
+            "PW",
+            "AW",
+            "GW",
+            "SW",
+            "LW"
+          ],
+          "req": true
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftType",
+          "label": "Shaft type",
+          "type": "select",
+          "options": [
+            "Steel",
+            "Graphite"
+          ],
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        },
+        {
+          "k": "lieLength",
+          "label": "Lie/length",
+          "type": "select",
+          "options": [
+            "Standard",
+            "Adjusted (see description)"
+          ],
+          "req": false
+        },
+        {
+          "k": "grip",
+          "label": "Grip",
+          "type": "text",
+          "req": false
+        }
+      ]
+    },
+    "single-iron": {
+      "label": "Single iron",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "ironNumber",
+          "label": "Iron #",
+          "type": "select",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "PW"
+          ],
+          "req": true
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftType",
+          "label": "Shaft type",
+          "type": "select",
+          "options": [
+            "Steel",
+            "Graphite"
+          ],
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        }
+      ]
+    },
+    "wedge": {
+      "label": "Wedge",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "loft",
+          "label": "Loft",
+          "type": "select",
+          "options": [
+            "46°",
+            "47°",
+            "48°",
+            "49°",
+            "50°",
+            "51°",
+            "52°",
+            "53°",
+            "54°",
+            "55°",
+            "56°",
+            "57°",
+            "58°",
+            "59°",
+            "60°",
+            "61°",
+            "62°",
+            "63°",
+            "64°"
+          ],
+          "req": true
+        },
+        {
+          "k": "bounce",
+          "label": "Bounce",
+          "type": "select",
+          "options": [
+            "4°",
+            "5°",
+            "6°",
+            "7°",
+            "8°",
+            "9°",
+            "10°",
+            "11°",
+            "12°",
+            "13°",
+            "14°",
+            "Other"
+          ],
+          "req": false
+        },
+        {
+          "k": "grind",
+          "label": "Grind",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftBrand",
+          "label": "Shaft brand",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "shaftModel",
+          "label": "Shaft model",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X"
+          ],
+          "req": true
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        }
+      ]
+    },
+    "putter": {
+      "label": "Putter",
+      "browse": "clubs",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "length",
+          "label": "Length",
+          "type": "select",
+          "options": [
+            "32\"",
+            "32.5\"",
+            "33\"",
+            "33.5\"",
+            "34\"",
+            "34.5\"",
+            "35\"",
+            "35.5\"",
+            "36\""
+          ],
+          "req": true
+        },
+        {
+          "k": "headStyle",
+          "label": "Head style",
+          "type": "select",
+          "options": [
+            "Blade",
+            "Mid-mallet",
+            "Mallet"
+          ],
+          "req": true
+        },
+        {
+          "k": "grip",
+          "label": "Grip",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "dexterity",
+          "label": "Dexterity",
+          "type": "select",
+          "options": [
+            "RH",
+            "LH"
+          ],
+          "req": true
+        },
+        {
+          "k": "headcover",
+          "label": "Headcover included",
+          "type": "select",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "shaft": {
+      "label": "Shaft",
+      "browse": "shafts",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "clubType",
+          "label": "Fits (club type)",
+          "type": "select",
+          "options": [
+            "Driver",
+            "Fairway",
+            "Hybrid",
+            "Iron",
+            "Wedge",
+            "Putter"
+          ],
+          "req": true
+        },
+        {
+          "k": "flex",
+          "label": "Flex",
+          "type": "select",
+          "options": [
+            "L",
+            "A",
+            "R",
+            "S",
+            "X",
+            "TX"
+          ],
+          "req": true
+        },
+        {
+          "k": "weight",
+          "label": "Weight (g)",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "tipSize",
+          "label": "Tip size",
+          "type": "select",
+          "options": [
+            ".335",
+            ".350",
+            ".355 taper",
+            ".370",
+            "Other"
+          ],
+          "req": false
+        },
+        {
+          "k": "length",
+          "label": "Length",
+          "type": "text",
+          "req": false
+        },
+        {
+          "k": "adapter",
+          "label": "Adapter",
+          "type": "select",
+          "options": [
+            "None (raw tip)",
+            "Titleist",
+            "TaylorMade",
+            "Callaway",
+            "Ping",
+            "Cobra",
+            "Mizuno",
+            "Srixon/Cleveland",
+            "PXG",
+            "Other"
+          ],
+          "req": false
+        },
+        {
+          "k": "shaftType",
+          "label": "Shaft type",
+          "type": "select",
+          "options": [
+            "Graphite",
+            "Steel"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "balls": {
+      "label": "Balls",
+      "browse": "balls",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "quantity",
+          "label": "Ball count",
+          "type": "select",
+          "options": [
+            "12",
+            "24",
+            "36",
+            "48",
+            "Other"
+          ],
+          "req": true
+        }
+      ]
+    },
+    "bag": {
+      "label": "Bag",
+      "browse": "bags",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "bagType",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "Stand",
+            "Cart",
+            "Carry",
+            "Staff",
+            "Travel"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "apparel": {
+      "label": "Apparel",
+      "browse": "apparel",
+      "fields": [
+        {
+          "k": "apparelType",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "Polo",
+            "Quarter-zip",
+            "Outerwear",
+            "Pants",
+            "Shorts",
+            "Hat",
+            "Other"
+          ],
+          "req": true
+        },
+        {
+          "k": "size",
+          "label": "Size",
+          "type": "select",
+          "options": [
+            "XS",
+            "S",
+            "M",
+            "L",
+            "XL",
+            "XXL",
+            "Other"
+          ],
+          "req": true
+        }
+      ]
+    },
+    "shoes": {
+      "label": "Shoes",
+      "browse": "shoes",
+      "fields": [
+        {
+          "k": "model",
+          "label": "Model",
+          "type": "text",
+          "req": true
+        },
+        {
+          "k": "size",
+          "label": "Size (US)",
+          "type": "select",
+          "options": [
+            "7",
+            "7.5",
+            "8",
+            "8.5",
+            "9",
+            "9.5",
+            "10",
+            "10.5",
+            "11",
+            "11.5",
+            "12",
+            "12.5",
+            "13",
+            "13.5",
+            "14",
+            "14.5",
+            "15"
+          ],
+          "req": true
+        }
+      ]
+    },
+    "headcover": {
+      "label": "Headcover",
+      "browse": "headcovers",
+      "fields": [
+        {
+          "k": "hcType",
+          "label": "Fits",
+          "type": "select",
+          "options": [
+            "Driver",
+            "Fairway",
+            "Hybrid",
+            "Putter",
+            "Iron covers"
+          ],
+          "req": false
+        }
+      ]
+    },
+    "accessories": {
+      "label": "Accessories",
+      "browse": "accessories",
+      "fields": [
+        {
+          "k": "itemType",
+          "label": "What is it?",
+          "type": "text",
+          "req": true
+        }
+      ]
+    },
+    "other": {
+      "label": "Other",
+      "browse": "",
+      "fields": []
+    }
+  }
+}
