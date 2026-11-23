@@ -25,3 +25,11 @@ test("no email-based admin check is left in functions, rules or the site", () =>
     assert.doesNotMatch(s, /ADMIN_ALLOWLIST|isAdminEmail|MODERATION_ADMIN_EMAILS|token\.email in \[/, f);
   }
 });
+
+test("standalone pages keep the session where the main site does", () => {
+  for (const f of ["settings/tools/index.html", "admin/review/index.html"]) {
+    const s = fs.readFileSync(path.join(ROOT, f), "utf8");
+    assert.match(s, /initializeAuth\(app, \{ persistence: browserLocalPersistence/, f);
+    assert.doesNotMatch(s, /getAuth\(app\)/, f);
+  }
+});
