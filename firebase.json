@@ -37,7 +37,8 @@
       { "source": "/seller/**", "destination": "/index.html" },
       { "source": "/listing/**", "destination": "/index.html" },
       { "source": "/sitemap.xml", "function": "serveSitemap" },
-      { "source": "/meta-feed.csv", "function": "metaFeed" }
+      { "source": "/meta-feed.csv", "function": "metaFeed" },
+      { "source": "/feeds/**", "function": "tiktokCatalog" }
     ],
     "headers": [
       {

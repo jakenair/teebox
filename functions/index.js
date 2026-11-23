@@ -8396,6 +8396,8 @@ Object.assign(exports, require("./shippoIntegration"));
 Object.assign(exports, require("./metaCapi"));
 // Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
 Object.assign(exports, require("./metaFeed"));
+// Public TikTok catalog feed + its JPEG images (/feeds/**). See tiktokCatalog.js.
+exports.tiktokCatalog = require("./tiktokCatalog").tiktokCatalog;
 // r417: client-reported listing post failures → log + throttled ops alert.
 Object.assign(exports, require("./listingFailures"));
 // 2026-11-17: AI price estimate stamped on new listings (For You overpriced rule).

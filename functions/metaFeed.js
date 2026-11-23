@@ -417,4 +417,6 @@ exports._feed = {
   buildFeedCsv, feedRow, mapCondition,
   TEST_EMAIL_RE: require("./lib/testAccounts").TEST_EMAIL_RE, mapAvailability, plainText, csvCell,
   stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS, toTikTokCsv,
+  // shared with tiktokCatalog.js (2026-11-23)
+  loadListings, loadTestSellers, loadUnbuyableSellers,
 };
