@@ -65,6 +65,12 @@
     "at": "2026-11-23",
     "region": "us-central1"
   },
+  "createApiConnection": {
+    "sha": "6c80f11",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud, 256Mi max 5"
+  },
   "createBillingPortalSession": {
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
@@ -249,6 +255,18 @@
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "listApiConnections": {
+    "sha": "6c80f11",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud, 256Mi max 5"
+  },
+  "listApiPartners": {
+    "sha": "6c80f11",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud, 256Mi max 5"
   },
   "listAuthReviews": {
     "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
@@ -598,6 +616,12 @@
     "at": "2026-11-19",
     "region": "us-central1"
   },
+  "revokeApiConnection": {
+    "sha": "6c80f11",
+    "at": "2026-11-23",
+    "region": "us-central1",
+    "note": "created with raw gcloud, 256Mi max 5"
+  },
   "revokeMySession": {
     "at": "2026-05-15",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
@@ -618,10 +642,10 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "sellerApi": {
-    "sha": "93a70de",
+    "sha": "6c80f11",
     "at": "2026-11-23",
     "region": "us-central1",
-    "note": "raw gcloud: 4Gi cpu 2 concurrency 2 max 5 NODE_OPTIONS=--max-old-space-size=3072"
+    "note": "4Gi cpu 2 conc 2 max 5, RESEND_API_KEY"
   },
   "sendBrandedPasswordReset": {
     "at": "2026-09-11",
