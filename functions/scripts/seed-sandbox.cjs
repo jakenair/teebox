@@ -100,6 +100,7 @@ async function main() {
     mine.docs.forEach((d) => b.delete(d.ref));
     for (const s of SELLERS) {
       b.delete(db.doc(`users/${s.id}/rateLimits/bulkListingCreate`));
+      b.delete(db.doc(`users/${s.id}/rateLimits/apiPhotoDownloads`));
       b.delete(db.doc(`users/${s.id}`));
     }
     await b.commit();

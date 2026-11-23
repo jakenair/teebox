@@ -102,19 +102,19 @@ const openapi = {
       post: {operationId: "create", summary: "Create a listing", parameters: [
         {name: "Idempotency-Key", in: "header", schema: str({maxLength: 255})}],
       requestBody: {required: true, ...json(ref("ListingCreate"))},
-      responses: {201: {description: "Created", ...json(listingOut)}, ...errorsFor(400, 409, 422, ...COMMON)}},
+      responses: {201: {description: "Created", ...json(listingOut)}, ...errorsFor(400, 409, 413, 415, 422, 503, ...COMMON)}},
     },
     "/v1/listings/{id}": {
       parameters: [idParam],
       get: {operationId: "get", summary: "Get one listing", responses: {200: {description: "OK", ...json(withId({listing: ref("Listing")}))}, ...errorsFor(404, ...COMMON)}},
       patch: {operationId: "patch", summary: "Edit a listing or sync its quantity", requestBody: {required: true, ...json(ref("ListingUpdate"))},
-        responses: {200: {description: "OK", ...json(listingOut)}, ...errorsFor(400, 404, 409, 422, ...COMMON)}},
+        responses: {200: {description: "OK", ...json(listingOut)}, ...errorsFor(400, 404, 409, 413, 415, 422, 503, ...COMMON)}},
     },
     "/v1/listings/{id}/end": {parameters: [idParam], post: {operationId: "end", summary: "End a listing",
-      responses: {200: {description: "OK", ...json(withId({listing: ref("Listing"), already_ended: {type: "boolean"}}))}, ...errorsFor(404, 409, ...COMMON)}}},
+      responses: {200: {description: "OK", ...json(withId({listing: ref("Listing"), already_ended: {type: "boolean"}}))}, ...errorsFor(404, 409, 413, 415, ...COMMON)}}},
     "/v1/sandbox/listings/{id}/sell": {parameters: [idParam], post: {operationId: "sandbox_sell", summary: "Sandbox only: mark units sold",
       requestBody: {required: false, ...json({type: "object", additionalProperties: false, properties: {quantity: int({minimum: 1, default: 1})}})},
-      responses: {200: {description: "OK", ...json(withId({listing: ref("Listing")}))}, ...errorsFor(400, 404, 409, 422, ...COMMON)}}},
+      responses: {200: {description: "OK", ...json(withId({listing: ref("Listing")}))}, ...errorsFor(400, 404, 409, 413, 415, 422, ...COMMON)}}},
   },
   components: {
     securitySchemes: {
@@ -149,6 +149,8 @@ const blocks = {
     ["New listings per seller in a rolling 24 hours (shared with CSV upload)", `${lc.CAP_STANDARD}, or ${lc.CAP_HIGH} for sellers TeeBox approves`],
     ["Listings per page", `${L.listPageDefault} by default, ${L.listPageMax} at most`],
     ["Photo URLs per listing", L.photoUrlsMax],
+    ["Photo downloads per seller in a rolling 24 hours (creates and edits, failed ones too)", `${lc.photoCapFor({})}, or ${lc.photoCapFor({integrationsApproved: true}).toLocaleString("en-US")} for sellers TeeBox approves`],
+    ["Request body", `${L.maxBodyBytes / 1024} KB`],
     ["Idempotency keys kept", `${L.idempotencyHours} hours`]]),
   rules: table(["Rule", "Value"], [
     ["Price", `$${cats.rules.price_min} or more, US dollars, at most 2 decimals`],

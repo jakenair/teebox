@@ -69,3 +69,31 @@ test("refuses during checkout and on finished listings", () => {
   }
   assert.ok(R.planDecision(L(), "maybe").error);
 });
+
+test("edits that reopen an approved review: photos, title, brand, category, specs, condition", () => {
+  const specs = {brand: "Ping", model: "Anser", length: "34\"", flex: ""};
+  const cur = L({brand: "Ping", cat: "clubs", specCategory: "putter", specs, desc: "Clean", authReviewState: "approved", photos: ["a", "b"]});
+  const same = {title: "Putter", brand: "Ping", photos: ["b", "a"], cat: "clubs", specCategory: "putter", specs: {...specs}, condition: "Good"};
+  const ch = (o) => R.reviewChanges(cur, {...same, ...o});
+  assert.deepEqual(ch({}), []);
+  assert.deepEqual(ch({title: "Other"}), ["title"]);
+  assert.deepEqual(ch({photos: ["a", "c"]}), ["photos"]);
+  assert.deepEqual(ch({brand: "Scotty", specs: {...specs, brand: "Scotty"}}), ["brand"]);
+  assert.deepEqual(ch({cat: "bags"}), ["category"]);
+  assert.deepEqual(ch({specCategory: "driver"}), ["category"]);
+  assert.deepEqual(ch({cat: "bags", specCategory: "bag"}), ["category"], "named once");
+  assert.deepEqual(ch({specs: {...specs, model: "Newport"}}), ["specs"]);
+  assert.deepEqual(ch({specs: {...specs, brand: "Scotty"}}), ["specs"], "the brand shown in specs can't differ unseen");
+  assert.deepEqual(ch({specs: {...specs, grip: "Pistol"}}), ["specs"]);
+  assert.deepEqual(ch({specs: {model: "Anser"}}), ["specs"]);
+  assert.deepEqual(ch({condition: "Fair"}), ["condition"]);
+  // what doesn't count
+  assert.deepEqual(ch({specs: {length: "34\"", model: " Anser ", brand: "Ping"}}), [], "key order, empty and missing values");
+  assert.deepEqual(ch({specs: {model: "Anser", length: "34\"", grip: null}}), [], "the copied brand may be left out");
+  assert.deepEqual(ch({specs: {...specs, shipBox: "putter-48"}}), [], "shipping box");
+  assert.deepEqual(ch({ask: 100, desc: "Other words", quantity: 4}), []);
+  const {cat, specCategory, specs: _s, condition, ...older} = same;
+  assert.deepEqual(R.reviewChanges(cur, older), [], "fields that weren't edited");
+  assert.deepEqual(R.reviewChanges({...cur, authReviewState: "pending"}, {...same, condition: "Fair"}), []);
+  assert.deepEqual(R.reviewChanges({...cur, ask: 100, requiresAuth: false}, {...same, condition: "Fair"}), []);
+});

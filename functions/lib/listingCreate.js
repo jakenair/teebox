@@ -44,6 +44,9 @@ function bulkCapFor(user) {
   return CAP_STANDARD;
 }
 
+/** Photo URLs the API may download for a seller in a rolling 24h. Pure. */
+function photoCapFor(user) { return Math.max(500, 20 * bulkCapFor(user)); }
+
 /**
  * Check the seller may create listings at all (mirror of the rules' create gate
  * plus the Sell form's seller-terms step). Throws ListingCreateError.
@@ -78,10 +81,10 @@ async function assertSellerCanList({db, auth, uid}) {
 
 /**
  * Reserve up to `want` creates from the seller's rolling 24h bulk quota.
- * Atomic. Returns how many were granted (0..want).
+ * Atomic. Returns how many were granted (0..want; 0 or want when `whole`).
  */
-async function reserveBulkQuota({db, Timestamp, uid, want, cap, nowMs}) {
-  const ref = db.doc(`users/${uid}/rateLimits/bulkListingCreate`);
+async function reserveBulkQuota({db, Timestamp, uid, want, cap, nowMs, counter = "bulkListingCreate", whole = false}) {
+  const ref = db.doc(`users/${uid}/rateLimits/${counter}`);
   const now = nowMs || Date.now();
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -89,7 +92,8 @@ async function reserveBulkQuota({db, Timestamp, uid, want, cap, nowMs}) {
     const resetMs = cur.resetAt && cur.resetAt.toMillis ? cur.resetAt.toMillis() : 0;
     const fresh = !snap.exists || resetMs <= now;
     const used = fresh ? 0 : Math.max(0, Number(cur.count) || 0);
-    const granted = Math.max(0, Math.min(want, cap - used));
+    const room = Math.max(0, Math.min(want, cap - used));
+    const granted = whole && room < want ? 0 : room;
     if (granted > 0) {
       tx.set(ref, fresh ? {
         count: granted, cap,
@@ -117,24 +121,49 @@ async function releaseBulkQuota({db, uid, n}) {
  * Create ONE listing from an already-validated value (listingSchema
  * validateListingInput(...).value). Caller has run assertSellerCanList and
  * reserved quota. Returns the new listing id.
+ * `withTx(tx, listingId)`, if given, runs in the same transaction as the
+ * listing write, before it (so its reads are allowed): all or nothing.
  */
-async function createListingDoc({db, FieldValue, Timestamp, uid, value, source, paymentReady, nowMs}) {
+async function createListingDoc({db, FieldValue, Timestamp, uid, value, source, paymentReady, nowMs, withTx}) {
   const doc = schema.buildListingDoc(value, {uid, source, FieldValue, Timestamp, nowMs, paymentReady});
   const failed = schema.rulesCreateCheck(doc);
   if (failed.length) throw new ListingCreateError("invalid-argument", "Listing failed checks: " + failed.join(", "));
   const ref = db.collection("listings").doc();
-  await ref.set(doc);
+  if (withTx) {
+    await db.runTransaction(async (tx) => {
+      await withTx(tx, ref.id);
+      tx.create(ref, doc);
+    });
+  } else await ref.set(doc);
   return ref.id;
+}
+
+/**
+ * Take a listing that still has no photos off sale (its photos could not be
+ * attached). Same state a listing with failed uploads gets; sending photos
+ * brings it back. Does nothing to a listing that has photos or moved on.
+ */
+async function hideIfPhotoless({db, FieldValue, uid, listingId}) {
+  const ref = db.doc(`listings/${listingId}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const l = snap.exists ? snap.data() || {} : null;
+    if (!l || l.sellerId !== uid || (Array.isArray(l.photos) && l.photos.length)) return;
+    if (l.status !== "active" && !(l.status === "hidden" && l.hiddenReason === "awaiting_payouts")) return;
+    tx.update(ref, {status: "hidden", hiddenReason: "photos_missing",
+      hiddenAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()});
+  });
 }
 
 /**
  * Attach uploaded photo URLs to a server-created listing and enforce the photo
  * rules now that the real count is known. A listing that ends up short of
  * photos (uploads failed) is taken down (status "hidden", reason
- * "photos_missing") instead of staying live without them.
+ * "photos_missing") instead of staying live without them. `paymentReady`
+ * (a retry of a create whose photos failed) puts such a listing back.
  * @return {Promise<{ok: boolean, photos: number, reason?: string}>}
  */
-async function attachListingPhotos({db, FieldValue, uid, listingId, urls, isPhotoUrl}) {
+async function attachListingPhotos({db, FieldValue, uid, listingId, urls, isPhotoUrl, paymentReady}) {
   // Our bucket only, except in the API sandbox, which stores no files.
   const okUrl = isPhotoUrl || ((u) => schema.STORAGE_URL_RE.test(u));
   const ref = db.doc(`listings/${listingId}`);
@@ -154,12 +183,14 @@ async function attachListingPhotos({db, FieldValue, uid, listingId, urls, isPhot
       }
       return {ok: false, photos: photos.length, reason: need > 1 ? "needs-4-photos" : "needs-a-photo"};
     }
-    tx.update(ref, {photos, updatedAt: FieldValue.serverTimestamp()});
+    const back = paymentReady !== undefined && l.status === "hidden" && l.hiddenReason === "photos_missing" ?
+      (paymentReady ? {status: "active", hiddenReason: FieldValue.delete()} : {hiddenReason: "awaiting_payouts"}) : {};
+    tx.update(ref, {photos, ...back, updatedAt: FieldValue.serverTimestamp()});
     return {ok: true, photos: photos.length};
   });
 }
 
 module.exports = {
-  assertSellerCanList, reserveBulkQuota, releaseBulkQuota, createListingDoc, attachListingPhotos,
-  bulkCapFor, ListingCreateError, CAP_STANDARD, CAP_HIGH,
+  assertSellerCanList, reserveBulkQuota, releaseBulkQuota, createListingDoc, attachListingPhotos, hideIfPhotoless,
+  bulkCapFor, photoCapFor, ListingCreateError, CAP_STANDARD, CAP_HIGH,
 };

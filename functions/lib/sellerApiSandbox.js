@@ -6,7 +6,7 @@
 // checks this file's imports.
 
 const {sandboxDb} = require("./sandboxDb");
-const {checkUrl} = require("./photoFetch");
+const {checkUrl, PhotoFetchError} = require("./photoFetch");
 const config = require("./sellerApiConfig");
 
 // A partner can test the content_violation error with this word in the text.
@@ -24,7 +24,7 @@ function sandboxAuth(db) {
 
 async function fetchPhoto(url) {
   const c = checkUrl(url); // shape only: nothing is downloaded or stored
-  if (!c.ok) throw new Error(c.reason);
+  if (!c.ok) throw new PhotoFetchError(c.reason);
   return {url: c.url.toString()};
 }
 

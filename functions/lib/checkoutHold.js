@@ -27,4 +27,15 @@ function inCheckout(l, nowMs) {
   return until === 0 || until > nowMs;
 }
 
-module.exports = {inCheckout, DELETE_BLOCKED};
+/**
+ * Units a buyer is holding now. Once the window has lapsed this is 0, the
+ * same rule checkout uses when the next buyer comes along.
+ * @param {object} l listing @param {number} nowMs @return {number}
+ */
+function heldUnits(l, nowMs) {
+  const until = ms(l && l.pendingUntil);
+  if (until > 0 && until <= nowMs) return 0;
+  return Math.max(0, Number(l && l.quantityReserved) || 0);
+}
+
+module.exports = {inCheckout, heldUnits, DELETE_BLOCKED};

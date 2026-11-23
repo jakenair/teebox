@@ -303,7 +303,13 @@ function hideClockStartMs(listing) {
   return Math.max(c, LIST_FIRST_EPOCH_MS);
 }
 
+/** Does this new listing use up the Sell form's daily limit? Pure. */
+function countsTowardFormLimit(l) {
+  return !["csv", "api"].includes(l && l.source);
+}
+
 module.exports = {
+  countsTowardFormLimit,
   APP_URL, PAYOUT_SETUP_URL,
   LISTING_DAILY_CAP, RATE_WINDOW_MS, HIDE_AFTER_DAYS, LIST_FIRST_EPOCH_MS,
   SELLER_NUDGE_CAP_PER_DAY, rollingLimitAllowed, hideClockStartMs,

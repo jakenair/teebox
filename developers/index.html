@@ -169,6 +169,7 @@ curl "$TEEBOX/me" \
 <h3 id="ep-create"><span class="verb">POST</span> <code>/v1/listings</code></h3>
 <p>Create a listing. Photos are downloaded first; if too few arrive, nothing is created. If some fail but enough arrive, the listing is created and <code>photo_errors</code> lists the rest. Returns 201.</p>
 <p>If the seller hasn't finished payout setup, the listing saves with status <code>awaiting_payouts</code> and goes live when they finish. You don't need to post it again.</p>
+<p>If TeeBox takes a new listing for review, the answer says <code>under_review</code>, and reading it returns 404 until TeeBox releases it.</p>
 <div class="ex"><pre><code>curl -X POST "$TEEBOX/listings" \
   -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
   -H "Content-Type: application/json" -H "Idempotency-Key: your-sku-1002" \
@@ -182,6 +183,7 @@ curl "$TEEBOX/me" \
 
 <h3 id="ep-patch"><span class="verb">PATCH</span> <code>/v1/listings/{id}</code></h3>
 <p>Send only what changes. Spec keys you send overlay the current ones; changing <code>category</code> starts the specs again. <code>photo_urls</code> replaces every photo.</p>
+<p>A listing at $300 or more gets an authenticity review. After it is approved, changing the photos, title, brand, category, specs or condition sends it back to review; it stays for sale meanwhile. Changing the price, description, quantity or photo order doesn't.</p>
 <div class="ex"><pre><code>curl -X PATCH "$TEEBOX/listings/LISTING_ID" \
   -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
   -H "Content-Type: application/json" \
@@ -193,7 +195,7 @@ curl "$TEEBOX/me" \
   -d '{"quantity_available": 2}'</code></pre></div>
 
 <h3 id="ep-end"><span class="verb">POST</span> <code>/v1/listings/{id}/end</code></h3>
-<p>End a listing, for example when the item sold somewhere else. Ending an ended listing succeeds with <code>already_ended: true</code>. While a buyer is checking out it returns <code>checkout_in_progress</code>; retry in a few minutes. The API never cancels a checkout.</p>
+<p>End a listing, for example when the item sold somewhere else. Ending an ended listing succeeds with <code>already_ended: true</code>. While a buyer is checking out it returns <code>checkout_in_progress</code>; retry in a few minutes. The API never cancels a checkout. A checkout that ran out of time no longer holds its units.</p>
 <div class="ex"><pre><code>curl -X POST "$TEEBOX/listings/LISTING_ID/end" \
   -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
 
@@ -215,9 +217,10 @@ curl "$TEEBOX/me" \
 <tr><td><code>ended</code></td><td>Ended by the seller, a tool or TeeBox.</td></tr>
 <tr><td><code>awaiting_payouts</code></td><td>Saved, but hidden until the seller finishes payout setup.</td></tr>
 <tr><td><code>needs_photos</code></td><td>Hidden because photos are missing. Send <code>photo_urls</code> to fix it.</td></tr>
-<tr><td><code>under_review</code></td><td>TeeBox is checking it.</td></tr>
+<tr><td><code>under_review</code></td><td>TeeBox is checking it. It can't be edited until then.</td></tr>
 </tbody></table></div>
-<p>Photo URLs must be public <code>https</code> links to a JPEG, PNG, WebP, GIF or HEIC image, up to 15 MB each, with at most 3 redirects. TeeBox copies, resizes and safety-checks them. Links that need a login won't work.</p>
+<p>Photo URLs must be public <code>https</code> links to a JPEG, PNG, WebP, GIF or HEIC image, up to 15 MB and 60 megapixels each, with at most 3 redirects. Each must finish downloading within 10 seconds and open as an image, and the same picture sent twice counts once. TeeBox copies, resizes and safety-checks them. Links that need a login won't work.</p>
+<p>Every request body is JSON, 256 KB at most. Text fields take text only: no control characters, and a title or brand needs something visible in it.</p>
 
 <h2 id="categories">Categories and specs</h2>
 <p>Keys for <code>specs</code>, by category. Select fields only take the options in <code>GET /v1/categories</code>; units are forgiving, so <code>10.5</code> matches the 10.5 degree option.</p>
@@ -270,7 +273,7 @@ curl "$TEEBOX/me" \
 <div class="rule"><p><strong>A listing that returns 404 has been removed from TeeBox. Delist it on your side.</strong> Deleted listings don't appear in <code>updated_since</code> results, so check listings you haven't heard about now and then.</p></div>
 
 <h2 id="idempotency">Safe retries</h2>
-<p>Send an <code>Idempotency-Key</code> when you create a listing, such as your own item ID. Repeating the same key and body returns the first answer, with <code>Idempotent-Replayed: true</code>, and never creates a second listing.</p>
+<p>Send an <code>Idempotency-Key</code> when you create a listing, such as your own item ID. Repeating the same key and body returns the first answer, with <code>Idempotent-Replayed: true</code>, and never creates a second listing. If a create fails part way with a 500, the same key and body finishes the listing it started.</p>
 <ul>
   <li>The same key with a different body returns <code>idempotency_key_reused</code>.</li>
   <li>Error answers below 500 are remembered too. After fixing a problem, or waiting out a daily limit, use a new key.</li>
@@ -285,6 +288,8 @@ curl "$TEEBOX/me" \
 <tr><td>New listings per seller in a rolling 24 hours (shared with CSV upload)</td><td>25, or 200 for sellers TeeBox approves</td></tr>
 <tr><td>Listings per page</td><td>50 by default, 100 at most</td></tr>
 <tr><td>Photo URLs per listing</td><td>10</td></tr>
+<tr><td>Photo downloads per seller in a rolling 24 hours (creates and edits, failed ones too)</td><td>500, or 4,000 for sellers TeeBox approves</td></tr>
+<tr><td>Request body</td><td>256 KB</td></tr>
 <tr><td>Idempotency keys kept</td><td>24 hours</td></tr>
 </tbody></table></div>
 <!-- /gen:limits -->
@@ -336,13 +341,16 @@ curl "$TEEBOX/me" \
 <tr><td>409</td><td><code>listing_under_review</code></td><td>TeeBox is reviewing it. Try again later.</td></tr>
 <tr><td>409</td><td><code>listing_not_active</code></td><td>Sandbox sell only: the listing must be active.</td></tr>
 <tr><td>409</td><td><code>request_in_progress</code></td><td>The first request with this Idempotency-Key is still running. Retry in a few seconds.</td></tr>
+<tr><td>413</td><td><code>payload_too_large</code></td><td>Send a smaller body; see Limits.</td></tr>
+<tr><td>415</td><td><code>unsupported_media_type</code></td><td>Send JSON with Content-Type: application/json.</td></tr>
 <tr><td>422</td><td><code>validation_failed</code></td><td>Fix each field in error.errors.</td></tr>
 <tr><td>422</td><td><code>photo_fetch_failed</code></td><td>Fix the URLs in error.photo_errors. Nothing was created or changed.</td></tr>
 <tr><td>422</td><td><code>content_violation</code></td><td>The text breaks TeeBox's listing rules. Change it.</td></tr>
 <tr><td>422</td><td><code>idempotency_key_reused</code></td><td>Use a new key for a different request body.</td></tr>
 <tr><td>429</td><td><code>rate_limited</code></td><td>Wait for the Retry-After seconds.</td></tr>
-<tr><td>429</td><td><code>daily_limit_reached</code></td><td>Wait until error.resets_at.</td></tr>
+<tr><td>429</td><td><code>daily_limit_reached</code></td><td>Wait until error.resets_at. The message says which limit.</td></tr>
 <tr><td>500</td><td><code>internal</code></td><td>Retry. Contact TeeBox with the request_id if it keeps happening.</td></tr>
+<tr><td>503</td><td><code>busy</code></td><td>Wait for the Retry-After seconds, then send the same request again.</td></tr>
 </tbody></table></div>
 <!-- /gen:errors -->
 

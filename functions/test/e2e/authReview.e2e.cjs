@@ -58,13 +58,16 @@ let n = 0; const ok = (m) => { n++; console.log("ok", n, m); };
   const {updateListing} = require("../../index");
   const B = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Fs1%2FlistU1%2F";
   const ph = [1, 2, 3, 4].map((i) => `${B}${i}.jpg?alt=media&token=t`);
-  const U = {title: "Scotty Cameron Newport", brand: "Scotty Cameron", cat: "clubs", condition: "Very Good", desc: "Clean putter with headcover.", photos: ph, ask: 400, quantity: 1};
+  const U = {title: "Scotty Cameron Newport", brand: "Scotty Cameron", cat: "clubs", condition: "Very Good", desc: "Clean putter with headcover.", photos: ph, ask: 400, quantity: 1,
+    specCategory: "putter", specs: {brand: "Scotty Cameron", model: "Newport", length: "34\""}};
   const approved = () => db.doc("listings/listU1").set(L({...U, authReviewState: "approved", authReviewDecisionN: 1, quantitySold: 0}));
   const edit = (o) => updateListing.run({auth: {uid: "s1", token: {email_verified: true}}, data: {listingId: "listU1", ...U, ...o}, rawRequest: {}});
   await approved(); const before = sent.length;
   await edit({ask: 350}); await edit({desc: "Clean putter, headcover and box included."}); await edit({quantity: 2});
-  assert.equal((await get("listU1")).authReviewState, "approved"); assert.equal(sent.length, before); ok("price drop, description, quantity: still approved, no email");
-  for (const [what, o] of [["title", {title: "Scotty Cameron Newport 2"}], ["brand", {brand: "Titleist"}], ["photos", {photos: [...ph.slice(0, 3), B + "9.jpg?alt=media&token=t"]}]]) {
+  await edit({specs: {length: "34\"", model: "Newport", brand: "Scotty Cameron", grip: ""}}); await edit({photos: [...ph].reverse()});
+  assert.equal((await get("listU1")).authReviewState, "approved"); assert.equal(sent.length, before); ok("price drop, description, quantity, spec and photo order: still approved, no email");
+  for (const [what, o] of [["title", {title: "Scotty Cameron Newport 2"}], ["brand", {brand: "Titleist"}], ["photos", {photos: [...ph.slice(0, 3), B + "9.jpg?alt=media&token=t"]}],
+    ["category", {specCategory: "driver"}], ["category", {cat: "bags"}], ["specs", {specs: {...U.specs, model: "Phantom"}}], ["condition", {condition: "Fair"}]]) {
     await approved(); const s0 = sent.length;
     await edit(o); l = await get("listU1");
     assert.equal(l.authReviewState, "pending", what); assert.equal(l.status, "active");
