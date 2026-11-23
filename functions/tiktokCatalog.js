@@ -189,7 +189,7 @@ async function toFeedJpeg(buf) {
     left: Math.floor(padX / 2), right: Math.ceil(padX / 2),
     top: Math.floor(padY / 2), bottom: Math.ceil(padY / 2),
     background: "#ffffff",
-  }).toColourspace("srgb").jpeg({quality: 86, mozjpeg: true}).toBuffer();
+  }).toColourspace("srgb").jpeg({quality: 84}).toBuffer();
 }
 
 /** @return {{kind: string, listingId: (string|undefined), hash: (string|undefined)}|null} */
@@ -257,9 +257,11 @@ async function serveImage(route, res) {
   res.status(200).send(jpg);
 }
 
+// TikTok asks for every image at once (~470 on 2026-11-23): 5 instances x 8
+// requests refused 146 of them. 30 x 16 takes the whole catalog in one burst.
 exports.tiktokCatalog = onRequest(
-    {region: "us-central1", memory: "1GiB", cpu: 1, concurrency: 8,
-      timeoutSeconds: 60, maxInstances: 5, cors: false},
+    {region: "us-central1", memory: "2GiB", cpu: 2, concurrency: 16,
+      timeoutSeconds: 60, maxInstances: 30, cors: false},
     async (req, res) => {
       if (req.method !== "GET" && req.method !== "HEAD") {
         res.status(405).send("Method not allowed");
