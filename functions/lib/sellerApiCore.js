@@ -422,6 +422,8 @@ const notFound = () => new ApiError(404, "listing_not_found",
 async function loadOwnListing(deps, ctx, id, tx) {
   if (!ID_RE.test(id)) throw notFound();
   const ref = deps.db.doc(`listings/${id}`);
+  // About to write: the keys and the seller must still be good.
+  if (tx) await keys.recheck(deps, ctx, tx);
   const snap = tx ? await tx.get(ref) : await ref.get();
   // Someone else's listing looks exactly like a missing one.
   if (!snap.exists || (snap.data() || {}).sellerId !== ctx.uid) {
@@ -529,6 +531,7 @@ async function createWithPhotos(deps, ctx, value, urls, seller, idem) {
       // the idempotency record land together or not at all.
       listingId = await lc.createListingDoc({db, FieldValue, Timestamp, uid: ctx.uid, value, source: "api",
         paymentReady: seller.paymentReady, nowMs: clock(deps), withTx: async (tx, id) => {
+          await keys.recheck(deps, ctx, tx); // before any write in this transaction
           if (idem) {
             const s = await tx.get(idem.ref);
             if (!s.exists || s.data().claim !== idem.claim) throw stillRunning();
@@ -938,6 +941,9 @@ function errorBody(e) {
  * ApiError when it isn't open. Called only after the keys' shape is checked.
  * @return {Promise<{status: number, body: object, headers: object}>}
  */
+const {KeyGuard} = require("./sellerApiGuard");
+const guard = new KeyGuard();
+
 async function handle(env, req) {
   const started = Date.now();
   let deps = null;
@@ -951,7 +957,19 @@ async function handle(env, req) {
     if (r.name === "method_not_allowed") throw new ApiError(405, "method_not_allowed", `${short(req.method, 10)} isn't supported on ${short(req.path, 100)}.`);
     const k = keys.readKeys(req.headers);
     deps = env.forMode(k.mode);
-    ctx = await keys.authenticate(deps, k);
+    const pairId = keys.hashKey(k.pk + k.ck);
+    const hold = guard.wait(pairId, clock(deps));
+    if (hold) {
+      throw new ApiError(429, "rate_limited", `Too many requests with keys that don't work. Retry after ${hold}s.`,
+          {retry_after: hold, headers: {"Retry-After": String(hold)}});
+    }
+    try {
+      ctx = await keys.authenticate(deps, k);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) guard.refused(pairId, clock(deps));
+      throw e;
+    }
+    guard.ok(pairId, clock(deps));
     Object.assign(headers, await rateLimit(deps, ctx));
     const q = req.query || {};
     switch (r.name) {

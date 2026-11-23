@@ -380,7 +380,7 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
     const kd = await db.collection("apiKeys").where("uid", "==", u).get();
     check("11a three parallel connects leave exactly one working key", act.size === 1 && kd.size === 1, [act.size, kd.size]);
     const alive = par.find((x) => x.connectionId === act.docs[0].id);
-    const tryAuth = async (k) => { try { await keys.authenticate(d, {pk: tool.key, ck: k || alive.key}); return "ok"; } catch (e) { return e.code; } };
+    const tryAuth = async (k) => { try { await keys.authenticate({...d, auth: admin.auth()}, {pk: tool.key, ck: k || alive.key}); return "ok"; } catch (e) { return e.code; } };
     check("11b that key works", await tryAuth() === "ok", await tryAuth());
     for (const x of par) if (x !== alive) check("11b the losing key is dead", await tryAuth(x.key) === "invalid_connection_key");
     await db.doc("users/" + u).update({suspended: true, suspendedUntil: TS.fromMillis(Date.now() + 6e4)});
@@ -409,6 +409,27 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
     for (const tok of [{}, {auth_time: now - 301}, {auth_time: "x"}]) check("11g connecting needs a recent sign-in: " + JSON.stringify(tok).slice(0, 14), (await callIt(tok))[1] === true, await callIt(tok));
     const fresh = await callIt({auth_time: now - 10});
     check("11g a fresh sign-in gets past that check (then the daily cap)", Array.isArray(fresh) && fresh[0] === "resource-exhausted", fresh);
+      // M5: access taken away while a request is in the middle of its work
+    const ctxOf = async (k) => keys.authenticate({...d, auth: admin.auth()}, {pk: tool.key, ck: k});
+    const mid = async (name, change, want) => {
+      await db.doc("users/" + u).set({sellerVerified: true, banned: false, suspended: false}, {merge: true});
+      await db.doc("apiPartners/authz-tool").update({status: "active"});
+      await db.doc(`apiConnectionSlots/${u}_authz-tool`).set({count: 0}, {merge: true});
+      await new Promise((r) => setTimeout(r, 1200));
+      const c = await keys.createConnection(d, {uid: u, partnerId: tool.partnerId, ...AGREE});
+      const ctx = await ctxOf(c.key);
+      await change(c);
+      let got = "allowed";
+      try { await db.runTransaction((tx) => keys.recheck({db, auth: admin.auth()}, ctx, tx)); } catch (e) { got = e.code; }
+      check("11h mid-request: " + name, got === want, got);
+    };
+    await mid("nothing changed", async () => {}, "allowed");
+    await mid("seller banned", async () => db.doc("users/" + u).update({banned: true}), "seller_disabled");
+    await mid("seller suspended", async () => db.doc("users/" + u).update({suspended: true, suspendedUntil: TS.fromMillis(Date.now() + 6e4)}), "seller_disabled");
+    await mid("kill switch", async () => db.doc("apiPartners/authz-tool").update({status: "disabled"}), "partner_disabled");
+    await mid("seller disconnects", async (c) => keys.revokeConnection(d, {uid: u, connectionId: c.connectionId}), "connection_revoked");
+    await mid("password reset", async () => { await new Promise((r) => setTimeout(r, 1500)); await admin.auth().updateUser(u, {password: "another new one 2!"}); }, "connection_revoked");
+    await mid("partner key rotated", async () => keys.rotatePartnerKey(d, {partnerId: "authz-tool"}), "invalid_partner_key");
   }
   const again = await keys.createConnection(d, {uid: s1, partnerId: acme.partnerId, ...AGREE});
   const log = (await db.collection("apiConsents").where("uid", "==", s1).where("partnerId", "==", acme.partnerId).get()).docs.map((x) => x.data());

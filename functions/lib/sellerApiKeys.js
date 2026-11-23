@@ -147,6 +147,32 @@ async function authenticate({db, auth, cfg, nowMs}, {pk, ck}) {
 }
 
 /**
+ * Is this request still allowed, right now? Called inside the transaction that
+ * writes (before any write), because authenticate() ran before slow work such
+ * as photo downloads: a ban, kill switch, rotation or disconnect in between
+ * must stop the write (2026-11-23). The sign-in reset is read just before.
+ */
+async function recheck({db, auth, nowMs}, ctx, tx) {
+  let authUser;
+  try { authUser = await auth.getUser(ctx.uid); } catch (_e) {
+    throw new ApiError(401, "seller_not_found", "The seller's TeeBox account no longer exists.");
+  }
+  const [pSnap, cSnap, uSnap] = await tx.getAll(db.doc(`apiPartners/${ctx.partnerId}`),
+      db.doc(`apiConnections/${ctx.connectionId}`), db.doc(`users/${ctx.uid}`));
+  const partner = pSnap.exists ? pSnap.data() : null;
+  const connection = cSnap.exists ? cSnap.data() : null;
+  if (!partner || partner.keyHash !== ctx.partner.keyHash) throw new ApiError(401, "invalid_partner_key", "That partner key isn't valid (it may have been replaced).");
+  if (partner.status !== "active") throw new ApiError(403, "partner_disabled", "This partner's API access is paused. Contact TeeBox.");
+  if (!connection || connection.status !== "active" || connection.keyHash !== ctx.connection.keyHash || predatesSessionReset(connection, authUser)) {
+    throw new ApiError(401, "connection_revoked", "The seller disconnected this tool. Ask them to connect it again in TeeBox.");
+  }
+  const user = uSnap.exists ? uSnap.data() : {};
+  if (authUser.disabled || user.banned === true || isSuspended(user, nowMs ? nowMs() : Date.now())) {
+    throw new ApiError(403, "seller_disabled", "The seller's TeeBox account can't list items.");
+  }
+}
+
+/**
  * Issue a partner (admin only; scripts/api-partner.cjs). Returns the key ONCE.
  */
 async function createPartner({db, FieldValue, cfg}, {partnerId, name, contactEmail}) {
@@ -284,7 +310,7 @@ async function listPartners({db}) {
 }
 
 module.exports = {
-  ApiError, readKeys, authenticate, createPartner, rotatePartnerKey, setPartnerStatus,
+  ApiError, readKeys, authenticate, recheck, createPartner, rotatePartnerKey, setPartnerStatus,
   createConnection, revokeConnection, listConnections, listPartners,
   newKey, hashKey, keyMode, randomToken, header, KEY_RE, isSuspended, predatesSessionReset, CONNECTS_PER_DAY,
 };

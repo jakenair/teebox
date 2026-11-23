@@ -93,6 +93,9 @@ function fakeFirestore(seed = {}) {
         const r = await fn({...writer(ops), get: async (x) => {
           if (ops.length) throw new Error("reads before writes");
           return snap(x.path);
+        }, getAll: async (...refs) => {
+          if (ops.length) throw new Error("reads before writes");
+          return refs.map((r2) => snap(r2.path));
         }});
         commit(ops);
         return r;
