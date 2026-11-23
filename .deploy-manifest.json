@@ -17,18 +17,19 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "approveFlaggedListing": {
-    "sha": "2b0ff846fb5fe3ad7073456b94cd804ad89ac0ac",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
     "at": "2026-11-23",
     "region": "us-central1"
   },
   "backfillGlobalStats": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "banUser": {
-    "at": "2026-05-17",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "capiPurchaseOnOrderCreated": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
@@ -126,10 +127,9 @@
     "sha": null
   },
   "decideAuthReview": {
-    "sha": "2b0ff84",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
     "at": "2026-11-23",
-    "region": "us-central1",
-    "note": "created with raw gcloud, decideauthreview-00001-kid"
+    "region": "us-central1"
   },
   "deleteUserAccount": {
     "at": "2026-05-15",
@@ -245,14 +245,14 @@
     "sha": null
   },
   "listAuthReviews": {
-    "sha": "2b0ff84",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
     "at": "2026-11-23",
-    "region": "us-central1",
-    "note": "created with raw gcloud, listauthreviews-00001-zeq"
+    "region": "us-central1"
   },
   "listMessageHolds": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "markOrderShipped": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
@@ -410,7 +410,7 @@
     "sha": "156486e88a2cbd81ec8d243eb8535751ae2b3672"
   },
   "optimizeListingPhoto": {
-    "sha": "2b0ff846fb5fe3ad7073456b94cd804ad89ac0ac",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
     "at": "2026-11-23",
     "region": "us-east1"
   },
@@ -542,13 +542,18 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "refundOrder": {
-    "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "regenerateSitemap": {
     "sha": "e9e470c3f62eda298bb22de06a3d6cf5812c06bc",
     "at": "2026-11-17",
+    "region": "us-central1"
+  },
+  "rejectHold": {
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "releaseExpiredReservations": {
@@ -557,12 +562,13 @@
     "region": "us-central1"
   },
   "releaseHold": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "releaseListingHold": {
-    "sha": "033c40a37cd0b517206024caa86c270ab6e74082",
-    "at": "2026-11-17",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "reportListingFailure": {
@@ -597,9 +603,9 @@
     "sha": "791ca64549e465e7485632c031b438756baea9d5"
   },
   "runSellerInviteCampaign": {
-    "at": "2026-10-16",
-    "region": "us-central1",
-    "sha": "381caa156931a967966ff934fb988584938cdf15"
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "savedSearchMatchSchedulerV2": {
     "at": "2026-09-11",
@@ -684,9 +690,9 @@
     "sha": null
   },
   "suspendUser": {
-    "at": "2026-05-17",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "syncBingoProgress": {
     "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
@@ -699,8 +705,8 @@
     "sha": null
   },
   "syncSundayNine": {
-    "sha": "fc758f132f3e54c09a4c8627e336f661964a5b6c",
-    "at": "2026-11-15",
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
     "region": "us-central1"
   },
   "syncWatchlistCount": {
@@ -708,9 +714,9 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "takeDownListing": {
-    "at": "2026-05-17",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
-    "sha": null
+    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
+    "at": "2026-11-23",
+    "region": "us-central1"
   },
   "tiktokCatalog": {
     "sha": "e0195532c0bc4753442e8cf27506ffb7b8b51174",
@@ -733,9 +739,10 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "updateListing": {
-    "sha": "2b0ff846fb5fe3ad7073456b94cd804ad89ac0ac",
+    "sha": "cc4ee71",
     "at": "2026-11-23",
-    "region": "us-central1"
+    "region": "us-central1",
+    "note": "raw gcloud once: --update-secrets=RESEND_API_KEY"
   },
   "updateMarketingConsent": {
     "at": "2026-09-29",
