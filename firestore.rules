@@ -142,7 +142,8 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && appCheckOk()
         && resource.data.sellerId == request.auth.uid
-        && resource.data.get('status', 'active') != 'sold';
+        && resource.data.get('status', 'active') != 'sold'
+        && !inCheckout(resource.data);
 
       // Admin reject — admin emails can delete any listing (for the
       // "Reject + delete" button in the moderation queue).
@@ -303,6 +304,15 @@ service cloud.firestore {
     //   • sellerId/createdAt are immutable here (sellerId pinned
     //     below; createdAt isn't in the whitelist so any attempt to
     //     change it fails affectedKeys()).
+    // A buyer's checkout holds this listing (mirror of
+    // functions/lib/checkoutHold.js). Deletes wait until it ends.
+    function inCheckout(d) {
+      return (d.get('status', 'active') == 'pending'
+              || d.get('quantityReserved', 0) > 0
+              || d.get('pendingPaymentIntentId', null) != null)
+        && (d.get('pendingUntil', null) == null || d.pendingUntil > request.time);
+    }
+
     function isValidListingUpdate(next, prev) {
       return (prev.get('status', 'active') == 'active' || prev.get('status', 'active') == 'expired'
               // r422: the post-create photo attach on a listing saved before

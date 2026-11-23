@@ -1676,10 +1676,11 @@ async function handlePaymentProcessing(pi) {
   }, {merge: true});
   if (listingId) {
     try {
-      await db.collection("listings").doc(listingId).set({
+      // update, not set: never re-create a listing that was deleted.
+      await db.collection("listings").doc(listingId).update({
         pendingUntil:
           admin.firestore.Timestamp.fromMillis(pendingUntilMs),
-      }, {merge: true});
+      });
     } catch (e) {
       logger.warn("payment.processing: listing extend failed", e.message);
     }
@@ -1793,8 +1794,12 @@ async function handlePaymentSucceeded(pi, stripeClient) {
   // a webhook redelivery would double-count GMV on the homepage and
   // append a duplicate sale to the model's sparkline.
   let alreadyProcessed = false;
+  let orphaned = false; // paid for a listing that no longer exists
+  const orphanRef = db.collection("orphanPayments").doc(pi.id);
 
   await db.runTransaction(async (tx) => {
+    alreadyProcessed = false;
+    orphaned = false;
     const [existingOrder, listingSnap] = await Promise.all([
       tx.get(orderRef),
       listingRef ? tx.get(listingRef) : Promise.resolve(null),
@@ -1803,6 +1808,29 @@ async function handlePaymentSucceeded(pi, stripeClient) {
     if (existingOrder.exists) {
       logger.info(`Order ${pi.id} already processed, skipping`);
       alreadyProcessed = true;
+      return;
+    }
+
+    // Nothing to sell: no order (so no "you sold it" email), just a record
+    // and, right after this transaction, a full refund.
+    if (listingRef && require("./lib/paidListing").isMissingListing(listingSnap)) {
+      const prior = await tx.get(orphanRef);
+      if (prior.exists && prior.data().status === "refunded") {
+        alreadyProcessed = true; // redelivery; refunded once already
+        return;
+      }
+      orphaned = true;
+      tx.set(orphanRef, {
+        paymentIntentId: pi.id,
+        listingId,
+        buyerId: buyerId || null,
+        sellerId: sellerId || null,
+        amountCents: pi.amount,
+        currency: pi.currency || null,
+        livemode: pi.livemode === true,
+        status: "refund_pending",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
       return;
     }
 
@@ -1854,40 +1882,30 @@ async function handlePaymentSucceeded(pi, stripeClient) {
 
     if (listingSnap && listingSnap.exists) {
       const listing = listingSnap.data();
-      const totalQty = Math.max(1, Number(listing.quantity || 1));
-      const newSold = Math.max(0, Number(listing.quantitySold || 0)) + orderQty;
-      const fullySold = newSold >= totalQty;
-      // Decrement quantityReserved by exactly the orderQty that this PI
-      // had reserved, clamped at 0. Increment quantitySold in the same
-      // tx so the two counters never drift.
-      const curReserved = Math.max(
-          0, Number(listing.quantityReserved || 0));
-      const nextReserved = Math.max(0, curReserved - orderQty);
-      tx.update(listingRef, fullySold ? {
-        status: "sold",
+      // Counters, and the one status rule: a payment never puts a listing
+      // back on sale (an admin takedown stays removed). See lib/paidListing.
+      const next = require("./lib/paidListing").afterSale(listing, orderQty);
+      tx.update(listingRef, {
+        status: next.status,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        quantitySold: newSold,
-        quantityReserved: nextReserved,
-        soldAt: admin.firestore.FieldValue.serverTimestamp(),
-        soldTo: buyerId || null,
-        orderId: pi.id,
-        pendingBuyer: admin.firestore.FieldValue.delete(),
-        pendingUntil: admin.firestore.FieldValue.delete(),
-        pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
-      } : {
-        // Multi-stock: bump sold count, keep listing active for remaining units.
-        status: "active",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        quantitySold: newSold,
-        quantityReserved: nextReserved,
+        quantitySold: next.quantitySold,
+        quantityReserved: next.quantityReserved,
+        ...(next.fullySold ? {
+          soldAt: admin.firestore.FieldValue.serverTimestamp(),
+          soldTo: buyerId || null,
+          orderId: pi.id,
+        } : {}),
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
       });
-    } else if (listingId) {
-      logger.warn(`Listing ${listingId} not found for order ${pi.id}`);
     }
   });
+
+  if (orphaned) {
+    await refundOrphanPayment(pi, stripeClient, orphanRef);
+    return;
+  }
 
   // Early-out on redelivery so we never double-count rollups.
   if (alreadyProcessed) return;
@@ -2040,6 +2058,44 @@ async function handlePaymentSucceeded(pi, stripeClient) {
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
 
+/**
+ * A payment succeeded for a listing that no longer exists: refund it in full
+ * (same parameters as refundOrder), record it and alert the founder. A failed
+ * refund throws a transient error, so Stripe redelivers and it is tried again;
+ * the idempotency key keeps it to one refund.
+ */
+async function refundOrphanPayment(pi, stripeClient, orphanRef) {
+  const info = {paymentIntentId: pi.id, listingId: (pi.metadata || {}).listingId || null, amountCents: pi.amount};
+  let refund;
+  try {
+    refund = await stripeClient.refunds.create({
+      payment_intent: pi.id,
+      reason: "requested_by_customer",
+      refund_application_fee: true,
+      reverse_transfer: true,
+    }, {idempotencyKey: `orphan_refund_${pi.id}`});
+  } catch (e) {
+    if (!(e && e.code === "charge_already_refunded")) {
+      logger.error("orphan payment: refund FAILED", {...info, error: String(e && e.message || e)});
+      await orphanRef.set({status: "refund_failed", error: String(e && e.message || e),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      await opsAlert("critical",
+          `Payment ${pi.id} is for a listing that no longer exists and the automatic refund FAILED. ` +
+          "Stripe will retry; refund it by hand if this repeats.", info);
+      const err = new Error("orphan refund failed");
+      err.transient = true;
+      throw err;
+    }
+  }
+  await orphanRef.set({status: "refunded", refundId: (refund && refund.id) || null,
+    refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+  logger.error("orphan payment refunded", info);
+  await opsAlert("critical",
+      `Payment ${pi.id} ($${(pi.amount / 100).toFixed(2)}) was for a listing that no longer exists. ` +
+      "It was refunded automatically and no order was created.", info);
+}
+
 async function releaseListingOnFailure(pi) {
   const db = admin.firestore();
   const {listingId, quantity} = pi.metadata || {};
@@ -2091,6 +2147,9 @@ async function releaseListingOnFailure(pi) {
       });
     }
   });
+  // The "still settling" placeholder is done; deleteListing reads it.
+  await db.collection("pendingOrders").doc(pi.id).delete()
+      .catch((e) => logger.warn("pendingOrders cleanup failed", {pi: pi.id, error: String(e && e.message || e)}));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -8313,6 +8372,8 @@ Object.assign(exports, require("./emailPauseToggle"));
 Object.assign(exports, require("./moderationApprove"));
 // Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
 Object.assign(exports, require("./authReviewAdmin"));
+// Seller delete, refused while a buyer is checking out. See deleteListing.js.
+Object.assign(exports, require("./deleteListing"));
 // Seller API v1, SANDBOX ONLY (live keys refused; sellerApiConfig.LIVE_API_ENABLED).
 // The seller-facing callables in sellerApi.js are not exported until live opens.
 exports.sellerApi = require("./sellerApi").sellerApi;

@@ -399,3 +399,24 @@ test("approved review: the owner can't swap photos with a direct write; pending 
   await assertSucceeds(updateDoc(doc(db(me), "listings", "RV1"), {updatedAt: serverTimestamp()}));
   await assertSucceeds(updateDoc(doc(db(me), "listings", "RV2"), photos));
 });
+
+test("seller delete: refused while a buyer's checkout holds the listing, allowed otherwise", async () => {
+  const {deleteDoc, Timestamp} = require("firebase/firestore");
+  const mine = listingCreateDoc("del1");
+  const me = testEnv.authenticatedContext("del1", {email_verified: true});
+  const later = Timestamp.fromMillis(Date.now() + 6e5);
+  const past = Timestamp.fromMillis(Date.now() - 6e4);
+  const cases = [
+    ["DG1", {status: "pending", pendingUntil: later}, false], ["DG2", {quantityReserved: 1, pendingUntil: later}, false],
+    ["DG3", {pendingPaymentIntentId: "pi_1", pendingUntil: later}, false], ["DG4", {status: "pending"}, false],
+    ["DG5", {status: "pending", pendingUntil: past}, true], ["DG6", {quantityReserved: 0}, true], ["DG7", {status: "sold"}, false],
+    ["DG8", {}, true],
+  ];
+  for (const [id, over, ok] of cases) {
+    await seed("listings", id, {...mine, ...over});
+    await (ok ? assertSucceeds : assertFails)(deleteDoc(doc(db(me), "listings", id)));
+  }
+  await seed("listings", "DG9", {...mine, status: "pending", pendingUntil: later});
+  await assertFails(deleteDoc(doc(db(testEnv.authenticatedContext("someoneelse")), "listings", "DG9")));
+  await assertSucceeds(deleteDoc(doc(db(testEnv.authenticatedContext("boss", {admin: true})), "listings", "DG9")));
+});
