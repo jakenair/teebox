@@ -642,10 +642,10 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "sellerApi": {
-    "sha": "6c80f11",
+    "sha": "c32a72f",
     "at": "2026-11-23",
     "region": "us-central1",
-    "note": "4Gi cpu 2 conc 2 max 5, RESEND_API_KEY"
+    "note": "4Gi cpu 2 conc 2 max 2 (sandbox cost cap), RESEND_API_KEY"
   },
   "sendBrandedPasswordReset": {
     "at": "2026-09-11",
