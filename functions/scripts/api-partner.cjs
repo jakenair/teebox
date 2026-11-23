@@ -14,7 +14,8 @@
 // list while LIVE_API_ENABLED is false.
 //
 // Keys are NEVER printed. A new key is written to
-// ~/Desktop/teebox-private/partner-keys/<project>-<env>-<partner>.txt (mode 600)
+// ~/.teebox/partner-keys/ (never Desktop or Documents: iCloud syncs those)
+// as <project>-<env>-<partner>.txt (mode 600)
 // for you to send to the partner over a secure channel, then delete.
 // --project and --env are required, so a live key can't be issued by accident.
 // Set FIRESTORE_EMULATOR_HOST to run against the emulator.
@@ -50,8 +51,10 @@ const cfg = config.resolve(live ? "live" : "test", {GCLOUD_PROJECT: project});
 const d = {db, FieldValue: admin.firestore.FieldValue, cfg};
 
 function saveKey(kind, id, key) {
-  const dir = path.join(os.homedir(), "Desktop", "teebox-private", "partner-keys");
+  const dir = path.join(os.homedir(), ".teebox", "partner-keys");
   fs.mkdirSync(dir, {recursive: true, mode: 0o700});
+  fs.chmodSync(path.dirname(dir), 0o700);
+  fs.chmodSync(dir, 0o700);
   const f = path.join(dir, `${project}-${envName}-${id}${kind === "connection" ? "-test-connection" : ""}.txt`);
   fs.writeFileSync(f, key + "\n", {mode: 0o600});
   return f;

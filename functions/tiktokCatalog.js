@@ -216,9 +216,14 @@ async function serveCsv(req, res) {
   }
   res.set("Content-Type", "text/csv; charset=utf-8");
   res.set("Content-Disposition", "inline; filename=\"tiktok.csv\"");
-  res.set("Cache-Control", `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}`);
+  // Not cached at the edge: every fetch reaches us, so every fetch is logged.
+  // The built CSV is still kept in memory for CACHE_SECONDS.
+  res.set("Cache-Control", "no-cache, max-age=0, s-maxage=0");
   res.set("X-TeeBox-Feed-Rows", String(_cache.rows));
   res.set("X-TeeBox-Feed-Generated", new Date(_cache.at).toISOString());
+  logger.info("tiktokCatalog: feed served", {status: 200, bytes: Buffer.byteLength(_cache.csv), rows: _cache.rows,
+    host: String(req.get("x-forwarded-host") || req.get("host") || ""), path: req.path, method: req.method,
+    ua: String(req.get("user-agent") || "").slice(0, 120)});
   res.status(200).send(_cache.csv);
 }
 
