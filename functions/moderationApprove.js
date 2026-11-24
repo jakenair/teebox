@@ -22,7 +22,7 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
-const {adminGate, ADMIN_ALLOWLIST} = require("./lib/adminGate");
+const {adminGate} = require("./lib/adminGate");
 const {planApproval, objectPathFromUrl} = require("./lib/photoPrune");
 const {backfillVariantsForPhoto} = require("./lib/listingPhotoVariants");
 
@@ -37,7 +37,7 @@ const FN = {
 const MAX_BACKFILL = 10;
 
 exports.approveFlaggedListing = onCall(
-    {...FN, secrets: [ADMIN_ALLOWLIST]},
+    {...FN},
     async (req) => {
       adminGate(req);
       const listingId = String((req.data || {}).listingId || "");

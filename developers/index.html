@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>TeeBox Seller API</title>
+<meta name="description" content="Build a listing tool that posts, updates and ends golf listings on TeeBox for its sellers." />
+<meta name="theme-color" content="#0b1a0e" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href="https://teeboxmarket.com/developers/" />
+<!-- Tables between gen: markers come from scripts/gen-seller-api-docs.mjs. Don't edit them by hand. -->
+<style>
+  :root {
+    --green-900: #0b1a0e; --green-700: #1f4827; --green-600: #2d5e36; --green-50: #f1f6f2;
+    --gold-500: #c5a253; --gold-50: #faf6ea;
+    --gray-900: #1a1a1a; --gray-700: #4a4a4a; --gray-500: #6b6b6b; --gray-200: #e5e5e5; --gray-100: #f5f5f5;
+    --white: #fff; --radius-md: 10px; --radius-sm: 6px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--gray-900); background: var(--white); line-height: 1.6; font-size: 16px; }
+  header { background: var(--green-900); color: var(--white); padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px 24px; }
+  .bar { max-width: 1120px; margin: 0 auto; display: flex; gap: 16px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+  .logo { font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; font-weight: 900; color: var(--white); text-decoration: none; }
+  .logo span { color: var(--gold-500); }
+  .bar .right { color: var(--white); font-size: 0.95rem; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  nav ul { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  nav a { color: var(--green-600); text-decoration: none; font-size: 0.95rem; display: inline-block; padding: 4px 0; }
+  nav a:hover, main a:hover { text-decoration: underline; }
+  h1, h2 { font-family: Georgia, "Times New Roman", serif; color: var(--green-900); line-height: 1.25; text-wrap: balance; }
+  h1 { font-size: 2rem; margin-bottom: 12px; }
+  h2 { font-size: 1.4rem; color: var(--green-700); margin: 48px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+  h3 { font-size: 1.05rem; margin: 32px 0 8px; }
+  main p, main li { color: var(--gray-700); max-width: 70ch; }
+  main p { margin-bottom: 12px; }
+  main ul, main ol { padding-left: 22px; margin-bottom: 12px; }
+  main li { margin-bottom: 6px; }
+  main a { color: var(--green-600); }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--gray-100); border-radius: var(--radius-sm); padding: 1px 5px; overflow-wrap: anywhere; }
+  pre { background: var(--green-900); color: #e9efe9; border-radius: var(--radius-md); padding: 16px; overflow-x: auto; margin: 0 0 16px; }
+  pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.55; overflow-wrap: normal; white-space: pre; }
+  .ex { position: relative; }
+  .ex button { position: absolute; top: 8px; right: 8px; border: 1px solid rgba(255,255,255,0.35); background: var(--green-900); color: var(--white);
+    font: inherit; font-size: 0.8rem; border-radius: 50px; padding: 4px 12px; cursor: pointer; }
+  .ex pre { padding-top: 44px; }
+  .ex button:focus-visible, a:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
+  .note { background: var(--gold-50); border: 1px solid var(--gold-500); border-radius: var(--radius-md); padding: 12px 16px; margin: 0 0 16px; max-width: 74ch; }
+  .note p:last-child { margin-bottom: 0; }
+  .rule { background: var(--green-50); border: 1px solid var(--green-600); border-radius: var(--radius-md); padding: 12px 16px; margin: 0 0 16px; max-width: 74ch; }
+  .rule p:last-child { margin-bottom: 0; }
+  .scroll { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); }
+  .scroll td code { white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--gray-200); min-width: 72px; }
+  tr:last-child td { border-bottom: 0; }
+  th { background: var(--gray-100); }
+  .verb { font-family: var(--mono); font-weight: 700; color: var(--green-700); }
+  footer { border-top: 1px solid var(--gray-200); padding: 24px 16px; text-align: center; color: var(--gray-500); font-size: 0.9rem; }
+  footer a { color: var(--green-600); }
+  @media (min-width: 900px) {
+    .wrap { grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+    nav { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; }
+    nav ul { flex-direction: column; gap: 2px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <a class="logo" href="/">Tee<span>Box</span></a>
+  <span class="right">Seller API, version 1</span>
+</div></header>
+<div class="wrap">
+<nav aria-label="Sections"><ul>
+  <li><a href="#status">Status</a></li>
+  <li><a href="#quickstart">Quickstart</a></li>
+  <li><a href="#auth">Keys</a></li>
+  <li><a href="#endpoints">Endpoints</a></li>
+  <li><a href="#listing">Listing fields</a></li>
+  <li><a href="#categories">Categories</a></li>
+  <li><a href="#rules">Listing rules</a></li>
+  <li><a href="#sync">Keeping in sync</a></li>
+  <li><a href="#idempotency">Safe retries</a></li>
+  <li><a href="#limits">Limits</a></li>
+  <li><a href="#errors">Errors</a></li>
+  <li><a href="#not">What it doesn't do</a></li>
+  <li><a href="openapi.json">OpenAPI file</a></li>
+</ul></nav>
+<main>
+<h1>TeeBox Seller API</h1>
+<p>Build a listing tool that posts, updates and ends golf listings on TeeBox for the sellers who connect it. JSON over HTTPS.</p>
+
+<div class="note" id="status"><p><strong>The sandbox is open.</strong> We issue test keys by hand: <a href="/support.html">contact us</a> with your tool's name. The live API is not open yet, so live keys are refused.</p></div>
+<!-- gen:urls -->
+<div class="scroll"><table><thead><tr><th>Environment</th><th>Base URL</th><th>Keys</th><th>Status</th></tr></thead><tbody>
+<tr><td>Sandbox</td><td><code>https://us-central1-teebox-market.cloudfunctions.net/sellerApi/v1</code></td><td><code>pk_test_...</code> <code>sk_conn_test_...</code></td><td>Open, keys on request</td></tr>
+<tr><td>Live</td><td><code>https://api.teeboxmarket.com/v1</code></td><td><code>pk_live_...</code> <code>sk_conn_live_...</code></td><td>Not open yet</td></tr>
+</tbody></table></div>
+<!-- /gen:urls -->
+<p>Your keys choose the environment: test keys always use the sandbox, live keys always use live. The sandbox holds only fake sellers and listings, kept apart from the real ones.</p>
+<h3>How the sandbox differs</h3>
+<ul>
+  <li>Listings have no public page, so <code>url</code> is <code>null</code>. Nobody can buy them, and no emails are sent.</li>
+  <li>Photo URLs are checked for shape only and returned as you sent them. Nothing is downloaded.</li>
+  <li>Text isn't moderated. Put <code>sandboxviolation</code> in the text to test <code>content_violation</code>.</li>
+  <li>Use the <a href="#ep-sell">sandbox sell</a> call to test how your tool handles a sale.</li>
+</ul>
+
+<h2 id="quickstart">Quickstart</h2>
+<ol>
+  <li>TeeBox approves your tool and issues a partner key.</li>
+  <li>You get a connection key for a seller. In the sandbox, TeeBox sends you one for a fake seller. On live, the seller opens Profile, Connected tools in TeeBox, picks your tool, and pastes the key into it.</li>
+  <li>Check the connection, then create a listing.</li>
+</ol>
+<div class="ex"><pre><code>export TEEBOX=https://us-central1-teebox-market.cloudfunctions.net/sellerApi/v1
+export PARTNER_KEY=pk_test_your_partner_key
+export SELLER_KEY=sk_conn_test_the_sellers_key
+
+curl "$TEEBOX/me" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" \
+  -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+<div class="ex"><pre><code>curl -X POST "$TEEBOX/listings" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" \
+  -H "Authorization: Bearer $SELLER_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: your-sku-1001" \
+  -d '{
+    "title": "TaylorMade Qi10 Driver 10.5",
+    "brand": "TaylorMade",
+    "category": "driver",
+    "condition": "Very Good",
+    "price": 249.99,
+    "quantity": 1,
+    "description": "Light marks on the crown.",
+    "specs": {"model": "Qi10", "loft": "10.5", "flex": "S", "dexterity": "RH"},
+    "photo_urls": ["https://example.com/driver-1.jpg", "https://example.com/driver-2.jpg"]
+  }'</code></pre></div>
+
+<h2 id="auth">Keys</h2>
+<p>Every request needs two keys.</p>
+<ul>
+  <li><strong>Partner key</strong>, in <code>X-TeeBox-Partner-Key</code>. It identifies your tool. Keep it on your server.</li>
+  <li><strong>Connection key</strong>, in <code>Authorization: Bearer</code>. A seller creates one for your tool. It only works with your partner key.</li>
+</ul>
+<p>Sellers can disconnect at any time, and connecting again replaces the old key. TeeBox can pause a partner; its connections then stop on the next request. A test key and a live key can't be used together.</p>
+<div class="rule"><p><strong>Sellers confirm for themselves.</strong> A seller must confirm they are 18 or older and agree to the Seller Terms once, in TeeBox. Your tool can't do it for them. Until they do, creating a listing returns <code>seller_consent_required</code>.</p></div>
+
+<h2 id="endpoints">Endpoints</h2>
+<p>Every response is JSON with a <code>request_id</code>, also sent as <code>X-Request-Id</code>. The examples use the variables from the quickstart.</p>
+
+<h3 id="ep-me"><span class="verb">GET</span> <code>/v1/me</code></h3>
+<p>Which environment, partner and seller this connection belongs to. Check <code>seller.can_list</code> before you post; when it is false, show <code>cannot_list_reason.message</code> to the seller. <code>listings_created_today</code> counts the current 24-hour window.</p>
+<div class="ex"><pre><code>curl "$TEEBOX/me" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+
+<h3 id="ep-categories"><span class="verb">GET</span> <code>/v1/categories</code></h3>
+<p>Categories, the spec fields for each, the allowed values and the listing rules. Read it at startup and refresh it daily rather than hard-coding values.</p>
+<div class="ex"><pre><code>curl "$TEEBOX/categories" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+
+<h3 id="ep-list"><span class="verb">GET</span> <code>/v1/listings</code></h3>
+<p>All of the seller's listings, including ones not made by your tool, oldest change first. Optional: <code>updated_since</code>, <code>status</code> (comma-separated), <code>limit</code>, <code>cursor</code>. See <a href="#sync">Keeping in sync</a>.</p>
+<div class="ex"><pre><code>curl "$TEEBOX/listings?updated_since=2026-12-01T00:00:00Z&amp;limit=100" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+
+<h3 id="ep-create"><span class="verb">POST</span> <code>/v1/listings</code></h3>
+<p>Create a listing. Photos are downloaded first; if too few arrive, nothing is created. If some fail but enough arrive, the listing is created and <code>photo_errors</code> lists the rest. Returns 201.</p>
+<p>If the seller hasn't finished payout setup, the listing saves with status <code>awaiting_payouts</code> and goes live when they finish. You don't need to post it again.</p>
+<p>If TeeBox takes a new listing for review, the answer says <code>under_review</code>, and reading it returns 404 until TeeBox releases it.</p>
+<div class="ex"><pre><code>curl -X POST "$TEEBOX/listings" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
+  -H "Content-Type: application/json" -H "Idempotency-Key: your-sku-1002" \
+  -d '{"title": "FootJoy Shoe Bag", "brand": "FootJoy", "category": "accessories",
+       "condition": "Good", "price": 40, "specs": {"itemType": "Shoe bag"},
+       "photo_urls": ["https://example.com/bag.jpg"]}'</code></pre></div>
+
+<h3 id="ep-get"><span class="verb">GET</span> <code>/v1/listings/{id}</code></h3>
+<div class="ex"><pre><code>curl "$TEEBOX/listings/LISTING_ID" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+
+<h3 id="ep-patch"><span class="verb">PATCH</span> <code>/v1/listings/{id}</code></h3>
+<p>Send only what changes. Spec keys you send overlay the current ones; changing <code>category</code> starts the specs again. <code>photo_urls</code> replaces every photo.</p>
+<p>A listing at $300 or more gets an authenticity review. After it is approved, changing the photos, title, brand, category, specs or condition sends it back to review; it stays for sale meanwhile. Changing the price, description, quantity or photo order doesn't.</p>
+<div class="ex"><pre><code>curl -X PATCH "$TEEBOX/listings/LISTING_ID" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"price": 229.99}'</code></pre></div>
+<p>To sync stock, send <code>quantity_available</code>: the units still for sale. Sending <code>0</code> on its own ends the listing. <code>quantity</code> sets the total, including units already sold. Send one or the other.</p>
+<div class="ex"><pre><code>curl -X PATCH "$TEEBOX/listings/LISTING_ID" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"quantity_available": 2}'</code></pre></div>
+
+<h3 id="ep-end"><span class="verb">POST</span> <code>/v1/listings/{id}/end</code></h3>
+<p>End a listing, for example when the item sold somewhere else. Ending an ended listing succeeds with <code>already_ended: true</code>. While a buyer is checking out it returns <code>checkout_in_progress</code>; retry in a few minutes. The API never cancels a checkout. A checkout that ran out of time no longer holds its units.</p>
+<div class="ex"><pre><code>curl -X POST "$TEEBOX/listings/LISTING_ID/end" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY"</code></pre></div>
+
+<h3 id="ep-sell"><span class="verb">POST</span> <code>/v1/sandbox/listings/{id}/sell</code></h3>
+<p>Sandbox only. Marks units sold, the way a real sale does, so you can test polling. <code>quantity</code> is optional and defaults to 1. When no units are left the status becomes <code>sold</code>.</p>
+<div class="ex"><pre><code>curl -X POST "$TEEBOX/sandbox/listings/LISTING_ID/sell" \
+  -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"quantity": 1}'</code></pre></div>
+
+<h2 id="listing">Listing fields</h2>
+<p><strong>You send</strong> <code>title</code>, <code>brand</code>, <code>category</code>, <code>condition</code>, <code>price</code>, <code>photo_urls</code> and the category's required <code>specs</code>. Optional: <code>quantity</code>, <code>description</code>, and <code>browse_category</code> for category <code>other</code>. Unknown fields are refused, so a typo never passes silently.</p>
+<p><strong>You get back</strong> those values plus <code>id</code>, <code>url</code>, <code>status</code>, <code>currency</code>, <code>quantity_sold</code>, <code>quantity_available</code>, <code>photos</code>, <code>created_at</code>, <code>updated_at</code>, <code>expires_at</code>, <code>sold_at</code>, <code>ended_at</code>, <code>created_via</code> and <code>created_by_you</code>. Times are ISO 8601 in UTC.</p>
+<div class="scroll"><table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>active</code></td><td>For sale.</td></tr>
+<tr><td><code>reserved</code></td><td>A buyer is checking out. It goes back to active or becomes sold.</td></tr>
+<tr><td><code>sold</code></td><td>Sold. Delist it everywhere else.</td></tr>
+<tr><td><code>expired</code></td><td>Reached its expiry date. The seller can renew it in TeeBox.</td></tr>
+<tr><td><code>ended</code></td><td>Ended by the seller, a tool or TeeBox.</td></tr>
+<tr><td><code>awaiting_payouts</code></td><td>Saved, but hidden until the seller finishes payout setup.</td></tr>
+<tr><td><code>needs_photos</code></td><td>Hidden because photos are missing. Send <code>photo_urls</code> to fix it.</td></tr>
+<tr><td><code>under_review</code></td><td>TeeBox is checking it. It can't be edited until then.</td></tr>
+</tbody></table></div>
+<p>Photo URLs must be public <code>https</code> links to a JPEG, PNG, WebP, GIF or HEIC image, up to 15 MB and 60 megapixels each, with at most 3 redirects. Each must finish downloading within 10 seconds and open as an image, and the same picture sent twice counts once. TeeBox copies, resizes and safety-checks them. Links that need a login won't work.</p>
+<p>Every request body is JSON, 256 KB at most. Text fields take text only: no control characters, and a title or brand needs something visible in it.</p>
+
+<h2 id="categories">Categories and specs</h2>
+<p>Keys for <code>specs</code>, by category. Select fields only take the options in <code>GET /v1/categories</code>; units are forgiving, so <code>10.5</code> matches the 10.5 degree option.</p>
+<!-- gen:categories -->
+<div class="scroll"><table><thead><tr><th>Category</th><th>Required specs</th><th>Optional specs</th></tr></thead><tbody>
+<tr><td><code>driver</code><br>Driver</td><td><code>model</code> <code>loft</code> <code>flex</code> <code>dexterity</code></td><td><code>shaftBrand</code> <code>shaftModel</code> <code>headcover</code></td></tr>
+<tr><td><code>fairway</code><br>Fairway</td><td><code>model</code> <code>loft</code> <code>flex</code> <code>dexterity</code></td><td><code>shaftBrand</code> <code>shaftModel</code> <code>headcover</code></td></tr>
+<tr><td><code>hybrid</code><br>Hybrid</td><td><code>model</code> <code>loft</code> <code>flex</code> <code>dexterity</code></td><td><code>shaftBrand</code> <code>shaftModel</code> <code>headcover</code></td></tr>
+<tr><td><code>iron-set</code><br>Iron set</td><td><code>model</code> <code>setFrom</code> <code>setTo</code> <code>flex</code> <code>dexterity</code></td><td><code>shaftBrand</code> <code>shaftModel</code> <code>shaftType</code> <code>lieLength</code> <code>grip</code></td></tr>
+<tr><td><code>single-iron</code><br>Single iron</td><td><code>model</code> <code>ironNumber</code> <code>flex</code> <code>dexterity</code></td><td><code>shaftBrand</code> <code>shaftModel</code> <code>shaftType</code></td></tr>
+<tr><td><code>wedge</code><br>Wedge</td><td><code>model</code> <code>loft</code> <code>flex</code> <code>dexterity</code></td><td><code>bounce</code> <code>grind</code> <code>shaftBrand</code> <code>shaftModel</code></td></tr>
+<tr><td><code>putter</code><br>Putter</td><td><code>model</code> <code>length</code> <code>headStyle</code> <code>dexterity</code></td><td><code>grip</code> <code>headcover</code></td></tr>
+<tr><td><code>shaft</code><br>Shaft</td><td><code>model</code> <code>clubType</code> <code>flex</code></td><td><code>weight</code> <code>tipSize</code> <code>length</code> <code>adapter</code> <code>shaftType</code></td></tr>
+<tr><td><code>balls</code><br>Balls</td><td><code>model</code> <code>quantity</code></td><td>none</td></tr>
+<tr><td><code>bag</code><br>Bag</td><td><code>model</code></td><td><code>bagType</code></td></tr>
+<tr><td><code>apparel</code><br>Apparel</td><td><code>apparelType</code> <code>size</code></td><td>none</td></tr>
+<tr><td><code>shoes</code><br>Shoes</td><td><code>model</code> <code>size</code></td><td>none</td></tr>
+<tr><td><code>headcover</code><br>Headcover</td><td>none</td><td><code>hcType</code></td></tr>
+<tr><td><code>accessories</code><br>Accessories</td><td><code>itemType</code></td><td>none</td></tr>
+<tr><td><code>other</code><br>Other</td><td>none, but send <code>browse_category</code></td><td>none</td></tr>
+</tbody></table></div>
+<!-- /gen:categories -->
+
+<h2 id="rules">Listing rules</h2>
+<p>API listings follow the same rules, moderation and photo checks as listings made in TeeBox.</p>
+<!-- gen:rules -->
+<div class="scroll"><table><thead><tr><th>Rule</th><th>Value</th></tr></thead><tbody>
+<tr><td>Price</td><td>$5 or more, US dollars, at most 2 decimals</td></tr>
+<tr><td>Photos</td><td>1 to 10; at least 4 when the price is $300 or more</td></tr>
+<tr><td>Quantity</td><td>1 to 99</td></tr>
+<tr><td>Title, brand, description</td><td>120, 60 and 4,000 characters at most</td></tr>
+<tr><td>Condition</td><td><code>New with Tags</code> <code>Like New</code> <code>Very Good</code> <code>Good</code> <code>Fair</code></td></tr>
+<tr><td>Browse category (only for category other)</td><td><code>clubs</code> <code>apparel</code> <code>shoes</code> <code>accessories</code> <code>bags</code> <code>balls</code> <code>headcovers</code> <code>shafts</code></td></tr>
+</tbody></table></div>
+<!-- /gen:rules -->
+<h3>Listings at $300 or more</h3>
+<ul>
+  <li>They need at least 4 photos, including a verification photo: the seller holding a piece of paper with their username and today's date.</li>
+  <li>They get an authenticity review. Until it is approved, TeeBox doesn't advertise the listing. Changing the photos, title or brand after approval sends it back to review.</li>
+  <li>If the review is rejected, the listing is taken down and reads as <code>ended</code>. Editing it, including lowering the price, doesn't reverse that. The seller is emailed the reason.</li>
+</ul>
+
+<h2 id="sync">Keeping in sync</h2>
+<p>There are no webhooks in version 1. Poll <code>GET /v1/listings</code> with <code>updated_since</code>; every few minutes per seller is plenty.</p>
+<ol>
+  <li>Ask for changes since the newest <code>updated_at</code> you have stored. The time is inclusive, so you will see that listing again; match on <code>id</code>.</li>
+  <li>While <code>has_more</code> is true, repeat with <code>cursor</code> set to <code>next_cursor</code>. A page can be short, or empty when you filter by status; keep going until <code>has_more</code> is false.</li>
+  <li>When a listing is <code>sold</code> or <code>ended</code>, delist it on other marketplaces. When <code>quantity_available</code> drops, lower your stock.</li>
+</ol>
+<div class="rule"><p><strong>A listing that returns 404 has been removed from TeeBox. Delist it on your side.</strong> Deleted listings don't appear in <code>updated_since</code> results, so check listings you haven't heard about now and then.</p></div>
+
+<h2 id="idempotency">Safe retries</h2>
+<p>Send an <code>Idempotency-Key</code> when you create a listing, such as your own item ID. Repeating the same key and body returns the first answer, with <code>Idempotent-Replayed: true</code>, and never creates a second listing. If a create fails part way with a 500, the same key and body finishes the listing it started.</p>
+<ul>
+  <li>The same key with a different body returns <code>idempotency_key_reused</code>.</li>
+  <li>Error answers below 500 are remembered too. After fixing a problem, or waiting out a daily limit, use a new key.</li>
+  <li>Answers of 500 or above are not remembered, so you can retry with the same key.</li>
+</ul>
+
+<h2 id="limits">Limits</h2>
+<!-- gen:limits -->
+<div class="scroll"><table><thead><tr><th>Limit</th><th>Value</th></tr></thead><tbody>
+<tr><td>Requests per minute, per seller connection</td><td>120</td></tr>
+<tr><td>Requests per minute, per partner key (all sellers together)</td><td>1,200</td></tr>
+<tr><td>New listings per seller in a rolling 24 hours (shared with CSV upload)</td><td>25, or 200 for sellers TeeBox approves</td></tr>
+<tr><td>Listings per page</td><td>50 by default, 100 at most</td></tr>
+<tr><td>Photo URLs per listing</td><td>10</td></tr>
+<tr><td>Photo downloads per seller in a rolling 24 hours (creates and edits, failed ones too)</td><td>500, or 4,000 for sellers TeeBox approves</td></tr>
+<tr><td>Request body</td><td>256 KB</td></tr>
+<tr><td>Idempotency keys kept</td><td>24 hours</td></tr>
+</tbody></table></div>
+<!-- /gen:limits -->
+<p>Responses carry <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code> and <code>RateLimit-Reset</code> (seconds). A 429 for rate also carries <code>Retry-After</code>.</p>
+
+<h2 id="errors">Errors</h2>
+<div class="ex"><pre><code>{
+  "error": {
+    "code": "validation_failed",
+    "message": "Loft is required for driver listings.",
+    "errors": [{"field": "specs.loft", "message": "Loft is required for driver listings."}]
+  },
+  "request_id": "req_4f9c"
+}</code></pre></div>
+<p>Act on <code>code</code>. Show <code>message</code> to the seller; it is written for them.</p>
+<!-- gen:errors -->
+<div class="scroll"><table><thead><tr><th>HTTP</th><th>Code</th><th>What to do</th></tr></thead><tbody>
+<tr><td>400</td><td><code>invalid_json</code></td><td>Send a JSON object with Content-Type: application/json.</td></tr>
+<tr><td>400</td><td><code>unknown_field</code></td><td>Remove the fields named in error.fields.</td></tr>
+<tr><td>400</td><td><code>empty_update</code></td><td>Send at least one field to change.</td></tr>
+<tr><td>400</td><td><code>conflicting_fields</code></td><td>Send quantity or quantity_available, not both.</td></tr>
+<tr><td>400</td><td><code>use_end</code></td><td>Send quantity_available 0 on its own, or call the end endpoint.</td></tr>
+<tr><td>400</td><td><code>invalid_limit</code></td><td>Use a whole number in the allowed range.</td></tr>
+<tr><td>400</td><td><code>invalid_status</code></td><td>Use one of the listed statuses.</td></tr>
+<tr><td>400</td><td><code>invalid_updated_since</code></td><td>Send an ISO 8601 time, such as 2026-12-01T00:00:00Z.</td></tr>
+<tr><td>400</td><td><code>invalid_cursor</code></td><td>Start again without a cursor.</td></tr>
+<tr><td>400</td><td><code>invalid_idempotency_key</code></td><td>Use 1 to 255 printable characters, no spaces.</td></tr>
+<tr><td>400</td><td><code>seller_cannot_list</code></td><td>Show the message to the seller.</td></tr>
+<tr><td>401</td><td><code>missing_partner_key</code></td><td>Send X-TeeBox-Partner-Key.</td></tr>
+<tr><td>401</td><td><code>missing_connection_key</code></td><td>Send Authorization: Bearer with the seller's connection key.</td></tr>
+<tr><td>401</td><td><code>invalid_partner_key</code></td><td>Check the key, or whether it was replaced.</td></tr>
+<tr><td>401</td><td><code>invalid_connection_key</code></td><td>The key is wrong, or the seller disconnected or reconnected. Ask them for a new one.</td></tr>
+<tr><td>401</td><td><code>connection_revoked</code></td><td>The seller disconnected your tool. Ask them to connect again.</td></tr>
+<tr><td>401</td><td><code>wrong_environment</code></td><td>Use a test partner key with a test connection key, or live with live.</td></tr>
+<tr><td>401</td><td><code>seller_not_found</code></td><td>The seller's account is gone. Stop syncing it.</td></tr>
+<tr><td>403</td><td><code>partner_disabled</code></td><td>Your access is paused. Contact TeeBox.</td></tr>
+<tr><td>403</td><td><code>connection_partner_mismatch</code></td><td>That connection key was made for a different tool.</td></tr>
+<tr><td>403</td><td><code>seller_disabled</code></td><td>The seller's account can't list. Stop syncing it.</td></tr>
+<tr><td>403</td><td><code>seller_consent_required</code></td><td>The seller must confirm 18+ and the Seller Terms in TeeBox. Show them the message.</td></tr>
+<tr><td>403</td><td><code>seller_email_unverified</code></td><td>The seller must verify their email in TeeBox.</td></tr>
+<tr><td>403</td><td><code>live_not_open</code></td><td>The live API isn't open yet. Use your test keys.</td></tr>
+<tr><td>404</td><td><code>not_found</code></td><td>That endpoint doesn't exist.</td></tr>
+<tr><td>404</td><td><code>listing_not_found</code></td><td>The listing was removed. Delist it on your side.</td></tr>
+<tr><td>405</td><td><code>method_not_allowed</code></td><td>Use a method the endpoint supports.</td></tr>
+<tr><td>409</td><td><code>checkout_in_progress</code></td><td>A buyer is checking out. Retry in a few minutes.</td></tr>
+<tr><td>409</td><td><code>listing_sold</code></td><td>It sold on TeeBox. Delist it everywhere else.</td></tr>
+<tr><td>409</td><td><code>listing_ended</code></td><td>It has ended. Create a new listing to sell the item again.</td></tr>
+<tr><td>409</td><td><code>listing_expired</code></td><td>The seller can renew it in TeeBox.</td></tr>
+<tr><td>409</td><td><code>listing_under_review</code></td><td>TeeBox is reviewing it. Try again later.</td></tr>
+<tr><td>409</td><td><code>listing_not_active</code></td><td>Sandbox sell only: the listing must be active.</td></tr>
+<tr><td>409</td><td><code>request_in_progress</code></td><td>The first request with this Idempotency-Key is still running. Retry in a few seconds.</td></tr>
+<tr><td>413</td><td><code>payload_too_large</code></td><td>Send a smaller body; see Limits.</td></tr>
+<tr><td>415</td><td><code>unsupported_media_type</code></td><td>Send JSON with Content-Type: application/json.</td></tr>
+<tr><td>422</td><td><code>validation_failed</code></td><td>Fix each field in error.errors.</td></tr>
+<tr><td>422</td><td><code>photo_fetch_failed</code></td><td>Fix the URLs in error.photo_errors. Nothing was created or changed.</td></tr>
+<tr><td>422</td><td><code>content_violation</code></td><td>The text breaks TeeBox's listing rules. Change it.</td></tr>
+<tr><td>422</td><td><code>idempotency_key_reused</code></td><td>Use a new key for a different request body.</td></tr>
+<tr><td>429</td><td><code>rate_limited</code></td><td>Wait for the Retry-After seconds.</td></tr>
+<tr><td>429</td><td><code>daily_limit_reached</code></td><td>Wait until error.resets_at. The message says which limit.</td></tr>
+<tr><td>500</td><td><code>internal</code></td><td>Retry. Contact TeeBox with the request_id if it keeps happening.</td></tr>
+<tr><td>503</td><td><code>busy</code></td><td>Wait for the Retry-After seconds, then send the same request again.</td></tr>
+</tbody></table></div>
+<!-- /gen:errors -->
+
+<h2 id="not">What it doesn't do</h2>
+<p>There are no endpoints for payments, payouts, refunds, transfers, orders, buyers or messages, and none are planned for version 1. Sellers handle sales in TeeBox.</p>
+</main>
+</div>
+<footer><a href="/">TeeBox</a> &middot; <a href="/support.html">Support</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></footer>
+<script>
+  // Copy buttons, added only when the clipboard is available.
+  if (navigator.clipboard) document.querySelectorAll('.ex').forEach(function (ex) {
+    var code = ex.querySelector('code'), b = document.createElement('button');
+    b.type = 'button'; b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      navigator.clipboard.writeText(code.textContent).then(function () {
+        b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500);
+      }, function () { b.textContent = 'Press Ctrl+C'; });
+    });
+    ex.appendChild(b);
+  });
+</script>
+</body>
+</html>

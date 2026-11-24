@@ -28,15 +28,8 @@ const geminiSecret = defineSecret("GEMINI_API_KEY");
 // sendEmail wrapper — caused a TDZ when stripeWebhook tried to bind it.
 const RESEND_KEY = defineSecret("RESEND_API_KEY");
 
-// Admin allowlist — comma-separated emails stored in a Firebase Secret
-// so we can rotate / expand admins without a code deploy. Bound to every
-// callable that calls isAdminEmail() / adminGate(). Set via:
-//   firebase functions:secrets:set ADMIN_ALLOWLIST --project=teebox-market
-//     --data-file=- < <(printf 'jakenair23@gmail.com')
-// firestore.rules and storage.rules still keep a hardcoded literal as
-// defense-in-depth (rules can't read secrets); the Cloud Function path
-// is the canonical source.
-const ADMIN_ALLOWLIST = defineSecret("ADMIN_ALLOWLIST");
+// Admin checks: the admin:true custom claim, in lib/adminGate.js.
+const {adminGate, isAdminAuth} = require("./lib/adminGate");
 
 // ── Analytics helper (PostHog product analytics) ─────────────────────
 // captureServerEvent fires snake_case product events from server-side
@@ -179,34 +172,6 @@ class HttpError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-// Admin email allowlist — sourced from the ADMIN_ALLOWLIST secret
-// (comma-separated). Parsed once at module scope per cold start, then
-// reused. Every callable that uses isAdminEmail()/adminGate() must
-// declare ADMIN_ALLOWLIST in its `secrets:` array. firestore.rules /
-// storage.rules keep a hardcoded list as defense-in-depth because
-// Firestore/Storage rules cannot read Firebase Secrets — the Cloud
-// Function path is the canonical source.
-let _adminList = null;
-function getAdminList() {
-  if (_adminList) return _adminList;
-  let raw = "";
-  try {
-    raw = ADMIN_ALLOWLIST.value() || "";
-  } catch (_e) {
-    raw = "";
-  }
-  _adminList = raw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-  return _adminList;
-}
-
-function isAdminEmail(email) {
-  if (!email) return false;
-  return getAdminList().includes(String(email).toLowerCase());
 }
 
 // Step-up reauth gate for DESTRUCTIVE admin actions (banUser,
@@ -1731,10 +1696,11 @@ async function handlePaymentProcessing(pi) {
   }, {merge: true});
   if (listingId) {
     try {
-      await db.collection("listings").doc(listingId).set({
+      // update, not set: never re-create a listing that was deleted.
+      await db.collection("listings").doc(listingId).update({
         pendingUntil:
           admin.firestore.Timestamp.fromMillis(pendingUntilMs),
-      }, {merge: true});
+      });
     } catch (e) {
       logger.warn("payment.processing: listing extend failed", e.message);
     }
@@ -1852,8 +1818,12 @@ async function handlePaymentSucceeded(pi, stripeClient) {
   // a webhook redelivery would double-count GMV on the homepage and
   // append a duplicate sale to the model's sparkline.
   let alreadyProcessed = false;
+  let orphaned = false; // paid for a listing that no longer exists
+  const orphanRef = db.collection("orphanPayments").doc(pi.id);
 
   await db.runTransaction(async (tx) => {
+    alreadyProcessed = false;
+    orphaned = false;
     const [existingOrder, listingSnap] = await Promise.all([
       tx.get(orderRef),
       listingRef ? tx.get(listingRef) : Promise.resolve(null),
@@ -1862,6 +1832,29 @@ async function handlePaymentSucceeded(pi, stripeClient) {
     if (existingOrder.exists) {
       logger.info(`Order ${pi.id} already processed, skipping`);
       alreadyProcessed = true;
+      return;
+    }
+
+    // Nothing to sell: no order (so no "you sold it" email), just a record
+    // and, right after this transaction, a full refund.
+    if (listingRef && require("./lib/paidListing").isMissingListing(listingSnap)) {
+      const prior = await tx.get(orphanRef);
+      if (prior.exists && prior.data().status === "refunded") {
+        alreadyProcessed = true; // redelivery; refunded once already
+        return;
+      }
+      orphaned = true;
+      tx.set(orphanRef, {
+        paymentIntentId: pi.id,
+        listingId,
+        buyerId: buyerId || null,
+        sellerId: sellerId || null,
+        amountCents: pi.amount,
+        currency: pi.currency || null,
+        livemode: pi.livemode === true,
+        status: "refund_pending",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
       return;
     }
 
@@ -1922,40 +1915,30 @@ async function handlePaymentSucceeded(pi, stripeClient) {
 
     if (listingSnap && listingSnap.exists) {
       const listing = listingSnap.data();
-      const totalQty = Math.max(1, Number(listing.quantity || 1));
-      const newSold = Math.max(0, Number(listing.quantitySold || 0)) + orderQty;
-      const fullySold = newSold >= totalQty;
-      // Decrement quantityReserved by exactly the orderQty that this PI
-      // had reserved, clamped at 0. Increment quantitySold in the same
-      // tx so the two counters never drift.
-      const curReserved = Math.max(
-          0, Number(listing.quantityReserved || 0));
-      const nextReserved = Math.max(0, curReserved - orderQty);
-      tx.update(listingRef, fullySold ? {
-        status: "sold",
+      // Counters, and the one status rule: a payment never puts a listing
+      // back on sale (an admin takedown stays removed). See lib/paidListing.
+      const next = require("./lib/paidListing").afterSale(listing, orderQty);
+      tx.update(listingRef, {
+        status: next.status,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        quantitySold: newSold,
-        quantityReserved: nextReserved,
-        soldAt: admin.firestore.FieldValue.serverTimestamp(),
-        soldTo: buyerId || null,
-        orderId: pi.id,
-        pendingBuyer: admin.firestore.FieldValue.delete(),
-        pendingUntil: admin.firestore.FieldValue.delete(),
-        pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
-      } : {
-        // Multi-stock: bump sold count, keep listing active for remaining units.
-        status: "active",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        quantitySold: newSold,
-        quantityReserved: nextReserved,
+        quantitySold: next.quantitySold,
+        quantityReserved: next.quantityReserved,
+        ...(next.fullySold ? {
+          soldAt: admin.firestore.FieldValue.serverTimestamp(),
+          soldTo: buyerId || null,
+          orderId: pi.id,
+        } : {}),
         pendingBuyer: admin.firestore.FieldValue.delete(),
         pendingUntil: admin.firestore.FieldValue.delete(),
         pendingPaymentIntentId: admin.firestore.FieldValue.delete(),
       });
-    } else if (listingId) {
-      logger.warn(`Listing ${listingId} not found for order ${pi.id}`);
     }
   });
+
+  if (orphaned) {
+    await refundOrphanPayment(pi, stripeClient, orphanRef);
+    return;
+  }
 
   // Early-out on redelivery so we never double-count rollups.
   if (alreadyProcessed) return;
@@ -2108,6 +2091,44 @@ async function handlePaymentSucceeded(pi, stripeClient) {
   logger.info(`Order ${pi.id} recorded for listing ${listingId}`);
 }
 
+/**
+ * A payment succeeded for a listing that no longer exists: refund it in full
+ * (same parameters as refundOrder), record it and alert the founder. A failed
+ * refund throws a transient error, so Stripe redelivers and it is tried again;
+ * the idempotency key keeps it to one refund.
+ */
+async function refundOrphanPayment(pi, stripeClient, orphanRef) {
+  const info = {paymentIntentId: pi.id, listingId: (pi.metadata || {}).listingId || null, amountCents: pi.amount};
+  let refund;
+  try {
+    refund = await stripeClient.refunds.create({
+      payment_intent: pi.id,
+      reason: "requested_by_customer",
+      refund_application_fee: true,
+      reverse_transfer: true,
+    }, {idempotencyKey: `orphan_refund_${pi.id}`});
+  } catch (e) {
+    if (!(e && e.code === "charge_already_refunded")) {
+      logger.error("orphan payment: refund FAILED", {...info, error: String(e && e.message || e)});
+      await orphanRef.set({status: "refund_failed", error: String(e && e.message || e),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      await opsAlert("critical",
+          `Payment ${pi.id} is for a listing that no longer exists and the automatic refund FAILED. ` +
+          "Stripe will retry; refund it by hand if this repeats.", info);
+      const err = new Error("orphan refund failed");
+      err.transient = true;
+      throw err;
+    }
+  }
+  await orphanRef.set({status: "refunded", refundId: (refund && refund.id) || null,
+    refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+  logger.error("orphan payment refunded", info);
+  await opsAlert("critical",
+      `Payment ${pi.id} ($${(pi.amount / 100).toFixed(2)}) was for a listing that no longer exists. ` +
+      "It was refunded automatically and no order was created.", info);
+}
+
 async function releaseListingOnFailure(pi) {
   const db = admin.firestore();
   const {listingId, quantity} = pi.metadata || {};
@@ -2159,6 +2180,9 @@ async function releaseListingOnFailure(pi) {
       });
     }
   });
+  // The "still settling" placeholder is done; deleteListing reads it.
+  await db.collection("pendingOrders").doc(pi.id).delete()
+      .catch((e) => logger.warn("pendingOrders cleanup failed", {pi: pi.id, error: String(e && e.message || e)}));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -3497,27 +3521,13 @@ exports.moderateMessage = onDocumentCreated(
 //   takeDownListing / onReportCreate.
 //
 //   adminGate() — single source of truth for who can call the
-//   privileged onCall functions. Backed by the ADMIN_ALLOWLIST
-//   Firebase Secret (parsed once per cold start by getAdminList()
-//   above). Every callable using adminGate() must bind ADMIN_ALLOWLIST
-//   in its `secrets:` array. The firestore.rules / storage.rules
-//   isAdmin() helpers keep a hardcoded literal as defense-in-depth.
+//   privileged onCall functions: the admin:true custom claim
+//   (lib/adminGate.js). firestore.rules / storage.rules check the same claim.
 //
 //   Every admin action writes to adminActions/{auto} with admin uid,
 //   email, target ref, reason, and a serverTimestamp — the runbook
 //   relies on this audit log for "who removed listing X" forensics.
 // ─────────────────────────────────────────────────────────────
-function adminGate(req) {
-  if (!req.auth) {
-    throw new HttpsError("unauthenticated", "Sign in required");
-  }
-  const email = (req.auth.token && req.auth.token.email) || "";
-  const verified = !!(req.auth.token && req.auth.token.email_verified);
-  if (!verified || !isAdminEmail(email)) {
-    throw new HttpsError("permission-denied", "Admin only");
-  }
-}
-
 async function logAdminAction(req, action, targetType, targetId, reason, metadata) {
   try {
     await admin.firestore().collection("adminActions").add({
@@ -3536,7 +3546,7 @@ async function logAdminAction(req, action, targetType, targetId, reason, metadat
 }
 
 exports.banUser = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -3575,7 +3585,7 @@ exports.banUser = onCall(
 });
 
 exports.suspendUser = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -3599,7 +3609,7 @@ exports.suspendUser = onCall(
 });
 
 exports.takeDownListing = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       // Destructive admin action — require a fresh re-auth within 5 min.
@@ -4341,12 +4351,8 @@ function describeSafeSearchTrip(annotation) {
 // 2026-10-01 incident write-up.
 const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 
-// Hardcoded admin UID list. Email gate (jakenair23@gmail.com) is
-// resolved on first flagged-listing notification — see
-// notifyAdminOfFlaggedListing below — so we don't need to hardcode
-// the UID here. We mirror flagged listings to a top-level
-// `flaggedListings` collection that the admin queue UI queries
-// directly (avoiding cross-user notification clutter).
+// We mirror flagged listings to a top-level `flaggedListings` collection
+// that the admin queue UI queries directly.
 
 // Generate 400px + 800px WebP derivatives of a listing photo and record their
 // download URLs on the listing doc under photoVariants[index]. Grid/list/thumb
@@ -4360,7 +4366,11 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 // and scripts/backfill-photo-variants.mjs encode variants with the SAME code
 // path as this trigger. Signature unchanged for the call below.
 const {writeListingPhotoVariants, SIZES: PHOTO_VARIANT_SIZES} = require("./lib/listingPhotoVariants");
-const {pruneAtDeletion} = require("./lib/photoPrune");
+const {pruneAtDeletion, flagStatus} = require("./lib/photoPrune");
+// QA uploads are handled the same but alert nobody. The marks are ones a client
+// can't set: a fixed QA uid or listing id, or isTest written by the server.
+const isTestUpload = (listing, sellerId, listingId) => require("./lib/testAccounts")
+    .isTestListingDoc({...(listing || {}), sellerId}, listingId);
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
 // and scripts/backfill-heic.mjs share ONE implementation (no drift). It decodes
@@ -4400,11 +4410,12 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
       if (!obj || !obj.name) return;
       // Only process listing photos.
       if (!obj.name.startsWith("listings/")) return;
-      // Don't re-process our own generated thumbnail variants.
-      if (/_w(?:400|800)\.webp$/i.test(obj.name)) return;
       // Skip non-images and already-WebP files.
       const contentType = obj.contentType || "";
       if (!contentType.startsWith("image/")) return;
+      // Our own output (the re-encoded original and its resized copies). Only
+      // the server can set this mark: storage.rules refuse it from clients. A
+      // file's NAME proves nothing, so it is not trusted (2026-11-23).
       if (obj.metadata && obj.metadata.optimized === "true") return;
       const bucket = admin.storage().bucket(obj.bucket);
       const file = bucket.file(obj.name);
@@ -4465,7 +4476,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           if (snap.exists) {
             listingData = snap.data();
             await listingRef.update({
-              status: "flagged",
+              ...flagStatus(listingData),
               moderationFlags: {
                 reason,
                 source: AUTO_FLAG_SOURCE,
@@ -4510,7 +4521,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           logger.error("imageProcessError: seller notify failed", fListingId, e);
         }
         try {
-          await opsAlert("warn",
+          if (!isTestUpload(listingData, fSellerId, fListingId)) await opsAlert("warn",
               "Listing image could not be decoded/converted — flagged " +
               "(fail-loud)",
               {listingId: fListingId, sellerId: fSellerId, path: obj.name,
@@ -4556,7 +4567,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           if (snap.exists) {
             listingData = snap.data();
             await listingRef.update({
-              status: "flagged",
+              ...flagStatus(listingData),
               moderationFlags: {
                 reason,
                 source: AUTO_FLAG_SOURCE,
@@ -4598,7 +4609,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           logger.error("imageScanError: seller notify failed", listingId, e);
         }
         try {
-          await opsAlert("warn",
+          if (!isTestUpload(listingData, sellerId, listingId)) await opsAlert("warn",
               "Listing image scan failed — flagged for review (fail-closed)",
               {listingId, sellerId, path: obj.name});
         } catch (_e) { /* best-effort */ }
@@ -6193,9 +6204,8 @@ exports.createBillingPortalSession = onCall(
 // ─────────────────────────────────────────────────────────────
 exports.refundOrder = onCall(
   // posthogSecret attached so `refund_issued` server-event can fire
-  // after the Stripe refund + Firestore mirror succeed. ADMIN_ALLOWLIST
-  // is bound so isAdminEmail() can resolve the admin branch.
-  {secrets: [stripeSecret, posthogSecret, ADMIN_ALLOWLIST, OPS_ALERT_WEBHOOK]},
+  // after the Stripe refund + Firestore mirror succeed.
+  {secrets: [stripeSecret, posthogSecret, OPS_ALERT_WEBHOOK]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -6215,14 +6225,14 @@ exports.refundOrder = onCall(
       throw new HttpsError("not-found", "Order not found");
     }
     const pre = preSnap.data();
-    // Allow the seller OR a platform admin (email allowlist mirrors
+    // Allow the seller OR a platform admin (admin claim; mirrors
     // firestore.rules:24-30 isAdmin) to issue refunds. Before this gate,
     // the only escape hatch for support refunds was opening the Stripe
     // Dashboard directly — which bypassed our `refunds/{id}` mirror and
     // therefore skipped the RefundIssued email to the buyer.
     const callerEmail = (request.auth.token && request.auth.token.email) || null;
     const isCallerSeller = pre.sellerId === request.auth.uid;
-    const isCallerAdmin = isAdminEmail(callerEmail);
+    const isCallerAdmin = isAdminAuth(request.auth);
     if (!isCallerSeller && !isCallerAdmin) {
       throw new HttpsError(
         "permission-denied",
@@ -6601,7 +6611,8 @@ exports.moderateListingOnCreate = onDocumentCreated(
       try {
         result = await _scan(
             {title: d.title, brand: d.brand, desc: d.desc,
-              cat: d.cat, condition: d.condition},
+              cat: d.cat, condition: d.condition,
+              ...require("./lib/listingSchema").specScanFields(d.specs)},
             "listing", sellerId, null);
       } catch (e) {
         // scanFields is internally fail-open, but if it ever THROWS, treat it
@@ -6657,7 +6668,7 @@ exports.moderateListingOnCreate = onDocumentCreated(
 // TTL expiry just discards). Sets moderationCleared so the re-create doesn't
 // loop back through moderateListingOnCreate. Mirrors releaseHold for messages.
 exports.releaseListingHold = onCall(
-    {...USER_CALLABLE, secrets: [ADMIN_ALLOWLIST]},
+    {...USER_CALLABLE},
     async (req) => {
       adminGate(req);
       const {holdId, note} = req.data || {};
@@ -6963,7 +6974,16 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // that the offers panel + SEO LD-JSON render unconditionally. Reject
   // any URL outside the bucket prefix. The firestore.rules side
   // (allPhotosInBucket) enforces the same invariant on direct writes.
-  if (photos.some((u) => !isInBucketStorageUrl(u))) {
+  // New photos must be in this listing's own folder (see isOwnPhoto in
+  // firestore.rules): the scanner flags the listing named in the path.
+  const ownPrefix = `listings/${uid}/${listingId}/`;
+  const {objectPathFromUrl} = require("./lib/photoPrune");
+  const already = new Set((Array.isArray(cur.photos) ? cur.photos : []).map(String));
+  const isOwn = (u) => {
+    const p = objectPathFromUrl(u) || "";
+    return p.startsWith(ownPrefix) && !p.slice(ownPrefix.length).includes("/") && !/_w\d+\.webp$/i.test(p);
+  };
+  if (photos.some((u) => !isInBucketStorageUrl(u) || !(already.has(u) || isOwn(u)))) {
     throw new HttpsError(
         "invalid-argument",
         "All photos must be uploaded through the listing form.",
@@ -7026,7 +7046,8 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   let modResult;
   try {
     modResult = await scanFields(
-        {title, brand, desc, cat, condition},
+        {title, brand, desc, cat, condition,
+          ...require("./lib/listingSchema").specScanFields(data.specs)},
         "listing", uid, request);
   } catch (e) {
     logger.error(
@@ -7115,7 +7136,18 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   // reset by an unrelated edit. New high-value → pending review;
   // dropped below threshold → na.
   const wasHighValue = !!cur.requiresAuth;
-  if (isHighValue && !wasHighValue) {
+  const {reviewChanges} = require("./lib/authReview");
+  const reopened = isHighValue ? reviewChanges(cur, {title, brand, photos, cat, condition,
+    ...(specCategory != null ? {specCategory} : {}), ...(specs != null ? {specs} : {})}) : [];
+  if (cur.authReviewState === "rejected") {
+    // An edit (or a lower price) never clears a rejected review.
+  } else if (reopened.length) {
+    // 2026-11-23 (Jake): what was approved is no longer what is listed. Both
+    // ad feeds drop it on their next rebuild; the listing stays for sale.
+    update.authReviewState = "pending";
+    update.authReviewReopenedAt = admin.firestore.FieldValue.serverTimestamp();
+    update.authReviewReason = "Changed after approval: " + reopened.join(", ");
+  } else if (isHighValue && !wasHighValue) {
     update.authReviewState = "pending";
   } else if (!isHighValue && wasHighValue) {
     update.authReviewState = "na";
@@ -7126,6 +7158,22 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
   } catch (e) {
     logger.error("updateListing write failed", e);
     throw new HttpsError("internal", "Could not save your changes.");
+  }
+  // Removing the photo that failed its check may be all a flagged listing
+  // needed; there is no new upload to trigger a re-scan in that case.
+  if (photosChanged && status === "flagged") {
+    await clearAutoFlagIfClean({db, FieldValue: admin.firestore.FieldValue, logger},
+        {listingId, sellerId: uid, objPath: "", annotation: null})
+        .catch((e) => logger.warn("updateListing: flag re-check failed", {listingId, error: String(e && e.message || e)}));
+  }
+  if (update.authReviewState === "pending" && reopened.length) {
+    try {
+      await require("./lib/authReviewEmail").sendReviewEmail(
+          {id: listingId, sellerId: uid, title, status, decisionN: Number(cur.authReviewDecisionN) || 0},
+          "reopen", reopened.join(", "));
+    } catch (e) {
+      logger.error("updateListing: review email failed", {listingId, error: String(e && e.message || e)});
+    }
   }
   // Storage GC for photos the seller removed (after the write, best-effort;
   // never fails the edit).
@@ -7502,7 +7550,7 @@ exports.moderateOfferOnCreate = onDocumentCreated(
 //   single-doc read.
 //
 //   USER ACTION: after `firebase deploy --only functions:backfillGlobalStats`
-//   call this once from the browser as the admin (jakenair23@gmail.com):
+//   call this once from the browser as an admin:
 //
 //     firebase.functions().httpsCallable('backfillGlobalStats')()
 //
@@ -7514,18 +7562,12 @@ exports.backfillGlobalStats = onCall(
       ...USER_CALLABLE,
       timeoutSeconds: 300,
       memory: "512MiB",
-      secrets: [ADMIN_ALLOWLIST],
     },
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in");
       }
-      const email = request.auth.token && request.auth.token.email;
-      const verified = request.auth.token &&
-        request.auth.token.email_verified === true;
-      if (!verified || !isAdminEmail(email)) {
-        throw new HttpsError("permission-denied", "Admin only");
-      }
+      adminGate(request);
       // Destructive bulk write — require a fresh re-auth within 5 min.
       requireFreshAdminAuth(request);
 
@@ -8385,6 +8427,16 @@ Object.assign(exports, require("./emailPauseToggle"));
 // r346: idempotent flagged-listing approval (prunes deleted photos, backfills
 // variants) + the monthly photo-gap audit. See the file headers.
 Object.assign(exports, require("./moderationApprove"));
+// Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
+Object.assign(exports, require("./authReviewAdmin"));
+// Seller delete, refused while a buyer is checking out. See deleteListing.js.
+Object.assign(exports, require("./deleteListing"));
+// Seller API v1. Sandbox only until sellerApiConfig.LIVE_API_ENABLED. The
+// Connected tools callables list and revoke connections; they refuse to make
+// new ones until then.
+Object.assign(exports, require("./sellerApi"));
+// Turns the Seller API off at $100 of cloud spend. See budgetGuard.js.
+Object.assign(exports, require("./budgetGuard"));
 Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));
@@ -8432,6 +8484,8 @@ Object.assign(exports, require("./shippingAdjustments"));
 Object.assign(exports, require("./metaCapi"));
 // Meta Commerce catalog feed (GET /meta-feed.csv, token-protected). See metaFeed.js.
 Object.assign(exports, require("./metaFeed"));
+// Public TikTok catalog feed + its JPEG images (/feeds/**). See tiktokCatalog.js.
+exports.tiktokCatalog = require("./tiktokCatalog").tiktokCatalog;
 // r417: client-reported listing post failures → log + throttled ops alert.
 Object.assign(exports, require("./listingFailures"));
 // 2026-11-17: AI price estimate stamped on new listings (For You overpriced rule).

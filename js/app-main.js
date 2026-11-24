@@ -6578,29 +6578,14 @@ async function confirmDeleteListing() {
   const btn = document.getElementById('deleteListingConfirmBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   try {
-    // 1. Best-effort: clean up the photos folder FIRST. Storage rules use
-    //    firestore.get on the listing doc to authorize delete, so the doc
-    //    must still exist when we hit Storage. Path is
-    //    listings/{sellerId}/{listingId}/{filename}. Failure here is
-    //    non-fatal — we still proceed to delete the listing doc.
-    try {
-      const { getStorage, ref: sref, listAll, deleteObject } =
-        await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js");
-      const st = getStorage();
-      const folderRef = sref(st, `listings/${uid}/${listingId}`);
-      const items = await listAll(folderRef);
-      await Promise.allSettled(items.items.map(it => deleteObject(it)));
-    } catch (storageErr) {
-      console.warn('listing photo cleanup failed (non-fatal):', storageErr);
-    }
+    // The server deletes the listing and its photos, and refuses while a
+    // buyer is checking out (2026-11-23). Nothing is deleted from here, so a
+    // refusal leaves the listing and its photos intact.
+    const { getFunctions, httpsCallable } =
+      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+    await httpsCallable(getFunctions(), 'deleteListing')({ listingId });
 
-    // 2. Delete the Firestore listing doc — the source of truth.
-    const { getFirestore, doc, deleteDoc } =
-      await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
-    const db = getFirestore();
-    await deleteDoc(doc(db, 'listings', listingId));
-
-    // 3. Close modal, refresh the dashboard.
+    // Close modal, refresh the dashboard.
     _pendingDeleteListing = null;
     const bd = document.getElementById('deleteListingBackdrop');
     if (bd) bd.classList.remove('open');
@@ -6608,8 +6593,9 @@ async function confirmDeleteListing() {
     try { await loadShopData(); } catch (_) {}
   } catch (e) {
     console.error('deleteListing failed:', e);
-    const reason = (e && e.code) ? e.code : (e && e.message) ? e.message : 'unknown error';
-    showToast(`Could not delete listing: ${reason}`);
+    // Server refusals are written for sellers ("This item is in a buyer's checkout…").
+    showToast((e && e.code === 'functions/failed-precondition' && e.message)
+      ? e.message : 'Could not delete the listing. Please try again.');
     if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
   }
 }
@@ -11164,6 +11150,11 @@ function renderProfileView(profile, listings, reviews, recentSold) {
              <span class="account-hub-label">Connected sign-in methods</span>
              <span class="account-hub-chev">›</span>
            </button>
+           ${(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? '' : `
+           <button class="account-hub-item" data-action="open-connected-tools" type="button">
+             <span class="account-hub-label">Connected tools</span>
+             <span class="account-hub-chev">›</span>
+           </button>`}
            <button class="account-hub-item" data-action="open-shipping-settings" type="button">
              <span class="account-hub-label">Shipping</span>
              <span class="account-hub-chev">›</span>
@@ -14745,15 +14736,20 @@ function openInfo(id) {
 }
 
 // ─── Admin moderation queue (?admin=moderation) ───────────────
-// Hardcoded email gate — kept in sync with firestore.rules and
-// storage.rules isAdmin(). Anyone else who hits the deep link
-// gets a "Not authorized" toast and the URL is cleared.
-const MODERATION_ADMIN_EMAILS = new Set(['jakenair23@gmail.com']);
-function isModerationAdmin() {
-  const u = window.CURRENT_USER;
-  if (!u || !u.email) return false;
-  if (!u.emailVerified) return false;
-  return MODERATION_ADMIN_EMAILS.has(String(u.email).toLowerCase());
+// Shown only to accounts with the admin:true custom claim. This is just the
+// UI: every admin function and the Firestore / Storage rules check the same
+// claim themselves. Anyone else who hits the deep link gets a
+// "Not authorized" toast and the URL is cleared.
+async function isModerationAdmin() {
+  try {
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js');
+    const u = getAuth().currentUser;
+    if (!u) return false;
+    let r = await u.getIdTokenResult();
+    // A token issued before the claim was set doesn't carry it yet.
+    if (!r.claims.admin) r = await u.getIdTokenResult(true);
+    return r.claims.admin === true;
+  } catch (_e) { return false; }
 }
 A['close-moderation']        = () => {
   const bd = document.getElementById('moderationBackdrop');
@@ -14770,7 +14766,7 @@ A['close-moderation']        = () => {
   } catch (_e) {}
 };
 async function openModerationQueue() {
-  if (!isModerationAdmin()) {
+  if (!(await isModerationAdmin())) {
     if (window.showToast) window.showToast('Not authorized.', 'error');
     // Strip the query param so non-admins don't see the modal.
     try {
@@ -14963,7 +14959,7 @@ async function adminCallableFresh(name, data) {
   }
 }
 async function openHoldsQueue(focusId) {
-  if (!isModerationAdmin()) {
+  if (!(await isModerationAdmin())) {
     if (window.showToast) window.showToast('Not authorized.', 'error');
     try {
       const u = new URL(window.location.href);
@@ -15092,7 +15088,9 @@ try {
 // closes the drawer on link tap (open-about gets away with it because the info
 // backdrop sits above it; the dashboard does not).
 A['open-shop-dashboard']     = () => { A['close-mobile-nav'](); if (!window.requireAuth('to start selling on TeeBox', () => openShopDashboard())) return; openShopDashboard(); };
-A['open-inbox']              = () => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
+// Web only (the page isn't in the app bundle; the row is hidden there too).
+A['open-connected-tools']    = () => { window.location.href = '/settings/tools/'; };
+A['open-inbox']              =() => { if (!window.requireAuth('to view your messages', () => openInbox())) return; openInbox(); };
 A['sign-out']                = () => signOut();
 A['handle-sell']             = () => handleSellClick();
 A['open-modal-buy']          = () => {

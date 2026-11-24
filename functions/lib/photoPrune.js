@@ -111,7 +111,8 @@ function planApproval(listing) {
     if (deletedByModeration) prune = prunePhotoByPath(l, offending);
   }
 
-  const isTerminal = TERMINAL_STATUSES.has(l.status);
+  // A rejected authenticity review is undone only by decideAuthReview.
+  const isTerminal = TERMINAL_STATUSES.has(l.status) || l.authReviewState === "rejected";
   const alreadyActive = l.status === "active";
   const hasFlags = !!flags;
 
@@ -164,7 +165,7 @@ function pruneAtDeletion(listing, objPath, trip) {
     removedPhotoUrl: p.removedUrl,   // null if the URL was not in photos[]
     photoDeleted: true,
   };
-  const update = {status: "flagged", moderationFlags: flags};
+  const update = {...flagStatus(listing), moderationFlags: flags};
   if (p.changed) {
     update.photos = p.photos;
     update.photoVariants = p.photoVariants;
@@ -172,11 +173,45 @@ function pruneAtDeletion(listing, objPath, trip) {
   return {update, empty, removedUrl: p.removedUrl};
 }
 
+/**
+ * Takedowns are sticky (2026-11-23): photo moderation may record a flag on a
+ * removed or sold listing but never moves its status. "flagged" has a
+ * self-heal back to "active", so writing it here would put an admin takedown
+ * (or a sold item) back on sale after one bad photo and one clean one.
+ * Otherwise it remembers what the listing was (flaggedFrom), so a clean
+ * re-scan puts back exactly that: a listing waiting for payouts stays hidden.
+ * @param {object} listing
+ * @return {{status: (string|undefined), flaggedFrom: (string|undefined)}}
+ */
+function flagStatus(listing) {
+  const st = (listing && listing.status) || "active";
+  if (st === "removed" || st === "sold") return {};
+  return st === "flagged" ? {status: "flagged"} : {status: "flagged", flaggedFrom: st};
+}
+
+/**
+ * Photos with no proof of a clean scan. The proof is the server's own resized
+ * copy recorded for that exact file: the scanner writes it only after the
+ * photo passes, and no client can write photoVariants or the copies.
+ * @param {object} listing
+ * @param {string} [passedPath] a file that passed just now
+ * @return {string[]} object paths (or the raw URL when it has none)
+ */
+function unscannedPhotos(listing, passedPath) {
+  const photos = Array.isArray(listing && listing.photos) ? listing.photos : [];
+  const variants = Object.values((listing && listing.photoVariants) || {});
+  const proven = new Set(variants.map((v) => String(objectPathFromUrl(v && v.w400) || "").replace(/_w400\.webp$/, "")));
+  return photos.map((u) => objectPathFromUrl(u) || String(u))
+      .filter((p) => p !== passedPath && !proven.has(p));
+}
+
 module.exports = {
   objectPathFromUrl,
   prunePhotoByPath,
   variantGaps,
   planApproval,
+  flagStatus,
+  unscannedPhotos,
   pruneAtDeletion,
   TERMINAL_STATUSES,
 };

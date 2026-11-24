@@ -7,7 +7,8 @@ const IMG = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebases
 const base = (over = {}) => ({
   id: "abc123", title: "Titleist T100 irons, 4-PW", brand: "Titleist", cat: "clubs",
   ask: 850, condition: "Very Good", desc: "Line one.\nLine two <b>bold</b> &amp; more.",
-  photos: [IMG, IMG + "2"], status: "active", quantity: 1, quantitySold: 0, ...over,
+  photos: [IMG, IMG + "2"], status: "active", quantity: 1, quantitySold: 0,
+  requiresAuth: true, authReviewState: "approved", ...over,
 });
 
 test("row shape, price format, link, categories", () => {

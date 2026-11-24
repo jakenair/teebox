@@ -193,6 +193,9 @@ function feedRow(l, testSellers, now, opts) {
   // the listing by seconds; the seller check covers that window).
   if (require("./lib/testAccounts").isTestListingDoc(l, l.id)) return null;
   if (testSellers && l.sellerId && testSellers.has(l.sellerId)) return null;
+  // 2026-11-23 (Jake): nothing is advertised before its authenticity review
+  // passes. $300+ listings join both feeds once an admin approves them.
+  if (!require("./lib/authReview").authReviewPassed(l)) return null;
   let photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
   // 2026-11-15 (TikTok): image_link must be a JPG or PNG. Lead with the first
   // jpg/png photo; a listing with none keeps its order (TikTok may reject it).
@@ -345,9 +348,10 @@ async function loadTestSellers() {
  * @param {string} p.name       log prefix
  * @param {string} p.filename
  * @param {function(string): string} [p.transform] csv -> csv
+ * @param {boolean} [p.logHits] log every call (no token)
  * @return {function}
  */
-function feedHandler({secret, name, filename, transform, rowOpts}) {
+function feedHandler({secret, name, filename, transform, rowOpts, logHits}) {
   return async (req, res) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.status(405).send("Method not allowed");
@@ -359,7 +363,13 @@ function feedHandler({secret, name, filename, transform, rowOpts}) {
     } catch (_e) {
       expected = "";
     }
-    if (!tokenMatches(req.query && req.query.token, expected)) {
+    const authorized = tokenMatches(req.query && req.query.token, expected);
+    // Retirement watch (2026-11-23): tiktokCatalog replaced this feed. Every
+    // call counts, including a refused one. Never logs the URL or the token.
+    if (logHits) {
+      logger.info(`${name}: hit`, {authorized, ua: String(req.get("user-agent") || "").slice(0, 80)});
+    }
+    if (!authorized) {
       // Deliberately indistinguishable from a missing route.
       res.status(404).type("text/plain").send("Not found");
       return;
@@ -410,11 +420,13 @@ exports.metaFeed = onRequest(
 // event content_id = sku_id = Meta id = listing doc id. Own token.
 exports.tiktokFeed = onRequest(
     {...FEED_OPTS, secrets: [TIKTOK_FEED_TOKEN]},
-    feedHandler({secret: TIKTOK_FEED_TOKEN, name: "tiktokFeed", filename: "tiktok-feed.csv", transform: toTikTokCsv, rowOpts: {jpgFirst: true}}),
+    feedHandler({secret: TIKTOK_FEED_TOKEN, name: "tiktokFeed", filename: "tiktok-feed.csv", transform: toTikTokCsv, rowOpts: {jpgFirst: true}, logHits: true}),
 );
 
 exports._feed = {
   buildFeedCsv, feedRow, mapCondition,
   TEST_EMAIL_RE: require("./lib/testAccounts").TEST_EMAIL_RE, mapAvailability, plainText, csvCell,
   stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS, toTikTokCsv,
+  // shared with tiktokCatalog.js (2026-11-23)
+  loadListings, loadTestSellers, loadUnbuyableSellers,
 };

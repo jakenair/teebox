@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connected tools · TeeBox</title>
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.firebasestorage.app https://firebasestorage.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://us-central1-teebox-market.cloudfunctions.net https://*.run.app; frame-src https://teebox-market.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'">
+<style>
+  :root { --green-900: #0b1a0e; --green-700: #1f4827; --gold-500: #c5a253; --cream: #faf8f3; --ink: #1d2420; --muted: #5d665f; --line: #e3e0d6; --bad: #a3321f; --bad-bg: #fbecea; --ok: #2d6a3a; --ok-bg: #e9f3eb; --warn: #7a5712; --warn-bg: #fdf4e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+  header { background: var(--green-900); padding: 18px 16px; }
+  header .in, main { max-width: 860px; margin: 0 auto; }
+  header .in { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header .logo { font-family: Georgia, "Times New Roman", serif; font-size: 1.6rem; font-weight: 900; color: #fff; text-decoration: none; letter-spacing: -0.5px; }
+  header .logo span { color: var(--gold-500); }
+  header .back { color: rgba(255,255,255,.85); font-size: .9rem; font-weight: 600; text-decoration: none; }
+  main { padding: 28px 16px 64px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-size: 1.9rem; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 1.1rem; margin: 0; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 4px 0; overflow-wrap: anywhere; }
+  .state { display: inline-block; font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+  .state.rejected { background: var(--bad-bg); color: var(--bad); }
+  .photos { display: flex; gap: 8px; overflow-x: auto; margin: 12px 0; }
+  .photos img { width: 132px; height: 132px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  label { display: block; font-size: .9rem; font-weight: 600; margin: 10px 0 4px; }
+  textarea { width: 100%; min-height: 72px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  button, .btn { min-height: 44px; padding: 0 20px; border-radius: 50px; border: 1px solid var(--green-700); background: var(--green-700); color: #fff; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .ghost { background: #fff; color: var(--green-700); }
+  .danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid var(--gold-500); outline-offset: 2px; }
+  .note { padding: 12px 14px; border-radius: 10px; margin: 0 0 16px; background: var(--ok-bg); color: var(--ok); }
+  .note.bad { background: var(--bad-bg); color: var(--bad); }
+  .note:empty { display: none; }
+  .list { list-style: none; margin: 0; padding: 0; } .list li { padding: 2px 0; } h3 { font-size: 1rem; margin: 16px 0 4px; }
+  .key { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); overflow-wrap: anywhere; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; } .check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+</style>
+</head>
+<body>
+<header><div class="in"><a class="logo" href="/">Tee<span>Box</span></a><a class="back" href="/">Back to TeeBox</a></div></header>
+<main>
+  <h1>Connected tools</h1>
+  <p class="lede">Listing tools you let post to TeeBox for you. You can disconnect one at any time; it stops working right away.</p>
+  <p class="note" id="note" role="status" aria-live="polite"></p>
+  <div id="list"></div>
+</main>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
+import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, onAuthStateChanged, GoogleAuthProvider, OAuthProvider, EmailAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithCredential } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js';
+const app = initializeApp({
+    apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
+    authDomain: "teebox-market.firebaseapp.com",
+    projectId: "teebox-market",
+    storageBucket: "teebox-market.firebasestorage.app",
+    messagingSenderId: "982122063122",
+    appId: "1:982122063122:web:416617dcacf912c907bfcb"
+  });
+// Same store as the main site. getAuth() would move the session to another
+// one and sign the person out of TeeBox.
+const auth = initializeAuth(app, { persistence: browserLocalPersistence, popupRedirectResolver: browserPopupRedirectResolver }), fns = getFunctions(app, 'us-central1');
+const $ = (id) => document.getElementById(id);
+const el = (tag, props, ...kids) => { const n = Object.assign(document.createElement(tag), props || {}); kids.forEach((k) => k && n.append(k)); return n; };
+const note = (text, bad) => { $('note').textContent = text || ''; $('note').className = bad ? 'note bad' : 'note'; };
+const call = async (name, data) => (await httpsCallable(fns, name)(data || {})).data;
+async function reauth() {
+  const u = auth.currentUser, ids = u.providerData.map((p) => p.providerId);
+  if (ids.includes('google.com')) await reauthenticateWithPopup(u, new GoogleAuthProvider());
+  else if (ids.includes('apple.com')) await reauthenticateWithPopup(u, new OAuthProvider('apple.com'));
+  else {
+    const pw = window.prompt('Confirm your password to connect this tool');
+    if (!pw) throw new Error('Cancelled.');
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, pw));
+  }
+  await u.getIdToken(true);
+}
+async function callFresh(name, data) {
+  try { return await call(name, data); } catch (e) {
+    if (e && e.details && e.details.reauthRequired) { await reauth(); return call(name, data); }
+    throw e;
+  }
+}
+const day = (ms) => ms ? new Date(ms).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'never';
+let agreed = null;
+function connectedCard(c) {
+  const b = el('button', { type: 'button', className: 'danger', textContent: 'Disconnect' });
+  b.onclick = async () => {
+    if (!window.confirm('Disconnect ' + c.partnerName + '? It can no longer see or change your listings.')) return;
+    b.disabled = true;
+    try { await call('revokeApiConnection', { connectionId: c.connectionId }); await load(); note(c.partnerName + ' is disconnected.'); }
+    catch (e) { note(e.message || 'Could not disconnect. Please try again.', true); b.disabled = false; }
+  };
+  return el('section', { className: 'card' }, el('h2', { textContent: c.partnerName }),
+    el('p', { className: 'meta', textContent: 'You connected it on ' + day(c.createdAt) + ' · last used ' + day(c.lastUsedAt) + ' · key ends in ' + c.keyLast4 }),
+    el('div', { className: 'row' }, b));
+}
+function connectCard(p, already) {
+  const box = el('input', { type: 'checkbox', id: 'ok-' + p.partnerId });
+  const b = el('button', { type: 'button', textContent: already ? 'Replace key' : 'Connect', disabled: true });
+  box.onchange = () => { b.disabled = !box.checked; };
+  const ul = (items) => el('ul', { className: 'list' }, ...items.map((t) => el('li', { textContent: t })));
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const r = await callFresh('createApiConnection', { partnerId: p.partnerId, consent: { accepted: true, version: agreed.version, surface: 'web' } });
+      await load(r); note('');
+    } catch (e) { note(e.message || 'Could not connect. Please try again.', true); b.disabled = !box.checked; }
+  };
+  return el('section', { className: 'card' }, el('h2', { textContent: p.name }),
+    el('h3', { textContent: 'It can' }), ul(agreed.allows), el('h3', { textContent: 'It can never' }), ul(agreed.never),
+    el('label', { className: 'check', htmlFor: box.id }, box, el('span', { textContent: 'I allow ' + p.name + ' to do this with my TeeBox listings.' + (already ? ' This replaces the key you have now.' : '') })),
+    el('div', { className: 'row' }, b));
+}
+function keyCard(r) {
+  const k = el('input', { className: 'key', readOnly: true, value: r.key, ariaLabel: 'Connection key' });
+  const copy = el('button', { type: 'button', textContent: 'Copy key' });
+  copy.onclick = async () => { try { await navigator.clipboard.writeText(r.key); copy.textContent = 'Copied'; } catch (_e) { k.select(); } };
+  return el('section', { className: 'card' }, el('h2', { textContent: 'Your key for ' + r.partnerName }),
+    el('p', { className: 'meta', textContent: 'Paste it into ' + r.partnerName + ' now. We show it once and can\'t show it again. Don\'t share it with anyone else.' }), k, el('div', { className: 'row' }, copy));
+}
+async function load(fresh) {
+  const [tools, mine] = await Promise.all([call('listApiPartners'), call('listApiConnections')]);
+  agreed = tools.consent;
+  const on = mine.connections.filter((c) => c.status === 'active');
+  const has = new Set(on.map((c) => c.partnerId));
+  const parts = [];
+  if (fresh) parts.push(keyCard(fresh));
+  parts.push(...(on.length ? on.map(connectedCard) : [el('p', { className: 'lede', textContent: 'No tools are connected.' })]));
+  if (!tools.open) parts.push(el('p', { className: 'lede', textContent: 'Connecting new tools isn\'t open yet.' }));
+  else parts.push(el('h1', { textContent: 'Connect a tool' }), ...(tools.partners.length ? tools.partners.map((p) => connectCard(p, has.has(p.partnerId))) : [el('p', { className: 'lede', textContent: 'No tools are available yet.' })]));
+  $('list').replaceChildren(...parts);
+}
+onAuthStateChanged(auth, async (u) => {
+  $('list').replaceChildren();
+  if (!u) {
+    const b = el('button', { type: 'button', textContent: 'Sign in with Google' });
+    b.onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => note(e.message, true));
+    note('Sign in to see your connected tools.'); $('list').append(b); return;
+  }
+  try { note('Loading.'); await load(); note(''); } catch (e) { note(e.message || 'Could not load your tools.', true); }
+});
+</script>
+</body>
+</html>

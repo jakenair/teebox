@@ -10,21 +10,21 @@ service firebase.storage {
       return true;
     }
 
-    // Admin allowlist — DEFENSE-IN-DEPTH backstop. Canonical source is
-    // now the ADMIN_ALLOWLIST Firebase Secret consumed by Cloud
-    // Function callables (see isAdminEmail()/adminGate() in
-    // functions/index.js). Storage rules cannot read secrets, so this
-    // hardcoded literal stays here as a second line of defense. Keep
-    // in sync with firestore.rules isAdmin() and the secret value.
-    // Used by the moderation queue's "Reject + delete" path so admin
-    // can purge a flagged listing's photos directly from the client
-    // without needing a callable function.
+    // Admin = the custom claim admin:true (2026-11-23), same as
+    // firestore.rules. Used by the moderation queue's "Reject + delete" path
+    // so an admin can purge a flagged listing's photos from the client.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in [
-          'jakenair23@gmail.com'
-        ];
+        && request.auth.token.get('admin', false) == true;
+    }
+
+    // Only the server may write resized copies (…_w400.webp) or the
+    // "optimized" mark: the scanners skip what they wrote themselves, so a
+    // client that could write either would put up an image nobody scanned
+    // (2026-11-23).
+    function notServerMade() {
+      return !request.resource.name.matches('(?i).*_w[0-9]+[.]webp')
+        && (request.resource.metadata == null || !('optimized' in request.resource.metadata));
     }
 
     // Listing photos — path encodes sellerId so we don't need a cross-service
@@ -44,6 +44,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && appCheckOk()
         && request.auth.uid == sellerId
+        && notServerMade()
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
 
@@ -61,6 +62,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        && notServerMade()
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
       allow delete: if request.auth != null && request.auth.uid == userId;
@@ -76,6 +78,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == userId
         && appCheckOk()
+        && notServerMade()
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
       allow delete: if request.auth != null && request.auth.uid == userId;

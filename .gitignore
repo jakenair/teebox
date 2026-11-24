@@ -134,3 +134,8 @@ perf/results/fs-debug.log
 smoke-out/
 functions/test/e2e/firestore.rules
 functions/test/e2e/*-debug.log
+
+# Partner API keys (they live in ~/.teebox, outside any repo or synced folder)
+.teebox/
+partner-keys/
+*partner-key*.txt
