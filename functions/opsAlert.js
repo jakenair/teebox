@@ -13,6 +13,7 @@
 // `secrets:` array (and, for gcloud deploys, in --set-secrets) so the value is
 // readable at runtime. If the secret is absent the log line still lands.
 
+const crypto = require("crypto");
 const http = require("http");
 const https = require("https");
 const {defineSecret} = require("firebase-functions/params");
@@ -22,7 +23,7 @@ const {logger} = require("firebase-functions");
 // the same param in two modules is fine; the params registry keys by name.
 const OPS_ALERT_WEBHOOK = defineSecret("SMOKE_ALERT_WEBHOOK");
 
-function postJson(urlString, body) {
+function postJson(urlString, body, timeoutMs) {
   return new Promise((resolve, reject) => {
     let parsed;
     try {
@@ -41,9 +42,9 @@ function postJson(urlString, body) {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(body),
       },
-      timeout: 10_000,
+      timeout: timeoutMs,
     }, (resp) => {
-      // Drain + resolve on any response; we never retry webhook delivery.
+      // Drain; the caller decides from the status whether to try again.
       resp.on("data", () => {});
       resp.on("end", () => resolve(resp.statusCode));
     });
@@ -59,8 +60,10 @@ function postJson(urlString, body) {
  * @param {string} severity  "critical" | "warn"
  * @param {string} title     short human headline
  * @param {object} [details] structured context (orderId, refundId, error, ...)
+ * @param {{timeoutMs: (number|undefined)}} [opts] per attempt; callers with a
+ *   short deadline keep the default (two attempts stay under 22 s)
  */
-async function opsAlert(severity, title, details = {}) {
+async function opsAlert(severity, title, details = {}, opts = {}) {
   const sev = String(severity || "warn").toUpperCase();
   // Always log first — this is the durable record, independent of the webhook.
   try {
@@ -84,11 +87,32 @@ async function opsAlert(severity, title, details = {}) {
       `\u{1F6A8} TeeBox OPS ALERT [${sev}]\n` +
       `${title}\n` +
       (lines ? `${lines}\n` : "");
-    const body = JSON.stringify({text: message, content: message, message});
-    await postJson(url, body);
+    // One id per alert. The relay uses it as the email's idempotency key, so
+    // the retry of an alert that did get through is not a second email, and
+    // two alerts in the same minute are never mistaken for one (2026-11-23).
+    const alertId = crypto.randomUUID();
+    const body = JSON.stringify({text: message, content: message, message, alertId});
+    const timeoutMs = opts.timeoutMs || 10_000;
+    let failed = "";
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const status = await postJson(url, body, timeoutMs);
+        if (status >= 200 && status < 300) {
+          if (attempt > 1) logger.info("[OPS_ALERT] relay answered on the second try", {alertId, first: failed});
+          return;
+        }
+        failed = `relay answered ${status}`;
+      } catch (e) {
+        failed = String(e && e.message || e);
+      }
+      // The first call often times out on the relay's cold start; by now it
+      // is warm.
+      if (attempt === 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error(failed);
   } catch (err) {
     logger.error(
-        `[OPS_ALERT] webhook POST failed: ${err && err.message || err}`);
+        `[OPS_ALERT] webhook POST failed twice: ${err && err.message || err}`);
   }
 }
 

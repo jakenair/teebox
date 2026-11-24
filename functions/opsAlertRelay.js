@@ -8,7 +8,8 @@
 //   2. Telegram → OPS_TELEGRAM_TOKEN / OPS_TELEGRAM_CHAT_ID when both secrets exist
 //                 (a SEPARATE "TeeBox Ops" chat, never the EdgeFinder bot's chat)
 // Token-gated so the public URL cannot be used to spam the inbox. Best-effort:
-// always returns 200 once the token is valid (opsAlert never retries anyway).
+// Answers 502 when no email went out, so opsAlert tries once more.
+// Each alert carries an id; emails are keyed on id + address.
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
@@ -19,13 +20,24 @@ const {sendEmail, CATEGORIES, RESEND_API_KEY, UNSUBSCRIBE_SECRET} = require("./l
 const OPS_ALERT_RELAY_TOKEN = defineSecret("OPS_ALERT_RELAY_TOKEN");
 const OPS_TELEGRAM_TOKEN = defineSecret("OPS_TELEGRAM_TOKEN");
 const OPS_TELEGRAM_CHAT_ID = defineSecret("OPS_TELEGRAM_CHAT_ID");
-const OPS_ALERT_EMAIL = process.env.OPS_ALERT_EMAIL || "jakenair@teeboxmarket.com";
+// Ops alerts go to the configured address AND the TeeBox mailbox (founder,
+// 2026-11-23: keep both).
+const TEEBOX_MAILBOX = "jakenair@teeboxmarket.com";
+function recipients(env) {
+  return [...new Set([...String(env || "").split(","), TEEBOX_MAILBOX].map((a) => a.trim().toLowerCase()).filter(Boolean))];
+}
 
 /** Constant-time token compare; false on any shape mismatch. */
 function tokenOk(given, expected) {
   if (!given || !expected || typeof given !== "string") return false;
   const a = Buffer.from(given); const b = Buffer.from(String(expected));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/** The alert's own id, or a fresh one (older callers don't send it). */
+function alertIdOf(body) {
+  const id = body && typeof body === "object" ? String(body.alertId || "") : "";
+  return /^[A-Za-z0-9-]{8,64}$/.test(id) ? id : crypto.randomUUID();
 }
 
 /** Pull the alert text out of whatever opsAlert posted. */
@@ -61,18 +73,32 @@ exports.opsAlertRelay = onRequest(
       const text = alertText(req.body);
       if (!text) { res.status(400).send("empty"); return; }
       const out = {email: "skipped", telegram: "skipped"};
-      try {
-        const r = await sendEmail({to: OPS_ALERT_EMAIL, subject: subjectFor(text), text, html: `<pre style="font:14px/1.4 Menlo,monospace;white-space:pre-wrap">${text.replace(/[<>&]/g, (c) => ({"<": "&lt;", ">": "&gt;", "&": "&amp;"}[c]))}</pre>`, category: CATEGORIES.TRANSACTIONAL, template: "OpsAlert", tags: [{name: "kind", value: "ops-alert"}]});
-        out.email = (r && (r.sent || r.id)) ? "sent" : (r && r.reason) || "error";
-      } catch (e) { out.email = "error"; logger.error("opsAlertRelay: email failed", {message: e && e.message}); }
+      const alertId = alertIdOf(req.body);
+      const to = recipients(process.env.OPS_ALERT_EMAIL);
+      const html = `<pre style="font:14px/1.4 Menlo,monospace;white-space:pre-wrap">${text.replace(/[<>&]/g, (c) => ({"<": "&lt;", ">": "&gt;", "&": "&amp;"}[c]))}</pre>`;
+      const each = await Promise.all(to.map(async (addr, n) => {
+        try {
+          const r = await sendEmail({to: addr, subject: subjectFor(text), text, html, category: CATEGORIES.TRANSACTIONAL,
+            template: "OpsAlert", tags: [{name: "kind", value: "ops-alert"}], idempotencyKey: `ops-${alertId}-${n}`});
+          return (r && (r.sent || r.id)) ? "sent" : (r && r.reason) || "error";
+        } catch (e) {
+          logger.error("opsAlertRelay: email failed", {message: e && e.message});
+          return "error";
+        }
+      }));
+      const sent = each.filter((x) => x === "sent").length;
+      out.email = sent === to.length ? "sent" : sent ? `sent ${sent} of ${to.length}` : each[0];
+      out.alertId = alertId;
       try {
         let tg = "", chat = ""; try { tg = OPS_TELEGRAM_TOKEN.value(); chat = OPS_TELEGRAM_CHAT_ID.value(); } catch (_e) { /* optional */ }
         // Placeholder secret versions ("unset") exist so deploys don't fail; only real-looking values count.
         if (/^\d+:[A-Za-z0-9_-]{20,}$/.test(tg) && /^-?\d+$/.test(chat)) out.telegram = (await telegram(tg, chat, text)) === 200 ? "sent" : "error";
       } catch (e) { out.telegram = "error"; }
       logger.info("opsAlertRelay delivered", out);
-      res.status(200).json(out);
+      // Not every mailbox got it: say so, and the caller tries once more. The
+      // ones that did are protected by the idempotency key.
+      res.status(sent === to.length || out.telegram === "sent" ? 200 : 502).json(out);
     },
 );
 
-module.exports._internal = {tokenOk, alertText, subjectFor};
+module.exports._internal = {tokenOk, alertText, subjectFor, recipients, alertIdOf};
