@@ -381,7 +381,10 @@ async function sendEmail(opts) {
     finalHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
   }
   finalHeaders["X-Entity-Ref-ID"] =
-    finalHeaders["X-Entity-Ref-ID"] || `${template || "send"}-${Date.now()}`;
+    finalHeaders["X-Entity-Ref-ID"] ||
+    // The same key must mean the same email, byte for byte, or Resend rejects
+    // the repeat instead of skipping it.
+    explicitIdempotencyKey || `${template || "send"}-${Date.now()}`;
 
   const finalTags = [
     {name: "category", value: category},

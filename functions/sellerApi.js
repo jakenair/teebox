@@ -75,7 +75,6 @@ function liveDeps() {
       }
     },
     notifyDisconnected: emailToolDisconnected,
-    notifyReviewReopened: (l, what) => require("./lib/authReviewEmail").sendReviewEmail(l, "reopen", what),
     logError,
   };
 }

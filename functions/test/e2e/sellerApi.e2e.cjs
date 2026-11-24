@@ -275,13 +275,13 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 200}});
   const rejAfter = (await rej.get()).data();
   check("5z a price drop never clears a rejected authenticity review", r.status === 200 && rejAfter.ask === 200 && rejAfter.authReviewState === "rejected", r.body);
-  // An approved review survives a price change and reopens on a title change.
+  // A listing the admin has seen stays seen, whatever the seller edits.
   await rej.update({authReviewState: "approved", ask: 400, requiresAuth: true});
   await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 350}});
   const stillOk = (await rej.get()).data().authReviewState;
   await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {title: "Renamed putter"}});
   const reop = (await rej.get()).data();
-  check("5z2 approved review: kept on a price drop, reopened on a title change", stillOk === "approved" && reop.authReviewState === "pending" && /title/.test(reop.authReviewReason || ""), {stillOk, s: reop.authReviewState});
+  check("5z2 seen listing: a price drop and a title change send nothing back to review", stillOk === "approved" && reop.authReviewState === "approved" && !reop.authReviewReason, {stillOk, s: reop.authReviewState});
   await rej.update({status: "flagged"});
   r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 340}});
   check("5z3 a flagged listing can't be edited -> 409 listing_under_review", r.status === 409 && r.body.error.code === "listing_under_review", r.body);

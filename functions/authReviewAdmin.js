@@ -77,11 +77,13 @@ exports.decideAuthReview = onCall({...FN, secrets: [RESEND_API_KEY]}, async (req
         previousStatus: l.status || null}, performedAt: FV.serverTimestamp(),
     });
     return {id: listingId, sellerId: l.sellerId, title: l.title,
-      status: plan.update.status || l.status, decisionN: n};
+      status: plan.update.status || l.status, decisionN: n,
+      // Marking a live listing as seen changes nothing for the seller.
+      tellSeller: decision === "reject" || plan.update.status !== undefined};
   });
   if (!after) return {ok: true, noop: true, emailed: false};
   let emailed = false;
-  try {
+  if (after.tellSeller) try {
     emailed = await require("./lib/authReviewEmail").sendReviewEmail(after, decision, reason);
   } catch (e) {
     logger.error("decideAuthReview: seller email failed", {listingId, error: String(e && e.message || e)});

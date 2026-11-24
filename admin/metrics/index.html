@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily metrics · TeeBox</title>
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.firebasestorage.app https://firebasestorage.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://us-central1-teebox-market.cloudfunctions.net https://*.run.app; frame-src https://teebox-market.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'">
+<style>
+  :root { --green-900: #0b1a0e; --green-700: #1f4827; --gold-500: #c5a253; --cream: #faf8f3; --ink: #1d2420; --muted: #5d665f; --line: #e3e0d6; --bad: #a3321f; --bad-bg: #fbecea; --ok: #2d6a3a; --ok-bg: #e9f3eb; --warn: #7a5712; --warn-bg: #fdf4e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+  header { background: var(--green-900); padding: 18px 16px; }
+  header .in, main { max-width: 860px; margin: 0 auto; }
+  header .in { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header .logo { font-family: Georgia, "Times New Roman", serif; font-size: 1.6rem; font-weight: 900; color: #fff; text-decoration: none; letter-spacing: -0.5px; }
+  header .logo span { color: var(--gold-500); }
+  header .back { color: rgba(255,255,255,.85); font-size: .9rem; font-weight: 600; text-decoration: none; }
+  main { padding: 28px 16px 64px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-size: 1.9rem; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 1.1rem; margin: 0; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 4px 0; overflow-wrap: anywhere; }
+  .state { display: inline-block; font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+  .state.rejected { background: var(--bad-bg); color: var(--bad); }
+  .photos { display: flex; gap: 8px; overflow-x: auto; margin: 12px 0; }
+  .photos img { width: 132px; height: 132px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  label { display: block; font-size: .9rem; font-weight: 600; margin: 10px 0 4px; }
+  textarea { width: 100%; min-height: 72px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  button, .btn { min-height: 44px; padding: 0 20px; border-radius: 50px; border: 1px solid var(--green-700); background: var(--green-700); color: #fff; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .ghost { background: #fff; color: var(--green-700); }
+  .danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid var(--gold-500); outline-offset: 2px; }
+  .note { padding: 12px 14px; border-radius: 10px; margin: 0 0 16px; background: var(--ok-bg); color: var(--ok); }
+  .note.bad { background: var(--bad-bg); color: var(--bad); }
+  .note:empty { display: none; }
+  .tw { overflow-x: auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: #fff; }
+  th { font-weight: 600; color: var(--muted); }
+  h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; margin: 28px 0 8px; }
+  ol { margin: 0; padding-left: 22px; } li { margin: 6px 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header><div class="in"><a class="logo" href="/">Tee<span>Box</span></a><a class="back" href="/">Back to TeeBox</a></div></header>
+<main>
+  <h1>Daily metrics</h1>
+  <p class="lede">Each day is midnight to midnight, Central time. A new day appears after the 7:00 AM digest.</p>
+  <p class="note" id="note" role="status" aria-live="polite"></p>
+  <div id="list"></div>
+</main>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
+import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js';
+const app = initializeApp({
+    apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
+    authDomain: "teebox-market.firebaseapp.com",
+    projectId: "teebox-market",
+    storageBucket: "teebox-market.firebasestorage.app",
+    messagingSenderId: "982122063122",
+    appId: "1:982122063122:web:416617dcacf912c907bfcb"
+  });
+// Same store as the main site. getAuth() would move the session to another
+// one and sign the person out of TeeBox.
+const auth = initializeAuth(app, { persistence: browserLocalPersistence, popupRedirectResolver: browserPopupRedirectResolver }), fns = getFunctions(app, 'us-central1');
+const $ = (id) => document.getElementById(id);
+const el = (tag, props, ...kids) => { const n = Object.assign(document.createElement(tag), props || {}); kids.forEach((k) => k && n.append(k)); return n; };
+const note = (text, bad) => { $('note').textContent = text || ''; $('note').className = bad ? 'note bad' : 'note'; };
+const call = async (name, data) => (await httpsCallable(fns, name)(data || {})).data;
+const usd = (c) => '$' + ((Number(c) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (v) => v == null ? '' : Number(v).toLocaleString('en-US');
+const COLS = [['Day', (d) => d.date], ['GMV', (d) => usd(d.money.gmvCents)], ['Orders', (d) => num(d.money.orders)], ['Fees', (d) => usd(d.money.feeCents)], ['Refunds', (d) => num(d.money.refunds)],
+  ['New listings', (d) => num(d.supply.newListings)], ['Active', (d) => num(d.supply.activeListings)], ['New members', (d) => num(d.demand.newUsers)], ['Views', (d) => num(d.demand.listingViews)],
+  ['Conversations', (d) => num(d.demand.conversations)], ['Held', (d) => num(d.health.holdsPending)], ['Late to ship', (d) => num(d.health.ordersUnshippedOver3Days)], ['Reports', (d) => num(d.health.reports)]];
+async function load() {
+  const { days } = await call('listDailyMetrics');
+  if (!days.length) { $('list').replaceChildren(el('p', { className: 'lede', textContent: 'No days recorded yet.' })); return; }
+  const table = el('table', null, el('thead', null, el('tr', null, ...COLS.map(([h]) => el('th', { scope: 'col', textContent: h })))),
+    el('tbody', null, ...days.map((d) => el('tr', null, ...COLS.map(([, f]) => el('td', { textContent: f(d) }))))));
+  const top = days[0].top || [];
+  $('list').replaceChildren(el('div', { className: 'tw', tabIndex: 0 }, table), el('h2', { textContent: 'Top listings by views, ' + days[0].date }),
+    top.length ? el('ol', null, ...top.map((t) => el('li', null, el('a', { href: '/?listing=' + encodeURIComponent(t.id), textContent: t.title }), ' ' + num(t.views) + ' views, ' + usd(t.askCents)))) : el('p', { className: 'lede', textContent: 'No views.' }));
+}
+onAuthStateChanged(auth, async (u) => {
+  $('list').replaceChildren();
+  if (!u) {
+    const b = el('button', { type: 'button', textContent: 'Sign in with Google' });
+    b.onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => note(e.message, true));
+    note('Sign in with the admin account.');
+    $('list').append(b);
+    return;
+  }
+  try {
+    let t = await u.getIdTokenResult();
+    if (!t.claims.admin) t = await u.getIdTokenResult(true);
+    if (t.claims.admin !== true) { note('This account is not an admin.', true); return; }
+    note('Loading.');
+    await load();
+    note('');
+  } catch (e) { note(e.message || 'Could not load the list.', true); }
+});
+</script>
+</body>
+</html>

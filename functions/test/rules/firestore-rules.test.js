@@ -375,8 +375,8 @@ test("r422: payoutReminders log is server-only", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 2026-11-23 — admin is the admin:true custom claim; an approved
-// authenticity review locks direct photo writes.
+// 2026-11-23 — admin is the admin:true custom claim; a $300+ listing's
+// photos follow the same rules as any other's.
 // ─────────────────────────────────────────────────────────────
 test("admin reads need the admin claim; a verified email is not enough", async () => {
   await seed("flaggedListings", "F1", {listingId: "F1"});
@@ -389,15 +389,14 @@ test("admin reads need the admin claim; a verified email is not enough", async (
   }
 });
 
-test("approved review: the owner can't swap photos with a direct write; pending still can", async () => {
+test("a high-value listing the admin has seen takes the same photo writes as a new one", async () => {
   const mine = {...listingCreateDoc("rev1"), requiresAuth: true, ask: 400};
   await seed("listings", "RV1", {...mine, authReviewState: "approved"});
   await seed("listings", "RV2", {...mine, authReviewState: "pending"});
   const me = testEnv.authenticatedContext("rev1", {email_verified: true});
   const own = (lid) => `https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Frev1%2F${lid}%2F1_0_a.jpg?alt=media&token=t`;
   const photos = (lid) => ({photos: [own(lid)], updatedAt: serverTimestamp()});
-  await assertFails(updateDoc(doc(db(me), "listings", "RV1"), photos("RV1")));
-  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV1"), {updatedAt: serverTimestamp()}));
+  await assertSucceeds(updateDoc(doc(db(me), "listings", "RV1"), photos("RV1")));
   await assertSucceeds(updateDoc(doc(db(me), "listings", "RV2"), photos("RV2")));
 });
 
