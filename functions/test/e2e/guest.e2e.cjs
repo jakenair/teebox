@@ -422,17 +422,34 @@ const triggerUpdated = (fn, params, before, after) => fn.run({params, data: {bef
   const tokS = await admin.auth().createCustomToken(signedBuyer.uid);
   await D.page.evaluate(async (t) => { await window.signInWithCustomToken(window.__tbAuthForTest || (await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js")).getAuth(), t); }, tokS);
   await D.page.waitForFunction(() => window.CURRENT_USER, null, {timeout: 15000});
-  const before412 = S.calls.filter((c) => c.op === "pi.create").length;
+  await admin.auth().updateUser(signedBuyer.uid, {emailVerified: false});
   await D.page.evaluate(() => window.openCheckout("gSigned", 1));
-  await D.page.waitForTimeout(1500);
-  const ageFirst = await D.page.evaluate(() => document.getElementById("checkoutAgeRow").style.display !== "none" && !document.body.classList.contains("guest-checkout"));
-  check("signed-in: first purchase shows 18+ box at once, before any server call", ageFirst && S.calls.filter((c) => c.op === "pi.create").length === before412);
-  await shot(D.page, "A3-age-first-390");
-  await D.page.check("#checkoutAge18Checkbox");
-  await D.page.waitForFunction(() => { const b = document.getElementById("payBtn"); return b && /Pay/.test(b.textContent) && !b.disabled; }, null, {timeout: 15000});
+  await D.page.waitForFunction(() => { const b = document.getElementById("payBtn"); return b && /^Pay \$/.test(b.textContent) && !b.disabled; }, null, {timeout: 15000});
   const sp = S.calls.filter((c) => c.op === "pi.create").slice(-1)[0];
-  check("signed-in: tick loads payment straight away (one PI, automatic methods, real uid)", sp && sp.p.automatic_payment_methods && sp.p.metadata.buyerId === signedBuyer.uid && !sp.p.metadata.guest, sp && sp.p.metadata);
-  await shot(D.page, "A3-age-ticked-loaded-390");
+  check("signed-in, email not verified: payment form loads at once (one PI, real uid)", sp && sp.p.automatic_payment_methods && sp.p.metadata.buyerId === signedBuyer.uid && !sp.p.metadata.guest, sp && sp.p.metadata);
+  await D.page.waitForTimeout(1200); // the sheet slides in
+  const boxAt = await D.page.evaluate(() => { const c = document.getElementById("checkoutAge18Checkbox"), r = c.getBoundingClientRect(), b = document.getElementById("payBtn").getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return {shown: r.width > 0 && top === c, above: r.bottom <= b.top, gap: Math.round(b.top - r.bottom), inView: r.top >= 0 && r.bottom <= innerHeight,
+      banner: (() => { const v = document.getElementById("verifyEmailBanner"); return v ? getComputedStyle(v).display : "none"; })()}; });
+  check("18+ box: on screen, uncovered, right above Pay; verify banner not over checkout", boxAt.shown && boxAt.above && boxAt.gap < 40 && boxAt.inView && boxAt.banner === "none", boxAt);
+  await shot(D.page, "A3-age-inline-390");
+  const c0 = await D.page.evaluate(() => window.__stripeStub.confirms.length);
+  await D.page.click("#payBtn"); await D.page.waitForTimeout(500);
+  check("Pay without the tick: says so, nothing charged", (await D.page.textContent("#checkoutAgeError")) === "Tick this box to pay." && (await D.page.evaluate(() => window.__stripeStub.confirms.length)) === c0);
+  await D.page.check("#checkoutAge18Checkbox");
+  await D.page.click("#payBtn");
+  await D.page.waitForFunction((n) => window.__stripeStub.confirms.length > n, c0, {timeout: 15000});
+  const sd = (await db.doc("users/" + signedBuyer.uid).get()).data();
+  check("tick recorded by the server before payment", !!(sd && sd.buyerAge18At));
+  await D.page.waitForTimeout(1500);
+  {
+    const oq = await db.collection("orders").where("buyerId", "==", signedBuyer.uid).get();
+    check("unverified buyer's order exists", oq.size === 1);
+    const od = oq.docs[0]; const m0 = MAIL.length;
+    await fns.onOrderCreatedEmail.run({params: {orderId: od.id}, data: {data: () => od.data()}});
+    const mine = MAIL.slice(m0).find((m) => [].concat(m.to).includes("signed.buyer@example.test"));
+    check("order email asks an unverified buyer to confirm their email", !!mine && /confirm your email/i.test(String(mine.html || mine.text || "")), mine && mine.subject);
+  }
   await D.page.evaluate(() => window.closeCheckoutDirect());
   const nPi = S.calls.filter((c) => c.op === "pi.create").length;
   await D.page.evaluate(() => window.openCheckout("gSigned2", 1));

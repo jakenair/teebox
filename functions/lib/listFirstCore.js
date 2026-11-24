@@ -136,7 +136,15 @@ async function onSellerChargesReady(uid) {
           .where("status", "==", HIDDEN_STATUS)
           .where("hiddenReason", "==", r)
           .limit(200).get()));
-    const docs = [...pausedSnap.docs, ...awaitingSnap.docs];
+    // Clubs and bags also need a ship-from address; those wait for it.
+    const {hasShipFrom, needsShipFrom} = require("./buyable");
+    const me = (await db.collection("users").doc(uid).get()).data() || null;
+    const all = [...pausedSnap.docs, ...awaitingSnap.docs];
+    const held = hasShipFrom(me) ? [] : all.filter((d) => needsShipFrom(d.data()));
+    for (const d of held) {
+      await d.ref.update({hiddenReason: require("./shipFromHold").REASON, updatedAt: admin.firestore.FieldValue.serverTimestamp()});
+    }
+    const docs = all.filter((d) => !held.includes(d));
     if (docs.length) {
       const batch = db.batch();
       docs.forEach((d) => {

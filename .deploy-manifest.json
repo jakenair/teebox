@@ -297,7 +297,7 @@
     "region": "us-central1"
   },
   "metaFeed": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -767,12 +767,12 @@
     "region": "us-central1"
   },
   "tiktokCatalog": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },
   "tiktokFeed": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },

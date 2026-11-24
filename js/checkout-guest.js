@@ -149,6 +149,7 @@
     let data = {};
     try { data = await res.json(); } catch (_e) {}
     if (!res.ok || data.error) {
+      window.coEvent && window.coEvent('checkout_blocked', { step: body.quoteOnly ? 'guest_quote' : 'create_payment', status: res.status, reason: String(data.code || data.error || '').slice(0, 120) });
       const e = new Error(data.error || `Payment server error (${res.status})`);
       e.status = res.status;
       throw e;
@@ -328,7 +329,7 @@
         elements: G.elements, clientSecret: d.clientSecret, redirect: 'if_required',
         confirmParams: { return_url: 'https://teeboxmarket.com/?checkout=complete', shipping: shipTo && shipTo.address ? shipTo : undefined },
       });
-      if (error) return fail(friendlyStripeError(error));
+      if (error) { window.coEvent && window.coEvent('payment_failed', { reason: String(error.decline_code || error.code || error.type || 'unknown').slice(0, 60) }); return fail(friendlyStripeError(error)); }
       if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
         if (paymentIntent.status === 'succeeded') {
           window.fbTrack && window.fbTrack('Purchase', { content_ids: [String(G.product.id)], content_type: 'product', value: (d.itemCents || paymentIntent.amount) / 100, currency: 'USD', order_id: paymentIntent.id, num_items: Number(G.product.__qty || 1) },

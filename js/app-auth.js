@@ -1435,6 +1435,23 @@
     } catch (_e) { return false; }
   };
 
+  // r437: is there a complete ship-from address on this account? Mirrors
+  // functions/lib/buyable.js hasShipFrom. A read failure answers true: the
+  // server still holds a club or bag that has none.
+  window.tbShipFromReady = async function() {
+    if (window.__SHIP_FROM_SET === true) return true;
+    try {
+      const u = window.CURRENT_USER; if (!u) return true;
+      const snap = await getDoc(doc(db, 'users', u.uid));
+      const f = (snap.exists() && snap.data().shippingFrom) || null;
+      const a = f && f.address && typeof f.address === 'object' ? f.address : f;
+      const t = (v) => String(v == null ? '' : v).trim();
+      const ok = !!(a && t(a.line1 || a.street1) && t(a.city) && t(a.state) && t(a.postal_code || a.zip));
+      window.__SHIP_FROM_SET = ok;
+      return ok;
+    } catch (_e) { return true; }
+  };
+
   // r421 guest checkout: /?claim=<token> from the order-confirmation email.
   // The server attaches the guest order(s) to the account for that email
   // (creating it if needed) and returns a custom token; we sign in with it
@@ -3692,6 +3709,12 @@
         showToast('Could not record your seller agreement. Please try again.', 'error');
         return;
       }
+    }
+    // r437: a ship-from address is needed to publish (asked once).
+    if (!(await window.tbShipFromReady())) {
+      showToast('Add your ship-from address to publish.', 'info');
+      window.openShippingSettings && window.openShippingSettings({ then: () => window.submitListing() });
+      return;
     }
     // Double-submit guard: a fast double event (touch+click, or a re-
     // dispatched delegated click) fired submitListing() twice ~77ms apart and

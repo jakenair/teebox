@@ -277,6 +277,9 @@ async function checkRateLimit(uid, key, maxPerMinute) {
 //   - Price is pulled from Firestore, never trusted from client
 //   - Listing is atomically reserved before the PI is created
 // ─────────────────────────────────────────────────────────────
+const BUY = require("./lib/buyable");
+const NO_SHIP_FROM_MSG = "This seller hasn't added a ship-from address yet, so shipping can't be priced. " +
+  "Message them from the listing, or check back soon.";
 exports.createPaymentIntent = onRequest(
   {
     // META_CAPI_TOKEN (2026-11-14): server-side InitiateCheckout for web AND
@@ -302,6 +305,9 @@ exports.createPaymentIntent = onRequest(
     }
 
     const authUser = await getAuthedUser(req);
+    // 2026-11-23: every refusal says why, so a lost checkout is never a guess.
+    require("./lib/checkoutRefusal").logRefusals(req, res, {
+      uid: authUser ? authUser.uid : null, logger});
     // ── r421 guest checkout (web only) ──
     // No ID token + body.guest === true → a guest buyer identified only by
     // the email they typed. Every listing/seller money gate below still runs.
@@ -386,11 +392,8 @@ exports.createPaymentIntent = onRequest(
         });
       }
     }
-    if (!isGuest && !authUser.email_verified) {
-      return res.status(412).json({
-        error: "Please verify your email before continuing.",
-      });
-    }
+    // 2026-11-23 (founder): an unverified email no longer stops a purchase.
+    // The order confirmation carries the confirm-your-email link instead.
     const buyerId = isGuest ? (guestEmail ? G.guestBuyerId(guestEmail) : "guest_quote") : authUser.uid;
     // Meta/TikTok server events: guests get NO email (founder ruling) — the
     // synthetic id only. Signed-in buyers are unchanged.
@@ -425,6 +428,8 @@ exports.createPaymentIntent = onRequest(
     // Clients from r396 on send ageGate:1. A request WITHOUT it is a shipped
     // iOS build that has no checkbox; while BUYER_AGE_LEGACY_ALLOW is true those
     // pass (logged) so iOS checkout keeps working until the next app build.
+    // ageGate:2 (r437) shows payment first with the box right above the Pay
+    // button, and records the tick (confirmBuyerAge18) before paying.
     if (isGuest && !quoteOnly && guestBody.age18 !== true) {
       return res.status(412).json({error: "age-required"});
     }
@@ -437,6 +442,8 @@ exports.createPaymentIntent = onRequest(
           await ageRef.set({
             buyerAge18At: admin.firestore.FieldValue.serverTimestamp(),
           }, {merge: true});
+        } else if (body.ageGate === 2) {
+          // asked on this screen; recorded before payment
         } else if (body.ageGate || !BUYER_AGE_LEGACY_ALLOW) {
           return res.status(412).json({error: "age-required"});
         } else {
@@ -560,6 +567,9 @@ exports.createPaymentIntent = onRequest(
           if (!sd.stripeAccountId || !sd.stripeChargesEnabled) {
             return res.status(409).json({error: "This seller hasn't finished setting up payouts yet. " +
               "Please come back in a bit, or message them via the listing."});
+          }
+          if (BUY.needsShipFrom(lp) && !BUY.hasShipFrom(sd)) {
+            return res.status(409).json({error: NO_SHIP_FROM_MSG, code: "no_ship_from"});
           }
           const itemCentsQ = Math.round(Number(lp.ask) * 100) * qty;
           if (!Number.isFinite(itemCentsQ) || itemCentsQ <= 0) return res.status(500).json({error: "Listing has invalid price"});
@@ -753,6 +763,13 @@ exports.createPaymentIntent = onRequest(
           error: "This seller hasn't finished setting up payouts yet. " +
             "Please come back in a bit, or message them via the listing.",
         });
+      }
+
+      // A club or bag is priced from the seller's ship-from address. Without
+      // one the buyer would only find out after filling in the whole form.
+      if (BUY.needsShipFrom(reservation) && !BUY.hasShipFrom(sellerData)) {
+        await rollbackReservation();
+        return res.status(409).json({error: NO_SHIP_FROM_MSG, code: "no_ship_from"});
       }
 
       // ── Structure 2 (founder ruling 2026-09-04): buyer-paid shipping ──
@@ -3741,6 +3758,13 @@ exports.releaseExpiredReservations = onSchedule(
   async () => {
     const db = admin.firestore();
     const now = Date.now();
+    // Clubs and bags waiting on a ship-from address (lib/shipFromHold).
+    try {
+      const n = await require("./lib/shipFromHold").sweep(db, admin.firestore.FieldValue);
+      if (n) logger.info(`shipFromHold: published ${n} listing(s)`);
+    } catch (e) {
+      logger.error("shipFromHold sweep failed", e);
+    }
     const snap = await db.collection("listings")
         .where("status", "==", "pending").limit(300).get();
     if (snap.empty) return;
@@ -8370,6 +8394,8 @@ Object.assign(exports, require("./emailPauseToggle"));
 Object.assign(exports, require("./moderationApprove"));
 // Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
 Object.assign(exports, require("./authReviewAdmin"));
+// 18+ tick at checkout, ship-from holds. See buyerChecks.js.
+Object.assign(exports, require("./buyerChecks"));
 // Daily activity digest + admin metrics. See dailyDigest.js.
 { const {dailyActivityDigest, listDailyMetrics} = require("./dailyDigest"); Object.assign(exports, {dailyActivityDigest, listDailyMetrics}); }
 // Seller delete, refused while a buyer is checking out. See deleteListing.js.

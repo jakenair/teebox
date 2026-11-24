@@ -94,7 +94,13 @@ exports.countListingCreate = onDocumentCreated(
       if (String(d.status || "active") !== "active") return;
       try {
         const us = await db.collection("users").doc(uid).get();
-        if (us.exists && us.data().stripeChargesEnabled === true) return;
+        if (us.exists && us.data().stripeChargesEnabled === true) {
+          // Ready to take payment, but a club or bag still needs an address.
+          if (await require("./lib/shipFromHold").holdIfNeeded(db, admin.firestore.FieldValue, event.data.ref, us.data())) {
+            logger.info(`[listFirst] held for ship-from ${event.params.listingId} (seller ${uid})`);
+          }
+          return;
+        }
         const lref = event.data.ref;
         const demoted = await db.runTransaction(async (tx) => {
           const cur = await tx.get(lref);
