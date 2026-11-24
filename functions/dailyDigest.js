@@ -52,7 +52,14 @@ async function runDigest(db, date, o) {
 exports.dailyActivityDigest = onSchedule(
     {schedule: "0 7 * * *", timeZone: core.TZ, region: "us-central1", memory: "512MiB", timeoutSeconds: 120, maxInstances: 1,
       secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET, OPS_ALERT_WEBHOOK]},
-    async () => {
+    async (event) => {
+      // Drill: a one-off scheduler job named ops-alert-test fires one real
+      // alert, so both delivery paths (relay email, Cloud Monitoring) can be
+      // checked. Only our own scheduler account may call this function.
+      if (/\/ops-alert-test$/.test(String(event && event.jobName || ""))) {
+        await opsAlert("warn", "TEST: both alert paths", {drill: true});
+        return;
+      }
       const date = core.addDays(core.ctDate(Date.now()), -1);
       try {
         const to = String(process.env.DIGEST_RECIPIENTS || "").split(",").map((s) => s.trim()).filter(Boolean);
