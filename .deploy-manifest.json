@@ -62,13 +62,18 @@
     "at": "2026-11-17",
     "region": "us-central1"
   },
+  "confirmBuyerAge18": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
+  },
   "confirmOrderDelivered": {
     "at": "2026-08-27",
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "countListingCreate": {
-    "sha": "93a70decd5bd45dc305a4e018df4a1255146fa35",
-    "at": "2026-11-23",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "createApiConnection": {
@@ -87,8 +92,8 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "3a2d04b32c9868524a8b24b07c308e65475f86a3",
-    "at": "2026-11-21",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "createShippingLabel": {
@@ -240,8 +245,8 @@
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
   },
   "getStripeAccountStatus": {
-    "sha": "43433ec05a219dc2cb942764aef513a9b127940d",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "handleUnsubscribe": {
@@ -390,8 +395,8 @@
     "region": "us-central1"
   },
   "onListingLive": {
-    "sha": "43433ec05a219dc2cb942764aef513a9b127940d",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "onListingPriceUpdate": {
@@ -405,8 +410,8 @@
     "region": "us-central1"
   },
   "onOrderCreatedEmail": {
-    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "onOrderLabelEmail": {
@@ -505,6 +510,11 @@
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
   },
+  "publishShipFromHeld": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
+  },
   "pushBingoDailyReminder": {
     "at": "2026-09-29",
     "region": "us-central1",
@@ -600,8 +610,8 @@
     "region": "us-central1"
   },
   "releaseExpiredReservations": {
-    "sha": "3a2d04b32c9868524a8b24b07c308e65475f86a3",
-    "at": "2026-11-21",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "releaseHold": {
@@ -723,8 +733,8 @@
     "region": "us-central1"
   },
   "stripeConnectWebhook": {
-    "sha": "45eb10f224f7fa2c1a87cb84cb0cd07d0eaefb1d",
-    "at": "2026-11-17",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "stripeWebhook": {
@@ -777,9 +787,9 @@
     "region": "us-central1"
   },
   "updateCheckoutShipping": {
-    "at": "2026-09-09",
-    "note": "created via raw gcloud @ HEAD (firebase CLI blocked on unrelated concurrency validation); config matched to getShippingFeatureFlag template",
-    "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "updateEmailPreferences": {
     "at": "2026-09-29",
