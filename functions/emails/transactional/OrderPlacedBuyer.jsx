@@ -13,10 +13,8 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null
   const item = formatUsd(itemVal);
   const shipCents = Number.isFinite(order.shippingCents)
     ? order.shippingCents : 0;
-  const shippingLine = shipCents > 0 ? formatUsd(shipCents) : "Included";
-  // 2026-11-21: shippingCents includes shipping protection on items over
-  // $100 (insured at the item price). Show the line as
-  // "Shipping & protection" with the split under it.
+  // shippingCents includes shipping protection on items over $100 (covered
+  // at the item price). Item, shipping, protection and total are separate rows.
   const protCents = Number.isFinite(order.shippingProtectionCents)
     ? order.shippingProtectionCents : 0;
   const carrierCents = Number.isFinite(order.shippingCarrierCents)
@@ -50,19 +48,14 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null
 
       <Receipt>
         <ReceiptRow label="Item" value={item} />
+        <ReceiptRow label="Shipping" value={shipCents > 0 ? formatUsd(carrierCents) : "Included"} />
         {protCents > 0 ? (
-          <>
-            <ReceiptRow label="Shipping & protection" value={shippingLine} />
-            <ReceiptRow label={"\u00a0\u00a0Shipping"} value={formatUsd(carrierCents)} />
-            <ReceiptRow
-              label={`\u00a0\u00a0Protection (insured to ${formatUsd(order.insuredValueCents || itemVal)})`}
-              value={formatUsd(protCents)}
-            />
-          </>
-        ) : (
-          <ReceiptRow label="Shipping" value={shippingLine} />
-        )}
-        <ReceiptRow label="Total paid" value={total} strong />
+          <ReceiptRow
+            label={`Protection (covers up to ${formatUsd(order.insuredValueCents || itemVal)})`}
+            value={formatUsd(protCents)}
+          />
+        ) : null}
+        <ReceiptRow label="Total" value={total} strong />
       </Receipt>
 
       {addr ? (

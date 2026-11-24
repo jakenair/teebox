@@ -29,6 +29,7 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
   const buyerCity = (order.shipping && order.shipping.address && order.shipping.address.city) || null;
   // 2026-11-21: tell the seller which box the label assumes.
   const box = shipBoxFor(order, listing);
+  const shipByDay = shipByFor(order);
 
   return (
     <Base
@@ -60,7 +61,7 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
       <NextStep>
         {shippoEnabled ? (
           <>
-            <strong>Ship within 3 business days.</strong> Your buyer already paid
+            <strong>Ship by {shipByDay || "the end of the 3rd business day"}.</strong> Your buyer already paid
             for shipping — print the prepaid label here at no cost to you, with
             the buyer&apos;s address filled in and tracking sent to them
             automatically. Late shipments hurt your rating and can trigger a
@@ -68,7 +69,7 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
           </>
         ) : (
           <>
-            <strong>Ship within 3 business days</strong> with any carrier (USPS,
+            <strong>Ship by {shipByDay || "the end of the 3rd business day"}</strong> with any carrier (USPS,
             UPS, FedEx), then mark it shipped with the tracking number from your
             Sold tab. Late shipments hurt your rating and can trigger a refund.
           </>
@@ -84,6 +85,10 @@ function OrderPlacedSeller({order = {}, seller = {}, listing = {}, shippoEnabled
       ) : null}
 
       <Button href={ctaHref}>{ctaLabel}</Button>
+      <P muted>
+        <a href="https://tools.usps.com/schedule-pickup-steps.htm">Schedule a free USPS pickup</a>{" "}
+        for USPS labels. <a href="https://teeboxmarket.com/shipping/">How shipping works</a>
+      </P>
       <P muted>
         A handwritten thank-you in the box is how repeat buyers happen — the
         sellers who treat each sale like a small business win the long game.
@@ -103,6 +108,18 @@ function shipBoxFor(order, listing) {
     return p ? {name: SP.boxName(key), dims: SP.describeParcel(p)} : null;
   } catch (_e) {
     return null;
+  }
+}
+
+// "Friday, November 27": the end of the 3rd business day after the order.
+function shipByFor(order) {
+  try {
+    const c = order.createdAt;
+    const ms = c && c.toMillis ? c.toMillis() : (c && c.seconds ? c.seconds * 1000 : Date.now());
+    const {date} = require("../../lib/shipBy").shipBy(ms);
+    return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {timeZone: "UTC", weekday: "long", month: "long", day: "numeric"});
+  } catch (_e) {
+    return "";
   }
 }
 

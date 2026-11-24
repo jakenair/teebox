@@ -139,6 +139,9 @@ const DEFAULT_PARCEL = SP.parcelForKey("default");
 // because USPS Priority Mail caps at 70lb and gets expensive past 50lb.
 const HEAVY_LB = 70;
 const PROD_PROJECT_ID = "teebox-market";
+// Carriers that print a label from a QR code at the counter.
+const QR_CARRIERS = ["USPS"];
+const QR_MAX_EXTRA_CENTS = 100;
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────
 
@@ -438,6 +441,7 @@ exports.createShippingLabel = onCall(
           trackingNumber: order.trackingNumber || null,
           carrier: order.carrier || null,
           env: order.shippingLabelEnv || null,
+          qrUrl: order.labelQrUrl || null,
           cached: true,
         };
       }
@@ -590,7 +594,7 @@ exports.createShippingLabel = onCall(
         ...(insurance ? {extra: {insurance}} : {}),
         async: false,
       };
-      const shipmentRes = await shippoFetch(
+      let shipmentRes = await shippoFetch(
           apiKey, "/shipments/", shipmentBody);
 
       if (shipmentRes.networkErr) {
@@ -654,8 +658,32 @@ exports.createShippingLabel = onCall(
       // purchase fails for a carrier-setup reason.
       const parcelWeightLb = Number(parcel.weight || 0);
       // Same purchasable-carrier list the checkout quote used.
-      const candidates = pickRateCandidates(
-          SP.filterCarriers(rates, await SP.getShippingConfig(db)), parcelWeightLb);
+      const shipCfg = await SP.getShippingConfig(db);
+      let candidates = pickRateCandidates(SP.filterCarriers(rates, shipCfg), parcelWeightLb);
+
+      // No-printer label (2026-11-23): the seller shows a QR code and the
+      // carrier prints the label. Asking for one drops the carriers that
+      // can't do it, so it is used only when it doesn't cost more than
+      // qrMaxExtraCents over the ordinary cheapest rate; otherwise the
+      // seller gets the ordinary PDF and is told why.
+      let qrUsed = false;
+      let qrNote = null;
+      if (data.qr === true && candidates.length) {
+        const qrRes = await shippoFetch(apiKey, "/shipments/", {...shipmentBody,
+          extra: {...(shipmentBody.extra || {}), qr_code_requested: true}});
+        const qrRates = (qrRes.ok && qrRes.body && qrRes.body.rates) || [];
+        const qrCands = pickRateCandidates(SP.filterCarriers(qrRates, shipCfg), parcelWeightLb)
+            .filter((r) => QR_CARRIERS.includes(String(r.provider || "").toUpperCase()));
+        const extra = qrCands.length ?
+          Math.round((Number(qrCands[0].amount) - Number(candidates[0].amount)) * 100) : Infinity;
+        if (extra <= QR_MAX_EXTRA_CENTS) {
+          candidates = qrCands;
+          shipmentRes = qrRes;
+          qrUsed = true;
+        } else {
+          qrNote = "A no-printer label isn't available for this package. Here is the PDF label instead.";
+        }
+      }
       if (!candidates.length) {
         logger.warn(
             "createShippingLabel: pickRateCandidates returned nothing",
@@ -839,6 +867,7 @@ exports.createShippingLabel = onCall(
         shippingParcelKey: parcelKey,
         labelParcel: {length: parcel.length, width: parcel.width,
           height: parcel.height, weight: parcel.weight},
+        labelQrUrl: (qrUsed && txn.qr_code_url) || null,
         labelInsuredCents: insurance ? Math.round(Number(insurance.amount) * 100) : 0,
       }, {merge: true});
 
@@ -860,6 +889,8 @@ exports.createShippingLabel = onCall(
         trackingNumber: txn.tracking_number || null,
         carrier,
         rateAmount: Number(rate.amount || 0),
+        qrUrl: (qrUsed && txn.qr_code_url) || null,
+        ...(qrNote || (data.qr === true && !txn.qr_code_url) ? {qrNote: qrNote || "No QR code was returned. Here is the PDF label instead."} : {}),
         env,
       };
     },
@@ -1158,4 +1189,6 @@ module.exports._internal = {
   listingItemCents,
   labelDeltaDoc,
   quoteShippingCents,
+  carrierQuoteForListing,
+  SHIPPO_API_KEY,
 };

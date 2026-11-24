@@ -91,6 +91,7 @@ async function sendTemplated({
   uid,
   ctx = {},
   subject: subjectOverride,
+  idempotencyKey,
 }) {
   const Tpl = getTemplate(templateCategory, templateName);
   let subject = subjectOverride;
@@ -120,6 +121,7 @@ async function sendTemplated({
     category,
     uid,
     template: templateName,
+    ...(idempotencyKey ? {idempotencyKey} : {}),
   });
 }
 
@@ -1399,3 +1401,5 @@ exports.confirmOrderDelivered = onCall(
 
 // ═══════════════════════════════════════════════════════════════════════
 module.exports.__emailTriggersLoaded = true;
+// For shippingInfo.js (carrier tracking + ship-by reminders).
+module.exports._shared = {sendTemplated, loadOrderParties, resolvePartyEmail, recordEmailMiss};
