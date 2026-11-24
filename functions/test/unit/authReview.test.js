@@ -12,18 +12,18 @@ test("who needs review: the flag or a $300 ask", () => {
   assert.equal(R.needsAuthReview({ask: 299.99}), false);
   assert.equal(R.needsAuthReview({ask: 300, requiresAuth: false, authReviewState: "na"}), true);
   assert.equal(R.needsAuthReview({ask: 100, requiresAuth: true}), true);
-  for (const st of ["pending", "rejected", "na", undefined]) {
-    assert.equal(R.authReviewPassed(L({authReviewState: st})), false, String(st));
+  for (const st of ["pending", "na", "approved", undefined]) {
+    assert.equal(R.authReviewPassed(L({authReviewState: st})), true, String(st));
   }
-  assert.equal(R.authReviewPassed(L({authReviewState: "approved"})), true);
+  assert.equal(R.authReviewPassed(L({authReviewState: "rejected"})), false);
 });
 
-test("feed: left out until approved, then in stock, whatever the status", () => {
-  assert.equal(F.feedRow(L()), null);
-  assert.equal(F.feedRow(L({status: "pending"})), null);
-  assert.equal(F.feedRow(L({requiresAuth: false, authReviewState: "na"})), null);
-  assert.equal(F.feedRow(L({authReviewState: "approved"})).availability, "in stock");
-  assert.ok(F.feedRow(L({ask: 299, requiresAuth: false, authReviewState: "na"})));
+test("feed: a high-value listing is in at once; only a rejected one is out", () => {
+  for (const st of ["pending", "na", "approved", undefined]) {
+    assert.equal(F.feedRow(L({authReviewState: st})).availability, "in stock", String(st));
+  }
+  assert.equal(F.feedRow(L({authReviewState: "rejected"})), null);
+  assert.equal(F.feedRow(L({ask: 100, requiresAuth: false, authReviewState: "rejected"})), null);
 });
 
 test("approve", () => {
@@ -68,32 +68,4 @@ test("refuses during checkout and on finished listings", () => {
     for (const s of ["sold", "removed"]) assert.ok(R.planDecision(L({status: s}), d, "r").error);
   }
   assert.ok(R.planDecision(L(), "maybe").error);
-});
-
-test("edits that reopen an approved review: photos, title, brand, category, specs, condition", () => {
-  const specs = {brand: "Ping", model: "Anser", length: "34\"", flex: ""};
-  const cur = L({brand: "Ping", cat: "clubs", specCategory: "putter", specs, desc: "Clean", authReviewState: "approved", photos: ["a", "b"]});
-  const same = {title: "Putter", brand: "Ping", photos: ["b", "a"], cat: "clubs", specCategory: "putter", specs: {...specs}, condition: "Good"};
-  const ch = (o) => R.reviewChanges(cur, {...same, ...o});
-  assert.deepEqual(ch({}), []);
-  assert.deepEqual(ch({title: "Other"}), ["title"]);
-  assert.deepEqual(ch({photos: ["a", "c"]}), ["photos"]);
-  assert.deepEqual(ch({brand: "Scotty", specs: {...specs, brand: "Scotty"}}), ["brand"]);
-  assert.deepEqual(ch({cat: "bags"}), ["category"]);
-  assert.deepEqual(ch({specCategory: "driver"}), ["category"]);
-  assert.deepEqual(ch({cat: "bags", specCategory: "bag"}), ["category"], "named once");
-  assert.deepEqual(ch({specs: {...specs, model: "Newport"}}), ["specs"]);
-  assert.deepEqual(ch({specs: {...specs, brand: "Scotty"}}), ["specs"], "the brand shown in specs can't differ unseen");
-  assert.deepEqual(ch({specs: {...specs, grip: "Pistol"}}), ["specs"]);
-  assert.deepEqual(ch({specs: {model: "Anser"}}), ["specs"]);
-  assert.deepEqual(ch({condition: "Fair"}), ["condition"]);
-  // what doesn't count
-  assert.deepEqual(ch({specs: {length: "34\"", model: " Anser ", brand: "Ping"}}), [], "key order, empty and missing values");
-  assert.deepEqual(ch({specs: {model: "Anser", length: "34\"", grip: null}}), [], "the copied brand may be left out");
-  assert.deepEqual(ch({specs: {...specs, shipBox: "putter-48"}}), [], "shipping box");
-  assert.deepEqual(ch({ask: 100, desc: "Other words", quantity: 4}), []);
-  const {cat, specCategory, specs: _s, condition, ...older} = same;
-  assert.deepEqual(R.reviewChanges(cur, older), [], "fields that weren't edited");
-  assert.deepEqual(R.reviewChanges({...cur, authReviewState: "pending"}, {...same, condition: "Fair"}), []);
-  assert.deepEqual(R.reviewChanges({...cur, ask: 100, requiresAuth: false}, {...same, condition: "Fair"}), []);
 });

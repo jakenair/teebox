@@ -1,12 +1,12 @@
 "use strict";
-// High-value authenticity review (2026-11-23).
+// High-value listings (founder, 2026-11-23: nothing is held).
 //
-// A listing at $300+ is created with requiresAuth: true and
-// authReviewState: "pending". Until now nothing ever moved it on. The states:
-//   na        under $300, no review
-//   pending   waiting for an admin
-//   approved  an admin approved it (decideAuthReview)
-//   rejected  an admin rejected it, with a reason
+// A listing at $300+ goes live at once and is advertised like any other. It
+// is marked so an admin can look at it afterwards in /admin/review:
+//   na        under $300
+//   pending   new, nobody has looked yet
+//   approved  an admin looked and it was fine
+//   rejected  an admin took it down, with a reason; nothing else undoes that
 //
 // The ask is checked as well as the flag: the client writes both fields when
 // it creates a listing, so the flag alone could be left off.
@@ -19,9 +19,9 @@ function needsAuthReview(l) {
     Number(l.ask) >= HIGH_VALUE_USD);
 }
 
-/** True when the listing may be advertised: no review needed, or approved. */
+/** True when the listing may be advertised: anything an admin hasn't rejected. */
 function authReviewPassed(l) {
-  return !needsAuthReview(l) || l.authReviewState === "approved";
+  return !!l && l.authReviewState !== "rejected";
 }
 
 /** Statuses where a decision still means something. */
@@ -64,42 +64,4 @@ function planDecision(l, decision, reason) {
   return {update};
 }
 
-/**
- * A listing's specs as one comparable string. Key order, empty values and the
- * shipping box size don't count; nor does the copy of the brand the Sell form
- * keeps in specs (the brand is compared on its own).
- */
-function specsKey(l) {
-  const t = (v) => String(v == null ? "" : v).trim();
-  const s = l.specs && typeof l.specs === "object" ? l.specs : {};
-  return JSON.stringify(Object.keys(s).sort()
-      .filter((k) => k !== "shipBox" && t(s[k]) && !(k === "brand" && t(s[k]) === t(l.brand)))
-      .map((k) => [k, t(s[k])]));
-}
-
-/**
- * What a seller's edit changed that an approval covered: photos, title,
- * brand, category, specs or condition. Empty unless the listing needs review
- * and is approved now. Price, description, quantity and photo ORDER don't
- * count. A field missing from `next` was not edited.
- * @param {object} cur listing before the edit
- * @param {{title: string, brand: string, photos: string[], cat: (string|undefined), specCategory: (string|undefined),
- *   specs: (object|undefined), condition: (string|undefined)}} next
- * @return {string[]}
- */
-function reviewChanges(cur, next) {
-  if (!needsAuthReview(cur) || cur.authReviewState !== "approved") return [];
-  const t = (v) => String(v == null ? "" : v).trim();
-  const set = (a) => JSON.stringify([...new Set((Array.isArray(a) ? a : []).map(String))].sort());
-  const out = [];
-  if (set(cur.photos) !== set(next.photos)) out.push("photos");
-  if (t(cur.title) !== t(next.title)) out.push("title");
-  if (t(cur.brand) !== t(next.brand)) out.push("brand");
-  const changed = (k) => next[k] !== undefined && t(cur[k]) !== t(next[k]);
-  if (changed("cat") || changed("specCategory")) out.push("category");
-  if (next.specs !== undefined && specsKey(cur) !== specsKey(next)) out.push("specs");
-  if (changed("condition")) out.push("condition");
-  return out;
-}
-
-module.exports = {HIGH_VALUE_USD, needsAuthReview, authReviewPassed, planDecision, reviewChanges};
+module.exports = {HIGH_VALUE_USD, needsAuthReview, authReviewPassed, planDecision};

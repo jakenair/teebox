@@ -30,7 +30,6 @@
 
 const crypto = require("node:crypto");
 const schema = require("./listingSchema");
-const {reviewChanges} = require("./authReview");
 const lc = require("./listingCreate");
 const {CONFIRM_MESSAGE} = require("./sellerConsent");
 const {inCheckout, heldUnits} = require("./checkoutHold");
@@ -674,12 +673,10 @@ async function listListings(deps, ctx, query) {
  * What an edit does to the $300+ authenticity review (same rule as
  * updateListing). An edit never clears a rejection, whatever the new price.
  * @param {object} cur @param {boolean} isHighValue
- * @param {string[]} [changed] reviewChanges(): what an approval no longer covers
  * @return {string|null} the new authReviewState, or null to leave it alone
  */
-function authReviewAfterEdit(cur, isHighValue, changed) {
+function authReviewAfterEdit(cur, isHighValue) {
   if (cur.authReviewState === "rejected") return null;
-  if (isHighValue && changed && changed.length) return "pending";
   if (isHighValue && !cur.requiresAuth) return "pending";
   if (!isHighValue && cur.requiresAuth) return "na";
   return null;
@@ -779,8 +776,6 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
   const {db, FieldValue} = deps;
   let stored = null; let photoErrors = [];
   let prevPhotos = [];
-  let reopened = [];
-  let reopenedListing = null;
   try {
     if (newUrls) {
       await reservePhotos(deps, ctx, newUrls.length);
@@ -806,15 +801,8 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
       if (stored && cur.photoVariants && typeof cur.photoVariants === "object") {
         update.photoVariants = rekeyPhotoVariants(cur.photoVariants, stored);
       }
-      reopened = isHighValue ? reviewChanges(cur, {...cur, ...update}) : [];
-      const review = authReviewAfterEdit(cur, isHighValue, reopened);
+      const review = authReviewAfterEdit(cur, isHighValue);
       if (review) update.authReviewState = review;
-      reopenedListing = null;
-      if (reopened.length) {
-        update.authReviewReason = "Changed after approval: " + reopened.join(", ");
-        update.authReviewReopenedAt = FieldValue.serverTimestamp();
-        reopenedListing = {id, sellerId: cur.sellerId, title: value.title, status: cur.status, decisionN: Number(cur.authReviewDecisionN) || 0};
-      }
       if (degraded) {
         update.needsReview = true; update.needsReviewReason = "edit_scan_degraded";
         update.needsReviewAt = FieldValue.serverTimestamp();
@@ -836,9 +824,6 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
       } catch (e2) { if (deps.logError) deps.logError("sellerApi: upload cleanup failed", e2); }
     }
     throw e;
-  }
-  if (reopenedListing && deps.notifyReviewReopened) { // live only; the sandbox sends nothing
-    try { await deps.notifyReviewReopened(reopenedListing, reopened.join(", ")); } catch (e) { deps.logError("review email failed", e); }
   }
   if (stored && deps.deleteRemovedPhotos) {
     try { await deps.deleteRemovedPhotos(prevPhotos, stored, id); } catch (_e) { /* best-effort, like updateListing */ }

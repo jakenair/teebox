@@ -365,14 +365,14 @@ test("L10 the same picture counts once, live and in the sandbox", async () => {
 });
 
 // ── L11 (unit rules are in authReview.test.js) ─────────────────────────────
-test("L11 an approved listing edited into something else goes back to review", async () => {
+test("L11 no edit to a high-value listing the admin has seen sends it back or holds it", async () => {
   const putter = Object.fromEntries(schema.SPECS.categories.putter.fields.filter((f) => f.req).map((f) => [f.k, f.options ? f.options[0] : "Anser"]));
   const approved = {"listings/L1": LISTING({ask: 400, requiresAuth: true, authReviewState: "approved"})};
   for (const [body, why] of [[{category: "putter", specs: putter}, /category, specs/], [{specs: {model: "Qi35"}}, /specs/], [{condition: "Fair"}, /condition/]]) {
     const a = api({}, approved);
     assert.equal(code(await a.call("PATCH", "/v1/listings/L1", body)), "200 ok");
-    assert.equal(a.listing().authReviewState, "pending", JSON.stringify(body));
-    assert.match(a.listing().authReviewReason, why);
+    assert.equal(a.listing().authReviewState, "approved", why);
+    assert.equal(a.listing().status, "active");
   }
   for (const body of [{price: 350}, {description: "Other."}, {quantity: 2}, {specs: {model: "Qi10"}}, {condition: "Very Good"}, {category: "driver"}]) {
     const a = api({}, approved);

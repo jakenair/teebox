@@ -7098,22 +7098,12 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     update.needsReviewReason = "edit_scan_degraded";
     update.needsReviewAt = admin.firestore.FieldValue.serverTimestamp();
   }
-  // Only (re)set authReviewState when crossing the high-value
-  // threshold so an admin's prior review verdict isn't silently
-  // reset by an unrelated edit. New high-value → pending review;
-  // dropped below threshold → na.
+  // authReviewState changes only when the price crosses the high-value
+  // line: new high-value → pending (an admin looks afterwards; it stays
+  // live), dropped below → na.
   const wasHighValue = !!cur.requiresAuth;
-  const {reviewChanges} = require("./lib/authReview");
-  const reopened = isHighValue ? reviewChanges(cur, {title, brand, photos, cat, condition,
-    ...(specCategory != null ? {specCategory} : {}), ...(specs != null ? {specs} : {})}) : [];
   if (cur.authReviewState === "rejected") {
     // An edit (or a lower price) never clears a rejected review.
-  } else if (reopened.length) {
-    // 2026-11-23 (Jake): what was approved is no longer what is listed. Both
-    // ad feeds drop it on their next rebuild; the listing stays for sale.
-    update.authReviewState = "pending";
-    update.authReviewReopenedAt = admin.firestore.FieldValue.serverTimestamp();
-    update.authReviewReason = "Changed after approval: " + reopened.join(", ");
   } else if (isHighValue && !wasHighValue) {
     update.authReviewState = "pending";
   } else if (!isHighValue && wasHighValue) {
@@ -7132,15 +7122,6 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     await clearAutoFlagIfClean({db, FieldValue: admin.firestore.FieldValue, logger},
         {listingId, sellerId: uid, objPath: "", annotation: null})
         .catch((e) => logger.warn("updateListing: flag re-check failed", {listingId, error: String(e && e.message || e)}));
-  }
-  if (update.authReviewState === "pending" && reopened.length) {
-    try {
-      await require("./lib/authReviewEmail").sendReviewEmail(
-          {id: listingId, sellerId: uid, title, status, decisionN: Number(cur.authReviewDecisionN) || 0},
-          "reopen", reopened.join(", "));
-    } catch (e) {
-      logger.error("updateListing: review email failed", {listingId, error: String(e && e.message || e)});
-    }
   }
   // Storage GC for photos the seller removed (after the write, best-effort;
   // never fails the edit).

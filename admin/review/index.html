@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authenticity reviews · TeeBox</title>
+<title>New high-value listings · TeeBox</title>
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.firebasestorage.app https://firebasestorage.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://us-central1-teebox-market.cloudfunctions.net https://*.run.app; frame-src https://teebox-market.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'">
 <style>
@@ -42,8 +42,8 @@
 <body>
 <header><div class="in"><a class="logo" href="/">Tee<span>Box</span></a><a class="back" href="/">Back to TeeBox</a></div></header>
 <main>
-  <h1>Authenticity reviews</h1>
-  <p class="lede">Listings at $300 and up stay out of our ads until you approve them. The seller gets an email either way.</p>
+  <h1>New high-value listings</h1>
+  <p class="lede">Listings at $300 and up, newest first. They are live and in our ads already. The seller only hears from us if you take one down or put it back.</p>
   <p class="note" id="note" role="status" aria-live="polite"></p>
   <div id="list"></div>
 </main>
@@ -87,23 +87,24 @@ const safe = (u) => { try { const p = new URL(u); return p.protocol === 'https:'
 function card(it) {
   const rejected = it.state === 'rejected';
   const reason = el('textarea', { id: 'r-' + it.listingId, maxLength: 500 });
-  const approve = el('button', { type: 'button', textContent: 'Approve' });
-  const reject = el('button', { type: 'button', className: 'danger', textContent: 'Reject' });
+  const approve = el('button', { type: 'button', textContent: rejected ? 'Put back' : 'Mark as seen' });
+  const reject = el('button', { type: 'button', className: 'danger', textContent: 'Take down' });
   const photos = el('div', { className: 'photos' });
   (it.photos || []).map(safe).filter(Boolean).forEach((u, i) => photos.append(
     el('a', { href: u, target: '_blank', rel: 'noopener' }, el('img', { src: u, alt: 'Photo ' + (i + 1), loading: 'lazy' }))));
   const decide = async (decision) => {
     const why = reason.value.trim();
-    if (decision === 'reject' && !why) { note('Add a reason before rejecting.', true); reason.focus(); return; }
-    if (!window.confirm(decision === 'approve'
-      ? 'Approve "' + it.title + '"? The seller gets an email and it can be advertised.'
-      : 'Reject "' + it.title + '"? It comes off the site and the seller gets an email.')) return;
+    if (decision === 'reject' && !why) { note('Add a reason before taking it down.', true); reason.focus(); return; }
+    if ((decision === 'reject' || rejected) && !window.confirm(decision === 'approve'
+      ? 'Put "' + it.title + '" back? The seller gets an email.'
+      : 'Take down "' + it.title + '"? It comes off the site and the seller gets an email.')) return;
     approve.disabled = reject.disabled = true;
     try {
       const r = await callFresh('decideAuthReview', { listingId: it.listingId, decision, reason: why });
       await load();
-      note((decision === 'approve' ? 'Approved: ' : 'Rejected and taken down: ') + it.title +
-        (r.noop ? ' (already decided).' : r.emailed ? '. Seller emailed.' : '. The seller email did not send.'), !r.noop && !r.emailed);
+      const quiet = decision === 'approve' && !rejected;
+      note((decision === 'reject' ? 'Taken down: ' : rejected ? 'Put back: ' : 'Seen: ') + it.title +
+        (r.noop ? ' (already done).' : quiet ? '.' : r.emailed ? '. Seller emailed.' : '. The seller email did not send.'), !r.noop && !quiet && !r.emailed);
     } catch (e) { note(e.message || 'Something went wrong.', true); approve.disabled = reject.disabled = false; }
   };
   approve.onclick = () => decide('approve');
@@ -112,17 +113,17 @@ function card(it) {
     el('h2', { textContent: it.title + ' · $' + it.ask }),
     el('p', { className: 'meta', textContent: [it.brand, it.condition].filter(Boolean).join(' · ') }),
     el('p', { className: 'meta', textContent: 'Seller: ' + (it.sellerName || 'no name on file') + ' · ' + it.sellerId }),
-    el('span', { className: 'state' + (rejected ? ' rejected' : ''), textContent: it.state + ' · listing is ' + it.status }),
+    el('span', { className: 'state' + (rejected ? ' rejected' : ''), textContent: (rejected ? 'taken down' : 'new') + ' · listing is ' + it.status }),
     it.reason ? el('p', { className: 'meta', textContent: it.reason }) : null,
     photos,
-    rejected ? null : el('label', { htmlFor: reason.id, textContent: 'Reason, if you reject (the seller sees this)' }),
+    rejected ? null : el('label', { htmlFor: reason.id, textContent: 'Reason, if you take it down (the seller sees this)' }),
     rejected ? null : reason,
     el('div', { className: 'row' }, approve, rejected ? null : reject,
       el('a', { className: 'btn ghost', href: '/?listing=' + encodeURIComponent(it.listingId), target: '_blank', rel: 'noopener', textContent: 'Open listing' })));
 }
 async function load() {
   const { items } = await call('listAuthReviews');
-  $('list').replaceChildren(...(items.length ? items.map(card) : [el('p', { className: 'lede', textContent: 'No reviews waiting.' })]));
+  $('list').replaceChildren(...(items.length ? items.map(card) : [el('p', { className: 'lede', textContent: 'Nothing new to look at.' })]));
 }
 onAuthStateChanged(auth, async (u) => {
   $('list').replaceChildren();
@@ -137,10 +138,10 @@ onAuthStateChanged(auth, async (u) => {
     let t = await u.getIdTokenResult();
     if (!t.claims.admin) t = await u.getIdTokenResult(true);
     if (t.claims.admin !== true) { note('This account is not an admin.', true); return; }
-    note('Loading reviews.');
+    note('Loading.');
     await load();
     note('');
-  } catch (e) { note(e.message || 'Could not load reviews.', true); }
+  } catch (e) { note(e.message || 'Could not load the list.', true); }
 });
 </script>
 </body>
