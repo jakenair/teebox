@@ -102,16 +102,24 @@ test("2026-11-15: pending and sold<=30d stay in the feed as out of stock; remove
 });
 
 // r421 (2026-11-19): seller can't take payment → stays in feed, out of stock.
-test("unbuyable seller: row kept, availability out of stock", () => {
-  const unbuyableSellers = new Set(["sellerNoStripe"]);
-  const r = F.feedRow(base({sellerId: "sellerNoStripe"}), null, Date.now(), {unbuyableSellers});
-  assert.ok(r, "row must stay in the feed (Nov 15 rule)");
-  assert.equal(r.availability, "out of stock");
-  const ok = F.feedRow(base({sellerId: "sellerReady"}), null, Date.now(), {unbuyableSellers});
-  assert.equal(ok.availability, "in stock");
-  assert.equal(F.feedRow(base({sellerId: "sellerReady"})).availability, "in stock");
-  const csv = F.buildFeedCsv([base({id: "a1", sellerId: "sellerNoStripe"}), base({id: "a2", sellerId: "sellerReady"})],
-      null, Date.now(), {unbuyableSellers, jpgFirst: true}).csv;
-  assert.match(csv, /\r\na1,[^\r]*out of stock/);
-  assert.match(csv, /\r\na2,[^\r]*in stock/);
+test("unbuyable listings are left out and come back by themselves", () => {
+  const B = (n, f) => ({notReady: new Set(n), noShipFrom: new Set(f)});
+  const row = (o, b) => F.feedRow(base({sellerId: "s1", ...o}), null, Date.now(), {blocks: b});
+  assert.equal(row({}, B(["s1"], [])), null); // can't take payment
+  assert.equal(row({status: "pending"}, B(["s1"], [])), null);
+  for (const cat of ["clubs", "bags", "Clubs"]) assert.equal(row({cat}, B([], ["s1"])), null, cat);
+  for (const cat of ["apparel", "shoes", "balls", "headcovers", "accessories"]) assert.ok(row({cat}, B([], ["s1"])), cat); // flat shipping: buyable
+  assert.equal(row({cat: "clubs"}, B([], [])).availability, "in stock");
+  assert.equal(row({cat: "clubs"}, undefined).availability, "in stock");
+});
+
+test("ship-from: every stored shape, and what counts as complete", () => {
+  const {hasShipFrom, unbuyableReason} = require("../../lib/buyable");
+  const a = {line1: "1 A St", city: "X", state: "IL", postal_code: "60647"};
+  for (const f of [a, {street1: "1 A St", city: "X", state: "IL", zip: "60647"}, {name: "N", address: a}]) assert.equal(hasShipFrom({shippingFrom: f}), true);
+  for (const f of [null, {}, "x", {...a, city: " "}, {...a, postal_code: ""}, {address: {}}]) assert.equal(hasShipFrom({shippingFrom: f}), false);
+  assert.equal(unbuyableReason({cat: "clubs"}, {stripeChargesEnabled: true}), "no_ship_from");
+  assert.equal(unbuyableReason({cat: "apparel"}, {stripeChargesEnabled: true}), null);
+  assert.equal(unbuyableReason({cat: "apparel"}, {}), "seller_not_ready");
+  assert.equal(unbuyableReason({cat: "bags"}, {stripeChargesEnabled: true, shippingFrom: a}), null);
 });
