@@ -1395,6 +1395,34 @@ window.tbEvent = function (name, surface) {
   .order-stages .stage + .stage { position: relative; margin-left: 14px; }
   .order-stages .stage + .stage::before { content: '›'; position: absolute; left: -11px; top: 50%; transform: translateY(-52%); color: var(--gray-400); font-weight: 600; }
   .order-stages .stage.on { background: var(--green-600); color: var(--white); }
+  /* Shipping transparency (js/ship-info.js) */
+  .ship-how, .ship-links a { color: var(--green-700); text-decoration: underline; }
+  .ship-est { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+  .ship-est label { font-size: 12.5px; color: var(--gray-600); }
+  .ship-est input { width: 96px; min-height: 40px; padding: 0 10px; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); font: inherit; font-size: 16px; }
+  .ship-est button { min-height: 40px; padding: 0 16px; border: 1.5px solid var(--green-700); border-radius: 50px; background: var(--white); color: var(--green-700); font: inherit; font-weight: 600; cursor: pointer; }
+  .ship-est button:disabled { opacity: .5; cursor: default; }
+  .ship-est-out strong { color: var(--gray-900); font-weight: 600; }
+  .ship-totals { margin: 8px 0; padding: 8px 0; border-top: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200); font-size: 13px; color: var(--gray-700); }
+  .ship-total { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+  .ship-total.is-total { font-weight: 700; color: var(--gray-900); }
+  .ship-eta { font-size: 13px; font-weight: 600; color: var(--gray-900); margin: 8px 0 4px; }
+  .ship-timeline { list-style: none; margin: 8px 0; padding: 0 0 0 16px; border-left: 2px solid var(--gray-200); }
+  .ship-timeline li { position: relative; padding: 0 0 10px; font-size: 12.5px; color: var(--gray-600); overflow-wrap: anywhere; }
+  .ship-timeline li::before { content: ''; position: absolute; left: -21px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-400); }
+  .ship-timeline li.is-now::before { background: var(--green-600); }
+  .ship-timeline .st { display: block; font-weight: 600; color: var(--gray-900); }
+  .ship-timeline .dt, .ship-timeline .tx { display: block; }
+  .ship-seller { margin-top: 10px; font-size: 13px; color: var(--gray-700); text-align: left; max-width: 340px; display: grid; gap: 8px; justify-items: start; }
+  .ship-payout strong { color: var(--gray-900); }
+  .ship-payout span { display: block; font-size: 12px; color: var(--gray-500); }
+  .ship-by { font-weight: 600; color: var(--gray-900); }
+  .ship-by.is-late { color: var(--red-500); }
+  .ship-pack summary { cursor: pointer; font-weight: 600; color: var(--green-700); min-height: 32px; display: flex; align-items: center; }
+  .ship-pack ol { margin: 4px 0 0; padding-left: 18px; }
+  .ship-pack li { margin: 4px 0; line-height: 1.4; }
+  .ship-links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; }
+  .ship-box-art { flex: none; color: var(--green-700); }
   .order-tracking { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
   .order-actions { display: flex; gap: 8px; margin-top: 10px; }
   .order-actions > * { flex: 1; }
@@ -6853,6 +6881,7 @@ window.tbEvent = function (name, surface) {
       <p id="shipError" style="color:var(--red-500);font-size:13px;margin-top:4px;min-height:1em;" role="alert"></p>
       <p style="font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.4;">
         Accepted carriers: USPS, UPS, FedEx, DHL. Tracking is required to mark your order shipped.
+        <a href="/shipping/" style="color:var(--green-700);text-decoration:underline;">How shipping works</a>
         <a href="#" data-action="ship-no-tracking-info" style="color:var(--green-700);text-decoration:underline;">Don't have a number yet?</a>
       </p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
@@ -8803,15 +8832,18 @@ window.tbEvent = function (name, surface) {
           <span id="checkoutShipLabel">Shipping</span>
           <span id="checkoutShipPrice">—</span>
         </div>
-        <!-- 2026-11-21: items over $100 ship insured; the line becomes
-             "Shipping & protection" and this row shows the split. -->
-        <div id="checkoutShipBreakdown" style="display:none;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--gray-500);margin:-6px 0 10px 10px;"></div>
+        <!-- Items over $100 ship protected: its own row (2026-11-23). -->
+        <div id="checkoutProtRow" style="display:none;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--gray-500);margin-bottom:10px;">
+          <span>Protection</span>
+          <span id="checkoutProtPrice"></span>
+        </div>
         <hr style="border:none;border-top:1px solid var(--gray-200);margin:8px 0 10px;" />
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-size:13px;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;">What you'll pay</span>
+          <span style="font-size:13px;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.4px;">Total</span>
           <span style="font-family:var(--font-display);font-size:1.7rem;font-weight:800;color:var(--gray-900);" id="checkoutTotal">$0.00</span>
         </div>
       </div>
+      <p style="font-size:12.5px;margin:-6px 0 14px;"><a class="ship-how" href="/shipping/" target="_blank" rel="noopener">How shipping works</a></p>
 
       <!-- Delivery expectation (r137, CRO P2) — matches Terms §4/§6: seller
            ships within 5 business days via a tracked, insured carrier. Sets an
@@ -9354,23 +9386,18 @@ function renderCheckoutTotals(d) {
   if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay ' + fmtC(d.amountCents); }
 }
 
-// "Shipping & protection" label + split row (server numbers only).
+// Item / Shipping / Protection / Total: shipping and protection are separate
+// rows (server numbers only).
 function renderShipBreakdown(d, fmtC) {
-  const label = document.getElementById('checkoutShipLabel');
-  const row = document.getElementById('checkoutShipBreakdown');
+  const row = document.getElementById('checkoutProtRow');
+  const price = document.getElementById('checkoutProtPrice');
+  const shipEl = document.getElementById('checkoutShipPrice');
   const prot = Number(d && d.protectionCents) || 0;
-  if (label) label.textContent = prot > 0 ? 'Shipping & protection' : 'Shipping';
-  if (!row) return;
-  if (prot > 0) {
+  if (row) row.style.display = prot > 0 ? 'flex' : 'none';
+  if (price) price.textContent = prot > 0 ? fmtC(prot) : '';
+  if (prot > 0 && shipEl) {
     const carrier = Number.isFinite(Number(d.carrierCents)) ? Number(d.carrierCents) : (Number(d.shippingCents) - prot);
-    row.textContent = '';
-    const a = document.createElement('span'); a.textContent = 'Shipping ' + fmtC(carrier);
-    const b = document.createElement('span'); b.textContent = 'Protection ' + fmtC(prot);
-    row.append(a, b);
-    row.style.display = 'flex';
-  } else {
-    row.textContent = '';
-    row.style.display = 'none';
+    shipEl.textContent = carrier > 0 ? fmtC(carrier) : 'Free';
   }
 }
 window.renderShipBreakdown = renderShipBreakdown; // guest checkout (js/checkout-guest.js)
@@ -10109,6 +10136,7 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
+<script defer src="/js/ship-info.js?v=r434"></script>
 <script defer src="/js/app-main.js?v=r434"></script>
 <script defer src="/js/checkout-guest.js?v=r434"></script>
 <script defer src="/js/pull-refresh.js?v=r434"></script>

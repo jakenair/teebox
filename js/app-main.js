@@ -1552,6 +1552,8 @@ async function openDetailModal(id) {
     _shipNoteEl.textContent = Number.isFinite(_tier)
       ? `+ $${_tier} shipping`
       : 'Shipping calculated at checkout';
+    // 2026-11-23: ZIP estimate for clubs and bags (js/ship-info.js).
+    if (window.TBShip) window.TBShip.mountEstimate(p, _shipNoteEl);
   }
   document.getElementById('detailDesc').textContent = p.desc || 'No description provided.';
   // Listing v2: structured spec table (r257). Legacy listings without
@@ -5012,7 +5014,7 @@ function renderShopTables() {
                 <td data-label="Ship to">${shipCell}</td>
                 <td data-label="Sale price" style="font-weight:600;color:var(--up-green)">$${orderItemDollars(o).toLocaleString()}</td>
                 <td data-label="Status" class="dash-status">${stageLabel}</td>
-                <td class="sold-actions-cell"><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div>${boxHint}</td>
+                <td class="sold-actions-cell"><div class="dash-cell-actions">${shipBtn}${printLabelBtn}${msgBuyerBtn}${refundBtn}</div>${boxHint}${window.TBShip ? window.TBShip.sellerHtml(o, listing) : ''}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -6935,6 +6937,7 @@ async function loadOrdersList() {
       <div class="order-meta">${placed ? 'Placed ' + placed + ' · ' : ''}Order #${ref}</div>
       <div class="order-stages">${tracker}</div>
       ${tracking}
+      ${window.TBShip ? window.TBShip.timelineHtml(o) + window.TBShip.totalsHtml(o) : ''}
       <div class="order-actions">${deliveryBtn}${reportBtn}</div>
       ${msgSellerBtn}
     </div>`;

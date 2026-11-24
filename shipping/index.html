@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<!-- TeeBox legal document. Drafted with reasonable diligence but NOT legal advice. Have counsel review before publication. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>How shipping works | TeeBox</title>
+<meta name="description" content="How shipping works on TeeBox: what it costs, boxes, packing, ship-by dates, tracking, protection and payouts." />
+<meta name="theme-color" content="#0b1a0e" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<style>
+  :root {
+    --green-900: #0b1a0e;
+    --green-700: #1f4827;
+    --green-600: #2d5e36;
+    --gold-500: #c5a253;
+    --gray-900: #1a1a1a;
+    --gray-700: #4a4a4a;
+    --gray-500: #777;
+    --gray-200: #e5e5e5;
+    --gray-100: #f5f5f5;
+    --white: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--gray-900);
+    background: var(--white);
+    line-height: 1.65;
+    font-size: 16px;
+  }
+  header {
+    background: var(--green-900);
+    color: var(--white);
+    /* safe-area-inset so the "Back to TeeBox" link clears the notch/
+       Dynamic Island in the iOS in-app WebView (needs viewport-fit=cover). */
+    padding: calc(env(safe-area-inset-top, 0px) + 1.5rem) 1.25rem 1.5rem;
+    text-align: center;
+  }
+  header .logo {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+  }
+  header .logo span { color: var(--gold-500); }
+  header .back-link { display: inline-block; margin-bottom: 0.75rem; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+  header .back-link:hover { color: var(--gold-500); }
+  header .subtitle {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+    margin-top: 0.25rem;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2rem;
+    color: var(--green-900);
+    margin-bottom: 0.5rem;
+  }
+  .meta {
+    color: var(--gray-500);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.3rem;
+    color: var(--green-700);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  h3 {
+    font-size: 1.05rem;
+    color: var(--gray-900);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  p, ul, ol {
+    color: var(--gray-700);
+    margin-bottom: 1rem;
+  }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin-bottom: 0.4rem; }
+  a { color: var(--green-600); }
+  a:hover { color: var(--green-700); }
+  .summary {
+    background: var(--gray-100);
+    border-left: 4px solid var(--gold-500);
+    padding: 1rem 1.25rem;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+  }
+  .summary h3 { margin-top: 0; color: var(--green-700); }
+  .callout {
+    background: #fffbef;
+    border-left: 4px solid var(--gold-500);
+    padding: 1rem 1.25rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  footer {
+    background: var(--green-900);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 1.25rem;
+    font-size: 0.85rem;
+  }
+  footer a { color: var(--gold-500); text-decoration: none; }
+  .ship-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .ship-table th, .ship-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid rgba(0,0,0,.1); vertical-align: middle; }
+  .ship-box-art { color: var(--green-700, #1f4827); display: block; max-width: 92px; }
+  .ship-wrap { overflow-x: auto; }
+</style>
+<!-- Meta Pixel (web only): loader no-ops in the native shell — see /fb-pixel.js -->
+<script defer src="/fb-pixel.js"></script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=4535316483381655&ev=PageView&noscript=1" /></noscript>
+<link rel="stylesheet" href="/assets/footer.css">
+</head>
+<body>
+<header>
+  <a class="back-link" href="/">← Back to TeeBox</a>
+  <div class="logo"><span>Tee</span>Box Market</div>
+  <div class="subtitle">The Golf Marketplace</div>
+</header>
+<main>
+  <h1>How shipping works</h1>
+  <p class="meta">Last updated: November 23, 2026</p>
+
+  <div class="summary">
+    <h3>Summary</h3>
+    <p>The buyer pays for shipping at checkout. The seller gets a prepaid label, ships within <strong>3 business days</strong>, and tracking shows on the order. Nothing is taken from the seller's payout for the label.</p>
+  </div>
+
+  <h2>1. What shipping costs</h2>
+  <div class="ship-wrap"><table class="ship-table">
+    <thead><tr><th scope="col">Item</th><th scope="col">Shipping</th></tr></thead>
+    <tbody>
+      <tr><td>Apparel, headcovers</td><td>$10</td></tr>
+      <tr><td>Accessories, balls</td><td>$12</td></tr>
+      <tr><td>Shoes</td><td>$14</td></tr>
+      <tr><td>Clubs, bags</td><td>The carrier's rate to your address. Enter your ZIP on the listing for an estimate; checkout shows the exact price.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Checkout and your receipt list the item, shipping, protection and total on separate lines.</p>
+
+  <h2>2. Shipping protection</h2>
+  <p>Items over $100 ship with protection, paid by the buyer: 1.25% of the item price. It covers the package up to the item price while the carrier has it. If a protected package is lost or damaged on the way, report a problem on the order so we can look into a claim.</p>
+
+  <h2>3. Pick the box (clubs)</h2>
+  <p>When you list a club you choose what's in the box. The buyer's price and your label are for that box.</p>
+  <div class="ship-wrap"><table class="ship-table">
+    <thead><tr><th scope="col"><span aria-hidden="true"></span></th><th scope="col">What's in the box</th><th scope="col">Box</th></tr></thead>
+    <tbody>
+      <tr><td data-box="single"></td><td>Single club or small bundle (1-3 clubs)</td><td>48 &times; 8 &times; 8 in, up to 7 lb</td></tr>
+      <tr><td data-box="partial"></td><td>Partial set (4-7 clubs)</td><td>48 &times; 10 &times; 8 in, up to 12 lb</td></tr>
+      <tr><td data-box="full"></td><td>Full set or oversized (8+ clubs)</td><td>48 &times; 14 &times; 10 in, up to 22 lb</td></tr>
+      <tr><td></td><td>Bag</td><td>38 &times; 14 &times; 12 in, up to 12 lb</td></tr>
+    </tbody>
+  </table></div>
+  <p>Measure the packed box before you drop it off. A box that is bigger or heavier than your pick costs more to ship.</p>
+  <p><strong>When a box is bigger or heavier than declared:</strong> our policy on carrier adjustments is coming soon. Today nothing is deducted from sellers for them.</p>
+
+  <h2>4. How to pack it</h2>
+  <div id="packing"><p>Cover it, pad it, and tape every seam.</p></div>
+
+  <h2>5. Ship by the date on your order</h2>
+  <ul>
+    <li>You have <strong>3 business days</strong> after the sale. Weekends and postal holidays don't count. The exact date is on your Sold tab and in the sold email.</li>
+    <li>We remind you on day 2 and day 3.</li>
+    <li>Print the prepaid label from your Sold tab. For smaller items you can get a QR code instead and USPS prints the label at the counter.</li>
+    <li>USPS labels can be picked up from your door: <a href="https://tools.usps.com/schedule-pickup-steps.htm">schedule a free USPS pickup</a>.</li>
+  </ul>
+
+  <h2>6. Tracking</h2>
+  <p>With a TeeBox label, the order page follows the carrier's scans: label created, in transit, out for delivery, delivered. Buyers get an email when it ships and when it is delivered. If you use your own label, enter the tracking number and the order links to the carrier.</p>
+
+  <h2>7. What the seller is paid</h2>
+  <p>The sale price minus TeeBox's fee. The exact amount is on your Sold tab and in the sold email. Shipping and protection are paid by the buyer and are not part of your payout. Payouts follow Stripe's schedule.</p>
+
+  <h2>8. Something went wrong?</h2>
+  <p>Open the order and tap <strong>Report a problem</strong> within 7 days of delivery. See the <a href="/refunds.html">Refund and Returns Policy</a>, or write to <a href="mailto:support@teeboxmarket.com">support@teeboxmarket.com</a>.</p>
+</main>
+<script src="/js/ship-info.js?v=r435"></script>
+<script>
+(function () {
+  var names = { clubs: 'Clubs', bags: 'Bags', shoes: 'Shoes', apparel: 'Apparel', headcovers: 'Headcovers', balls: 'Balls', accessories: 'Accessories' };
+  if (!window.TBShip) return;
+  document.querySelectorAll('[data-box]').forEach(function (td) { td.innerHTML = window.TBShip.boxSvg(td.getAttribute('data-box')); });
+  var host = document.getElementById('packing'); host.textContent = '';
+  Object.keys(names).forEach(function (k) {
+    var h = document.createElement('h3'); h.textContent = names[k]; host.appendChild(h);
+    var ol = document.createElement('ol'); window.TBShip.GUIDES[k].forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ol.appendChild(li); }); host.appendChild(ol);
+  });
+})();
+</script>
+<!-- tb-footer:start -->
+<footer class="tb-footer">
+  <div class="tb-footer-inner">
+    <a class="tb-footer-brand" href="/" aria-label="TeeBox home"><span class="tb-footer-logo"><span>Tee</span>Box</span></a>
+    <div class="tb-footer-links" role="navigation" aria-label="Footer">
+      <a href="/">Marketplace</a>
+      <a href="/?sell=1">Sell</a>
+      <a href="/about.html">How it works</a>
+      <a href="/support.html">FAQ</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/refunds.html">Refunds</a>
+      <a href="mailto:support@teeboxmarket.com">Contact</a>
+    </div>
+    <div class="tb-footer-apps">
+      <a class="tb-footer-badge" href="https://apps.apple.com/app/id6763954448" target="_blank" rel="noopener noreferrer"><img src="/assets/app-store-badge.svg" alt="Download on the App Store" width="120" height="40" loading="lazy" decoding="async"></a>
+      <a class="tb-footer-social" href="https://instagram.com/teeboxmarket" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on Instagram"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="tbf-dot" cx="17.5" cy="6.5" r="1"/></svg></a>
+      <a class="tb-footer-social" href="https://www.tiktok.com/@teeboxmarketplace" target="_blank" rel="noopener noreferrer" aria-label="TeeBox on TikTok"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" stroke="none" d="M12.53.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a>
+    </div>
+  </div>
+  <div class="tb-footer-extra">
+    <span class="tb-footer-extra-label">Play</span>
+    <a href="/?play=bingo">Logo Bingo</a>
+    <a href="/?play=sunday-nine">Sunday Nine</a>
+    <a href="/?view=passport">Passport</a>
+  </div>
+  <div class="tb-footer-extra">
+    <span class="tb-footer-extra-label">Journal</span>
+    <a href="/reads/golf-club-stock-market.html">The Golf Club Stock Market</a>
+    <a href="/reads/">All articles</a>
+  </div>
+  <div class="tb-footer-legal"><span class="tb-footer-co">© 2026 TEEBOX MARKET LLC</span><span class="tb-footer-sep">·</span><span>16649 Oak Park Ave, Ste H #1160, Tinley Park, IL 60477</span></div>
+</footer>
+<!-- tb-footer:end -->
+</body>
+</html>

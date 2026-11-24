@@ -2789,11 +2789,11 @@
   function renderShipBoxField(f) {
     const id = 'spec_' + f.k;
     const opts = Object.entries(window.SHIP_BOXES).map(([v, b]) =>
-      `<label class="ship-box-opt" data-ship-box="${v}"><input type="radio" name="shipBoxPick" value="${v}" data-action="pick-ship-box"><span><span class="ship-box-name">${b.name} (${b.sub})</span><span class="ship-box-sub">Ships in a ${b.dims} box</span></span></label>`).join('');
+      `<label class="ship-box-opt" data-ship-box="${v}"><input type="radio" name="shipBoxPick" value="${v}" data-action="pick-ship-box">${window.TBShip ? window.TBShip.boxSvg(v) : ''}<span><span class="ship-box-name">${b.name} (${b.sub})</span><span class="ship-box-sub">Ships in a ${b.dims} box</span></span></label>`).join('');
     return `<div class="form-row"><label id="${id}_label">${f.label}${f.req ? ' *' : ''}</label>` +
       `<input type="hidden" id="${id}" name="${id}" data-tb-field="${id}" />` +
       `<div class="ship-box-picker" role="radiogroup" aria-labelledby="${id}_label">${opts}</div>` +
-      `<div class="ship-box-help">Pick the box you'll ship in. The buyer pays shipping for this size, and the label is made for it.</div></div>`;
+      `<div class="ship-box-help">Pick the box you'll ship in. The buyer pays shipping for this size, and the label is made for it.</div>${window.TBShip ? window.TBShip.packingHtml('clubs') : ''}</div>`;
   }
   window.syncShipBoxPicker = function () {
     const hid = document.getElementById('spec_shipBox');
