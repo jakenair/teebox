@@ -8095,8 +8095,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r437"></script>
-      <script async src="/js/feed-rank.js?v=r437"></script>
+      <script async src="/js/feed-rank-config.js?v=r438"></script>
+      <script async src="/js/feed-rank.js?v=r438"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -10123,10 +10123,10 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r437"></script>
-<script defer src="/js/checkout-guest.js?v=r437"></script>
-<script defer src="/js/pull-refresh.js?v=r437"></script>
-<script type="module" src="/js/app-auth.js?v=r437"></script>
+<script defer src="/js/app-main.js?v=r438"></script>
+<script defer src="/js/checkout-guest.js?v=r438"></script>
+<script defer src="/js/pull-refresh.js?v=r438"></script>
+<script type="module" src="/js/app-auth.js?v=r438"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10156,8 +10156,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r437"></script>
-<script type="module" src="/js/sunday-nine.js?v=r437"></script>
+<script type="module" src="/js/bingo.js?v=r438"></script>
+<script type="module" src="/js/sunday-nine.js?v=r438"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
