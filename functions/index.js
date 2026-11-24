@@ -8377,6 +8377,8 @@ Object.assign(exports, require("./emailPauseToggle"));
 Object.assign(exports, require("./moderationApprove"));
 // Admin decisions on $300+ authenticity reviews. See authReviewAdmin.js.
 Object.assign(exports, require("./authReviewAdmin"));
+// Daily activity digest + admin metrics. See dailyDigest.js.
+{ const {dailyActivityDigest, listDailyMetrics} = require("./dailyDigest"); Object.assign(exports, {dailyActivityDigest, listDailyMetrics}); }
 // Seller delete, refused while a buyer is checking out. See deleteListing.js.
 Object.assign(exports, require("./deleteListing"));
 // Seller API v1. Sandbox only until sellerApiConfig.LIVE_API_ENABLED. The
