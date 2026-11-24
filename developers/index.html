@@ -183,7 +183,6 @@ curl "$TEEBOX/me" \
 
 <h3 id="ep-patch"><span class="verb">PATCH</span> <code>/v1/listings/{id}</code></h3>
 <p>Send only what changes. Spec keys you send overlay the current ones; changing <code>category</code> starts the specs again. <code>photo_urls</code> replaces every photo.</p>
-<p>A listing at $300 or more gets an authenticity review. After it is approved, changing the photos, title, brand, category, specs or condition sends it back to review; it stays for sale meanwhile. Changing the price, description, quantity or photo order doesn't.</p>
 <div class="ex"><pre><code>curl -X PATCH "$TEEBOX/listings/LISTING_ID" \
   -H "X-TeeBox-Partner-Key: $PARTNER_KEY" -H "Authorization: Bearer $SELLER_KEY" \
   -H "Content-Type: application/json" \
@@ -249,19 +248,14 @@ curl "$TEEBOX/me" \
 <!-- gen:rules -->
 <div class="scroll"><table><thead><tr><th>Rule</th><th>Value</th></tr></thead><tbody>
 <tr><td>Price</td><td>$5 or more, US dollars, at most 2 decimals</td></tr>
-<tr><td>Photos</td><td>1 to 10; at least 4 when the price is $300 or more</td></tr>
+<tr><td>Photos</td><td>1 to 10</td></tr>
 <tr><td>Quantity</td><td>1 to 99</td></tr>
 <tr><td>Title, brand, description</td><td>120, 60 and 4,000 characters at most</td></tr>
 <tr><td>Condition</td><td><code>New with Tags</code> <code>Like New</code> <code>Very Good</code> <code>Good</code> <code>Fair</code></td></tr>
 <tr><td>Browse category (only for category other)</td><td><code>clubs</code> <code>apparel</code> <code>shoes</code> <code>accessories</code> <code>bags</code> <code>balls</code> <code>headcovers</code> <code>shafts</code></td></tr>
 </tbody></table></div>
 <!-- /gen:rules -->
-<h3>Listings at $300 or more</h3>
-<ul>
-  <li>They need at least 4 photos, including a verification photo: the seller holding a piece of paper with their username and today's date.</li>
-  <li>They get an authenticity review. Until it is approved, TeeBox doesn't advertise the listing. Changing the photos, title or brand after approval sends it back to review.</li>
-  <li>If the review is rejected, the listing is taken down and reads as <code>ended</code>. Editing it, including lowering the price, doesn't reverse that. The seller is emailed the reason.</li>
-</ul>
+<p>TeeBox may take any listing down. It then reads as <code>ended</code>, and editing it, including lowering the price, doesn't reverse that. The seller is emailed the reason.</p>
 
 <h2 id="sync">Keeping in sync</h2>
 <p>There are no webhooks in version 1. Poll <code>GET /v1/listings</code> with <code>updated_since</code>; every few minutes per seller is plenty.</p>

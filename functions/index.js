@@ -6991,15 +6991,8 @@ exports.updateListing = onCall(USER_CALLABLE, async (request) => {
     throw new HttpsError(
         "invalid-argument", "A listing can have at most 10 photos.");
   }
-  // High-value ($300+) listings require >=4 photos (verification
-  // photo) — same rule submitListing enforces on create.
+  // Same photo rules at every price (founder, 2026-11-23).
   const isHighValue = price >= 300;
-  if (isHighValue && photos.length < 4) {
-    throw new HttpsError(
-        "invalid-argument",
-        "Listings over $300 require at least 4 photos " +
-        "including a verification photo.");
-  }
 
   // ── Server-side content pre-scan (synchronous reject) ──
   // Same fields the moderateListingOnUpdate trigger scans. Reject

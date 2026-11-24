@@ -2899,7 +2899,6 @@
     // Listing v2: category + required per-category specs block submit.
     if (window.collectSpecErrors) errors.push(...window.collectSpecErrors());
     if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
-    else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
     const blocked = checkDesc != null && window.findExplicitContent && window.findExplicitContent(title + ' ' + checkDesc);
     if (blocked) errors.push(['sellTitle', 'Please remove inappropriate language from the title or description.']);
     return errors;
@@ -3646,8 +3645,6 @@
     const __sellErrs = collectSellErrors({ title, brand, cat, price, condition, files: selectedFiles, checkDesc: desc });
     if (__sellErrs.length) { applySellErrors(__sellErrs); return; }
     clearSellErrors();
-    // High-value verification-photo rule (anti-fraud) is enforced inline by
-    // collectSellErrors above; isHighValue still drives the flow below.
     const isHighValue = price >= 300;
     // #2: first-time sellers accept the Seller Terms INLINE here (the merged
     // step — no separate verify screen). Acceptance is recorded + they become a
@@ -3752,9 +3749,7 @@
         // up to 99. quantitySold is server-managed by createPaymentIntent.
         quantity,
         quantitySold: 0,
-        // High-value listings (>= $300) get a flag so admin can manually
-        // review the verification photo. requiresAuth=true tells the
-        // marketplace UI to show a "Verification photo included" badge.
+        // $300 and up is marked so an admin can look afterwards; it is live at once.
         requiresAuth: isHighValue,
         authReviewState: isHighValue ? 'pending' : 'na',
         ...(__listingSource ? { source: __listingSource } : {}),
@@ -4129,7 +4124,7 @@
     // create-flow affordance; hide it in edit mode.
     const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
     if (vbar) vbar.style.display = 'none';
-    // Reflect $300 verification-photo notice for the loaded price.
+    // Let the price listeners refresh for the loaded price.
     const priceEl = document.getElementById('sellPrice');
     if (priceEl) priceEl.dispatchEvent(new Event('input', { bubbles: true }));
 

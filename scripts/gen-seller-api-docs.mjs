@@ -154,7 +154,7 @@ const blocks = {
     ["Idempotency keys kept", `${L.idempotencyHours} hours`]]),
   rules: table(["Rule", "Value"], [
     ["Price", `$${cats.rules.price_min} or more, US dollars, at most 2 decimals`],
-    ["Photos", `${cats.rules.photos_min} to ${cats.rules.photos_max}; at least ${cats.rules.high_value_photos_min} when the price is $${cats.rules.high_value_price} or more`],
+    ["Photos", `${cats.rules.photos_min} to ${cats.rules.photos_max}`],
     ["Quantity", `1 to ${cats.rules.quantity_max}`],
     ["Title, brand, description", `${cats.rules.title_max}, ${cats.rules.brand_max} and ${cats.rules.description_max.toLocaleString("en-US")} characters at most`],
     ["Condition", cats.conditions.map(code).join(" ")],

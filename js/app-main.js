@@ -5967,15 +5967,6 @@ function openSellModal() {
     if (sellCatEl) sellCatEl.addEventListener('change', window.updateSellShipFromNotice);
     if (priceEl) priceEl.addEventListener('input', () => {
       renderTakeHome();
-      const v = parseFloat(priceEl.value || '0');
-      const notice = document.getElementById('authPhotoNotice');
-      if (!notice) return;
-      notice.style.display = v >= 300 ? '' : 'none';
-      const handleSpan = document.getElementById('authHandleHint');
-      if (handleSpan && window.CURRENT_USER) {
-        const dn = (window.CURRENT_PROFILE && window.CURRENT_PROFILE.displayName) || (window.CURRENT_USER.email || '').split('@')[0];
-        if (dn) handleSpan.textContent = `"${dn}"`;
-      }
     });
   }
   // r428: ?sell=1&cat=<key> (e.g. cat=driver) picks the category on open, so

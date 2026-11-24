@@ -118,7 +118,6 @@ function serializeCategories() {
     rules: {
       price_min: schema.PRICE_FLOOR, currency: "USD", quantity_max: 99,
       photos_min: 1, photos_max: schema.MAX_PHOTOS,
-      high_value_price: schema.HIGH_VALUE, high_value_photos_min: schema.MIN_PHOTOS_HIGH_VALUE,
       title_max: 120, brand_max: 60, description_max: 4000,
     },
   };
@@ -281,11 +280,11 @@ async function storePhotos(deps, ctx, listingId, photos, photoErrors) {
   return stored;
 }
 
-function minPhotos(price) { return Number(price) >= schema.HIGH_VALUE ? schema.MIN_PHOTOS_HIGH_VALUE : 1; }
+const MIN_PHOTOS = 1;
 
-function photoShortError(need, got, errors) {
+function photoShortError(got, errors) {
   return new ApiError(422, "photo_fetch_failed",
-      `${need > 1 ? `Listings at $${schema.HIGH_VALUE} or more need ${need} photos` : "A listing needs at least 1 photo"}, ` +
+      "A listing needs at least 1 photo, " +
       `and only ${got} of the photo URLs could be downloaded. Nothing was created or changed.`,
       {photo_errors: errors});
 }
@@ -522,8 +521,8 @@ async function createWithPhotos(deps, ctx, value, urls, seller, idem) {
   try {
     await reservePhotos(deps, ctx, urls.length);
     pre = await prefetchPhotos(deps, urls);
-    const need = minPhotos(value.ask);
-    if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+    const need = MIN_PHOTOS;
+    if (pre.photos.length < need) throw photoShortError(pre.photos.length, pre.errors);
     if (!resumed) {
       // The listing, which partner made it (founder ruling 2026-11-20; its own
       // document, so the listing stays field-for-field the Sell form's) and
@@ -768,7 +767,7 @@ async function patchListing(deps, ctx, id, body) {
     }
     degraded = !!(scan && scan.degraded);
   }
-  const save = () => savePatch(deps, ctx, id, body, newUrls, minPhotos(value0.ask), degraded);
+  const save = () => savePatch(deps, ctx, id, body, newUrls, MIN_PHOTOS, degraded);
   return newUrls ? withPhotoSlot(deps, save) : save();
 }
 
@@ -780,10 +779,10 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
     if (newUrls) {
       await reservePhotos(deps, ctx, newUrls.length);
       const pre = await prefetchPhotos(deps, newUrls);
-      if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+      if (pre.photos.length < need) throw photoShortError(pre.photos.length, pre.errors);
       photoErrors = [...pre.errors];
       stored = await storePhotos(deps, ctx, id, pre.photos, photoErrors);
-      if (stored.length < need) throw photoShortError(need, stored.length, photoErrors);
+      if (stored.length < need) throw photoShortError(stored.length, photoErrors);
     }
     await db.runTransaction(async (tx) => {
       const {ref, data: cur} = await loadOwnListing(deps, ctx, id, tx);

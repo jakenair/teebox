@@ -3629,8 +3629,6 @@ window.tbEvent = function (name, surface) {
     .ai-price-btn, .ai-price-card button { transition: none; }
   }
 
-  .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
-  .auth-photo-notice strong { color: #b04428; font-size: 13px; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
   /* Payout orientation heads-up — same green-50 info language as the verified
      bar above it (calm, non-alarming). CTA reuses .btn-stripe-connect (the
@@ -8087,8 +8085,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r435"></script>
-      <script async src="/js/feed-rank.js?v=r435"></script>
+      <script async src="/js/feed-rank-config.js?v=r436"></script>
+      <script async src="/js/feed-rank.js?v=r436"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8623,10 +8621,6 @@ window.tbEvent = function (name, surface) {
            field) covers title + specs + price in one pass. The old
            handler JS stays as documented dead code until the next
            cleanup pass. -->
-      <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
-        <strong>High-value verification</strong>
-        <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
-      </div>
       <!-- First-time seller: inline Seller-Terms acceptance (merged from the
            old separate verify screen). Shown only when not yet a verified
            seller; openSellModal toggles it. Acceptance is recorded on publish
@@ -10072,10 +10066,10 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r435"></script>
-<script defer src="/js/checkout-guest.js?v=r435"></script>
-<script defer src="/js/pull-refresh.js?v=r435"></script>
-<script type="module" src="/js/app-auth.js?v=r435"></script>
+<script defer src="/js/app-main.js?v=r436"></script>
+<script defer src="/js/checkout-guest.js?v=r436"></script>
+<script defer src="/js/pull-refresh.js?v=r436"></script>
+<script type="module" src="/js/app-auth.js?v=r436"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10105,8 +10099,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r435"></script>
-<script type="module" src="/js/sunday-nine.js?v=r435"></script>
+<script type="module" src="/js/bingo.js?v=r436"></script>
+<script type="module" src="/js/sunday-nine.js?v=r436"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

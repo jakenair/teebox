@@ -50,9 +50,9 @@ test("required specs, floor, bad select values and condition are rejected with c
   assert.match(r.errors.find((e) => e.field === "price").message, /Minimum listing price is \$5/);
 });
 
-test("$300+ needs 4 photos; every listing needs 1; max 10", () => {
-  assert.equal(S.validateListingInput(driver({price: "300", photoCount: 3})).ok, false);
-  assert.equal(S.validateListingInput(driver({price: "300", photoCount: 4})).ok, true);
+test("every listing needs 1 photo, at any price; max 10", () => {
+  assert.equal(S.validateListingInput(driver({price: "300", photoCount: 1})).ok, true);
+  assert.equal(S.validateListingInput(driver({price: "5000", photoCount: 1})).ok, true);
   assert.equal(S.validateListingInput(driver({photoCount: 0})).ok, false);
   assert.equal(S.validateListingInput(driver({photoCount: 11})).ok, false);
 });
