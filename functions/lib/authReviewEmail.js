@@ -1,12 +1,11 @@
 "use strict";
-// The seller email for every authenticity-review change: approve, reject
-// (decideAuthReview) and reopen (updateListing, after an edit to an approved
-// listing). One template, one idempotency key per change.
+// The seller email when an admin takes a listing down or puts it back. One
+// template, one idempotency key per change.
 const admin = require("firebase-admin");
 
 /**
  * @param {{id: string, sellerId: string, title: string, status: string, decisionN: number}} listing
- * @param {"approve"|"reject"|"reopen"} decision
+ * @param {"approve"|"reject"} decision
  * @param {string} reason
  * @return {Promise<boolean>} false when the seller has no email
  */

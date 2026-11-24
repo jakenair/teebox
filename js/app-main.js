@@ -1840,9 +1840,23 @@ function renderMoreLikeThis(currentListing) {
   if (!wrap || !row || !currentListing) return;
   row.innerHTML = '';
   const all = Array.isArray(window.PRODUCTS) ? window.PRODUCTS : [];
+  // r437: most alike first (kind, category, brand, price), then filled from the
+  // rest of the shop so the row is never short. Only items on sale now.
+  const ask = Number(currentListing.ask) || 0;
+  const low = (v) => String(v || '').trim().toLowerCase();
+  const score = (p) => (p.specCategory && p.specCategory === currentListing.specCategory ? 4 : 0) +
+    (p.cat === currentListing.cat ? 4 : 0) + (low(p.brand) && low(p.brand) === low(currentListing.brand) ? 2 : 0) +
+    (ask > 0 ? Math.max(0, 2 - 2 * Math.abs(Number(p.ask || 0) - ask) / Math.max(ask, 1)) : 0);
   const matches = all
-    .filter(p => p && p.cat === currentListing.cat && String(p.id) !== String(currentListing.id) && p.status !== 'sold')
-    .slice(0, 6);
+    .filter(p => p && String(p.id) !== String(currentListing.id) && typeof p.id === 'string' && (!p.status || p.status === 'active') && Array.isArray(p.photos) && p.photos.length)
+    .map(p => ({ p, s: score(p) })).sort((a, b) => b.s - a.s).slice(0, 8).map(x => x.p);
+  // A shared or ad link can open before the shop has loaded: try again.
+  if (all.length < 10 && !currentListing.__mltTries) {
+    currentListing.__mltTries = 1;
+    [1500, 4000, 9000].forEach((ms) => setTimeout(() => {
+      if (String(currentDetailId) === String(currentListing.id)) renderMoreLikeThis(currentListing);
+    }, ms));
+  }
   if (!matches.length) {
     wrap.style.display = 'none';
     return;
@@ -4855,6 +4869,14 @@ function renderShopTables() {
                     'and it publishes automatically.',
                 };
               }
+              if (l.status === 'hidden' && l.hiddenReason === 'awaiting_ship_from') {
+                return {
+                  label: 'Add ship-from address',
+                  color: 'var(--gold-600)',
+                  title: 'Saved, but buyers can’t see it yet. Add your ship-from address in ' +
+                    'Account → Shipping and it publishes automatically.',
+                };
+              }
               if (l.status === 'hidden') {
                 return {
                   label: 'Paused — set up payouts',
@@ -5977,15 +5999,6 @@ function openSellModal() {
     if (sellCatEl) sellCatEl.addEventListener('change', window.updateSellShipFromNotice);
     if (priceEl) priceEl.addEventListener('input', () => {
       renderTakeHome();
-      const v = parseFloat(priceEl.value || '0');
-      const notice = document.getElementById('authPhotoNotice');
-      if (!notice) return;
-      notice.style.display = v >= 300 ? '' : 'none';
-      const handleSpan = document.getElementById('authHandleHint');
-      if (handleSpan && window.CURRENT_USER) {
-        const dn = (window.CURRENT_PROFILE && window.CURRENT_PROFILE.displayName) || (window.CURRENT_USER.email || '').split('@')[0];
-        if (dn) handleSpan.textContent = `"${dn}"`;
-      }
     });
   }
   // r428: ?sell=1&cat=<key> (e.g. cat=driver) picks the category on open, so
@@ -7203,8 +7216,10 @@ window.printShippingLabel = printShippingLabel;
 // Shipping settings modal — Account hub → Shipping. Reads/writes
 // users/{uid}.shippingFrom (the from-address every label uses).
 // ─────────────────────────────────────────────────────────────
-async function openShippingSettings() {
+async function openShippingSettings(opts) {
   if (!window.CURRENT_USER) return;
+  // r437: what to do once the address is saved (publish the waiting listing).
+  window.__afterShipFrom = (opts && typeof opts.then === 'function') ? opts.then : null;
   const back = document.getElementById('shippingSettingsBackdrop');
   if (!back) return;
   const errEl = document.getElementById('shippingSettingsError');
@@ -7271,6 +7286,12 @@ async function saveShippingSettings() {
     if (typeof window.updateSellShipFromNotice === 'function') window.updateSellShipFromNotice();
     document.getElementById('shippingSettingsBackdrop').classList.remove('open');
     if (window.showToast) showToast('Shipping address saved.', 'success');
+    // r437: clubs and bags that were waiting for this address go live now.
+    import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js")
+      .then(({ getFunctions, httpsCallable }) => httpsCallable(getFunctions(), 'publishShipFromHeld')({}))
+      .catch(() => { /* the half-hourly sweep does it */ });
+    const _then = window.__afterShipFrom; window.__afterShipFrom = null;
+    if (typeof _then === 'function') setTimeout(_then, 50);
   } catch (e) {
     console.error('saveShippingSettings failed', e);
     if (errEl) errEl.textContent = 'Could not save. Please try again.';
@@ -9499,7 +9520,11 @@ function welcomeShouldShow() {
     if (/bot|crawl|spider|slurp|bingpreview|facebookexternalhit/i.test(navigator.userAgent)) return false;
     if (location.pathname !== '/' && location.pathname !== '/index.html') return false;
     const q = new URLSearchParams(location.search);
-    for (const k of ['listing', 'order', 'offer', 'brand', 'seller', 'launch', 'action', 'play', 'signin', 'checkout', 'prefs', 'search', 'sell', 'admin', 'preview', 'meta_test']) if (q.has(k)) return false;
+    for (const k of ['listing', 'order', 'offer', 'brand', 'seller', 'launch', 'action', 'play', 'signin', 'checkout', 'prefs', 'search', 'sell', 'admin', 'preview', 'meta_test',
+      // r437: someone who tapped an ad or a shared link came for the shop.
+      'fbclid', 'ttclid', 'gclid', 'gbraid', 'wbraid', 'msclkid', 'igshid', 'utm_source', 'utm_medium', 'utm_campaign']) if (q.has(k)) return false;
+    if (/(^|\.)(facebook|instagram|tiktok|threads|snapchat)\.(com|net)$/i.test((() => { try { return new URL(document.referrer).hostname; } catch (_e) { return ''; } })())) return false;
+    if (/FBAN|FBAV|Instagram|musical_ly|BytedanceWebview|TikTok|Snapchat/i.test(navigator.userAgent)) return false;
     if (location.hash && location.hash.length > 1) return false;
     const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     if (native) return !window.__welcomeDismissedInSession;
@@ -13876,17 +13901,10 @@ A['seller-age-confirm']      = () => {
 };
 document.addEventListener('change', (e) => {
   if (e.target && e.target.id === 'checkoutAge18Checkbox') {
-    window.__buyerAge18 = !!e.target.checked;
-    // r421: guest checkout owns its own Pay-button state (checkout-guest.js).
-    if (document.body.classList.contains('guest-checkout')) return;
-    // r421: box shown up front → ticking it loads payment immediately.
-    if (e.target.checked && typeof window.__ageThenMount === 'function') {
-      const go = window.__ageThenMount; window.__ageThenMount = null;
-      go();
-      return;
-    }
-    const pb = document.getElementById('payBtn') || document.querySelector('#checkoutBackdrop [data-action="retry-checkout"]');
-    if (pb) pb.disabled = !e.target.checked;
+    // r437: the box sits right above Pay; confirmPayment checks and records
+    // it. Guest checkout owns its own Pay-button state (checkout-guest.js).
+    const err = document.getElementById('checkoutAgeError');
+    if (err && e.target.checked) { err.textContent = ''; err.style.display = 'none'; }
   }
   if (e.target && e.target.id === 'sellerAgeCheckbox') {
     const btn = document.getElementById('sellerAgeConfirmBtn');
@@ -13914,6 +13932,18 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
   try { closeStripeRequiredDirect(); } catch (_e) {}
   // r422: double-tap guard — one link mint at a time.
   if (window.__stripeConnectBusy) return;
+  // r437: busy and visible from the first tap. The guard used to be set only
+  // after the age read below, so every tap during that wait went through
+  // (one seller: 22 taps, 22 calls, no sign anything was happening).
+  window.__stripeConnectBusy = true;
+  const _btn = _el && _el.tagName === 'BUTTON' ? _el : null;
+  const _btnLabel = _btn ? _btn.textContent : '';
+  if (_btn) { _btn.disabled = true; _btn.textContent = 'Connecting to Stripe…'; }
+  showStripeConnecting(true);
+  const _restoreBtn = () => {
+    window.__stripeConnectBusy = false;
+    if (_btn) { _btn.disabled = false; _btn.textContent = _btnLabel; }
+  };
   // r422: a seller who hasn't confirmed 18+ used to wait out a full
   // createStripeOnboardingLink round trip (cold preflight ~2 s + ~4 s) just to
   // be told age-required, then wait again — the "12 s frozen button". Check
@@ -13924,25 +13954,13 @@ A['stripe-connect']          = async (_el, _ev, opts) => {
         await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
       const us = await getDoc(doc(getFirestore(), 'users', window.CURRENT_USER.uid));
       if (us.exists() && !us.data().sellerAge18At && us.data().isTestAccount !== true) {
+        showStripeConnecting(false);
+        _restoreBtn();
         showSellerAgeDialog();
         return;
       }
     } catch (_e) { /* fall through: the server still enforces it */ }
   }
-  window.__stripeConnectBusy = true;
-  // r422: the tapped button says what's happening too (overlay aside), and
-  // comes back if anything fails.
-  const _btn = _el && _el.tagName === 'BUTTON' ? _el : null;
-  const _btnLabel = _btn ? _btn.textContent : '';
-  if (_btn) { _btn.disabled = true; _btn.textContent = 'Connecting to Stripe…'; }
-  const _restoreBtn = () => {
-    window.__stripeConnectBusy = false;
-    if (_btn) { _btn.disabled = false; _btn.textContent = _btnLabel; }
-  };
-  // r348: visible interstitial instead of a toast — link minting takes 1–3 s
-  // and the tap used to look dead. Cleared on any failure; on success the
-  // page navigates away under it.
-  showStripeConnecting(true);
   // r422: honest progress if it runs long, and a way out at 15 s so the
   // screen is never stuck. Cancel stops the redirect when the link arrives.
   let _cancelled = false;

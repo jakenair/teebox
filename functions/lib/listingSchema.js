@@ -6,7 +6,7 @@
 // firestore.rules (isValidListingCreate) is the only gate. Server code writes
 // with the Admin SDK, which skips the rules entirely. So every rule the app
 // path is held to is repeated here, plus the checks the Sell form does in the
-// browser (required specs, at least 1 photo, 4+ photos at $300+).
+// browser (required specs, at least 1 photo).
 //
 // Kept honest by two tests:
 //   - test/unit/listingSchema.test.js runs scripts/gen-listing-specs.mjs
@@ -21,9 +21,8 @@ const SPECS = require("../data/listing-specs.json");
 
 const PRICE_FLOOR = 5; // firestore.rules categoryFloor(); Sell form floor
 const PRICE_MAX = 1000000; // rules: ask < 1000000
-const HIGH_VALUE = 300; // Sell form: $300+ needs 4+ photos (now server-enforced too)
+const HIGH_VALUE = 300; // marked so an admin can look afterwards; same rules as any other price
 const MIN_PHOTOS = 1;
-const MIN_PHOTOS_HIGH_VALUE = 4;
 const MAX_PHOTOS = 10;
 const MAX_SPECS = 30;
 const EXPIRY_DAYS = 182; // Sell form: listings expire 182 days after creation
@@ -168,9 +167,6 @@ function validateListingInput(input) {
   const photoCount = Number(i.photoCount) || 0;
   if (photoCount < MIN_PHOTOS) err("photos", "Add at least 1 photo — listings need a main image.");
   else if (photoCount > MAX_PHOTOS) err("photos", `At most ${MAX_PHOTOS} photos per listing.`);
-  else if (Number.isFinite(price) && price >= HIGH_VALUE && photoCount < MIN_PHOTOS_HIGH_VALUE) {
-    err("photos", "Listings at $300 or more need at least 4 photos, including a verification photo.");
-  }
 
   if (errors.length) return {ok: false, errors};
   return {ok: true, errors, value: {
@@ -251,5 +247,5 @@ function rulesCreateCheck(d, {allowServerSource = true, listingId = null} = {}) 
 
 module.exports = {
   validateListingInput, buildListingDoc, rulesCreateCheck, matchOption, textProblem, specScanFields,
-  SPECS, PRICE_FLOOR, HIGH_VALUE, MIN_PHOTOS_HIGH_VALUE, MAX_PHOTOS, CREATE_WHITELIST, STORAGE_URL_RE,
+  SPECS, PRICE_FLOOR, HIGH_VALUE, MAX_PHOTOS, CREATE_WHITELIST, STORAGE_URL_RE,
 };

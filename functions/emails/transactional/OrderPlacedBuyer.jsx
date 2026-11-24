@@ -3,7 +3,7 @@ const {
   Base, Button, H1, P, Kicker, ProductRow, Receipt, ReceiptRow, InfoBlock,
 } = require("../layout/Base");
 
-function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null}) {
+function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null, verifyUrl = null}) {
   const orderId = order.id || "—";
   const total = formatUsd(order.amountCents);
   // Structure 2: amountCents = item + shipping; break the receipt down.
@@ -86,6 +86,12 @@ function OrderPlacedBuyer({order = {}, buyer = {}, listing = {}, claimUrl = null
       ) : (
         <>
           <Button href={orderUrl}>View your order</Button>
+          {verifyUrl ? (
+            <P>
+              One last thing: <a href={verifyUrl}>confirm your email</a> so order
+              updates and messages reach you.
+            </P>
+          ) : null}
           <P muted>
             Not as described, or it never ships? Open a dispute from the order page —
             you have 7 days from delivery and we&apos;ll mediate.

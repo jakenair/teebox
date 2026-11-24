@@ -70,7 +70,7 @@ test("seller gate: verified email (or phone), not banned, Seller Terms agreed", 
   await assert.rejects(C.assertSellerCanList({db, auth: auth({emailVerified: true, disabled: true}), uid: "ok"}), /disabled/);
 });
 
-test("photo attach: only our bucket URLs; $300+ short of 4 photos is taken down, not left live", async () => {
+test("photo attach: only our bucket URLs; one photo is enough at any price; none is hidden", async () => {
   const db = fakeDb({
     "listings/A": {sellerId: "u1", ask: 120, status: "active", photos: []},
     "listings/B": {sellerId: "u1", ask: 450, status: "active", photos: []},
@@ -79,9 +79,12 @@ test("photo attach: only our bucket URLs; $300+ short of 4 photos is taken down,
   let r = await C.attachListingPhotos({db, FieldValue: FV, uid: "u1", listingId: "A", urls: [URL(1), "https://evil.example/x.jpg"]});
   assert.deepEqual(r, {ok: true, photos: 1});
   assert.deepEqual(db.store.get("listings/A").photos, [URL(1)]);
-  r = await C.attachListingPhotos({db, FieldValue: FV, uid: "u1", listingId: "B", urls: [URL(1), URL(2), URL(3)]});
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, "needs-4-photos");
+  r = await C.attachListingPhotos({db, FieldValue: FV, uid: "u1", listingId: "B", urls: [URL(1)]});
+  assert.deepEqual(r, {ok: true, photos: 1});
+  assert.equal(db.store.get("listings/B").status, "active");
+  db.store.set("listings/B", {sellerId: "u1", ask: 450, status: "active", photos: []});
+  r = await C.attachListingPhotos({db, FieldValue: FV, uid: "u1", listingId: "B", urls: ["https://evil.example/x.jpg"]});
+  assert.equal(r.reason, "needs-a-photo");
   assert.equal(db.store.get("listings/B").status, "hidden");
   assert.equal(db.store.get("listings/B").hiddenReason, "photos_missing");
   r = await C.attachListingPhotos({db, FieldValue: FV, uid: "u1", listingId: "C", urls: [URL(1)]});

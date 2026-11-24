@@ -119,7 +119,7 @@ test("categories endpoint covers every Sell form category with its fields", () =
   const specs = require("../../data/listing-specs.json");
   assert.equal(c.categories.length, Object.keys(specs.categories).length);
   assert.deepEqual(c.conditions, specs.conditions);
-  assert.equal(c.rules.high_value_photos_min, 4);
+  assert.equal(c.rules.high_value_photos_min, undefined);
 });
 
 test("authenticity review: an edit never clears a rejection", () => {

@@ -374,6 +374,22 @@ exports.onOrderCreatedEmail = onDocumentCreated(
           logger.error("onOrderCreatedEmail: guest claim token failed", e.message || e);
         }
       }
+      // 2026-11-23: buyers no longer verify before paying. An account whose
+      // email isn't confirmed gets the confirm link in this email instead.
+      if (!buyer.isGuest) {
+        try {
+          const u = await admin.auth().getUser(order.buyerId);
+          if (u.email && !u.emailVerified) {
+            const V = require("./lib/verifyLink");
+            let secret = "";
+            try { secret = UNSUBSCRIBE_SECRET.value(); } catch (_e) { /* plain Firebase link */ }
+            ctx.verifyUrl = V.brandedVerifyUrl(await admin.auth().generateEmailVerificationLink(u.email,
+                {url: "https://teeboxmarket.com/", handleCodeInApp: false}), u.uid, secret);
+          }
+        } catch (e) {
+          logger.warn("onOrderCreatedEmail: confirm link skipped", {orderId: order.id, error: String(e && e.message || e)});
+        }
+      }
       // Canonical email source is Firebase Auth (users/{uid} has no email field
       // for real accounts — that was the silent-skip bug). doc email is a
       // legacy/smoke fallback. See lib/emailRecipient.js.

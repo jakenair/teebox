@@ -48,9 +48,9 @@
     "region": "us-central1"
   },
   "checkEmailUsage": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "claimGuestOrder": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
@@ -62,13 +62,18 @@
     "at": "2026-11-17",
     "region": "us-central1"
   },
+  "confirmBuyerAge18": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
+  },
   "confirmOrderDelivered": {
     "at": "2026-08-27",
     "sha": "59ad7e8b71c017f3f51140790f1d4b6fea8e185d"
   },
   "countListingCreate": {
-    "sha": "93a70decd5bd45dc305a4e018df4a1255146fa35",
-    "at": "2026-11-23",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "createApiConnection": {
@@ -87,8 +92,8 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "3a2d04b32c9868524a8b24b07c308e65475f86a3",
-    "at": "2026-11-21",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "createShippingLabel": {
@@ -111,22 +116,24 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
-    "at": "2026-11-06",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "dailyBingoMonitorManual": {
-    "at": "2026-09-17",
-    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyEmailSmoke": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyEmailSmokeManual": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyFounderBriefing": {
     "at": "2026-10-02",
@@ -139,7 +146,7 @@
     "sha": null
   },
   "decideAuthReview": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -238,8 +245,8 @@
     "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
   },
   "getStripeAccountStatus": {
-    "sha": "43433ec05a219dc2cb942764aef513a9b127940d",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "handleUnsubscribe": {
@@ -295,7 +302,7 @@
     "region": "us-central1"
   },
   "metaFeed": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -305,18 +312,18 @@
     "sha": null
   },
   "moderateListingOnCreate": {
-    "sha": "01355eb1154172ddfcf35fa6ed12920302cba061",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
     "at": "2026-11-24",
     "region": "us-central1"
   },
   "moderateMessage": {
-    "sha": "c4435c4e679124e4d2218c206dfc150c86f2ec72",
-    "at": "2026-11-17",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "moderateOfferOnCreate": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
-    "at": "2026-11-17",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "moderateProfileOnCreate": {
@@ -325,8 +332,8 @@
     "sha": null
   },
   "moderateProfileOnWrite": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
-    "at": "2026-11-17",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "moderateUserDocOnCreate": {
@@ -388,8 +395,8 @@
     "region": "us-central1"
   },
   "onListingLive": {
-    "sha": "43433ec05a219dc2cb942764aef513a9b127940d",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "onListingPriceUpdate": {
@@ -398,12 +405,13 @@
     "region": "us-central1"
   },
   "onMessageHoldCreated": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "onOrderCreatedEmail": {
-    "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
-    "at": "2026-11-19",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "onOrderLabelEmail": {
@@ -450,7 +458,7 @@
     "sha": "156486e88a2cbd81ec8d243eb8535751ae2b3672"
   },
   "optimizeListingPhoto": {
-    "sha": "6322651f746c4fe255e58953917905376a4e2e2b",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
     "at": "2026-11-24",
     "region": "us-east1"
   },
@@ -501,6 +509,11 @@
     "at": "2026-05-29",
     "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
     "sha": null
+  },
+  "publishShipFromHeld": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "pushBingoDailyReminder": {
     "at": "2026-09-29",
@@ -597,8 +610,8 @@
     "region": "us-central1"
   },
   "releaseExpiredReservations": {
-    "sha": "3a2d04b32c9868524a8b24b07c308e65475f86a3",
-    "at": "2026-11-21",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "releaseHold": {
@@ -612,10 +625,9 @@
     "region": "us-central1"
   },
   "reportListingFailure": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
-    "at": "2026-11-17",
-    "region": "us-central1",
-    "note": "created via raw gcloud (new fn)"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "requestSellerVerification": {
     "sha": "4a40dcccd4eb1189fdc68e1ba5ecb8b3307852fd",
@@ -658,7 +670,7 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "sellerApi": {
-    "sha": "01355eb1154172ddfcf35fa6ed12920302cba061",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -672,8 +684,9 @@
     "region": "us-central1"
   },
   "sendMessage": {
-    "at": "2026-09-18",
-    "sha": "8b21a8e196bcfc25280cb75a2c1a76b70ef0584f"
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "sendSecurityEmail": {
     "at": "2026-09-11",
@@ -720,8 +733,8 @@
     "region": "us-central1"
   },
   "stripeConnectWebhook": {
-    "sha": "45eb10f224f7fa2c1a87cb84cb0cd07d0eaefb1d",
-    "at": "2026-11-17",
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "stripeWebhook": {
@@ -740,8 +753,8 @@
     "region": "us-central1"
   },
   "syncBingoProgress": {
-    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
-    "at": "2026-11-06",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "syncBlockedThreads": {
@@ -750,8 +763,8 @@
     "sha": null
   },
   "syncSundayNine": {
-    "sha": "cc4ee715f26c7f6410dcae1cdf2ce25b993edca8",
-    "at": "2026-11-23",
+    "sha": "82c919fad018c27ad3a19d381a26ec979b2d00eb",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "syncWatchlistCount": {
@@ -764,19 +777,19 @@
     "region": "us-central1"
   },
   "tiktokCatalog": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },
   "tiktokFeed": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "26ee987e4b99bf1bd7527c0c049c1768db10c794",
     "at": "2026-11-24",
     "region": "us-central1"
   },
   "updateCheckoutShipping": {
-    "at": "2026-09-09",
-    "note": "created via raw gcloud @ HEAD (firebase CLI blocked on unrelated concurrency validation); config matched to getShippingFeatureFlag template",
-    "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
+    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "updateEmailPreferences": {
     "at": "2026-09-29",
@@ -784,7 +797,7 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "updateListing": {
-    "sha": "9707bbd79e80ff335269f0fbe66a31647b877156",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -794,8 +807,8 @@
     "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
   },
   "updateProfile": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
-    "at": "2026-11-17",
+    "sha": "0a8a1a6a5323979b7b0066d41bfb09dd1e647c64",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "weeklyDigestScheduler": {

@@ -32,9 +32,9 @@
  *     5. Strip punctuation/whitespace WITHIN tokens (collapse f*ck → fck,
  *        f-ck → fck, b!tch → bitch). Token boundaries preserved.
  *
- *   The detector matches SLUR_TERMS against this normalized form via
- *   substring (not word boundary) so `nigg3r` → `nigger` collides on
- *   the same byte sequence as the unobfuscated spelling.
+ *   The detector matches SLUR_TERMS against the WHOLE WORDS of this
+ *   normalized form (2026-11-23; it used to match inside longer words), so a
+ *   leet spelling still lands on the plain one.
  *
  * REDACTION FORMAT
  * ──────────────────────────────────────────────────────────────────────
@@ -182,76 +182,57 @@ function collapsePunctuation(normalized) {
       .join(" ");
 }
 
-// ── containsSlurTerm() ───────────────────────────────────────────────
-// Substring sweep over the normalized + collapsed form. Returns the
-// matched term (caller uses this only for categorization, NEVER for
-// logging). Returns null if clean.
-//
-// We walk token-by-token so a slur match that's contained inside an
-// ALLOWLIST token (Scunthorpe → cunt, classic → ass) gets skipped.
-// Only tokens with a slur hit that is NOT inside an allowlist token
-// trigger.
-function containsSlurTerm(normalized) {
-  const collapsed = collapsePunctuation(normalized);
-  if (!collapsed) return null;
-  const tokens = collapsed.split(/\s+/).filter(Boolean);
-  // Per-token sweep: a slur hit inside an allowlisted token is
-  // benign (Scunthorpe contains "cunt", classic contains "ass").
-  for (const tok of tokens) {
-    if (ALLOWLIST.has(tok)) continue;
-    for (const term of SLUR_TERMS) {
-      if (tok.includes(term)) return term;
-    }
+// ── words() ─────────────────────────────────────────────────────────
+// The whole words a text is checked as (2026-11-23: whole words only; a term
+// inside a longer word never counts). Folded per whitespace token, then: the
+// token with its punctuation closed up (f-o-o → foo), the pieces between
+// punctuation (foo/bar → foo, bar), and runs of single letters joined
+// (f o o → foo). Plurals count as the word.
+function words(normalized) {
+  const out = new Set();
+  let run = "";
+  const flush = () => { if (run.length > 2) out.add(run); run = ""; };
+  for (const tok of String(normalized).split(/\s+/)) {
+    const whole = tok.replace(/[^a-z0-9]+/gi, "");
+    if (/^[a-z]$/i.test(whole)) { run += whole; continue; }
+    flush();
+    if (whole) out.add(whole);
+    for (const part of tok.split(/[^a-z0-9]+/i)) if (part) out.add(part);
   }
-  // Also check concatenated form (catches multi-token slurs like
-  // `sand nigger` collapsed to `sandnigger`). We re-allowlist by
-  // pulling out every allowlisted run before scanning.
-  let flat = tokens.filter((t) => !ALLOWLIST.has(t)).join("");
-  for (const term of SLUR_TERMS) {
-    if (flat.includes(term)) return term;
+  flush();
+  return out;
+}
+const SLUR_SET = new Set(SLUR_TERMS);
+
+// ── containsSlurTerm() ───────────────────────────────────────────────
+// Whole-word sweep over the normalized form. Returns the matched term
+// (caller uses this only for categorization, NEVER for logging) or null.
+function containsSlurTerm(normalized) {
+  for (const w of words(normalized)) {
+    if (ALLOWLIST.has(w)) continue;
+    for (const form of [w, w.replace(/(?:s|z)$/, ""), w.replace(/es$/, ""), w.replace(/ed$/, "")]) {
+      if (SLUR_SET.has(form)) return form;
+    }
   }
   return null;
 }
 
 // ── containsSkeleton() ───────────────────────────────────────────────
-// Strip vowels from each collapsed token and check against
-// PROFANITY_SKELETONS. Catches vowel-elision evasions like `f*ck`,
-// `f-ck`, `s.h.i.t` (collapses to `sht`). Tokens that survive
-// vowel-stripping with length < 3 are skipped (acronym false-positive
-// guard).
-//
-// IMPORTANT: A token is only flagged if it has ANY non-vowel obfuscation
-// in the original (i.e. some punctuation, special char, or substituted
-// vowel was used). Plain "fck" as an acronym wouldn't trigger because
-// we require the original token to differ from its vowel-stripped form
-// — i.e. the user had to do something to evade.
-//
-// Token-by-token; allowlisted tokens skipped. Returns true if any
-// non-allowlisted token's vowel-stripped form is in PROFANITY_SKELETONS
-// AND the original token signals obfuscation.
-function containsSkeleton(originalInput, normalized) {
+// Catches a word written with its vowels starred out (f*ck, sh#t): the
+// letters that are left are a known consonant skeleton, with no vowel among
+// them, and something that isn't a letter sits INSIDE the word. Trailing
+// punctuation and contractions never count. Each word is judged on its own
+// text; 2026-11-23 found the old version pairing words with the wrong
+// original whenever a stand-alone dash shifted the count.
+function containsSkeleton(originalInput) {
   if (!originalInput) return false;
-  const collapsed = collapsePunctuation(normalized);
-  if (!collapsed) return false;
-  const tokens = collapsed.split(/\s+/).filter(Boolean);
-  // Split the original at whitespace so we can align tokens.
-  const origTokens = String(originalInput).toLowerCase()
-      .split(/\s+/).filter(Boolean);
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    if (ALLOWLIST.has(tok)) continue;
-    if (tok.length < 3) continue;
-    const skel = tok.replace(/[aeiou]/g, "");
-    if (skel.length < 3) continue;
-    if (!PROFANITY_SKELETONS.has(skel)) continue;
-    // Require an obfuscation signal in the original token: it must
-    // contain a non-letter that we stripped to reach the skeleton,
-    // OR its leet-folded form differs from its plain-lowercase form.
-    const orig = origTokens[i] || tok;
-    const hasNonLetter = /[^a-z]/i.test(orig);
-    if (hasNonLetter) return true;
-    // No obfuscation char but the consonant skeleton matches — could
-    // be a benign acronym. Skip.
+  for (const raw of String(originalInput).toLowerCase().split(/\s+/)) {
+    const tok = raw.replace(/^[^a-z]+|[^a-z]+$/g, "");
+    if (!/[^a-z]/.test(tok)) continue; // nothing hidden inside
+    const letters = tok.replace(/[^a-z]/g, "");
+    if (letters.length < 3 || /[aeiou]/.test(letters)) continue;
+    if (ALLOWLIST.has(letters)) continue;
+    if (PROFANITY_SKELETONS.has(letters)) return true;
   }
   return false;
 }
@@ -432,7 +413,7 @@ async function scanContent(text, contentType, uid, request) {
   // folded form so `f*ck` / `f@ck` evasions land here.
   if (!profane) {
     try {
-      const collapsed = collapsePunctuation(normalized);
+      const collapsed = [...words(normalized)].join(" ");
       if (collapsed && getFilter().isProfane(collapsed)) {
         // One more allowlist check on the collapsed tokens.
         const tokens = collapsed.split(/\s+/).filter(Boolean);
