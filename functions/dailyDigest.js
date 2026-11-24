@@ -53,11 +53,16 @@ exports.dailyActivityDigest = onSchedule(
     {schedule: "0 7 * * *", timeZone: core.TZ, region: "us-central1", memory: "512MiB", timeoutSeconds: 120, maxInstances: 1,
       secrets: [RESEND_API_KEY, UNSUBSCRIBE_SECRET, OPS_ALERT_WEBHOOK]},
     async (event) => {
-      // Drill: a one-off scheduler job named ops-alert-test fires one real
-      // alert, so both delivery paths (relay email, Cloud Monitoring) can be
-      // checked. Only our own scheduler account may call this function.
-      if (/\/ops-alert-test$/.test(String(event && event.jobName || ""))) {
+      // The header carries the bare job id. Only the digest's own job sends
+      // the digest; ops-alert-test is a drill that fires one real alert so
+      // both delivery paths (relay email, Cloud Monitoring) can be checked.
+      const job = String(event && event.jobName || "").split("/").pop();
+      if (job === "ops-alert-test") {
         await opsAlert("warn", "TEST: both alert paths", {drill: true});
+        return;
+      }
+      if (job !== "dailyActivityDigest") {
+        logger.warn("dailyActivityDigest: not our job, nothing sent", {job});
         return;
       }
       const date = core.addDays(core.ctDate(Date.now()), -1);
