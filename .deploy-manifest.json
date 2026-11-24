@@ -305,8 +305,8 @@
     "sha": null
   },
   "moderateListingOnCreate": {
-    "sha": "93a70decd5bd45dc305a4e018df4a1255146fa35",
-    "at": "2026-11-23",
+    "sha": "01355eb1154172ddfcf35fa6ed12920302cba061",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "moderateMessage": {
@@ -658,10 +658,9 @@
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
   },
   "sellerApi": {
-    "sha": "6322651",
-    "at": "2026-11-23",
-    "region": "us-central1",
-    "note": "4Gi cpu 2 conc 2 max 2 (sandbox cost cap), RESEND_API_KEY"
+    "sha": "01355eb1154172ddfcf35fa6ed12920302cba061",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "sendBrandedPasswordReset": {
     "at": "2026-09-11",
