@@ -4334,6 +4334,10 @@ const {runSafeSearchWithRetry} = require("./lib/safeSearch");
 // path as this trigger. Signature unchanged for the call below.
 const {writeListingPhotoVariants, SIZES: PHOTO_VARIANT_SIZES} = require("./lib/listingPhotoVariants");
 const {pruneAtDeletion, flagStatus} = require("./lib/photoPrune");
+// QA uploads are handled the same but alert nobody. The marks are ones a client
+// can't set: a fixed QA uid or listing id, or isTest written by the server.
+const isTestUpload = (listing, sellerId, listingId) => require("./lib/testAccounts")
+    .isTestListingDoc({...(listing || {}), sellerId}, listingId);
 
 // convertToWebp lives in ./lib/imageConvert so the optimizeListingPhoto trigger
 // and scripts/backfill-heic.mjs share ONE implementation (no drift). It decodes
@@ -4484,7 +4488,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           logger.error("imageProcessError: seller notify failed", fListingId, e);
         }
         try {
-          await opsAlert("warn",
+          if (!isTestUpload(listingData, fSellerId, fListingId)) await opsAlert("warn",
               "Listing image could not be decoded/converted — flagged " +
               "(fail-loud)",
               {listingId: fListingId, sellerId: fSellerId, path: obj.name,
@@ -4572,7 +4576,7 @@ exports.optimizeListingPhoto = require("firebase-functions/v2/storage")
           logger.error("imageScanError: seller notify failed", listingId, e);
         }
         try {
-          await opsAlert("warn",
+          if (!isTestUpload(listingData, sellerId, listingId)) await opsAlert("warn",
               "Listing image scan failed — flagged for review (fail-closed)",
               {listingId, sellerId, path: obj.name});
         } catch (_e) { /* best-effort */ }
@@ -8398,6 +8402,8 @@ Object.assign(exports, require("./deleteListing"));
 // Connected tools callables list and revoke connections; they refuse to make
 // new ones until then.
 Object.assign(exports, require("./sellerApi"));
+// Turns the Seller API off at $100 of cloud spend. See budgetGuard.js.
+Object.assign(exports, require("./budgetGuard"));
 Object.assign(exports, require("./photoGapAudit"));
 // r345: runSellerInviteCampaign — admin-only, dry-run by default (see file header).
 Object.assign(exports, require("./sellerInviteCampaign"));

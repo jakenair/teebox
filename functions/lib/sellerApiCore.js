@@ -943,6 +943,9 @@ function errorBody(e) {
  */
 const {KeyGuard} = require("./sellerApiGuard");
 const guard = new KeyGuard();
+const {RefusalStats} = require("./refusalStats");
+const refusals = new RefusalStats();
+const REFUSED = new Set([401, 403, 413, 415, 429]);
 
 async function handle(env, req) {
   const started = Date.now();
@@ -1001,6 +1004,11 @@ async function handle(env, req) {
     if (err && err.extra && err.extra.headers) Object.assign(headers, err.extra.headers);
     if (idem && idem.ref) await idempotencyEnd(deps, idem, status, body).catch(() => {});
     result = {status, body};
+  }
+  if (REFUSED.has(result.status)) {
+    const summary = refusals.note({status: result.status, partnerKey: keys.header(req.headers, "x-teebox-partner-key"),
+      ip: req.ip, nowMs: Date.now()});
+    if (summary && env.logInfo) env.logInfo("sellerApi: refusals", summary);
   }
   post: {
     if (!ctx) break post;

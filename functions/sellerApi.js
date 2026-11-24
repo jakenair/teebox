@@ -86,6 +86,7 @@ const logError = (msg, e) => logger.error(msg, e);
 // turns it on (config.LIVE_API_ENABLED); everything else is the sandbox.
 const environments = {
   logError,
+  logInfo: (msg, o) => logger.info(msg, o),
   forMode: (mode) => {
     if (mode === "live") {
       if (!config.liveEnabled()) {
