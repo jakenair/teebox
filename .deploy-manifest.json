@@ -92,14 +92,14 @@
     "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
   },
   "createPaymentIntent": {
-    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
     "at": "2026-11-24",
     "region": "us-central1"
   },
   "createShippingLabel": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "8ce7821b1a05530a441290a3506460685cd585a3"
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "createStripeLoginLink": {
     "at": "2026-05-15",
@@ -240,9 +240,9 @@
     "sha": null
   },
   "getShippingQuote": {
-    "at": "2026-09-09",
-    "note": "created via raw gcloud @ HEAD (firebase CLI blocked on unrelated concurrency validation); config matched to getShippingFeatureFlag template",
-    "sha": "cdbaf94d890d0dc3582cd4c620bf08ecd059afc8"
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "getStripeAccountStatus": {
     "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
@@ -410,7 +410,7 @@
     "region": "us-central1"
   },
   "onOrderCreatedEmail": {
-    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
     "at": "2026-11-24",
     "region": "us-central1"
   },
@@ -738,8 +738,8 @@
     "region": "us-central1"
   },
   "stripeWebhook": {
-    "sha": "064de2879a0794d2bff662d2a58586d04db1024a",
-    "at": "2026-11-23",
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "suggestListingPrice": {
@@ -787,7 +787,7 @@
     "region": "us-central1"
   },
   "updateCheckoutShipping": {
-    "sha": "04db6fe3a81b5c7e746b40249025c5b21a2d1c0f",
+    "sha": "8ea2f7847c97ad3c601474f3bfd3f0b4b7344719",
     "at": "2026-11-24",
     "region": "us-central1"
   },
