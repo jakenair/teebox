@@ -14,5 +14,5 @@ const cmd = process.argv[2];
   if (!["on", "off"].includes(cmd)) { console.error("status | on --apply | off --apply"); process.exit(2); }
   if (!process.argv.includes("--apply")) { console.log("dry run: would turn the API", cmd, "(add --apply)"); return; }
   await setApiOpen(cmd === "on", {token: t});
-  console.log("asked Cloud Run to turn the API", cmd, "(takes a few seconds)");
+  console.log("the API is now", cmd.toUpperCase(), "(outside traffic follows within about a minute)");
 })().catch((e) => { console.error("FAILED:", e.message); process.exit(1); });

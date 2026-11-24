@@ -36,13 +36,20 @@ test("budget guard fires once per $100 step per month, only for its own budget, 
   assert.equal(decide(m(500, {currencyCode: "EUR"}), o({})).fire, false);
   for (const bad of [{}, null, m("x"), m(500, {costIntervalStart: "soon"})]) assert.equal(decide(bad, o({})).fire, false);
 });
-test("switch: changes only sellerapi's ingress, and fails loudly", async () => {
-  const calls = [];
-  const ok = async (u, i) => { calls.push([u, i]); return {ok: true}; };
-  assert.equal(await SW.setApiOpen(false, {token: "t", fetchFn: ok}), SW.OFF);
-  assert.match(calls[0][0], /services\/sellerapi\?updateMask=ingress$/);
-  assert.deepEqual(JSON.parse(calls[0][1].body), {ingress: SW.OFF});
-  await assert.rejects(SW.setApiOpen(true, {token: "t", fetchFn: async () => ({ok: false, status: 403, text: async () => "no"})}), /403/);
+test("switch: changes only sellerapi's ingress, confirms it took, asks again if lost, and fails loudly", async () => {
+  const calls = []; let state = SW.ON; let lose = 1;
+  const fake = async (u, i) => {
+    calls.push([u, i]);
+    if (i.method === "PATCH") { if (lose-- <= 0) state = JSON.parse(i.body).ingress; return {ok: true}; }
+    return {ok: true, json: async () => ({ingress: state})};
+  };
+  assert.equal(await SW.setApiOpen(false, {token: "t", fetchFn: fake, waitMs: 0}), SW.OFF);
+  const patches = calls.filter((c) => c[1].method === "PATCH");
+  assert.equal(patches.length, 2, "the lost change was asked for again");
+  assert.match(patches[0][0], /services\/sellerapi\?updateMask=ingress,template\.revision$/);
+  assert.deepEqual(JSON.parse(patches[0][1].body), {ingress: SW.OFF, template: {revision: ""}});
+  await assert.rejects(SW.setApiOpen(true, {token: "t", waitMs: 0, fetchFn: async () => ({ok: false, status: 403, text: async () => "no"})}), /403/);
+  await assert.rejects(SW.setApiOpen(true, {token: "t", waitMs: 0, tries: 3, fetchFn: async (u, i) => ({ok: true, json: async () => ({ingress: SW.OFF})})}), /not INGRESS_TRAFFIC_ALL yet/);
 });
 test("test uploads alert nobody; real ones still do", () => {
   const src = fs.readFileSync(path.join(__dirname, "../../index.js"), "utf8");

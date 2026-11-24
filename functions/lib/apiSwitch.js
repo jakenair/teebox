@@ -13,15 +13,35 @@ const ON = "INGRESS_TRAFFIC_ALL";
  * @param {{token: string, fetchFn: (function|undefined)}} o
  * @return {Promise<string>} the ingress setting asked for
  */
-async function setApiOpen(open, {token, fetchFn = fetch}) {
+async function setApiOpen(open, {token, fetchFn = fetch, waitMs = 4000, tries = 10}) {
   const ingress = open ? ON : OFF;
-  const r = await fetchFn(`https://run.googleapis.com/v2/${SERVICE}?updateMask=ingress`, {
-    method: "PATCH",
-    headers: {"Authorization": `Bearer ${token}`, "Content-Type": "application/json"},
-    body: JSON.stringify({ingress}),
-  });
-  if (!r.ok) throw new Error(`Cloud Run said ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  return ingress;
+  const url = `https://run.googleapis.com/v2/${SERVICE}`;
+  const headers = {"Authorization": `Bearer ${token}`, "Content-Type": "application/json"};
+  let last = "";
+  for (let i = 0; i < tries; i++) {
+    // Ask, then check it took: a change made while another is still rolling
+    // out can be accepted and lost.
+    if (i % 4 === 0) {
+      const r = await fetchFn(`${url}?updateMask=ingress,template.revision`, {
+        method: "PATCH", headers,
+        // The service's template carries the last revision's name; clearing it
+        // lets Cloud Run name the (otherwise identical) one this creates.
+        body: JSON.stringify({ingress, template: {revision: ""}}),
+      });
+      if (!r.ok) {
+        last = `${r.status}: ${(await r.text()).slice(0, 300)}`;
+        if (r.status === 401 || r.status === 403) throw new Error(`Cloud Run said ${last}`);
+      }
+    }
+    await new Promise((res) => setTimeout(res, waitMs));
+    const g = await fetchFn(url, {headers});
+    if (g.ok) {
+      const d = await g.json();
+      if (d.ingress === ingress && !d.reconciling) return ingress;
+      last = `still ${d.ingress}${d.reconciling ? " (rolling out)" : ""}`;
+    } else last = `${g.status}`;
+  }
+  throw new Error(`Cloud Run: not ${ingress} yet, ${last}`);
 }
 
 async function readApiOpen({token, fetchFn = fetch}) {
