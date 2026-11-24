@@ -1852,13 +1852,6 @@ function renderMoreLikeThis(currentListing) {
       if (String(currentDetailId) === String(currentListing.id)) renderMoreLikeThis(currentListing);
     }, ms));
   }
-  // Someone who landed straight on this listing sees the row before the
-  // description; everyone else finds it at the end, as before.
-  const landed = window.__landedListingId && String(window.__landedListingId) === String(currentListing.id);
-  const desc = document.getElementById('detailDesc');
-  if (!wrap.__home) wrap.__home = wrap.parentNode;
-  if (landed && desc && wrap.nextSibling !== desc) desc.parentNode.insertBefore(wrap, desc);
-  else if (!landed && wrap.parentNode !== wrap.__home) wrap.__home.appendChild(wrap);
   if (!matches.length) {
     wrap.style.display = 'none';
     return;
@@ -9582,7 +9575,6 @@ const __launch = __params.get('launch');
 const __action = __params.get('action');
 const __brandQ = __params.get('brand');
 const __listingQ = __params.get('listing');
-window.__landedListingId = __listingQ || null; // r437: similar items go up front for these
 const __orderQ   = __params.get('order');
 const __sellerQ  = __params.get('seller');
 const __checkoutQ = __params.get('checkout');
