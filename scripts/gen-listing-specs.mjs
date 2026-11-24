@@ -52,8 +52,13 @@ export function buildSpecs() {
     categories[k] = {
       label: c.label,
       browse: c.browse || "",
-      fields: c.fields.map((f) => ({k: f.k, label: f.label, type: f.type,
-        ...(f.options ? {options: f.options.map(String)} : {}), req: !!f.req})),
+      // The box picker is required in the Sell form only. Files and the API
+      // may leave it out; the server then works the box out from the listing
+      // (lib/shippingParcels classifyClubBox).
+      fields: c.fields.map((f) => f.type === "box" ?
+        {k: f.k, label: f.label, type: "select", options: ["single", "partial", "full"], req: false} :
+        {k: f.k, label: f.label, type: f.type,
+          ...(f.options ? {options: f.options.map(String)} : {}), req: !!f.req}),
     };
   }
   return {

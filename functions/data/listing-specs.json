@@ -98,6 +98,17 @@
             "No"
           ],
           "req": false
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
+          ],
+          "req": false
         }
       ]
     },
@@ -179,6 +190,17 @@
           "options": [
             "Yes",
             "No"
+          ],
+          "req": false
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
           ],
           "req": false
         }
@@ -270,6 +292,17 @@
           "options": [
             "Yes",
             "No"
+          ],
+          "req": false
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
           ],
           "req": false
         }
@@ -373,6 +406,17 @@
           "label": "Grip",
           "type": "text",
           "req": false
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
+          ],
+          "req": false
         }
       ]
     },
@@ -448,6 +492,17 @@
             "LH"
           ],
           "req": true
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
+          ],
+          "req": false
         }
       ]
     },
@@ -548,6 +603,17 @@
             "LH"
           ],
           "req": true
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
+          ],
+          "req": false
         }
       ]
     },
@@ -612,6 +678,17 @@
           "options": [
             "Yes",
             "No"
+          ],
+          "req": false
+        },
+        {
+          "k": "shipBox",
+          "label": "What's in the box",
+          "type": "select",
+          "options": [
+            "single",
+            "partial",
+            "full"
           ],
           "req": false
         }

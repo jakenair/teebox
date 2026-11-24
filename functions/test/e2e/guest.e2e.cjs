@@ -21,7 +21,7 @@ const REPO = path.join(__dirname, "..", "..", "..");
 const FN = path.join(REPO, "functions");
 const OUT = process.env.GUEST_E2E_OUT || fs.mkdtempSync(path.join(require("os").tmpdir(), "guest-e2e-"));
 fs.mkdirSync(OUT, {recursive: true});
-const PORT = 8787;
+const PORT = Number(process.env.E2E_PORT) || 8787;
 
 // ── Fake Stripe (server) ──
 const S = {pis: new Map(), calls: [], n: 0};
