@@ -48,9 +48,9 @@
     "region": "us-central1"
   },
   "checkEmailUsage": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "claimGuestOrder": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
@@ -111,22 +111,24 @@
     "sha": "57dc61d14a11724c23c729c453b763861cf1f185"
   },
   "dailyBingoMonitor": {
-    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
-    "at": "2026-11-06",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "dailyBingoMonitorManual": {
-    "at": "2026-09-17",
-    "sha": "4b316a5c93273b9a0d4b094798c15e3cbeb16560"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyEmailSmoke": {
-    "at": "2026-09-29",
-    "region": "us-central1",
-    "sha": "83ad6a6a0666990058040ee315aac917fbce1ddb"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyEmailSmokeManual": {
-    "at": "2026-09-11",
-    "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "dailyFounderBriefing": {
     "at": "2026-10-02",
@@ -398,8 +400,9 @@
     "region": "us-central1"
   },
   "onMessageHoldCreated": {
-    "at": "2026-07-31",
-    "sha": "e915da1b28b1eb2010c261f3e18dd1fa3ddf6d9b"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "onOrderCreatedEmail": {
     "sha": "82a682c0c1adfbd516a0f4c58b23462de503b53f",
@@ -450,7 +453,7 @@
     "sha": "156486e88a2cbd81ec8d243eb8535751ae2b3672"
   },
   "optimizeListingPhoto": {
-    "sha": "6322651f746c4fe255e58953917905376a4e2e2b",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
     "at": "2026-11-24",
     "region": "us-east1"
   },
@@ -612,10 +615,9 @@
     "region": "us-central1"
   },
   "reportListingFailure": {
-    "sha": "1baf72de0ea8f4d870fb2d81ecadc2e88b9f4bdc",
-    "at": "2026-11-17",
-    "region": "us-central1",
-    "note": "created via raw gcloud (new fn)"
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
+    "region": "us-central1"
   },
   "requestSellerVerification": {
     "sha": "4a40dcccd4eb1189fdc68e1ba5ecb8b3307852fd",
@@ -740,8 +742,8 @@
     "region": "us-central1"
   },
   "syncBingoProgress": {
-    "sha": "41655b4279a5c3ab416301ab4958eb1f6756dffe",
-    "at": "2026-11-06",
+    "sha": "c328c25bd49959468cec9f781c856ffc22bb5917",
+    "at": "2026-11-24",
     "region": "us-central1"
   },
   "syncBlockedThreads": {
