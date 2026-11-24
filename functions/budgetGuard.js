@@ -5,7 +5,7 @@
  * Billing budget "TeeBox API guard $100" → Pub/Sub teebox-budget-guard → here.
  * Off = lib/apiSwitch (Cloud Run refuses outside requests; nothing else is
  * affected). Turn it back on with scripts/api-switch.cjs. State and history:
- * config/apiGuard. Billing data can lag by hours, so this limits a runaway
+ * apiGuard/state. Billing data can lag by hours, so this limits a runaway
  * bill; it is not an exact stop at $100.
  */
 "use strict";
@@ -26,7 +26,7 @@ exports.budgetGuard = onMessagePublished(
       const m = event.data.message;
       let msg = {};
       try { msg = JSON.parse(Buffer.from(m.data || "", "base64").toString("utf8")); } catch (_e) { /* decide() refuses it */ }
-      const ref = admin.firestore().doc("config/apiGuard");
+      const ref = admin.firestore().doc("apiGuard/state");
       const snap = await ref.get();
       const last = (snap.exists && snap.data().last) || {};
       const d = decide(msg, {attrs: m.attributes || {}, budgetId: process.env.GUARD_BUDGET_ID || "", limit: LIMIT_USD, last});
