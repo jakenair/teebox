@@ -79,7 +79,7 @@
   },
   "createBillingPortalSession": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "createIdentitySession": {
@@ -98,7 +98,7 @@
   },
   "createStripeLoginLink": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "createStripeOnboardingLink": {
@@ -137,7 +137,7 @@
   },
   "dailyFounderBriefingManual": {
     "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "decideAuthReview": {
@@ -153,7 +153,7 @@
   },
   "deleteUserAccount": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "dismissMarketingBanner": {
@@ -168,7 +168,7 @@
   },
   "exchangeIdTokenForCustomToken": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "expireListings": {
@@ -178,17 +178,17 @@
   },
   "expireOldOffers": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "exportMyData": {
     "at": "2026-06-12",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "freezeAccount": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "generateDailyBingoPuzzle": {
@@ -198,7 +198,7 @@
   },
   "generateListingDescription": {
     "at": "2026-09-24",
-    "note": "DELETED 2026-09-24 — Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)",
+    "note": "DELETED 2026-09-24 \u2014 Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)",
     "sha": null
   },
   "generateReferralCode": {
@@ -207,7 +207,7 @@
   },
   "getBingoCountryPercentile": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "getBingoFriendsBoard": {
@@ -216,7 +216,7 @@
   },
   "getBingoGlobalStreakRecord": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "getBingoLeaderboard": {
@@ -226,12 +226,12 @@
   },
   "getBingoPercentile": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "getShippingFeatureFlag": {
     "at": "2026-05-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "getShippingQuote": {
@@ -261,7 +261,7 @@
   },
   "incrementListingView": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "listApiConnections": {
@@ -303,7 +303,7 @@
   },
   "moderateImage": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "moderateListingOnCreate": {
@@ -323,7 +323,7 @@
   },
   "moderateProfileOnCreate": {
     "at": "2026-05-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "moderateProfileOnWrite": {
@@ -333,7 +333,7 @@
   },
   "moderateUserDocOnCreate": {
     "at": "2026-05-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "moderateUserDocOnUpdate": {
@@ -342,7 +342,7 @@
   },
   "notifyLike": {
     "at": "2026-06-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "notifyOnNewMessage": {
@@ -351,12 +351,12 @@
   },
   "notifyOnOfferCreated": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "notifyOnOfferUpdated": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "notifyOnSavedSearchMatch": {
@@ -435,7 +435,7 @@
   },
   "onReportCreate": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "onReviewCreated": {
@@ -477,22 +477,22 @@
   },
   "proCanceledEmail": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "proDowngradedEmail": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "proPaymentFailedEmail": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "proPaymentRetryEmail": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "proRenewalReminderScheduled": {
@@ -502,7 +502,7 @@
   },
   "proWelcomeEmail": {
     "at": "2026-05-29",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "pushBingoDailyReminder": {
@@ -512,7 +512,7 @@
   },
   "pushBingoStreakSaver": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "pushNotificationDispatch": {
@@ -522,17 +522,17 @@
   },
   "pushOnNewMessage": {
     "at": "2026-06-19",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "pushOnOfferCreated": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "pushOnOfferUpdated": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "pushOnOrderCreated": {
@@ -550,12 +550,12 @@
   },
   "pushSavedSearchDailyDigest": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "reconcileBingoLeaderboards": {
     "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "reconcileReferralCredits": {
@@ -568,7 +568,7 @@
   },
   "reconcileUserDisplayNames": {
     "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "reconcileWatchlistCounts": {
@@ -642,7 +642,7 @@
   },
   "revokeMySession": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "runGenerateDailyPuzzles": {
@@ -684,7 +684,7 @@
   },
   "serveSitemap": {
     "at": "2026-05-15",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "setAccountEmail": {
@@ -709,7 +709,7 @@
   },
   "smokeProUpgradeManual": {
     "at": "2026-06-26",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "stampListingPriceEstimate": {
@@ -734,7 +734,7 @@
   },
   "suggestListingPrice": {
     "at": "2026-09-24",
-    "note": "DELETED 2026-09-24 — Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)",
+    "note": "DELETED 2026-09-24 \u2014 Gemini pair retired, replaced by draftListingFromPhotos (founder ruling)",
     "sha": null
   },
   "suspendUser": {
@@ -749,7 +749,7 @@
   },
   "syncBlockedThreads": {
     "at": "2026-07-22",
-    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown — drift check falls back to timestamp mode for this fn",
+    "note": "reconciled 2026-08-25: gcloud updateTime disagreed with the recorded entry (raw deploy outside deploy-fn.sh); SHA unknown \u2014 drift check falls back to timestamp mode for this fn",
     "sha": null
   },
   "syncSundayNine": {
@@ -812,5 +812,15 @@
   "winBackScheduler": {
     "at": "2026-09-11",
     "sha": "d47c4682e1a29fcbea996718e7cafb868f827e39"
+  },
+  "confirmBuyerAge18": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
+  },
+  "publishShipFromHeld": {
+    "sha": "cfc2451fd2f398a4dd2c68bdf2afde5eb72fda87",
+    "at": "2026-11-24",
+    "region": "us-central1"
   }
 }
