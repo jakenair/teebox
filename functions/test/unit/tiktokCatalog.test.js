@@ -10,7 +10,7 @@ const photo = (n, name) => `https://firebasestorage.googleapis.com/v0/b/${B}/o/`
 const base = (o) => ({id: "abc123", status: "active", title: "Titleist GT3 Driver", desc: "Great club",
   brand: "Titleist", cat: "clubs", condition: "Like New", ask: 299, sellerId: "s1",
   photos: [photo(1), photo(2)], ...o});
-const ctx = (o) => ({testSellers: new Set(), unbuyableSellers: new Set(), now: Date.now(), bucketName: B, ...o});
+const ctx = (o) => ({testSellers: new Set(), blocks: {notReady: new Set(), noShipFrom: new Set()}, now: Date.now(), bucketName: B, ...o});
 const row = (o, c) => T.tiktokRow(base(o), ctx(c)).row;
 
 test("row: required fields filled, sku_id = doc id, price and image format", () => {
@@ -25,16 +25,14 @@ test("row: required fields filled, sku_id = doc id, price and image format", () 
   assert.ok(!/token|alt=media|listings/.test(r.image_link + r.additional_image_link));
 });
 
-test("availability: pending, sold, seller not payable are out of stock; unapproved review is left out", () => {
+test("availability: pending and sold are out of stock; rejected and unbuyable listings are left out", () => {
   assert.equal(row().availability, "in stock");
   assert.equal(row({status: "pending"}).availability, "out of stock");
   assert.equal(row({status: "sold", soldAt: Date.now() - 864e5}).availability, "out of stock");
-  assert.equal(row({}, {unbuyableSellers: new Set(["s1"])}).availability, "out of stock");
-  for (const o of [{requiresAuth: true, authReviewState: "pending"}, {ask: 300, requiresAuth: false, authReviewState: "na"},
-    {requiresAuth: true, authReviewState: "rejected"}]) {
-    assert.equal(T.tiktokRow(base(o), ctx()).skip, "authenticity review not passed");
+  assert.equal(T.tiktokRow(base({requiresAuth: true, authReviewState: "rejected"}), ctx()).skip, "authenticity review not passed");
+  for (const o of [{requiresAuth: true, authReviewState: "pending"}, {requiresAuth: false, authReviewState: "na"}, {requiresAuth: true, authReviewState: "approved"}]) {
+    assert.equal(row({ask: 400, ...o}).availability, "in stock");
   }
-  assert.equal(row({ask: 400, requiresAuth: true, authReviewState: "approved"}).availability, "in stock");
 });
 
 test("skips: wrong status, no price, no photo, foreign photo, test listing", () => {

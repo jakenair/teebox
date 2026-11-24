@@ -1838,6 +1838,7 @@ window.tbEvent = function (name, surface) {
      Gold left-accent to distinguish from the green marketing banner. */
   .verify-email-banner { display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 540px; background: var(--white); border: 1px solid var(--gray-200); border-left: 4px solid var(--gold-500); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 14px 16px; z-index: 1200; font-family: var(--font-body); }
   .verify-email-banner.show { display: block; }
+  body:has(#checkoutBackdrop.open) .verify-email-banner { display: none; } /* r437: never over checkout */
   .verify-email-banner .veb-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
   .verify-email-banner .veb-body { font-size: 13px; line-height: 1.45; color: var(--gray-600); margin-bottom: 10px; }
   .verify-email-banner .veb-body strong { color: var(--gray-900); }
@@ -3339,7 +3340,7 @@ window.tbEvent = function (name, surface) {
      current listing, current listing excluded. Hidden when empty. */
   .more-like-this { grid-column: 1 / -1; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--gray-200); }
   .more-like-this-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 12px; letter-spacing: 0.2px; }
-  .more-like-this-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .more-like-this-row { display: flex; align-items: flex-start; gap: 12px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
   .more-like-this-row::-webkit-scrollbar { height: 6px; }
   .more-like-this-row::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
   .mlt-card { flex: 0 0 120px; width: 120px; cursor: pointer; scroll-snap-align: start; transition: transform 200ms cubic-bezier(.4,0,.2,1); background: none; border: none; padding: 0; text-align: left; font-family: inherit; }
@@ -3638,8 +3639,6 @@ window.tbEvent = function (name, surface) {
     .ai-price-btn, .ai-price-card button { transition: none; }
   }
 
-  .auth-photo-notice { margin: 10px 0; padding: 12px 14px; background: rgba(212, 91, 60, 0.08); border-left: 3px solid #b04428; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--gray-800); display: flex; flex-direction: column; gap: 6px; }
-  .auth-photo-notice strong { color: #b04428; font-size: 13px; }
   .seller-verified-bar { background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; font-weight: 600; color: var(--green-700); }
   /* Payout orientation heads-up — same green-50 info language as the verified
      bar above it (calm, non-alarming). CTA reuses .btn-stripe-connect (the
@@ -8096,8 +8095,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r434"></script>
-      <script async src="/js/feed-rank.js?v=r434"></script>
+      <script async src="/js/feed-rank-config.js?v=r437"></script>
+      <script async src="/js/feed-rank.js?v=r437"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8632,10 +8631,6 @@ window.tbEvent = function (name, surface) {
            field) covers title + specs + price in one pass. The old
            handler JS stays as documented dead code until the next
            cleanup pass. -->
-      <div id="authPhotoNotice" class="auth-photo-notice" style="display:none">
-        <strong>High-value verification</strong>
-        <span>Listings over $300 require a verification photo: include one photo of you holding a piece of paper with <strong id="authHandleHint">your username</strong> + today's date written on it. This protects buyers from stock-photo scams.</span>
-      </div>
       <!-- First-time seller: inline Seller-Terms acceptance (merged from the
            old separate verify screen). Shown only when not yet a verified
            seller; openSellModal toggles it. Acceptance is recorded on publish
@@ -8813,11 +8808,10 @@ window.tbEvent = function (name, surface) {
         </div>
       </div>
 
-      <!-- Delivery expectation (r137, CRO P2) — matches Terms §4/§6: seller
-           ships within 5 business days via a tracked, insured carrier. Sets an
-           arrival expectation instead of leaving the buyer guessing. -->
+      <!-- Delivery expectation: 3 business days, tracked. Says nothing about
+           insurance: protection is its own line when an item has it. -->
       <div style="font-size:12px;color:var(--gray-600);line-height:1.45;margin-bottom:14px;">
-        Ships within 5 business days · tracked &amp; insured
+        Ships within 3 business days · tracked
       </div>
 
       <!-- Dispute-window callout (r185 de-brand) -->
@@ -8861,13 +8855,6 @@ window.tbEvent = function (name, surface) {
         </div>
         <div id="payment-element" style="min-height:48px;"></div>
         <div id="card-errors" role="alert" aria-live="polite" style="color:var(--red-500);font-size:13px;margin-top:8px;min-height:18px;"></div>
-        <!-- r396: 18+ to buy, asked once per account (server: buyerAge18At). -->
-        <div id="checkoutAgeRow" style="display:none;margin-top:6px;">
-          <label class="sell-terms-check" style="font-size:14px;font-weight:500;color:var(--gray-800);text-transform:none;letter-spacing:normal;margin:0;">
-            <input type="checkbox" id="checkoutAge18Checkbox" style="width:18px;height:18px;margin:1px 0 0 0;flex-shrink:0;accent-color:var(--green-700);" />
-            <span>I'm 18 or older.</span>
-          </label>
-        </div>
       </div>
 
       <!-- PCI / "card details never stored" reassurance -->
@@ -8877,6 +8864,15 @@ window.tbEvent = function (name, surface) {
       </div>
     </div>
     <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <!-- r437: 18+ to buy, asked once per account (server: buyerAge18At).
+           In the pinned footer, right above Pay, so it can't be covered. -->
+      <div id="checkoutAgeRow" style="display:none;">
+        <label class="sell-terms-check" style="font-size:14px;font-weight:500;color:var(--gray-800);text-transform:none;letter-spacing:normal;margin:0;min-height:32px;align-items:center;">
+          <input type="checkbox" id="checkoutAge18Checkbox" style="width:20px;height:20px;margin:0;flex-shrink:0;accent-color:var(--green-700);" />
+          <span>I'm 18 or older.</span>
+        </label>
+        <div id="checkoutAgeError" role="alert" style="display:none;color:var(--red-500);font-size:13px;margin-top:4px;"></div>
+      </div>
       <div style="display:flex;gap:10px;width:100%;">
         <button class="btn-full ghost" data-action="close-checkout-direct" style="flex:1;">Cancel</button>
         <button class="btn-full green" id="payBtn" data-action="confirm-payment" style="flex:2;">Pay Now</button>
@@ -9187,12 +9183,6 @@ function friendlyStripeError(err) {
 
 function setCheckoutError(msg) {
   const el = document.getElementById('card-errors');
-  // r412: the server blocks checkout for unverified emails. Say how to fix
-  // it and bring back the banner (it holds Resend), even if dismissed.
-  if (msg && /verify your email/i.test(msg)) {
-    msg = 'Verify your email to buy. Tap the link we emailed you, or tap Resend link on the banner to get a new one.';
-    try { window.maybeShowVerifyBanner && window.maybeShowVerifyBanner(window.CURRENT_USER, { force: true }); } catch (_e) {}
-  }
   if (el) el.textContent = msg || '';
 }
 
@@ -9226,10 +9216,9 @@ async function mountPaymentElement(product) {
         // line — without it the charge stays item-only (stale-client
         // honesty guard) and the platform absorbs the label.
         shippingAware: true,
-        // r396: 18+ to buy. ageGate marks a client that can show the checkbox;
-        // age18 is sent once the buyer has ticked it.
-        ageGate: 1,
-        ...(window.__buyerAge18 ? { age18: true } : {}),
+        // r437: ageGate 2 = the 18+ box sits above Pay on this same screen and
+        // is recorded (confirmBuyerAge18) before paying.
+        ageGate: 2,
         // Offer-priced checkout: when present the server prices the item
         // from the frozen offer (never listing.ask) and forces qty 1.
         ...(product.__offerId ? { offerId: String(product.__offerId) } : {}),
@@ -9245,8 +9234,9 @@ async function mountPaymentElement(product) {
       }),
     });
     if (!res.ok) {
-      let detail = '';
-      try { detail = (await res.json()).error || ''; } catch {}
+      let detail = '', reason = '';
+      try { const j = await res.json(); detail = j.error || ''; reason = j.code || ''; } catch {}
+      window.coEvent('checkout_blocked', { step: 'create_payment', status: res.status, reason: reason || detail.slice(0, 120) });
       throw new Error(detail || `Payment server error (${res.status})`);
     }
     const data = await res.json();
@@ -9424,6 +9414,7 @@ async function onCheckoutAddressChange(ev) {
     // HttpsError messages are already human-readable (e.g. "This seller
     // hasn't set a ship-from address yet."); fall back for internals.
     const raw = (e && e.message) || '';
+    window.coEvent('checkout_blocked', { step: 'shipping_price', reason: String((e && e.code) || raw || 'unknown').slice(0, 120) });
     setCheckoutError(/internal/i.test(raw) || !raw
       ? 'Couldn\'t get a shipping rate. Check the address and try again.'
       : raw);
@@ -9665,8 +9656,23 @@ window.fbTrack = function (name, params, opts) {
 };
 // @web-tracking:end
 
+// r437: buy-path events (no personal data): buy_tapped, checkout_blocked,
+// payment_form_shown, payment_submitted, payment_failed.
+window.coEvent = function (name, props) {
+  try {
+    const C = window.Capacitor;
+    const platform = (C && C.isNativePlatform && C.isNativePlatform()) ? 'ios' : 'web';
+    window.posthog && window.posthog.capture(name, Object.assign({ platform, guest: !window.CURRENT_USER, listingId: window.checkoutProduct ? String(window.checkoutProduct.id) : null }, props || {}));
+  } catch (_e) { /* never block checkout on analytics */ }
+};
+function setAgeError(msg) {
+  const el = document.getElementById('checkoutAgeError');
+  if (el) { el.textContent = msg || ''; el.style.display = msg ? '' : 'none'; }
+}
+
 window.openCheckout = async function(productId, qty, opts) {
   const p = window.PRODUCTS.find(x => String(x.id) === String(productId));
+  if (!(opts && opts.__retry)) window.coEvent('buy_tapped', { listingId: String(productId) });
   // r278 item 2: AddToCart on the Buy Now tap. TeeBox has no cart, so this
   // marks purchase INTENT — a genuinely earlier moment than InitiateCheckout,
   // which fires further down once the checkout modal and Payment Element are
@@ -9824,8 +9830,7 @@ window.openCheckout = async function(productId, qty, opts) {
   // point in the audit). The corresponding `purchase_completed`
   // event is server-side from the Stripe webhook so the funnel is
   // attributable end-to-end.
-  // r421: the age-confirm re-open is the same checkout; don't count it twice.
-  if (!(opts && opts.__afterAge)) {
+  if (!(opts && opts.__retry)) {
   try {
     if (window.posthog) {
       window.posthog.capture('checkout_started', {
@@ -9865,29 +9870,30 @@ window.openCheckout = async function(productId, qty, opts) {
     }
     return;
   }
-  // r421: first purchase on this account → the 18+ box is shown from the
-  // start (no refusal round-trip). Ticking it loads payment straight away.
-  // Known-confirmed accounts (this device remembers) skip it entirely.
-  let __ageKnown = !!window.__buyerAge18;
-  try { __ageKnown = __ageKnown || localStorage.getItem('tb_age18_' + window.CURRENT_USER.uid) === '1'; } catch (_e) {}
-  if (!__ageKnown && !(await window.tbBuyerAgeOnFile())) {
+  // r437: payment loads straight away. First purchase on this account → the
+  // 18+ box shows above Pay; ticking it is needed to pay, not to see the form.
+  let __ageKnown = false;
+  try { __ageKnown = localStorage.getItem('tb_age18_' + window.CURRENT_USER.uid) === '1'; } catch (_e) {}
+  window.__ageNeeded = !__ageKnown;
+  {
     const row = document.getElementById('checkoutAgeRow');
     const cb = document.getElementById('checkoutAge18Checkbox');
-    if (row) row.style.display = '';
     if (cb) cb.checked = false;
-    { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = 'none'; }
-    { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = 'none'; }
-    if (_paySkel) _paySkel.style.display = 'none';
-    if (_payEl0) _payEl0.style.minHeight = '0';
-    payBtn.disabled = true;
-    payBtn.textContent = 'Confirm you\u2019re 18+ to continue';
-    window.__ageThenMount = () => window.openCheckout(productId, qty, Object.assign({}, opts || {}, { __afterAge: true }));
-    return;
+    setAgeError('');
+    if (row) row.style.display = __ageKnown ? 'none' : '';
+  }
+  if (!__ageKnown) {
+    const forUid = window.CURRENT_USER.uid;
+    window.tbBuyerAgeOnFile().then((ok) => {
+      if (!ok || !window.CURRENT_USER || window.CURRENT_USER.uid !== forUid) return;
+      window.__ageNeeded = false;
+      const row = document.getElementById('checkoutAgeRow');
+      if (row && !document.body.classList.contains('guest-checkout')) row.style.display = 'none';
+    }).catch(() => {});
   }
   try {
     const piData = await mountPaymentElement(checkoutProduct);
-    try { localStorage.setItem('tb_age18_' + window.CURRENT_USER.uid, '1'); } catch (_e) {}
-    { const ar = document.getElementById('checkoutAgeRow'); if (ar) ar.style.display = 'none'; }
+    window.coEvent('payment_form_shown', {});
     { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = ''; }
     { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = ''; }
     // Mounted — hide the loading skeleton and restore the element's min-height.
@@ -9902,25 +9908,6 @@ window.openCheckout = async function(productId, qty, opts) {
     // Mount failed — hide the skeleton so the error message is visible.
     if (_paySkel) _paySkel.style.display = 'none';
     if (_payEl0) _payEl0.style.minHeight = '48px';
-    if (/age-required/.test((err && err.message) || '')) {
-      // r396: first purchase on this account — one-time 18+ confirm.
-      const row = document.getElementById('checkoutAgeRow');
-      const cb = document.getElementById('checkoutAge18Checkbox');
-      if (row) row.style.display = '';
-      // r397: Stripe's address/payment fields only load after the confirm, so
-      // hide the empty "Ship to" block instead of leaving a blank gap.
-      { const sr = document.getElementById('checkoutShipRow'); if (sr) sr.style.display = 'none'; }
-      // r398: same for the empty payment slot + error line above the checkbox.
-      if (_payEl0) _payEl0.style.minHeight = '0';
-      { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = 'none'; }
-      if (cb) cb.checked = false;
-      window.__buyerAge18 = false;
-      setCheckoutError('');
-      payBtn.disabled = true;
-      payBtn.textContent = 'Continue';
-      payBtn.dataset.action = 'retry-checkout';
-      return;
-    }
     { const ce = document.getElementById('card-errors'); if (ce) ce.style.display = ''; }
     setCheckoutError(err && err.message || 'Could not start payment. Try again.');
     payBtn.disabled = false;
@@ -9976,9 +9963,35 @@ window.confirmPayment = async function() {
   }
   const btn = document.getElementById('payBtn');
   const originalLabel = btn.textContent;
+  // r437: the 18+ tick, right above this button.
+  if (window.__ageNeeded) {
+    const cb = document.getElementById('checkoutAge18Checkbox');
+    if (!cb || !cb.checked) {
+      setAgeError('Tick this box to pay.');
+      window.coEvent('checkout_blocked', { step: 'pay', reason: 'age_18_not_ticked' });
+      if (cb) cb.focus();
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'One moment…';
+    try {
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js");
+      await httpsCallable(getFunctions(), 'confirmBuyerAge18')({ age18: true });
+      window.__ageNeeded = false;
+      try { localStorage.setItem('tb_age18_' + window.CURRENT_USER.uid, '1'); } catch (_e) {}
+    } catch (_e) {
+      btn.disabled = false;
+      btn.textContent = originalLabel || 'Pay Now';
+      setAgeError('Couldn\'t save that. Check your connection and tap Pay again.');
+      window.coEvent('checkout_blocked', { step: 'pay', reason: 'age_18_save_failed' });
+      return;
+    }
+  }
+  setAgeError('');
   btn.disabled = true;
   btn.textContent = 'Processing payment…';
   setCheckoutError('');
+  window.coEvent('payment_submitted', {});
 
   try {
     // Pull the shipping address out of the AddressElement before we
@@ -10026,6 +10039,7 @@ window.confirmPayment = async function() {
     });
 
     if (error) {
+      window.coEvent('payment_failed', { reason: String(error.decline_code || error.code || error.type || 'unknown').slice(0, 60) });
       setCheckoutError(friendlyStripeError(error));
       btn.disabled = false;
       btn.textContent = originalLabel || 'Pay Now';
@@ -10109,10 +10123,10 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/app-main.js?v=r434"></script>
-<script defer src="/js/checkout-guest.js?v=r434"></script>
-<script defer src="/js/pull-refresh.js?v=r434"></script>
-<script type="module" src="/js/app-auth.js?v=r434"></script>
+<script defer src="/js/app-main.js?v=r437"></script>
+<script defer src="/js/checkout-guest.js?v=r437"></script>
+<script defer src="/js/pull-refresh.js?v=r437"></script>
+<script type="module" src="/js/app-auth.js?v=r437"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10142,8 +10156,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r434"></script>
-<script type="module" src="/js/sunday-nine.js?v=r434"></script>
+<script type="module" src="/js/bingo.js?v=r437"></script>
+<script type="module" src="/js/sunday-nine.js?v=r437"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

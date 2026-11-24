@@ -30,7 +30,6 @@
 
 const crypto = require("node:crypto");
 const schema = require("./listingSchema");
-const {reviewChanges} = require("./authReview");
 const lc = require("./listingCreate");
 const {CONFIRM_MESSAGE} = require("./sellerConsent");
 const {inCheckout, heldUnits} = require("./checkoutHold");
@@ -119,7 +118,6 @@ function serializeCategories() {
     rules: {
       price_min: schema.PRICE_FLOOR, currency: "USD", quantity_max: 99,
       photos_min: 1, photos_max: schema.MAX_PHOTOS,
-      high_value_price: schema.HIGH_VALUE, high_value_photos_min: schema.MIN_PHOTOS_HIGH_VALUE,
       title_max: 120, brand_max: 60, description_max: 4000,
     },
   };
@@ -282,11 +280,11 @@ async function storePhotos(deps, ctx, listingId, photos, photoErrors) {
   return stored;
 }
 
-function minPhotos(price) { return Number(price) >= schema.HIGH_VALUE ? schema.MIN_PHOTOS_HIGH_VALUE : 1; }
+const MIN_PHOTOS = 1;
 
-function photoShortError(need, got, errors) {
+function photoShortError(got, errors) {
   return new ApiError(422, "photo_fetch_failed",
-      `${need > 1 ? `Listings at $${schema.HIGH_VALUE} or more need ${need} photos` : "A listing needs at least 1 photo"}, ` +
+      "A listing needs at least 1 photo, " +
       `and only ${got} of the photo URLs could be downloaded. Nothing was created or changed.`,
       {photo_errors: errors});
 }
@@ -523,8 +521,8 @@ async function createWithPhotos(deps, ctx, value, urls, seller, idem) {
   try {
     await reservePhotos(deps, ctx, urls.length);
     pre = await prefetchPhotos(deps, urls);
-    const need = minPhotos(value.ask);
-    if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+    const need = MIN_PHOTOS;
+    if (pre.photos.length < need) throw photoShortError(pre.photos.length, pre.errors);
     if (!resumed) {
       // The listing, which partner made it (founder ruling 2026-11-20; its own
       // document, so the listing stays field-for-field the Sell form's) and
@@ -674,12 +672,10 @@ async function listListings(deps, ctx, query) {
  * What an edit does to the $300+ authenticity review (same rule as
  * updateListing). An edit never clears a rejection, whatever the new price.
  * @param {object} cur @param {boolean} isHighValue
- * @param {string[]} [changed] reviewChanges(): what an approval no longer covers
  * @return {string|null} the new authReviewState, or null to leave it alone
  */
-function authReviewAfterEdit(cur, isHighValue, changed) {
+function authReviewAfterEdit(cur, isHighValue) {
   if (cur.authReviewState === "rejected") return null;
-  if (isHighValue && changed && changed.length) return "pending";
   if (isHighValue && !cur.requiresAuth) return "pending";
   if (!isHighValue && cur.requiresAuth) return "na";
   return null;
@@ -771,7 +767,7 @@ async function patchListing(deps, ctx, id, body) {
     }
     degraded = !!(scan && scan.degraded);
   }
-  const save = () => savePatch(deps, ctx, id, body, newUrls, minPhotos(value0.ask), degraded);
+  const save = () => savePatch(deps, ctx, id, body, newUrls, MIN_PHOTOS, degraded);
   return newUrls ? withPhotoSlot(deps, save) : save();
 }
 
@@ -779,16 +775,14 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
   const {db, FieldValue} = deps;
   let stored = null; let photoErrors = [];
   let prevPhotos = [];
-  let reopened = [];
-  let reopenedListing = null;
   try {
     if (newUrls) {
       await reservePhotos(deps, ctx, newUrls.length);
       const pre = await prefetchPhotos(deps, newUrls);
-      if (pre.photos.length < need) throw photoShortError(need, pre.photos.length, pre.errors);
+      if (pre.photos.length < need) throw photoShortError(pre.photos.length, pre.errors);
       photoErrors = [...pre.errors];
       stored = await storePhotos(deps, ctx, id, pre.photos, photoErrors);
-      if (stored.length < need) throw photoShortError(need, stored.length, photoErrors);
+      if (stored.length < need) throw photoShortError(stored.length, photoErrors);
     }
     await db.runTransaction(async (tx) => {
       const {ref, data: cur} = await loadOwnListing(deps, ctx, id, tx);
@@ -806,15 +800,8 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
       if (stored && cur.photoVariants && typeof cur.photoVariants === "object") {
         update.photoVariants = rekeyPhotoVariants(cur.photoVariants, stored);
       }
-      reopened = isHighValue ? reviewChanges(cur, {...cur, ...update}) : [];
-      const review = authReviewAfterEdit(cur, isHighValue, reopened);
+      const review = authReviewAfterEdit(cur, isHighValue);
       if (review) update.authReviewState = review;
-      reopenedListing = null;
-      if (reopened.length) {
-        update.authReviewReason = "Changed after approval: " + reopened.join(", ");
-        update.authReviewReopenedAt = FieldValue.serverTimestamp();
-        reopenedListing = {id, sellerId: cur.sellerId, title: value.title, status: cur.status, decisionN: Number(cur.authReviewDecisionN) || 0};
-      }
       if (degraded) {
         update.needsReview = true; update.needsReviewReason = "edit_scan_degraded";
         update.needsReviewAt = FieldValue.serverTimestamp();
@@ -836,9 +823,6 @@ async function savePatch(deps, ctx, id, body, newUrls, need, degraded) {
       } catch (e2) { if (deps.logError) deps.logError("sellerApi: upload cleanup failed", e2); }
     }
     throw e;
-  }
-  if (reopenedListing && deps.notifyReviewReopened) { // live only; the sandbox sends nothing
-    try { await deps.notifyReviewReopened(reopenedListing, reopened.join(", ")); } catch (e) { deps.logError("review email failed", e); }
   }
   if (stored && deps.deleteRemovedPhotos) {
     try { await deps.deleteRemovedPhotos(prevPhotos, stored, id); } catch (_e) { /* best-effort, like updateListing */ }

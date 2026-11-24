@@ -266,11 +266,13 @@ test("M7 a checkout that ran out of time no longer blocks ending or syncing a li
 test("M8 an edit is checked against the listing as it is when saved, and writes only what was sent", async () => {
   const a = api({}, {"listings/L1": LISTING()});
   a.deps.scanText = async () => { // another edit lands while this one is being scanned
-    a.store.set("listings/L1", {...a.listing(), title: "Other title", photos: a.listing().photos.slice(0, 1)});
+    a.store.set("listings/L1", {...a.listing(), title: "Other title", photos: []});
     return {clean: true};
   };
   assert.equal(code(await a.call("PATCH", "/v1/listings/L1", {price: 500, description: "x"})), "422 validation_failed");
   assert.equal(a.listing().ask, 249.99);
+  a.store.set("listings/L1", LISTING());
+  a.deps.scanText = async () => { a.store.set("listings/L1", {...LISTING(), title: "Other title"}); return {clean: true}; };
   assert.equal(code(await a.call("PATCH", "/v1/listings/L1", {description: "New words."})), "200 ok");
   assert.deepEqual([a.listing().title, a.listing().desc], ["Other title", "New words."]);
 });
@@ -355,24 +357,25 @@ test("L10 the same picture counts once, live and in the sandbox", async () => {
   const same = {buffer: Buffer.from("one picture"), contentType: "image/jpeg", ext: "jpg"};
   const a = api({fetchPhoto: async () => same});
   const r = await a.call("POST", "/v1/listings", DRIVER({price: 400, photo_urls: URLS(4)}));
-  assert.equal(code(r), "422 photo_fetch_failed");
-  assert.match(r.body.error.photo_errors[0].message, /same photo as photo_urls\[0\]/);
-  assert.equal(a.f.list("listings").length, 0);
+  assert.equal(code(r), "201 ok");
+  assert.equal(a.f.list("listings").length, 1);
+  assert.equal(r.body.listing.photos.length, 1);
+  assert.match(JSON.stringify(r.body), /same photo as photo_urls\[0\]/);
   const {fetchPhoto} = require(path.join(FN, "lib/sellerApiSandbox"));
   const b = api({fetchPhoto, isPhotoUrl: () => true, storePhoto: async ({url}) => url});
-  assert.equal(code(await b.call("POST", "/v1/listings", DRIVER({price: 400, photo_urls: Array(4).fill("https://img.test/a.jpg")}))), "422 photo_fetch_failed");
+  assert.equal(code(await b.call("POST", "/v1/listings", DRIVER({price: 400, photo_urls: Array(4).fill("https://img.test/a.jpg")}))), "201 ok");
   assert.equal(code(await b.call("POST", "/v1/listings", DRIVER({price: 400, photo_urls: URLS(4)}))), "201 ok");
 });
 
 // ── L11 (unit rules are in authReview.test.js) ─────────────────────────────
-test("L11 an approved listing edited into something else goes back to review", async () => {
+test("L11 no edit to a high-value listing the admin has seen sends it back or holds it", async () => {
   const putter = Object.fromEntries(schema.SPECS.categories.putter.fields.filter((f) => f.req).map((f) => [f.k, f.options ? f.options[0] : "Anser"]));
   const approved = {"listings/L1": LISTING({ask: 400, requiresAuth: true, authReviewState: "approved"})};
   for (const [body, why] of [[{category: "putter", specs: putter}, /category, specs/], [{specs: {model: "Qi35"}}, /specs/], [{condition: "Fair"}, /condition/]]) {
     const a = api({}, approved);
     assert.equal(code(await a.call("PATCH", "/v1/listings/L1", body)), "200 ok");
-    assert.equal(a.listing().authReviewState, "pending", JSON.stringify(body));
-    assert.match(a.listing().authReviewReason, why);
+    assert.equal(a.listing().authReviewState, "approved", why);
+    assert.equal(a.listing().status, "active");
   }
   for (const body of [{price: 350}, {description: "Other."}, {quantity: 2}, {specs: {model: "Qi10"}}, {condition: "Very Good"}, {category: "driver"}]) {
     const a = api({}, approved);

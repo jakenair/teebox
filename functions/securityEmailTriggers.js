@@ -618,6 +618,15 @@ exports.onListingLive = onDocumentCreated(
       // the real "live" message goes out when Stripe enables charges
       // (listFirstCore.onSellerChargesReady). Stamp so a retry is a no-op;
       // the reminder log is idempotent on its own as well.
+      // A club or bag with no ship-from address isn't live yet either
+      // (lib/shipFromHold).
+      {
+        const {hasShipFrom, needsShipFrom} = require("./lib/buyable");
+        if (seller.stripeChargesEnabled === true && needsShipFrom(data) && !hasShipFrom(seller)) {
+          logger.info(`[onListingLive] ${listingId} waiting for a ship-from address`);
+          return;
+        }
+      }
       if (seller.stripeChargesEnabled !== true) {
         let r = null;
         try {

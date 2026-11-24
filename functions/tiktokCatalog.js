@@ -130,16 +130,17 @@ const cachePath = (listingId, photoUrl, generation) =>
 /**
  * One TikTok row, or {skip: reason}.
  * @param {object} l listing with `.id`
- * @param {object} ctx {testSellers, unbuyableSellers, now, bucketName,
+ * @param {object} ctx {testSellers, blocks, now, bucketName,
  *   generations?: Map<objectPath, generation>}
  * @return {object}
  */
 function tiktokRow(l, ctx) {
-  const r = F.feedRow(l, ctx.testSellers, ctx.now, {unbuyableSellers: ctx.unbuyableSellers});
+  const r = F.feedRow(l, ctx.testSellers, ctx.now, {blocks: ctx.blocks});
   if (!r) {
     if (!F.feedEligibleStatus(l, ctx.now)) return {skip: `status ${l.status}`};
     if (!(Number(l.ask) > 0)) return {skip: "no price"};
     if (!require("./lib/authReview").authReviewPassed(l)) return {skip: "authenticity review not passed"};
+    if (F.isBlocked(l, ctx.blocks)) return {skip: "seller not ready or no ship-from"};
     if (!Array.isArray(l.photos) || !l.photos.length) return {skip: "no photo"};
     return {skip: "test listing or unusable photo"};
   }
@@ -255,14 +256,14 @@ async function serveCsv(req, res) {
   const now = Date.now();
   if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
     const listings = await F.loadListings();
-    const [testSellers, unbuyableSellers, generations] = await Promise.all([
-      F.loadTestSellers(), F.loadUnbuyableSellers(listings), loadGenerations()]);
+    const [testSellers, blocks, generations] = await Promise.all([
+      F.loadTestSellers(), F.loadSellerBlocks(listings), loadGenerations()]);
     const built = buildTikTokCsv(listings, {
-      testSellers, unbuyableSellers, now, bucketName: BUCKET, generations});
+      testSellers, blocks, now, bucketName: BUCKET, generations});
     await sweepCache(built.csv, now);
     _cache = {at: now, csv: built.csv, rows: built.rows};
     logger.info("tiktokCatalog: rebuilt", {rows: built.rows, skipped: built.skipped,
-      unbuyableSellers: unbuyableSellers.size});
+      notReady: blocks.notReady.size, noShipFrom: blocks.noShipFrom.size});
   }
   res.set("Content-Type", "text/csv; charset=utf-8");
   res.set("Content-Disposition", "inline; filename=\"tiktok.csv\"");

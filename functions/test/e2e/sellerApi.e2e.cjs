@@ -184,13 +184,16 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   check("3h unknown field -> 400 unknown_field", r.status === 400 && r.body.error.code === "unknown_field", r.body);
   r = await api("POST", "/v1/listings", {...A1, body: DRIVER({price: 3})});
   check("3i price under $5 -> 422 field price", r.status === 422 && r.body.error.errors[0].field === "price", r.body);
-  r = await api("POST", "/v1/listings", {...A1, body: DRIVER({price: 450})});
-  check("3j $300+ with 2 photos -> 422 field photo_urls", r.status === 422 && r.body.error.errors.some((e) => e.field === "photo_urls"), r.body);
+  const qHv = (await db.doc(`users/${s1}/rateLimits/bulkListingCreate`).get()).data();
+  r = await api("POST", "/v1/listings", {...A1, body: DRIVER({price: 450, photo_urls: ["https://img.test/1.jpg"]})});
+  check("3j $450 with one photo is accepted like any other price", r.status === 201 && r.body.listing.status === "active", r.body);
+  if (r.body.listing) await db.doc(`listings/${r.body.listing.id}`).delete();
+  if (qHv) await db.doc(`users/${s1}/rateLimits/bulkListingCreate`).set(qHv);
   const before = (await listingsOf(s1)).length;
   const qBefore = (await db.doc(`users/${s1}/rateLimits/bulkListingCreate`).get()).data().count;
-  r = await api("POST", "/v1/listings", {...A1, body: DRIVER({price: 450, photo_urls: ["https://img.test/1.jpg", "https://img.test/2.jpg", "https://img.test/3.jpg", "https://img.test/broken.jpg"]})});
+  r = await api("POST", "/v1/listings", {...A1, body: DRIVER({price: 450, photo_urls: ["https://img.test/broken.jpg"]})});
   const qAfter = (await db.doc(`users/${s1}/rateLimits/bulkListingCreate`).get()).data().count;
-  check("3k $300+ where 1 of 4 photo URLs fails -> 422 photo_fetch_failed, nothing created, quota untouched",
+  check("3k the only photo URL fails -> 422 photo_fetch_failed, nothing created, quota untouched",
       r.status === 422 && r.body.error.code === "photo_fetch_failed" && r.body.error.photo_errors.length === 1 &&
       (await listingsOf(s1)).length === before && qAfter === qBefore, {body: r.body, qBefore, qAfter});
   r = await api("POST", "/v1/listings", {...A1, body: DRIVER({title: "Shit driver for sale"})});
@@ -275,13 +278,13 @@ const DRIVER = (over) => ({title: "TaylorMade Qi10 Driver 10.5", brand: "TaylorM
   r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 200}});
   const rejAfter = (await rej.get()).data();
   check("5z a price drop never clears a rejected authenticity review", r.status === 200 && rejAfter.ask === 200 && rejAfter.authReviewState === "rejected", r.body);
-  // An approved review survives a price change and reopens on a title change.
+  // A listing the admin has seen stays seen, whatever the seller edits.
   await rej.update({authReviewState: "approved", ask: 400, requiresAuth: true});
   await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 350}});
   const stillOk = (await rej.get()).data().authReviewState;
   await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {title: "Renamed putter"}});
   const reop = (await rej.get()).data();
-  check("5z2 approved review: kept on a price drop, reopened on a title change", stillOk === "approved" && reop.authReviewState === "pending" && /title/.test(reop.authReviewReason || ""), {stillOk, s: reop.authReviewState});
+  check("5z2 seen listing: a price drop and a title change send nothing back to review", stillOk === "approved" && reop.authReviewState === "approved" && !reop.authReviewReason, {stillOk, s: reop.authReviewState});
   await rej.update({status: "flagged"});
   r = await api("PATCH", "/v1/listings/reviewRejected1", {...A1, body: {price: 340}});
   check("5z3 a flagged listing can't be edited -> 409 listing_under_review", r.status === 409 && r.body.error.code === "listing_under_review", r.body);

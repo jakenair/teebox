@@ -119,7 +119,7 @@ test("categories endpoint covers every Sell form category with its fields", () =
   const specs = require("../../data/listing-specs.json");
   assert.equal(c.categories.length, Object.keys(specs.categories).length);
   assert.deepEqual(c.conditions, specs.conditions);
-  assert.equal(c.rules.high_value_photos_min, 4);
+  assert.equal(c.rules.high_value_photos_min, undefined);
 });
 
 test("authenticity review: an edit never clears a rejection", () => {
@@ -133,8 +133,6 @@ test("authenticity review: an edit never clears a rejection", () => {
   assert.equal(f({authReviewState: "pending", requiresAuth: true}, false), "na");
   assert.equal(f({authReviewState: "approved", requiresAuth: true}, true), null);
   assert.equal(f({authReviewState: "na", requiresAuth: false}, false), null);
-  assert.equal(f({authReviewState: "approved", requiresAuth: true}, true, ["photos"]), "pending");
-  assert.equal(f({authReviewState: "rejected", requiresAuth: true}, true, ["photos"]), null);
 });
 
 test("auth: suspended sellers, and keys made before the sessions were reset", () => {

@@ -339,7 +339,7 @@ async function runDailyDigest(now) {
     pending: s.pendingCount,
     oldestPendingHours: s.oldestPendingHours,
     review: ADMIN_HOLDS_URL,
-  });
+  }, {timeoutMs: 20_000});
   return s;
 }
 

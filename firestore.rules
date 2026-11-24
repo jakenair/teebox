@@ -363,11 +363,6 @@ service cloud.firestore {
              ['status','expiresAt','updatedAt','photos','hiddenReason'])
         && (!('expiresAt' in next.keys()) || next.expiresAt is timestamp)
         && (!('updatedAt' in next.keys()) || next.updatedAt is timestamp)
-        // 2026-11-23: an approved authenticity review covers these photos, so
-        // they change only through updateListing, which sends the listing
-        // back to review.
-        && (!next.diff(prev).affectedKeys().hasAny(['photos'])
-            || prev.get('authReviewState', 'na') != 'approved')
         && (!('photos' in next.keys()) || (
               next.photos is list
               && next.photos.size() <= 10

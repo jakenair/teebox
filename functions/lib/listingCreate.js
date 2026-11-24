@@ -175,13 +175,12 @@ async function attachListingPhotos({db, FieldValue, uid, listingId, urls, isPhot
     const all = [...(Array.isArray(l.photos) ? l.photos : []), ...(urls || [])]
         .filter((u) => typeof u === "string" && okUrl(u));
     const photos = [...new Set(all)].slice(0, schema.MAX_PHOTOS);
-    const need = Number(l.ask) >= schema.HIGH_VALUE ? schema.MIN_PHOTOS_HIGH_VALUE : 1;
-    if (photos.length < need) {
+    if (photos.length < 1) {
       if (l.status === "active" || l.hiddenReason === "awaiting_payouts") {
         tx.update(ref, {photos, status: "hidden", hiddenReason: "photos_missing",
           hiddenAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()});
       }
-      return {ok: false, photos: photos.length, reason: need > 1 ? "needs-4-photos" : "needs-a-photo"};
+      return {ok: false, photos: photos.length, reason: "needs-a-photo"};
     }
     const back = paymentReady !== undefined && l.status === "hidden" && l.hiddenReason === "photos_missing" ?
       (paymentReady ? {status: "active", hiddenReason: FieldValue.delete()} : {hiddenReason: "awaiting_payouts"}) : {};

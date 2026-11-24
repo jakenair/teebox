@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship-from address · TeeBox</title>
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.firebasestorage.app https://firebasestorage.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://us-central1-teebox-market.cloudfunctions.net https://*.run.app; frame-src https://teebox-market.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'">
+<style>
+  :root { --green-900: #0b1a0e; --green-700: #1f4827; --gold-500: #c5a253; --cream: #faf8f3; --ink: #1d2420; --muted: #5d665f; --line: #e3e0d6; --bad: #a3321f; --bad-bg: #fbecea; --ok: #2d6a3a; --ok-bg: #e9f3eb; --warn: #7a5712; --warn-bg: #fdf4e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+  header { background: var(--green-900); padding: 18px 16px; }
+  header .in, main { max-width: 860px; margin: 0 auto; }
+  header .in { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header .logo { font-family: Georgia, "Times New Roman", serif; font-size: 1.6rem; font-weight: 900; color: #fff; text-decoration: none; letter-spacing: -0.5px; }
+  header .logo span { color: var(--gold-500); }
+  header .back { color: rgba(255,255,255,.85); font-size: .9rem; font-weight: 600; text-decoration: none; }
+  main { padding: 28px 16px 64px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-size: 1.9rem; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 1.1rem; margin: 0; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 4px 0; overflow-wrap: anywhere; }
+  .state { display: inline-block; font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+  .state.rejected { background: var(--bad-bg); color: var(--bad); }
+  .photos { display: flex; gap: 8px; overflow-x: auto; margin: 12px 0; }
+  .photos img { width: 132px; height: 132px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  label { display: block; font-size: .9rem; font-weight: 600; margin: 10px 0 4px; }
+  textarea { width: 100%; min-height: 72px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  button, .btn { min-height: 44px; padding: 0 20px; border-radius: 50px; border: 1px solid var(--green-700); background: var(--green-700); color: #fff; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .ghost { background: #fff; color: var(--green-700); }
+  .danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid var(--gold-500); outline-offset: 2px; }
+  .note { padding: 12px 14px; border-radius: 10px; margin: 0 0 16px; background: var(--ok-bg); color: var(--ok); }
+  .note.bad { background: var(--bad-bg); color: var(--bad); }
+  .note:empty { display: none; }
+  input { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  .tw { overflow-x: auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: #fff; }
+  th { font-weight: 600; color: var(--muted); }
+  h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; margin: 28px 0 8px; }
+  ol { margin: 0; padding-left: 22px; } li { margin: 6px 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header><div class="in"><a class="logo" href="/">Tee<span>Box</span></a><a class="back" href="/">Back to TeeBox</a></div></header>
+<main>
+  <h1>Your ship-from address</h1>
+  <p class="lede">We price shipping from here and print it on your labels. Buyers don't see it on TeeBox.</p>
+  <p class="note" id="note" role="status" aria-live="polite"></p>
+  <div id="list"></div>
+</main>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
+import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, onAuthStateChanged, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js';
+const app = initializeApp({
+    apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
+    authDomain: "teebox-market.firebaseapp.com",
+    projectId: "teebox-market",
+    storageBucket: "teebox-market.firebasestorage.app",
+    messagingSenderId: "982122063122",
+    appId: "1:982122063122:web:416617dcacf912c907bfcb"
+  });
+// Same store as the main site. getAuth() would move the session to another
+// one and sign the person out of TeeBox.
+const auth = initializeAuth(app, { persistence: browserLocalPersistence, popupRedirectResolver: browserPopupRedirectResolver }), fns = getFunctions(app, 'us-central1');
+const $ = (id) => document.getElementById(id);
+const db = getFirestore(app);
+const el = (tag, props, ...kids) => { const n = Object.assign(document.createElement(tag), props || {}); kids.forEach((x) => x && n.append(x)); return n; };
+const note = (text, bad) => { $('note').textContent = text || ''; $('note').className = bad ? 'note bad' : 'note'; };
+const F = [['name', 'Name on label', 'name', 60], ['line1', 'Street address', 'address-line1', 120], ['line2', 'Apt or suite (optional)', 'address-line2', 80], ['city', 'City', 'address-level2', 80], ['state', 'State (2 letters)', 'address-level1', 2], ['postal_code', 'ZIP', 'postal-code', 10], ['phone', 'Phone for the carrier (optional)', 'tel', 20]];
+const field = (id, label, ac, max, value, type) => el('div', null, el('label', { htmlFor: 'f-' + id, textContent: label }), el('input', { id: 'f-' + id, type: type || 'text', autocomplete: ac, maxLength: max, value: value || '' }));
+function signIn() {
+  const go = (p) => signInWithPopup(auth, p).catch((e) => note(e.code === 'auth/popup-closed-by-user' ? '' : e.message, true));
+  const g = el('button', { type: 'button', textContent: 'Continue with Google' }); g.onclick = () => go(new GoogleAuthProvider());
+  const a = el('button', { type: 'button', textContent: 'Continue with Apple' }); a.onclick = () => go(new OAuthProvider('apple.com'));
+  const f = el('form', { className: 'card' }, field('em', 'Email', 'email', 200, '', 'email'), field('pw', 'Password', 'current-password', 200, '', 'password'), el('div', { className: 'row' }, el('button', { type: 'submit', textContent: 'Sign in' })));
+  f.onsubmit = (ev) => { ev.preventDefault(); signInWithEmailAndPassword(auth, $('f-em').value.trim(), $('f-pw').value).catch(() => note('That email and password didn\'t match.', true)); };
+  note('Sign in to the TeeBox account you sell from.');
+  $('list').replaceChildren(el('div', { className: 'row' }, g, a), f);
+}
+async function form(u) {
+  note('Loading.');
+  const snap = await getDoc(doc(db, 'users', u.uid));
+  const cur = (snap.exists() && snap.data().shippingFrom) || {}; const c = cur.address || cur;
+  const f = el('form', { className: 'card' }, ...F.map(([k, l, ac, m]) => field(k, l, ac, m, k === 'name' ? cur.name : k === 'phone' ? cur.phone : k === 'line1' ? (c.line1 || c.street1) : k === 'line2' ? (c.line2 || c.street2) : k === 'postal_code' ? (c.postal_code || c.zip) : c[k])),
+    el('div', { className: 'row' }, el('button', { type: 'submit', id: 'save', textContent: 'Save address' })));
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const p = { country: 'US' }; F.forEach(([k]) => { p[k] = $('f-' + k).value.trim(); }); p.state = p.state.toUpperCase();
+    if (!p.line1 || !p.city || !p.state || !p.postal_code) { note('Street, city, state and ZIP are needed.', true); return; }
+    if (!/^[A-Z]{2}$/.test(p.state)) { note('Use the 2-letter state, like IL.', true); return; }
+    if (!/^\d{5}(-\d{4})?$/.test(p.postal_code)) { note('Enter a ZIP like 60647.', true); return; }
+    $('save').disabled = true; $('save').textContent = 'Saving';
+    try {
+      await setDoc(doc(db, 'users', u.uid), { shippingFrom: p }, { merge: true });
+      try { await httpsCallable(fns, 'publishShipFromHeld')({}); } catch (_e) { /* the sweep does it */ }
+      note('Saved. Your listings can be bought now.');
+      $('list').replaceChildren(el('a', { className: 'btn', href: '/', textContent: 'Back to TeeBox' }));
+    } catch (e) { note('That didn\'t save. Check your connection and try again.', true); $('save').disabled = false; $('save').textContent = 'Save address'; }
+  };
+  note('');
+  $('list').replaceChildren(f);
+}
+onAuthStateChanged(auth, (u) => { if (!u) { signIn(); return; } form(u).catch(() => note('Could not load your address. Reload to try again.', true)); });
+</script>
+</body>
+</html>

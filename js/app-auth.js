@@ -1435,6 +1435,23 @@
     } catch (_e) { return false; }
   };
 
+  // r437: is there a complete ship-from address on this account? Mirrors
+  // functions/lib/buyable.js hasShipFrom. A read failure answers true: the
+  // server still holds a club or bag that has none.
+  window.tbShipFromReady = async function() {
+    if (window.__SHIP_FROM_SET === true) return true;
+    try {
+      const u = window.CURRENT_USER; if (!u) return true;
+      const snap = await getDoc(doc(db, 'users', u.uid));
+      const f = (snap.exists() && snap.data().shippingFrom) || null;
+      const a = f && f.address && typeof f.address === 'object' ? f.address : f;
+      const t = (v) => String(v == null ? '' : v).trim();
+      const ok = !!(a && t(a.line1 || a.street1) && t(a.city) && t(a.state) && t(a.postal_code || a.zip));
+      window.__SHIP_FROM_SET = ok;
+      return ok;
+    } catch (_e) { return true; }
+  };
+
   // r421 guest checkout: /?claim=<token> from the order-confirmation email.
   // The server attaches the guest order(s) to the account for that email
   // (creating it if needed) and returns a custom token; we sign in with it
@@ -2940,7 +2957,6 @@
     // Listing v2: category + required per-category specs block submit.
     if (window.collectSpecErrors) errors.push(...window.collectSpecErrors());
     if ((files || []).length < 1) errors.push(['uploadZone', 'Add at least 1 photo — listings need a main image.']);
-    else if (price >= 300 && (files || []).length < 4) errors.push(['uploadZone', 'Listings over $300 need at least 4 photos, including a verification photo.']);
     const blocked = checkDesc != null && window.findExplicitContent && window.findExplicitContent(title + ' ' + checkDesc);
     if (blocked) errors.push(['sellTitle', 'Please remove inappropriate language from the title or description.']);
     return errors;
@@ -3687,8 +3703,6 @@
     const __sellErrs = collectSellErrors({ title, brand, cat, price, condition, files: selectedFiles, checkDesc: desc });
     if (__sellErrs.length) { applySellErrors(__sellErrs); return; }
     clearSellErrors();
-    // High-value verification-photo rule (anti-fraud) is enforced inline by
-    // collectSellErrors above; isHighValue still drives the flow below.
     const isHighValue = price >= 300;
     // #2: first-time sellers accept the Seller Terms INLINE here (the merged
     // step — no separate verify screen). Acceptance is recorded + they become a
@@ -3736,6 +3750,12 @@
         showToast('Could not record your seller agreement. Please try again.', 'error');
         return;
       }
+    }
+    // r437: a ship-from address is needed to publish (asked once).
+    if (!(await window.tbShipFromReady())) {
+      showToast('Add your ship-from address to publish.', 'info');
+      window.openShippingSettings && window.openShippingSettings({ then: () => window.submitListing() });
+      return;
     }
     // Double-submit guard: a fast double event (touch+click, or a re-
     // dispatched delegated click) fired submitListing() twice ~77ms apart and
@@ -3793,9 +3813,7 @@
         // up to 99. quantitySold is server-managed by createPaymentIntent.
         quantity,
         quantitySold: 0,
-        // High-value listings (>= $300) get a flag so admin can manually
-        // review the verification photo. requiresAuth=true tells the
-        // marketplace UI to show a "Verification photo included" badge.
+        // $300 and up is marked so an admin can look afterwards; it is live at once.
         requiresAuth: isHighValue,
         authReviewState: isHighValue ? 'pending' : 'na',
         ...(__listingSource ? { source: __listingSource } : {}),
@@ -4170,7 +4188,7 @@
     // create-flow affordance; hide it in edit mode.
     const vbar = document.querySelector('#sellModalBackdrop .seller-verified-bar');
     if (vbar) vbar.style.display = 'none';
-    // Reflect $300 verification-photo notice for the loaded price.
+    // Let the price listeners refresh for the loaded price.
     const priceEl = document.getElementById('sellPrice');
     if (priceEl) priceEl.dispatchEvent(new Event('input', { bubbles: true }));
 

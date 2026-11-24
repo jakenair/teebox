@@ -1012,6 +1012,16 @@ exports.getShippingQuote = onCall(
 exports.updateCheckoutShipping = onCall(
     {...USER_CALLABLE, secrets: [SHIPPO_API_KEY, STRIPE_SECRET_KEY]},
     async (request) => {
+      try {
+        return await repriceCheckout(request);
+      } catch (e) {
+        require("./lib/checkoutRefusal").logShippingRefusal(logger, {uid: request.auth && request.auth.uid,
+          paymentIntentId: request.data && request.data.paymentIntentId}, e);
+        throw e;
+      }
+    },
+);
+async function repriceCheckout(request) {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Sign in required.");
       }
@@ -1110,8 +1120,7 @@ exports.updateCheckoutShipping = onCall(
         carrier: q.carrier,
         service: q.service,
       };
-    },
-);
+}
 
 exports.getShippingFeatureFlag = onCall(
     {...USER_CALLABLE, secrets: [SHIPPO_API_KEY]},

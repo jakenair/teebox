@@ -38,6 +38,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const {hasShipFrom, needsShipFrom} = require("./lib/buyable");
 
 const META_FEED_TOKEN = defineSecret("META_FEED_TOKEN");
 const TIKTOK_FEED_TOKEN = defineSecret("TIKTOK_FEED_TOKEN");
@@ -193,9 +194,12 @@ function feedRow(l, testSellers, now, opts) {
   // the listing by seconds; the seller check covers that window).
   if (require("./lib/testAccounts").isTestListingDoc(l, l.id)) return null;
   if (testSellers && l.sellerId && testSellers.has(l.sellerId)) return null;
-  // 2026-11-23 (Jake): nothing is advertised before its authenticity review
-  // passes. $300+ listings join both feeds once an admin approves them.
+  // An admin takedown is never advertised.
   if (!require("./lib/authReview").authReviewPassed(l)) return null;
+  // 2026-11-23 (Jake): an ad never leads to something that can't be bought.
+  // Back in by itself on the next rebuild once the seller can take payment
+  // and, for clubs and bags, has a ship-from address (lib/buyable.js).
+  if (isBlocked(l, opts && opts.blocks)) return null;
   let photos = Array.isArray(l.photos) ? l.photos.map(httpsImage).filter(Boolean) : [];
   // 2026-11-15 (TikTok): image_link must be a JPG or PNG. Lead with the first
   // jpg/png photo; a listing with none keeps its order (TikTok may reject it).
@@ -219,12 +223,7 @@ function feedRow(l, testSellers, now, opts) {
     id: String(l.id),
     title,
     description,
-    // 2026-11-19 (Jake, r421): a listing whose seller can't take payment yet
-    // (users/{sellerId}.stripeChargesEnabled false — the same flag the
-    // createPaymentIntent 409 gate reads) stays in the feed per the Nov 15
-    // rule, but as out of stock so Meta/TikTok stop paying for clicks on it.
-    availability: (opts && opts.unbuyableSellers && l.sellerId &&
-        opts.unbuyableSellers.has(l.sellerId)) ? "out of stock" : mapAvailability(l),
+    availability: mapAvailability(l),
     condition: mapCondition(l.condition),
     price: ask.toFixed(2) + " USD",
     // /?listing=<id> is index.html, so it is always HTTP 200 and opens the
@@ -304,32 +303,41 @@ async function loadListings() {
 }
 
 /**
- * Sellers who can't take payment yet: users/{uid}.stripeChargesEnabled is not
- * true (the createPaymentIntent 409 gate). One batched read of the distinct
- * sellers of in-stock rows. Fails OPEN (empty set = today's behaviour) on a
- * read error so a Firestore blip never marks the whole catalog out of stock.
+ * Sellers whose listings can't be bought: can't take payment yet (the
+ * createPaymentIntent gate), or no ship-from address (clubs and bags only).
+ * One batched read of the distinct sellers of rows on sale. Fails OPEN (no
+ * blocks) on a read error so a Firestore blip never empties the catalog.
  * @param {Array<object>} listings
- * @return {Promise<Set<string>>}
+ * @return {Promise<{notReady: Set<string>, noShipFrom: Set<string>}>}
  */
-async function loadUnbuyableSellers(listings) {
+async function loadSellerBlocks(listings) {
   const ids = [...new Set((listings || [])
-      .filter((l) => l && l.status === "active" && l.sellerId)
+      .filter((l) => l && ["active", "pending"].includes(l.status) && l.sellerId)
       .map((l) => String(l.sellerId)))];
-  const out = new Set();
+  const out = {notReady: new Set(), noShipFrom: new Set()};
   if (!ids.length) return out;
   try {
     const db = admin.firestore();
     for (let i = 0; i < ids.length; i += 100) {
       const snaps = await db.getAll(...ids.slice(i, i + 100).map((id) => db.doc(`users/${id}`)));
       for (const s of snaps) {
-        if (!(s.exists && s.data() && s.data().stripeChargesEnabled === true)) out.add(s.id);
+        const u = s.exists ? s.data() : null;
+        if (!(u && u.stripeChargesEnabled === true)) out.notReady.add(s.id);
+        if (!hasShipFrom(u)) out.noShipFrom.add(s.id);
       }
     }
   } catch (e) {
-    logger.warn("feed: seller payment-readiness read failed, failing open", {error: String(e && e.message || e)});
-    return new Set();
+    logger.warn("feed: seller readiness read failed, failing open", {error: String(e && e.message || e)});
+    return {notReady: new Set(), noShipFrom: new Set()};
   }
   return out;
+}
+
+/** Can this row's seller complete a sale of it? Sold rows are never blocked. */
+function isBlocked(l, blocks) {
+  if (!blocks || !l.sellerId || !["active", "pending"].includes(l.status)) return false;
+  const id = String(l.sellerId);
+  return blocks.notReady.has(id) || (needsShipFrom(l) && blocks.noShipFrom.has(id));
 }
 
 // Sellers whose listings must never reach the catalog — the shared QA check
@@ -380,13 +388,13 @@ function feedHandler({secret, name, filename, transform, rowOpts, logHits}) {
       if (!_cache.csv || now - _cache.at > CACHE_SECONDS * 1000) {
         const listings = await loadListings();
         const testSellers = await loadTestSellers();
-        const unbuyableSellers = await loadUnbuyableSellers(listings);
+        const blocks = await loadSellerBlocks(listings);
         const built = buildFeedCsv(listings, testSellers, now,
-            Object.assign({}, rowOpts || {}, {unbuyableSellers}));
+            Object.assign({}, rowOpts || {}, {blocks}));
         Object.assign(_cache, {at: now, csv: built.csv, rows: built.rows});
         _caches[name] = _cache;
         logger.info(`${name}: rebuilt`, {rows: built.rows, skipped: built.skipped,
-          unbuyableSellers: unbuyableSellers.size});
+          notReady: blocks.notReady.size, noShipFrom: blocks.noShipFrom.size});
       }
       res.set("Content-Type", "text/csv; charset=utf-8");
       res.set("Content-Disposition", `inline; filename="${filename}"`);
@@ -428,5 +436,5 @@ exports._feed = {
   TEST_EMAIL_RE: require("./lib/testAccounts").TEST_EMAIL_RE, mapAvailability, plainText, csvCell,
   stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS, toTikTokCsv,
   // shared with tiktokCatalog.js (2026-11-23)
-  loadListings, loadTestSellers, loadUnbuyableSellers,
+  loadListings, loadTestSellers, loadSellerBlocks, isBlocked,
 };

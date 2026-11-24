@@ -48,16 +48,3 @@ test("no photo-moderation path writes status flagged unconditionally", () => {
     assert.doesNotMatch(src, /status: "flagged",\s*moderationFlags/, f);
   }
 });
-
-test("edits that reopen an approved review: photos, title, brand only", () => {
-  const cur = {ask: 400, requiresAuth: true, authReviewState: "approved", title: "Putter", brand: "Scotty", photos: ["a", "b"]};
-  const same = {title: "Putter", brand: "Scotty", photos: ["b", "a"]};
-  assert.deepEqual(R.reviewChanges(cur, same), []); // reorder is not a change
-  assert.deepEqual(R.reviewChanges(cur, {...same, photos: ["a"]}), ["photos"]);
-  assert.deepEqual(R.reviewChanges(cur, {...same, photos: ["a", "b", "c"]}), ["photos"]);
-  assert.deepEqual(R.reviewChanges(cur, {...same, title: "Putter 2", brand: "Ping"}), ["title", "brand"]);
-  for (const st of ["pending", "rejected", "na"]) {
-    assert.deepEqual(R.reviewChanges({...cur, authReviewState: st}, {...same, title: "x"}), []);
-  }
-  assert.deepEqual(R.reviewChanges({...cur, ask: 50, requiresAuth: false}, {...same, title: "x"}), []);
-});

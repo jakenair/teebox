@@ -132,6 +132,12 @@ const ALLOWLIST = new Set([
   // butt (butt diameter, butt-trimmed). Both held real listings.
   "screw", "screws",
   "butt", "butts",
+  // 2026-11-23 (founder): a putter's flange and a grip's knob are parts of
+  // the club; one held a real seller's putter ten times in three days.
+  "flange", "flanges", "flanged",
+  "knob", "knobs",
+  // Brands, makers, stores and players whose names collide.
+  "crisman", "otey", "wang", "dick's",
 ]);
 
 // ── PROFANITY_SKELETONS ─────────────────────────────────────────────
