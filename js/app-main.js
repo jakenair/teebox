@@ -7276,11 +7276,20 @@ async function saveShippingSettings() {
   if (errEl) errEl.textContent = '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    const { getFirestore, doc, setDoc } =
+    const { getFirestore, doc, setDoc, serverTimestamp } =
       await import("https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js");
     const db = getFirestore();
+    // Change record: when and where this address was last saved. stampFor
+    // says which address the stamp is about: an app build from before this
+    // saves the address without a stamp, and the two then differ.
+    const C = window.Capacitor;
+    const stamp = {
+      updatedAt: serverTimestamp(),
+      source: (C && C.isNativePlatform && C.isNativePlatform()) ? 'ios_settings' : 'web_settings',
+      stampFor: payload.line1 + '|' + payload.postal_code,
+    };
     await setDoc(doc(db, 'users', window.CURRENT_USER.uid),
-        { shippingFrom: payload }, { merge: true });
+        { shippingFrom: { ...payload, ...stamp } }, { merge: true });
     // Clear the sell-form live-rate prompt if it's showing (Structure 2).
     window.__SHIP_FROM_SET = true;
     if (typeof window.updateSellShipFromNotice === 'function') window.updateSellShipFromNotice();

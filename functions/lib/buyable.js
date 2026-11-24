@@ -14,6 +14,22 @@ function hasShipFrom(user) {
   const t = (v) => String(v == null ? "" : v).trim();
   return !!(t(a.line1 || a.street1) && t(a.city) && t(a.state) && t(a.postal_code || a.zip));
 }
+/**
+ * When and where shippingFrom was last saved. Server code and scripts that
+ * ever write the field add shipFromStamp(); today only the owner's own Save
+ * button writes it (web_settings, ios_settings).
+ */
+const SHIP_FROM_SOURCES = ["web_settings", "ios_settings", "checkout", "admin", "script"];
+function shipFromStamp(source, address, timestamp) {
+  if (!SHIP_FROM_SOURCES.includes(source)) throw new Error("unknown ship-from source");
+  return {updatedAt: timestamp, source, stampFor: `${address.line1}|${address.postal_code}`};
+}
+/** @return {{updatedAt: *, source: string}|null} null = saved by something that leaves no stamp */
+function shipFromChange(user) {
+  const f = user && user.shippingFrom;
+  if (!f || !f.updatedAt || f.stampFor !== `${f.line1}|${f.postal_code}`) return null;
+  return {updatedAt: f.updatedAt, source: f.source};
+}
 function needsShipFrom(listing) {
   return LIVE_RATE_CATS.includes(String((listing && listing.cat) || "").toLowerCase());
 }
@@ -27,4 +43,4 @@ function unbuyableReason(listing, seller) {
   return null;
 }
 
-module.exports = {LIVE_RATE_CATS, hasShipFrom, needsShipFrom, unbuyableReason};
+module.exports = {LIVE_RATE_CATS, SHIP_FROM_SOURCES, hasShipFrom, needsShipFrom, unbuyableReason, shipFromStamp, shipFromChange};

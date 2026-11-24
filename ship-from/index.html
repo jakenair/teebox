@@ -58,7 +58,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
 import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, onAuthStateChanged, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-functions.js';
 const app = initializeApp({
     apiKey: "AIzaSyAQ7vikZutCQfAaXybQnJcfgnlqpXxHTr4",
@@ -100,7 +100,9 @@ async function form(u) {
     if (!/^\d{5}(-\d{4})?$/.test(p.postal_code)) { note('Enter a ZIP like 60647.', true); return; }
     $('save').disabled = true; $('save').textContent = 'Saving';
     try {
-      await setDoc(doc(db, 'users', u.uid), { shippingFrom: p }, { merge: true });
+      // Change record, as in the Shipping settings screen.
+      const stamp = { updatedAt: serverTimestamp(), source: 'web_settings', stampFor: p.line1 + '|' + p.postal_code };
+      await setDoc(doc(db, 'users', u.uid), { shippingFrom: { ...p, ...stamp } }, { merge: true });
       try { await httpsCallable(fns, 'publishShipFromHeld')({}); } catch (_e) { /* the sweep does it */ }
       note('Saved. Your listings can be bought now.');
       $('list').replaceChildren(el('a', { className: 'btn', href: '/', textContent: 'Back to TeeBox' }));
