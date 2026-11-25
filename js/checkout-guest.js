@@ -275,6 +275,9 @@
       layout: { type: 'tabs', defaultCollapsed: false },
       wallets: { applePay: 'auto', googlePay: 'auto' },
     });
+    const shownFrom = Date.now();
+    paymentElement.on('ready', () => { if (G === mine) window.coEvent && window.coEvent('payment_form_shown', { ms: Date.now() - shownFrom }); });
+    paymentElement.on('loaderror', (ev) => { if (G === mine) window.coEvent && window.coEvent('checkout_blocked', { step: 'payment_form', reason: String((ev && ev.error && (ev.error.code || ev.error.type)) || 'load_error').slice(0, 60) }); });
     paymentElement.mount('#payment-element');
     paymentElement.on('change', (ev) => setCheckoutError(ev.error ? ev.error.message : ''));
     G.mounted = true;
@@ -288,6 +291,7 @@
     const btn = $('payBtn');
     const label = btn ? btn.textContent : 'Pay';
     G.busy = true;
+    window.coEvent && window.coEvent('pay_tapped', {});
     if (btn) { btn.disabled = true; btn.textContent = 'Processing payment…'; }
     setCheckoutError('');
     const fail = (msg) => {
@@ -326,6 +330,7 @@
         sessionStorage.setItem('tb_co_' + piId, JSON.stringify(meta));
         sessionStorage.setItem('tb_guest_email', G.email);
       } catch (_e) {}
+      window.coEvent && window.coEvent('payment_submitted', {});
       const { error, paymentIntent } = await stripeInstance.confirmPayment({
         elements: G.elements, clientSecret: d.clientSecret, redirect: 'if_required',
         confirmParams: { return_url: 'https://teeboxmarket.com/?checkout=complete', shipping: shipTo && shipTo.address ? shipTo : undefined },

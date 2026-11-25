@@ -1913,8 +1913,34 @@ window.tbDetailStickyBar = (function () {
     bar.classList.toggle('is-on', on);
     bar.setAttribute('aria-hidden', on ? 'false' : 'true');
     sb.tabIndex = on ? 0 : -1;
+    setTimeout(seen, 450); // after the bar has slid in
   }
+  // r441 buy_button_seen: once per listing, only when a Buy button is really on
+  // screen with nothing over it. Tells "didn't see it" from "didn't tap it".
+  const seenIds = new Set();
+  function onScreen(el) {
+    if (!el || !el.getClientRects().length || Number(getComputedStyle(el).opacity) < 0.5) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.top < 0 || r.bottom > window.innerHeight + 1) return false;
+    const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!t && (t === el || el.contains(t));
+  }
+  function seen() {
+    try {
+      const id = currentDetailId == null ? '' : String(currentDetailId);
+      const btn = $('detailBuyNowBtn'), sb = $('detailStickyBuyBtn');
+      if (!id || seenIds.has(id) || !btn || !$('detailBackdrop').classList.contains('open')) return;
+      const where = onScreen(sb) ? 'bar' : (onScreen(btn) ? 'inline' : '');
+      if (!where) return;
+      seenIds.add(id);
+      window.coEvent && window.coEvent('buy_button_seen', {
+        listingId: id, where, state: btn.dataset.notifySetup === '1' ? 'notify' : (btn.disabled ? 'disabled' : 'buy'),
+      });
+    } catch (_e) { /* analytics never blocks */ }
+  }
+  document.addEventListener('scroll', () => { clearTimeout(seen.t); seen.t = setTimeout(seen, 250); }, { capture: true, passive: true });
   function attach() {
+    [900, 2000, 4000].forEach((ms) => setTimeout(seen, ms));
     const btn = $('detailBuyNowBtn'), root = document.querySelector('#detailBackdrop .detail-modal');
     if (!btn || !root) return;
     inlineVisible = true; // fresh open starts at the top; IO corrects on its first callback
@@ -9151,7 +9177,10 @@ window.openAuthSheet = function openAuthSheet(mode, reason) {
   apply();
   try { if (typeof window.loadFeatureFlags === 'function') window.loadFeatureFlags().then(() => { if (bd.classList.contains('open')) apply(); }); } catch (_e) {}
   bd.classList.add('open');
-  try { window.posthog && window.posthog.capture('auth_sheet_open', { mode: window.__authSheetMode, native }); } catch (_e) {}
+  try { window.posthog && window.posthog.capture('auth_sheet_open', { mode: window.__authSheetMode, native,
+    // r441: why it opened ('to buy this listing', 'to like and save listings', …) and on which listing
+    reason: String(reason || '').slice(0, 60) || 'none', listingId: currentDetailId == null ? null : String(currentDetailId),
+    iab: (window.tbInAppBrowser && window.tbInAppBrowser()) || null }); } catch (_e) {}
 };
 window.closeAuthSheet = function closeAuthSheet() { const bd = document.getElementById('authSheetBackdrop'); if (bd) bd.classList.remove('open'); };
 window.__actions['open-auth-sheet-signup'] = () => window.openAuthSheet('signup');
@@ -15663,6 +15692,12 @@ A['detail-buy-now']          = () => {
   // r348 LIST-FIRST: in "Seller is finishing setup" mode the Buy slot records
   // interest instead of opening checkout (which would 409 server-side anyway).
   const _bb = document.getElementById('detailBuyNowBtn');
+  // r441: recorded at the tap, before any gate can stop it.
+  {
+    const _ok = typeof window.tbGuestCheckoutEligible === 'function' && window.tbGuestCheckoutEligible();
+    window.coEvent && window.coEvent('buy_tapped', { listingId: currentDetailId == null ? null : String(currentDetailId),
+      goes_to: _bb && _bb.dataset.notifySetup === '1' ? 'notify' : (window.CURRENT_USER ? 'checkout' : (_ok ? 'guest_checkout' : 'sign_in')) });
+  }
   if (_bb && _bb.dataset.notifySetup === '1') { A['notify-seller-setup'](); return; }
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
@@ -15677,9 +15712,9 @@ A['detail-buy-now']          = () => {
   // sign-in lands directly back in checkout.
   // r421: web guests go straight to guest checkout (openCheckout decides).
   const guestOk = typeof window.tbGuestCheckoutEligible === 'function' && window.tbGuestCheckoutEligible();
-  if (!guestOk && !window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(pid, qty); })) return;
+  if (!guestOk && !window.requireAuth('to buy this listing', () => { closeDetailModalDirect(); openCheckout(pid, qty, { __tapped: true }); })) return;
   closeDetailModalDirect();
-  openCheckout(pid, qty);
+  openCheckout(pid, qty, { __tapped: true });
 };
 A['detail-message-seller']   = () => {
   // Persist the listing ID across the auth round-trip (currentDetailId
