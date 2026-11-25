@@ -1820,7 +1820,10 @@ async function openDetailModal(id) {
     empty.appendChild(placeholder);
     galleryEl.appendChild(empty);
   } else {
-    window.buildIgSwiper(galleryEl, photos, p.name || '');
+    // r448: the first photo loads the 800px copy; tap still opens the original.
+    const firstSmall = (window.variantImgUrl && p.photos && photos[0] === window.safeImgUrl(p.photos[0]))
+      ? window.variantImgUrl(p, 0, 'w800') : '';
+    window.buildIgSwiper(galleryEl, photos, p.name || '', firstSmall);
   }
   // Phase 3: heart with count on the detail photo too (same button, same
   // toggle); double-tap keeps working alongside it.
@@ -2059,7 +2062,7 @@ window.setMainPhoto = function() {};
 // - Tap on any slide opens the existing lightbox at the right index
 // - Photo count badge ("3/5") in the top-right
 // - 1 photo: no dots, no arrows, no badge — just the image
-window.buildIgSwiper = function(container, urls, alt) {
+window.buildIgSwiper = function(container, urls, alt, firstSmall) {
   container.textContent = '';
   if (!urls || !urls.length) return;
   const single = urls.length < 2;
@@ -2089,7 +2092,10 @@ window.buildIgSwiper = function(container, urls, alt) {
     slide.className = 'ig-slide';
     slide.setAttribute('data-idx', String(i));
     const img = document.createElement('img');
-    img.src = url;
+    if (i === 0 && firstSmall && firstSmall !== url) {
+      img.addEventListener('error', () => { img.src = url; }, { once: true });
+      img.src = firstSmall;
+    } else img.src = url;
     img.alt = alt || '';
     img.loading = i === 0 ? 'eager' : 'lazy';
     img.draggable = false;
