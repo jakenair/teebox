@@ -209,6 +209,10 @@ function feedRow(l, testSellers, now, opts) {
     if (i > 0) photos = [photos[i]].concat(photos.filter((_, k) => k !== i));
   }
   if (!photos.length) return null; // Meta rejects rows without image_link
+  // 2026-11-25: Meta documents JPEG or PNG only and our photos are stored as
+  // WebP. opts.imageUrl swaps each address for its JPEG copy (feed only); a
+  // photo with no copy keeps its own address.
+  if (opts && opts.imageUrl) photos = photos.map((u) => opts.imageUrl(l, u) || u);
   const ask = Number(l.ask);
   if (!Number.isFinite(ask) || ask <= 0) return null;
   const cat = String(l.cat || "accessories").toLowerCase();
@@ -418,9 +422,23 @@ const FEED_OPTS = {
   cors: false,
 };
 
+/**
+ * The JPEG copy tiktokCatalog already serves for a listing photo, or "" for a
+ * photo outside our listings/ folder. No generation in the address, so the
+ * feed needs no bucket listing; the route always serves the current photo.
+ * Required lazily: tiktokCatalog requires this file.
+ * @param {object} l listing
+ * @param {string} u photo URL
+ * @return {string}
+ */
+function jpegImageUrl(l, u) {
+  const t = require("./tiktokCatalog")._tiktok;
+  return t.listingObjectPath(u, t.BUCKET) ? t.imageUrl(l.id, u) : "";
+}
+
 exports.metaFeed = onRequest(
     {...FEED_OPTS, secrets: [META_FEED_TOKEN]},
-    feedHandler({secret: META_FEED_TOKEN, name: "metaFeed", filename: "meta-feed.csv"}),
+    feedHandler({secret: META_FEED_TOKEN, name: "metaFeed", filename: "meta-feed.csv", rowOpts: {imageUrl: jpegImageUrl}}),
 );
 
 // 2026-11-15: TikTok Catalog Manager. Same rows and the same out-of-stock
@@ -436,5 +454,5 @@ exports._feed = {
   TEST_EMAIL_RE: require("./lib/testAccounts").TEST_EMAIL_RE, mapAvailability, plainText, csvCell,
   stripStatusMarkers, COLUMNS, GOOGLE_CATEGORY, feedEligibleStatus, SOLD_KEEP_DAYS, toTikTokCsv,
   // shared with tiktokCatalog.js (2026-11-23)
-  loadListings, loadTestSellers, loadSellerBlocks, isBlocked,
+  loadListings, loadTestSellers, loadSellerBlocks, isBlocked, jpegImageUrl,
 };

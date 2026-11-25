@@ -123,3 +123,21 @@ test("ship-from: every stored shape, and what counts as complete", () => {
   assert.equal(unbuyableReason({cat: "apparel"}, {}), "seller_not_ready");
   assert.equal(unbuyableReason({cat: "bags"}, {stripeChargesEnabled: true, shippingFrom: a}), null);
 });
+
+test("Meta feed images are the JPEG copies, only when asked for (2026-11-25)", () => {
+  const P = "https://firebasestorage.googleapis.com/v0/b/teebox-market.firebasestorage.app/o/listings%2Fu1%2Fabc123%2Fa.jpg?alt=media&token=t";
+  const l = base({photos: [P, P + "2", IMG]});
+  const r = F.feedRow(l, null, Date.now(), {imageUrl: F.jpegImageUrl});
+  const J = /^https:\/\/teebox-market\.web\.app\/feeds\/tiktok\/img\/abc123\/[0-9a-f]{16}\.jpg$/;
+  assert.match(r.image_link, J);
+  const extra = r.additional_image_link.split(",");
+  assert.match(extra[0], J);
+  assert.notEqual(extra[0], r.image_link);
+  assert.equal(extra[1], IMG); // not under listings/: keeps its own address
+  // Every other feed (TikTok, tests) still gets the stored address.
+  assert.equal(F.feedRow(l).image_link, P);
+  // The address the feed prints is one the image route accepts.
+  const T = require("../../tiktokCatalog")._tiktok;
+  const route = T.parsePath(new URL(r.image_link).pathname);
+  assert.equal(route.kind, "img"); assert.equal(route.hash, T.photoHash(P));
+});

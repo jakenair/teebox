@@ -351,6 +351,6 @@ exports.tiktokCatalog = onRequest(
     });
 
 exports._tiktok = {
-  COLUMNS, REQUIRED, IMG_BASE, buildTikTokCsv, tiktokRow, cleanText, quoted, photoHash,
+  COLUMNS, REQUIRED, IMG_BASE, BUCKET, buildTikTokCsv, tiktokRow, cleanText, quoted, photoHash,
   listingObjectPath, imageUrl, imageKey, cachePath, staleCacheFiles, toFeedJpeg, parsePath,
 };
