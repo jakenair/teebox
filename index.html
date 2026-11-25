@@ -3399,6 +3399,14 @@ window.tbEvent = function (name, surface) {
     .mlt-card:hover { transform: translateY(-2px); }
     .mlt-card:hover .mlt-img { border-color: var(--gray-300); }
   }
+  /* r445: compact strip after the description (ad and shared-link visitors). */
+  .mlt-strip { margin: 0 0 16px; }
+  .mlt-strip .more-like-this-title { margin-bottom: 8px; }
+  .mlt-strip-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: start; }
+  .mlt-strip .mlt-card { width: auto; min-width: 0; }
+  .mlt-strip .mlt-img { width: 100%; height: auto; aspect-ratio: 1; }
+  .mlt-strip .mlt-brand { display: none; }
+  .mlt-strip .mlt-name { font-size: 11.5px; margin-top: 4px; }
   .mlt-img { width: 120px; height: 120px; border-radius: var(--radius-md); overflow: hidden; background: var(--gray-100); border: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: center; transition: border-color 200ms cubic-bezier(.4,0,.2,1); }
   .mlt-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .mlt-brand { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -6235,7 +6243,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r444</span></div>
+        <span class="auth-build" aria-hidden="true">r445</span></div>
     </div>
   </div>
 </div>
@@ -8147,8 +8155,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r444"></script>
-      <script async src="/js/feed-rank.js?v=r444"></script>
+      <script async src="/js/feed-rank-config.js?v=r445"></script>
+      <script async src="/js/feed-rank.js?v=r445"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -10191,11 +10199,11 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/ship-info.js?v=r444"></script>
-<script defer src="/js/app-main.js?v=r444"></script>
-<script defer src="/js/checkout-guest.js?v=r444"></script>
-<script defer src="/js/pull-refresh.js?v=r444"></script>
-<script type="module" src="/js/app-auth.js?v=r444"></script>
+<script defer src="/js/ship-info.js?v=r445"></script>
+<script defer src="/js/app-main.js?v=r445"></script>
+<script defer src="/js/checkout-guest.js?v=r445"></script>
+<script defer src="/js/pull-refresh.js?v=r445"></script>
+<script type="module" src="/js/app-auth.js?v=r445"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10225,8 +10233,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r444"></script>
-<script type="module" src="/js/sunday-nine.js?v=r444"></script>
+<script type="module" src="/js/bingo.js?v=r445"></script>
+<script type="module" src="/js/sunday-nine.js?v=r445"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

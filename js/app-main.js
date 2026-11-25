@@ -1849,7 +1849,9 @@ function renderMoreLikeThis(currentListing) {
     (ask > 0 ? Math.max(0, 2 - 2 * Math.abs(Number(p.ask || 0) - ask) / Math.max(ask, 1)) : 0);
   const matches = all
     .filter(p => p && String(p.id) !== String(currentListing.id) && typeof p.id === 'string' && (!p.status || p.status === 'active') && Array.isArray(p.photos) && p.photos.length)
-    .map(p => ({ p, s: score(p) })).sort((a, b) => b.s - a.s).slice(0, 8).map(x => x.p);
+    // r445: an item known to be unbuyable (seller not set up) is not offered.
+    .filter(p => { try { const pr = PROFILE_CACHE.get(p.sellerId); return !(pr && typeof pr.then !== 'function' && pr.chargesReady === false); } catch (_e) { return true; } })
+    .map(p => ({ p, s: score(p) })).sort((a, b) => b.s - a.s).slice(0, 12).map(x => x.p);
   // A shared or ad link can open before the shop has loaded: try again.
   if (all.length < 10 && !currentListing.__mltTries) {
     currentListing.__mltTries = 1;
@@ -1857,15 +1859,44 @@ function renderMoreLikeThis(currentListing) {
       if (String(currentDetailId) === String(currentListing.id)) renderMoreLikeThis(currentListing);
     }, ms));
   }
-  if (!matches.length) {
+  // r445: someone who landed straight on this listing (an ad or shared link)
+  // gets a compact strip right after the description. No extra query; it
+  // waits for the first photo, so it can't slow it.
+  const oldStrip = document.getElementById('detailMltStrip');
+  if (oldStrip) oldStrip.remove();
+  const desc = document.getElementById('detailDesc');
+  const landed = !!desc && matches.length >= 4 && String(currentListing.id) === String(window.__landedListingId || '');
+  const stripItems = landed ? matches.slice(0, 4) : [];
+  const rowItems = matches.slice(stripItems.length).slice(0, 8);
+  if (landed) {
+    const strip = document.createElement('div');
+    strip.id = 'detailMltStrip';
+    strip.className = 'mlt-strip';
+    strip.innerHTML = '<div class="more-like-this-title">More like this</div><div class="mlt-strip-row"></div>';
+    desc.parentNode.insertBefore(strip, desc.nextSibling);
+    afterFirstPhoto(() => {
+      const r = strip.querySelector('.mlt-strip-row');
+      if (strip.isConnected && !r.childElementCount) stripItems.forEach((p, i) => r.appendChild(card(p, 'strip', i)));
+    });
+  }
+  if (!rowItems.length) {
     wrap.style.display = 'none';
     return;
   }
   wrap.style.display = '';
+  // The row's images used to download alongside the main photo.
+  afterFirstPhoto(() => { if (!row.childElementCount) rowItems.forEach((p, i) => row.appendChild(card(p, 'row', i))); });
+  function afterFirstPhoto(fn) {
+    const go = () => { if (String(currentDetailId) === String(currentListing.id)) fn(); };
+    const first = document.querySelector('#detailGallery .ig-slide img');
+    if (!first || first.complete) { go(); return; }
+    first.addEventListener('load', go, { once: true });
+    first.addEventListener('error', go, { once: true });
+  }
+  function card(p, place, pos) {
   const safeText = window.safeText || ((s) => String(s || ''));
   const safeAttr = window.safeAttr || ((s) => String(s || ''));
   const safeImg  = window.safeImgUrl || ((s) => s || '');
-  matches.forEach(p => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'mlt-card';
@@ -1883,15 +1914,17 @@ function renderMoreLikeThis(currentListing) {
     btn.addEventListener('click', () => {
       // Re-enter the detail modal for the picked listing. openDetailModal
       // resets all the detail fields, so swapping in place is safe.
+      window.coEvent && window.coEvent('similar_tapped', { listingId: String(p.id), from: String(currentListing.id), place, position: pos + 1 });
       openDetailModal(String(p.id));
       // Snap the modal back to the top so the user lands on the new hero
       // photo, not stuck deep in the previous listing's scroll position.
       const modal = document.querySelector('#detailBackdrop .detail-modal');
       if (modal) modal.scrollTop = 0;
     });
-    row.appendChild(btn);
-  });
+    return btn;
+  }
 }
+window.__landedListingId = new URLSearchParams(location.search).get('listing');
 
 // r424: compact sticky buy bar on the listing sheet (phones; CSS hides it
 // above 720px). One bar, fixed height, never grows. It mirrors the inline
