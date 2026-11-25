@@ -1950,6 +1950,12 @@ window.tbDetailStickyBar = (function () {
         sync();
       }, { root, threshold: 0 });
       io.observe(btn);
+    } else if (io) {
+      // r442: the observer only reports changes. Off screen on the last listing
+      // and off screen on this one is no change, so the bar never came back.
+      // Re-observing makes it report where the button is now.
+      io.unobserve(btn);
+      io.observe(btn);
     }
     if (!mo) {
       mo = new MutationObserver(sync);
