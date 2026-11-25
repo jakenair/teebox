@@ -468,11 +468,13 @@ const CAPI_RELAY_EVENTS = new Set([
   "ListingStarted", // r386: top of the seller funnel; custom event, auth-only
   "ViewContent",
   "PageView",
+  "EngagedView", // 2026-11-25: custom; 15 s on a listing plus a scroll or second photo
 ]);
 // Browsing events may come from guests — most ad-driven visitors are not
-// signed in when they look at a listing. These two carry no identity
+// signed in when they look at a listing. These carry no identity
 // beyond Meta's own cookies + IP/UA, which is all a guest pixel hit has too.
-const CAPI_ANON_EVENTS = new Set(["ViewContent", "PageView"]);
+// 2026-11-25: guests check out now, so their buy-intent events count too.
+const CAPI_ANON_EVENTS = new Set(["ViewContent", "PageView", "EngagedView", "AddToCart", "InitiateCheckout"]);
 const CAPI_MAX_VALUE = 100000; // $100k — far above any real listing
 
 exports.capiRelay = onCall(

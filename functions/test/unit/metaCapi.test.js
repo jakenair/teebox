@@ -41,13 +41,14 @@ test("ph is OFF by default and only sent when config/meta.sendHashedPhone === tr
   assert.equal(M.buildUserData(order, {phone: "+13125551234"}, {sendHashedPhone: true}).ph, sha("13125551234"));
 });
 
-test("relay allowlist: ListingStarted is relayed (auth-only), Purchase never, anon set is only the two browse events (r386)", () => {
+test("relay allowlist: ListingStarted is relayed (auth-only), Purchase never, anon set is browsing plus guest buy intent (r386, r446)", () => {
   assert.ok(M.CAPI_RELAY_EVENTS.has("ListingStarted"));
   assert.ok(!M.CAPI_ANON_EVENTS.has("ListingStarted"));
   assert.ok(!M.CAPI_RELAY_EVENTS.has("Purchase"));
-  assert.deepEqual([...M.CAPI_ANON_EVENTS].sort(), ["PageView", "ViewContent"]);
+  assert.deepEqual([...M.CAPI_ANON_EVENTS].sort(), ["AddToCart", "EngagedView", "InitiateCheckout", "PageView", "ViewContent"]);
+  for (const e of ["Purchase", "CompleteRegistration", "ListItem"]) assert.ok(!M.CAPI_ANON_EVENTS.has(e), e);
   for (const e of M.CAPI_ANON_EVENTS) assert.ok(M.CAPI_RELAY_EVENTS.has(e), e + " must also be in the relay set");
-  assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "InitiateCheckout", "ListItem", "ListingStarted", "PageView", "ViewContent"]);
+  assert.deepEqual([...M.CAPI_RELAY_EVENTS].sort(), ["AddToCart", "CompleteRegistration", "EngagedView", "InitiateCheckout", "ListItem", "ListingStarted", "PageView", "ViewContent"]);
 });
 
 test("claimOnce: first call per uid claims, every later call is refused (r387 CompleteRegistration gate)", async () => {
