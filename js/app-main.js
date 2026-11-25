@@ -1479,6 +1479,7 @@ async function openDetailModal(id) {
   // eventID so the CAPI copy (guests included) dedupes against the pixel hit.
   window.fbTrack && window.fbTrack('ViewContent', { content_ids: [String(p.id)], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' },
     { eventID: 'vc_' + String(p.id) + '_' + Date.now().toString(36) });
+  if (window.tbEngagedView) window.tbEngagedView(p);
   // Feature #12: best-effort view counter via Cloud Function. Non-blocking,
   // never breaks the modal. Only fires for real (Firestore) listings, and
   // skips owner self-views to avoid inflating their own counter.
@@ -1925,6 +1926,37 @@ function renderMoreLikeThis(currentListing) {
   }
 }
 window.__landedListingId = new URLSearchParams(location.search).get('listing');
+
+// r446 EngagedView: 15 seconds actually looking at a listing (tab visible,
+// sheet open) plus a scroll or a second photo. Once per listing per page load,
+// never the seller's own. A deeper signal for ads than ViewContent, which
+// fires the moment an ad link opens.
+window.tbEngagedView = (function () {
+  const sent = new Set();
+  let timer = null;
+  return function start(p) {
+    clearInterval(timer); timer = null;
+    const id = String((p && p.id) || '');
+    if (!id || sent.has(id) || (window.CURRENT_USER && p.sellerId === window.CURRENT_USER.uid)) return;
+    let secs = 0, acted = false;
+    timer = setInterval(() => {
+      try {
+        const bd = document.getElementById('detailBackdrop');
+        if (String(currentDetailId) !== id) { clearInterval(timer); timer = null; return; }
+        if (document.visibilityState !== 'visible' || !bd.classList.contains('open')) return;
+        secs++;
+        const sheet = bd.querySelector('.detail-modal'), g = document.getElementById('detailGallery');
+        if ((sheet && sheet.scrollTop > 120) || (g && g._igIdx > 0)) acted = true;
+        if (secs < 15 || !acted) return;
+        clearInterval(timer); timer = null;
+        sent.add(id);
+        window.fbTrack && window.fbTrack('EngagedView', { content_ids: [id], content_type: 'product', value: Number(p.ask || 0), currency: 'USD' },
+          { custom: true, eventID: 'ev_' + id + '_' + Date.now().toString(36) });
+        window.coEvent && window.coEvent('engaged_view', { listingId: id });
+      } catch (_e) { /* analytics never blocks */ }
+    }, 1000);
+  };
+})();
 
 // r424: compact sticky buy bar on the listing sheet (phones; CSS hides it
 // above 720px). One bar, fixed height, never grows. It mirrors the inline
@@ -15748,6 +15780,13 @@ A['detail-buy-now']          = () => {
       goes_to: _bb && _bb.dataset.notifySetup === '1' ? 'notify' : (window.CURRENT_USER ? 'checkout' : (_ok ? 'guest_checkout' : 'sign_in')) });
   }
   if (_bb && _bb.dataset.notifySetup === '1') { A['notify-seller-setup'](); return; }
+  // r446: AddToCart at the tap (openCheckout skips it for this path), so a
+  // sign-in gate can't swallow it.
+  try {
+    const _p = (window.PRODUCTS || []).find((x) => String(x.id) === String(currentDetailId));
+    if (_p) window.fbTrack && window.fbTrack('AddToCart', { content_ids: [String(_p.id)], content_type: 'product', value: Number(_p.ask || 0), currency: 'USD' },
+      { eventID: 'atc_' + String(_p.id) + '_' + Date.now().toString(36) });
+  } catch (_e) { /* never block Buy */ }
   const qInp = document.getElementById('detailQty');
   const qty = qInp && qInp.offsetParent !== null ? Number(qInp.value || 1) : 1;
   // Capture the listing id BEFORE closing the modal. closeDetailModalDirect()
