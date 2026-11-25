@@ -3342,8 +3342,24 @@ window.tbEvent = function (name, surface) {
     .detail-body .ig-swiper { margin-left: -1rem; margin-right: -1rem; width: calc(100% + 2rem); }
     /* r175: taller 4:5 photo on phones — the vertical reclaimed from the
        header/price/strip goes back to the product image. */
-    .detail-body .ig-swiper-track { border-radius: 0; aspect-ratio: 4 / 5; }
+    /* r443: an ad visitor sees what it is, the price, condition, shipping and
+       seller without scrolling. The photo takes what is left of the screen:
+       never under 200px, never taller than the old 4:5. */
+    .detail-body .ig-swiper-track { border-radius: 0; aspect-ratio: auto; height: clamp(200px, calc(100svh - 464px), 125vw); }
+    .detail-body .ig-swiper-empty { aspect-ratio: auto; height: clamp(200px, calc(100svh - 464px), 100vw); }
+    .detail-body .ig-thumbs { display: none; }
+    .detail-body .ig-swiper .photo-count-badge { display: block; }
+    #detailBackdrop .detail-body { padding-top: 0; row-gap: 12px; }
+    .detail-info #detailShipNote { margin-bottom: 6px !important; }
+    /* Likes line after the details; seller row above the description. */
+    .detail-body .detail-likes { order: 2; }
+    .detail-body .more-like-this { order: 3; }
+    .detail-body .detail-info { order: 1; display: flex; flex-direction: column; }
+    .detail-info #detailBrand, .detail-info #detailName, .detail-info .detail-price-row, .detail-info #detailSignals, .detail-info #detailShipNote { order: -2; }
+    .detail-info .detail-seller { order: -1; margin: 0 0 12px; padding: 6px 0; }
   }
+  .detail-body .ig-swiper .photo-count-badge { pointer-events: none; }
+  @media (min-width: 601px) { .detail-body .ig-swiper .photo-count-badge { display: none; } }
   .detail-info { min-width: 0; }
   .detail-brand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray-400); margin-bottom: 4px; }
   .detail-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; line-height: 1.3; }
@@ -6212,7 +6228,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r442</span></div>
+        <span class="auth-build" aria-hidden="true">r443</span></div>
     </div>
   </div>
 </div>
@@ -8124,8 +8140,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r442"></script>
-      <script async src="/js/feed-rank.js?v=r442"></script>
+      <script async src="/js/feed-rank-config.js?v=r443"></script>
+      <script async src="/js/feed-rank.js?v=r443"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -10153,11 +10169,11 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/ship-info.js?v=r442"></script>
-<script defer src="/js/app-main.js?v=r442"></script>
-<script defer src="/js/checkout-guest.js?v=r442"></script>
-<script defer src="/js/pull-refresh.js?v=r442"></script>
-<script type="module" src="/js/app-auth.js?v=r442"></script>
+<script defer src="/js/ship-info.js?v=r443"></script>
+<script defer src="/js/app-main.js?v=r443"></script>
+<script defer src="/js/checkout-guest.js?v=r443"></script>
+<script defer src="/js/pull-refresh.js?v=r443"></script>
+<script type="module" src="/js/app-auth.js?v=r443"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10187,8 +10203,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r442"></script>
-<script type="module" src="/js/sunday-nine.js?v=r442"></script>
+<script type="module" src="/js/bingo.js?v=r443"></script>
+<script type="module" src="/js/sunday-nine.js?v=r443"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>

@@ -1946,9 +1946,11 @@ window.tbDetailStickyBar = (function () {
     inlineVisible = true; // fresh open starts at the top; IO corrects on its first callback
     if (!io && 'IntersectionObserver' in window) {
       io = new IntersectionObserver((ents) => {
-        ents.forEach((e) => { inlineVisible = e.isIntersecting; });
+        // r443: the bar gives way only when the whole inline button is in view
+        // (a sliver of it used to hide the bar and leave no tappable Buy).
+        ents.forEach((e) => { inlineVisible = e.isIntersecting && e.intersectionRatio >= 0.99; });
         sync();
-      }, { root, threshold: 0 });
+      }, { root, threshold: [0, 0.99] });
       io.observe(btn);
     } else if (io) {
       // r442: the observer only reports changes. Off screen on the last listing
@@ -1997,8 +1999,15 @@ window.buildIgSwiper = function(container, urls, alt) {
   track.setAttribute('aria-label', 'Listing photos');
   swiper.appendChild(track);
 
-  // r175: count badge removed — the thumbnail strip below communicates
-  // position + total (you can't have both per the design pass).
+  // r443: phones hide the thumbnail strip, so the photo carries "1/5" there
+  // (the card's photo-count badge; CSS hides it where the strip shows).
+  let countBadge = null;
+  if (!single) {
+    countBadge = document.createElement('span');
+    countBadge.className = 'photo-count-badge';
+    countBadge.setAttribute('aria-hidden', 'true');
+    swiper.appendChild(countBadge);
+  }
 
   // Slides
   urls.forEach((url, i) => {
@@ -2066,6 +2075,7 @@ window.buildIgSwiper = function(container, urls, alt) {
   function setIdx(i) {
     currentIdx = Math.max(0, Math.min(urls.length - 1, i));
     thumbs.forEach((t, ti) => t.classList.toggle('active', ti === currentIdx));
+    if (countBadge) countBadge.textContent = `${currentIdx + 1}/${urls.length}`;
     // Keep the active thumb in view when the strip scrolls (10-photo case).
     // r424: scroll ONLY the thumb strip, horizontally. scrollIntoView also
     // scrolled every ancestor, so a photo swipe followed by a quick vertical
