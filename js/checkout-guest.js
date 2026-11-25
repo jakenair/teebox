@@ -279,6 +279,7 @@
     paymentElement.on('ready', () => { if (G === mine) window.coEvent && window.coEvent('payment_form_shown', { ms: Date.now() - shownFrom }); });
     paymentElement.on('loaderror', (ev) => { if (G === mine) window.coEvent && window.coEvent('checkout_blocked', { step: 'payment_form', reason: String((ev && ev.error && (ev.error.code || ev.error.type)) || 'load_error').slice(0, 60) }); });
     paymentElement.mount('#payment-element');
+    if (window.tbWalletBadges) window.tbWalletBadges();
     paymentElement.on('change', (ev) => setCheckoutError(ev.error ? ev.error.message : ''));
     G.mounted = true;
     renderGuestTotals();

@@ -3185,6 +3185,13 @@ window.tbEvent = function (name, surface) {
   #checkoutBackdrop .modal-header { flex: 0 0 auto; }
   #checkoutBackdrop .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #checkoutBackdrop .modal-footer { flex: 0 0 auto; padding-top: 1rem; border-top: 1px solid var(--gray-200); background: var(--white); }
+  /* r444: on a short phone screen the guest's email box is the first thing in
+     checkout (it sat below the fold while Pay said "Enter your email"). */
+  @media (max-width: 600px) and (max-height: 900px) {
+    body.guest-checkout #checkoutBackdrop .modal-body { display: flex; flex-direction: column; }
+    body.guest-checkout #checkoutBackdrop .modal-body > * { flex-shrink: 0; }
+    body.guest-checkout #checkoutBackdrop #guestCoRows { order: -1; }
+  }
 
   /* PRODUCT DETAIL MODAL */
   /* Safe-area padding (#3): on notched iPhones with viewport-fit=cover the
@@ -6228,7 +6235,7 @@ window.tbEvent = function (name, surface) {
         <!-- Static build stamp: plain markup, no CSS gate, no JS — readable
              even when the boot wedges on this exact screen. BUMP PER RELEASE
              alongside sw.js CACHE_VERSION (ship-plan step). -->
-        <span class="auth-build" aria-hidden="true">r443</span></div>
+        <span class="auth-build" aria-hidden="true">r444</span></div>
     </div>
   </div>
 </div>
@@ -8140,8 +8147,8 @@ window.tbEvent = function (name, surface) {
       <!-- 2026-11-17 For You: ranking config + engine, loaded before the
            first-paint feed so the boot cards are already in For You order
            (no reshuffle when the full loader takes over). ~4 KB gzipped. -->
-      <script async src="/js/feed-rank-config.js?v=r443"></script>
-      <script async src="/js/feed-rank.js?v=r443"></script>
+      <script async src="/js/feed-rank-config.js?v=r444"></script>
+      <script async src="/js/feed-rank.js?v=r444"></script>
       <script>
       (function bootPaintFeed() {
         try {
@@ -8942,8 +8949,9 @@ window.tbEvent = function (name, surface) {
       </div>
       <!-- Trust row: payment method marks (text glyphs — keeps CSP simple, no remote SVG) -->
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--gray-100);padding:10px 0 2px;">
-        <span style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">Pay</span>
-        <span style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">G Pay</span>
+        <!-- r444: shown by tbWalletBadges() only when this device offers them. -->
+        <span id="coBadgeApple" hidden style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">Pay</span>
+        <span id="coBadgeGoogle" hidden style="font-size:10px;font-weight:700;color:var(--gray-700);background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">G Pay</span>
         <span style="font-size:10px;font-weight:800;color:#1a1f71;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.5px;">VISA</span>
         <span style="font-size:10px;font-weight:800;color:#eb001b;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">MC</span>
         <span style="font-size:10px;font-weight:800;color:#006fcf;background:var(--white);border:1px solid var(--gray-200);border-radius:4px;padding:3px 7px;letter-spacing:0.3px;">AMEX</span>
@@ -9179,6 +9187,19 @@ async function ensureStripeLoaded() {
   }
   return stripeInstance;
 }
+// r444: the Apple Pay / G Pay badges under the Pay button show only when Stripe
+// says this browser can use them. Off by default; any failure leaves them off.
+window.tbWalletBadges = async function () {
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; };
+  let r = null;
+  try {
+    if (stripeInstance && typeof stripeInstance.paymentRequest === 'function') {
+      r = await stripeInstance.paymentRequest({ country: 'US', currency: 'usd', total: { label: 'TeeBox', amount: 100 } }).canMakePayment();
+    }
+  } catch (_e) { r = null; }
+  show('coBadgeApple', !!(r && r.applePay));
+  show('coBadgeGoogle', !!(r && r.googlePay));
+};
 // Warm it once the page is idle so the first Buy Now click is instant.
 // Guests never pay, so only warm for signed-in users; never on native boot.
 try {
@@ -9334,6 +9355,7 @@ async function mountPaymentElement(product) {
       wallets: { applePay: 'auto', googlePay: 'auto' },
     });
     paymentElement.mount('#payment-element');
+    window.tbWalletBadges();
     paymentElement.on('change', (ev) => {
       // Surface live validation errors as the buyer types/selects.
       setCheckoutError(ev.error ? ev.error.message : '');
@@ -10169,11 +10191,11 @@ window.confirmPayment = async function() {
      fresh index.html could run against a 10-minute-old bingo.js (seen on r353:
      old row renderer inside new styles). A new revision = new URLs = no skew.
      Keep the value in sync with sw.js CACHE_VERSION — scripts/check-revision-sync.mjs. -->
-<script defer src="/js/ship-info.js?v=r443"></script>
-<script defer src="/js/app-main.js?v=r443"></script>
-<script defer src="/js/checkout-guest.js?v=r443"></script>
-<script defer src="/js/pull-refresh.js?v=r443"></script>
-<script type="module" src="/js/app-auth.js?v=r443"></script>
+<script defer src="/js/ship-info.js?v=r444"></script>
+<script defer src="/js/app-main.js?v=r444"></script>
+<script defer src="/js/checkout-guest.js?v=r444"></script>
+<script defer src="/js/pull-refresh.js?v=r444"></script>
+<script type="module" src="/js/app-auth.js?v=r444"></script>
 
 <!-- r349: marketplace script moved to /js/app-main.js (deferred; tag is placed before app-auth.js so execution order is unchanged). -->
 
@@ -10203,8 +10225,8 @@ window.confirmPayment = async function() {
      CSP: script is `type="module"` and the import target lives at our origin
      (`./bingo-courses.js`), satisfied by `script-src 'self'`.
      ───────────────────────────────────────────────────────────────────── -->
-<script type="module" src="/js/bingo.js?v=r443"></script>
-<script type="module" src="/js/sunday-nine.js?v=r443"></script>
+<script type="module" src="/js/bingo.js?v=r444"></script>
+<script type="module" src="/js/sunday-nine.js?v=r444"></script>
 </div><!-- /#app-scroll (r171) -->
 </body>
 </html>
