@@ -1473,7 +1473,16 @@ async function openDetailModal(id) {
   // Stripe.js here so the lazy load never costs the buyer a wait. Idle warm
   // above can no-op (auth may not have resolved yet); this is the reliable
   // signal. Fire-and-forget: checkout awaits the same promise anyway.
-  try { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); } catch (_e) {}
+  // r447: after the first photo, which it used to compete with.
+  setTimeout(() => {
+    try {
+      const warm = () => { if (typeof loadStripeJs === 'function') loadStripeJs().catch(() => {}); };
+      const im = document.querySelector('#detailGallery .ig-slide img');
+      if (!im || im.complete) { warm(); return; }
+      im.addEventListener('load', warm, { once: true });
+      im.addEventListener('error', warm, { once: true });
+    } catch (_e) { /* checkout loads it itself */ }
+  }, 0);
   injectListingJsonLd(p);
   // Meta Pixel: product view (guarded — fbq is web-only; no PII).
   // eventID so the CAPI copy (guests included) dedupes against the pixel hit.
